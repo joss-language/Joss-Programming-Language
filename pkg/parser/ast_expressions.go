@@ -60,9 +60,13 @@ func (te *TernaryExpression) String() string {
 	out.WriteString("(")
 	out.WriteString(te.Condition.String())
 	out.WriteString(") ? ")
-	out.WriteString(te.True.String())
-	out.WriteString(" : ")
-	out.WriteString(te.False.String())
+	if te.True != nil {
+		out.WriteString(te.True.String())
+	}
+	if te.False != nil {
+		out.WriteString(" : ")
+		out.WriteString(te.False.String())
+	}
 	return out.String()
 }
 

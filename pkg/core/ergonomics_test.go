@@ -126,3 +126,27 @@ func TestMatchWithBlocks(t *testing.T) {
 		t.Fatalf("expected 'other', got %v", r3)
 	}
 }
+
+func TestSingleBranchConditional(t *testing.T) {
+	src := `public func testSingleBranch(int $x): string {
+    string $status = "initial"
+    ($x > 10) ? {
+        $status = "greater"
+    }
+    return $status
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn := runtime.Functions["testSingleBranch"]
+
+	r1 := runtime.CallMethodEvaluated(fn, nil, []interface{}{int64(20)})
+	if r1 != "greater" {
+		t.Fatalf("expected 'greater', got %v", r1)
+	}
+
+	r2 := runtime.CallMethodEvaluated(fn, nil, []interface{}{int64(5)})
+	if r2 != "initial" {
+		t.Fatalf("expected 'initial', got %v", r2)
+	}
+}
+

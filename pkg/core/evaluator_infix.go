@@ -23,6 +23,13 @@ func (r *Runtime) evaluateTernary(te *parser.TernaryExpression) interface{} {
 		} else {
 			result = r.evaluateExpression(te.False)
 		}
+	} else if te.False == nil {
+		// Single-branch conditional
+		if isTrue {
+			result = r.evaluateExpression(te.True)
+		} else {
+			return nil
+		}
 	} else {
 		// Standard Ternary
 		if isTrue {

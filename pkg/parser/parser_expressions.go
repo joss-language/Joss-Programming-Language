@@ -464,18 +464,18 @@ func (p *Parser) parseTernaryExpression(condition Expression) Expression {
 		// True part is implicitly the condition (evaluated once)
 		expression.True = nil // Will handle in Evaluator
 		p.nextToken()         // Consume :
-	} else {
-		// Standard Ternary: condition ? truePart : falsePart
-		expression.True = p.parseExpression(LOWEST)
-
-		if !p.expectPeek(COLON) {
-			return nil
-		}
-		p.nextToken() // Consume :
+		expression.False = p.parseExpression(LOWEST)
+		return expression
 	}
 
-	// Parse False Expression
-	expression.False = p.parseExpression(LOWEST)
+	// Standard or Single-branch Ternary: condition ? truePart [: falsePart]
+	expression.True = p.parseExpression(LOWEST)
+
+	if p.peekToken.Type == COLON {
+		p.nextToken() // curToken is now COLON
+		p.nextToken() // curToken is now start of false expression
+		expression.False = p.parseExpression(LOWEST)
+	}
 
 	return expression
 }

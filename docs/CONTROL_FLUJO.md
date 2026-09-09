@@ -86,14 +86,17 @@ $existencias = 4
 
 ### ¿Qué pasa si no necesito la rama falsa?
 
-Si solo quieres hacer algo cuando la condición sea verdadera y no hacer absolutamente nada en caso contrario, deja la rama falsa como un bloque vacío `{}`:
+Si solo quieres hacer algo cuando la condición sea verdadera y no necesitas una alternativa falsa, puedes omitir la rama `: { ... }` completamente:
 
+<!-- joss-run: ["Bienvenido de nuevo"] -->
 ```joss
+$usuarioAutenticado = true
 ($usuarioAutenticado) ? {
-    $accesos++
     print("Bienvenido de nuevo")
-} : {}
+}
 ```
+
+También es válido escribir la forma simétrica con bloque vacío `: {}` si prefieres mantener ambos lados explícitos.
 
 ### Guard Clauses: Retorno anticipado dentro de funciones
 
@@ -104,7 +107,7 @@ public func procesarPago(decimal $monto): bool {
     ($monto <= 0.0m) ? {
         print("Error: Monto inválido")
         return false
-    } : {}
+    }
 
     // El código continúa en línea recta
     print("Procesando pago de: " . $monto)
@@ -152,7 +155,21 @@ print($mensaje)
 ```
 
 ### Características de `match`:
-- **Brazos múltiples**: Cada línea se compone de uno o más patrones, seguidos de una flecha gruesa `=>` y el valor resultante.
+- **Brazos múltiples**: Cada línea se compone de uno o más patrones, seguidos de una flecha gruesa `=>` y el valor o bloque resultante.
+- **Soporte para bloques de sentencias**: Los brazos pueden contener bloques multilínea entre llaves `{ ... }` para ejecutar varias instrucciones consecutivas o actualizar el estado del programa:
+
+<!-- joss-run: ["Opción 1 ejecutada"] -->
+```joss
+$opcion = 1
+match ($opcion) {
+    1 => {
+        print("Opción 1 ejecutada")
+    },
+    default => {
+        print("Opción por defecto")
+    }
+}
+```
 - **Agrupación con comas**: Puedes asociar varios valores al mismo resultado en una sola línea (por ejemplo `"enviado", "reparto"`).
 - **Brazo por defecto (`default`)**: Cubre cualquier valor que no haya coincidido con los anteriores. Es una buena práctica incluirlo siempre para evitar resultados indefinidos.
 - **Sin caída automática (no fall-through)**: A diferencia de los viejos `switch` de C o Java, `match` solo ejecuta el primer brazo que coincida y termina; no requiere palabras clave como `break`.

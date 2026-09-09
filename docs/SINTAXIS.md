@@ -92,6 +92,9 @@ No es una tabla de precedencia de PHP o Go.
 - `+`, `-`, `*`: enteros exactos con overflow comprobado; promoción si hay
   float, operaciones decimales si interviene decimal.
 - `/`: resultado float para enteros; decimal si interviene decimal.
+- `+=`, `-=`, `*=`, `/=`: asignación compuesta; se desugarean a su operación
+  aritmética correspondiente (`$a += $b` equivale a `$a = $a + $b`) con
+  validación estricta de tipos.
 - `%`: resto entero; con float trunca operandos a entero; decimal usa `Mod`.
 - `.`: representa operandos como texto y concatena; `null` contribuye texto vacío.
 - `++`: incrementa y retorna el valor anterior. No se define decremento.
@@ -106,6 +109,9 @@ No es una tabla de precedencia de PHP o Go.
 - `??`: evalúa la derecha sólo si la izquierda es nula. **Actualmente recupera
   cualquier panic de la izquierda** y lo trata como nulo.
 - `?:` (Elvis): conserva la izquierda si es verdadera según truthiness.
+- Ternario completo y de una sola rama: `cond ? expr : expr` y `(cond) ? { cuerpo }`
+  (permite omitir la rama `: {}` cuando no se requiere alternativa falsa).
+- `match`: selección múltiple por valor; admite expresiones o bloques multilínea `{ ... }`.
 - `?->`: devuelve nulo ante receptor nulo; no valida ni corrige otros accesos.
 - `|>`: antepone el valor izquierdo a los argumentos de una función, llamada
   o closure. No es concurrencia.

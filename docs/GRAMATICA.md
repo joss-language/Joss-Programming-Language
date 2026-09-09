@@ -43,7 +43,7 @@ captura       = "try" bloque "catch" "(" variable ")" bloque ;
 array         = "[" [expr {"," expr} [","]] "]" ;
 map           = "{" [expr ":" expr {"," expr ":" expr} [","]] "}" ;
 match         = "match" "(" expr ")" "{" {brazo} "}" ;
-brazo         = ("default" | expr {"," expr}) "=>" expr [","] ;
+brazo         = ("default" | expr {"," expr}) "=>" (expr | bloque) [","] ;
 llamada       = expr "(" [argumento {"," argumento} [","]] ")" ;
 argumento     = expr | "ref" variable ;
 acceso        = expr ("->" | "?->" | "::") nombreMiembro ;
@@ -65,8 +65,9 @@ asincrono     = "async" bloque ;
 - Un índice vacío sólo sirve para append como destino de asignación.
 - En expresión, `{}` se interpreta como mapa vacío. Un cuerpo obligatorio se
   parsea como bloque. `{ "a": 1 }` se distingue de un bloque por `:`.
-- El ternario usa `cond ? expr : expr` o `cond ?: expr`; sus ramas admiten
-  bloques. Un bloque de `match` no se ejecuta igual que uno de ternario.
+- El ternario usa `cond ? expr : expr`, `cond ?: expr` o condicional de una sola rama
+  `(cond) ? bloque`; sus ramas admiten bloques o expresiones. `match` evalúa y
+  ejecuta tanto expresiones como bloques de sentencias multilínea.
 - `async expresión` todavía es una ruta del parser, con evaluación anticipada
   del argumento; `async(...)` se rechaza. La forma recomendada es el bloque.
 - Llamadas, arrays y firmas permiten comas finales. La continuidad de una
