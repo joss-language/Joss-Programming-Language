@@ -180,6 +180,22 @@ $b = "20"
 print($a . $b) // Imprime "1020" (unión de textos)
 ```
 
+### Interpolación moderna de cadenas: `${variable}` o `${expresión}`
+
+En lugar de encadenar múltiples fragmentos con el operador punto (`"Hola " . $nombre . " tienes " . $edad . " años"`), Joss permite **incrustar variables y cálculos directamente dentro de textos con comillas dobles** usando la sintaxis `${...}` (idéntica a lenguajes modernos como Flutter/Dart o Kotlin):
+
+<!-- joss-run: ["Hola Ada, tienes 21 años", "El doble es 42"] -->
+```joss
+$nombre = "Ada"
+$edad = 21
+print("Hola ${nombre}, tienes ${edad} años")
+print("El doble es ${$edad * 2}")
+```
+
+- **Variables**: Escribe `${variable}` dentro de las comillas dobles para inyectar su valor automáticamente.
+- **Cálculos y expresiones**: Puedes colocar operaciones matemáticas o lógicas completas entre las llaves: `${$precio * $cantidad}`.
+- **Escape literal**: Si necesitas que el texto muestre literalmente `${`, escribe una barra invertida antes: `\${`.
+
 ### Formato avanzado con `printf`
 
 Cuando necesitas armar mensajes con variables numéricas y textos en posiciones exactas sin encadenar muchos puntos, utiliza `printf`:
@@ -214,6 +230,7 @@ print(0.10m + 0.20m)
 | `/` | División | `5 / 2` | `2.5` | En Joss, dividir enteros **devuelve `float`**, evitando la pérdida accidental de decimales. |
 | `%` | Módulo (resto) | `5 % 2` | `1` | El residuo de la división entera (5 entre 2 da 2 con resto 1). Muy útil para saber si un número es par (`$n % 2 == 0`). |
 | `++` | Post-incremento | `$i++` | Valor actual | Aumenta la variable en 1 y devuelve su valor anterior. |
+| `--` | Post-decremento | `$i--` | Valor actual | Disminuye la variable en 1 y devuelve su valor anterior. |
 
 ### Prioridad matemática (precedencia)
 Al igual que en álgebra, la multiplicación y el módulo se calculan antes que la suma y la resta. Usa paréntesis `(` `)` para definir claramente qué debe resolverse primero:
@@ -253,18 +270,41 @@ Los cálculos se realizan en base diez exacta utilizando aritmética de coma fij
 
 ---
 
-## 7. Entrada de datos desde la consola: `cin`
+## 7. Entrada interactiva de datos con `cin` y valores nulos
+
+### Entrada desde la consola con `cin >>`
 
 Para crear programas interactivos donde una persona escriba datos en la consola durante la ejecución, Joss proporciona el flujo de entrada `cin` con el operador `>>`:
 
 ```joss
-print("Escribe tu nombre (una palabra):")
+print("¿Cómo te llamas? ")
 string $nombre = ""
 cin >> $nombre
-print("Hola, " . $nombre . "!")
+
+print("¿Cuántos años tienes? ")
+int $edad = 0
+cin >> $edad
+
+print("Hola ${nombre}, el próximo año tendrás ${$edad + 1} años.")
 ```
 
-`cin >> $variable` espera a que el usuario escriba una palabra en la terminal y presione Enter, depositando el texto capturado dentro de la variable indicada.
+**Características inteligentes de `cin`:**
+1. **Conversión automática de tipo**: Si la variable de destino es de tipo numérico (`int` o `float`), `cin` convierte el texto introducido directamente al número correspondiente sin necesidad de llamar a `intval` o `floatval`.
+2. **Lectura de texto completo**: Si la variable es `string`, captura la línea completa escrita por el usuario.
+3. **Encadenamiento múltiple**: Puedes leer varias variables en una sola instrucción: `cin >> $primerNumero >> $segundoNumero`.
+
+### Asignación nula coalescente (`??=`)
+
+Si una variable tiene valor `null` o aún no ha sido inicializada, puedes asignarle un valor predeterminado solo si está vacía usando `??=`:
+
+<!-- joss-run: ["oscuro", "oscuro"] -->
+```joss
+$tema = null
+$tema ??= "oscuro"
+print($tema)
+$tema ??= "claro" // No sobreescribe porque ya tiene "oscuro"
+print($tema)
+```
 
 ---
 

@@ -144,13 +144,39 @@ Si revisas tu carpeta con `ls` o el explorador de archivos, verás que se ha cre
 
 ---
 
-## 5. Ejercicios para expandir el proyecto
+## 5. Salida visual con colores: El módulo nativo `Console`
+
+Para que tu aplicación de consola ofrezca una experiencia visual atractiva y profesional, puedes colorear y destacar los mensajes en la terminal mediante la clase nativa **`Console`**:
+
+```joss
+print(Console::green("✓ Archivo guardado con éxito"))
+print(Console::yellow("⚠ Advertencia: El stock es bajo"))
+print(Console::red("✗ Error al procesar datos"))
+print(Console::bold("Total a pagar: S/ 42.50"))
+```
+
+### Métodos disponibles de `Console`:
+
+| Método | Propósito y Color | Uso típico |
+|---|---|---|
+| `Console::green($t)` | Verde | Operaciones exitosas, confirmaciones (`✓ OK`). |
+| `Console::red($t)` | Rojo | Errores, fallos de validación, excepciones. |
+| `Console::yellow($t)` | Amarillo | Advertencias, avisos que requieren atención. |
+| `Console::blue($t)` / `Console::cyan($t)` | Azul / Cian | Títulos, enlaces, información descriptiva. |
+| `Console::bold($t)` | Negrita | Totales numéricos, nombres destacados. |
+| `Console::clear()` | Limpiar pantalla | Reinicia la terminal antes de mostrar un menú. |
+
+---
+
+## 6. Ejercicios para expandir el proyecto
 
 1. **Añadir artículos dinámicamente**:
    - Modifica el programa para pedirle al usuario el nombre, precio y cantidad del siguiente producto usando `cin >> $nombre`.
    - Agrégalo al array con `$compras[] = ...` antes de guardar el archivo.
 2. **Filtrar artículos caros**:
    - Crea una función `public func articulosCaros(array $compras, decimal $umbral): array` que retorne un nuevo array con solo aquellos productos cuyo precio supere el umbral.
+3. **Colorear el reporte final**:
+   - Usa `Console::green(...)` para mostrar `"Archivo guardado"` y `Console::bold(...)` para el total.
 
 ---
 

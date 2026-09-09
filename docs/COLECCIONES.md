@@ -58,6 +58,19 @@ Por defecto, un array `array` puede contener tipos mezclados. Si quieres garanti
 array<int> $edades = [18, 25, 30]
 ```
 
+### Desestructuración de arrays: `[$a, $b] = $coleccion`
+
+Cuando tienes un array y necesitas extraer sus elementos en variables separadas, no necesitas escribir `$x = $lista[0]` y `$y = $lista[1]`. Puedes desempaquetarlos directamente en una sola línea mediante **desestructuración**:
+
+<!-- joss-run: ["10", "20"] -->
+```joss
+[$x, $y] = [10, 20]
+print($x)
+print($y)
+```
+
+Esto resulta muy cómodo para desempaquetar pares de coordenadas, resultados devueltos por funciones o listas cortas sin código repetitivo.
+
 ---
 
 ## 2. Maps: Diccionarios de Clave → Valor

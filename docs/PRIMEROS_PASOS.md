@@ -186,6 +186,34 @@ Hola, Joss!
 
 ¡Felicidades! Acabas de escribir, procesar y ejecutar tu primer programa en Joss.
 
+### Modo interactivo para pruebas rápidas: `joss repl`
+
+Si quieres experimentar con operaciones matemáticas, variables o funciones pequeñas sin necesidad de crear un archivo en el disco, puedes abrir la **consola interactiva (REPL)** de Joss escribiendo en tu terminal:
+
+```bash
+joss repl
+```
+
+Verás un cursor de bienvenida:
+```text
+Joss Interactive REPL (v3.7.0)
+Escribe expresiones, sentencias o 'exit' / 'quit' para salir.
+>>> $x = 10
+>>> $x * 5
+50
+>>> print("Hola desde el REPL!")
+Hola desde el REPL!
+>>> exit
+```
+
+Las variables que crees se recordarán entre línea y línea mientras la sesión esté abierta. Para salir, simplemente escribe `exit` o `quit`.
+
+### Extensión de VS Code y formateo automático
+
+Si utilizas Visual Studio Code con la extensión oficial de Joss, puedes ordenar y alinear automáticamente tu código según las normas de estilo canónicas en cualquier momento con el atajo estándar:
+- En **Windows y Linux**: `Shift + Alt + F`
+- En **macOS**: `Shift + Option + F` (o clic derecho → *Dar formato al documento*)
+
 ---
 
 ## 5. El comando `analyze`: Tu red de seguridad
