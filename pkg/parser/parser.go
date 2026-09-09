@@ -26,39 +26,42 @@ const (
 )
 
 var precedences = map[TokenType]int{
-	ASSIGN:          ASSIGNMENT,
-	PLUS_ASSIGN:     ASSIGNMENT,
-	MINUS_ASSIGN:    ASSIGNMENT,
-	ASTERISK_ASSIGN: ASSIGNMENT,
-	SLASH_ASSIGN:    ASSIGNMENT,
-	QUESTION:        TERNARY,
-	NULL_COALESCE:   COALESCE,
-	PIPE:            PIPE_OP,
-	PLUS:            SUM,
-	MINUS:           SUM,
-	DOT:             SUM,
-	SLASH:           PRODUCT,
-	ASTERISK:        PRODUCT,
-	PERCENT:         MODULO,
-	AND:             LOGICAL,
-	OR:              LOGICAL,
-	LT:              LESSGREATER,
-	GT:              LESSGREATER,
-	EQ:              EQUALS,
-	NOT_EQ:          EQUALS,
-	STRICT_EQ:       EQUALS,
-	STRICT_NOT_EQ:   EQUALS,
-	SPACESHIP:       EQUALS,
-	LTE:             LESSGREATER,
-	GTE:             LESSGREATER,
-	SHIFT_LEFT:      SHIFT,
-	SHIFT_RIGHT:     SHIFT,
-	LPAREN:          CALL,
-	LBRACKET:        INDEX,
-	ARROW:           INDEX,
-	NULL_SAFE_ARROW: INDEX,
-	DOUBLE_COLON:    INDEX,
-	INCREMENT:       INDEX,
+	ASSIGN:               ASSIGNMENT,
+	PLUS_ASSIGN:          ASSIGNMENT,
+	MINUS_ASSIGN:         ASSIGNMENT,
+	ASTERISK_ASSIGN:      ASSIGNMENT,
+	SLASH_ASSIGN:         ASSIGNMENT,
+	NULL_COALESCE_ASSIGN: ASSIGNMENT,
+	QUESTION:             TERNARY,
+	NULL_COALESCE:        COALESCE,
+	PIPE:                 PIPE_OP,
+	PLUS:                 SUM,
+	MINUS:                SUM,
+	DOT:                  SUM,
+	RANGE:                LESSGREATER,
+	SLASH:                PRODUCT,
+	ASTERISK:             PRODUCT,
+	PERCENT:              MODULO,
+	AND:                  LOGICAL,
+	OR:                   LOGICAL,
+	LT:                   LESSGREATER,
+	GT:                   LESSGREATER,
+	EQ:                   EQUALS,
+	NOT_EQ:               EQUALS,
+	STRICT_EQ:            EQUALS,
+	STRICT_NOT_EQ:        EQUALS,
+	SPACESHIP:            EQUALS,
+	LTE:                  LESSGREATER,
+	GTE:                  LESSGREATER,
+	SHIFT_LEFT:           SHIFT,
+	SHIFT_RIGHT:          SHIFT,
+	LPAREN:               CALL,
+	LBRACKET:             INDEX,
+	ARROW:                INDEX,
+	NULL_SAFE_ARROW:      INDEX,
+	DOUBLE_COLON:         INDEX,
+	INCREMENT:            INDEX,
+	DECREMENT:            INDEX,
 }
 
 type (
@@ -140,7 +143,10 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(MINUS_ASSIGN, p.parseCompoundAssignExpression)
 	p.registerInfix(ASTERISK_ASSIGN, p.parseCompoundAssignExpression)
 	p.registerInfix(SLASH_ASSIGN, p.parseCompoundAssignExpression)
+	p.registerInfix(NULL_COALESCE_ASSIGN, p.parseCompoundAssignExpression)
 	p.registerInfix(INCREMENT, p.parsePostfixExpression)
+	p.registerInfix(DECREMENT, p.parsePostfixExpression)
+	p.registerInfix(RANGE, p.parseInfixExpression)
 
 	// Read two tokens, so curToken and peekToken are both set
 	p.nextToken()

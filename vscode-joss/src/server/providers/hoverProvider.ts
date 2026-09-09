@@ -7,6 +7,10 @@ export function setupHoverProvider() {
     connection.onHover(async (params: HoverParams): Promise<Hover | null> => {
         const document = documents.get(params.textDocument.uri);
         if (!document) return null;
+
+        const pipeHover = findPipelineAtPosition(document, params.position);
+        if (pipeHover) return pipeHover;
+
         const reference = referenceAtPosition(document, params.position);
 
         if (['use', 'import', '@import'].includes(reference.toLowerCase())) {
@@ -47,4 +51,55 @@ function parameterDocs(parameters: Array<{ label: string; documentation?: string
 
 function markdown(value: string): Hover {
     return { contents: { kind: MarkupKind.Markdown, value } };
+}
+
+function findPipelineAtPosition(document: { getText(range?: any): string }, position: { line: number; character: number }): Hover | null {
+    const lineText = document.getText({
+        start: { line: position.line, character: 0 },
+        end: { line: position.line, character: 1000 }
+    });
+    const col = position.character;
+
+    if (!lineText.includes('|>')) return null;
+
+    const parts = lineText.split('|>');
+    let currentOffset = 0;
+    for (let i = 0; i < parts.length - 1; i++) {
+        const pipePos = lineText.indexOf('|>', currentOffset);
+        if (pipePos === -1) break;
+        currentOffset = pipePos + 2;
+
+        const leftSegment = parts.slice(0, i + 1).map(p => p.trim()).join(' |> ');
+        const simpleLeft = parts[i].trim().replace(/^[;{}()\s]+/, '');
+        const rightPart = parts[i + 1].trim();
+
+        const callMatch = rightPart.match(/^([A-Za-z_$][\w$]*(?:::|->)?[\w$]*)(?:\((.*?)\))?/);
+        if (!callMatch) continue;
+
+        const fnName = callMatch[1];
+        const argsStr = callMatch[2];
+
+        let desugared = '';
+        if (argsStr !== undefined) {
+            const cleanArgs = argsStr.trim();
+            if (cleanArgs.length > 0) {
+                desugared = `${fnName}(${simpleLeft}, ${cleanArgs})`;
+            } else {
+                desugared = `${fnName}(${simpleLeft})`;
+            }
+        } else {
+            desugared = `${fnName}(${simpleLeft})`;
+        }
+
+        const rightStart = lineText.indexOf(fnName, pipePos);
+        const rightEnd = rightStart + (callMatch[0]?.length || fnName.length);
+
+        const onPipe = col >= pipePos && col <= pipePos + 2;
+        const onRight = col >= rightStart && col <= rightEnd;
+
+        if (onPipe || onRight) {
+            return markdown(`\`\`\`joss\n${desugared}\n\`\`\`\n\n🚀 **Operador Pipeline (\`|>\`)**\n\n**Ejecución desazucarada:**\nEn tiempo de ejecución, Joss inyecta automáticamente el valor de la izquierda (\`${simpleLeft}\`) como primer argumento de la llamada:\n\`\`\`joss\n${desugared}\n\`\`\``);
+        }
+    }
+    return null;
 }

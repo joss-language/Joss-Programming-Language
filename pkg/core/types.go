@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bufio"
 	"database/sql"
 	"encoding/json"
 	"sync"
@@ -69,6 +70,8 @@ type Runtime struct {
 	planMu             sync.Mutex
 
 	captureEnvironment *ClosureEnvironment
+	cinReader          *bufio.Reader
+	cinTokens          []string
 }
 
 func (r *Runtime) markCurrentVariablesAsHostGlobals() {

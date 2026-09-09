@@ -28,7 +28,7 @@ estructuras fuente de Joss.
 | Identificador | ASCII: letras, `_` o `@` al inicio; también dígitos después. Evita `@` fuera de APIs concretas; no es un sistema de anotaciones. |
 | Variable | `$nombre`; el token `$` se separa del nombre. `$this` tiene tratamiento propio. |
 | Comentarios | `//` y `#` hasta fin de línea; `/* ... */` sin anidamiento. |
-| Strings | Comillas simples o dobles; escapes `\\n`, `\\t`, `\\r`, `\\'`, `\\"`, `\\\\`; escapes desconocidos conservan la barra. Sin interpolación. |
+| Strings | Comillas simples o dobles; escapes `\n`, `\t`, `\r`, `\'`, `\"`, `\\`; interpolación estilo Dart/Flutter en comillas dobles: `"${var}"` o `"${expr}"` (escape `\${`); comillas simples sin interpolación. |
 | Enteros | Secuencia de dígitos; el parser usa base automática: `010` se lee como octal, `08` falla. Evita ceros iniciales. |
 | Float | Dígitos, punto y más dígitos: `0.5`. No hay literal exponencial, hexadecimal ni separador `_` en el lexer. |
 | Decimal | Entero o fracción con sufijo `m`/`M`: `100m`, `1.25M`. |
@@ -42,12 +42,12 @@ y texto no ASCII aún tienen limitaciones de posición.
 Además de nombres, literales y keywords, se tokenizan:
 
 ```text
-= + - ! * / % < > == != === !== <=> <= >= << >> && || ++
-, ; : ? ( ) { } [ ] . -> ?-> :: | |> ?? =>
+= += -= *= /= ??= + - ! * / % < > == != === !== <=> <= >= << >> && || ++ --
+, ; : ? ( ) { } [ ] . .. -> ?-> :: | |> ?? =>
 NEWLINE EOF ILLEGAL
 ```
 
-No hay `--`, `+=`, exponenciación, AND binario `&` ni OR binario `|`;
+No hay exponenciación, AND binario `&` ni OR binario `|`;
 este último separa tipos de una unión.
 
 ## Precedencia: de menor a mayor
@@ -57,12 +57,12 @@ ordinarios agrupan a la izquierda; la asignación analiza toda su derecha.
 
 | Nivel | Operadores / construcciones |
 |---|---|
-| 1 | `=` (derecha) |
+| 1 | `=`, `+=`, `-=`, `*=`, `/=`, `??=` (derecha) |
 | 2 | `? :`, `?:` |
 | 3 | `??` |
 | 4 | `&&`, `\|\|` |
 | 5 | `==`, `!=`, `===`, `!==`, `<=>` |
-| 6 | `<`, `>`, `<=`, `>=` |
+| 6 | `<`, `>`, `<=`, `>=`, `..` |
 | 7 | `\|>` |
 | 8 | `+`, `-`, `.` |
 | 9 | `<<`, `>>` |
@@ -70,7 +70,7 @@ ordinarios agrupan a la izquierda; la asignación analiza toda su derecha.
 | 11 | `%` |
 | 12 | Prefijos `-`, `!`, `ref` |
 | 13 | Llamada `()` |
-| 14 | Índice `[]`, miembros `->`, `?->`, `::`, postfix `++` |
+| 14 | Índice `[]`, miembros `->`, `?->`, `::`, postfix `++`, `--` |
 
 Consecuencias: `%` liga más fuerte que multiplicación y división, mientras
 `&&` y `||` comparten nivel. Usa paréntesis para expresar tu intención.
@@ -92,12 +92,18 @@ No es una tabla de precedencia de PHP o Go.
 - `+`, `-`, `*`: enteros exactos con overflow comprobado; promoción si hay
   float, operaciones decimales si interviene decimal.
 - `/`: resultado float para enteros; decimal si interviene decimal.
-- `+=`, `-=`, `*=`, `/=`: asignación compuesta; se desugarean a su operación
-  aritmética correspondiente (`$a += $b` equivale a `$a = $a + $b`) con
-  validación estricta de tipos.
+- `+=`, `-=`, `*=`, `/=`, `??=`: asignación compuesta y asignación nula
+  coalescente (`$a ??= $b` equivale a `$a = $a ?? $b`) con validación
+  estricta de tipos.
 - `%`: resto entero; con float trunca operandos a entero; decimal usa `Mod`.
 - `.`: representa operandos como texto y concatena; `null` contribuye texto vacío.
-- `++`: incrementa y retorna el valor anterior. No se define decremento.
+- `..`: operador de rango numérico (`$a..$b`); genera una secuencia entera entre
+  ambos límites, útil en expresiones y bucles `foreach (1..10 as $i)`.
+- `"${...}"`: interpolación de cadenas estilo Flutter / Dart dentro de comillas
+  dobles. Permite incrustar variables o expresiones (ej. `"${indice}"`, `"${a + b}"`),
+  desazucarándose automáticamente a concatenaciones de tipo string. El escape `\${`
+  imprime `${` de forma literal.
+- `++`, `--`: incrementa o decrementa la variable numérica y retorna el valor anterior.
 - `&&`, `||`: cortocircuito y resultado bool. `!`: negación de truthiness.
 - `==`/`!=`: comparación numérica cuando corresponde; fallback mediante
   representación textual para otros valores. Para colecciones prefiere
@@ -114,11 +120,11 @@ No es una tabla de precedencia de PHP o Go.
 - `match`: selección múltiple por valor; admite expresiones o bloques multilínea `{ ... }`.
 - `?->`: devuelve nulo ante receptor nulo; no valida ni corrige otros accesos.
 - `|>`: antepone el valor izquierdo a los argumentos de una función, llamada
-  o closure. No es concurrencia.
+  o closure.
 - `cout << valor`: imprime sin agregar salto y retorna `cout`.
-  `canal << valor`: envía al canal. `cin >> $variable`: lee una palabra.
-  Aunque los tokens se llaman SHIFT, no hay un operador entero de desplazamiento
-  implementado por estas rutas.
+  `canal << valor`: envía al canal. `cin >> $variable`: lee de forma adaptativa
+  desde la entrada estándar (convirtiendo automáticamente a número si la variable
+  o entrada es numérica y leyendo líneas completas con espacios si es texto).
 
 ## Verdad de valores
 

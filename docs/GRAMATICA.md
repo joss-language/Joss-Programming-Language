@@ -68,6 +68,9 @@ asincrono     = "async" bloque ;
 - El ternario usa `cond ? expr : expr`, `cond ?: expr` o condicional de una sola rama
   `(cond) ? bloque`; sus ramas admiten bloques o expresiones. `match` evalúa y
   ejecuta tanto expresiones como bloques de sentencias multilínea.
+- Las cadenas con comillas dobles admiten interpolación de expresiones `${expr}`
+  desazucarada a concatenación `.`. Se incorporan los operadores de rango numérico
+  `..`, decremento postfix `--` y asignación nula coalescente `??=`.
 - `async expresión` todavía es una ruta del parser, con evaluación anticipada
   del argumento; `async(...)` se rechaza. La forma recomendada es el bloque.
 - Llamadas, arrays y firmas permiten comas finales. La continuidad de una

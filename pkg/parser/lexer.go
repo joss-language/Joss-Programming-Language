@@ -99,8 +99,14 @@ func (l *Lexer) NextToken() Token {
 		if l.peekChar() == '?' {
 			ch := l.ch
 			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: NULL_COALESCE, Literal: literal, Line: l.line, Column: l.column - 1}
+			if l.peekChar() == '=' {
+				l.readChar()
+				literal := string(ch) + "?" + string(l.ch)
+				tok = Token{Type: NULL_COALESCE_ASSIGN, Literal: literal, Line: l.line, Column: l.column - 2}
+			} else {
+				literal := string(ch) + string(l.ch)
+				tok = Token{Type: NULL_COALESCE, Literal: literal, Line: l.line, Column: l.column - 1}
+			}
 		} else if l.peekChar() == '-' && l.peekAhead(1) == '>' {
 			ch := l.ch
 			l.readChar() // '-'
@@ -182,6 +188,11 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			literal := string(ch) + string(l.ch)
 			tok = Token{Type: ARROW, Literal: literal, Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '-' {
+			ch := l.ch
+			l.readChar()
+			literal := string(ch) + string(l.ch)
+			tok = Token{Type: DECREMENT, Literal: literal, Line: l.line, Column: l.column - 1}
 		} else if l.peekChar() == '=' {
 			ch := l.ch
 			l.readChar()
@@ -230,7 +241,14 @@ func (l *Lexer) NextToken() Token {
 	case ']':
 		tok = l.newToken(RBRACKET, l.ch)
 	case '.':
-		tok = l.newToken(DOT, l.ch)
+		if l.peekChar() == '.' {
+			ch := l.ch
+			l.readChar()
+			literal := string(ch) + string(l.ch)
+			tok = Token{Type: RANGE, Literal: literal, Line: l.line, Column: l.column - 1}
+		} else {
+			tok = l.newToken(DOT, l.ch)
+		}
 	case '$':
 		tok = Token{Type: VAR, Literal: "$", Line: l.line, Column: l.column}
 	case '"':
@@ -370,9 +388,13 @@ func isDigit(ch byte) bool {
 
 func (l *Lexer) readString(delimiter byte) string {
 	var out []byte
+	braceDepth := 0
 	for {
 		l.readChar()
-		if l.ch == delimiter || l.ch == 0 {
+		if l.ch == 0 {
+			break
+		}
+		if l.ch == delimiter && braceDepth == 0 {
 			break
 		}
 
@@ -395,9 +417,45 @@ func (l *Lexer) readString(delimiter byte) string {
 				out = append(out, '\\')
 				out = append(out, l.ch)
 			}
-		} else {
-			out = append(out, l.ch)
+			continue
 		}
+
+		if delimiter == '"' {
+			if l.ch == '$' && l.peekChar() == '{' {
+				out = append(out, '$', '{')
+				l.readChar() // consume '{'
+				braceDepth++
+				continue
+			}
+			if braceDepth > 0 {
+				if l.ch == '{' {
+					braceDepth++
+				} else if l.ch == '}' {
+					braceDepth--
+				} else if l.ch == '"' || l.ch == '\'' {
+					innerQuote := l.ch
+					out = append(out, innerQuote)
+					for {
+						l.readChar()
+						if l.ch == 0 {
+							break
+						}
+						out = append(out, l.ch)
+						if l.ch == '\\' {
+							l.readChar()
+							if l.ch != 0 {
+								out = append(out, l.ch)
+							}
+						} else if l.ch == innerQuote {
+							break
+						}
+					}
+					continue
+				}
+			}
+		}
+
+		out = append(out, l.ch)
 	}
 	return string(out)
 }

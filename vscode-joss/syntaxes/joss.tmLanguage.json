@@ -61,7 +61,49 @@
           "patterns": [
             {
               "name": "constant.character.escape.joss",
-               "match": "\\\\."
+              "match": "\\\\."
+            },
+            {
+              "begin": "(\\$)(\\{)",
+              "beginCaptures": {
+                "0": {
+                  "name": "punctuation.definition.template-expression.begin.joss"
+                },
+                "1": {
+                  "name": "punctuation.definition.variable.joss"
+                },
+                "2": {
+                  "name": "punctuation.section.embedded.begin.joss"
+                }
+              },
+              "end": "(\\})",
+              "endCaptures": {
+                "0": {
+                  "name": "punctuation.definition.template-expression.end.joss"
+                },
+                "1": {
+                  "name": "punctuation.section.embedded.end.joss"
+                }
+              },
+              "name": "meta.template.expression.joss",
+              "patterns": [
+                {
+                  "name": "variable.other.joss",
+                  "match": "\\$?[a-zA-Z_][a-zA-Z0-9_]*"
+                },
+                {
+                  "include": "#numbers"
+                },
+                {
+                  "include": "#operators"
+                },
+                {
+                  "include": "#functions"
+                },
+                {
+                  "include": "#strings"
+                }
+              ]
             },
             {
               "name": "variable.other.joss",
@@ -102,7 +144,11 @@
         },
         {
           "name": "keyword.operator.assignment.joss",
-          "match": "(=>|\\+\\+|--|=)"
+          "match": "(=>|\\+\\+|--|\\+=|-=|\\*=|/=|\\?\\?=|\\?\\?|=)"
+        },
+        {
+          "name": "keyword.operator.range.joss",
+          "match": "(\\.\\.)"
         },
         {
           "name": "keyword.operator.ternary.joss",

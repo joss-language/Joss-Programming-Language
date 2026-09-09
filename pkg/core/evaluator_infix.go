@@ -1,7 +1,11 @@
 package core
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
@@ -147,10 +151,8 @@ func (r *Runtime) evaluateInfix(ie *parser.InfixExpression) interface{} {
 			}
 
 			if ident, ok := ie.Right.(*parser.Identifier); ok {
-				var input string
-				fmt.Scan(&input)
+				val := r.readCinInputForIdentifier(ident)
 
-				var val interface{} = input
 				if _, resolved := r.assignLocal(ident, val, false); resolved {
 					return left
 				}
@@ -449,6 +451,35 @@ func (r *Runtime) evaluateInfix(ie *parser.InfixExpression) interface{} {
 		rStr = fmt.Sprintf("%v", right)
 	}
 
+	if ie.Operator == ".." {
+		lInt, lOk := toInt64Safe(left)
+		rInt, rOk := toInt64Safe(right)
+		if lOk && rOk {
+			if lInt <= rInt {
+				count := rInt - lInt + 1
+				if count > 1000000 {
+					count = 1000000
+				}
+				res := make([]interface{}, 0, count)
+				for i := lInt; i <= rInt; i++ {
+					res = append(res, i)
+				}
+				return res
+			} else {
+				count := lInt - rInt + 1
+				if count > 1000000 {
+					count = 1000000
+				}
+				res := make([]interface{}, 0, count)
+				for i := lInt; i >= rInt; i-- {
+					res = append(res, i)
+				}
+				return res
+			}
+		}
+		return []interface{}{}
+	}
+
 	if ie.Operator == "." {
 		return lStr + rStr
 	}
@@ -582,25 +613,37 @@ func (r *Runtime) evaluatePrefix(pe *parser.PrefixExpression) interface{} {
 }
 
 func (r *Runtime) evaluatePostfix(pe *parser.PostfixExpression) interface{} {
-	if pe.Operator == "++" {
+	if pe.Operator == "++" || pe.Operator == "--" {
 		if value, handled := r.updatePostfixSlot(pe, true); handled {
 			return value
 		}
 		val := r.evaluateExpression(pe.Left)
 
 		var newVal interface{}
+		op := "+"
+		if pe.Operator == "--" {
+			op = "-"
+		}
 		if i, ok := val.(int64); ok {
-			value, fault := typesystem.CheckedIntBinary("+", i, 1)
+			value, fault := typesystem.CheckedIntBinary(op, i, 1)
 			if fault != typesystem.ArithmeticOK {
-				panic(&JossError{Code: diagnostics.CodeArithmeticOverflow, Type: "ArithmeticError", Message: fmt.Sprintf("Overflow entero al incrementar %d", i), File: r.CurrentFile, Line: pe.Token.Line, Column: pe.Token.Column})
+				panic(&JossError{Code: diagnostics.CodeArithmeticOverflow, Type: "ArithmeticError", Message: fmt.Sprintf("Overflow entero al operar %d", i), File: r.CurrentFile, Line: pe.Token.Line, Column: pe.Token.Column})
 			}
 			newVal = value
 		} else if f, ok := val.(float64); ok {
-			newVal = f + 1.0
+			if pe.Operator == "--" {
+				newVal = f - 1.0
+			} else {
+				newVal = f + 1.0
+			}
 		} else if d, ok := val.(decimal.Decimal); ok {
-			newVal = d.Add(decimal.NewFromInt(1))
+			if pe.Operator == "--" {
+				newVal = d.Sub(decimal.NewFromInt(1))
+			} else {
+				newVal = d.Add(decimal.NewFromInt(1))
+			}
 		} else {
-			fmt.Println("Error: Operador ++ solo aplicable a números")
+			fmt.Printf("Error: Operador %s solo aplicable a números\n", pe.Operator)
 			return nil
 		}
 
@@ -617,7 +660,7 @@ func (r *Runtime) executePostfixStatement(expression *parser.PostfixExpression) 
 
 func (r *Runtime) updatePostfixSlot(expression *parser.PostfixExpression, returnOld bool) (interface{}, bool) {
 	identifier, ok := expression.Left.(*parser.Identifier)
-	if !ok || expression.Operator != "++" {
+	if !ok || (expression.Operator != "++" && expression.Operator != "--") {
 		return nil, false
 	}
 	slot, resolved := r.slotForIdentifier(identifier)
@@ -625,14 +668,18 @@ func (r *Runtime) updatePostfixSlot(expression *parser.PostfixExpression, return
 		return nil, false
 	}
 	if slot.Constant {
-		panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede incrementarse", slot.Name), File: r.CurrentFile, Line: expression.Token.Line, Column: expression.Token.Column})
+		panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede modificarse", slot.Name), File: r.CurrentFile, Line: expression.Token.Line, Column: expression.Token.Column})
+	}
+	op := "+"
+	if expression.Operator == "--" {
+		op = "-"
 	}
 	switch slot.Value.Kind {
 	case runtimeframe.Int:
 		old := slot.Value.Integer
-		updated, fault := typesystem.CheckedIntBinary("+", old, 1)
+		updated, fault := typesystem.CheckedIntBinary(op, old, 1)
 		if fault != typesystem.ArithmeticOK {
-			panic(&JossError{Code: diagnostics.CodeArithmeticOverflow, Type: "ArithmeticError", Message: fmt.Sprintf("Overflow entero al incrementar %d", old), File: r.CurrentFile, Line: expression.Token.Line, Column: expression.Token.Column})
+			panic(&JossError{Code: diagnostics.CodeArithmeticOverflow, Type: "ArithmeticError", Message: fmt.Sprintf("Overflow entero al operar %d", old), File: r.CurrentFile, Line: expression.Token.Line, Column: expression.Token.Column})
 		}
 		slot.Value.Integer = updated
 		if returnOld {
@@ -641,7 +688,11 @@ func (r *Runtime) updatePostfixSlot(expression *parser.PostfixExpression, return
 		return nil, true
 	case runtimeframe.Float:
 		old := slot.Value.Float
-		slot.Value.Float = old + 1
+		if expression.Operator == "--" {
+			slot.Value.Float = old - 1
+		} else {
+			slot.Value.Float = old + 1
+		}
 		if returnOld {
 			return old, true
 		}
@@ -682,4 +733,86 @@ func (r *Runtime) evaluateMatch(me *parser.MatchExpression) interface{} {
 	}
 
 	return nil
+}
+
+func (r *Runtime) readCinInputForIdentifier(ident *parser.Identifier) interface{} {
+	targetType := ""
+	if slot, resolved := r.slotForIdentifier(ident); resolved {
+		if slot.TypeName != "" {
+			targetType = slot.TypeName
+		} else if slot.Value.Kind == runtimeframe.Int {
+			targetType = "int"
+		} else if slot.Value.Kind == runtimeframe.Float {
+			targetType = "float"
+		} else if slot.Value.Kind == runtimeframe.String {
+			targetType = "string"
+		}
+	} else if t, ok := r.VarTypes[ident.Value]; ok {
+		targetType = t
+	} else if existing, ok := r.Variables[ident.Value]; ok {
+		switch existing.(type) {
+		case int, int64, int32:
+			targetType = "int"
+		case float64, float32:
+			targetType = "float"
+		case string:
+			targetType = "string"
+		}
+	}
+
+	var raw string
+	if len(r.cinTokens) > 0 {
+		raw = r.cinTokens[0]
+		r.cinTokens = r.cinTokens[1:]
+	} else {
+		if r.cinReader == nil {
+			r.cinReader = bufio.NewReader(os.Stdin)
+		}
+		line, err := r.cinReader.ReadString('\n')
+		if err != nil && len(line) == 0 {
+			return ""
+		}
+		line = strings.TrimRight(line, "\r\n")
+
+		if targetType == "int" || targetType == "float" || targetType == "decimal" {
+			fields := strings.Fields(line)
+			if len(fields) > 1 {
+				raw = fields[0]
+				r.cinTokens = fields[1:]
+			} else if len(fields) == 1 {
+				raw = fields[0]
+			} else {
+				raw = ""
+			}
+		} else {
+			raw = line
+		}
+	}
+
+	trimmed := strings.TrimSpace(raw)
+	if targetType == "int" {
+		if n, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
+			return n
+		}
+	} else if targetType == "float" {
+		if f, err := strconv.ParseFloat(trimmed, 64); err == nil {
+			return f
+		}
+	} else if targetType == "decimal" {
+		clean := strings.TrimRight(trimmed, "mMdD")
+		if d, err := decimal.NewFromString(clean); err == nil {
+			return d
+		}
+	} else if targetType == "string" {
+		return raw
+	} else {
+		if n, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
+			return n
+		}
+		if f, err := strconv.ParseFloat(trimmed, 64); err == nil && strings.Contains(trimmed, ".") {
+			return f
+		}
+	}
+
+	return raw
 }

@@ -226,6 +226,17 @@ foreach ($compras as $producto) {
 
 En cada vuelta del ciclo, Joss toma el siguiente elemento de la colección `$compras`, lo deposita en la variable temporal `$producto` y ejecuta el bloque de código.
 
+### Iteración sobre rangos numéricos (`..`)
+
+También puedes iterar secuencias numéricas continuas sin necesidad de crear arreglos manualmente utilizando el operador de rango `..`:
+
+<!-- joss-run: ["Paso 1", "Paso 2", "Paso 3"] -->
+```joss
+foreach (1..3 as $paso) {
+    print("Paso ${paso}")
+}
+```
+
 ### Iteración sobre canales de concurrencia (`channel`)
 Una característica distintiva de Joss es que `foreach` no solo sirve para recorrer listas estáticas en memoria: también puede consumir **canales de comunicación concurrente** (`channel`). El ciclo leerá mensajes del canal en tiempo real hasta que el canal sea cerrado con `close($canal)`.
 

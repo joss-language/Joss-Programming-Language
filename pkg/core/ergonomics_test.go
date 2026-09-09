@@ -1,7 +1,11 @@
 package core
 
 import (
+	"bufio"
+	"strings"
 	"testing"
+
+	"github.com/jossecurity/joss/pkg/parser"
 )
 
 func TestPipelineOperator(t *testing.T) {
@@ -150,3 +154,117 @@ func TestSingleBranchConditional(t *testing.T) {
 	}
 }
 
+func TestStringInterpolationFlutterStyle(t *testing.T) {
+	src := `public func testInterp(int $indice, string $res): string {
+    return "-> Resultado de la suma del número ${indice}: ${res}"
+}
+public func testInterpExpr(int $a, int $b): string {
+    return "Total: ${$a + $b}"
+}
+public func testInterpEscaped(): string {
+    return "Literal: \${indice}"
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn1 := runtime.Functions["testInterp"]
+	r1 := runtime.CallMethodEvaluated(fn1, nil, []interface{}{int64(1), "15"})
+	expected1 := "-> Resultado de la suma del número 1: 15"
+	if r1 != expected1 {
+		t.Fatalf("expected %q, got %q", expected1, r1)
+	}
+
+	fn2 := runtime.Functions["testInterpExpr"]
+	r2 := runtime.CallMethodEvaluated(fn2, nil, []interface{}{int64(10), int64(25)})
+	expected2 := "Total: 35"
+	if r2 != expected2 {
+		t.Fatalf("expected %q, got %q", expected2, r2)
+	}
+
+	fn3 := runtime.Functions["testInterpEscaped"]
+	r3 := runtime.CallMethodEvaluated(fn3, nil, nil)
+	expected3 := "Literal: ${indice}"
+	if r3 != expected3 {
+		t.Fatalf("expected %q, got %q", expected3, r3)
+	}
+}
+
+func TestRangeOperatorAndForeach(t *testing.T) {
+	src := `public func sumRange(int $max): int {
+    int $total = 0
+    foreach (1..$max as $i) {
+        $total += $i
+    }
+    return $total
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn := runtime.Functions["sumRange"]
+	r := runtime.CallMethodEvaluated(fn, nil, []interface{}{int64(5)})
+	// 1 + 2 + 3 + 4 + 5 = 15
+	if r != int64(15) {
+		t.Fatalf("expected 15, got %v (%T)", r, r)
+	}
+}
+
+func TestDecrementOperator(t *testing.T) {
+	src := `public func testDec(): int {
+    int $x = 10
+    $x--
+    $x--
+    return $x
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn := runtime.Functions["testDec"]
+	r := runtime.CallMethodEvaluated(fn, nil, nil)
+	if r != int64(8) {
+		t.Fatalf("expected 8, got %v (%T)", r, r)
+	}
+}
+
+func TestNullCoalescingAssignOperator(t *testing.T) {
+	src := `public func testNullCoalesce(): string {
+    string|null $x = null
+    $x ??= "default_value"
+    $x ??= "second_value"
+    return $x
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn := runtime.Functions["testNullCoalesce"]
+	r := runtime.CallMethodEvaluated(fn, nil, nil)
+	if r != "default_value" {
+		t.Fatalf("expected 'default_value', got %v (%T)", r, r)
+	}
+}
+
+func TestAdaptiveCin(t *testing.T) {
+	runtime := NewRuntime()
+	runtime.cinReader = bufio.NewReader(strings.NewReader("42\nJuan Perez\n10 20\n"))
+
+	identNum := &parser.Identifier{Value: "num"}
+	res1 := runtime.readCinInputForIdentifier(identNum)
+	if res1 != int64(42) {
+		t.Fatalf("expected int64(42), got %v (%T)", res1, res1)
+	}
+
+	identStr := &parser.Identifier{Value: "name"}
+	res2 := runtime.readCinInputForIdentifier(identStr)
+	if res2 != "Juan Perez" {
+		t.Fatalf("expected 'Juan Perez', got %v (%T)", res2, res2)
+	}
+
+	identA := &parser.Identifier{Value: "a"}
+	runtime.VarTypes["a"] = "int"
+	resA := runtime.readCinInputForIdentifier(identA)
+	if resA != int64(10) {
+		t.Fatalf("expected int64(10), got %v (%T)", resA, resA)
+	}
+
+	identB := &parser.Identifier{Value: "b"}
+	runtime.VarTypes["b"] = "int"
+	resB := runtime.readCinInputForIdentifier(identB)
+	if resB != int64(20) {
+		t.Fatalf("expected int64(20), got %v (%T)", resB, resB)
+	}
+}

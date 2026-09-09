@@ -46,6 +46,10 @@
             "notIn": [
                 "string"
             ]
+        },
+        {
+            "open": "${",
+            "close": "}"
         }
     ],
     "surroundingPairs": [
@@ -68,6 +72,10 @@
         [
             "'",
             "'"
+        ],
+        [
+            "${",
+            "}"
         ]
     ],
     "folding": {
