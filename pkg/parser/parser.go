@@ -27,6 +27,10 @@ const (
 
 var precedences = map[TokenType]int{
 	ASSIGN:          ASSIGNMENT,
+	PLUS_ASSIGN:     ASSIGNMENT,
+	MINUS_ASSIGN:    ASSIGNMENT,
+	ASTERISK_ASSIGN: ASSIGNMENT,
+	SLASH_ASSIGN:    ASSIGNMENT,
 	QUESTION:        TERNARY,
 	NULL_COALESCE:   COALESCE,
 	PIPE:            PIPE_OP,
@@ -132,6 +136,10 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(NULL_SAFE_ARROW, p.parseMemberExpression)
 	p.registerInfix(DOUBLE_COLON, p.parseMemberExpression)
 	p.registerInfix(ASSIGN, p.parseAssignExpression)
+	p.registerInfix(PLUS_ASSIGN, p.parseCompoundAssignExpression)
+	p.registerInfix(MINUS_ASSIGN, p.parseCompoundAssignExpression)
+	p.registerInfix(ASTERISK_ASSIGN, p.parseCompoundAssignExpression)
+	p.registerInfix(SLASH_ASSIGN, p.parseCompoundAssignExpression)
 	p.registerInfix(INCREMENT, p.parsePostfixExpression)
 
 	// Read two tokens, so curToken and peekToken are both set

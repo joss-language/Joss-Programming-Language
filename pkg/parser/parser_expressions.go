@@ -663,6 +663,60 @@ func (p *Parser) parseAssignExpression(left Expression) Expression {
 	return exp
 }
 
+func (p *Parser) parseCompoundAssignExpression(left Expression) Expression {
+	compoundToken := p.curToken
+	var op string
+	switch compoundToken.Type {
+	case PLUS_ASSIGN:
+		op = "+"
+	case MINUS_ASSIGN:
+		op = "-"
+	case ASTERISK_ASSIGN:
+		op = "*"
+	case SLASH_ASSIGN:
+		op = "/"
+	default:
+		op = "+"
+	}
+
+	p.nextToken()
+	right := p.parseExpression(LOWEST)
+
+	infix := &InfixExpression{
+		Token:    Token{Type: TokenType(op), Literal: op, Line: compoundToken.Line, Column: compoundToken.Column},
+		Left:     cloneTargetExpression(left),
+		Operator: op,
+		Right:    right,
+	}
+
+	return &AssignExpression{
+		Token: Token{Type: ASSIGN, Literal: "=", Line: compoundToken.Line, Column: compoundToken.Column},
+		Left:  left,
+		Value: infix,
+	}
+}
+
+func cloneTargetExpression(expr Expression) Expression {
+	switch e := expr.(type) {
+	case *Identifier:
+		return &Identifier{Token: e.Token, Value: e.Value}
+	case *MemberExpression:
+		return &MemberExpression{
+			Token:    e.Token,
+			Left:     cloneTargetExpression(e.Left),
+			Property: &Identifier{Token: e.Property.Token, Value: e.Property.Value},
+		}
+	case *IndexExpression:
+		return &IndexExpression{
+			Token: e.Token,
+			Left:  cloneTargetExpression(e.Left),
+			Index: e.Index,
+		}
+	default:
+		return e
+	}
+}
+
 func (p *Parser) parseIssetExpression() Expression {
 	exp := &IssetExpression{Token: p.curToken}
 

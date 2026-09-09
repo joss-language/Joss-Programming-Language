@@ -22,7 +22,7 @@ import (
 func main() {
 	if len(os.Args) >= 2 {
 		cmd := os.Args[1]
-		if cmd == "server" || cmd == "run" || cmd == "program" {
+		if cmd == "server" || cmd == "program" {
 			// Listener global en background para terminar con la tecla "q" sin requerir Enter
 			go func() {
 				fd := int(os.Stdin.Fd())

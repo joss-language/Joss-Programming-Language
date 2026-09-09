@@ -168,6 +168,11 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			literal := string(ch) + string(l.ch)
 			tok = Token{Type: INCREMENT, Literal: literal, Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			literal := string(ch) + string(l.ch)
+			tok = Token{Type: PLUS_ASSIGN, Literal: literal, Line: l.line, Column: l.column - 1}
 		} else {
 			tok = l.newToken(PLUS, l.ch)
 		}
@@ -177,11 +182,23 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			literal := string(ch) + string(l.ch)
 			tok = Token{Type: ARROW, Literal: literal, Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			literal := string(ch) + string(l.ch)
+			tok = Token{Type: MINUS_ASSIGN, Literal: literal, Line: l.line, Column: l.column - 1}
 		} else {
 			tok = l.newToken(MINUS, l.ch)
 		}
 	case '*':
-		tok = l.newToken(ASTERISK, l.ch)
+		if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			literal := string(ch) + string(l.ch)
+			tok = Token{Type: ASTERISK_ASSIGN, Literal: literal, Line: l.line, Column: l.column - 1}
+		} else {
+			tok = l.newToken(ASTERISK, l.ch)
+		}
 	case '#':
 		// # is treated as a single-line comment (e.g. shebang or Python-style comments)
 		l.skipComment()
@@ -194,8 +211,14 @@ func (l *Lexer) NextToken() Token {
 			l.readChar() // consume '*'
 			l.skipBlockComment()
 			return l.NextToken()
+		} else if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			literal := string(ch) + string(l.ch)
+			tok = Token{Type: SLASH_ASSIGN, Literal: literal, Line: l.line, Column: l.column - 1}
+		} else {
+			tok = l.newToken(SLASH, l.ch)
 		}
-		tok = l.newToken(SLASH, l.ch)
 	case '%':
 		tok = l.newToken(PERCENT, l.ch)
 	case '{':

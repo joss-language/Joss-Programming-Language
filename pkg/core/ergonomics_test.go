@@ -90,3 +90,39 @@ public func testTrailing(): int {
 		t.Fatalf("expected 53, got %v", result)
 	}
 }
+
+func TestMatchWithBlocks(t *testing.T) {
+	src := `public func runMatch(int $option): string {
+    string $result = ""
+    match ($option) {
+        1 => {
+            $result = "first"
+        },
+        2 => {
+            $result = "second"
+        },
+        default => {
+            $result = "other"
+        }
+    }
+    return $result
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn := runtime.Functions["runMatch"]
+
+	r1 := runtime.CallMethodEvaluated(fn, nil, []interface{}{int64(1)})
+	if r1 != "first" {
+		t.Fatalf("expected 'first', got %v", r1)
+	}
+
+	r2 := runtime.CallMethodEvaluated(fn, nil, []interface{}{int64(2)})
+	if r2 != "second" {
+		t.Fatalf("expected 'second', got %v", r2)
+	}
+
+	r3 := runtime.CallMethodEvaluated(fn, nil, []interface{}{int64(99)})
+	if r3 != "other" {
+		t.Fatalf("expected 'other', got %v", r3)
+	}
+}

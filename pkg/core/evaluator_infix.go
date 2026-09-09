@@ -141,9 +141,16 @@ func (r *Runtime) evaluateInfix(ie *parser.InfixExpression) interface{} {
 
 			if ident, ok := ie.Right.(*parser.Identifier); ok {
 				var input string
-				fmt.Scanln(&input)
+				fmt.Scan(&input)
 
 				var val interface{} = input
+				if _, resolved := r.assignLocal(ident, val, false); resolved {
+					return left
+				}
+				if reference, exists := r.Variables[ident.Value].(*VariableReference); exists {
+					reference.Set(r, val)
+					return left
+				}
 				if expectedType, exists := r.VarTypes[ident.Value]; exists {
 					val = r.coerceToTypedValue(val, expectedType)
 					if !r.checkType(val, expectedType) {
@@ -650,13 +657,21 @@ func (r *Runtime) evaluateMatch(me *parser.MatchExpression) interface{} {
 		for _, keyExpr := range arm.Keys {
 			keyVal := r.evaluateExpression(keyExpr)
 			if strictCompare(subject, keyVal) {
-				return r.evaluateExpression(arm.Value)
+				result := r.evaluateExpression(arm.Value)
+				if blk, ok := result.(*parser.BlockStatement); ok {
+					return r.executeBlock(blk)
+				}
+				return result
 			}
 		}
 	}
 
 	if defaultArm != nil {
-		return r.evaluateExpression(defaultArm.Value)
+		result := r.evaluateExpression(defaultArm.Value)
+		if blk, ok := result.(*parser.BlockStatement); ok {
+			return r.executeBlock(blk)
+		}
+		return result
 	}
 
 	return nil
