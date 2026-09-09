@@ -4,26 +4,29 @@
 
 La fuente canónica de comandos es `cmd/joss/main.go`. `joss help` muestra la ayuda interactiva instalada y `joss version` la versión actual del runtime.
 
-La CLI es el programa que recibe comandos en la terminal. Actualmente no hay
-un comando REPL interactivo ni debugger integrado. `pub` sí es el gestor de
-paquetes; sus operaciones de red dependen del registro configurado.
+La CLI es el programa que recibe comandos en la terminal. Incorpora un entorno REPL
+interactivo (`joss repl`), ejecución directa de scripts (`joss run`), servidor web de alto
+rendimiento (`joss server start`) y un conjunto completo de herramientas de calidad de código y gestión de paquetes (`pub`).
 
 ---
 
-## 1. Ejecución y Build
+## 1. Ejecución, REPL y Build
 
 ```bash
+joss run archivo.joss
+joss repl
 joss server start
 joss program start
-joss run archivo.joss
 joss analyze [archivo.joss]
 joss update [-f|--canary|--stable]
-joss build [web|program|native]
+joss build [web|program|native|package]
 joss build native [os] [arch] [--gui]
 ```
 
-- `server start`: Requiere el punto de entrada `main.joss` e inicia el servidor HTTP multinivel de alto rendimiento.
 - `run [archivo]`: Ejecuta un script `.joss` después de analizar el proyecto. Los errores semánticos bloquean la ejecución; los warnings no.
+- `repl`: Inicia la consola interactiva (Read-Eval-Print Loop) para evaluar expresiones, probar funciones y experimentar con código en tiempo real. Escribe `exit` o presiona `Ctrl+C` para salir.
+- `server start`: Requiere el punto de entrada `main.joss` e inicia el servidor HTTP multinivel de alto rendimiento. Presiona `q` para detenerlo de manera segura.
+- `program start`: Inicia la aplicación en modo escritorio.
 - `analyze [archivo]`: Analiza la entrada (por defecto `main.joss`) y `app/**/*.joss`. No incluye automáticamente `routes.joss`, `api.joss` ni otros hermanos. Devuelve código distinto de cero si existen errores y conserva archivo/línea/columna. Consulte [ANALIZADOR.md](ANALIZADOR.md).
 - `build native [os] [arch]`: Genera un binario independiente para `windows`, `linux` o `darwin`; empaqueta el AST serializado y el runner Go. No es un backend LLVM/AOT del programa Joss. Usa `--gui` para aplicaciones con interfaz de escritorio.
 - `update`: Usa el actualizador implementado por el CLI y puede requerir red/permisos del sistema. Comprueba sus canales y artefactos reales antes de prometer que una distribución contiene SDK o editor.

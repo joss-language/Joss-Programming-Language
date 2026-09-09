@@ -23,7 +23,8 @@ func updateEnvFile(path, key, value string) {
 
 func printHelp(topics ...string) {
 	if len(topics) > 0 {
-		if strings.ToLower(topics[0]) == "plugins" || strings.ToLower(topics[0]) == "plugin" {
+		topic := strings.ToLower(topics[0])
+		if topic == "plugins" {
 			targetPlugin := ""
 			if len(topics) > 1 {
 				targetPlugin = topics[1]
@@ -31,27 +32,32 @@ func printHelp(topics ...string) {
 			handlePluginHelp(targetPlugin)
 			return
 		}
-		printTopicHelp(topics[0])
+		if topic == "plugin" && len(topics) > 1 {
+			handlePluginHelp(topics[1])
+			return
+		}
+		printTopicHelp(topic)
 		return
 	}
 
 	fmt.Println("Joss — Lenguaje y Plataforma Moderna de Desarrollo")
 	fmt.Println("Uso: joss <comando> [argumentos] [opciones]")
 	fmt.Println()
-	fmt.Println("EJECUCIÓN Y SERVIDOR:")
-	fmt.Println("  server start                   Inicia el servidor web (requiere main.joss)")
-	fmt.Println("  program start                  Inicia la aplicación en modo escritorio")
+	fmt.Println("EJECUCIÓN Y REPL:")
 	fmt.Println("  run <archivo.joss>             Ejecuta un script Joss directamente")
+	fmt.Println("  repl                           Inicia la consola interactiva (REPL)")
+	fmt.Println("  server start                   Inicia el servidor web HTTP (requiere main.joss)")
+	fmt.Println("  program start                  Inicia la aplicación en modo escritorio")
 	fmt.Println("  build [web|program|native]     Compila el proyecto para distribución")
 	fmt.Println("    build native [os] [arch] [--gui]")
 	fmt.Println()
 	fmt.Println("CALIDAD DE CÓDIGO Y TOOLING:")
-	fmt.Println("  test [ruta] [--filter=nombre]  Ejecuta la suite de pruebas unitarias (*_test.joss)")
-	fmt.Println("  check [ruta]                   Verificación integral (formato, tipos, sintaxis y lint)")
+	fmt.Println("  check [ruta]                   Verificación integral (formato, sintaxis, tipos y lint)")
 	fmt.Println("  format [ruta] [--write|--check] Formatea archivos .joss según el estándar canónico")
 	fmt.Println("  lint [ruta] [--json]           Análisis estático de estilo, tipos y seguridad")
 	fmt.Println("  fix [ruta] [--dry-run]         Aplica correcciones automáticas seguras y formato")
 	fmt.Println("  analyze [archivo]              Análisis semántico del AST (por defecto main.joss)")
+	fmt.Println("  test [ruta] [--filter=nombre]  Ejecuta la suite de pruebas unitarias (*_test.joss)")
 	fmt.Println()
 	fmt.Println("GENERADORES Y ESTRUCTURA (SCAFFOLDING):")
 	fmt.Println("  new [web|console|package|plugin] <ruta>  Crea un nuevo proyecto o módulo")
@@ -75,16 +81,17 @@ func printHelp(topics ...string) {
 	fmt.Println("  userstorage sync-oci|sync-local Sincroniza archivos con Oracle Cloud")
 	fmt.Println()
 	fmt.Println("PAQUETES Y PLUGINS:")
-	fmt.Println("  help plugins [nombre]          Lista comandos y opciones provistos por plugins")
 	fmt.Println("  pub <add|remove|install|publish|search|update>  Gestor de paquetes Joss")
 	fmt.Println("  plugin compile <fuente/dir>    Compila código a paquete binario .jp")
 	fmt.Println("  plugin inspect <archivo.jp>    Inspecciona bytecode y símbolos de un plugin")
 	fmt.Println("  plugin verify <archivo.jp>     Verifica firmas Ed25519 e integridad de un plugin")
 	fmt.Println("  package inspect <archivo.jp>   Inspecciona metadatos y firmas de un paquete")
+	fmt.Println("  help plugins [nombre]          Lista comandos y opciones provistos por plugins")
 	fmt.Println()
 	fmt.Println("SISTEMA Y UTILIDADES:")
 	fmt.Println("  version                        Muestra la versión de Joss instalada")
 	fmt.Println("  update [-f|--canary|--stable]  Actualiza la versión de Joss, SDK y plugins")
+	fmt.Println("  ai:activate                    Configura proveedores y modelos de Inteligencia Artificial")
 	fmt.Println("  help [comando]                 Muestra ayuda detallada de un comando específico")
 	fmt.Println()
 	fmt.Println("Usa 'joss help <comando>' o 'joss help plugins' para ver opciones y ejemplos.")
@@ -92,6 +99,53 @@ func printHelp(topics ...string) {
 
 func printTopicHelp(cmd string) {
 	switch strings.ToLower(cmd) {
+	case "run":
+		fmt.Println("Uso: joss run <archivo.joss>")
+		fmt.Println("Ejecuta un script Joss directamente tras validar sintaxis y análisis semántico.")
+		fmt.Println("Los errores de tipos bloquean la ejecución; los warnings se reportan sin detenerla.")
+		fmt.Println("\nEjemplos:")
+		fmt.Println("  joss run main.joss")
+		fmt.Println("  joss run script.joss")
+
+	case "repl":
+		fmt.Println("Uso: joss repl")
+		fmt.Println("Inicia la consola interactiva (Read-Eval-Print Loop) de Joss.")
+		fmt.Println("Permite evaluar expresiones, probar funciones, declarar variables y experimentar en tiempo real.")
+		fmt.Println("\nComandos interactivos:")
+		fmt.Println("  exit, quit     Sale del REPL interactivo")
+		fmt.Println("  Ctrl+C         Interrumpe la línea actual o sale del REPL")
+
+	case "server":
+		fmt.Println("Uso: joss server start")
+		fmt.Println("Inicia el servidor web HTTP de alto rendimiento ejecutando el punto de entrada 'main.joss'.")
+		fmt.Println("Carga automáticamente todos los controladores, modelos y rutas en app/.")
+		fmt.Println("Presiona 'q' o Ctrl+C en la consola para detener el servidor de forma segura.")
+
+	case "program":
+		fmt.Println("Uso: joss program start")
+		fmt.Println("Inicia la aplicación en modo escritorio.")
+
+	case "build":
+		fmt.Println("Uso: joss build [web|program|native|package] [opciones]")
+		fmt.Println("Compila o empaqueta el proyecto para producción y distribución.")
+		fmt.Println("\nModos:")
+		fmt.Println("  web                            Prepara los assets y archivos para despliegue web")
+		fmt.Println("  program                        Prepara la versión de escritorio")
+		fmt.Println("  native [os] [arch] [--gui]     Compila un ejecutable nativo autocontenido")
+		fmt.Println("  package <ruta>                 Empaqueta una biblioteca Joss en formato .jp")
+		fmt.Println("\nEjemplos:")
+		fmt.Println("  joss build web")
+		fmt.Println("  joss build native windows amd64 --gui")
+		fmt.Println("  joss build native linux arm64")
+
+	case "analyze":
+		fmt.Println("Uso: joss analyze [archivo.joss]")
+		fmt.Println("Realiza un análisis semántico estricto del proyecto sin ejecutarlo.")
+		fmt.Println("Verifica coherencia de tipos, variables no declaradas, firmas y flujo de control.")
+		fmt.Println("\nEjemplos:")
+		fmt.Println("  joss analyze")
+		fmt.Println("  joss analyze main.joss")
+
 	case "format":
 		fmt.Println("Uso: joss format [ruta] [opciones]")
 		fmt.Println("Formatea archivos .joss según el estándar canónico del lenguaje.")
@@ -142,10 +196,6 @@ func printTopicHelp(cmd string) {
 		fmt.Println("  joss test tests/")
 		fmt.Println("  joss test --filter=login")
 
-	case "server":
-		fmt.Println("Uso: joss server start")
-		fmt.Println("Inicia el servidor web ejecutando el punto de entrada 'main.joss'.")
-
 	case "new":
 		fmt.Println("Uso: joss new [web|console|package|plugin] <ruta/nombre>")
 		fmt.Println("Genera una nueva estructura de proyecto.")
@@ -155,14 +205,85 @@ func printTopicHelp(cmd string) {
 		fmt.Println("  package   Paquete distribuible para el ecosistema Joss")
 		fmt.Println("  plugin    Plugin nativo con compilación a bytecode .jp")
 
-	case "make:crud":
+	case "make:controller", "controller":
+		fmt.Println("Uso: joss make:controller <Nombre>")
+		fmt.Println("Genera un nuevo controlador web en app/controllers/.")
+		fmt.Println("\nEjemplo:")
+		fmt.Println("  joss make:controller UserController")
+
+	case "make:model", "model":
+		fmt.Println("Uso: joss make:model <Nombre>")
+		fmt.Println("Genera un nuevo modelo ORM en app/models/.")
+		fmt.Println("\nEjemplo:")
+		fmt.Println("  joss make:model User")
+
+	case "make:view", "view":
+		fmt.Println("Uso: joss make:view <Ruta/Nombre>")
+		fmt.Println("Genera una nueva plantilla de vista en app/views/.")
+		fmt.Println("\nEjemplo:")
+		fmt.Println("  joss make:view users/profile")
+
+	case "make:middleware", "middleware":
+		fmt.Println("Uso: joss make:middleware <Nombre>")
+		fmt.Println("Genera un nuevo middleware HTTP en app/middleware/.")
+		fmt.Println("\nEjemplo:")
+		fmt.Println("  joss make:middleware AuthGuard")
+
+	case "make:mvc", "mvc":
+		fmt.Println("Uso: joss make:mvc <Nombre>")
+		fmt.Println("Genera simultáneamente Modelo, Vista y Controlador para la entidad.")
+		fmt.Println("\nEjemplo:")
+		fmt.Println("  joss make:mvc Product")
+
+	case "make:crud", "crud":
 		fmt.Println("Uso: joss make:crud <Tabla>")
 		fmt.Println("Genera automáticamente Modelo, Vistas, Controlador y Rutas para una tabla de base de datos.")
+		fmt.Println("Detecta claves foráneas, columnas visibles e inyecta enlaces de navegación.")
+
+	case "remove:crud":
+		fmt.Println("Uso: joss remove:crud <Tabla>")
+		fmt.Println("Elimina limpiamente un módulo CRUD generado:")
+		fmt.Println("borra el controlador, modelo, vistas y retira las rutas y enlaces del navbar.")
+		fmt.Println("\nEjemplo:")
+		fmt.Println("  joss remove:crud products")
+
+	case "make:migration", "migration":
+		fmt.Println("Uso: joss make:migration <Nombre>")
+		fmt.Println("Genera un nuevo archivo de migración con timestamp en app/database/migrations/.")
+		fmt.Println("\nEjemplos:")
+		fmt.Println("  joss make:migration create_users_table")
+		fmt.Println("  joss make:migration add_avatar_to_users")
 
 	case "migrate":
 		fmt.Println("Uso: joss migrate")
 		fmt.Println("Aplica las migraciones pendientes en app/database/migrations.")
 		fmt.Println("Usa 'joss migrate:fresh' para reiniciar la base de datos y migrar desde cero.")
+
+	case "migrate:fresh":
+		fmt.Println("Uso: joss migrate:fresh")
+		fmt.Println("Elimina todas las tablas de la base de datos y vuelve a ejecutar todas las migraciones.")
+		fmt.Println("Útil durante el desarrollo para reiniciar el esquema.")
+
+	case "db:seed", "seed":
+		fmt.Println("Uso: joss db:seed")
+		fmt.Println("Ejecuta los seeders pobladores definidos en app/database/seeders.")
+
+	case "change", "db":
+		fmt.Println("Uso: joss change db [motor|migrate|prefix]")
+		fmt.Println("Configura o modifica la conexión de base de datos del proyecto.")
+		fmt.Println("\nSubcomandos:")
+		fmt.Println("  change db <motor>           Cambia el motor (sqlite, mysql)")
+		fmt.Println("  change db prefix <prefijo>  Establece el prefijo global de tablas")
+		fmt.Println("  change db migrate           Migra los datos y esquema a un nuevo MySQL")
+
+	case "userstorage", "storage":
+		fmt.Println("Uso: joss userstorage [local|oci|sync-oci|sync-local]")
+		fmt.Println("Configura y sincroniza el almacenamiento de archivos del proyecto.")
+		fmt.Println("\nOpciones:")
+		fmt.Println("  local        Configura almacenamiento en el disco local")
+		fmt.Println("  oci          Configura almacenamiento en Oracle Cloud Infrastructure")
+		fmt.Println("  sync-oci     Sube los archivos locales al bucket OCI")
+		fmt.Println("  sync-local   Descarga los archivos de OCI al disco local")
 
 	case "pub":
 		fmt.Println("Uso: joss pub <subcomando> [paquete]")
@@ -173,6 +294,30 @@ func printTopicHelp(cmd string) {
 		fmt.Println("  install            Descarga e instala las dependencias de joss.yaml")
 		fmt.Println("  update             Actualiza las dependencias instaladas")
 		fmt.Println("  publish            Publica tu paquete en el registro oficial")
+
+	case "plugin":
+		printPluginUsage()
+		fmt.Println("\nNota: Para ver plugins instalados y sus comandos, usa 'joss help plugins'.")
+
+	case "package":
+		fmt.Println("Uso: joss package inspect <archivo.jp>")
+		fmt.Println("Inspecciona metadatos, símbolos y dependencias de un paquete Joss compilado.")
+
+	case "update":
+		fmt.Println("Uso: joss update [opciones]")
+		fmt.Println("Actualiza el binario de Joss, SDK y herramientas oficiales.")
+		fmt.Println("\nOpciones:")
+		fmt.Println("  -f, --force    Fuerza la reinstalación")
+		fmt.Println("  --canary       Actualiza a la versión de desarrollo más reciente")
+		fmt.Println("  --stable       Actualiza a la última versión estable (por defecto)")
+
+	case "version":
+		fmt.Println("Uso: joss version")
+		fmt.Println("Muestra la versión de Joss instalada y su nombre en clave.")
+
+	case "ai:activate", "ai":
+		fmt.Println("Uso: joss ai:activate")
+		fmt.Println("Configura proveedores y modelos de Inteligencia Artificial (Groq, OpenAI, Gemini).")
 
 	default:
 		fmt.Printf("No hay ayuda específica para el comando '%s'.\n\n", cmd)

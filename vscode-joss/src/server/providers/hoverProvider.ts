@@ -17,6 +17,26 @@ export function setupHoverProvider() {
             return markdown(`⚠️ **Sintaxis Obsoleta en Joss**\n\nLas instrucciones \`use\` e \`import\` fueron eliminadas del lenguaje. Los plugins y paquetes declarados en \`joss.yaml\` se cargan e indexan automáticamente en el espacio de nombres global.`);
         }
 
+        if (reference.toLowerCase() === 'cin') {
+            return markdown(`\`\`\`joss\ncin >> $variable\n\`\`\`\n\n📥 **Flujo de Entrada Estándar (Console Input)**\n\nLee datos introducidos por el usuario desde la terminal:\n- **Conversión automática**: Si la variable destino es numérica (\`int\` o \`float\`), convierte el texto automáticamente al número correspondiente.\n- **Lectura completa**: Si es \`string\`, captura la línea completa de texto con espacios.\n- **Encadenamiento múltiple**: Permite leer varias variables consecutivas: \`cin >> $a >> $b\`.`);
+        }
+
+        if (reference.toLowerCase() === 'cout') {
+            return markdown(`\`\`\`joss\ncout << $expr << endl;\ncout("texto", ...);\n\`\`\`\n\n📤 **Flujo de Salida Estándar (Console Output)**\n\nImprime datos en la terminal sin salto de línea automático (a diferencia de \`print\`).\n- **Operador de flujo**: Permite encadenamiento fluido con \`<<\`, números, cadenas y variables.\n- **Salto de línea**: Combina con \`endl\` para emitir un salto de línea.\n- **Invocación directa**: También puede ser llamada como función: \`cout("hola ", $nombre)\`.`);
+        }
+
+        if (reference.toLowerCase() === 'cerr') {
+            return markdown(`\`\`\`joss\ncerr << $error << endl;\ncerr("mensaje de error");\n\`\`\`\n\n⚠️ **Flujo de Error Estándar (Standard Error Output)**\n\nImprime mensajes directamente en el canal de errores estándar (\`stderr\`).`);
+        }
+
+        if (reference.toLowerCase() === 'endl') {
+            return markdown(`\`\`\`joss\nconst endl = "\\n"\n\`\`\`\n\n↵ **Manipulador de Salto de Línea (End Line)**\n\nRepresenta un salto de línea estándar (\`"\\n"\`) para flujos \`cout\` y \`cerr\`.`);
+        }
+
+        if (reference.toLowerCase() === 'defer') {
+            return markdown(`\`\`\`joss\ndefer { ... }\n\`\`\`\n\n🛡️ **Limpieza Garantizada de Recursos (defer)**\n\nPospone la ejecución del bloque o sentencia hasta que la función, método o archivo actual termine, incluso ante retornos tempranos. Múltiples sentencias \`defer\` se ejecutan en orden **LIFO** (Last In, First Out).`);
+        }
+
         const native = findNativeCallable(reference);
         if (native) {
             return markdown(`\`\`\`joss\n${nativeSignature(native)}\n\`\`\`\n\n${native.documentation}${parameterDocs(native.parameters)}`);

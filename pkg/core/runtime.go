@@ -51,6 +51,9 @@ var (
 			}
 			r.Variables["cout"] = &Cout{}
 			r.Variables["cin"] = &Cin{}
+			r.Variables["cerr"] = &Cerr{}
+			r.Variables["endl"] = "\n"
+			r.Constants["endl"] = true
 			r.Variables["JOSS_VERSION"] = version.Version
 			r.RegisterNativeClasses()
 			r.markCurrentVariablesAsHostGlobals()
@@ -98,6 +101,9 @@ func NewRuntime() *Runtime {
 	if _, ok := r.Variables["View"]; !ok {
 		r.Variables["cout"] = &Cout{}
 		r.Variables["cin"] = &Cin{}
+		r.Variables["cerr"] = &Cerr{}
+		r.Variables["endl"] = "\n"
+		r.Constants["endl"] = true
 		r.Variables["JOSS_VERSION"] = version.Version
 		r.RegisterNativeClasses()
 		r.markCurrentVariablesAsHostGlobals()
@@ -160,6 +166,9 @@ func (r *Runtime) Free() {
 	// Restore standard variables
 	r.Variables["cout"] = &Cout{}
 	r.Variables["cin"] = &Cin{}
+	r.Variables["cerr"] = &Cerr{}
+	r.Variables["endl"] = "\n"
+	r.Constants["endl"] = true
 	r.markCurrentVariablesAsHostGlobals()
 
 	r.CurrentMiddleware = r.CurrentMiddleware[:0]
@@ -223,6 +232,9 @@ func (r *Runtime) Fork() *Runtime {
 	// Initialize standard variables
 	newR.Variables["cout"] = &Cout{}
 	newR.Variables["cin"] = &Cin{}
+	newR.Variables["cerr"] = &Cerr{}
+	newR.Variables["endl"] = "\n"
+	newR.Constants["endl"] = true
 	newR.Variables["JOSS_VERSION"] = version.Version
 
 	// Deep Copy Global Variables

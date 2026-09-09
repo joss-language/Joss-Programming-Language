@@ -5,6 +5,7 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#keywords" },
+    { "include": "#io-streams" },
     { "include": "#storage-types" },
     { "include": "#strings" },
     { "include": "#numbers" },
@@ -41,6 +42,14 @@
         {
           "name": "keyword.operator.logical.joss",
           "match": "\\b(and|or|not)\\b"
+        }
+      ]
+    },
+    "io-streams": {
+      "patterns": [
+        {
+          "name": "support.variable.language.joss keyword.other.io.joss",
+          "match": "\\b(cin|cout|cerr)\\b"
         }
       ]
     },
@@ -192,7 +201,7 @@
       "patterns": [
         {
           "name": "entity.name.function.joss",
-          "match": "\\b(print|echo|printf|env|isset|empty|len|count|async|await|toon_encode|toon_decode|toon_verify|json_encode|json_decode|json_verify|make_chan|close|send|recv|keys|values|redirect)\\b"
+          "match": "\\b(print|echo|printf|cin|env|isset|empty|len|count|map|filter|reduce|find|any|all|sum|keys|values|array_keys|array_values|array_merge|array_push|array_pop|array_shift|array_slice|array_unique|array_reverse|array_column|in_array|array_key_exists|explode|implode|async|await|toon_encode|toon_decode|toon_verify|json_encode|json_decode|json_verify|make_chan|close|send|recv|redirect)\\b"
         },
         {
           "name": "support.function.joss",

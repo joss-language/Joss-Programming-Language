@@ -188,10 +188,14 @@ func (r *Runtime) evaluateInfix(ie *parser.InfixExpression) interface{} {
 		return spaceshipCompare(left, right)
 	}
 
-	// Handle cout << val or channel << val
+	// Handle cout << val, cerr << val or channel << val
 	if ie.Operator == "<<" {
 		if _, ok := left.(*Cout); ok {
 			fmt.Print(right)
+			return left
+		}
+		if _, ok := left.(*Cerr); ok {
+			fmt.Fprint(os.Stderr, right)
 			return left
 		}
 		if ch, ok := left.(*Channel); ok {

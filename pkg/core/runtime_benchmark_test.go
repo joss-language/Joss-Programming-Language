@@ -44,7 +44,7 @@ func benchmarkParse(tb testing.TB, source string) *parser.Program {
 }
 
 func benchmarkRuntimeInstance() *Runtime {
-	return &Runtime{
+	r := &Runtime{
 		Env:               map[string]string{"BENCHMARK": "1"},
 		Variables:         make(map[string]interface{}),
 		VarTypes:          make(map[string]string),
@@ -57,6 +57,13 @@ func benchmarkRuntimeInstance() *Runtime {
 		NativeHandlers:    make(map[string]NativeHandler),
 		MaxCallDepth:      DefaultMaxCallDepth,
 	}
+	r.Variables["cout"] = &Cout{}
+	r.Variables["cin"] = &Cin{}
+	r.Variables["cerr"] = &Cerr{}
+	r.Variables["endl"] = "\n"
+	r.Constants["endl"] = true
+	r.markCurrentVariablesAsHostGlobals()
+	return r
 }
 
 func benchmarkExpression(tb testing.TB, source string) parser.Expression {

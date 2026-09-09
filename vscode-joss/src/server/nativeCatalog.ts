@@ -257,7 +257,29 @@ export const nativeCallables: NativeCallable[] = [
     callable('Process', 'pid', [], 'int', 'Devuelve el PID o cero.', false),
     callable('Process', 'stdin', ['$value'], 'Process', 'Escribe una línea en stdin.', false),
     callable('Process', 'stdout_chan', [], 'Channel', 'Devuelve el canal de stdout.', false),
-    callable('Process', 'stderr_chan', [], 'Channel', 'Devuelve el canal de stderr.', false)
+    callable('Process', 'stderr_chan', [], 'Channel', 'Devuelve el canal de stderr.', false),
+
+    callable(undefined, 'map', ['$collection', 'func $callback'], 'array', 'Transforma cada elemento de la colección aplicando la función.'),
+    callable(undefined, 'filter', ['$collection', 'func $predicate'], 'array', 'Filtra los elementos que cumplen la condición booleana.'),
+    callable(undefined, 'reduce', ['$collection', 'func $callback', '$initial = nil'], 'any', 'Reduce la colección a un único valor acumulado.'),
+    callable(undefined, 'find', ['$collection', 'func $predicate'], 'any', 'Devuelve el primer elemento que cumple la condición o nil.'),
+    callable(undefined, 'any', ['$collection', 'func $predicate'], 'bool', 'Comprueba si al menos un elemento cumple la condición.'),
+    callable(undefined, 'all', ['$collection', 'func $predicate'], 'bool', 'Comprueba si todos los elementos cumplen la condición.'),
+    callable(undefined, 'sum', ['array $collection'], 'int|float', 'Calcula la suma numérica total de los elementos de la colección.'),
+    callable(undefined, 'json_encode', ['$data', 'bool $pretty = false'], 'string', 'Serializa un array o mapa asociativo a formato JSON.'),
+    callable(undefined, 'json_decode', ['string $json'], 'any', 'Deserializa una cadena JSON en mapas asociativos o arrays de Joss.'),
+    callable(undefined, 'json_verify', ['string $json'], 'bool', 'Comprueba si una cadena contiene una estructura JSON válida.'),
+
+    callable('Console', 'green', ['string $text'], 'string', 'Colorea el texto en verde.'),
+    callable('Console', 'red', ['string $text'], 'string', 'Colorea el texto en rojo.'),
+    callable('Console', 'yellow', ['string $text'], 'string', 'Colorea el texto en amarillo.'),
+    callable('Console', 'blue', ['string $text'], 'string', 'Colorea el texto en azul.'),
+    callable('Console', 'cyan', ['string $text'], 'string', 'Colorea el texto en cian.'),
+    callable('Console', 'magenta', ['string $text'], 'string', 'Colorea el texto en magenta.'),
+    callable('Console', 'gray', ['string $text'], 'string', 'Colorea el texto en gris.'),
+    callable('Console', 'bold', ['string $text'], 'string', 'Aplica estilo negrita al texto.'),
+    callable('Console', 'clear', [], 'nil', 'Limpia la pantalla de la terminal.'),
+    callable('Console', 'log', ['$value'], 'nil', 'Imprime un valor en la terminal.')
 ];
 
 // Signatures enrich the editor, but symbol existence is governed exclusively

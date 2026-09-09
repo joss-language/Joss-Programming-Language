@@ -11,6 +11,7 @@ import (
 	"html"
 	"math"
 	"math/rand"
+	"os"
 	"strings"
 	"unicode"
 
@@ -51,6 +52,18 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 	case "print", "echo":
 		for _, arg := range args {
 			fmt.Println(arg)
+		}
+		return nil, true
+
+	case "cout":
+		for _, arg := range args {
+			fmt.Print(arg)
+		}
+		return nil, true
+
+	case "cerr":
+		for _, arg := range args {
+			fmt.Fprint(os.Stderr, arg)
 		}
 		return nil, true
 

@@ -26,7 +26,7 @@ var builtinList = []string{
 	"file_get_contents", "file_put_contents", "unlink", "file_delete", "mkdir", "is_dir", "is_file",
 	"toon_encode", "toon_decode", "toon_verify", "json_encode", "json_decode", "json_verify", "hive_read_box", "run",
 	// Strings, formatting, hashing and numeric helpers.
-	"html_escape", "__", "csrf_field", "print", "echo", "printf", "str_contains", "contains",
+	"html_escape", "__", "csrf_field", "print", "echo", "cout", "cerr", "printf", "str_contains", "contains",
 	"str_starts_with", "starts_with", "str_ends_with", "ends_with", "str_replace", "strtolower", "to_lower",
 	"strtoupper", "to_upper", "trim", "ltrim", "rtrim", "substr", "strpos", "implode", "join", "md5", "sha1",
 	"sha256", "base64_encode", "base64_decode", "strlen", "ucfirst", "lcfirst", "ucwords", "str_pad",

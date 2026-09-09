@@ -270,28 +270,47 @@ Los cálculos se realizan en base diez exacta utilizando aritmética de coma fij
 
 ---
 
-## 7. Entrada interactiva de datos con `cin` y valores nulos
+## 7. Entrada y salida en consola (`print`, `cout`, `cin`)
+
+### Salida en consola: `print` y `cout`
+
+Joss ofrece dos formas modernas y complementarias para mostrar información en la terminal:
+
+1. **`print(...)`**: La función estándar para emitir mensajes. Cada argumento se imprime en pantalla agregando un salto de línea automático al final.
+2. **`cout << ...`**: El flujo de salida estándar (estilo C++). Permite encadenar expresiones con el operador `<<`, no agrega saltos de línea automáticos (puedes usar el manipulador `endl` o `"\n"`) y también puede llamarse directamente como función `cout(...)`.
+3. **`cerr << ...`**: El flujo de salida de errores estándar (`stderr`).
+4. **`endl`**: Constante nativa que representa el salto de línea (`"\n"`).
+
+<!-- joss-run: ["Hola mundo", "Linea 1", "Linea 2"] -->
+```joss
+// Con print: genera salto de línea automático
+print("Hola mundo")
+
+// Con cout: encadenamiento con << y manipulador endl
+cout << "Linea " << 1 << endl
+cout << "Linea " << 2 << endl
+```
 
 ### Entrada desde la consola con `cin >>`
 
 Para crear programas interactivos donde una persona escriba datos en la consola durante la ejecución, Joss proporciona el flujo de entrada `cin` con el operador `>>`:
 
 ```joss
-print("¿Cómo te llamas? ")
+cout << "¿Cómo te llamas? "
 string $nombre = ""
 cin >> $nombre
 
-print("¿Cuántos años tienes? ")
+cout << "¿Cuántos años tienes? "
 int $edad = 0
 cin >> $edad
 
 print("Hola ${nombre}, el próximo año tendrás ${$edad + 1} años.")
 ```
 
-**Características inteligentes de `cin`:**
-1. **Conversión automática de tipo**: Si la variable de destino es de tipo numérico (`int` o `float`), `cin` convierte el texto introducido directamente al número correspondiente sin necesidad de llamar a `intval` o `floatval`.
+**Características de `cin` y `cout`:**
+1. **Conversión automática en `cin`**: Si la variable de destino es numérica (`int` o `float`), `cin` convierte el texto introducido directamente al tipo esperado.
 2. **Lectura de texto completo**: Si la variable es `string`, captura la línea completa escrita por el usuario.
-3. **Encadenamiento múltiple**: Puedes leer varias variables en una sola instrucción: `cin >> $primerNumero >> $segundoNumero`.
+3. **Encadenamiento múltiple**: Puedes encadenar tanto entradas como salidas: `cin >> $a >> $b` o `cout << "A: " << $a << " B: " << $b << endl`.
 
 ### Asignación nula coalescente (`??=`)
 

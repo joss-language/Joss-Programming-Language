@@ -51,7 +51,39 @@ export function setupCompletionProvider() {
             ...nativeClasses.map(name => ({ label: name, kind: CompletionItemKind.Class, detail: 'Clase nativa de Joss' })),
             ...nativeCallables.filter(item => !item.owner).map(nativeCompletion),
             ...workspaceSymbols.filter(item => item.kind === 'class' || item.kind === 'function').map(symbolCompletion),
-            ...keywords.map(label => ({ label, kind: CompletionItemKind.Keyword, detail: 'Palabra reservada de Joss' }))
+            ...keywords.map(label => ({ label, kind: CompletionItemKind.Keyword, detail: 'Palabra reservada de Joss' })),
+            {
+                label: 'cin',
+                kind: CompletionItemKind.Keyword,
+                detail: 'cin >> $variable',
+                documentation: 'Flujo de entrada estándar interactivo. Captura datos desde la terminal y los asigna automáticamente a una o más variables.',
+                insertTextFormat: InsertTextFormat.Snippet,
+                insertText: 'cin >> $${1:variable}'
+            },
+            {
+                label: 'cout',
+                kind: CompletionItemKind.Keyword,
+                detail: 'cout << $expr << endl;',
+                documentation: 'Flujo de salida estándar. Imprime datos en la consola mediante encadenamiento << sin salto de línea implícito.',
+                insertTextFormat: InsertTextFormat.Snippet,
+                insertText: 'cout << ${1:expr} << endl;'
+            },
+            {
+                label: 'cerr',
+                kind: CompletionItemKind.Keyword,
+                detail: 'cerr << $expr << endl;',
+                documentation: 'Flujo de error estándar (stderr). Imprime mensajes directamente en el canal de errores.',
+                insertTextFormat: InsertTextFormat.Snippet,
+                insertText: 'cerr << ${1:error} << endl;'
+            },
+            {
+                label: 'endl',
+                kind: CompletionItemKind.Constant,
+                detail: 'const endl = "\\n"',
+                documentation: 'Salto de línea estándar para usar con cout y cerr.',
+                insertTextFormat: InsertTextFormat.PlainText,
+                insertText: 'endl'
+            }
         ]);
     });
 

@@ -462,3 +462,30 @@ func TestJSONEncodeAndDecodeArrays(t *testing.T) {
 		t.Fatalf("expected true, got %v (%T)", res, res)
 	}
 }
+
+func TestCoutAndEndl(t *testing.T) {
+	src := `public func testCout(): bool {
+    // 1. cout << stream chaining with endl
+    cout << "Test " << 123 << endl
+
+    // 2. cout as builtin function
+    cout("Direct call\n")
+
+    // 3. endl value is "\n"
+    (endl != "\n") ? {
+        return false
+    } : {}
+
+    // 4. cerr stream
+    cerr << "Warning log" << endl
+
+    return true
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn := runtime.Functions["testCout"]
+	res := runtime.CallMethodEvaluated(fn, nil, nil)
+	if res != true {
+		t.Fatalf("expected true, got %v (%T)", res, res)
+	}
+}

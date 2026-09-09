@@ -735,10 +735,12 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `base64_encode`
 - `boolval`
 - `ceil`
+- `cerr`
 - `close`
 - `config`
 - `contains`
 - `count`
+- `cout`
 - `csrf_field`
 - `date`
 - `decimal`
@@ -837,4 +839,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 43 clases, 404 métodos y 124 built-ins.
+Total: 43 clases, 404 métodos y 126 built-ins.

@@ -204,3 +204,8 @@ func (c *Cout) String() string { return "cout" }
 type Cin struct{}
 
 func (c *Cin) String() string { return "cin" }
+
+// Cerr represents standard error stream
+type Cerr struct{}
+
+func (c *Cerr) String() string { return "cerr" }
