@@ -80,6 +80,14 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 	r.captureEnvironment = nil
 
 	defer func() {
+		for i := len(callFrame.defers) - 1; i >= 0; i-- {
+			d := callFrame.defers[i]
+			if d != nil && d.Body != nil {
+				r.executeStatement(d.Body)
+			}
+		}
+		callFrame.defers = nil
+
 		r.callDepth--
 		r.currentClass = previousClass
 		if writeBack != nil {
@@ -184,13 +192,17 @@ func (r *Runtime) executeCall(call *parser.CallExpression) interface{} {
 		args[index] = r.evaluateCallArgument(arg)
 	}
 
-	// 2. Try Builtin
+	// 2. Try Builtin (only if not shadowed by user function or local)
 	if ident, ok := call.Function.(*parser.Identifier); ok {
-		if hasVariableReference(args) && IsBuiltin(ident.Value) {
-			panic(&JossError{Type: "ReferenceEscape", Message: fmt.Sprintf("La función nativa '%s' no declara parámetros ref", ident.Value), File: r.CurrentFile, Line: ident.Token.Line})
-		}
-		if res, ok := r.callBuiltin(ident.Value, args); ok {
-			return res
+		_, hasUserFunc := r.Functions[ident.Value]
+		_, hasLocal, _ := r.localValue(ident)
+		if !hasUserFunc && !hasLocal {
+			if hasVariableReference(args) && IsBuiltin(ident.Value) {
+				panic(&JossError{Type: "ReferenceEscape", Message: fmt.Sprintf("La función nativa '%s' no declara parámetros ref", ident.Value), File: r.CurrentFile, Line: ident.Token.Line})
+			}
+			if res, ok := r.callBuiltin(ident.Value, args); ok {
+				return res
+			}
 		}
 	}
 
@@ -264,6 +276,10 @@ func (r *Runtime) ApplyFunction(fn interface{}, args []interface{}) interface{} 
 	return r.applyFunction(fn, args)
 }
 
+func (r *Runtime) CallCallable(fn interface{}, args []interface{}) interface{} {
+	return r.applyFunction(fn, args)
+}
+
 func (r *Runtime) applyFunction(fn interface{}, args []interface{}) interface{} {
 	if callable, ok := fn.(*PluginCallable); ok {
 		if hasVariableReference(args) {
@@ -282,6 +298,15 @@ func (r *Runtime) applyFunction(fn interface{}, args []interface{}) interface{} 
 				panic(fmt.Sprintf("Error en funcion de plugin %s::%s: %v", callable.PluginName, callable.Function, err))
 			}
 			return res
+		}
+	}
+
+	if fnStr, ok := fn.(string); ok {
+		if res, ok := r.callBuiltin(fnStr, args); ok {
+			return res
+		}
+		if f, ok := r.Functions[fnStr]; ok {
+			return r.CallMethodEvaluated(f, nil, args)
 		}
 	}
 

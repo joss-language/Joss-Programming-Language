@@ -358,6 +358,15 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 		a.inferExpression(node.Condition, current)
 	case *parser.ForeachStatement:
 		a.inferExpression(node.Iterable, current)
+		if node.Key != "" {
+			keyName := cleanName(node.Key)
+			if existing, exists := current.local(keyName); exists {
+				existing.Type = typesystem.Type{Kind: typesystem.Unknown}
+				existing.Kind = symbolIteration
+			} else {
+				current.put(&symbol{Name: keyName, Type: typesystem.Type{Kind: typesystem.Unknown}, Kind: symbolIteration, Token: node.Token, File: a.file, Inferred: true})
+			}
+		}
 		name := cleanName(node.Value)
 		if existing, exists := current.local(name); exists {
 			// Reusing the iteration binding in a later foreach is assignment-like
@@ -369,6 +378,10 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 		}
 		if node.Body != nil {
 			a.analyzeBlock(node.Body, current)
+		}
+	case *parser.DeferStatement:
+		if node.Body != nil {
+			a.analyzeStatement(node.Body, current)
 		}
 	case *parser.TryCatchStatement:
 		tryTerminates := false
@@ -511,6 +524,8 @@ func tokenOfStatement(statement parser.Statement) parser.Token {
 	case *parser.BreakStatement:
 		return node.Token
 	case *parser.ContinueStatement:
+		return node.Token
+	case *parser.DeferStatement:
 		return node.Token
 	case *parser.ClassStatement:
 		return node.Token

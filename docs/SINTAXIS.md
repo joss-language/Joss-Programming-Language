@@ -12,7 +12,7 @@ limitaciones observadas se indican como tales; no son propuestas de diseño.
 Las palabras reservadas se obtienen de `parser.KeywordNames()`:
 
 ```text
-Init as async break catch class const continue default do echo empty
+Init as async break catch class const continue default defer do echo empty
 extends false foreach func isset let match new nil null print private
 protected public ref return static this throw true try while
 ```
@@ -166,26 +166,24 @@ representan internamente como AST y no se ejecutan automáticamente en todo cont
   salir del callable desde ese bloque.
 - `while (condición) { ... }`: comprueba antes de cada vuelta.
 - `do { ... } while (condición)`: comprueba después.
-- `foreach (array_o_canal as $valor) { ... }`: sólo una variable; mapas mediante
-  `keys`. Sin sintaxis `$clave => $valor`.
-- `break` y `continue`: salir/saltar vuelta. La detección de control dentro
-  de ternarios/match tiene una limitación descrita en [flujo](CONTROL_FLUJO.md).
+- `foreach (array_o_canal as $valor)` o `foreach ($coleccion as $clave => $valor)`:
+  recorre secuencias, rangos `1..$n`, mapas asociativos y canales de concurrencia.
+- `break` y `continue`: salir/saltar vuelta.
+- `defer { ... }` o `defer expresión;`: pospone la ejecución de la sentencia hasta que
+  el frame actual finalice (en orden LIFO).
+- `[$a, $b] = $expr`: destructuración secuencial de arreglos en asignación directa.
 - `match (valor) { clave, clave => resultado, default => resultado }`: compara
-  estrictamente, primer brazo coincidente; sin coincidencia/default retorna
-  nulo. **Un brazo que es bloque retorna el bloque AST, no ejecuta su cuerpo**,
-  aunque el analizador lo considere para cobertura de retorno. Usa brazos
-  con valores o llamadas hasta corregir esa discrepancia.
-- `try { ... } catch ($error) { ... }`, `throw expresión`: recuperación
-  runtime. No hay `finally`, `defer` ni captura tipada.
-- `return [expresión]`: sale del callable. No hay retorno múltiple especial;
-  retorna un array o mapa si necesitas varios resultados.
+  estrictamente, primer brazo coincidente; sin coincidencia/default retorna nulo.
+- `try { ... } catch ($error) { ... }`, `throw expresión`: recuperación runtime.
+- `return [expresión]`: sale del callable.
 - `async { ... }`: crea un Future; se recoge con `await(futuro)`.
+- `Console::*`: módulo nativo para colores ANSI (`Console::green`, `Console::red`, `Console::bold`, etc.).
+- `joss repl`: entorno interactivo por terminal (Read-Eval-Print Loop).
 
 ## Ausencias y compatibilidad
 
 No hay imports fuente, namespaces, exports de archivos, interfaces, traits,
-protocolos, ownership, punteros manuales, `switch`, `for`, destructuring,
-comprehensions ni syntax sugar de funciones flecha. `=>` pertenece a `match`.
+protocolos, ownership, punteros manuales, `switch`, `for` clásico ni syntax sugar de funciones flecha.
 `ref` sólo sirve como parámetro/argumento temporal y no es un puntero almacenable.
 
 `function`, `import`, `@import`, `use`, `Use`, `Import`,

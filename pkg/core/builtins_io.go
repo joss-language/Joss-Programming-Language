@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -146,10 +147,20 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		return false, true
 
 	case "json_encode":
-		if len(args) == 1 {
-			return JsonEncode(args[0]), true
+		if len(args) > 0 {
+			var b []byte
+			var err error
+			if len(args) >= 2 && isTruthy(args[1]) {
+				b, err = json.MarshalIndent(args[0], "", "  ")
+			} else {
+				b, err = json.Marshal(args[0])
+			}
+			if err != nil {
+				return "{}", true
+			}
+			return string(b), true
 		}
-		return "", true
+		return "null", true
 
 	case "json_decode":
 		if len(args) == 1 {

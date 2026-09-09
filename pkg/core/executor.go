@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/jossecurity/joss/pkg/parser"
 	runtimeplan "github.com/jossecurity/joss/pkg/runtime/plan"
@@ -9,6 +10,16 @@ import (
 
 // Execute runs the parsed program
 func (r *Runtime) Execute(program *parser.Program) {
+	defer func() {
+		for i := len(r.topDefers) - 1; i >= 0; i-- {
+			d := r.topDefers[i]
+			if d != nil && d.Body != nil {
+				r.executeStatement(d.Body)
+			}
+		}
+		r.topDefers = nil
+	}()
+
 	// Ensure env is loaded
 	if len(r.Env) == 0 {
 		r.LoadEnv(nil)
@@ -210,12 +221,24 @@ func (r *Runtime) executeStatement(stmt parser.Statement) interface{} {
 		return r.executeBreak(s)
 	case *parser.ContinueStatement:
 		return r.executeContinue(s)
+	case *parser.DeferStatement:
+		return r.executeDefer(s)
+	case *parser.BlockStatement:
+		return r.executeBlock(s)
 	case *parser.MethodStatement:
 		r.Functions[s.Name.Value] = s
 		r.planForMethod(s)
 	case *parser.ClassStatement:
 		r.registerClass(s)
+	}
+	return nil
+}
 
+func (r *Runtime) executeDefer(ds *parser.DeferStatement) interface{} {
+	if r.currentFrame != nil {
+		r.currentFrame.defers = append(r.currentFrame.defers, ds)
+	} else {
+		r.topDefers = append(r.topDefers, ds)
 	}
 	return nil
 }
@@ -239,17 +262,30 @@ func (r *Runtime) executeContinue(cs *parser.ContinueStatement) interface{} {
 func (r *Runtime) executeForeach(fs *parser.ForeachStatement) interface{} {
 	iterable := r.evaluateExpression(fs.Iterable)
 
-	slot := -1
+	valSlot := -1
+	keySlot := -1
 	if r.currentFrame != nil && r.currentFrame.plan != nil {
 		if s, exists := r.currentFrame.plan.ForeachSlots[fs]; exists {
-			slot = s
+			valSlot = s
+		}
+		if fs.Key != "" {
+			if s, exists := r.currentFrame.plan.ForeachKeySlots[fs]; exists {
+				keySlot = s
+			}
 		}
 	}
 	hasControl := r.blockHasControl(fs.Body)
 
-	executeIter := func(item interface{}) (shouldBreak bool) {
-		if slot >= 0 {
-			r.bindSlot(slot, item)
+	executeIter := func(key interface{}, item interface{}) (shouldBreak bool) {
+		if fs.Key != "" {
+			if keySlot >= 0 {
+				r.bindSlot(keySlot, key)
+			} else {
+				r.Variables[fs.Key] = key
+			}
+		}
+		if valSlot >= 0 {
+			r.bindSlot(valSlot, item)
 		} else {
 			r.Variables[fs.Value] = item
 		}
@@ -261,25 +297,38 @@ func (r *Runtime) executeForeach(fs *parser.ForeachStatement) interface{} {
 	}
 
 	if list, ok := iterable.([]interface{}); ok {
-		for _, item := range list {
-			if executeIter(item) {
+		for i, item := range list {
+			if executeIter(int64(i), item) {
+				break
+			}
+		}
+	} else if m, ok := iterable.(map[string]interface{}); ok {
+		keys := make([]string, 0, len(m))
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if executeIter(k, m[k]) {
 				break
 			}
 		}
 	} else if list, ok := iterable.([]map[string]interface{}); ok {
-		for _, item := range list {
-			if executeIter(item) {
+		for i, item := range list {
+			if executeIter(int64(i), item) {
 				break
 			}
 		}
 	} else if ch, ok := iterable.(*Channel); ok {
+		var i int64
 		for item := range ch.Ch {
-			if executeIter(item) {
+			if executeIter(i, item) {
 				break
 			}
+			i++
 		}
 	} else {
-		fmt.Printf("Error: Foreach espera un array o canal, se obtuvo: %T\n", iterable)
+		fmt.Printf("Error: Foreach espera un array, mapa o canal, se obtuvo: %T\n", iterable)
 	}
 	return nil
 }
@@ -403,4 +452,14 @@ func (r *Runtime) executeTryCatch(tcs *parser.TryCatchStatement) (result interfa
 func (r *Runtime) executeThrow(ts *parser.ThrowStatement) interface{} {
 	val := r.evaluateExpression(ts.Value)
 	panic(val)
+}
+
+// EvaluateExpression evaluates an expression AST node in the runtime.
+func (r *Runtime) EvaluateExpression(exp parser.Expression) interface{} {
+	return r.evaluateExpression(exp)
+}
+
+// ExecuteStatement executes a statement AST node in the runtime.
+func (r *Runtime) ExecuteStatement(stmt parser.Statement) interface{} {
+	return r.executeStatement(stmt)
 }

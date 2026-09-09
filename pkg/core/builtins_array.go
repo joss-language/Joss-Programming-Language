@@ -213,8 +213,11 @@ func (r *Runtime) callBuiltinArray(name string, args []interface{}) (interface{}
 			if _, ok := args[0].([]interface{}); ok {
 				return true, true
 			}
+			if _, ok := args[0].(map[string]interface{}); ok {
+				return true, true
+			}
 			val := reflect.ValueOf(args[0])
-			return val.Kind() == reflect.Slice || val.Kind() == reflect.Array, true
+			return val.Kind() == reflect.Slice || val.Kind() == reflect.Array || val.Kind() == reflect.Map, true
 		}
 		return false, true
 
@@ -495,7 +498,227 @@ func (r *Runtime) callBuiltinArray(name string, args []interface{}) (interface{}
 			}
 		}
 		return []interface{}{}, true
+
+	case "map", "array_map":
+		if len(args) < 2 {
+			return []interface{}{}, true
+		}
+		coll := args[0]
+		callback := args[1]
+		if !isSliceValue(coll) && isSliceValue(args[1]) {
+			coll = args[1]
+			callback = args[0]
+		}
+		list := toSlice(coll)
+		res := make([]interface{}, len(list))
+		for i, item := range list {
+			res[i] = r.CallCallable(callback, []interface{}{item})
+		}
+		return res, true
+
+	case "filter", "array_filter":
+		if len(args) < 1 {
+			return []interface{}{}, true
+		}
+		coll := args[0]
+		var callback interface{}
+		if len(args) >= 2 {
+			callback = args[1]
+			if !isSliceValue(coll) && isSliceValue(args[1]) {
+				coll = args[1]
+				callback = args[0]
+			}
+		}
+		list := toSlice(coll)
+		res := []interface{}{}
+		for _, item := range list {
+			keep := false
+			if callback == nil {
+				keep = isTruthy(item)
+			} else {
+				callRes := r.CallCallable(callback, []interface{}{item})
+				keep = isTruthy(callRes)
+			}
+			if keep {
+				res = append(res, item)
+			}
+		}
+		return res, true
+
+	case "reduce", "array_reduce":
+		if len(args) < 2 {
+			return nil, true
+		}
+		coll := args[0]
+		callback := args[1]
+		var initial interface{}
+		if len(args) >= 3 {
+			initial = args[2]
+		}
+		if !isSliceValue(coll) && isSliceValue(args[1]) {
+			coll = args[1]
+			callback = args[0]
+		}
+		list := toSlice(coll)
+		acc := initial
+		startIndex := 0
+		if acc == nil && len(list) > 0 {
+			acc = list[0]
+			startIndex = 1
+		}
+		for i := startIndex; i < len(list); i++ {
+			acc = r.CallCallable(callback, []interface{}{acc, list[i]})
+		}
+		return acc, true
+
+	case "find":
+		if len(args) < 2 {
+			return nil, true
+		}
+		coll := args[0]
+		callback := args[1]
+		if !isSliceValue(coll) && isSliceValue(args[1]) {
+			coll = args[1]
+			callback = args[0]
+		}
+		list := toSlice(coll)
+		for _, item := range list {
+			callRes := r.CallCallable(callback, []interface{}{item})
+			if isTruthy(callRes) {
+				return item, true
+			}
+		}
+		return nil, true
+
+	case "any":
+		if len(args) < 1 {
+			return false, true
+		}
+		coll := args[0]
+		var callback interface{}
+		if len(args) >= 2 {
+			callback = args[1]
+			if !isSliceValue(coll) && isSliceValue(args[1]) {
+				coll = args[1]
+				callback = args[0]
+			}
+		}
+		list := toSlice(coll)
+		for _, item := range list {
+			if callback == nil {
+				if isTruthy(item) {
+					return true, true
+				}
+			} else {
+				callRes := r.CallCallable(callback, []interface{}{item})
+				if isTruthy(callRes) {
+					return true, true
+				}
+			}
+		}
+		return false, true
+
+	case "all":
+		if len(args) < 1 {
+			return true, true
+		}
+		coll := args[0]
+		var callback interface{}
+		if len(args) >= 2 {
+			callback = args[1]
+			if !isSliceValue(coll) && isSliceValue(args[1]) {
+				coll = args[1]
+				callback = args[0]
+			}
+		}
+		list := toSlice(coll)
+		for _, item := range list {
+			if callback == nil {
+				if !isTruthy(item) {
+					return false, true
+				}
+			} else {
+				callRes := r.CallCallable(callback, []interface{}{item})
+				if !isTruthy(callRes) {
+					return false, true
+				}
+			}
+		}
+		return true, true
+
+	case "sum":
+		if len(args) < 1 {
+			return int64(0), true
+		}
+		list := toSlice(args[0])
+		var intSum int64
+		var floatSum float64
+		isFloat := false
+		for _, item := range list {
+			switch v := item.(type) {
+			case int:
+				if isFloat {
+					floatSum += float64(v)
+				} else {
+					intSum += int64(v)
+				}
+			case int64:
+				if isFloat {
+					floatSum += float64(v)
+				} else {
+					intSum += v
+				}
+			case float64:
+				if !isFloat {
+					isFloat = true
+					floatSum = float64(intSum) + v
+				} else {
+					floatSum += v
+				}
+			}
+		}
+		if isFloat {
+			return floatSum, true
+		}
+		return intSum, true
 	}
 
 	return nil, false
+}
+
+func isSliceValue(v interface{}) bool {
+	if v == nil {
+		return false
+	}
+	switch v.(type) {
+	case []interface{}, []map[string]interface{}, []string, []int64, []int:
+		return true
+	}
+	val := reflect.ValueOf(v)
+	return val.Kind() == reflect.Slice || val.Kind() == reflect.Array
+}
+
+func toSlice(v interface{}) []interface{} {
+	if v == nil {
+		return []interface{}{}
+	}
+	if list, ok := v.([]interface{}); ok {
+		return list
+	}
+	if listMap, ok := v.([]map[string]interface{}); ok {
+		res := make([]interface{}, len(listMap))
+		for i, m := range listMap {
+			res[i] = m
+		}
+		return res
+	}
+	val := reflect.ValueOf(v)
+	if val.Kind() == reflect.Slice || val.Kind() == reflect.Array {
+		res := make([]interface{}, val.Len())
+		for i := 0; i < val.Len(); i++ {
+			res[i] = val.Index(i).Interface()
+		}
+		return res
+	}
+	return []interface{}{}
 }

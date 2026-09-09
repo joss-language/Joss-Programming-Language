@@ -268,3 +268,197 @@ func TestAdaptiveCin(t *testing.T) {
 		t.Fatalf("expected int64(20), got %v (%T)", resB, resB)
 	}
 }
+
+func TestPHPStyleAssociativeArrays(t *testing.T) {
+	src := `public func testMap(): string {
+    let $data = [
+        "name" => "Joss",
+        "nested" => [
+            "framework" => "JosSecurity"
+        ]
+    ]
+    return $data["name"] . "_" . $data["nested"]["framework"]
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn := runtime.Functions["testMap"]
+	res := runtime.CallMethodEvaluated(fn, nil, nil)
+	if res != "Joss_JosSecurity" {
+		t.Fatalf("expected 'Joss_JosSecurity', got %v", res)
+	}
+}
+
+func TestForeachKeyValue(t *testing.T) {
+	src := `public func testForeachKV(): string {
+    let $m = ["a" => "uno", "b" => "dos"]
+    string $acc = ""
+    foreach ($m as $k => $v) {
+        $acc = $acc . $k . "=" . $v . ";"
+    }
+    return $acc
+}
+public func testForeachArrayKV(): string {
+    let $arr = ["x", "y", "z"]
+    string $acc = ""
+    foreach ($arr as $idx => $val) {
+        $acc = $acc . $idx . ":" . $val . ","
+    }
+    return $acc
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn1 := runtime.Functions["testForeachKV"]
+	res1 := runtime.CallMethodEvaluated(fn1, nil, nil).(string)
+	if !strings.Contains(res1, "a=uno;") || !strings.Contains(res1, "b=dos;") {
+		t.Fatalf("expected key=value pairs, got %v", res1)
+	}
+
+	fn2 := runtime.Functions["testForeachArrayKV"]
+	res2 := runtime.CallMethodEvaluated(fn2, nil, nil)
+	if res2 != "0:x,1:y,2:z," {
+		t.Fatalf("expected '0:x,1:y,2:z,', got %v", res2)
+	}
+}
+
+func TestArrayDestructuring(t *testing.T) {
+	src := `public func testDestructuring(): int {
+    [$a, $b] = [15, 25]
+    return $a + $b
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn := runtime.Functions["testDestructuring"]
+	res := runtime.CallMethodEvaluated(fn, nil, nil)
+	if res != int64(40) {
+		t.Fatalf("expected 40, got %v (%T)", res, res)
+	}
+}
+
+func TestDeferStatement(t *testing.T) {
+	src := `public func testDefer(): string {
+    string $log = "start;"
+    defer {
+        $log = $log . "defer1;"
+    }
+    defer {
+        $log = $log . "defer2;"
+    }
+    $log = $log . "end;"
+    return $log
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn := runtime.Functions["testDefer"]
+	res := runtime.CallMethodEvaluated(fn, nil, nil)
+	// Defers run in LIFO order upon exiting: defer2 runs before defer1
+	// Wait, return evaluates expression $log first ("start;end;"), then defers execute!
+	if res != "start;end;" {
+		t.Fatalf("expected 'start;end;', got %v", res)
+	}
+}
+
+func TestHigherOrderFunctions(t *testing.T) {
+	src := `public func testHigherOrder(): int {
+    let $nums = [1, 2, 3, 4, 5]
+    // Filter even numbers: [2, 4]
+    let $evens = $nums |> filter(func(int $x): bool { return $x % 2 == 0; })
+    // Map multiply by 10: [20, 40]
+    let $scaled = $evens |> map(func(int $x): int { return $x * 10; })
+    // Sum: 60
+    return sum($scaled)
+}
+public func testFindAndAnyAll(): bool {
+    let $list = [10, 20, 30]
+    let $found = $list |> find(func(int $x): bool { return $x > 15; })
+    let $hasTwenty = $list |> any(func(int $x): bool { return $x == 20; })
+    let $allPositive = $list |> all(func(int $x): bool { return $x > 0; })
+    return $found == 20 && $hasTwenty && $allPositive
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn1 := runtime.Functions["testHigherOrder"]
+	res1 := runtime.CallMethodEvaluated(fn1, nil, nil)
+	if res1 != int64(60) {
+		t.Fatalf("expected 60, got %v (%T)", res1, res1)
+	}
+
+	fn2 := runtime.Functions["testFindAndAnyAll"]
+	res2 := runtime.CallMethodEvaluated(fn2, nil, nil)
+	if res2 != true {
+		t.Fatalf("expected true, got %v (%T)", res2, res2)
+	}
+}
+
+func TestConsoleColors(t *testing.T) {
+	src := `public func testConsole(): string {
+    return Console::green("success")
+}
+`
+	runtime := NewRuntime()
+	runtime.Execute(benchmarkParse(t, src))
+	fn := runtime.Functions["testConsole"]
+	res := runtime.CallMethodEvaluated(fn, nil, nil)
+	expected := "\033[32msuccess\033[0m"
+	if res != expected {
+		t.Fatalf("expected %q, got %q", expected, res)
+	}
+}
+
+func TestJSONEncodeAndDecodeArrays(t *testing.T) {
+	src := `public func testJSONRoundtrip(): bool {
+    // 1. Classical array encode/decode
+    let $clasico = [1, 2, "tres", true]
+    let $json1 = json_encode($clasico)
+    let $dec1 = json_decode($json1)
+    (!is_array($dec1) || count($dec1) != 4 || $dec1[0] != 1 || $dec1[2] != "tres") ? {
+        return false
+    } : {}
+
+    // 2. PHP-style associative array encode/decode
+    let $assoc = [
+        "nombre" => "Carlos",
+        "edad" => 30,
+        "detalles" => [
+            "ciudad" => "Lima",
+            "piso" => 4
+        ]
+    ]
+    let $json2 = json_encode($assoc)
+    let $dec2 = json_decode($json2)
+    (!is_array($dec2) || $dec2["nombre"] != "Carlos" || $dec2["edad"] != 30) ? {
+        return false
+    } : {}
+    ($dec2["detalles"]["ciudad"] != "Lima" || $dec2["detalles"]["piso"] != 4) ? {
+        return false
+    } : {}
+
+    // 3. Nested array of associative arrays
+    let $items = [
+        ["id" => 1, "producto" => "A"],
+        ["id" => 2, "producto" => "B"]
+    ]
+    let $json3 = JSON::encode($items)
+    let $dec3 = JSON::decode($json3)
+    (!is_array($dec3) || count($dec3) != 2 || $dec3[1]["producto"] != "B") ? {
+        return false
+    } : {}
+
+    // 4. Numeric keys in associative array
+    let $numKeys = [1 => "uno", 2 => "dos"]
+    let $json4 = json_encode($numKeys)
+    let $dec4 = json_decode($json4)
+    ($dec4[1] != "uno" || $dec4["2"] != "dos") ? {
+        return false
+    } : {}
+
+    return true
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	runtime.RegisterNativeClasses()
+	fn := runtime.Functions["testJSONRoundtrip"]
+	res := runtime.CallMethodEvaluated(fn, nil, nil)
+	if res != true {
+		t.Fatalf("expected true, got %v (%T)", res, res)
+	}
+}

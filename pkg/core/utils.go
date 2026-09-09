@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -109,6 +110,34 @@ func ToonVerify(str string) bool {
 	return true
 }
 
+// NormalizeDecodedJSON recursively normalizes JSON data so that:
+// - Whole numbers (float64 without decimals) become int64
+// - JSON objects remain map[string]interface{}
+// - JSON arrays remain []interface{}
+func NormalizeDecodedJSON(val interface{}) interface{} {
+	switch v := val.(type) {
+	case map[string]interface{}:
+		m := make(map[string]interface{}, len(v))
+		for k, item := range v {
+			m[k] = NormalizeDecodedJSON(item)
+		}
+		return m
+	case []interface{}:
+		arr := make([]interface{}, len(v))
+		for i, item := range v {
+			arr[i] = NormalizeDecodedJSON(item)
+		}
+		return arr
+	case float64:
+		if v == math.Trunc(v) && !math.IsNaN(v) && !math.IsInf(v, 0) && v >= math.MinInt64 && v <= math.MaxInt64 {
+			return int64(v)
+		}
+		return v
+	default:
+		return v
+	}
+}
+
 // JSON Helpers
 func JsonEncode(data interface{}) string {
 	b, err := json.Marshal(data)
@@ -119,12 +148,16 @@ func JsonEncode(data interface{}) string {
 }
 
 func JsonDecode(str string) interface{} {
+	str = strings.TrimSpace(str)
+	if strings.HasPrefix(str, "\xef\xbb\xbf") {
+		str = str[3:]
+	}
 	var result interface{}
 	err := json.Unmarshal([]byte(str), &result)
 	if err != nil {
 		return nil
 	}
-	return result
+	return NormalizeDecodedJSON(result)
 }
 
 func JsonVerify(str string) bool {

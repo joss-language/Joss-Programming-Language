@@ -16,6 +16,7 @@ type executionFrame struct {
 	plan         *runtimeplan.Callable
 	slots        []runtimeframe.Slot
 	allowDynamic bool
+	defers       []*parser.DeferStatement
 }
 
 var executionFramePool = sync.Pool{New: func() interface{} { return &executionFrame{} }}
@@ -24,6 +25,7 @@ func acquireExecutionFrame(compiled *runtimeplan.Callable, allowDynamic bool) *e
 	frame := executionFramePool.Get().(*executionFrame)
 	frame.plan = compiled
 	frame.allowDynamic = allowDynamic
+	frame.defers = nil
 	if cap(frame.slots) < len(compiled.Slots) {
 		frame.slots = make([]runtimeframe.Slot, len(compiled.Slots))
 	} else {
@@ -52,6 +54,7 @@ func releaseExecutionFrame(frame *executionFrame) {
 		frame.slots[index].Clear()
 	}
 	frame.slots = frame.slots[:0]
+	frame.defers = nil
 	frame.plan = nil
 	frame.allowDynamic = false
 	executionFramePool.Put(frame)

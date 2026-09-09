@@ -107,6 +107,24 @@ Implementación: [executeCacheMethod](../pkg/core/native_cache.go#L18).
 | `has` | `bool` |
 | `put` | `mixed` |
 
+## Console
+
+Implementación: [executeConsoleMethod](../pkg/core/native.go#L263).
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `blue` | `string` |
+| `bold` | `string` |
+| `clear` | `string` |
+| `color` | `string` |
+| `cyan` | `string` |
+| `gray` | `string` |
+| `green` | `string` |
+| `log` | `void` |
+| `magenta` | `string` |
+| `red` | `string` |
+| `yellow` | `string` |
+
 ## Cron
 
 Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
@@ -117,7 +135,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L257).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L324).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -292,7 +310,7 @@ Implementación: [executeHttpMethod](../pkg/core/http_client.go#L14).
 
 ## JSON
 
-Implementación: [executeJSONMethod](../pkg/core/json.go#L9).
+Implementación: [executeJSONMethod](../pkg/core/json.go#L8).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -696,6 +714,8 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 
 - `__`
 - `abs`
+- `all`
+- `any`
 - `append`
 - `array_column`
 - `array_key_exists`
@@ -733,6 +753,8 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `file_exists`
 - `file_get_contents`
 - `file_put_contents`
+- `filter`
+- `find`
 - `floatval`
 - `floor`
 - `hive_read_box`
@@ -762,6 +784,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `len`
 - `ltrim`
 - `make_chan`
+- `map`
 - `max`
 - `md5`
 - `merge`
@@ -774,6 +797,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `rand`
 - `recv`
 - `redirect`
+- `reduce`
 - `request`
 - `response`
 - `round`
@@ -798,6 +822,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `strtoupper`
 - `strval`
 - `substr`
+- `sum`
 - `time`
 - `to_lower`
 - `to_upper`
@@ -812,4 +837,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 42 clases, 393 métodos y 117 built-ins.
+Total: 43 clases, 404 métodos y 124 built-ins.

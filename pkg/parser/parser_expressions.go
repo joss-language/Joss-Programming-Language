@@ -331,9 +331,118 @@ func (p *Parser) parseGroupedExpression() Expression {
 }
 
 func (p *Parser) parseArrayLiteral() Expression {
-	array := &ArrayLiteral{Token: p.curToken}
-	array.Elements = p.parseExpressionList(RBRACKET)
-	return array
+	arrayToken := p.curToken
+
+	for p.peekTokenIs(NEWLINE) {
+		p.nextToken()
+	}
+
+	if p.peekTokenIs(RBRACKET) {
+		p.nextToken()
+		return &ArrayLiteral{Token: arrayToken, Elements: []Expression{}}
+	}
+
+	p.nextToken()
+	firstExpr := p.parseExpression(LOWEST)
+	if firstExpr == nil {
+		return nil
+	}
+
+	// Check if this is an associative array (map): [ key => val, ... ]
+	if p.peekTokenIs(FAT_ARROW) {
+		p.nextToken() // consume =>
+		p.nextToken() // start of val
+		firstVal := p.parseExpression(LOWEST)
+		if firstVal == nil {
+			return nil
+		}
+
+		mapLit := &MapLiteral{Token: arrayToken, Pairs: make(map[Expression]Expression)}
+		mapLit.Pairs[firstExpr] = firstVal
+
+		for !p.peekTokenIs(RBRACKET) && !p.peekTokenIs(EOF) {
+			if p.peekTokenIs(NEWLINE) {
+				p.nextToken()
+				continue
+			}
+			if p.peekTokenIs(COMMA) {
+				p.nextToken()
+				for p.peekTokenIs(NEWLINE) {
+					p.nextToken()
+				}
+				if p.peekTokenIs(RBRACKET) {
+					break
+				}
+				p.nextToken()
+				key := p.parseExpression(LOWEST)
+				if key == nil {
+					return nil
+				}
+				if !p.expectPeek(FAT_ARROW) {
+					return nil
+				}
+				p.nextToken()
+				val := p.parseExpression(LOWEST)
+				if val == nil {
+					return nil
+				}
+				mapLit.Pairs[key] = val
+			} else {
+				break
+			}
+		}
+
+		for p.peekTokenIs(NEWLINE) {
+			p.nextToken()
+		}
+
+		if !p.expectPeek(RBRACKET) {
+			return nil
+		}
+		return mapLit
+	}
+
+	// Otherwise, standard ArrayLiteral
+	elements := []Expression{firstExpr}
+	for p.peekTokenIs(COMMA) || p.peekTokenIs(NEWLINE) {
+		if p.peekTokenIs(NEWLINE) {
+			p.nextToken()
+			if p.peekTokenIs(RBRACKET) {
+				break
+			}
+			if p.peekTokenIs(COMMA) {
+				p.nextToken()
+			} else {
+				continue
+			}
+		} else {
+			p.nextToken()
+		}
+
+		for p.peekTokenIs(NEWLINE) {
+			p.nextToken()
+		}
+
+		if p.peekTokenIs(RBRACKET) {
+			break
+		}
+
+		p.nextToken()
+		elem := p.parseExpression(LOWEST)
+		if elem != nil {
+			elements = append(elements, elem)
+		}
+	}
+
+	for p.peekTokenIs(NEWLINE) {
+		p.nextToken()
+	}
+
+	if !p.expectPeek(RBRACKET) {
+		return nil
+	}
+
+	return &ArrayLiteral{Token: arrayToken, Elements: elements}
 }
 
 func (p *Parser) parseBraceExpression() Expression {

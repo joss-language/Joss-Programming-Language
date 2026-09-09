@@ -242,6 +242,21 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 		current.put(&symbol{Name: name, Type: inferredType, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true})
 		return inferredType
 	}
+	if arrLit, ok := assignment.Left.(*parser.ArrayLiteral); ok {
+		for _, elem := range arrLit.Elements {
+			if identifier, ok := elem.(*parser.Identifier); ok {
+				name := cleanName(identifier.Value)
+				if existing, exists := current.resolve(name); exists {
+					if existing.Inferred && !existing.Type.IsKnown() {
+						existing.Type = typesystem.Type{Kind: typesystem.Mixed}
+					}
+				} else {
+					current.put(&symbol{Name: name, Type: typesystem.Type{Kind: typesystem.Mixed}, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true})
+				}
+			}
+		}
+		return typesystem.Type{Kind: typesystem.Array}
+	}
 	if member, ok := assignment.Left.(*parser.MemberExpression); ok && member.Property != nil {
 		receiver := a.receiverType(member.Left, current)
 		if receiver.Kind == typesystem.Class {

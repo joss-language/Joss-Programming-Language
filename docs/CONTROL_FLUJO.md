@@ -19,8 +19,9 @@ En esta guía aprenderás:
 2. Cómo tomar decisiones en Joss usando el operador **ternario con bloques** y por qué Joss no utiliza la sintaxis clásica `if/else`.
 3. El operador Elvis `?:` y el operador de coalescencia nula `??`.
 4. Cómo estructurar selecciones múltiples elegantes con la expresión `match`.
-5. Cómo repetir código con bucles `while`, `do...while` y `foreach` (incluyendo su uso con canales de concurrencia).
+5. Cómo repetir código con bucles `while`, `do...while` y `foreach` (incluyendo su uso con canales de concurrencia y clave-valor).
 6. Cómo interrumpir o avanzar un ciclo con `break` y `continue`.
+7. Cómo asegurar la limpieza de recursos y finalización de tareas con `defer`.
 
 ---
 
@@ -272,7 +273,28 @@ foreach ([1, 2, 3, 4, 5] as $n) {
 
 ---
 
-## 8. Errores comunes y buenas prácticas
+## 8. Limpieza garantizada de recursos: `defer`
+
+La instrucción `defer` pospone la ejecución de un bloque o expresión hasta el momento exacto en que la función o archivo en curso termina, garantizando la liberación de memoria, cierre de archivos o conexiones. Múltiples sentencias `defer` se ejecutan en orden **LIFO** (Last In, First Out):
+
+<!-- joss-run: ["inicio", "fin", "limpieza 2", "limpieza 1"] -->
+```joss
+public func tarea() {
+    print("inicio")
+    defer {
+        print("limpieza 1")
+    }
+    defer {
+        print("limpieza 2")
+    }
+    print("fin")
+}
+tarea()
+```
+
+---
+
+## 9. Errores comunes y buenas prácticas
 
 | Error | Causa | Solución |
 |---|---|---|
@@ -283,7 +305,7 @@ foreach ([1, 2, 3, 4, 5] as $n) {
 
 ---
 
-## 9. Ejercicios prácticos
+## 10. Ejercicios prácticos
 
 1. **Clasificador de notas**:
    - Declara una variable entera `$nota = 85`.

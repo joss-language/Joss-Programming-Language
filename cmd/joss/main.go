@@ -126,6 +126,8 @@ func main() {
 		}
 		filename := os.Args[2]
 		executeScript(filename)
+	case "repl":
+		runRepl()
 
 	case "build":
 		target := "web"
@@ -481,4 +483,57 @@ func packageClassName(name string) string {
 		return "Plugin"
 	}
 	return result.String()
+}
+
+func runRepl() {
+	fmt.Printf("Joss %s Interactive REPL\n", version.Version)
+	fmt.Println("Escribe expresiones o sentencias Joss. Escribe 'exit' o presiona Ctrl+C para salir.")
+	fmt.Println()
+
+	rt := core.NewRuntime()
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		fmt.Print("joss> ")
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			break
+		}
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if trimmed == "exit" || trimmed == "quit" {
+			break
+		}
+
+		lexer := parser.NewLexer(trimmed)
+		p := parser.NewParser(lexer)
+		prog := p.ParseProgram()
+
+		if len(p.Errors()) > 0 {
+			for _, e := range p.Errors() {
+				fmt.Printf("Error: %s\n", e)
+			}
+			continue
+		}
+
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Runtime Error: %v\n", r)
+				}
+			}()
+			for _, stmt := range prog.Statements {
+				if exprStmt, ok := stmt.(*parser.ExpressionStatement); ok {
+					res := rt.EvaluateExpression(exprStmt.Expression)
+					if res != nil {
+						fmt.Printf("=> %v\n", res)
+					}
+				} else {
+					rt.ExecuteStatement(stmt)
+				}
+			}
+		}()
+	}
 }

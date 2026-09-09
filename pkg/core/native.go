@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 
@@ -250,8 +251,74 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.registerNative("Sitemap", []string{"add", "provider", "exclude", "generate", "xsl"}, (*Runtime).executeSitemapMethod)
 	r.Variables["Sitemap"] = &Instance{Class: r.Classes["Sitemap"], Fields: make(map[string]interface{})}
 
+	// Console (Terminal styling & ANSI colors)
+	consoleMethods := []string{"green", "red", "yellow", "blue", "cyan", "magenta", "gray", "bold", "clear", "color", "log"}
+	r.registerNative("Console", consoleMethods, (*Runtime).executeConsoleMethod)
+	r.Variables["Console"] = &Instance{Class: r.Classes["Console"], Fields: make(map[string]interface{})}
+
 	// Exception
 	r.registerNative("Exception", []string{"constructor", "getMessage", "getCode"}, (*Runtime).executeExceptionMethod)
+}
+
+func (r *Runtime) executeConsoleMethod(instance *Instance, method string, args []interface{}) interface{} {
+	text := ""
+	if len(args) > 0 {
+		text = fmt.Sprint(args[0])
+	}
+	switch method {
+	case "green":
+		if len(args) == 0 {
+			return "\033[32m"
+		}
+		return "\033[32m" + text + "\033[0m"
+	case "red":
+		if len(args) == 0 {
+			return "\033[31m"
+		}
+		return "\033[31m" + text + "\033[0m"
+	case "yellow":
+		if len(args) == 0 {
+			return "\033[33m"
+		}
+		return "\033[33m" + text + "\033[0m"
+	case "blue":
+		if len(args) == 0 {
+			return "\033[34m"
+		}
+		return "\033[34m" + text + "\033[0m"
+	case "cyan":
+		if len(args) == 0 {
+			return "\033[36m"
+		}
+		return "\033[36m" + text + "\033[0m"
+	case "magenta":
+		if len(args) == 0 {
+			return "\033[35m"
+		}
+		return "\033[35m" + text + "\033[0m"
+	case "gray":
+		if len(args) == 0 {
+			return "\033[90m"
+		}
+		return "\033[90m" + text + "\033[0m"
+	case "bold":
+		if len(args) == 0 {
+			return "\033[1m"
+		}
+		return "\033[1m" + text + "\033[0m"
+	case "clear":
+		return "\033[2J\033[H"
+	case "color":
+		if len(args) >= 2 {
+			code := fmt.Sprint(args[1])
+			return "\033[" + code + "m" + text + "\033[0m"
+		}
+		return text
+	case "log":
+		fmt.Println(text)
+		return nil
+	}
+	return text
 }
 
 func (r *Runtime) executeExceptionMethod(instance *Instance, method string, args []interface{}) interface{} {

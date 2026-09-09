@@ -26,6 +26,7 @@ type Callable struct {
 	NameSlots       map[string]int
 	IdentifierSlots map[*parser.Identifier]int
 	ForeachSlots    map[*parser.ForeachStatement]int
+	ForeachKeySlots map[*parser.ForeachStatement]int
 	CatchSlots      map[*parser.TryCatchStatement]int
 	LoopControl     map[*parser.BlockStatement]bool
 	ParameterCount  int
@@ -59,6 +60,7 @@ func compile(name string, parameters []*parser.Parameter, returnToken parser.Tok
 		NameSlots:       make(map[string]int),
 		IdentifierSlots: make(map[*parser.Identifier]int),
 		ForeachSlots:    make(map[*parser.ForeachStatement]int),
+		ForeachKeySlots: make(map[*parser.ForeachStatement]int),
 		CatchSlots:      make(map[*parser.TryCatchStatement]int),
 		LoopControl:     make(map[*parser.BlockStatement]bool),
 		ThisSlot:        -1,
@@ -144,8 +146,17 @@ func (callable *Callable) collectStatement(statement parser.Statement) {
 		callable.collectExpression(node.Condition)
 	case *parser.ForeachStatement:
 		callable.collectExpression(node.Iterable)
+		if node.Key != "" {
+			callable.ForeachKeySlots[node] = callable.addSlot(Slot{Name: node.Key, Inferred: true})
+		}
 		callable.ForeachSlots[node] = callable.addSlot(Slot{Name: node.Value, Inferred: true})
 		callable.collectBlock(node.Body)
+	case *parser.BlockStatement:
+		callable.collectBlock(node)
+	case *parser.DeferStatement:
+		if node.Body != nil {
+			callable.collectStatement(node.Body)
+		}
 	case *parser.TryCatchStatement:
 		callable.collectBlock(node.TryBlock)
 		if node.CatchVar != "" {
@@ -160,6 +171,14 @@ func (callable *Callable) collectExpression(expression parser.Expression) {
 	case *parser.AssignExpression:
 		if identifier, ok := node.Left.(*parser.Identifier); ok {
 			callable.addSlot(Slot{Name: identifier.Value, Inferred: true})
+		} else if arrLit, ok := node.Left.(*parser.ArrayLiteral); ok {
+			for _, elem := range arrLit.Elements {
+				if id, ok := elem.(*parser.Identifier); ok {
+					callable.addSlot(Slot{Name: id.Value, Inferred: true})
+				} else {
+					callable.collectExpression(elem)
+				}
+			}
 		} else {
 			callable.collectExpression(node.Left)
 		}
@@ -260,6 +279,12 @@ func (callable *Callable) annotateStatement(statement parser.Statement) {
 	case *parser.TryCatchStatement:
 		callable.annotateBlock(node.TryBlock)
 		callable.annotateBlock(node.CatchBlock)
+	case *parser.BlockStatement:
+		callable.annotateBlock(node)
+	case *parser.DeferStatement:
+		if node.Body != nil {
+			callable.annotateStatement(node.Body)
+		}
 	}
 }
 

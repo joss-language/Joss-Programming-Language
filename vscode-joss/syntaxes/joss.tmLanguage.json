@@ -32,7 +32,7 @@
       "patterns": [
         {
           "name": "keyword.control.joss",
-          "match": "\\b(if|else|while|do|foreach|as|return|break|continue|new|this|try|catch|throw|extends|async|await|match|default)\\b"
+          "match": "\\b(if|else|while|do|foreach|as|return|break|continue|defer|new|this|try|catch|throw|extends|async|await|match|default)\\b"
         },
         {
           "name": "keyword.other.joss",
@@ -204,7 +204,7 @@
       "patterns": [
         {
           "name": "entity.name.type.class.joss",
-          "match": "\\b(Auth|GranDB|Stack|Queue|Main|Security|Server|Log|Task|Router|SmtpClient|View|Request|Response|Cron|Session|Redirect|RedirectResponse|WebResponse|WebSocket|Schema|Blueprint|Redis|Migration|Math|JSON|System|UserStorage|Markdown)\\b"
+          "match": "\\b(Auth|GranDB|Stack|Queue|Main|Security|Server|Log|Task|Router|SmtpClient|View|Request|Response|Cron|Session|Redirect|RedirectResponse|WebResponse|WebSocket|Schema|Blueprint|Redis|Migration|Math|JSON|System|UserStorage|Markdown|Console)\\b"
         },
         {
           "name": "support.class.joss",

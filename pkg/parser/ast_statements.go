@@ -166,6 +166,7 @@ func (is *InitStatement) String() string {
 type ForeachStatement struct {
 	Token    Token // 'foreach'
 	Iterable Expression
+	Key      string // Optional, e.g. "key" in "as $key => $val"
 	Value    string // The variable name, e.g. "val" in "as $val"
 	Body     *BlockStatement
 }
@@ -176,10 +177,29 @@ func (fs *ForeachStatement) String() string {
 	var out bytes.Buffer
 	out.WriteString("foreach (")
 	out.WriteString(fs.Iterable.String())
-	out.WriteString(" as $")
-	out.WriteString(fs.Value)
+	out.WriteString(" as ")
+	if fs.Key != "" {
+		out.WriteString("$" + fs.Key + " => ")
+	}
+	out.WriteString("$" + fs.Value)
 	out.WriteString(") ")
 	out.WriteString(fs.Body.String())
+	return out.String()
+}
+
+type DeferStatement struct {
+	Token Token // 'defer'
+	Body  Statement
+}
+
+func (ds *DeferStatement) statementNode()       {}
+func (ds *DeferStatement) TokenLiteral() string { return ds.Token.Literal }
+func (ds *DeferStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("defer ")
+	if ds.Body != nil {
+		out.WriteString(ds.Body.String())
+	}
 	return out.String()
 }
 

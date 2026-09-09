@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
@@ -42,6 +43,50 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 		return val
 	}
 
+	if arrLit, ok := ae.Left.(*parser.ArrayLiteral); ok {
+		var items []interface{}
+		if list, ok := val.([]interface{}); ok {
+			items = list
+		} else if listMap, ok := val.([]map[string]interface{}); ok {
+			for _, item := range listMap {
+				items = append(items, item)
+			}
+		} else {
+			items = []interface{}{val}
+		}
+
+		for i, elem := range arrLit.Elements {
+			var elemVal interface{}
+			if i < len(items) {
+				elemVal = items[i]
+			}
+			if ident, ok := elem.(*parser.Identifier); ok {
+				if assigned, resolved := r.assignLocal(ident, elemVal, false); resolved {
+					_ = assigned
+					continue
+				}
+				if reference, exists := r.Variables[ident.Value].(*VariableReference); exists {
+					reference.Set(r, elemVal)
+					continue
+				}
+				if expectedType, exists := r.VarTypes[ident.Value]; exists {
+					if expectedType != "mixed" {
+						elemVal = r.coerceToTypedValue(elemVal, expectedType)
+						if !r.checkType(elemVal, expectedType) {
+							panic(fmt.Sprintf("Error de Tipado: No se puede asignar valor a '%s' (se espera %s)", ident.Value, expectedType))
+						}
+					}
+				} else if _, alreadyExists := r.Variables[ident.Value]; !alreadyExists || r.Variables[ident.Value] == nil {
+					if inferredType := runtimeTypeName(elemVal); inferredType != "" {
+						r.VarTypes[ident.Value] = inferredType
+					}
+				}
+				r.Variables[ident.Value] = elemVal
+			}
+		}
+		return val
+	}
+
 	if member, ok := ae.Left.(*parser.MemberExpression); ok {
 		left := r.evaluateExpression(member.Left)
 		if instance, ok := left.(*Instance); ok {
@@ -66,7 +111,13 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 		index := r.evaluateExpression(indexExp.Index)
 
 		if m, ok := left.(map[string]interface{}); ok {
-			if key, ok := index.(string); ok {
+			var key string
+			if k, ok := index.(string); ok {
+				key = k
+			} else if n, ok := toInt64Safe(index); ok {
+				key = strconv.FormatInt(n, 10)
+			}
+			if key != "" {
 				m[key] = val
 				return val
 			}
@@ -101,8 +152,10 @@ func (r *Runtime) evaluateMap(ml *parser.MapLiteral) map[string]interface{} {
 		val := r.evaluateExpression(v)
 		if keyStr, ok := key.(string); ok {
 			m[keyStr] = val
+		} else if num, ok := toInt64Safe(key); ok {
+			m[strconv.FormatInt(num, 10)] = val
 		} else {
-			fmt.Printf("Error: Clave de mapa inválida: %v (se espera string)\n", key)
+			m[fmt.Sprintf("%v", key)] = val
 		}
 	}
 	return m
@@ -124,13 +177,18 @@ func (r *Runtime) evaluateIndex(ie *parser.IndexExpression) interface{} {
 	}
 
 	if m, ok := left.(map[string]interface{}); ok {
-		if key, ok := index.(string); ok {
-			if val, exists := m[key]; exists {
-				return val
-			}
-			return nil
+		var key string
+		if k, ok := index.(string); ok {
+			key = k
+		} else if n, ok := toInt64Safe(index); ok {
+			key = strconv.FormatInt(n, 10)
+		} else {
+			panic(&JossError{Code: diagnostics.CodeInvalidIndexType, Type: "TypeError", Message: fmt.Sprintf("El índice de map debe ser string o int, se recibió %T", index), File: r.CurrentFile, Line: ie.Token.Line, Column: ie.Token.Column})
 		}
-		panic(&JossError{Code: diagnostics.CodeInvalidIndexType, Type: "TypeError", Message: fmt.Sprintf("El índice de map debe ser string, se recibió %T", index), File: r.CurrentFile, Line: ie.Token.Line, Column: ie.Token.Column})
+		if val, exists := m[key]; exists {
+			return val
+		}
+		return nil
 	}
 
 	if str, ok := left.(string); ok {

@@ -103,6 +103,7 @@ const (
 	MATCH   = "MATCH"
 	DEFAULT = "DEFAULT"
 	ASYNC   = "ASYNC"
+	DEFER   = "DEFER"
 
 	// Modifiers & Visibility
 	PUBLIC    = "PUBLIC"
@@ -152,6 +153,7 @@ var keywords = map[string]TokenType{
 	"match":     MATCH,
 	"default":   DEFAULT,
 	"async":     ASYNC,
+	"defer":     DEFER,
 	"public":    PUBLIC,
 	"private":   PRIVATE,
 	"protected": PROTECTED,

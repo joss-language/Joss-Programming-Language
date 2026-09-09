@@ -1,6 +1,7 @@
 package core
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jossecurity/joss/pkg/parser"
@@ -120,6 +121,19 @@ func (r *Runtime) checkExistence(exp parser.Expression) bool {
 			index := r.safeEvaluate(e.Index)
 			if idx, ok := index.(int64); ok {
 				return idx >= 0 && idx < int64(len(list))
+			}
+		}
+		if m, ok := left.(map[string]interface{}); ok {
+			index := r.safeEvaluate(e.Index)
+			var key string
+			if k, ok := index.(string); ok {
+				key = k
+			} else if n, ok := toInt64Safe(index); ok {
+				key = strconv.FormatInt(n, 10)
+			}
+			if key != "" {
+				_, exists := m[key]
+				return exists
 			}
 		}
 		return false

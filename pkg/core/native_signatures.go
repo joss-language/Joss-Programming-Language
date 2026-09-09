@@ -45,6 +45,17 @@ var preciseNativeReturns = map[string]string{
 	"Auth::hasRole":              "bool",
 	"Auth::verify":               "bool",
 	"Cache::has":                 "bool",
+	"Console::green":             "string",
+	"Console::red":               "string",
+	"Console::yellow":            "string",
+	"Console::blue":              "string",
+	"Console::cyan":              "string",
+	"Console::magenta":           "string",
+	"Console::gray":              "string",
+	"Console::bold":              "string",
+	"Console::clear":             "string",
+	"Console::color":             "string",
+	"Console::log":               "void",
 	"Exception::getCode":         "int",
 	"Exception::getMessage":      "string",
 	"GranDB::avg":                "float|null",
@@ -142,6 +153,7 @@ var builtinBoolReturns = nameSet(
 	"isset", "empty", "is_string", "is_numeric", "is_int", "is_integer", "is_float", "is_double", "is_decimal",
 	"is_array", "is_null", "in_array", "array_key_exists", "file_exists", "is_dir", "is_file",
 	"json_verify", "toon_verify", "str_contains", "contains", "str_starts_with", "starts_with", "str_ends_with", "ends_with",
+	"any", "all",
 )
 var builtinIntReturns = nameSet("intval", "boolval", "len", "count", "time", "strlen", "strpos", "rand")
 var builtinFloatReturns = nameSet("floatval", "doubleval", "microtime", "round", "floor", "ceil", "abs")
@@ -153,6 +165,7 @@ var builtinStringReturns = nameSet(
 )
 var builtinArrayReturns = nameSet(
 	"keys", "array_keys", "values", "array_values", "explode", "merge", "array_merge", "array_slice", "array_unique", "array_reverse", "array_column",
+	"map", "filter",
 )
 
 func nameSet(names ...string) map[string]bool {

@@ -155,6 +155,9 @@ func (p *Parser) parseStatement() Statement {
 	if p.curToken.Type == CONTINUE {
 		return p.parseContinueStatement()
 	}
+	if p.curToken.Type == DEFER {
+		return p.parseDeferStatement()
+	}
 	if p.curToken.Type == ASYNC {
 		return p.parseAsyncStatement()
 	}
@@ -588,15 +591,29 @@ func (p *Parser) parseForeachStatement() *ForeachStatement {
 		return nil
 	}
 
-	// Expect variable: $val
-	// In parser, VAR is '$', then IDENT 'val'
+	// Expect variable: $val or $key => $val
+	// In parser, VAR is '$', then IDENT
 	if !p.expectPeek(VAR) {
 		return nil
 	}
 	if !p.expectPeek(IDENT) {
 		return nil
 	}
-	stmt.Value = p.curToken.Literal
+	firstVar := p.curToken.Literal
+
+	if p.peekTokenIs(FAT_ARROW) {
+		p.nextToken() // consume =>
+		if !p.expectPeek(VAR) {
+			return nil
+		}
+		if !p.expectPeek(IDENT) {
+			return nil
+		}
+		stmt.Key = firstVar
+		stmt.Value = p.curToken.Literal
+	} else {
+		stmt.Value = firstVar
+	}
 
 	if !p.expectPeek(RPAREN) {
 		return nil
@@ -608,6 +625,25 @@ func (p *Parser) parseForeachStatement() *ForeachStatement {
 
 	stmt.Body = p.parseBlockStatement()
 
+	return stmt
+}
+
+func (p *Parser) parseDeferStatement() *DeferStatement {
+	stmt := &DeferStatement{Token: p.curToken}
+	p.nextToken() // consume DEFER
+
+	if p.curTokenIs(LBRACE) {
+		stmt.Body = p.parseBlockStatement()
+		return stmt
+	}
+
+	expr := p.parseExpression(LOWEST)
+	if expr != nil {
+		stmt.Body = &ExpressionStatement{Token: stmt.Token, Expression: expr}
+	}
+	if p.peekTokenIs(SEMICOLON) {
+		p.nextToken()
+	}
 	return stmt
 }
 

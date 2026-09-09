@@ -20,6 +20,7 @@ import { setupDiagnostics } from './providers/diagnosticsProvider';
 import { setupCustomRequests } from './providers/customRequests';
 import { setupDocumentSymbolProvider } from './providers/documentSymbolProvider';
 import { setupReferencesProvider } from './providers/referencesProvider';
+import { setupFormattingProvider } from './providers/formattingProvider';
 import { JossSettings, getDefaultSettings } from './config/settings';
 import { URI } from 'vscode-uri';
 
@@ -63,7 +64,8 @@ connection.onInitialize((params: InitializeParams) => {
             definitionProvider: true,
             referencesProvider: true,
             documentSymbolProvider: true,
-            workspaceSymbolProvider: true
+            workspaceSymbolProvider: true,
+            documentFormattingProvider: true
         }
     };
 
@@ -106,6 +108,7 @@ setupDiagnostics();
 setupCustomRequests();
 setupDocumentSymbolProvider();
 setupReferencesProvider();
+setupFormattingProvider();
 
 // Configuration management
 export let globalSettings: JossSettings = getDefaultSettings();

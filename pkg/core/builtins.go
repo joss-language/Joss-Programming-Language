@@ -16,7 +16,7 @@ var builtinList = []string{
 	"intval", "floatval", "doubleval", "decimal", "strval", "boolval", "is_array", "is_null", "len", "count",
 	"keys", "array_keys", "values", "array_values", "explode", "end", "append", "merge", "in_array",
 	"array_key_exists", "array_merge", "array_push", "array_pop", "array_shift", "array_slice", "array_unique",
-	"array_reverse", "array_column",
+	"array_reverse", "array_column", "map", "filter", "reduce", "find", "any", "all", "sum",
 	// Async and channels.
 	"async", "await", "make_chan", "close", "send", "recv",
 	// Date and time.

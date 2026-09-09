@@ -72,6 +72,7 @@ type Runtime struct {
 	captureEnvironment *ClosureEnvironment
 	cinReader          *bufio.Reader
 	cinTokens          []string
+	topDefers          []*parser.DeferStatement
 }
 
 func (r *Runtime) markCurrentVariablesAsHostGlobals() {

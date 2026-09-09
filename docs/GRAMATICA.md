@@ -91,6 +91,7 @@ asincrono     = "async" bloque ;
 | Clase / Init | `parseClassStatement`, `parseInitStatement` | `ClassStatement`, `InitStatement` |
 | Ciclos | `parseForeachStatement`, `parseWhileStatement`, `parseDoWhileStatement` | Sus nodos de sentencia |
 | Error | `parseTryCatchStatement`, `parseThrowStatement` | `TryCatchStatement`, `ThrowStatement` |
+| Defer | `parseDeferStatement` | `DeferStatement` |
 | Async | `parseAsyncExpression` | `CallExpression` a `async` con función capturada |
 
 Los archivos son `pkg/parser/parser*.go`, `ast*.go`, `lexer.go` y `token.go`.

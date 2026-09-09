@@ -251,7 +251,13 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 
 	case "json_encode":
 		if len(args) > 0 {
-			b, err := json.Marshal(args[0])
+			var b []byte
+			var err error
+			if len(args) >= 2 && isTruthy(args[1]) {
+				b, err = json.MarshalIndent(args[0], "", "  ")
+			} else {
+				b, err = json.Marshal(args[0])
+			}
 			if err != nil {
 				return "{}", true
 			}
@@ -262,10 +268,7 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 	case "json_decode":
 		if len(args) > 0 {
 			if str, ok := args[0].(string); ok {
-				var out interface{}
-				if err := json.Unmarshal([]byte(str), &out); err == nil {
-					return out, true
-				}
+				return JsonDecode(str), true
 			}
 		}
 		return nil, true
