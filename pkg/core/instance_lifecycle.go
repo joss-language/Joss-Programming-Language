@@ -14,10 +14,12 @@ func (i *Instance) AutoDestroy(r *Runtime, skipHook ...bool) {
 		return
 	}
 	i.Mu.Lock()
-	if i.Destroyed {
+	if i.Destroyed || i.Destroying {
 		i.Mu.Unlock()
 		return
 	}
+	i.Destroying = true
+	i.Mu.Unlock()
 
 	// 1. If the class defines a destructor method, invoke it safely before zeroing fields
 	runHook := len(skipHook) == 0 || !skipHook[0]
@@ -34,7 +36,9 @@ func (i *Instance) AutoDestroy(r *Runtime, skipHook ...bool) {
 		}
 	}
 
+	i.Mu.Lock()
 	i.Destroyed = true
+	i.Destroying = false
 
 	// 2. Clean and close any native resources held in fields
 	for k, v := range i.Fields {

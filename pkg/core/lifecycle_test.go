@@ -202,7 +202,8 @@ func TestGarbageCollectorFinalizerDestruction(t *testing.T) {
 			Class: &parser.Identifier{Value: "TokenTemporal"},
 		})
 		inst := instObj.(*Instance)
-		// Register hook to verify finalizer execution
+		// Clear existing auto-finalizer and register tracking hook
+		runtime.SetFinalizer(inst, nil)
 		runtime.SetFinalizer(inst, func(i *Instance) {
 			i.AutoDestroy(rt)
 			finalizerRan.Store(true)

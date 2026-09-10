@@ -112,4 +112,3 @@ func (r *Runtime) evaluateIs(ie *parser.IsExpression) interface{} {
 	}
 	return r.checkParsedType(val, parsed)
 }
-

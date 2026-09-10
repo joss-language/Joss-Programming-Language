@@ -146,11 +146,12 @@ type NativeDriverDefinition struct {
 
 // Instance represents an instance of a class
 type Instance struct {
-	Class     *parser.ClassStatement
-	Fields    map[string]interface{}
-	Constants map[string]bool
-	Destroyed bool
-	Mu        sync.RWMutex
+	Class      *parser.ClassStatement
+	Fields     map[string]interface{}
+	Constants  map[string]bool
+	Destroyed  bool
+	Destroying bool
+	Mu         sync.RWMutex
 }
 
 func (i *Instance) MarshalJSON() ([]byte, error) {
