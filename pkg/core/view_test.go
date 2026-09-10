@@ -102,3 +102,41 @@ func TestViewErrorContextIncludesViewName(t *testing.T) {
 		map[string]interface{}{},
 	})
 }
+
+func TestViewPreservesJavaScriptTemplateLiterals(t *testing.T) {
+	tmpDir := t.TempDir()
+	origWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origWd)
+
+	viewsDir := filepath.Join("app", "views", "test")
+	if err := os.MkdirAll(viewsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	viewContent := `<script>
+		const totalCount = 5;
+		const msg = ` + "`" + `${totalCount} items` + "`" + `;
+	</script>`
+
+	if err := os.WriteFile(filepath.Join(viewsDir, "script.joss.html"), []byte(viewContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := NewRuntime()
+	out := r.executeViewMethod(nil, "render", []interface{}{
+		"test.script",
+		map[string]interface{}{},
+	})
+
+	html, ok := out.(string)
+	if !ok {
+		t.Fatalf("expected string output, got %T: %v", out, out)
+	}
+
+	if !strings.Contains(html, "${totalCount}") {
+		t.Fatalf("expected '${totalCount}' to be preserved in output, got: %s", html)
+	}
+}

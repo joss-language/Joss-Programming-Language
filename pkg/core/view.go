@@ -474,6 +474,7 @@ func CompileViewToJOSS(htmlStr string) (string, error) {
 		s = strings.ReplaceAll(s, "\"", "\\\"")
 		s = strings.ReplaceAll(s, "\n", "\\n")
 		s = strings.ReplaceAll(s, "\r", "\\r")
+		s = strings.ReplaceAll(s, "${", "\\${")
 		return s
 	}
 
