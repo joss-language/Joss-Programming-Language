@@ -271,6 +271,22 @@ func (r *Runtime) updateVariable(exp parser.Expression, newVal interface{}) inte
 }
 
 func (r *Runtime) setInstanceField(instance *Instance, name string, value interface{}, line int) interface{} {
+	instance.Mu.RLock()
+	destroyed := instance.Destroyed
+	instance.Mu.RUnlock()
+	if destroyed {
+		className := "objeto"
+		if instance.Class != nil && instance.Class.Name != nil {
+			className = instance.Class.Name.Value
+		}
+		panic(&JossError{
+			Type:    "SecurityError",
+			Message: fmt.Sprintf("Acceso denegado: el objeto '%s' ya fue destruido por protección", className),
+			File:    r.CurrentFile,
+			Line:    line,
+		})
+	}
+
 	if instance.Constants != nil && instance.Constants[name] {
 		panic(&JossError{
 			Type:    "ConstantAssignment",

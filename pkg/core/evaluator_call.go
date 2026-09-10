@@ -461,7 +461,28 @@ func (r *Runtime) applyFunction(fn interface{}, args []interface{}) interface{} 
 			}
 		}
 
-		return r.CallMethodEvaluated(bound.Method, bound.Instance, args)
+		if bound.Instance != nil {
+			bound.Instance.Mu.RLock()
+			destroyed := bound.Instance.Destroyed
+			bound.Instance.Mu.RUnlock()
+			if destroyed {
+				className := "objeto"
+				if bound.Instance.Class != nil && bound.Instance.Class.Name != nil {
+					className = bound.Instance.Class.Name.Value
+				}
+				panic(&JossError{
+					Type:    "SecurityError",
+					Message: fmt.Sprintf("Acceso denegado: el objeto '%s' ya fue destruido por protección", className),
+					File:    r.CurrentFile,
+				})
+			}
+		}
+
+		res := r.CallMethodEvaluated(bound.Method, bound.Instance, args)
+		if bound.Instance != nil && (bound.Method.Name.Value == "destructor" || bound.Method.Name.Value == "destroy" || bound.Method.Name.Value == "__destruct") {
+			bound.Instance.AutoDestroy(r, true)
+		}
+		return res
 	}
 
 	if method, ok := fn.(*parser.MethodStatement); ok {

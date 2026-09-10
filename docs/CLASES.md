@@ -308,7 +308,37 @@ Si `$usuario` es `null`, la llamada se cancela de forma silenciosa y segura, y `
 
 ---
 
-## 10. Errores comunes en POO con Joss
+## 10. Ciclo de vida y autodestrucción inteligente por protección
+
+En Joss, las clases se escriben de forma estándar sin sintaxis engorrosa. Internamente, el motor acopla un finalizador de ciclo de vida a cada instancia creada con `new`.
+
+Cuando un objeto agota su ciclo de vida y queda sin referencias en el programa:
+1. **Destructor opcional**: Si la clase define un método `destructor()`, `destroy()` o `__destruct()`, el motor lo ejecuta automáticamente de forma aislada y segura.
+2. **Cierre de recursos nativos**: Si la instancia retenía recursos del sistema (archivos, canales de comunicación, streams), se cierran automáticamente previniendo fugas de descriptores.
+3. **Purga de memoria (*Zeroization*)**: Los campos internos de la instancia son vaciados y sanitizados para evitar que datos sensibles (tokens, contraseñas) persistan innecesariamente en memoria RAM.
+4. **Protección contra accesos zombi**: La instancia queda marcada como destruida. Si algún puntero residual intenta leer o modificar sus miembros, el motor lanza un `SecurityError` protegiendo la integridad del sistema.
+
+<!-- joss-run: ["Conexión activa", "Cerrando sesión de forma segura..."] -->
+```joss
+public class SesionSegura {
+    public string $token = "tok_12345"
+
+    public func constructor() {
+        print("Conexión activa")
+    }
+
+    public func destructor() {
+        print("Cerrando sesión de forma segura...")
+    }
+}
+
+$s = new SesionSegura()
+$s->destructor()
+```
+
+---
+
+## 11. Errores comunes en POO con Joss
 
 | Error | Causa | Solución |
 |---|---|---|
@@ -317,10 +347,11 @@ Si `$usuario` es `null`, la llamada se cancela de forma silenciosa y segura, y `
 | Olvidar `new` al instanciar | `$p = Persona()` en vez de `$p = new Persona()`. | La creación de instancias exige la palabra `new`. |
 | Confundir una instancia con un map | Tratar un objeto como array asociativo (`$objeto["campo"]`). | Los objetos usan flecha (`$objeto->campo`), los maps usan corchetes (`$mapa["campo"]`). |
 | Incumplir contrato de interfaz | La clase declara `implements` pero le falta un método o sus parámetros no coinciden. | Implementar todos los métodos de la interfaz con visibilidad `public` y tipos compatibles (`JOSS-DECL-005`). |
+| Acceso a objeto destruido | Intentar leer o escribir un objeto tras ejecutarse su ciclo de destrucción. | Crear una nueva instancia válida en lugar de reutilizar un objeto ya invalidado (`SecurityError`). |
 
 ---
 
-## 11. Ejercicio práctico
+## 12. Ejercicio práctico
 
 1. **Jerarquía de vehículos**:
    - Crea una clase `public class Vehiculo` con una propiedad protegida `protected string $marca` y un método `public func obtenerMarca(): string`.

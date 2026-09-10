@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/jossecurity/joss/pkg/parser"
 )
@@ -84,6 +85,11 @@ func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 			r.CallMethod(meta.Constructor, instance, ne.Arguments)
 		}
 	}
+
+	capturedRuntime := r.Fork()
+	runtime.SetFinalizer(instance, func(inst *Instance) {
+		inst.AutoDestroy(capturedRuntime)
+	})
 
 	return instance
 }
@@ -350,6 +356,22 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 		panic(&JossError{
 			Type:    "NotAnInstance",
 			Message: fmt.Sprintf("'%v' (tipo %T) no es una instancia. Intentando acceder a: '%s'", left, left, me.Property.Value),
+			File:    r.CurrentFile,
+			Line:    me.Property.Token.Line,
+		})
+	}
+
+	instance.Mu.RLock()
+	destroyed := instance.Destroyed
+	instance.Mu.RUnlock()
+	if destroyed {
+		className := "objeto"
+		if instance.Class != nil && instance.Class.Name != nil {
+			className = instance.Class.Name.Value
+		}
+		panic(&JossError{
+			Type:    "SecurityError",
+			Message: fmt.Sprintf("Acceso denegado: el objeto '%s' ya fue destruido por protección", className),
 			File:    r.CurrentFile,
 			Line:    me.Property.Token.Line,
 		})

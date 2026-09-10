@@ -149,6 +149,8 @@ type Instance struct {
 	Class     *parser.ClassStatement
 	Fields    map[string]interface{}
 	Constants map[string]bool
+	Destroyed bool
+	Mu        sync.RWMutex
 }
 
 func (i *Instance) MarshalJSON() ([]byte, error) {
