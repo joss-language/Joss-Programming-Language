@@ -38,6 +38,7 @@ var (
 				HostGlobals:        make(map[string]bool),
 				Classes:            make(map[string]*parser.ClassStatement),
 				Interfaces:         make(map[string]*parser.InterfaceStatement),
+				Enums:              make(map[string]*EnumDefinition),
 				Functions:          make(map[string]*parser.MethodStatement),
 				Routes:             make(map[string]map[string]interface{}),
 				CurrentMiddleware:  make([]string, 0),
@@ -138,6 +139,9 @@ func (r *Runtime) Free() {
 	}
 	for k := range r.Interfaces {
 		delete(r.Interfaces, k)
+	}
+	for k := range r.Enums {
+		delete(r.Enums, k)
 	}
 	for k := range r.Functions {
 		delete(r.Functions, k)
@@ -334,6 +338,43 @@ func (r *Runtime) RegisterInterface(stmt *parser.InterfaceStatement) {
 		r.Interfaces = make(map[string]*parser.InterfaceStatement)
 	}
 	r.Interfaces[stmt.Name.Value] = stmt
+}
+
+func (r *Runtime) RegisterEnum(stmt *parser.EnumStatement) {
+	if stmt == nil || stmt.Name == nil {
+		return
+	}
+	if r.Enums == nil {
+		r.Enums = make(map[string]*EnumDefinition)
+	}
+	enumDef := &EnumDefinition{
+		Name:        stmt.Name.Value,
+		BackingType: stmt.BackingType.Literal,
+		Cases:       make(map[string]*EnumValue),
+		CaseOrder:   make([]*EnumValue, 0, len(stmt.Cases)),
+	}
+
+	for _, c := range stmt.Cases {
+		if c == nil || c.Name == nil {
+			continue
+		}
+		caseName := c.Name.Value
+		var val interface{} = caseName
+		if c.Value != nil {
+			val = r.evaluateExpression(c.Value)
+		} else if stmt.BackingType.Literal == "int" {
+			val = int64(len(enumDef.CaseOrder))
+		}
+		ev := &EnumValue{
+			EnumName: stmt.Name.Value,
+			Name:     caseName,
+			Value:    val,
+		}
+		enumDef.Cases[caseName] = ev
+		enumDef.CaseOrder = append(enumDef.CaseOrder, ev)
+	}
+
+	r.Enums[stmt.Name.Value] = enumDef
 }
 
 func copyNativeHandlerMap(source map[string]NativeHandler) map[string]NativeHandler {

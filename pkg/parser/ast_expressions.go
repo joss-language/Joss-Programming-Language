@@ -402,3 +402,56 @@ func (me *MatchExpression) String() string {
 	out.WriteString("}")
 	return out.String()
 }
+
+type IsExpression struct {
+	Token      Token // IS or INSTANCEOF
+	Left       Expression
+	TargetType Token // Target type token (e.g. "int", "User", "string|null")
+}
+
+func (ie *IsExpression) expressionNode()      {}
+func (ie *IsExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IsExpression) String() string {
+	return "(" + ie.Left.String() + " " + ie.Token.Literal + " " + ie.TargetType.Literal + ")"
+}
+
+type SpreadExpression struct {
+	Token      Token // ...
+	Expression Expression
+}
+
+func (se *SpreadExpression) expressionNode()      {}
+func (se *SpreadExpression) TokenLiteral() string { return se.Token.Literal }
+func (se *SpreadExpression) String() string {
+	return "..." + se.Expression.String()
+}
+
+type YieldExpression struct {
+	Token Token // YIELD
+	Key   Expression
+	Value Expression
+}
+
+func (ye *YieldExpression) expressionNode()      {}
+func (ye *YieldExpression) TokenLiteral() string { return ye.Token.Literal }
+func (ye *YieldExpression) String() string {
+	if ye.Key != nil {
+		return "yield " + ye.Key.String() + " => " + ye.Value.String()
+	}
+	if ye.Value != nil {
+		return "yield " + ye.Value.String()
+	}
+	return "yield"
+}
+
+type NamedArgument struct {
+	Token Token // Identifier token
+	Name  string
+	Value Expression
+}
+
+func (na *NamedArgument) expressionNode()      {}
+func (na *NamedArgument) TokenLiteral() string { return na.Token.Literal }
+func (na *NamedArgument) String() string {
+	return na.Name + ": " + na.Value.String()
+}

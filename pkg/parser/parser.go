@@ -53,6 +53,8 @@ var precedences = map[TokenType]int{
 	SPACESHIP:            EQUALS,
 	LTE:                  LESSGREATER,
 	GTE:                  LESSGREATER,
+	IS:                   LESSGREATER,
+	INSTANCEOF:           LESSGREATER,
 	SHIFT_LEFT:           SHIFT,
 	SHIFT_RIGHT:          SHIFT,
 	LPAREN:               CALL,
@@ -109,6 +111,8 @@ func NewParser(l *Lexer) *Parser {
 	p.registerPrefix(MATCH, p.parseMatchExpression)
 	p.registerPrefix(ASYNC, p.parseAsyncExpression)
 	p.registerPrefix(REF, p.parseReferenceExpression)
+	p.registerPrefix(ELLIPSIS, p.parseSpreadExpression)
+	p.registerPrefix(YIELD, p.parseYieldExpression)
 
 	p.infixParseFns = make(map[TokenType]infixParseFn)
 	p.registerInfix(PLUS, p.parseInfixExpression)
@@ -127,6 +131,8 @@ func NewParser(l *Lexer) *Parser {
 	p.registerInfix(SPACESHIP, p.parseInfixExpression)
 	p.registerInfix(LTE, p.parseInfixExpression)
 	p.registerInfix(GTE, p.parseInfixExpression)
+	p.registerInfix(IS, p.parseIsExpression)
+	p.registerInfix(INSTANCEOF, p.parseIsExpression)
 	p.registerInfix(SHIFT_LEFT, p.parseInfixExpression)
 	p.registerInfix(SHIFT_RIGHT, p.parseInfixExpression)
 	p.registerInfix(PIPE, p.parseInfixExpression)

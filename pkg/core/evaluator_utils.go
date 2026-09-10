@@ -42,6 +42,15 @@ func (r *Runtime) checkParsedType(val interface{}, destination typesystem.Type) 
 	if typesystem.Assignable(destination, source) {
 		return true
 	}
+	if ev, ok := val.(*EnumValue); ok {
+		destinations := destination.Members()
+		for _, candidate := range destinations {
+			if candidate.Kind == typesystem.Class && candidate.Name == ev.EnumName {
+				return true
+			}
+		}
+		return false
+	}
 	inst, ok := val.(*Instance)
 	if !ok || inst == nil {
 		return false

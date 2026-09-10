@@ -12,9 +12,9 @@ limitaciones observadas se indican como tales; no son propuestas de diseño.
 Las palabras reservadas se obtienen de `parser.KeywordNames()`:
 
 ```text
-Init as async break catch class const continue default defer do echo empty
-extends false foreach func implements interface isset let match new nil null print private
-protected public ref return static this throw true try while
+Init abstract as async break case catch class const continue default defer do echo empty
+enum extends false foreach func implements instanceof interface is isset let match new nil null print private
+protected public ref return select static this throw true try while yield
 ```
 
 `var`, `int`, `mixed`, `await` y `make_chan` son identificadores
@@ -43,7 +43,7 @@ Además de nombres, literales y keywords, se tokenizan:
 
 ```text
 = += -= *= /= ??= + - ! * / % < > == != === !== <=> <= >= << >> && || ++ --
-, ; : ? ( ) { } [ ] . .. -> ?-> :: | |> ?? =>
+, ; : ? ( ) { } [ ] . .. ... -> ?-> :: | |> ?? =>
 NEWLINE EOF ILLEGAL
 ```
 
@@ -62,13 +62,13 @@ ordinarios agrupan a la izquierda; la asignación analiza toda su derecha.
 | 3 | `??` |
 | 4 | `&&`, `\|\|` |
 | 5 | `==`, `!=`, `===`, `!==`, `<=>` |
-| 6 | `<`, `>`, `<=`, `>=`, `..` |
+| 6 | `<`, `>`, `<=`, `>=`, `..`, `is`, `instanceof` |
 | 7 | `\|>` |
 | 8 | `+`, `-`, `.` |
 | 9 | `<<`, `>>` |
 | 10 | `*`, `/` |
 | 11 | `%` |
-| 12 | Prefijos `-`, `!`, `ref` |
+| 12 | Prefijos `-`, `!`, `ref`, `...` |
 | 13 | Llamada `()` |
 | 14 | Índice `[]`, miembros `->`, `?->`, `::`, postfix `++`, `--` |
 

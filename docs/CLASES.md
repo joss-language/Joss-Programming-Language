@@ -87,6 +87,25 @@ Al escribir `new Persona("Ada")`, Joss llama automáticamente al constructor ent
 > [!NOTE]
 > Joss también admite la sintaxis de bloque `Init(string $nombre) { ... }`. Los bloques `Init` no llevan modificadores de visibilidad (`public` ni `private`).
 
+### Promoción de propiedades en el constructor (Constructor Property Promotion)
+
+Para evitar tener que declarar la propiedad, recibir el parámetro y escribir `$this->prop = $prop` manualmente, Joss permite declarar la visibilidad (`public`, `protected` o `private`) directamente en los parámetros de `Init` o del `constructor`. Joss creará y asignará la propiedad automáticamente:
+
+<!-- joss-run: ["Ada", "30"] -->
+```joss
+public class Usuario {
+    Init (
+        public string $nombre,
+        public int $edad = 30
+    ) {}
+}
+
+$u = new Usuario("Ada")
+print($u->nombre)
+print($u->edad)
+```
+
+
 ---
 
 ## 3. Encapsulación y modificadores de visibilidad
@@ -229,7 +248,52 @@ print(imprimirArea($c))
 
 ---
 
-## 7. Navegación segura contra nulos (`?->`)
+## 7. Clases y métodos abstractos (`abstract`)
+
+Una **clase abstracta** (`public abstract class`) sirve como plantilla base para otras clases pero **no puede ser instanciada directamente** con `new` (emitirá `JOSS-DECL-004`).
+
+Las clases abstractas pueden contener:
+- Propiedades y métodos completos con implementación para ser heredados.
+- Métodos abstractos (`abstract func nombre(...): Tipo`) que carecen de cuerpo y obligan a las subclases a implementarlos (`JOSS-DECL-003`).
+
+<!-- joss-run: ["Guau!"] -->
+```joss
+public abstract class Animal {
+    public abstract func hablar(): string
+}
+
+public class Perro extends Animal {
+    public func hablar(): string {
+        return "Guau!"
+    }
+}
+
+$perro = new Perro()
+print($perro->hablar())
+```
+
+---
+
+## 8. Comprobación de tipos e instancias: `is` e `instanceof`
+
+Para verificar en tiempo de ejecución si un objeto pertenece a una clase concreta, hereda de una clase base o implementa una interfaz, utiliza los operadores equivalentes **`is`** o **`instanceof`**:
+
+<!-- joss-run: ["true", "true", "false"] -->
+```joss
+public interface IMovible {}
+public class Auto implements IMovible {}
+
+$auto = new Auto()
+print($auto is Auto)
+print($auto is IMovible)
+print($auto instanceof string)
+```
+
+También puedes usar `is` con tipos primitivos como `int`, `string`, `bool`, etc. (ej. `$x is int`).
+
+---
+
+## 9. Navegación segura contra nulos (`?->`)
 
 Si una variable puede contener una instancia o ser `null` (tipo `Persona?`), intentar acceder a un método con `->` sobre un valor nulo podría causar un error.
 
@@ -244,7 +308,7 @@ Si `$usuario` es `null`, la llamada se cancela de forma silenciosa y segura, y `
 
 ---
 
-## 8. Errores comunes en POO con Joss
+## 10. Errores comunes en POO con Joss
 
 | Error | Causa | Solución |
 |---|---|---|
@@ -256,7 +320,7 @@ Si `$usuario` es `null`, la llamada se cancela de forma silenciosa y segura, y `
 
 ---
 
-## 9. Ejercicio práctico
+## 11. Ejercicio práctico
 
 1. **Jerarquía de vehículos**:
    - Crea una clase `public class Vehiculo` con una propiedad protegida `protected string $marca` y un método `public func obtenerMarca(): string`.

@@ -11,11 +11,61 @@ import (
 	"github.com/jossecurity/joss/pkg/typesystem"
 )
 
-func (r *Runtime) CallMethod(method *parser.MethodStatement, instance *Instance, args []parser.Expression) (res interface{}) {
-	evaluated := make([]interface{}, 0, len(args))
-	for _, argument := range args {
-		evaluated = append(evaluated, r.evaluateCallArgument(argument))
+type NamedValue struct {
+	Name  string
+	Value interface{}
+}
+
+type defaultValueMarker struct{}
+
+func (r *Runtime) bindArguments(method *parser.MethodStatement, args []interface{}) []interface{} {
+	hasNamed := false
+	for _, a := range args {
+		if _, ok := a.(*NamedValue); ok {
+			hasNamed = true
+			break
+		}
 	}
+	if !hasNamed {
+		return args
+	}
+
+	positional := make([]interface{}, 0, len(args))
+	named := make(map[string]interface{})
+	for _, a := range args {
+		if nv, ok := a.(*NamedValue); ok {
+			named[nv.Name] = nv.Value
+		} else {
+			positional = append(positional, a)
+		}
+	}
+
+	resolved := make([]interface{}, len(method.Parameters))
+	for i, param := range method.Parameters {
+		cleanName := strings.TrimPrefix(param.Name.Value, "$")
+		if i < len(positional) {
+			resolved[i] = positional[i]
+		} else if v, ok := named[cleanName]; ok {
+			resolved[i] = v
+			delete(named, cleanName)
+		} else if param.DefaultValue != nil {
+			resolved[i] = defaultValueMarker{}
+		} else {
+			panic(fmt.Sprintf("ArgumentError: Falta el argumento requerido '$%s' en %s()", cleanName, method.Name.Value))
+		}
+	}
+
+	if len(named) > 0 {
+		for extra := range named {
+			panic(fmt.Sprintf("ArgumentError: Parámetro desconocido '%s' en %s()", extra, method.Name.Value))
+		}
+	}
+
+	return resolved
+}
+
+func (r *Runtime) CallMethod(method *parser.MethodStatement, instance *Instance, args []parser.Expression) (res interface{}) {
+	evaluated := r.evaluateCallArguments(args)
 	return r.CallMethodEvaluated(method, instance, evaluated)
 }
 
@@ -31,6 +81,23 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 	// Native Method Support
 	if method.Body == nil {
 		return r.executeNativeMethod(instance, method.Name.Value, args)
+	}
+	args = r.bindArguments(method, args)
+	if containsYield(method.Body) && r.currentGenerator == nil {
+		gen := newGenerator()
+		forked := r.Fork()
+		forked.currentGenerator = gen
+		forked.generatorIndex = 0
+
+		go func() {
+			defer func() {
+				recover()
+				close(gen.items)
+			}()
+			forked.callMethodEvaluatedWithPlan(method, instance, args, writeBack, compiled)
+		}()
+
+		return gen
 	}
 	if compiled == nil {
 		compiled = runtimeplan.CompileMethod(method, instance != nil)
@@ -148,24 +215,35 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 		var val interface{}
 		if index < len(args) {
 			val = args[index]
-			if param.ByReference {
-				reference, ok := val.(*VariableReference)
-				if !ok {
-					panic(&JossError{Type: "ReferenceArgumentError", Message: fmt.Sprintf("El argumento %d ($%s) debe pasarse con ref", index+1, param.Name.Value), File: r.CurrentFile, Line: param.Name.Token.Line})
+			if _, isDef := val.(defaultValueMarker); isDef {
+				if param.DefaultValue != nil {
+					val = r.evaluateExpression(param.DefaultValue)
+				} else {
+					val = nil
 				}
-				if param.Type.Literal != "" && reference.Type() != param.Type.Literal {
-					panic(&JossError{Type: "ReferenceTypeError", Message: fmt.Sprintf("La referencia $%s es %s; se requiere exactamente %s", param.Name.Value, reference.Type(), param.Type.Literal), File: r.CurrentFile, Line: param.Name.Token.Line})
+			} else {
+				if param.ByReference {
+					reference, ok := val.(*VariableReference)
+					if !ok {
+						panic(&JossError{Type: "ReferenceArgumentError", Message: fmt.Sprintf("El argumento %d ($%s) debe pasarse con ref", index+1, param.Name.Value), File: r.CurrentFile, Line: param.Name.Token.Line})
+					}
+					if param.Type.Literal != "" && reference.Type() != param.Type.Literal {
+						panic(&JossError{Type: "ReferenceTypeError", Message: fmt.Sprintf("La referencia $%s es %s; se requiere exactamente %s", param.Name.Value, reference.Type(), param.Type.Literal), File: r.CurrentFile, Line: param.Name.Token.Line})
+					}
+					slot.Set(reference)
+					if instance != nil && param.Visibility.Literal != "" {
+						instance.Fields[param.Name.Value] = reference.Get()
+					}
+					continue
 				}
-				slot.Set(reference)
-				continue
-			}
-			if _, ok := val.(*VariableReference); ok {
-				panic(&JossError{Type: "ReferenceArgumentError", Message: fmt.Sprintf("El parámetro $%s no está declarado con ref", param.Name.Value), File: r.CurrentFile, Line: param.Name.Token.Line})
-			}
-			if slot.Type.Kind != typesystem.Mixed {
-				val = r.coerceToParsedType(val, slot.Type)
-				if !r.checkParsedType(val, slot.Type) {
-					panic(fmt.Sprintf("Type Error: El argumento %d ($%s) debe ser de tipo %s, se recibió %T", index+1, param.Name.Value, param.Type.Literal, val))
+				if _, ok := val.(*VariableReference); ok {
+					panic(&JossError{Type: "ReferenceArgumentError", Message: fmt.Sprintf("El parámetro $%s no está declarado con ref", param.Name.Value), File: r.CurrentFile, Line: param.Name.Token.Line})
+				}
+				if slot.Type.Kind != typesystem.Mixed {
+					val = r.coerceToParsedType(val, slot.Type)
+					if !r.checkParsedType(val, slot.Type) {
+						panic(fmt.Sprintf("Type Error: El argumento %d ($%s) debe ser de tipo %s, se recibió %T", index+1, param.Name.Value, param.Type.Literal, val))
+					}
 				}
 			}
 		} else if param.DefaultValue != nil {
@@ -180,6 +258,9 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 			val = nil
 		}
 		slot.Set(val)
+		if instance != nil && param.Visibility.Literal != "" {
+			instance.Fields[param.Name.Value] = val
+		}
 	}
 
 	return r.executeBlock(method.Body)
@@ -187,10 +268,7 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 
 func (r *Runtime) executeCall(call *parser.CallExpression) interface{} {
 	// 1. Evaluate arguments first
-	args := make([]interface{}, len(call.Arguments))
-	for index, arg := range call.Arguments {
-		args[index] = r.evaluateCallArgument(arg)
-	}
+	args := r.evaluateCallArguments(call.Arguments)
 
 	// 2. Try Builtin (only if not shadowed by user function or local)
 	if ident, ok := call.Function.(*parser.Identifier); ok {
@@ -244,7 +322,45 @@ func (r *Runtime) executeCall(call *parser.CallExpression) interface{} {
 	return r.applyFunction(fn, args)
 }
 
+func (r *Runtime) evaluateCallArguments(rawArgs []parser.Expression) []interface{} {
+	args := make([]interface{}, 0, len(rawArgs))
+	for _, arg := range rawArgs {
+		if spread, ok := arg.(*parser.SpreadExpression); ok {
+			val := r.evaluateExpression(spread.Expression)
+			if slice, ok := val.([]interface{}); ok {
+				args = append(args, slice...)
+				continue
+			}
+			rv := reflect.ValueOf(val)
+			if rv.IsValid() && rv.Kind() == reflect.Slice {
+				for i := 0; i < rv.Len(); i++ {
+					args = append(args, rv.Index(i).Interface())
+				}
+				continue
+			}
+			if m, ok := val.(map[string]interface{}); ok {
+				for k, v := range m {
+					args = append(args, &NamedValue{Name: k, Value: v})
+				}
+				continue
+			}
+			if m, ok := val.(map[interface{}]interface{}); ok {
+				for k, v := range m {
+					args = append(args, &NamedValue{Name: fmt.Sprintf("%v", k), Value: v})
+				}
+				continue
+			}
+		}
+		args = append(args, r.evaluateCallArgument(arg))
+	}
+	return args
+}
+
 func (r *Runtime) evaluateCallArgument(argument parser.Expression) interface{} {
+	if named, ok := argument.(*parser.NamedArgument); ok {
+		val := r.evaluateCallArgument(named.Value)
+		return &NamedValue{Name: named.Name, Value: val}
+	}
 	reference, ok := argument.(*parser.ReferenceExpression)
 	if !ok {
 		return r.evaluateExpression(argument)

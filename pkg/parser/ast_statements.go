@@ -89,6 +89,7 @@ type ClassStatement struct {
 	Interfaces []*Identifier // interfaces implemented via 'implements'
 	Body       *BlockStatement
 	Visibility string // "public", etc.
+	IsAbstract bool
 }
 
 func (cs *ClassStatement) statementNode()       {}
@@ -97,6 +98,9 @@ func (cs *ClassStatement) String() string {
 	var out bytes.Buffer
 	if cs.Visibility != "" {
 		out.WriteString(cs.Visibility + " ")
+	}
+	if cs.IsAbstract {
+		out.WriteString("abstract ")
 	}
 	out.WriteString("class ")
 	out.WriteString(cs.Name.String())
@@ -147,6 +151,87 @@ func (is *InterfaceStatement) String() string {
 	out.WriteString(" {\n")
 	for _, m := range is.Methods {
 		out.WriteString("  " + m.String() + "\n")
+	}
+	out.WriteString("}")
+	return out.String()
+}
+
+type EnumCaseStatement struct {
+	Token Token // CASE
+	Name  *Identifier
+	Value Expression // optional backing value
+}
+
+func (ecs *EnumCaseStatement) statementNode()       {}
+func (ecs *EnumCaseStatement) TokenLiteral() string { return ecs.Token.Literal }
+func (ecs *EnumCaseStatement) String() string {
+	if ecs.Value != nil {
+		return "case " + ecs.Name.String() + " = " + ecs.Value.String() + ";"
+	}
+	return "case " + ecs.Name.String() + ";"
+}
+
+type EnumStatement struct {
+	Token       Token // ENUM
+	Name        *Identifier
+	BackingType Token // optional backing type e.g. string or int
+	Cases       []*EnumCaseStatement
+	Visibility  string // "public", "private"
+}
+
+func (es *EnumStatement) statementNode()       {}
+func (es *EnumStatement) TokenLiteral() string { return es.Token.Literal }
+func (es *EnumStatement) String() string {
+	var out bytes.Buffer
+	if es.Visibility != "" {
+		out.WriteString(es.Visibility + " ")
+	}
+	out.WriteString("enum ")
+	out.WriteString(es.Name.String())
+	if es.BackingType.Literal != "" {
+		out.WriteString(": " + es.BackingType.Literal)
+	}
+	out.WriteString(" {\n")
+	for _, c := range es.Cases {
+		out.WriteString("  " + c.String() + "\n")
+	}
+	out.WriteString("}")
+	return out.String()
+}
+
+type SelectCaseStatement struct {
+	Token     Token // CASE or DEFAULT
+	IsDefault bool
+	Comm      Statement
+	Body      *BlockStatement
+}
+
+func (scs *SelectCaseStatement) statementNode()       {}
+func (scs *SelectCaseStatement) TokenLiteral() string { return scs.Token.Literal }
+func (scs *SelectCaseStatement) String() string {
+	if scs.IsDefault {
+		return "default:\n" + scs.Body.String()
+	}
+	s := "case "
+	if scs.Comm != nil {
+		s += scs.Comm.String()
+	}
+	s += ":\n" + scs.Body.String()
+	return s
+}
+
+type SelectStatement struct {
+	Token Token // SELECT
+	Cases []*SelectCaseStatement
+}
+
+func (ss *SelectStatement) statementNode()       {}
+func (ss *SelectStatement) TokenLiteral() string { return ss.Token.Literal }
+func (ss *SelectStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("select {\n")
+	for _, c := range ss.Cases {
+		out.WriteString("  " + c.String() + "\n")
 	}
 	out.WriteString("}")
 	return out.String()
@@ -255,6 +340,7 @@ type MethodStatement struct {
 	Body       *BlockStatement
 	Visibility string // "public", "private", "protected"
 	IsStatic   bool
+	IsAbstract bool
 }
 
 func (ms *MethodStatement) statementNode()       {}
@@ -266,6 +352,9 @@ func (ms *MethodStatement) String() string {
 	}
 	if ms.IsStatic {
 		out.WriteString("static ")
+	}
+	if ms.IsAbstract {
+		out.WriteString("abstract ")
 	}
 	out.WriteString(ms.TokenLiteral() + " ")
 	out.WriteString(ms.Name.String())
@@ -279,8 +368,12 @@ func (ms *MethodStatement) String() string {
 	if ms.ReturnType.Literal != "" {
 		out.WriteString(": " + ms.ReturnType.Literal)
 	}
-	out.WriteString(" ")
-	out.WriteString(ms.Body.String())
+	if ms.Body != nil {
+		out.WriteString(" ")
+		out.WriteString(ms.Body.String())
+	} else {
+		out.WriteString(";")
+	}
 	return out.String()
 }
 

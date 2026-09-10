@@ -42,9 +42,43 @@ func statementTerminatesCallable(statement parser.Statement) bool {
 	}
 }
 
+func hasYield(node interface{}) bool {
+	if node == nil {
+		return false
+	}
+	switch n := node.(type) {
+	case *parser.BlockStatement:
+		for _, stmt := range n.Statements {
+			if hasYield(stmt) {
+				return true
+			}
+		}
+	case *parser.ExpressionStatement:
+		return hasYield(n.Expression)
+	case *parser.YieldExpression:
+		return true
+	case *parser.WhileStatement:
+		return hasYield(n.Body)
+	case *parser.DoWhileStatement:
+		return hasYield(n.Body)
+	case *parser.ForeachStatement:
+		return hasYield(n.Body)
+	case *parser.TryCatchStatement:
+		return hasYield(n.TryBlock) || hasYield(n.CatchBlock)
+	case *parser.TernaryExpression:
+		return hasYield(n.True) || hasYield(n.False)
+	case *parser.BlockExpression:
+		return hasYield(n.Block)
+	}
+	return false
+}
+
 func blockTerminatesCallable(block *parser.BlockStatement) bool {
 	if block == nil {
 		return false
+	}
+	if hasYield(block) {
+		return true
 	}
 	for _, statement := range block.Statements {
 		if statementTerminatesCallable(statement) {

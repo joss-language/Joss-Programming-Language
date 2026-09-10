@@ -9,10 +9,7 @@ import (
 func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 	className := ne.Class.Value
 
-	evalArgs := []interface{}{}
-	for _, arg := range ne.Arguments {
-		evalArgs = append(evalArgs, r.evaluateExpression(arg))
-	}
+	evalArgs := r.evaluateCallArguments(ne.Arguments)
 
 	// Check PluginRegistry for exported class instantiation first
 	if r.PluginRegistry != nil {
@@ -36,6 +33,15 @@ func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 		panic(&JossError{
 			Type:    "UndefinedClass",
 			Message: fmt.Sprintf("Clase '%s' no encontrada", className),
+			File:    r.CurrentFile,
+			Line:    ne.Class.Token.Line,
+		})
+	}
+
+	if classStmt.IsAbstract {
+		panic(&JossError{
+			Type:    "InstantiationError",
+			Message: fmt.Sprintf("No se puede instanciar la clase abstracta '%s'", className),
 			File:    r.CurrentFile,
 			Line:    ne.Class.Token.Line,
 		})
@@ -86,6 +92,56 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 	// 1. Support Static Class Access (e.g. Turnstile::siteKey, GranDB::table, Session::get, etc.)
 	if ident, ok := me.Left.(*parser.Identifier); ok {
 		className := ident.Value
+
+		// Check Enum
+		if enumDef, ok := r.Enums[className]; ok {
+			caseName := me.Property.Value
+			if c, ok := enumDef.Cases[caseName]; ok {
+				return c
+			}
+			if caseName == "cases" {
+				return func(args []interface{}) interface{} {
+					res := make([]interface{}, len(enumDef.CaseOrder))
+					for i, v := range enumDef.CaseOrder {
+						res[i] = v
+					}
+					return res
+				}
+			}
+			if caseName == "from" {
+				return func(args []interface{}) interface{} {
+					if len(args) == 0 {
+						panic(&JossError{Type: "ValueError", Message: "from() requiere un valor", File: r.CurrentFile})
+					}
+					target := args[0]
+					for _, c := range enumDef.CaseOrder {
+						if fmt.Sprintf("%v", c.Value) == fmt.Sprintf("%v", target) {
+							return c
+						}
+					}
+					panic(&JossError{Type: "ValueError", Message: fmt.Sprintf("'%v' no es un valor válido para el enum %s", target, className), File: r.CurrentFile})
+				}
+			}
+			if caseName == "tryFrom" {
+				return func(args []interface{}) interface{} {
+					if len(args) == 0 {
+						return nil
+					}
+					target := args[0]
+					for _, c := range enumDef.CaseOrder {
+						if fmt.Sprintf("%v", c.Value) == fmt.Sprintf("%v", target) {
+							return c
+						}
+					}
+					return nil
+				}
+			}
+			panic(&JossError{
+				Type:    "UndefinedEnumCase",
+				Message: fmt.Sprintf("El caso '%s' no existe en el enum '%s'", caseName, className),
+				File:    r.CurrentFile,
+			})
+		}
 
 		// Check user-defined class in r.Classes
 		if classStmt, ok := r.Classes[className]; ok {
@@ -167,6 +223,40 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 			return val
 		}
 		return nil
+	}
+
+	// Support EnumValue properties (e.g. $status.name, $status.value)
+	if ev, ok := left.(*EnumValue); ok {
+		if me.Property.Value == "name" {
+			return ev.Name
+		}
+		if me.Property.Value == "value" {
+			return ev.Value
+		}
+		return nil
+	}
+
+	// Support Generator methods ($gen->next(), $gen->current(), $gen->key(), $gen->valid())
+	if gen, ok := left.(*Generator); ok {
+		switch me.Property.Value {
+		case "current":
+			return func(args []interface{}) interface{} {
+				return gen.Current()
+			}
+		case "key":
+			return func(args []interface{}) interface{} {
+				return gen.Key()
+			}
+		case "next":
+			return func(args []interface{}) interface{} {
+				gen.Next()
+				return nil
+			}
+		case "valid":
+			return func(args []interface{}) interface{} {
+				return gen.Valid()
+			}
+		}
 	}
 
 	instance, ok := left.(*Instance)

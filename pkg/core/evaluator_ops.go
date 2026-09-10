@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
@@ -140,6 +141,20 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 func (r *Runtime) evaluateArray(al *parser.ArrayLiteral) []interface{} {
 	elements := []interface{}{}
 	for _, el := range al.Elements {
+		if spread, ok := el.(*parser.SpreadExpression); ok {
+			val := r.evaluateExpression(spread.Expression)
+			if arr, ok := val.([]interface{}); ok {
+				elements = append(elements, arr...)
+				continue
+			}
+			rv := reflect.ValueOf(val)
+			if rv.IsValid() && rv.Kind() == reflect.Slice {
+				for i := 0; i < rv.Len(); i++ {
+					elements = append(elements, rv.Index(i).Interface())
+				}
+				continue
+			}
+		}
 		elements = append(elements, r.evaluateExpression(el))
 	}
 	return elements
@@ -148,6 +163,21 @@ func (r *Runtime) evaluateArray(al *parser.ArrayLiteral) []interface{} {
 func (r *Runtime) evaluateMap(ml *parser.MapLiteral) map[string]interface{} {
 	m := make(map[string]interface{})
 	for k, v := range ml.Pairs {
+		if spread, ok := k.(*parser.SpreadExpression); ok {
+			val := r.evaluateExpression(spread.Expression)
+			if subMap, ok := val.(map[string]interface{}); ok {
+				for sk, sv := range subMap {
+					m[sk] = sv
+				}
+				continue
+			}
+			if subMap, ok := val.(map[interface{}]interface{}); ok {
+				for sk, sv := range subMap {
+					m[fmt.Sprintf("%v", sk)] = sv
+				}
+				continue
+			}
+		}
 		key := r.evaluateExpression(k)
 		val := r.evaluateExpression(v)
 		if keyStr, ok := key.(string); ok {

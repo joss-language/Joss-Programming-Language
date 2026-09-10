@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/pkg/typesystem"
 )
 
 func (r *Runtime) evaluateExpression(exp parser.Expression) interface{} {
@@ -90,6 +91,25 @@ func (r *Runtime) evaluateExpression(exp parser.Expression) interface{} {
 		return r.evaluateMatch(e)
 	case *parser.ReferenceExpression:
 		panic(&JossError{Type: "InvalidReference", Message: "`ref` solo puede usarse como argumento de una llamada", File: r.CurrentFile, Line: e.Token.Line})
+	case *parser.IsExpression:
+		return r.evaluateIs(e)
+	case *parser.SpreadExpression:
+		return r.evaluateExpression(e.Expression)
+	case *parser.YieldExpression:
+		return r.evaluateYield(e)
 	}
 	return nil
 }
+
+func (r *Runtime) evaluateIs(ie *parser.IsExpression) interface{} {
+	val := r.evaluateExpression(ie.Left)
+	target := ie.TargetType.Literal
+	parsed := typesystem.Parse(target)
+	if parsed.Kind == typesystem.Class {
+		if ev, ok := val.(*EnumValue); ok {
+			return ev.EnumName == parsed.Name
+		}
+	}
+	return r.checkParsedType(val, parsed)
+}
+

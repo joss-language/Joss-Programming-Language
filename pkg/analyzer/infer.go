@@ -47,6 +47,10 @@ func (a *Analyzer) inferExpression(expression parser.Expression, current *scope)
 		return typesystem.Type{Kind: typesystem.Array}
 	case *parser.MapLiteral:
 		for key, value := range node.Pairs {
+			if _, isSpread := key.(*parser.SpreadExpression); isSpread {
+				a.inferExpression(key, current)
+				continue
+			}
 			keyType := a.inferExpression(key, current)
 			if keyType.IsKnown() && keyType.Kind != typesystem.String {
 				a.add("JOSS-TYPE-005", diagnostics.SeverityError, a.file, tokenOfExpression(key),
@@ -172,6 +176,21 @@ func (a *Analyzer) inferExpression(expression parser.Expression, current *scope)
 			result = commonType(result, a.inferExpression(arm.Value, current))
 		}
 		return result
+	case *parser.IsExpression:
+		a.inferExpression(node.Left, current)
+		return typesystem.Type{Kind: typesystem.Bool}
+	case *parser.SpreadExpression:
+		return a.inferExpression(node.Expression, current)
+	case *parser.NamedArgument:
+		return a.inferExpression(node.Value, current)
+	case *parser.YieldExpression:
+		if node.Key != nil {
+			a.inferExpression(node.Key, current)
+		}
+		if node.Value != nil {
+			a.inferExpression(node.Value, current)
+		}
+		return typesystem.Type{Kind: typesystem.Mixed}
 	default:
 		return typesystem.Type{Kind: typesystem.Unknown}
 	}
@@ -401,6 +420,12 @@ func (a *Analyzer) inferNew(expression *parser.NewExpression, current *scope) ty
 			fmt.Sprintf("Class `%s` is private to `%s`.", className, class.File),
 			"Private project declarations are visible only in their source file.", "Use a public class or instantiate it from its declaring file.")
 	}
+	if class.IsAbstract {
+		a.add("JOSS-DECL-006", diagnostics.SeverityError, a.file, expression.Class.Token,
+			fmt.Sprintf("Cannot instantiate abstract class `%s`.", className),
+			"Abstract classes cannot be directly instantiated.", "Instantiate a concrete subclass that implements all abstract methods.")
+		return typesystem.Type{Kind: typesystem.Unknown}
+	}
 	if constructor, ok := class.Methods["constructor"]; ok {
 		a.checkCall(constructor, expression.Arguments, current, expression.Class.Token)
 	}
@@ -413,6 +438,11 @@ func (a *Analyzer) inferMember(expression *parser.MemberExpression, current *sco
 	}
 	receiver := a.receiverType(expression.Left, current)
 	if receiver.Kind == typesystem.Class && expression.Property != nil {
+		if enumDef, isEnum := a.enums[receiver.Name]; isEnum {
+			if caseType, ok := enumDef.Cases[expression.Property.Value]; ok {
+				return caseType
+			}
+		}
 		if field, exists := a.lookupField(receiver.Name, expression.Property.Value); exists {
 			if !a.canAccess(field.Visibility, field.Owner) {
 				a.accessError(expression.Property.Token, field.Visibility, field.Owner, expression.Property.Value)
@@ -457,6 +487,21 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 	if member, ok := call.Function.(*parser.MemberExpression); ok {
 		receiver := a.receiverType(member.Left, current)
 		if receiver.Kind == typesystem.Class && member.Property != nil {
+			if _, isEnum := a.enums[receiver.Name]; isEnum {
+				switch member.Property.Value {
+				case "cases":
+					for _, argument := range call.Arguments {
+						a.inferExpression(argument, current)
+					}
+					elem := typesystem.Type{Kind: typesystem.Class, Name: receiver.Name}
+					return typesystem.Type{Kind: typesystem.Array, Element: &elem}
+				case "from", "tryFrom":
+					for _, argument := range call.Arguments {
+						a.inferExpression(argument, current)
+					}
+					return typesystem.Type{Kind: typesystem.Class, Name: receiver.Name}
+				}
+			}
 			if callable, exists := a.lookupMethod(receiver.Name, member.Property.Value); exists {
 				if !a.canAccess(callable.Visibility, callable.Owner) {
 					a.accessError(member.Property.Token, callable.Visibility, callable.Owner, member.Property.Value)
@@ -521,6 +566,9 @@ func (a *Analyzer) receiverType(expression parser.Expression, current *scope) ty
 			return typesystem.Type{Kind: typesystem.Class, Name: identifier.Value}
 		}
 		if _, exists := a.interfaces[identifier.Value]; exists {
+			return typesystem.Type{Kind: typesystem.Class, Name: identifier.Value}
+		}
+		if _, exists := a.enums[identifier.Value]; exists {
 			return typesystem.Type{Kind: typesystem.Class, Name: identifier.Value}
 		}
 	}
@@ -595,72 +643,109 @@ func (a *Analyzer) checkCall(callable Callable, arguments []parser.Expression, c
 			minimum++
 		}
 	}
-	if len(arguments) < minimum || (!callable.Variadic && len(arguments) > len(callable.Parameters)) {
-		expected := fmt.Sprintf("%d", len(callable.Parameters))
-		if minimum != len(callable.Parameters) {
-			expected = fmt.Sprintf("%d..%d", minimum, len(callable.Parameters))
+	hasSpread := false
+	hasNamed := false
+	namedMap := make(map[string]*parser.NamedArgument)
+	for _, argument := range arguments {
+		if _, ok := argument.(*parser.SpreadExpression); ok {
+			hasSpread = true
+		} else if named, ok := argument.(*parser.NamedArgument); ok {
+			hasNamed = true
+			namedMap[named.Name] = named
 		}
-		if callable.Variadic {
-			expected = fmt.Sprintf("at least %d", minimum)
-		}
-		a.add("JOSS-CALL-001", diagnostics.SeverityError, a.file, token,
-			fmt.Sprintf("Call to `%s` expects %s argument(s), got %d.", callable.Name, expected, len(arguments)),
-			"The callable signature is known at analysis time.", "Pass the required arguments or update the function signature.")
 	}
-	for index := 0; index < len(arguments) && index < len(callable.Parameters); index++ {
-		parameter := callable.Parameters[index]
-		reference, argumentIsReference := arguments[index].(*parser.ReferenceExpression)
-		if parameter.ByReference != argumentIsReference {
+	if !hasSpread && !hasNamed {
+		if len(arguments) < minimum || (!callable.Variadic && len(arguments) > len(callable.Parameters)) {
+			expected := fmt.Sprintf("%d", len(callable.Parameters))
+			if minimum != len(callable.Parameters) {
+				expected = fmt.Sprintf("%d..%d", minimum, len(callable.Parameters))
+			}
+			if callable.Variadic {
+				expected = fmt.Sprintf("at least %d", minimum)
+			}
+			a.add("JOSS-CALL-001", diagnostics.SeverityError, a.file, token,
+				fmt.Sprintf("Call to `%s` expects %s argument(s), got %d.", callable.Name, expected, len(arguments)),
+				"The callable signature is known at analysis time.", "Pass the required arguments or update the function signature.")
+		}
+	}
+	if hasNamed {
+		for name, namedArg := range namedMap {
+			matched := false
+			for _, param := range callable.Parameters {
+				if cleanName(param.Name) == name {
+					matched = true
+					argType := a.inferExpression(namedArg.Value, current)
+					if !a.assignableExpression(param.Type, argType, namedArg.Value) {
+						a.add("JOSS-TYPE-003", diagnostics.SeverityError, a.file, namedArg.Token,
+							fmt.Sprintf("Argument `%s` to `%s` has type `%s`; parameter `$%s` requires `%s`.", name, callable.Name, argType.String(), param.Name, param.Type.String()),
+							"Function arguments follow the same assignment compatibility rules as variables.", "Convert the argument or correct the parameter type.")
+					}
+					break
+				}
+			}
+			if !matched && len(callable.Parameters) > 0 {
+				a.add("JOSS-CALL-001", diagnostics.SeverityError, a.file, namedArg.Token,
+					fmt.Sprintf("Unknown named parameter `%s` in call to `%s`.", name, callable.Name),
+					"Named arguments must match parameter names.", "Check parameter name.")
+			}
+		}
+	}
+	if !hasNamed && !hasSpread {
+		for index := 0; index < len(arguments) && index < len(callable.Parameters); index++ {
+			parameter := callable.Parameters[index]
+			reference, argumentIsReference := arguments[index].(*parser.ReferenceExpression)
+			if parameter.ByReference != argumentIsReference {
+				if parameter.ByReference {
+					a.add("JOSS-REF-001", diagnostics.SeverityError, a.file, tokenOfExpression(arguments[index]),
+						fmt.Sprintf("Argument %d to `%s` must be passed with `ref`.", index+1, callable.Name),
+						"Mutable reference parameters require explicit mutation at the call site.", "Pass a mutable variable as `ref $variable`.")
+				} else {
+					a.add("JOSS-REF-001", diagnostics.SeverityError, a.file, tokenOfExpression(arguments[index]),
+						fmt.Sprintf("Argument %d to `%s` is marked `ref`, but the parameter is passed by value.", index+1, callable.Name),
+						"References are accepted only by parameters declared with `ref`.", "Remove `ref` or update the Joss function signature.")
+				}
+				continue
+			}
+			argumentExpression := arguments[index]
 			if parameter.ByReference {
+				identifier, valid := reference.Target.(*parser.Identifier)
+				if !valid {
+					a.add("JOSS-REF-002", diagnostics.SeverityError, a.file, tokenOfExpression(reference.Target),
+						"A mutable reference must target a variable.",
+						"Literals, temporaries, function results, fields and indexes do not have a stable call-scoped binding yet.", "Assign the value to a local variable and pass `ref $variable`.")
+					continue
+				}
+				name := cleanName(identifier.Value)
+				symbol, exists := current.resolve(name)
+				if !exists {
+					// inferExpression already emitted the undefined-symbol diagnostic.
+					continue
+				}
+				if symbol.Constant {
+					a.add("JOSS-REF-003", diagnostics.SeverityError, a.file, identifier.Token,
+						fmt.Sprintf("Constant `$%s` cannot be passed as a mutable reference.", name),
+						"A ref parameter can assign through the caller binding.", "Pass a mutable variable instead.")
+					continue
+				}
+				if parameter.Type != symbol.Type {
+					a.add("JOSS-REF-004", diagnostics.SeverityError, a.file, identifier.Token,
+						fmt.Sprintf("Cannot pass `$%s` of type `%s` as `ref %s`.", name, symbol.Type.String(), parameter.Type.String()),
+						"Mutable references require an exact invariant type match.", "Use a variable with exactly the declared parameter type.")
+				}
+				continue
+			}
+			if !a.assignableExpression(parameter.Type, argumentTypes[index], argumentExpression) {
+				a.add("JOSS-TYPE-003", diagnostics.SeverityError, a.file, tokenOfExpression(arguments[index]),
+					fmt.Sprintf("Argument %d to `%s` has type `%s`; parameter `$%s` requires `%s`.", index+1, callable.Name, argumentTypes[index].String(), parameter.Name, parameter.Type.String()),
+					"Function arguments follow the same assignment compatibility rules as variables.", "Convert the argument or correct the parameter type.")
+			}
+		}
+		for index := len(callable.Parameters); index < len(arguments); index++ {
+			if _, isReference := arguments[index].(*parser.ReferenceExpression); isReference {
 				a.add("JOSS-REF-001", diagnostics.SeverityError, a.file, tokenOfExpression(arguments[index]),
-					fmt.Sprintf("Argument %d to `%s` must be passed with `ref`.", index+1, callable.Name),
-					"Mutable reference parameters require explicit mutation at the call site.", "Pass a mutable variable as `ref $variable`.")
-			} else {
-				a.add("JOSS-REF-001", diagnostics.SeverityError, a.file, tokenOfExpression(arguments[index]),
-					fmt.Sprintf("Argument %d to `%s` is marked `ref`, but the parameter is passed by value.", index+1, callable.Name),
-					"References are accepted only by parameters declared with `ref`.", "Remove `ref` or update the Joss function signature.")
+					fmt.Sprintf("Argument %d to `%s` is `ref`, but no reference parameter is declared.", index+1, callable.Name),
+					"Variadic or unpublished native arguments never imply mutable reference semantics.", "Remove `ref` or call a Joss function with an explicit matching ref parameter.")
 			}
-			continue
-		}
-		argumentExpression := arguments[index]
-		if parameter.ByReference {
-			identifier, valid := reference.Target.(*parser.Identifier)
-			if !valid {
-				a.add("JOSS-REF-002", diagnostics.SeverityError, a.file, tokenOfExpression(reference.Target),
-					"A mutable reference must target a variable.",
-					"Literals, temporaries, function results, fields and indexes do not have a stable call-scoped binding yet.", "Assign the value to a local variable and pass `ref $variable`.")
-				continue
-			}
-			name := cleanName(identifier.Value)
-			symbol, exists := current.resolve(name)
-			if !exists {
-				// inferExpression already emitted the undefined-symbol diagnostic.
-				continue
-			}
-			if symbol.Constant {
-				a.add("JOSS-REF-003", diagnostics.SeverityError, a.file, identifier.Token,
-					fmt.Sprintf("Constant `$%s` cannot be passed as a mutable reference.", name),
-					"A ref parameter can assign through the caller binding.", "Pass a mutable variable instead.")
-				continue
-			}
-			if parameter.Type != symbol.Type {
-				a.add("JOSS-REF-004", diagnostics.SeverityError, a.file, identifier.Token,
-					fmt.Sprintf("Cannot pass `$%s` of type `%s` as `ref %s`.", name, symbol.Type.String(), parameter.Type.String()),
-					"Mutable references require an exact invariant type match.", "Use a variable with exactly the declared parameter type.")
-			}
-			continue
-		}
-		if !a.assignableExpression(parameter.Type, argumentTypes[index], argumentExpression) {
-			a.add("JOSS-TYPE-003", diagnostics.SeverityError, a.file, tokenOfExpression(arguments[index]),
-				fmt.Sprintf("Argument %d to `%s` has type `%s`; parameter `$%s` requires `%s`.", index+1, callable.Name, argumentTypes[index].String(), parameter.Name, parameter.Type.String()),
-				"Function arguments follow the same assignment compatibility rules as variables.", "Convert the argument or correct the parameter type.")
-		}
-	}
-	for index := len(callable.Parameters); index < len(arguments); index++ {
-		if _, isReference := arguments[index].(*parser.ReferenceExpression); isReference {
-			a.add("JOSS-REF-001", diagnostics.SeverityError, a.file, tokenOfExpression(arguments[index]),
-				fmt.Sprintf("Argument %d to `%s` is `ref`, but no reference parameter is declared.", index+1, callable.Name),
-				"Variadic or unpublished native arguments never imply mutable reference semantics.", "Remove `ref` or call a Joss function with an explicit matching ref parameter.")
 		}
 	}
 }
@@ -830,6 +915,12 @@ func tokenOfExpression(expression parser.Expression) parser.Token {
 		return node.Token
 	case *parser.MatchExpression:
 		return node.Token
+	case *parser.IsExpression:
+		return node.Token
+	case *parser.SpreadExpression:
+		return node.Token
+	case *parser.YieldExpression:
+		return node.Token
 	default:
 		return parser.Token{}
 	}
@@ -838,6 +929,16 @@ func tokenOfExpression(expression parser.Expression) parser.Token {
 func (a *Analyzer) narrowScopeFromCondition(condition parser.Expression, current *scope) (*scope, *scope) {
 	trueScope := newScope(current)
 	falseScope := newScope(current)
+	if isExpr, ok := condition.(*parser.IsExpression); ok {
+		if ident, ok := isExpr.Left.(*parser.Identifier); ok {
+			if sym, ok := current.resolve(ident.Value); ok {
+				targetType := typeFromToken(isExpr.TargetType)
+				trueScope.put(&symbol{
+					Name: sym.Name, Type: targetType, Kind: sym.Kind, Token: sym.Token, File: sym.File, Dynamic: sym.Dynamic, Inferred: sym.Inferred, Constant: sym.Constant, Synthetic: true,
+				})
+			}
+		}
+	}
 	if infix, ok := condition.(*parser.InfixExpression); ok {
 		var ident *parser.Identifier
 		var isNullCheck bool

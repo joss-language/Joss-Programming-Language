@@ -28,6 +28,7 @@ type Callable struct {
 	Visibility string
 	Owner      string
 	File       string
+	IsAbstract bool
 }
 
 type Field struct {
@@ -53,12 +54,22 @@ type Class struct {
 	Fields     map[string]Field
 	Visibility string
 	File       string
+	IsAbstract bool
+}
+
+type Enum struct {
+	Name        string
+	BackingType typesystem.Type
+	Cases       map[string]typesystem.Type
+	Visibility  string
+	File        string
 }
 
 type Environment struct {
 	Builtins   map[string]Callable
 	Classes    map[string]Class
 	Interfaces map[string]Interface
+	Enums      map[string]Enum
 	Globals    map[string]typesystem.Type
 }
 
@@ -67,6 +78,7 @@ func NewEnvironment() Environment {
 		Builtins:   make(map[string]Callable),
 		Classes:    make(map[string]Class),
 		Interfaces: make(map[string]Interface),
+		Enums:      make(map[string]Enum),
 		Globals:    make(map[string]typesystem.Type),
 	}
 }

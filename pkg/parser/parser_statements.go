@@ -25,19 +25,29 @@ func (p *Parser) parseStatement() Statement {
 		return nil
 	}
 
-	// Modifiers before class or function: public class Foo, public func bar()
-	if p.curToken.Type == PUBLIC || p.curToken.Type == PRIVATE || p.curToken.Type == PROTECTED || p.curToken.Type == STATIC {
-		vis := p.curToken.Literal
+	// Modifiers before class, interface, enum, function or property: public, private, protected, static, abstract
+	if p.curToken.Type == PUBLIC || p.curToken.Type == PRIVATE || p.curToken.Type == PROTECTED || p.curToken.Type == STATIC || p.curToken.Type == ABSTRACT {
+		vis := ""
 		isStatic := false
-		if p.curToken.Type == STATIC {
-			isStatic = true
-			vis = ""
-			p.addError(p.curToken, "`static` no implica visibilidad; escribe `public static`, `protected static` o `private static`.")
+		isAbstract := false
+
+		for {
+			if p.curToken.Type == PUBLIC || p.curToken.Type == PRIVATE || p.curToken.Type == PROTECTED {
+				vis = p.curToken.Literal
+			} else if p.curToken.Type == STATIC {
+				isStatic = true
+			} else if p.curToken.Type == ABSTRACT {
+				isAbstract = true
+			}
+			if p.peekToken.Type == PUBLIC || p.peekToken.Type == PRIVATE || p.peekToken.Type == PROTECTED || p.peekToken.Type == STATIC || p.peekToken.Type == ABSTRACT {
+				p.nextToken()
+			} else {
+				break
+			}
 		}
 
-		if p.peekToken.Type == STATIC {
-			isStatic = true
-			p.nextToken() // consume static
+		if isStatic && vis == "" {
+			p.addError(p.curToken, "`static` no implica visibilidad; escribe `public static`, `protected static` o `private static`.")
 		}
 
 		if p.peekToken.Type == CLASS {
@@ -48,8 +58,21 @@ func (p *Parser) parseStatement() Statement {
 			classStmt := p.parseClassStatement()
 			if classStmt != nil {
 				classStmt.Visibility = vis
+				classStmt.IsAbstract = isAbstract
 			}
 			return classStmt
+		}
+
+		if p.peekToken.Type == ENUM {
+			if vis == "protected" {
+				p.addError(p.curToken, "Un enum sólo puede ser `public` o `private`; `protected` se reserva para miembros.")
+			}
+			p.nextToken() // move to ENUM
+			enumStmt := p.parseEnumStatement()
+			if enumStmt != nil {
+				enumStmt.Visibility = vis
+			}
+			return enumStmt
 		}
 
 		if p.peekToken.Type == INTERFACE {
@@ -69,10 +92,11 @@ func (p *Parser) parseStatement() Statement {
 				p.addError(p.curToken, "Una función global sólo puede ser `public` o `private`; `protected` se reserva para miembros.")
 			}
 			p.nextToken() // move to FUNCTION
-			methodStmt := p.parseMethodStatement()
+			methodStmt := p.parseMethodStatement(isAbstract)
 			if methodStmt != nil {
 				methodStmt.Visibility = vis
 				methodStmt.IsStatic = isStatic
+				methodStmt.IsAbstract = isAbstract
 			}
 			return methodStmt
 		}
@@ -132,6 +156,10 @@ func (p *Parser) parseStatement() Statement {
 		p.addError(p.curToken, "Las clases requieren visibilidad explícita: `public class`, `protected class` o `private class`.")
 		return p.parseClassStatement()
 	}
+	if p.curToken.Type == ENUM {
+		p.addError(p.curToken, "Los enums requieren visibilidad explícita: `public enum` o `private enum`.")
+		return p.parseEnumStatement()
+	}
 	if p.curToken.Type == INTERFACE {
 		p.addError(p.curToken, "Las interfaces requieren visibilidad explícita: `public interface` o `private interface`.")
 		return p.parseInterfaceStatement()
@@ -176,6 +204,9 @@ func (p *Parser) parseStatement() Statement {
 	}
 	if p.curToken.Type == ASYNC {
 		return p.parseAsyncStatement()
+	}
+	if p.curToken.Type == SELECT {
+		return p.parseSelectStatement()
 	}
 	if p.curToken.Type == CONST {
 		return p.parseConstStatement()
@@ -446,25 +477,37 @@ func (p *Parser) parseClassBody() *BlockStatement {
 		}
 
 		var stmt Statement
-		if p.curToken.Type == PUBLIC || p.curToken.Type == PRIVATE || p.curToken.Type == PROTECTED || p.curToken.Type == STATIC {
-			vis := p.curToken.Literal
+		if p.curToken.Type == PUBLIC || p.curToken.Type == PRIVATE || p.curToken.Type == PROTECTED || p.curToken.Type == STATIC || p.curToken.Type == ABSTRACT {
+			vis := ""
 			isStatic := false
-			if p.curToken.Type == STATIC {
-				isStatic = true
-				vis = ""
-				p.addError(p.curToken, "`static` no implica visibilidad; escribe `public static`, `protected static` o `private static`.")
+			isAbstract := false
+
+			for {
+				if p.curToken.Type == PUBLIC || p.curToken.Type == PRIVATE || p.curToken.Type == PROTECTED {
+					vis = p.curToken.Literal
+				} else if p.curToken.Type == STATIC {
+					isStatic = true
+				} else if p.curToken.Type == ABSTRACT {
+					isAbstract = true
+				}
+				if p.peekToken.Type == PUBLIC || p.peekToken.Type == PRIVATE || p.peekToken.Type == PROTECTED || p.peekToken.Type == STATIC || p.peekToken.Type == ABSTRACT {
+					p.nextToken()
+				} else {
+					break
+				}
 			}
-			if p.peekToken.Type == STATIC {
-				isStatic = true
-				p.nextToken() // consume static
+
+			if isStatic && vis == "" {
+				p.addError(p.curToken, "`static` no implica visibilidad; escribe `public static`, `protected static` o `private static`.")
 			}
 
 			if p.peekToken.Type == FUNCTION {
 				p.nextToken() // move to FUNCTION
-				mStmt := p.parseMethodStatement()
+				mStmt := p.parseMethodStatement(isAbstract)
 				if mStmt != nil {
 					mStmt.Visibility = vis
 					mStmt.IsStatic = isStatic
+					mStmt.IsAbstract = isAbstract
 					stmt = mStmt
 				}
 			} else if p.peekToken.Type == CONST {
@@ -577,10 +620,15 @@ func (p *Parser) parseClassBody() *BlockStatement {
 func (p *Parser) parseInitStatement() *InitStatement {
 	stmt := &InitStatement{Token: p.curToken}
 
-	if !p.expectPeek(IDENT) { // main
+	if p.peekToken.Type == IDENT {
+		p.nextToken()
+		stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	} else if p.peekToken.Type == LPAREN {
+		stmt.Name = &Identifier{Token: p.curToken, Value: "Init"}
+	} else {
+		p.expectPeek(IDENT)
 		return nil
 	}
-	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	if !p.expectPeek(LPAREN) {
 		return nil
@@ -897,8 +945,11 @@ func (p *Parser) parseThrowStatement() *ThrowStatement {
 	return stmt
 }
 
-func (p *Parser) parseMethodStatement() *MethodStatement {
+func (p *Parser) parseMethodStatement(isAbstract ...bool) *MethodStatement {
 	stmt := &MethodStatement{Token: p.curToken}
+	if len(isAbstract) > 0 && isAbstract[0] {
+		stmt.IsAbstract = true
+	}
 
 	if !p.expectPeek(IDENT) {
 		return nil
@@ -912,11 +963,175 @@ func (p *Parser) parseMethodStatement() *MethodStatement {
 	stmt.Parameters = p.parseFunctionParameters()
 	stmt.ReturnType = p.parseOptionalReturnType()
 
+	if stmt.IsAbstract {
+		if p.peekToken.Type == LBRACE {
+			p.addError(p.peekToken, "Los métodos abstractos no pueden tener cuerpo `{ ... }`.")
+			p.nextToken()
+			p.parseBlockStatement()
+			return stmt
+		}
+		if p.peekToken.Type == SEMICOLON || p.peekToken.Type == NEWLINE {
+			p.nextToken()
+		}
+		return stmt
+	}
+
+	if p.peekToken.Type == SEMICOLON {
+		stmt.IsAbstract = true
+		p.nextToken()
+		return stmt
+	}
+
 	if !p.expectPeek(LBRACE) {
 		return nil
 	}
 
 	stmt.Body = p.parseBlockStatement()
+
+	return stmt
+}
+
+func (p *Parser) parseEnumStatement() *EnumStatement {
+	stmt := &EnumStatement{Token: p.curToken}
+
+	if !p.expectPeek(IDENT) {
+		return nil
+	}
+	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if p.peekToken.Type == COLON {
+		p.nextToken() // consume :
+		if !p.expectPeek(IDENT) {
+			return nil
+		}
+		stmt.BackingType = p.curToken
+	}
+
+	if !p.expectPeek(LBRACE) {
+		return nil
+	}
+
+	stmt.Cases = p.parseEnumBody()
+
+	return stmt
+}
+
+func (p *Parser) parseEnumBody() []*EnumCaseStatement {
+	cases := []*EnumCaseStatement{}
+	p.nextToken() // move past {
+
+	for p.curToken.Type != RBRACE && p.curToken.Type != EOF {
+		if p.curToken.Type == NEWLINE || p.curToken.Type == SEMICOLON {
+			p.nextToken()
+			continue
+		}
+
+		if p.curToken.Type != CASE {
+			p.addError(p.curToken, "Un enum solo puede contener declaraciones de casos (`case Nombre;` o `case Nombre = valor;`).")
+			p.nextToken()
+			continue
+		}
+
+		caseTok := p.curToken
+		if !p.expectPeek(IDENT) {
+			p.nextToken()
+			continue
+		}
+
+		caseStmt := &EnumCaseStatement{
+			Token: caseTok,
+			Name:  &Identifier{Token: p.curToken, Value: p.curToken.Literal},
+		}
+
+		if p.peekToken.Type == ASSIGN {
+			p.nextToken() // consume =
+			p.nextToken()
+			caseStmt.Value = p.parseExpression(LOWEST)
+		}
+
+		if p.peekToken.Type == SEMICOLON {
+			p.nextToken()
+		}
+
+		cases = append(cases, caseStmt)
+		p.nextToken()
+	}
+
+	return cases
+}
+
+func (p *Parser) parseSelectStatement() *SelectStatement {
+	stmt := &SelectStatement{Token: p.curToken}
+
+	if !p.expectPeek(LBRACE) {
+		return nil
+	}
+
+	p.nextToken() // move past {
+
+	for p.curToken.Type != RBRACE && p.curToken.Type != EOF {
+		if p.curToken.Type == NEWLINE || p.curToken.Type == SEMICOLON {
+			p.nextToken()
+			continue
+		}
+
+		if p.curToken.Type == CASE {
+			caseTok := p.curToken
+			p.nextToken()
+			comm := p.parseStatement()
+			if p.peekToken.Type == COLON {
+				p.nextToken()
+			}
+			p.nextToken()
+			block := &BlockStatement{Token: p.curToken, Statements: []Statement{}}
+			for p.curToken.Type != CASE && p.curToken.Type != DEFAULT && p.curToken.Type != RBRACE && p.curToken.Type != EOF {
+				if p.curToken.Type == NEWLINE || p.curToken.Type == SEMICOLON || p.curToken.Type == COLON {
+					p.nextToken()
+					continue
+				}
+				subStmt := p.parseStatement()
+				if subStmt != nil {
+					block.Statements = append(block.Statements, subStmt)
+				}
+				p.nextToken()
+			}
+			stmt.Cases = append(stmt.Cases, &SelectCaseStatement{
+				Token: caseTok,
+				Comm:  comm,
+				Body:  block,
+			})
+			continue
+		}
+
+		if p.curToken.Type == DEFAULT {
+			defTok := p.curToken
+			if p.peekToken.Type == COLON {
+				p.nextToken()
+			}
+			p.nextToken()
+			block := &BlockStatement{Token: p.curToken, Statements: []Statement{}}
+			for p.curToken.Type != CASE && p.curToken.Type != DEFAULT && p.curToken.Type != RBRACE && p.curToken.Type != EOF {
+				if p.curToken.Type == NEWLINE || p.curToken.Type == SEMICOLON {
+					p.nextToken()
+					continue
+				}
+				subStmt := p.parseStatement()
+				if subStmt != nil {
+					block.Statements = append(block.Statements, subStmt)
+				}
+				p.nextToken()
+			}
+			stmt.Cases = append(stmt.Cases, &SelectCaseStatement{
+				Token:     defTok,
+				IsDefault: true,
+				Body:      block,
+			})
+			continue
+		}
+
+		p.addError(p.curToken, "Se esperaba `case` o `default` dentro de `select`.")
+		p.nextToken()
+	}
 
 	return stmt
 }

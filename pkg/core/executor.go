@@ -33,6 +33,9 @@ func (r *Runtime) Execute(program *parser.Program) {
 		if ifaceStmt, ok := stmt.(*parser.InterfaceStatement); ok {
 			r.RegisterInterface(ifaceStmt)
 		}
+		if enumStmt, ok := stmt.(*parser.EnumStatement); ok {
+			r.RegisterEnum(enumStmt)
+		}
 		if methodStmt, ok := stmt.(*parser.MethodStatement); ok {
 			r.Functions[methodStmt.Name.Value] = methodStmt
 			r.planForMethod(methodStmt)
@@ -237,6 +240,10 @@ func (r *Runtime) executeStatement(stmt parser.Statement) interface{} {
 		r.registerClass(s)
 	case *parser.InterfaceStatement:
 		r.RegisterInterface(s)
+	case *parser.EnumStatement:
+		r.RegisterEnum(s)
+	case *parser.SelectStatement:
+		return r.executeSelect(s)
 	}
 	return nil
 }
@@ -333,6 +340,21 @@ func (r *Runtime) executeForeach(fs *parser.ForeachStatement) interface{} {
 				break
 			}
 			i++
+		}
+	} else if gen, ok := iterable.(*Generator); ok {
+		defer gen.Close()
+		for {
+			select {
+			case item, ok := <-gen.items:
+				if !ok {
+					return nil
+				}
+				if executeIter(item.Key, item.Value) {
+					return nil
+				}
+			case <-gen.done:
+				return nil
+			}
 		}
 	} else {
 		fmt.Printf("Error: Foreach espera un array, mapa o canal, se obtuvo: %T\n", iterable)

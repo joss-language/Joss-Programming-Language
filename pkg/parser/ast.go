@@ -39,6 +39,7 @@ func (p *Program) String() string {
 }
 
 type Parameter struct {
+	Visibility   Token // Optional: public, protected, private (constructor promotion)
 	Type         Token // Optional: string, int, etc.
 	Name         *Identifier
 	DefaultValue Expression // Optional: = 200, = "default", etc.
@@ -47,6 +48,9 @@ type Parameter struct {
 
 func (p *Parameter) String() string {
 	res := ""
+	if p.Visibility.Literal != "" {
+		res += p.Visibility.Literal + " "
+	}
 	if p.ByReference {
 		res += "ref "
 	}

@@ -15,7 +15,7 @@ Comillas indican texto literal. `[...]` indica opcional; `{...}` repetición;
 
 ```ebnf
 programa      = { sentencia [sep] } ;
-sentencia     = declaracion | funcion | clase | interfaz | inicializador
+sentencia     = declaracion | funcion | clase | interfaz | enum | inicializador | select
               | "return" [expr] | "throw" expr
               | "break" | "continue" | ciclo | captura
               | ("print" | "echo") ["("] expr [")"] | expr ;
@@ -23,33 +23,41 @@ variable      = "$" identificador ;
 declaracion   = [visibilidad] ["static"] ["const"]
                 ("let" [tipo] | tipo) variable ["=" expr]
                 {"," variable ["=" expr]} ;
-funcion       = visibilidad ["static"] "func" identificador firma bloque ;
+funcion       = [visibilidad] ["abstract"] ["static"] "func" identificador firma (bloque | [sep]) ;
 firma         = "(" [parametros] ")" [":" tipo] ;
 parametros    = parametro {"," parametro} [","] ;
-parametro     = ["ref"] tipo variable ["=" expr] ;
+parametro     = [visibilidad] ["ref"] tipo variable ["=" expr] ;
 closure       = "func" firma bloque ;
-clase         = visibilidad ["static"] "class" identificador
+clase         = visibilidad ["abstract"] ["static"] "class" identificador
                 ["extends" identificador]
                 ["implements" identificador {"," identificador}] "{" {miembro} "}" ;
 interfaz      = visibilidad "interface" identificador
                 ["extends" identificador {"," identificador}] "{" {protoMetodo} "}" ;
+enum          = visibilidad "enum" identificador [":" tipo] "{" {casoEnum} "}" ;
+casoEnum      = "case" identificador ["=" expr] [sep] ;
 protoMetodo   = [visibilidad] "func" identificador "(" [parametros] ")" [":" tipo] [sep] ;
 miembro       = declaracion | funcion | inicializador ;
-inicializador = "Init" identificador "(" [parametros] ")" bloque ;
+inicializador = "Init" [identificador] "(" [parametros] ")" bloque ;
 visibilidad   = "public" | "private" | "protected" ;
 tipo          = simple {"|" simple} ["?"] ;
 simple        = nombreTipo ["<" tipo {"," tipo} ">"] ;
 bloque        = "{" {sentencia [sep]} "}" ;
 ciclo         = "while" "(" expr ")" bloque
               | "do" bloque "while" "(" expr ")"
-              | "foreach" "(" expr "as" variable ")" bloque ;
+              | "foreach" "(" expr "as" [variable "=>"] variable ")" bloque ;
 captura       = "try" bloque "catch" "(" variable ")" bloque ;
-array         = "[" [expr {"," expr} [","]] "]" ;
-map           = "{" [expr ":" expr {"," expr ":" expr} [","]] "}" ;
+select        = "select" "{" {casoSelect} "}" ;
+casoSelect    = ("case" (("send" "(" expr "," expr ")") | ("recv" "(" expr ")") | (variable "=" "recv" "(" expr ")")) | "default") ":" {sentencia [sep]} ;
+array         = "[" [elementoArray {"," elementoArray} [","]] "]" ;
+elementoArray = expr | "..." expr ;
+map           = "{" [elementoMap {"," elementoMap} [","]] "}" ;
+elementoMap   = expr ":" expr | "..." expr ;
 match         = "match" "(" expr ")" "{" {brazo} "}" ;
 brazo         = ("default" | expr {"," expr}) "=>" (expr | bloque) [","] ;
 llamada       = expr "(" [argumento {"," argumento} [","]] ")" ;
-argumento     = expr | "ref" variable ;
+argumento     = expr | "ref" variable | identificador ":" expr | "..." expr ;
+yield         = "yield" [expr ["=>" expr]] ;
+comprobacion  = expr ("is" | "instanceof") tipo ;
 acceso        = expr ("->" | "?->" | "::") nombreMiembro ;
 indice        = expr "[" [expr] "]" ;
 nuevo         = "new" identificador "(" [argumentos] ")" ;
@@ -94,6 +102,11 @@ asincrono     = "async" bloque ;
 | Tipo | `parseTypeReference` | Token normalizado conservado en declaración/firma |
 | Clase / Init | `parseClassStatement`, `parseInitStatement` | `ClassStatement`, `InitStatement` |
 | Interfaz | `parseInterfaceStatement` | `InterfaceStatement` |
+| Enum | `parseEnumStatement` | `EnumStatement` |
+| Select | `parseSelectStatement` | `SelectStatement` |
+| Yield | `parseYieldExpression` | `YieldExpression` |
+| Spread | `parseSpreadExpression` | `SpreadExpression` |
+| Comprobación de tipo | `parseIsInfix` | `IsExpression` |
 | Ciclos | `parseForeachStatement`, `parseWhileStatement`, `parseDoWhileStatement` | Sus nodos de sentencia |
 | Error | `parseTryCatchStatement`, `parseThrowStatement` | `TryCatchStatement`, `ThrowStatement` |
 | Defer | `parseDeferStatement` | `DeferStatement` |

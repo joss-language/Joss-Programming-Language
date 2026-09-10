@@ -244,8 +244,13 @@ func (l *Lexer) NextToken() Token {
 		if l.peekChar() == '.' {
 			ch := l.ch
 			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: RANGE, Literal: literal, Line: l.line, Column: l.column - 1}
+			if l.peekChar() == '.' {
+				l.readChar()
+				tok = Token{Type: ELLIPSIS, Literal: "...", Line: l.line, Column: l.column - 2}
+			} else {
+				literal := string(ch) + string(l.ch)
+				tok = Token{Type: RANGE, Literal: literal, Line: l.line, Column: l.column - 1}
+			}
 		} else {
 			tok = l.newToken(DOT, l.ch)
 		}

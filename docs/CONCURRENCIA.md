@@ -172,7 +172,57 @@ await($productor)
 
 ---
 
-## 7. El modelo de aislamiento de memoria: `Runtime.Fork()`
+## 7. Multiplexación de canales con `select`
+
+La sentencia **`select`** permite esperar y reaccionar ante múltiples operaciones de canales simultáneamente, ejecutando el primer caso que esté listo para completarse sin bloquear el hilo si se provee una cláusula `default:`:
+
+- `case send($ch, $valor):` Intenta enviar un valor a un canal.
+- `case recv($ch):` Espera recibir de un canal descartando el valor.
+- `case $msg = recv($ch):` Recibe de un canal y asigna el valor recibido a una variable.
+- `default:` Se ejecuta de inmediato si ninguno de los canales tiene operaciones listas (no bloqueante).
+
+<!-- joss-run: ["recibido: listo"] -->
+```joss
+$ch = make_chan(1)
+send($ch, "listo")
+
+select {
+    case $msg = recv($ch):
+        print("recibido: " . $msg)
+    default:
+        print("sin mensajes")
+}
+```
+
+---
+
+## 8. Funciones generadoras y `yield`
+
+Una **función generadora** permite producir una secuencia de valores perezosamente (*lazy evaluation*) bajo demanda, suspendiendo su ejecución tras cada `yield` y reanudándola exactamente en ese punto cuando se le solicita el siguiente elemento.
+
+Joss soporta:
+- `yield $valor`: Emite un valor.
+- `yield $clave => $valor`: Emite un par clave-valor.
+- Consumo directo mediante un bucle `foreach`.
+- Inspección manual mediante métodos de la instancia devuelta: `->current()`, `->next()`, `->key()`, `->valid()`.
+
+<!-- joss-run: ["0: 10", "1: 20", "2: 30"] -->
+```joss
+public func contar(): mixed {
+    yield 10
+    yield 20
+    yield 30
+}
+
+$gen = contar()
+foreach ($gen as $k => $v) {
+    print($k . ": " . $v)
+}
+```
+
+---
+
+## 9. El modelo de aislamiento de memoria: `Runtime.Fork()`
 
 Muchos lenguajes sufren de errores oscuros de concurrencia cuando dos tareas modifican las mismas variables al mismo tiempo.
 
@@ -183,7 +233,7 @@ Joss previene esto en su arquitectura interna:
 
 ---
 
-## 8. Tareas periódicas: Cron
+## 10. Tareas periódicas: Cron
 
 Para operaciones que deben repetirse periódicamente en el tiempo (como limpiar sesiones inactivas cada medianoche o generar reportes cada hora), Joss incluye la clase nativa `Cron`:
 
@@ -197,7 +247,7 @@ Cron::schedule("limpieza_diaria", "0 0 * * *", {
 
 ---
 
-## 9. Buenas prácticas y errores comunes
+## 11. Buenas prácticas y errores comunes
 
 | Situación | Qué debes hacer | Qué debes evitar |
 |---|---|---|
@@ -208,7 +258,7 @@ Cron::schedule("limpieza_diaria", "0 0 * * *", {
 
 ---
 
-## 10. Ejercicio práctico
+## 12. Ejercicio práctico
 
 1. **Simulador de descargas paralelas**:
    - Crea una función que simule descargar tres archivos:

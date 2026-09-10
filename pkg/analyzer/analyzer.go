@@ -24,6 +24,8 @@ type Analyzer struct {
 	classTokens       map[string]functionDeclaration
 	interfaces        map[string]Interface
 	interfaceTokens   map[string]functionDeclaration
+	enums             map[string]Enum
+	enumTokens        map[string]functionDeclaration
 	file              string
 	currentClass      string
 	currentReturnType typesystem.Type
@@ -38,6 +40,8 @@ func Analyze(units []SourceUnit, environment Environment) []diagnostics.Diagnost
 		classTokens:       make(map[string]functionDeclaration),
 		interfaces:        make(map[string]Interface),
 		interfaceTokens:   make(map[string]functionDeclaration),
+		enums:             make(map[string]Enum),
+		enumTokens:        make(map[string]functionDeclaration),
 		currentReturnType: typesystem.Type{Kind: typesystem.Unknown},
 	}
 	for name, class := range environment.Classes {
@@ -45,6 +49,9 @@ func Analyze(units []SourceUnit, environment Environment) []diagnostics.Diagnost
 	}
 	for name, iface := range environment.Interfaces {
 		a.interfaces[name] = iface
+	}
+	for name, enumVal := range environment.Enums {
+		a.enums[name] = enumVal
 	}
 	a.collectDeclarations(units)
 	a.analyzeUnits(units)
@@ -77,6 +84,8 @@ func (a *Analyzer) collectDeclarations(units []SourceUnit) {
 				a.declareClass(node, unit.Path)
 			case *parser.InterfaceStatement:
 				a.declareInterface(node, unit.Path)
+			case *parser.EnumStatement:
+				a.declareEnum(node, unit.Path)
 			}
 		}
 	}
@@ -176,7 +185,7 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 			"Interfaces and classes share one project-wide type namespace.", "Choose a unique name.")
 		return
 	}
-	class := Class{Name: name, Methods: make(map[string]Callable), Fields: make(map[string]Field), Visibility: classNode.Visibility, File: file}
+	class := Class{Name: name, Methods: make(map[string]Callable), Fields: make(map[string]Field), Visibility: classNode.Visibility, File: file, IsAbstract: classNode.IsAbstract}
 	if classNode.SuperClass != nil {
 		class.SuperClass = classNode.SuperClass.Value
 	}
@@ -210,6 +219,22 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 				methodName, callable, token = method.Name.Value, callableFromMethod(method), method.Name.Token
 				callable.Owner = name
 				callable.File = file
+				if callable.IsAbstract && !classNode.IsAbstract {
+					a.add("JOSS-DECL-005", diagnostics.SeverityError, file, token,
+						fmt.Sprintf("Class `%s` must be declared abstract because it contains abstract method `%s`.", name, methodName),
+						"A class containing abstract methods must be marked `abstract class`.", "Add `abstract` to the class declaration or provide a method body.")
+				}
+				if methodName == "constructor" || methodName == "Init" {
+					for _, p := range method.Parameters {
+						if p != nil && p.Name != nil && p.Visibility.Literal != "" {
+							class.Fields[p.Name.Value] = Field{
+								Type:       typeFromToken(p.Type),
+								Visibility: p.Visibility.Literal,
+								Owner:      name,
+							}
+						}
+					}
+				}
 			case *parser.InitStatement:
 				if method.Name == nil {
 					continue
@@ -217,6 +242,17 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 				methodName = method.Name.Value
 				callable = Callable{Name: methodName, Parameters: parametersFromAST(method.Parameters), ReturnType: typesystem.Type{Kind: typesystem.Unknown}}
 				token = method.Name.Token
+				if methodName == "constructor" || methodName == "Init" || methodName == "main" {
+					for _, p := range method.Parameters {
+						if p != nil && p.Name != nil && p.Visibility.Literal != "" {
+							class.Fields[p.Name.Value] = Field{
+								Type:       typeFromToken(p.Type),
+								Visibility: p.Visibility.Literal,
+								Owner:      name,
+							}
+						}
+					}
+				}
 			default:
 				continue
 			}
@@ -233,12 +269,74 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 	a.classTokens[name] = functionDeclaration{token: classNode.Name.Token, file: file}
 }
 
+func (a *Analyzer) declareEnum(enumNode *parser.EnumStatement, file string) {
+	if enumNode == nil || enumNode.Name == nil {
+		return
+	}
+	name := enumNode.Name.Value
+	if previous, exists := a.enums[name]; exists {
+		where := "a declared enum"
+		if declaration, ok := a.enumTokens[name]; ok {
+			where = fmt.Sprintf("%s:%d", declaration.file, declaration.token.Line)
+		} else if previous.Name != "" {
+			where = "a declared enum"
+		}
+		a.add("JOSS-DECL-004", diagnostics.SeverityError, file, enumNode.Name.Token,
+			fmt.Sprintf("Enum `%s` conflicts with %s.", name, where),
+			"Enum names share one project-wide type namespace.", "Choose a unique enum name.")
+		return
+	}
+	if classDecl, exists := a.classTokens[name]; exists {
+		a.add("JOSS-DECL-004", diagnostics.SeverityError, file, enumNode.Name.Token,
+			fmt.Sprintf("Enum `%s` conflicts with class at %s:%d.", name, classDecl.file, classDecl.token.Line),
+			"Enums and classes share one project-wide type namespace.", "Choose a unique name.")
+		return
+	}
+	if ifaceDecl, exists := a.interfaceTokens[name]; exists {
+		a.add("JOSS-DECL-004", diagnostics.SeverityError, file, enumNode.Name.Token,
+			fmt.Sprintf("Enum `%s` conflicts with interface at %s:%d.", name, ifaceDecl.file, ifaceDecl.token.Line),
+			"Enums and interfaces share one project-wide type namespace.", "Choose a unique name.")
+		return
+	}
+
+	backingType := typesystem.Type{Kind: typesystem.Unknown}
+	if enumNode.BackingType.Literal != "" {
+		backingType = typeFromToken(enumNode.BackingType)
+	}
+
+	enumDef := Enum{
+		Name:        name,
+		BackingType: backingType,
+		Cases:       make(map[string]typesystem.Type),
+		Visibility:  enumNode.Visibility,
+		File:        file,
+	}
+
+	for _, c := range enumNode.Cases {
+		if c == nil || c.Name == nil {
+			continue
+		}
+		caseName := c.Name.Value
+		if _, exists := enumDef.Cases[caseName]; exists {
+			a.add("JOSS-DECL-003", diagnostics.SeverityError, file, c.Name.Token,
+				fmt.Sprintf("Case `%s` is declared more than once in enum `%s`.", caseName, name),
+				"An enum cannot contain duplicate case names.", "Remove or rename the duplicate case.")
+			continue
+		}
+		enumDef.Cases[caseName] = typesystem.Type{Kind: typesystem.Class, Name: name}
+	}
+
+	a.enums[name] = enumDef
+	a.enumTokens[name] = functionDeclaration{token: enumNode.Name.Token, file: file}
+}
+
 func callableFromMethod(method *parser.MethodStatement) Callable {
 	return Callable{
 		Name:       method.Name.Value,
 		Parameters: parametersFromAST(method.Parameters),
 		ReturnType: typeFromToken(method.ReturnType),
 		Visibility: method.Visibility,
+		IsAbstract: method.IsAbstract,
 	}
 }
 
@@ -313,6 +411,32 @@ func (a *Analyzer) collectInterfaceMethods(interfaceName string, visited map[str
 	}
 	for _, ext := range iface.Extends {
 		reqs = append(reqs, a.collectInterfaceMethods(ext, visited)...)
+	}
+	return reqs
+}
+
+type abstractMethodRequirement struct {
+	method    Callable
+	className string
+}
+
+func (a *Analyzer) collectAbstractMethods(className string, visited map[string]bool) []abstractMethodRequirement {
+	if visited[className] {
+		return nil
+	}
+	visited[className] = true
+	class, exists := a.classes[className]
+	if !exists {
+		return nil
+	}
+	var reqs []abstractMethodRequirement
+	for _, method := range class.Methods {
+		if method.IsAbstract {
+			reqs = append(reqs, abstractMethodRequirement{method: method, className: className})
+		}
+	}
+	if class.SuperClass != "" {
+		reqs = append(reqs, a.collectAbstractMethods(class.SuperClass, visited)...)
 	}
 	return reqs
 }
@@ -464,6 +588,27 @@ func (a *Analyzer) analyzeClass(classNode *parser.ClassStatement, global *scope)
 						"Method return type must be compatible with the interface contract.",
 						"Adjust the return type to match the interface.")
 				}
+			}
+		}
+	}
+	if !classNode.IsAbstract && classNode.SuperClass != nil {
+		reqs := a.collectAbstractMethods(classNode.SuperClass.Value, map[string]bool{})
+		for _, req := range reqs {
+			classMethod, exists := a.lookupMethod(classNode.Name.Value, req.method.Name)
+			if !exists || classMethod.IsAbstract {
+				a.add("JOSS-DECL-005", diagnostics.SeverityError, a.file, classNode.Name.Token,
+					fmt.Sprintf("Class `%s` does not implement abstract method `%s` from class `%s`.",
+						classNode.Name.Value, req.method.Name, req.className),
+					"A concrete class extending an abstract class must implement all abstract methods.",
+					fmt.Sprintf("Implement `public func %s(...)` in class `%s`.", req.method.Name, classNode.Name.Value))
+				continue
+			}
+			if len(classMethod.Parameters) != len(req.method.Parameters) {
+				a.add("JOSS-DECL-005", diagnostics.SeverityError, a.file, classNode.Name.Token,
+					fmt.Sprintf("Class `%s` method `%s` has %d parameter(s), but abstract method in `%s` declares %d.",
+						classNode.Name.Value, req.method.Name, len(classMethod.Parameters), req.className, len(req.method.Parameters)),
+					"Method implementation must match the abstract method signature.",
+					"Adjust the method parameters to match the contract.")
 			}
 		}
 	}

@@ -42,6 +42,7 @@ type Runtime struct {
 	HostGlobals       map[string]bool // runtime/plugin bindings visible inside named callables
 	Classes           map[string]*parser.ClassStatement
 	Interfaces        map[string]*parser.InterfaceStatement
+	Enums             map[string]*EnumDefinition
 	Functions         map[string]*parser.MethodStatement
 	DB                *sql.DB
 	Routes            map[string]map[string]interface{} // HTTP Method -> Path -> Handler
@@ -72,6 +73,8 @@ type Runtime struct {
 
 	captureEnvironment *ClosureEnvironment
 	cinReader          *bufio.Reader
+	currentGenerator   *Generator
+	generatorIndex     int64
 	cinTokens          []string
 	topDefers          []*parser.DeferStatement
 }
@@ -167,6 +170,33 @@ type Future struct {
 	done   chan bool
 	result interface{}
 	err    error
+}
+
+// EnumValue represents an individual case instance of an enum
+type EnumValue struct {
+	EnumName string
+	Name     string
+	Value    interface{}
+}
+
+func (ev *EnumValue) String() string {
+	return ev.EnumName + "::" + ev.Name
+}
+
+func (ev *EnumValue) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"enum":  ev.EnumName,
+		"name":  ev.Name,
+		"value": ev.Value,
+	})
+}
+
+// EnumDefinition stores the declaration metadata of an enum
+type EnumDefinition struct {
+	Name        string
+	BackingType string
+	Cases       map[string]*EnumValue
+	CaseOrder   []*EnumValue
 }
 
 // Channel represents a Go channel

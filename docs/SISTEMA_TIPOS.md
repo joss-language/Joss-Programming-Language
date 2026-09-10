@@ -147,7 +147,71 @@ Al indexar una colección parametrizada (por ejemplo `$cantidades[0]`), el anali
 
 ---
 
-## 6. Coerción textual tipada (`typesystem.CoerceString`)
+## 6. Enumeraciones (`enum`)
+
+Las **enumeraciones** permiten definir un tipo cerrado con un conjunto finito de casos posibles, evitando el uso de constantes dispersas o strings mágicos.
+
+En Joss existen dos tipos de enumeraciones:
+
+### Enums puros (Unit Enums)
+Cada caso representa un valor simbólico único con la propiedad `->name`:
+
+<!-- joss-run: ["Pendiente", "Aprobado"] -->
+```joss
+public enum Estado {
+    case Pendiente
+    case Aprobado
+    case Rechazado
+}
+
+$e = Estado::Pendiente
+print($e->name)
+$e2 = Estado::Aprobado
+print($e2->name)
+```
+
+### Enums respaldados (Backed Enums)
+Asocian cada caso a un valor escalar primitivo (`string` o `int`):
+
+<!-- joss-run: ["admin", "admin", "Admin", "3"] -->
+```joss
+public enum Rol: string {
+    case Admin = "admin"
+    case Editor = "editor"
+    case Lector = "lector"
+}
+
+$r = Rol::Admin
+print($r->value)
+
+// Instanciar desde valor escalar con from() o tryFrom()
+$desdeValor = Rol::from("admin")
+print($desdeValor->value)
+print($desdeValor->name)
+
+// Obtener todos los casos con cases()
+$todos = Rol::cases()
+print(count($todos))
+```
+
+---
+
+## 7. Operadores de comprobación de tipo: `is` e `instanceof`
+
+El operador **`is`** (y su alias **`instanceof`**) permite consultar en tiempo de ejecución si un valor pertenece a un tipo primitivo (`int`, `string`, `bool`, etc.), una clase o una interfaz:
+
+<!-- joss-run: ["true", "true", "true"] -->
+```joss
+$numero = 42
+$texto = "hola"
+print($numero is int)
+print($texto is string)
+print($numero instanceof int)
+```
+
+---
+
+## 8. Coerción textual tipada (`typesystem.CoerceString`)
 
 En aplicaciones web, los datos que llegan desde formularios HTTP o peticiones JSON son cadenas de texto crudas (por ejemplo, `"8080"` o `"true"`).
 
@@ -176,7 +240,7 @@ Si el texto no se puede convertir (por ejemplo `int $x = "manzana"`), el analiza
 
 ---
 
-## 7. Precisión numérica y defensas del runtime
+## 9. Precisión numérica y defensas del runtime
 
 | Regla de seguridad | Comportamiento en Joss | Diagnóstico |
 |---|---|---|
@@ -186,7 +250,7 @@ Si el texto no se puede convertir (por ejemplo `int $x = "manzana"`), el analiza
 
 ---
 
-## 8. Diagnósticos comunes del sistema de tipos
+## 10. Diagnósticos comunes del sistema de tipos
 
 | Código | Significado | Solución habitual |
 |---|---|---|

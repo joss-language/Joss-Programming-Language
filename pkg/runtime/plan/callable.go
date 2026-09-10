@@ -235,6 +235,19 @@ func (callable *Callable) collectExpression(expression parser.Expression) {
 			}
 			callable.collectExpression(arm.Value)
 		}
+	case *parser.IsExpression:
+		callable.collectExpression(node.Left)
+	case *parser.SpreadExpression:
+		callable.collectExpression(node.Expression)
+	case *parser.NamedArgument:
+		callable.collectExpression(node.Value)
+	case *parser.YieldExpression:
+		if node.Key != nil {
+			callable.collectExpression(node.Key)
+		}
+		if node.Value != nil {
+			callable.collectExpression(node.Value)
+		}
 	case *parser.FunctionLiteral:
 		// A nested closure owns an independent callable plan.
 	}
@@ -355,6 +368,19 @@ func (callable *Callable) annotateExpression(expression parser.Expression) {
 				callable.annotateExpression(key)
 			}
 			callable.annotateExpression(arm.Value)
+		}
+	case *parser.IsExpression:
+		callable.annotateExpression(node.Left)
+	case *parser.SpreadExpression:
+		callable.annotateExpression(node.Expression)
+	case *parser.NamedArgument:
+		callable.annotateExpression(node.Value)
+	case *parser.YieldExpression:
+		if node.Key != nil {
+			callable.annotateExpression(node.Key)
+		}
+		if node.Value != nil {
+			callable.annotateExpression(node.Value)
 		}
 	}
 }

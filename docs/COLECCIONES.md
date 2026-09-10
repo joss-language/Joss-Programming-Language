@@ -71,6 +71,20 @@ print($y)
 
 Esto resulta muy cómodo para desempaquetar pares de coordenadas, resultados devueltos por funciones o listas cortas sin código repetitivo.
 
+### Operador Spread (`...`) en arrays
+
+Puedes expandir los elementos de un array existente dentro de otro nuevo array anteponiendo `...`:
+
+<!-- joss-run: ["1", "2", "3", "4"] -->
+```joss
+$primeros = [2, 3]
+$todos = [1, ...$primeros, 4]
+print($todos[0])
+print($todos[1])
+print($todos[2])
+print($todos[3])
+```
+
 ---
 
 ## 2. Maps: Diccionarios de Clave → Valor
@@ -109,6 +123,19 @@ $config = [
 print($config["app"])
 print($config["version"])
 print($config["autor"]["nombre"])
+```
+
+### Operador Spread (`...`) en maps
+
+Al igual que en arrays, puedes expandir y fusionar pares clave-valor de un mapa dentro de otro utilizando el operador `...`:
+
+<!-- joss-run: ["localhost", "8080", "true"] -->
+```joss
+$base = ["host" => "localhost", "puerto" => "8080"]
+$completo = [...$base, "seguro" => "true"]
+print($completo["host"])
+print($completo["puerto"])
+print($completo["seguro"])
 ```
 
 ---

@@ -430,6 +430,66 @@ func (p *Parser) parseArrayLiteral() Expression {
 		p.nextToken()
 		elem := p.parseExpression(LOWEST)
 		if elem != nil {
+			if p.peekTokenIs(FAT_ARROW) {
+				mapLit := &MapLiteral{Token: arrayToken, Pairs: make(map[Expression]Expression)}
+				for _, prev := range elements {
+					if spread, ok := prev.(*SpreadExpression); ok {
+						mapLit.Pairs[spread] = nil
+					}
+				}
+				p.nextToken() // consume =>
+				p.nextToken() // move to val
+				val := p.parseExpression(LOWEST)
+				if val == nil {
+					return nil
+				}
+				mapLit.Pairs[elem] = val
+
+				for !p.peekTokenIs(RBRACKET) && !p.peekTokenIs(EOF) {
+					if p.peekTokenIs(NEWLINE) {
+						p.nextToken()
+						continue
+					}
+					if p.peekTokenIs(COMMA) {
+						p.nextToken()
+						for p.peekTokenIs(NEWLINE) {
+							p.nextToken()
+						}
+						if p.peekTokenIs(RBRACKET) {
+							break
+						}
+						p.nextToken()
+						key := p.parseExpression(LOWEST)
+						if key == nil {
+							return nil
+						}
+						if spread, ok := key.(*SpreadExpression); ok {
+							mapLit.Pairs[spread] = nil
+							continue
+						}
+						if !p.expectPeek(FAT_ARROW) {
+							return nil
+						}
+						p.nextToken()
+						v := p.parseExpression(LOWEST)
+						if v == nil {
+							return nil
+						}
+						mapLit.Pairs[key] = v
+					} else {
+						break
+					}
+				}
+
+				for p.peekTokenIs(NEWLINE) {
+					p.nextToken()
+				}
+
+				if !p.expectPeek(RBRACKET) {
+					return nil
+				}
+				return mapLit
+			}
 			elements = append(elements, elem)
 		}
 	}
@@ -754,7 +814,7 @@ func (p *Parser) parseCallArguments() []Expression {
 	}
 
 	p.nextToken()
-	args = append(args, p.parseExpression(LOWEST))
+	args = append(args, p.parseArgumentExpression())
 
 	for p.peekToken.Type == COMMA || p.peekToken.Type == NEWLINE {
 		if p.peekToken.Type == NEWLINE {
@@ -772,7 +832,7 @@ func (p *Parser) parseCallArguments() []Expression {
 				break
 			}
 			p.nextToken() // Advance to start of expression
-			args = append(args, p.parseExpression(LOWEST))
+			args = append(args, p.parseArgumentExpression())
 		}
 	}
 
@@ -781,6 +841,18 @@ func (p *Parser) parseCallArguments() []Expression {
 	}
 
 	return args
+}
+
+func (p *Parser) parseArgumentExpression() Expression {
+	if (p.curToken.Type == IDENT || p.curToken.Type == VAR) && p.peekToken.Type == COLON {
+		name := strings.TrimPrefix(p.curToken.Literal, "$")
+		tok := p.curToken
+		p.nextToken() // consume name, curToken is now COLON
+		p.nextToken() // consume COLON, curToken is now start of expression
+		val := p.parseExpression(LOWEST)
+		return &NamedArgument{Token: tok, Name: name, Value: val}
+	}
+	return p.parseExpression(LOWEST)
 }
 
 func (p *Parser) parseFunctionParameters() []*Parameter {
@@ -834,6 +906,10 @@ func (p *Parser) parseFunctionParameters() []*Parameter {
 
 func (p *Parser) parseParameter() *Parameter {
 	param := &Parameter{}
+	if p.curToken.Type == PUBLIC || p.curToken.Type == PROTECTED || p.curToken.Type == PRIVATE {
+		param.Visibility = p.curToken
+		p.nextToken()
+	}
 	if p.curToken.Type == REF {
 		param.ByReference = true
 		p.nextToken()
@@ -1111,7 +1187,7 @@ func isIdentifierOrKeyword(t TokenType) bool {
 	case FUNCTION, VAR, TRUE, FALSE, RETURN, PRINT, ECHO, CLASS, INIT,
 		NEW, FOREACH, AS, THIS, ISSET, EMPTY, BREAK,
 		CONTINUE, WHILE, DO, TRY, CATCH, THROW, EXTENDS, IF, ELSE, MATCH, DEFAULT, ASYNC,
-		INTERFACE, IMPLEMENTS:
+		INTERFACE, IMPLEMENTS, ABSTRACT, ENUM, CASE, IS, INSTANCEOF, SELECT, YIELD:
 		return true
 	}
 	return false
@@ -1144,5 +1220,54 @@ func (p *Parser) parseAsyncExpression() Expression {
 		Token:     Token{Type: IDENT, Literal: "async", Line: tok.Line},
 		Function:  &Identifier{Token: Token{Type: IDENT, Literal: "async", Line: tok.Line}, Value: "async"},
 		Arguments: []Expression{exp},
+	}
+}
+
+func (p *Parser) parseIsExpression(left Expression) Expression {
+	expr := &IsExpression{
+		Token: p.curToken,
+		Left:  left,
+	}
+
+	if !isTypeStart(p.peekToken) {
+		p.addError(p.peekToken, fmt.Sprintf("Se esperaba un tipo después de `%s`.", expr.Token.Literal))
+		return expr
+	}
+
+	p.nextToken()
+	expr.TargetType = p.parseTypeReference()
+	return expr
+}
+
+func (p *Parser) parseSpreadExpression() Expression {
+	tok := p.curToken
+	p.nextToken()
+	val := p.parseExpression(CALL)
+	return &SpreadExpression{
+		Token:      tok,
+		Expression: val,
+	}
+}
+
+func (p *Parser) parseYieldExpression() Expression {
+	tok := p.curToken
+	if p.peekToken.Type == SEMICOLON || p.peekToken.Type == NEWLINE || p.peekToken.Type == RBRACE || p.peekToken.Type == EOF {
+		return &YieldExpression{Token: tok}
+	}
+	p.nextToken()
+	val := p.parseExpression(LOWEST)
+	if p.peekToken.Type == FAT_ARROW {
+		p.nextToken() // consume =>
+		p.nextToken()
+		value := p.parseExpression(LOWEST)
+		return &YieldExpression{
+			Token: tok,
+			Key:   val,
+			Value: value,
+		}
+	}
+	return &YieldExpression{
+		Token: tok,
+		Value: val,
 	}
 }

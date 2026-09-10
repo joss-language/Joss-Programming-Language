@@ -87,6 +87,33 @@ print(saludo("Ada"))
 > [!TIP]
 > Coloca siempre los parámetros con valor por defecto al final de la lista de parámetros. De lo contrario, Joss no sabría a qué parámetro asignar un argumento si solo pasas uno.
 
+### Argumentos nombrados (Named Arguments)
+
+Puedes pasar argumentos indicando explícitamente el nombre del parámetro seguido de dos puntos (`nombre: valor`). Esto permite omitir parámetros intermedios que tengan valores por defecto o pasar argumentos en cualquier orden:
+
+<!-- joss-run: ["Estimada Ada"] -->
+```joss
+public func bienvenida(string $nombre, string $titulo = "Estimado/a"): string {
+    return $titulo . " " . $nombre
+}
+
+print(bienvenida(titulo: "Estimada", nombre: "Ada"))
+```
+
+### Operador Spread (`...`) en llamadas
+
+Si tienes una lista y deseas desempaquetar sus elementos como argumentos posicionales independientes para una llamada a función, antepón `...`:
+
+<!-- joss-run: ["10"] -->
+```joss
+public func sumarTres(int $a, int $b, int $c): int {
+    return $a + $b + $c
+}
+
+$numeros = [2, 3, 5]
+print(sumarTres(...$numeros))
+```
+
 ---
 
 ## 4. Retorno temprano y cláusulas de guarda (Guard Clauses)

@@ -98,16 +98,41 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 					Method:     node,
 					OwnerClass: cls.Name.Value,
 				}
-				if node.Name.Value == "constructor" || node.Name.Value == "main" {
+				if node.Name.Value == "constructor" || node.Name.Value == "main" || node.Name.Value == "Init" {
 					if cls == classStmt {
 						meta.Constructor = node
+					}
+					for _, param := range node.Parameters {
+						if param != nil && param.Name != nil && param.Visibility.Literal != "" {
+							fieldName := param.Name.Value
+							if _, exists := meta.Fields[fieldName]; !exists {
+								declaredType := param.Type.Literal
+								if declaredType == "var" {
+									declaredType = ""
+								}
+								decl := &parser.LetStatement{
+									Token:      param.Type,
+									Name:       param.Name,
+									Value:      param.DefaultValue,
+									Visibility: param.Visibility.Literal,
+								}
+								info := &classFieldInfo{
+									Declaration:  decl,
+									OwnerClass:   cls.Name.Value,
+									DeclaredType: declaredType,
+									ParsedType:   typesystem.Parse(declaredType),
+								}
+								meta.Fields[fieldName] = info
+								meta.FieldOrder = append(meta.FieldOrder, info)
+							}
+						}
 					}
 				}
 			case *parser.InitStatement:
 				if node.Name == nil {
 					continue
 				}
-				if node.Name.Value == "constructor" || node.Name.Value == "main" {
+				if node.Name.Value == "constructor" || node.Name.Value == "main" || node.Name.Value == "Init" {
 					method := &parser.MethodStatement{
 						Token:      node.Token,
 						Name:       node.Name,
@@ -120,6 +145,31 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 					meta.Methods[node.Name.Value] = &classMethodInfo{
 						Method:     method,
 						OwnerClass: cls.Name.Value,
+					}
+					for _, param := range node.Parameters {
+						if param != nil && param.Name != nil && param.Visibility.Literal != "" {
+							fieldName := param.Name.Value
+							if _, exists := meta.Fields[fieldName]; !exists {
+								declaredType := param.Type.Literal
+								if declaredType == "var" {
+									declaredType = ""
+								}
+								decl := &parser.LetStatement{
+									Token:      param.Type,
+									Name:       param.Name,
+									Value:      param.DefaultValue,
+									Visibility: param.Visibility.Literal,
+								}
+								info := &classFieldInfo{
+									Declaration:  decl,
+									OwnerClass:   cls.Name.Value,
+									DeclaredType: declaredType,
+									ParsedType:   typesystem.Parse(declaredType),
+								}
+								meta.Fields[fieldName] = info
+								meta.FieldOrder = append(meta.FieldOrder, info)
+							}
+						}
 					}
 				}
 			}

@@ -62,6 +62,7 @@ const (
 	RBRACKET        = "]"
 	DOT             = "."
 	RANGE           = ".."
+	ELLIPSIS        = "..."
 	ARROW           = "->"
 	NULL_SAFE_ARROW = "?->"
 	DOUBLE_COLON    = "::"
@@ -106,6 +107,13 @@ const (
 	DEFER      = "DEFER"
 	INTERFACE  = "INTERFACE"
 	IMPLEMENTS = "IMPLEMENTS"
+	ABSTRACT   = "ABSTRACT"
+	ENUM       = "ENUM"
+	CASE       = "CASE"
+	IS         = "IS"
+	INSTANCEOF = "INSTANCEOF"
+	SELECT     = "SELECT"
+	YIELD      = "YIELD"
 
 	// Modifiers & Visibility
 	PUBLIC    = "PUBLIC"
@@ -158,6 +166,13 @@ var keywords = map[string]TokenType{
 	"default":    DEFAULT,
 	"async":      ASYNC,
 	"defer":      DEFER,
+	"abstract":   ABSTRACT,
+	"enum":       ENUM,
+	"case":       CASE,
+	"is":         IS,
+	"instanceof": INSTANCEOF,
+	"select":     SELECT,
+	"yield":      YIELD,
 	"public":     PUBLIC,
 	"private":    PRIVATE,
 	"protected":  PROTECTED,
