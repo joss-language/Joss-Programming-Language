@@ -232,6 +232,34 @@ print(0.10m + 0.20m)
 | `++` | Post-incremento | `$i++` | Valor actual | Aumenta la variable en 1 y devuelve su valor anterior. |
 | `--` | Post-decremento | `$i--` | Valor actual | Disminuye la variable en 1 y devuelve su valor anterior. |
 
+### Operadores de asignación compuesta (`+=`, `-=`, `*=`, `??=`)
+
+Cuando quieres modificar el valor que ya tiene una variable (por ejemplo, sumar puntos en un juego o descontar vidas), no necesitas repetir el nombre de la variable (`$puntos = $puntos + 5`). Puedes usar los operadores de asignación rápida:
+
+<!-- joss-run: ["15", "12", "24", "Invitado"] -->
+```joss
+$puntos = 10
+$puntos += 5
+print($puntos)
+
+$puntos -= 3
+print($puntos)
+
+$puntos *= 2
+print($puntos)
+
+$nombre = null
+$nombre = $nombre ?? "Invitado"
+print($nombre)
+```
+
+| Operador | Equivalencia | Descripción |
+|---|---|---|
+| `$x += $y` | `$x = $x + $y` | Suma `$y` al valor actual de `$x`. |
+| `$x -= $y` | `$x = $x - $y` | Resta `$y` al valor actual de `$x`. |
+| `$x *= $y` | `$x = $x * $y` | Multiplica el valor actual de `$x` por `$y`. |
+| `$x ??= $y` | `$x = $x ?? $y` | Asigna `$y` solo si `$x` es actualmente `null`. |
+
 ### Prioridad matemática (precedencia)
 Al igual que en álgebra, la multiplicación y el módulo se calculan antes que la suma y la resta. Usa paréntesis `(` `)` para definir claramente qué debe resolverse primero:
 
@@ -356,17 +384,44 @@ Si recibes un dato como texto (por ejemplo `"25"`) y necesitas sumarle una canti
 
 ---
 
-## 10. Ejercicios prácticos
+## 10. Mini-proyecto guiado: Calculadora de Cuenta y Propinas
 
-1. **Calculadora de propinas**:
-   - Declara una variable decimal `$cuenta = 45.50m`.
-   - Declara un porcentaje `$propina = 0.15m` (15%).
-   - Calcula el monto de la propina y el total a pagar (`$cuenta + ($cuenta * $propina)`).
-   - Muestra ambos resultados en la consola con mensajes claros.
-2. **Convertidor de temperatura**:
+Para poner en práctica todo lo aprendido en esta guía (variables, tipos, operaciones matemáticas y texto concatenado), aquí tienes un programa completo que calcula la propina y divide el total entre amigos:
+
+<!-- joss-run: ["Subtotal: 50", "Propina: 7.5", "Total: 57.5", "Por persona: 28.75"] -->
+```joss
+// 1. Datos iniciales
+$subtotal = 50.0
+$propina = $subtotal * 0.15
+$total = $subtotal + $propina
+$porPersona = $total / 2
+
+// 2. Mostrar resumen en pantalla
+print("Subtotal: " . $subtotal)
+print("Propina: " . $propina)
+print("Total: " . $total)
+print("Por persona: " . $porPersona)
+```
+
+### Explicación paso a paso:
+1. `$subtotal = 50.0`: Guardamos el importe de la cuenta como número decimal (`float`).
+2. `$propina = $subtotal * 0.15`: Calculamos el 15% multiplicando por `0.15`.
+3. `$total = $subtotal + $propina`: Sumamos el costo de los consumos y la propina.
+4. `$porPersona = $total / 2`: Dividimos la cuenta equitativamente entre dos personas.
+5. Las llamadas a `print(...)`: Unen el texto explicativo con el valor numérico usando el operador de concatenación punto `.`.
+
+---
+
+## 11. Ejercicios prácticos para principiantes
+
+1. **Convertidor de temperatura**:
    - Declara una variable `$celsius = 25.0`.
    - Aplica la fórmula para convertir a Fahrenheit: `$fahrenheit = ($celsius * 9 / 5) + 32`.
    - Imprime el resultado concatenado: `print($celsius . " °C equivalen a " . $fahrenheit . " °F")`.
+2. **Marcador de juego con asignación rápida**:
+   - Comienza con `$puntos = 0`.
+   - Suma 100 puntos con `+=`, resta 20 con `-=` por una penalización y duplica el puntaje con `*= 2` por un bonus.
+   - Muestra el puntaje final en la consola.
 
 ---
 

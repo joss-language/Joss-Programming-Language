@@ -281,7 +281,74 @@ Prueba a cambiar `"Ada"` por tu propio nombre en la primera línea, guarda el ar
 
 ---
 
-## 7. Si algo no funciona: Diagnóstico rápido
+---
+
+## 7. Modo Interactivo: Pedir datos al usuario con `cin >>`
+
+Hasta ahora, el programa solo muestra datos que ya escribiste en el código. Para crear programas divertidos y útiles, necesitas que la computadora te **escuche**, espere tu respuesta y reaccione a ella.
+
+El ciclo fundamental de todo programa es:
+
+```text
+┌─────────────────────────┐       ┌─────────────────────────┐       ┌─────────────────────────┐
+│     1. ENTRADA          │  ──>  │     2. PROCESO          │  ──>  │     3. SALIDA           │
+│ El usuario escribe con  │       │ El programa calcula,    │       │ Se muestra el resultado │
+│ cin >> $variable        │       │ une o toma decisiones   │       │ en pantalla con print() │
+└─────────────────────────┘       └─────────────────────────┘       └─────────────────────────┘
+```
+
+En Joss, leer datos que el usuario escribe en su teclado es tan sencillo como usar `cin >>`:
+
+<!-- joss-check: lectura interactiva de datos por teclado -->
+```joss
+string $nombre = ""
+int $edad = 0
+
+print("¿Cómo te llamas?")
+cin >> $nombre
+
+print("¿Cuántos años tienes?")
+cin >> $edad
+
+print("¡Mucho gusto, " . $nombre . "! El próximo año tendrás " . ($edad + 1) . " años.")
+```
+
+### ¿Cómo funciona `cin >>`?
+1. `print(...)` muestra una pregunta en la terminal para que la persona sepa qué escribir.
+2. `cin >> $nombre` pausa el programa y espera a que el usuario escriba su nombre y presione la tecla **Enter**.
+3. Todo lo que el usuario escribió se almacena automáticamente en la variable `$nombre`.
+4. Si el dato que se espera es un número (como la edad), Joss lo convierte automáticamente para que puedas realizar operaciones matemáticas directas como `$edad + 1`.
+
+---
+
+## 8. La "Chuleta Esencial del Principiante" (Cheat-Sheet)
+
+Guarda esta tabla cerca. Estos 8 patrones resuelven prácticamente cualquier programa en tus primeras semanas de aprendizaje:
+
+| ¿Qué quieres lograr? | ¿Cómo se escribe en Joss? | Ejemplo mínimo |
+|---|---|---|
+| **Mostrar un mensaje** | `print(...)` | `print("¡Hola mundo!")` |
+| **Pedir datos al usuario** | `cin >> $variable` | `cin >> $ciudad` |
+| **Guardar información** | `$variable = valor` | `$precio = 25` |
+| **Aumentar o sumar rápido** | `$variable += valor` | `$puntos += 10` |
+| **Unir piezas de texto** | `texto1 . texto2` | `"Hola " . $nombre` |
+| **Tomar una decisión** | `(condicion) ? { si } : { no }` | `($edad >= 18) ? { print("Mayor") } : { print("Menor") }` |
+| **Elegir entre varias opciones** | `match ($opcion) { caso => ... }` | `match ($color) { "rojo" => "Alto", default => "Sigue" }` |
+| **Guardar y recorrer una lista** | `foreach ($lista as $item)` | `foreach (["manzana", "pera"] as $f) { print($f) }` |
+
+---
+
+## 9. Las Tres Reglas de Oro para Principiantes
+
+Para evitar el 99% de las dudas y errores al dar tus primeros pasos:
+
+1. **El dólar sagrado (`$`):** Toda variable en Joss comienza obligatoriamente con `$`. Si ves un error de variable no definida, revisa si olvidaste el `$`.
+2. **Las comillas van en parejas (`"..."`):** Todo texto libre debe empezar y terminar con comillas dobles. Los números (`42`) no llevan comillas; las palabras (`"Hola"`) sí.
+3. **Todo lo que se abre, se cierra:** Los paréntesis `()`, las llaves `{}` y los corchetes `[]` siempre van en pares. Si abres una llave `{`, asegúrate de tener su correspondiente cierre `}`.
+
+---
+
+## 10. Si algo no funciona: Diagnóstico rápido
 
 Cuando estás aprendiendo a programar, equivocarse no solo es normal, ¡es la mejor forma de entender cómo piensa la computadora!
 
@@ -297,17 +364,19 @@ Aquí tienes una tabla con los problemas más frecuentes y cómo resolverlos:
 
 ---
 
-## 8. Ejercicios prácticos
+## 11. Ejercicios prácticos para principiantes
 
 Para afianzar lo que acabas de aprender antes de continuar:
 
 1. **Tu tarjeta de presentación**: Escribe un programa `tarjeta.joss` que declare tres variables: `$miNombre`, `$miPais` y `$miProfesion`. Luego, usando `print` y concatenación con `.`, muestra un mensaje en pantalla que arme un párrafo presentándote.
-2. **Experimentar con errores**: Quita a propósito la comilla final del texto en `print("Hola)` y ejecuta `joss analyze`. Observa cómo Joss te indica exactamente el número de línea donde detectó el problema. Vuelve a colocar la comilla para que quede limpio.
+2. **Tu primer diálogo interactivo**: Crea `conversacion.joss`, pide al usuario su nombre y su comida favorita con `cin >>`, y respóndele con una recomendación culinaria alegre.
+3. **Experimentar con errores (El juego de romper el código)**: Quita a propósito la comilla final del texto en `print("Hola)` y ejecuta `joss analyze`. Observa cómo Joss te indica exactamente el número de línea donde detectó el problema. Vuelve a colocar la comilla para que quede limpio.
 
 ---
 
 ## Siguiente paso
 
-Ahora que ya sabes qué es Joss, cómo crear un archivo y cómo imprimir datos en pantalla, es momento de aprender en profundidad los tipos de datos que puede manejar una computadora, cómo operar números y cómo decidir qué tipo de variable utilizar.
+Ahora que ya sabes qué es Joss, cómo crear un archivo, cómo imprimir datos y cómo interactuar con el usuario, es momento de aprender en profundidad los tipos de datos que maneja una computadora, cómo operar números y cómo decidir qué tipo de variable utilizar.
 
 Continúa con: [Valores, variables y operaciones fundamentales](FUNDAMENTOS.md).
+

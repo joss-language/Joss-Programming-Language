@@ -4,22 +4,21 @@ Esta documentación describe el comportamiento del código actual. Está separad
 en aprendizaje, guías, referencia e internos para que una persona nueva pueda
 avanzar en orden y una persona experimentada encuentre reglas concretas.
 
-## Aprender Joss
+## Aprender Joss (Ruta guiada para principiantes)
 
-Lee este recorrido en orden. Cada página introduce los conceptos antes de usar
-los detalles técnicos.
+Si nunca has programado o estás aprendiendo Joss por primera vez, lee este recorrido en orden. Cada página introduce los conceptos con explicaciones pedagógicas, ejemplos visuales paso a paso y chuletas rápidas antes de profundizar en los aspectos técnicos avanzados.
 
-0. [Qué es Joss y primer programa](PRIMEROS_PASOS.md)
-1. [Valores, variables y operaciones](FUNDAMENTOS.md)
-2. [Control de flujo](CONTROL_FLUJO.md)
+0. [Primeros pasos: de un archivo a tu primer programa interactivo con cin](PRIMEROS_PASOS.md)
+1. [Valores, variables y operaciones fundamentales](FUNDAMENTOS.md)
+2. [Control de flujo y toma de decisiones](CONTROL_FLUJO.md)
 3. [Funciones, scope, closures y referencias](FUNCIONES.md)
 4. [Arrays, maps y texto](COLECCIONES.md)
 5. [Tipos, inferencia y conversiones](SISTEMA_TIPOS.md)
 6. [Clases, objetos y herencia](CLASES.md)
 7. [Errores y excepciones](ERRORES.md)
 8. [Async, Future, channels y concurrencia](CONCURRENCIA.md)
-9. [Proyecto de consola completo](PROYECTO_CONSOLA.md)
-10. [Proyecto web completo](PROYECTO_WEB.md)
+9. [Proyecto de consola completo con persistencia JSON](PROYECTO_CONSOLA.md)
+10. [Proyecto web completo con MVC nativo](PROYECTO_WEB.md)
 
 El [glosario](GLOSARIO.md) explica términos de programación y de Joss sin exigir
 que ya conozcas otro lenguaje.
