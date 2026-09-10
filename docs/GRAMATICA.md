@@ -15,7 +15,7 @@ Comillas indican texto literal. `[...]` indica opcional; `{...}` repetición;
 
 ```ebnf
 programa      = { sentencia [sep] } ;
-sentencia     = declaracion | funcion | clase | inicializador
+sentencia     = declaracion | funcion | clase | interfaz | inicializador
               | "return" [expr] | "throw" expr
               | "break" | "continue" | ciclo | captura
               | ("print" | "echo") ["("] expr [")"] | expr ;
@@ -29,7 +29,11 @@ parametros    = parametro {"," parametro} [","] ;
 parametro     = ["ref"] tipo variable ["=" expr] ;
 closure       = "func" firma bloque ;
 clase         = visibilidad ["static"] "class" identificador
-                ["extends" identificador] "{" {miembro} "}" ;
+                ["extends" identificador]
+                ["implements" identificador {"," identificador}] "{" {miembro} "}" ;
+interfaz      = visibilidad "interface" identificador
+                ["extends" identificador {"," identificador}] "{" {protoMetodo} "}" ;
+protoMetodo   = [visibilidad] "func" identificador "(" [parametros] ")" [":" tipo] [sep] ;
 miembro       = declaracion | funcion | inicializador ;
 inicializador = "Init" identificador "(" [parametros] ")" bloque ;
 visibilidad   = "public" | "private" | "protected" ;
@@ -89,6 +93,7 @@ asincrono     = "async" bloque ;
 | Closure | `parseFunctionLiteral` | `FunctionLiteral` |
 | Tipo | `parseTypeReference` | Token normalizado conservado en declaración/firma |
 | Clase / Init | `parseClassStatement`, `parseInitStatement` | `ClassStatement`, `InitStatement` |
+| Interfaz | `parseInterfaceStatement` | `InterfaceStatement` |
 | Ciclos | `parseForeachStatement`, `parseWhileStatement`, `parseDoWhileStatement` | Sus nodos de sentencia |
 | Error | `parseTryCatchStatement`, `parseThrowStatement` | `TryCatchStatement`, `ThrowStatement` |
 | Defer | `parseDeferStatement` | `DeferStatement` |

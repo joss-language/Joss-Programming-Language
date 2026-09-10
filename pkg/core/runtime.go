@@ -37,6 +37,7 @@ var (
 				Constants:          make(map[string]bool),
 				HostGlobals:        make(map[string]bool),
 				Classes:            make(map[string]*parser.ClassStatement),
+				Interfaces:         make(map[string]*parser.InterfaceStatement),
 				Functions:          make(map[string]*parser.MethodStatement),
 				Routes:             make(map[string]map[string]interface{}),
 				CurrentMiddleware:  make([]string, 0),
@@ -135,6 +136,9 @@ func (r *Runtime) Free() {
 	for k := range r.Classes {
 		delete(r.Classes, k)
 	}
+	for k := range r.Interfaces {
+		delete(r.Interfaces, k)
+	}
 	for k := range r.Functions {
 		delete(r.Functions, k)
 	}
@@ -191,6 +195,7 @@ func (r *Runtime) Fork() *Runtime {
 	newR := &Runtime{
 		Env:               make(map[string]string),
 		Classes:           copyClassMap(r.Classes),
+		Interfaces:        copyInterfaceMap(r.Interfaces),
 		Functions:         copyMethodMap(r.Functions),
 		Routes:            make(map[string]map[string]interface{}),
 		CurrentMiddleware: make([]string, 0),
@@ -308,6 +313,27 @@ func copyMethodMap(source map[string]*parser.MethodStatement) map[string]*parser
 		result[key] = value
 	}
 	return result
+}
+
+func copyInterfaceMap(source map[string]*parser.InterfaceStatement) map[string]*parser.InterfaceStatement {
+	if source == nil {
+		return make(map[string]*parser.InterfaceStatement)
+	}
+	result := make(map[string]*parser.InterfaceStatement, len(source))
+	for key, value := range source {
+		result[key] = value
+	}
+	return result
+}
+
+func (r *Runtime) RegisterInterface(stmt *parser.InterfaceStatement) {
+	if stmt == nil || stmt.Name == nil {
+		return
+	}
+	if r.Interfaces == nil {
+		r.Interfaces = make(map[string]*parser.InterfaceStatement)
+	}
+	r.Interfaces[stmt.Name.Value] = stmt
 }
 
 func copyNativeHandlerMap(source map[string]NativeHandler) map[string]NativeHandler {

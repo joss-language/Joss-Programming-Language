@@ -37,9 +37,18 @@ type Field struct {
 	Owner      string
 }
 
+type Interface struct {
+	Name       string
+	Extends    []string
+	Methods    map[string]Callable
+	Visibility string
+	File       string
+}
+
 type Class struct {
 	Name       string
 	SuperClass string
+	Interfaces []string
 	Methods    map[string]Callable
 	Fields     map[string]Field
 	Visibility string
@@ -47,15 +56,17 @@ type Class struct {
 }
 
 type Environment struct {
-	Builtins map[string]Callable
-	Classes  map[string]Class
-	Globals  map[string]typesystem.Type
+	Builtins   map[string]Callable
+	Classes    map[string]Class
+	Interfaces map[string]Interface
+	Globals    map[string]typesystem.Type
 }
 
 func NewEnvironment() Environment {
 	return Environment{
-		Builtins: make(map[string]Callable),
-		Classes:  make(map[string]Class),
-		Globals:  make(map[string]typesystem.Type),
+		Builtins:   make(map[string]Callable),
+		Classes:    make(map[string]Class),
+		Interfaces: make(map[string]Interface),
+		Globals:    make(map[string]typesystem.Type),
 	}
 }

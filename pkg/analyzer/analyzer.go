@@ -22,6 +22,8 @@ type Analyzer struct {
 	functions         map[string]functionDeclaration
 	classes           map[string]Class
 	classTokens       map[string]functionDeclaration
+	interfaces        map[string]Interface
+	interfaceTokens   map[string]functionDeclaration
 	file              string
 	currentClass      string
 	currentReturnType typesystem.Type
@@ -34,10 +36,15 @@ func Analyze(units []SourceUnit, environment Environment) []diagnostics.Diagnost
 		functions:         make(map[string]functionDeclaration),
 		classes:           make(map[string]Class),
 		classTokens:       make(map[string]functionDeclaration),
+		interfaces:        make(map[string]Interface),
+		interfaceTokens:   make(map[string]functionDeclaration),
 		currentReturnType: typesystem.Type{Kind: typesystem.Unknown},
 	}
 	for name, class := range environment.Classes {
 		a.classes[name] = class
+	}
+	for name, iface := range environment.Interfaces {
+		a.interfaces[name] = iface
 	}
 	a.collectDeclarations(units)
 	a.analyzeUnits(units)
@@ -68,6 +75,8 @@ func (a *Analyzer) collectDeclarations(units []SourceUnit) {
 				a.declareFunction(node, unit.Path)
 			case *parser.ClassStatement:
 				a.declareClass(node, unit.Path)
+			case *parser.InterfaceStatement:
+				a.declareInterface(node, unit.Path)
 			}
 		}
 	}
@@ -89,6 +98,61 @@ func (a *Analyzer) declareFunction(method *parser.MethodStatement, file string) 
 	a.functions[name] = functionDeclaration{callable: callable, token: method.Name.Token, file: file}
 }
 
+func (a *Analyzer) declareInterface(ifaceNode *parser.InterfaceStatement, file string) {
+	if ifaceNode == nil || ifaceNode.Name == nil {
+		return
+	}
+	name := ifaceNode.Name.Value
+	if previous, exists := a.interfaces[name]; exists {
+		where := "the runtime environment"
+		if declaration, ok := a.interfaceTokens[name]; ok {
+			where = fmt.Sprintf("%s:%d", declaration.file, declaration.token.Line)
+		} else if previous.Name != "" {
+			where = "a declared interface"
+		}
+		a.add("JOSS-DECL-004", diagnostics.SeverityError, file, ifaceNode.Name.Token,
+			fmt.Sprintf("Interface `%s` conflicts with %s.", name, where),
+			"Interface names share one project-wide namespace.", "Choose a unique interface name.")
+		return
+	}
+	if classDecl, exists := a.classTokens[name]; exists {
+		a.add("JOSS-DECL-004", diagnostics.SeverityError, file, ifaceNode.Name.Token,
+			fmt.Sprintf("Interface `%s` conflicts with class at %s:%d.", name, classDecl.file, classDecl.token.Line),
+			"Interfaces and classes share one project-wide type namespace.", "Choose a unique name.")
+		return
+	}
+	iface := Interface{
+		Name:       name,
+		Extends:    make([]string, 0, len(ifaceNode.Extends)),
+		Methods:    make(map[string]Callable),
+		Visibility: ifaceNode.Visibility,
+		File:       file,
+	}
+	for _, ext := range ifaceNode.Extends {
+		if ext != nil {
+			iface.Extends = append(iface.Extends, ext.Value)
+		}
+	}
+	for _, method := range ifaceNode.Methods {
+		if method == nil || method.Name == nil {
+			continue
+		}
+		methodName := method.Name.Value
+		callable := callableFromMethod(method)
+		callable.Owner = name
+		callable.File = file
+		if _, exists := iface.Methods[methodName]; exists {
+			a.add("JOSS-DECL-003", diagnostics.SeverityError, file, method.Name.Token,
+				fmt.Sprintf("Method `%s::%s` is declared more than once.", name, methodName),
+				"An interface cannot contain duplicate method names.", "Rename or remove one method.")
+			continue
+		}
+		iface.Methods[methodName] = callable
+	}
+	a.interfaces[name] = iface
+	a.interfaceTokens[name] = functionDeclaration{token: ifaceNode.Name.Token, file: file}
+}
+
 func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 	if classNode == nil || classNode.Name == nil {
 		return
@@ -106,9 +170,20 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 			"Class names share one project-wide namespace.", "Choose a unique class name.")
 		return
 	}
+	if ifaceDecl, exists := a.interfaceTokens[name]; exists {
+		a.add("JOSS-DECL-004", diagnostics.SeverityError, file, classNode.Name.Token,
+			fmt.Sprintf("Class `%s` conflicts with interface at %s:%d.", name, ifaceDecl.file, ifaceDecl.token.Line),
+			"Interfaces and classes share one project-wide type namespace.", "Choose a unique name.")
+		return
+	}
 	class := Class{Name: name, Methods: make(map[string]Callable), Fields: make(map[string]Field), Visibility: classNode.Visibility, File: file}
 	if classNode.SuperClass != nil {
 		class.SuperClass = classNode.SuperClass.Value
+	}
+	for _, iface := range classNode.Interfaces {
+		if iface != nil {
+			class.Interfaces = append(class.Interfaces, iface.Value)
+		}
 	}
 	if classNode.Body != nil {
 		for _, member := range classNode.Body.Statements {
@@ -204,6 +279,8 @@ func (a *Analyzer) analyzeUnits(units []SourceUnit) {
 			switch node := statement.(type) {
 			case *parser.ClassStatement:
 				a.analyzeClass(node, global)
+			case *parser.InterfaceStatement:
+				a.analyzeInterface(node)
 			case *parser.MethodStatement:
 				returnType := typeFromToken(node.ReturnType)
 				a.validateDeclaredType(returnType, node.ReturnType, "return annotation")
@@ -214,6 +291,95 @@ func (a *Analyzer) analyzeUnits(units []SourceUnit) {
 		}
 		a.reportUnused(fileScope)
 	}
+}
+
+type ifaceMethodRequirement struct {
+	method    Callable
+	ifaceName string
+}
+
+func (a *Analyzer) collectInterfaceMethods(interfaceName string, visited map[string]bool) []ifaceMethodRequirement {
+	if visited[interfaceName] {
+		return nil
+	}
+	visited[interfaceName] = true
+	iface, exists := a.interfaces[interfaceName]
+	if !exists {
+		return nil
+	}
+	var reqs []ifaceMethodRequirement
+	for _, method := range iface.Methods {
+		reqs = append(reqs, ifaceMethodRequirement{method: method, ifaceName: interfaceName})
+	}
+	for _, ext := range iface.Extends {
+		reqs = append(reqs, a.collectInterfaceMethods(ext, visited)...)
+	}
+	return reqs
+}
+
+func (a *Analyzer) analyzeInterface(ifaceNode *parser.InterfaceStatement) {
+	if ifaceNode == nil || ifaceNode.Name == nil {
+		return
+	}
+	name := ifaceNode.Name.Value
+	visited := map[string]bool{name: true}
+	for _, ext := range ifaceNode.Extends {
+		if ext == nil {
+			continue
+		}
+		if _, exists := a.interfaces[ext.Value]; !exists {
+			a.add("JOSS-SYM-007", diagnostics.SeverityError, a.file, ext.Token,
+				fmt.Sprintf("Extended interface `%s` does not exist.", ext.Value),
+				"An interface can only extend existing interfaces.",
+				"Check the interface name or declare it.")
+			continue
+		}
+		if a.hasInterfaceCycle(ext.Value, visited) {
+			a.add("JOSS-SYM-008", diagnostics.SeverityError, a.file, ext.Token,
+				fmt.Sprintf("Cyclic inheritance detected in interface `%s` via `%s`.", name, ext.Value),
+				"Interface inheritance hierarchy cannot form cycles.",
+				"Remove the circular inheritance reference.")
+		}
+	}
+	for _, method := range ifaceNode.Methods {
+		if method == nil {
+			continue
+		}
+		returnType := typeFromToken(method.ReturnType)
+		a.validateDeclaredType(returnType, method.ReturnType, "return annotation")
+		for _, param := range method.Parameters {
+			if param == nil || param.Name == nil {
+				continue
+			}
+			if param.Type.Literal == "" || param.Type.Type == parser.VAR {
+				a.add("JOSS-TYPE-011", diagnostics.SeverityError, a.file, param.Name.Token,
+					fmt.Sprintf("Parameter `$%s` requires an explicit type.", param.Name.Value),
+					"Joss does not create implicit `mixed` parameters.",
+					"Declare a concrete/class/union type, or write `mixed` explicitly.")
+			} else {
+				pType := typesystem.Parse(param.Type.Literal)
+				a.validateDeclaredType(pType, param.Type, "parameter type")
+			}
+		}
+	}
+}
+
+func (a *Analyzer) hasInterfaceCycle(current string, visited map[string]bool) bool {
+	if visited[current] {
+		return true
+	}
+	visited[current] = true
+	defer func() { delete(visited, current) }()
+	iface, exists := a.interfaces[current]
+	if !exists {
+		return false
+	}
+	for _, ext := range iface.Extends {
+		if a.hasInterfaceCycle(ext, visited) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *Analyzer) analyzeClass(classNode *parser.ClassStatement, global *scope) {
@@ -228,6 +394,77 @@ func (a *Analyzer) analyzeClass(classNode *parser.ClassStatement, global *scope)
 			a.add("JOSS-SYM-005", diagnostics.SeverityError, a.file, classNode.SuperClass.Token,
 				fmt.Sprintf("Base class `%s` does not exist.", classNode.SuperClass.Value),
 				"Inheritance requires a class known to the project, runtime or loaded plugins.", "Check the class name or plugin configuration.")
+		}
+	}
+	for _, ifaceNode := range classNode.Interfaces {
+		if ifaceNode == nil {
+			continue
+		}
+		if _, exists := a.interfaces[ifaceNode.Value]; !exists {
+			a.add("JOSS-SYM-007", diagnostics.SeverityError, a.file, ifaceNode.Token,
+				fmt.Sprintf("Interface `%s` does not exist.", ifaceNode.Value),
+				"Classes can only implement declared interfaces.",
+				"Check the interface name or declare the interface.")
+		}
+	}
+	checkedMethods := map[string]bool{}
+	for _, ifaceNode := range classNode.Interfaces {
+		if ifaceNode == nil {
+			continue
+		}
+		if _, exists := a.interfaces[ifaceNode.Value]; !exists {
+			continue
+		}
+		reqs := a.collectInterfaceMethods(ifaceNode.Value, map[string]bool{})
+		for _, req := range reqs {
+			if checkedMethods[req.method.Name] {
+				continue
+			}
+			checkedMethods[req.method.Name] = true
+			classMethod, exists := a.lookupMethod(classNode.Name.Value, req.method.Name)
+			if !exists {
+				a.add("JOSS-DECL-005", diagnostics.SeverityError, a.file, classNode.Name.Token,
+					fmt.Sprintf("Class `%s` does not implement method `%s` required by interface `%s`.",
+						classNode.Name.Value, req.method.Name, req.ifaceName),
+					"A class implementing an interface must implement all of its methods.",
+					fmt.Sprintf("Implement `public func %s(...)` in class `%s`.", req.method.Name, classNode.Name.Value))
+				continue
+			}
+			if classMethod.Visibility != "" && classMethod.Visibility != "public" {
+				a.add("JOSS-DECL-005", diagnostics.SeverityError, a.file, classNode.Name.Token,
+					fmt.Sprintf("Class `%s` implements interface method `%s` with visibility `%s`; must be `public`.",
+						classNode.Name.Value, req.method.Name, classMethod.Visibility),
+					"Interface methods define public contracts and must be implemented as public.",
+					"Change method visibility to `public`.")
+			}
+			if len(classMethod.Parameters) != len(req.method.Parameters) {
+				a.add("JOSS-DECL-005", diagnostics.SeverityError, a.file, classNode.Name.Token,
+					fmt.Sprintf("Class `%s` method `%s` has %d parameter(s), but interface `%s` declares %d.",
+						classNode.Name.Value, req.method.Name, len(classMethod.Parameters), req.ifaceName, len(req.method.Parameters)),
+					"Method implementation must match the interface signature.",
+					"Adjust the method parameters to match the interface contract.")
+			} else {
+				for i, ifaceParam := range req.method.Parameters {
+					clsParam := classMethod.Parameters[i]
+					if clsParam.Type != ifaceParam.Type {
+						a.add("JOSS-DECL-005", diagnostics.SeverityError, a.file, classNode.Name.Token,
+							fmt.Sprintf("Class `%s` method `%s` parameter `$%s` has type `%s`, but interface `%s` declares type `%s`.",
+								classNode.Name.Value, req.method.Name, clsParam.Name, clsParam.Type.String(), req.ifaceName, ifaceParam.Type.String()),
+							"Method parameter types must match the interface definition.",
+							"Change parameter type to match the interface.")
+						break
+					}
+				}
+			}
+			if req.method.ReturnType.Kind != typesystem.Unknown {
+				if classMethod.ReturnType != req.method.ReturnType && !typesystem.Assignable(req.method.ReturnType, classMethod.ReturnType) {
+					a.add("JOSS-DECL-005", diagnostics.SeverityError, a.file, classNode.Name.Token,
+						fmt.Sprintf("Class `%s` method `%s` returns `%s`, but interface `%s` requires `%s`.",
+							classNode.Name.Value, req.method.Name, classMethod.ReturnType.String(), req.ifaceName, req.method.ReturnType.String()),
+						"Method return type must be compatible with the interface contract.",
+						"Adjust the return type to match the interface.")
+				}
+			}
 		}
 	}
 	classScope := newScope(global)
@@ -285,7 +522,7 @@ func (a *Analyzer) analyzeCallable(parameters []*parser.Parameter, body *parser.
 		local.put(&symbol{Name: parameter.Name.Value, Type: parameterType, Kind: symbolParameter, Token: parameter.Name.Token, File: a.file, Dynamic: parameterType.IsDynamic()})
 		if parameter.DefaultValue != nil {
 			valueType := a.inferExpression(parameter.DefaultValue, local)
-			if !assignableExpression(parameterType, valueType, parameter.DefaultValue) {
+			if !a.assignableExpression(parameterType, valueType, parameter.DefaultValue) {
 				a.typeMismatch("JOSS-TYPE-002", parameter.Name.Value, parameterType, valueType, parameter.Name.Token, "default value")
 			}
 		}
@@ -337,7 +574,7 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 		if node.ReturnValue != nil {
 			actualType = a.inferExpression(node.ReturnValue, current)
 		}
-		if a.currentReturnType.Kind != typesystem.Unknown && !assignableExpression(a.currentReturnType, actualType, node.ReturnValue) {
+		if a.currentReturnType.Kind != typesystem.Unknown && !a.assignableExpression(a.currentReturnType, actualType, node.ReturnValue) {
 			a.add("JOSS-TYPE-008", diagnostics.SeverityError, a.file, node.Token,
 				fmt.Sprintf("Return value has type `%s`; callable requires `%s`.", actualType.String(), a.currentReturnType.String()),
 				"Declared return types apply to every explicit return in the callable.", "Return a compatible value or correct the return annotation.")
@@ -424,7 +661,7 @@ func (a *Analyzer) analyzeDeclaration(node *parser.LetStatement, current *scope,
 	}
 	if inferred {
 		declaredType = typesystem.MergeInference(declaredType, valueType)
-	} else if node.Value != nil && !assignableExpression(declaredType, valueType, node.Value) {
+	} else if node.Value != nil && !a.assignableExpression(declaredType, valueType, node.Value) {
 		a.typeMismatch("JOSS-TYPE-002", name, declaredType, valueType, node.Name.Token, "initializer")
 	}
 	kind := symbolVariable
@@ -443,6 +680,9 @@ func (a *Analyzer) validateDeclaredType(declaredType typesystem.Type, token pars
 			continue
 		}
 		if _, exists := a.classes[member.Name]; exists {
+			continue
+		}
+		if _, exists := a.interfaces[member.Name]; exists {
 			continue
 		}
 		a.add("JOSS-TYPE-009", diagnostics.SeverityError, a.file, token,

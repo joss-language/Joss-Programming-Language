@@ -18,6 +18,8 @@
     "false",
     "foreach",
     "func",
+    "implements",
+    "interface",
     "isset",
     "let",
     "match",

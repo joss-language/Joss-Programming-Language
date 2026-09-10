@@ -83,6 +83,22 @@ export function setupCompletionProvider() {
                 documentation: 'Salto de línea estándar para usar con cout y cerr.',
                 insertTextFormat: InsertTextFormat.PlainText,
                 insertText: 'endl'
+            },
+            {
+                label: 'interface',
+                kind: CompletionItemKind.Snippet,
+                detail: 'public interface Name { ... }',
+                documentation: 'Declara una interfaz con contratos de métodos públicos que las clases pueden implementar.',
+                insertTextFormat: InsertTextFormat.Snippet,
+                insertText: 'public interface ${1:InterfaceName} {\n\tpublic func ${2:methodName}(${3:$param}): ${4:Type};\n}'
+            },
+            {
+                label: 'implements',
+                kind: CompletionItemKind.Keyword,
+                detail: 'implements Interface1, Interface2',
+                documentation: 'Declara que la clase implementa una o varias interfaces.',
+                insertTextFormat: InsertTextFormat.Snippet,
+                insertText: 'implements ${1:InterfaceName}'
             }
         ]);
     });

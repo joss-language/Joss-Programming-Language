@@ -121,7 +121,8 @@ print($cantidad ?? "sin dato")
 3. **`int → decimal` o `float → decimal`**: Permitido automáticamente. Joss convierte el valor a la representación decimal exacta.
 4. **`Clase → object`**: Cualquier instancia de clase es compatible con el tipo universal `object`.
 5. **`Subclase → Superclase`**: Una clase derivada que extiende a una clase base es aceptada donde se espere la clase base.
-6. **`mixed`**: Es universalmente compatible en ambas direcciones.
+6. **`Clase → Interfaz`**: Una clase que implementa una interfaz (`implements`) es compatible donde se declare dicha interfaz como tipo.
+7. **`mixed`**: Es universalmente compatible en ambas direcciones.
 
 Cualquier otra mezcla (como intentar meter un `string` en un `int` o un `bool` en un `array`) será bloqueada por el analizador con `JOSS-TYPE-001` (Type Mismatch).
 

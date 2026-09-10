@@ -46,6 +46,8 @@ var StandardAppDomains = []string{
 	"app/models",
 	"app/middleware",
 	"app/services",
+	"app/contracts",
+	"app/interfaces",
 	"app/database",
 	"app/jobs",
 	"app/tasks",

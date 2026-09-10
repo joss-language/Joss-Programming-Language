@@ -33,11 +33,11 @@
       "patterns": [
         {
           "name": "keyword.control.joss",
-          "match": "\\b(if|else|while|do|foreach|as|return|break|continue|defer|new|this|try|catch|throw|extends|async|await|match|default)\\b"
+          "match": "\\b(if|else|while|do|foreach|as|return|break|continue|defer|new|this|try|catch|throw|extends|implements|async|await|match|default)\\b"
         },
         {
           "name": "keyword.other.joss",
-          "match": "\\b(class|Init|public|private|protected|static|func|let|const|ref)\\b"
+          "match": "\\b(class|interface|Init|public|private|protected|static|func|let|const|ref)\\b"
         },
         {
           "name": "keyword.operator.logical.joss",

@@ -52,6 +52,18 @@ func (p *Parser) parseStatement() Statement {
 			return classStmt
 		}
 
+		if p.peekToken.Type == INTERFACE {
+			if vis == "protected" {
+				p.addError(p.curToken, "Una interfaz sólo puede ser `public` o `private`; `protected` se reserva para miembros.")
+			}
+			p.nextToken() // move to INTERFACE
+			ifaceStmt := p.parseInterfaceStatement()
+			if ifaceStmt != nil {
+				ifaceStmt.Visibility = vis
+			}
+			return ifaceStmt
+		}
+
 		if p.peekToken.Type == FUNCTION {
 			if vis == "protected" {
 				p.addError(p.curToken, "Una función global sólo puede ser `public` o `private`; `protected` se reserva para miembros.")
@@ -119,6 +131,10 @@ func (p *Parser) parseStatement() Statement {
 	if p.curToken.Type == CLASS {
 		p.addError(p.curToken, "Las clases requieren visibilidad explícita: `public class`, `protected class` o `private class`.")
 		return p.parseClassStatement()
+	}
+	if p.curToken.Type == INTERFACE {
+		p.addError(p.curToken, "Las interfaces requieren visibilidad explícita: `public interface` o `private interface`.")
+		return p.parseInterfaceStatement()
 	}
 	if p.curToken.Type == INIT {
 		return p.parseInitStatement()
@@ -304,6 +320,21 @@ func (p *Parser) parseClassStatement() *ClassStatement {
 		stmt.SuperClass = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	}
 
+	if p.peekToken.Type == IMPLEMENTS {
+		p.nextToken() // consume IMPLEMENTS
+		for {
+			if !p.expectPeek(IDENT) {
+				return nil
+			}
+			stmt.Interfaces = append(stmt.Interfaces, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
+			if p.peekToken.Type == COMMA {
+				p.nextToken() // consume COMMA
+			} else {
+				break
+			}
+		}
+	}
+
 	if !p.expectPeek(LBRACE) {
 		return nil
 	}
@@ -311,6 +342,95 @@ func (p *Parser) parseClassStatement() *ClassStatement {
 	stmt.Body = p.parseClassBody()
 
 	return stmt
+}
+
+func (p *Parser) parseInterfaceStatement() *InterfaceStatement {
+	stmt := &InterfaceStatement{Token: p.curToken}
+
+	if !p.expectPeek(IDENT) {
+		return nil
+	}
+
+	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if p.peekToken.Type == EXTENDS {
+		p.nextToken() // consume EXTENDS
+		for {
+			if !p.expectPeek(IDENT) {
+				return nil
+			}
+			stmt.Extends = append(stmt.Extends, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
+			if p.peekToken.Type == COMMA {
+				p.nextToken() // consume COMMA
+			} else {
+				break
+			}
+		}
+	}
+
+	if !p.expectPeek(LBRACE) {
+		return nil
+	}
+
+	stmt.Methods = p.parseInterfaceBody()
+
+	return stmt
+}
+
+func (p *Parser) parseInterfaceBody() []*MethodStatement {
+	methods := []*MethodStatement{}
+
+	p.nextToken() // move past {
+
+	for p.curToken.Type != RBRACE && p.curToken.Type != EOF {
+		if p.curToken.Type == NEWLINE || p.curToken.Type == SEMICOLON {
+			p.nextToken()
+			continue
+		}
+
+		vis := "public"
+		if p.curToken.Type == PUBLIC || p.curToken.Type == PRIVATE || p.curToken.Type == PROTECTED {
+			vis = p.curToken.Literal
+			if vis != "public" {
+				p.addError(p.curToken, "Los métodos de una interfaz deben ser `public`.")
+			}
+			p.nextToken()
+		}
+
+		if p.curToken.Type != FUNCTION {
+			p.addError(p.curToken, "Una interfaz sólo puede contener declaraciones de métodos (`public func ...`).")
+			p.nextToken()
+			continue
+		}
+
+		stmt := &MethodStatement{Token: p.curToken, Visibility: vis}
+
+		if !p.expectPeek(IDENT) {
+			return methods
+		}
+		stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+		if !p.expectPeek(LPAREN) {
+			return methods
+		}
+
+		stmt.Parameters = p.parseFunctionParameters()
+		stmt.ReturnType = p.parseOptionalReturnType()
+
+		// Interface methods must NOT have a body.
+		if p.peekToken.Type == LBRACE {
+			p.addError(p.peekToken, "Los métodos de una interfaz no pueden tener cuerpo `{ ... }`.")
+			p.nextToken()
+			p.parseBlockStatement()
+		} else if p.peekToken.Type == SEMICOLON {
+			p.nextToken() // consume ;
+		}
+
+		methods = append(methods, stmt)
+		p.nextToken()
+	}
+
+	return methods
 }
 
 func (p *Parser) parseClassBody() *BlockStatement {

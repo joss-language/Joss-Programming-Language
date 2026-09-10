@@ -92,18 +92,20 @@ const (
 	BREAK    = "BREAK"
 	CONTINUE = "CONTINUE"
 	// Control Structures
-	WHILE   = "WHILE"
-	DO      = "DO"
-	TRY     = "TRY"
-	CATCH   = "CATCH"
-	THROW   = "THROW"
-	EXTENDS = "EXTENDS"
-	IF      = "IF"
-	ELSE    = "ELSE"
-	MATCH   = "MATCH"
-	DEFAULT = "DEFAULT"
-	ASYNC   = "ASYNC"
-	DEFER   = "DEFER"
+	WHILE      = "WHILE"
+	DO         = "DO"
+	TRY        = "TRY"
+	CATCH      = "CATCH"
+	THROW      = "THROW"
+	EXTENDS    = "EXTENDS"
+	IF         = "IF"
+	ELSE       = "ELSE"
+	MATCH      = "MATCH"
+	DEFAULT    = "DEFAULT"
+	ASYNC      = "ASYNC"
+	DEFER      = "DEFER"
+	INTERFACE  = "INTERFACE"
+	IMPLEMENTS = "IMPLEMENTS"
 
 	// Modifiers & Visibility
 	PUBLIC    = "PUBLIC"
@@ -128,37 +130,39 @@ var keywords = map[string]TokenType{
 	"null":  NULL,
 	"nil":   NIL,
 
-	"let":       LET,
-	"const":     CONST,
-	"return":    RETURN,
-	"class":     CLASS,
-	"Init":      INIT,
-	"new":       NEW,
-	"foreach":   FOREACH,
-	"as":        AS,
-	"func":      FUNCTION,
-	"this":      THIS,
-	"echo":      ECHO,
-	"print":     PRINT,
-	"isset":     ISSET,
-	"empty":     EMPTY,
-	"break":     BREAK,
-	"continue":  CONTINUE,
-	"while":     WHILE,
-	"do":        DO,
-	"try":       TRY,
-	"catch":     CATCH,
-	"throw":     THROW,
-	"extends":   EXTENDS,
-	"match":     MATCH,
-	"default":   DEFAULT,
-	"async":     ASYNC,
-	"defer":     DEFER,
-	"public":    PUBLIC,
-	"private":   PRIVATE,
-	"protected": PROTECTED,
-	"static":    STATIC,
-	"ref":       REF,
+	"let":        LET,
+	"const":      CONST,
+	"return":     RETURN,
+	"class":      CLASS,
+	"interface":  INTERFACE,
+	"implements": IMPLEMENTS,
+	"Init":       INIT,
+	"new":        NEW,
+	"foreach":    FOREACH,
+	"as":         AS,
+	"func":       FUNCTION,
+	"this":       THIS,
+	"echo":       ECHO,
+	"print":      PRINT,
+	"isset":      ISSET,
+	"empty":      EMPTY,
+	"break":      BREAK,
+	"continue":   CONTINUE,
+	"while":      WHILE,
+	"do":         DO,
+	"try":        TRY,
+	"catch":      CATCH,
+	"throw":      THROW,
+	"extends":    EXTENDS,
+	"match":      MATCH,
+	"default":    DEFAULT,
+	"async":      ASYNC,
+	"defer":      DEFER,
+	"public":     PUBLIC,
+	"private":    PRIVATE,
+	"protected":  PROTECTED,
+	"static":     STATIC,
+	"ref":        REF,
 }
 
 var removedKeywords = map[string]string{

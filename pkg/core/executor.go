@@ -25,10 +25,13 @@ func (r *Runtime) Execute(program *parser.Program) {
 		r.LoadEnv(nil)
 	}
 
-	// First pass: Register classes and functions
+	// First pass: Register classes, interfaces and functions
 	for _, stmt := range program.Statements {
 		if classStmt, ok := stmt.(*parser.ClassStatement); ok {
 			r.registerClass(classStmt)
+		}
+		if ifaceStmt, ok := stmt.(*parser.InterfaceStatement); ok {
+			r.RegisterInterface(ifaceStmt)
 		}
 		if methodStmt, ok := stmt.(*parser.MethodStatement); ok {
 			r.Functions[methodStmt.Name.Value] = methodStmt
@@ -58,7 +61,9 @@ func (r *Runtime) Execute(program *parser.Program) {
 		} else {
 			for _, stmt := range program.Statements {
 				if _, ok := stmt.(*parser.ClassStatement); !ok {
-					r.executeStatement(stmt)
+					if _, ok := stmt.(*parser.InterfaceStatement); !ok {
+						r.executeStatement(stmt)
+					}
 				}
 			}
 		}
@@ -230,6 +235,8 @@ func (r *Runtime) executeStatement(stmt parser.Statement) interface{} {
 		r.planForMethod(s)
 	case *parser.ClassStatement:
 		r.registerClass(s)
+	case *parser.InterfaceStatement:
+		r.RegisterInterface(s)
 	}
 	return nil
 }

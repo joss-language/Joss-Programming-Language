@@ -107,7 +107,43 @@ func buildAnalysisEnvironment() semanticanalyzer.Environment {
 				}
 			}
 		}
+		if classNode != nil {
+			for _, iface := range classNode.Interfaces {
+				if iface != nil {
+					class.Interfaces = append(class.Interfaces, iface.Value)
+				}
+			}
+		}
 		environment.Classes[name] = class
+	}
+
+	ifaceNames := make([]string, 0, len(runtime.Interfaces))
+	for name := range runtime.Interfaces {
+		ifaceNames = append(ifaceNames, name)
+	}
+	sort.Strings(ifaceNames)
+	for _, name := range ifaceNames {
+		ifaceNode := runtime.Interfaces[name]
+		if ifaceNode == nil {
+			continue
+		}
+		iface := semanticanalyzer.Interface{
+			Name:       name,
+			Methods:    make(map[string]semanticanalyzer.Callable),
+			Extends:    make([]string, 0, len(ifaceNode.Extends)),
+			Visibility: ifaceNode.Visibility,
+		}
+		for _, ext := range ifaceNode.Extends {
+			if ext != nil {
+				iface.Extends = append(iface.Extends, ext.Value)
+			}
+		}
+		for _, method := range ifaceNode.Methods {
+			if method != nil && method.Name != nil {
+				iface.Methods[method.Name.Value] = analysisCallable(method.Name.Value, method.Parameters, method.ReturnType, false)
+			}
+		}
+		environment.Interfaces[name] = iface
 	}
 
 	// Plugin symbol indexes carry signatures even for non-AST plugin formats.

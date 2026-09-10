@@ -86,6 +86,7 @@ type ClassStatement struct {
 	Token      Token // CLASS
 	Name       *Identifier
 	SuperClass *Identifier
+	Interfaces []*Identifier // interfaces implemented via 'implements'
 	Body       *BlockStatement
 	Visibility string // "public", etc.
 }
@@ -103,8 +104,51 @@ func (cs *ClassStatement) String() string {
 		out.WriteString(" extends ")
 		out.WriteString(cs.SuperClass.String())
 	}
+	if len(cs.Interfaces) > 0 {
+		out.WriteString(" implements ")
+		for i, iface := range cs.Interfaces {
+			if i > 0 {
+				out.WriteString(", ")
+			}
+			out.WriteString(iface.String())
+		}
+	}
 	out.WriteString(" ")
 	out.WriteString(cs.Body.String())
+	return out.String()
+}
+
+type InterfaceStatement struct {
+	Token      Token // INTERFACE
+	Name       *Identifier
+	Extends    []*Identifier      // extended interfaces
+	Methods    []*MethodStatement // prototypes without bodies
+	Visibility string             // "public", "private"
+}
+
+func (is *InterfaceStatement) statementNode()       {}
+func (is *InterfaceStatement) TokenLiteral() string { return is.Token.Literal }
+func (is *InterfaceStatement) String() string {
+	var out bytes.Buffer
+	if is.Visibility != "" {
+		out.WriteString(is.Visibility + " ")
+	}
+	out.WriteString("interface ")
+	out.WriteString(is.Name.String())
+	if len(is.Extends) > 0 {
+		out.WriteString(" extends ")
+		for i, ext := range is.Extends {
+			if i > 0 {
+				out.WriteString(", ")
+			}
+			out.WriteString(ext.String())
+		}
+	}
+	out.WriteString(" {\n")
+	for _, m := range is.Methods {
+		out.WriteString("  " + m.String() + "\n")
+	}
+	out.WriteString("}")
 	return out.String()
 }
 

@@ -34,9 +34,13 @@ A diferencia de los mensajes de error genéricos de herramientas antiguas, cada 
 | `JOSS-SYM-004` | Símbolos | Clase no resuelta: intento de instanciar (`new`) una clase no declarada ni registrada. | `$p = new Persona()` | Declarar `public class Persona {}` o cargar el plugin que la exponga. |
 | `JOSS-SYM-005` | Símbolos | Herencia inválida: la clase especificada en `extends` no existe. | `public class A extends B {}` | Asegurarse de que la superclase `B` esté declarada en el proyecto. |
 | `JOSS-SYM-006` | Símbolos | Intento de reasignar una constante inmutable. | `const int $MAX = 5`<br>`$MAX = 10` | Si el valor debe cambiar, declararla como variable mutable: `$MAX = 5`. |
+| `JOSS-SYM-007` | Símbolos | Interfaz no resuelta: la interfaz especificada en `implements` o `extends` no existe. | `public class A implements IDesconocida {}` | Asegurarse de declarar la interfaz o verificar su ortografía. |
+| `JOSS-SYM-008` | Símbolos | Herencia cíclica en interfaces: una interfaz se extiende a sí misma directa o indirectamente. | `public interface A extends B {}`<br>`public interface B extends A {}` | Romper el ciclo de herencia entre las interfaces. |
 | `JOSS-DECL-001` | Declaraciones | Conflicto de nombres: dos funciones globales tienen exactamente el mismo identificador. | Dos archivos con:<br>`public func procesar() {}` | Renombrar una de las dos funciones. En Joss no hay namespaces fuente por carpeta. |
 | `JOSS-DECL-002` | Declaraciones | Conflicto de clases: dos clases globales tienen el mismo nombre en el proyecto. | Dos archivos con:<br>`public class Usuario {}` | Mantener una única declaración canónica de la clase en todo el proyecto. |
 | `JOSS-DECL-003` | Declaraciones | Métodos duplicados: una misma clase declara dos métodos con el mismo nombre. | `public func id() {}`<br>`public func id(int $x) {}` | Joss no admite sobrecarga de métodos por firma; usa nombres descriptivos distintos. |
+| `JOSS-DECL-004` | Declaraciones | Conflicto de nombres entre interfaz y clase o interfaces duplicadas. | `public class Repo {}`<br>`public interface Repo {}` | Usar nombres únicos para cada tipo; convención sugerida: prefijo `I` para interfaces (`IRepo`). |
+| `JOSS-DECL-005` | Declaraciones | Incumplimiento de contrato de interfaz: falta un método, o discrepa en cantidad/tipo de parámetros, retorno o visibilidad. | `public class MiClase implements IFigura {}` (sin `calcularArea()`) | Implementar todos los métodos de la interfaz con visibilidad `public` y tipos compatibles. |
 
 ---
 

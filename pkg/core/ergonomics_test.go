@@ -489,3 +489,38 @@ func TestCoutAndEndl(t *testing.T) {
 		t.Fatalf("expected true, got %v (%T)", res, res)
 	}
 }
+
+func TestInterfaceAndPolymorphism(t *testing.T) {
+	src := `
+public interface IShape {
+    public func area(): int;
+}
+
+public class Rectangle implements IShape {
+    public int $w = 0
+    public int $h = 0
+    Init constructor(int $w, int $h) {
+        $this->w = $w
+        $this->h = $h
+    }
+    public func area(): int {
+        return $this->w * $this->h
+    }
+}
+
+public func calculateArea(IShape $shape): int {
+    return $shape->area()
+}
+
+public func testPoly(): int {
+    $rect = new Rectangle(5, 10)
+    return calculateArea($rect)
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn := runtime.Functions["testPoly"]
+	res := runtime.CallMethodEvaluated(fn, nil, nil)
+	if res != int64(50) {
+		t.Fatalf("expected 50, got %v (%T)", res, res)
+	}
+}

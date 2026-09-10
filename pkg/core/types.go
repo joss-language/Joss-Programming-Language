@@ -41,6 +41,7 @@ type Runtime struct {
 	Constants         map[string]bool
 	HostGlobals       map[string]bool // runtime/plugin bindings visible inside named callables
 	Classes           map[string]*parser.ClassStatement
+	Interfaces        map[string]*parser.InterfaceStatement
 	Functions         map[string]*parser.MethodStatement
 	DB                *sql.DB
 	Routes            map[string]map[string]interface{} // HTTP Method -> Path -> Handler

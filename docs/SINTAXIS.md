@@ -13,7 +13,7 @@ Las palabras reservadas se obtienen de `parser.KeywordNames()`:
 
 ```text
 Init as async break catch class const continue default defer do echo empty
-extends false foreach func isset let match new nil null print private
+extends false foreach func implements interface isset let match new nil null print private
 protected public ref return static this throw true try while
 ```
 
@@ -146,7 +146,8 @@ interpretación tras comprobar existencia, no una regla universal de «sin datos
 | `int $a = 1, $b = 2` | Declaración múltiple del mismo tipo. |
 | `public/private func f(T $p): R { ... }` | Función global; retorno opcional, parámetros tipados. |
 | `func(T $p): R { ... }` | Closure sin modificador de visibilidad. |
-| `public/private class C extends B { ... }` | Clase; una superclase opcional. |
+| `public/private class C [extends B] [implements I1, I2] { ... }` | Clase; superclase opcional e interfaces implementadas. |
+| `public/private interface I [extends I1, I2] { ... }` | Interfaz; contratos de métodos públicos sin cuerpo. |
 | `Init nombre(...) { ... }` | Inicializador sin modificador. |
 
 Las funciones/clases globales se registran antes de analizar cuerpos.

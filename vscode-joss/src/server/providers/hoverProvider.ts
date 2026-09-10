@@ -37,6 +37,14 @@ export function setupHoverProvider() {
             return markdown(`\`\`\`joss\ndefer { ... }\n\`\`\`\n\n🛡️ **Limpieza Garantizada de Recursos (defer)**\n\nPospone la ejecución del bloque o sentencia hasta que la función, método o archivo actual termine, incluso ante retornos tempranos. Múltiples sentencias \`defer\` se ejecutan en orden **LIFO** (Last In, First Out).`);
         }
 
+        if (reference.toLowerCase() === 'interface') {
+            return markdown(`\`\`\`joss\npublic interface NombreInterfaz [extends OtraInterfaz] {\n    public func metodo(Tipo $arg): TipoRetorno;\n}\n\`\`\`\n\n📐 **Definición de Interfaz (Contrato)**\n\nDefine un contrato estricto de métodos que una o más clases deben implementar. Las interfaces solo declaran firmas de métodos sin cuerpo.`);
+        }
+
+        if (reference.toLowerCase() === 'implements') {
+            return markdown(`\`\`\`joss\npublic class MiClase [extends ClaseBase] implements Interfaz1, Interfaz2 {\n    ...\n}\n\`\`\`\n\n🧩 **Implementación de Interfaz**\n\nDeclara que la clase cumple con los contratos establecidos por una o varias interfaces.`);
+        }
+
         const native = findNativeCallable(reference);
         if (native) {
             return markdown(`\`\`\`joss\n${nativeSignature(native)}\n\`\`\`\n\n${native.documentation}${parameterDocs(native.parameters)}`);

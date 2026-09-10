@@ -50,8 +50,13 @@ func (r *Runtime) checkParsedType(val interface{}, destination typesystem.Type) 
 	for class := inst.Class; class != nil; {
 		if class.Name != nil {
 			for _, candidate := range destinations {
-				if candidate.Kind == typesystem.Class && class.Name.Value == candidate.Name {
-					return true
+				if candidate.Kind == typesystem.Class {
+					if class.Name.Value == candidate.Name {
+						return true
+					}
+					if r.classImplements(class, candidate.Name) {
+						return true
+					}
 				}
 			}
 		}
@@ -59,6 +64,38 @@ func (r *Runtime) checkParsedType(val interface{}, destination typesystem.Type) 
 			break
 		}
 		class = r.Classes[class.SuperClass.Value]
+	}
+	return false
+}
+
+func (r *Runtime) classImplements(class *parser.ClassStatement, targetInterface string) bool {
+	if class == nil {
+		return false
+	}
+	for _, iface := range class.Interfaces {
+		if iface != nil && r.interfaceInherits(iface.Value, targetInterface, map[string]bool{}) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Runtime) interfaceInherits(currentIface, targetIface string, visited map[string]bool) bool {
+	if currentIface == targetIface {
+		return true
+	}
+	if visited[currentIface] {
+		return false
+	}
+	visited[currentIface] = true
+	iface, exists := r.Interfaces[currentIface]
+	if !exists || iface == nil {
+		return false
+	}
+	for _, ext := range iface.Extends {
+		if ext != nil && r.interfaceInherits(ext.Value, targetIface, visited) {
+			return true
+		}
 	}
 	return false
 }

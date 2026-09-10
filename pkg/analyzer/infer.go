@@ -200,6 +200,9 @@ func (a *Analyzer) inferIdentifier(identifier *parser.Identifier, current *scope
 	if _, exists := a.classes[name]; exists {
 		return typesystem.Type{Kind: typesystem.Class, Name: name}
 	}
+	if _, exists := a.interfaces[name]; exists {
+		return typesystem.Type{Kind: typesystem.Class, Name: name}
+	}
 	if _, exists := a.functions[name]; exists {
 		return typesystem.Type{Kind: typesystem.Object}
 	}
@@ -233,7 +236,7 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 			if existing.Inferred && !existing.Type.IsKnown() {
 				existing.Type = typesystem.MergeInference(existing.Type, valueType)
 			}
-			if !existing.Dynamic && !assignableExpression(existing.Type, valueType, assignment.Value) {
+			if !existing.Dynamic && !a.assignableExpression(existing.Type, valueType, assignment.Value) {
 				a.typeMismatch("JOSS-TYPE-001", name, existing.Type, valueType, identifier.Token, "assignment")
 			}
 			return existing.Type
@@ -270,7 +273,7 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 						"Constant properties are immutable after instance initialization.", "Create a mutable property or assign a different variable.")
 					return field.Type
 				}
-				if field.Type.IsKnown() && !assignableExpression(field.Type, valueType, assignment.Value) {
+				if field.Type.IsKnown() && !a.assignableExpression(field.Type, valueType, assignment.Value) {
 					a.add("JOSS-TYPE-001", diagnostics.SeverityError, a.file, member.Property.Token,
 						fmt.Sprintf("Cannot assign `%s` to property `%s::%s` of type `%s`.", valueType.String(), receiver.Name, member.Property.Value, field.Type.String()),
 						"Properties keep their declared type.", "Assign a compatible value or correct the property declaration.")
@@ -517,11 +520,17 @@ func (a *Analyzer) receiverType(expression parser.Expression, current *scope) ty
 		if _, exists := a.classes[identifier.Value]; exists {
 			return typesystem.Type{Kind: typesystem.Class, Name: identifier.Value}
 		}
+		if _, exists := a.interfaces[identifier.Value]; exists {
+			return typesystem.Type{Kind: typesystem.Class, Name: identifier.Value}
+		}
 	}
 	return a.inferExpression(expression, current)
 }
 
 func (a *Analyzer) lookupMethod(className, methodName string) (Callable, bool) {
+	if iface, ok := a.interfaces[className]; ok {
+		return a.lookupInterfaceMethod(iface, methodName, map[string]bool{})
+	}
 	visited := map[string]bool{}
 	for className != "" && !visited[className] {
 		visited[className] = true
@@ -533,6 +542,24 @@ func (a *Analyzer) lookupMethod(className, methodName string) (Callable, bool) {
 			return method, true
 		}
 		className = class.SuperClass
+	}
+	return Callable{}, false
+}
+
+func (a *Analyzer) lookupInterfaceMethod(iface Interface, methodName string, visited map[string]bool) (Callable, bool) {
+	if visited[iface.Name] {
+		return Callable{}, false
+	}
+	visited[iface.Name] = true
+	if method, exists := iface.Methods[methodName]; exists {
+		return method, true
+	}
+	for _, extName := range iface.Extends {
+		if parentIface, exists := a.interfaces[extName]; exists {
+			if m, ok := a.lookupInterfaceMethod(parentIface, methodName, visited); ok {
+				return m, true
+			}
+		}
 	}
 	return Callable{}, false
 }
@@ -623,7 +650,7 @@ func (a *Analyzer) checkCall(callable Callable, arguments []parser.Expression, c
 			}
 			continue
 		}
-		if !assignableExpression(parameter.Type, argumentTypes[index], argumentExpression) {
+		if !a.assignableExpression(parameter.Type, argumentTypes[index], argumentExpression) {
 			a.add("JOSS-TYPE-003", diagnostics.SeverityError, a.file, tokenOfExpression(arguments[index]),
 				fmt.Sprintf("Argument %d to `%s` has type `%s`; parameter `$%s` requires `%s`.", index+1, callable.Name, argumentTypes[index].String(), parameter.Name, parameter.Type.String()),
 				"Function arguments follow the same assignment compatibility rules as variables.", "Convert the argument or correct the parameter type.")
@@ -673,9 +700,78 @@ func commonType(left, right typesystem.Type) typesystem.Type {
 	return typesystem.Parse(left.String() + "|" + right.String())
 }
 
-func assignableExpression(destination, source typesystem.Type, expression parser.Expression) bool {
+func (a *Analyzer) classImplements(className, interfaceName string) bool {
+	visited := map[string]bool{}
+	for className != "" && !visited[className] {
+		visited[className] = true
+		class, exists := a.classes[className]
+		if !exists {
+			return false
+		}
+		for _, iface := range class.Interfaces {
+			if a.interfaceInherits(iface, interfaceName, map[string]bool{}) {
+				return true
+			}
+		}
+		className = class.SuperClass
+	}
+	return false
+}
+
+func (a *Analyzer) interfaceInherits(currentIface, targetIface string, visited map[string]bool) bool {
+	if currentIface == targetIface {
+		return true
+	}
+	if visited[currentIface] {
+		return false
+	}
+	visited[currentIface] = true
+	iface, exists := a.interfaces[currentIface]
+	if !exists {
+		return false
+	}
+	for _, ext := range iface.Extends {
+		if a.interfaceInherits(ext, targetIface, visited) {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *Analyzer) isSubclass(sub, base string) bool {
+	visited := map[string]bool{}
+	for sub != "" && !visited[sub] {
+		visited[sub] = true
+		c, ok := a.classes[sub]
+		if !ok {
+			return false
+		}
+		if c.SuperClass == base {
+			return true
+		}
+		sub = c.SuperClass
+	}
+	return false
+}
+
+func (a *Analyzer) assignableExpression(destination, source typesystem.Type, expression parser.Expression) bool {
 	if typesystem.Assignable(destination, source) {
 		return true
+	}
+	if destination.Kind == typesystem.Class && source.Kind == typesystem.Class {
+		if a.classImplements(source.Name, destination.Name) {
+			return true
+		}
+		if a.isSubclass(source.Name, destination.Name) {
+			return true
+		}
+	}
+	if destination.Kind == typesystem.Union && source.Kind == typesystem.Class {
+		for _, member := range destination.Members() {
+			if member.Kind == typesystem.Class && (a.classImplements(source.Name, member.Name) || a.isSubclass(source.Name, member.Name)) {
+				return true
+			}
+		}
 	}
 	if literal, ok := expression.(*parser.StringLiteral); ok {
 		_, coerced := typesystem.CoerceString(destination, literal.Value)

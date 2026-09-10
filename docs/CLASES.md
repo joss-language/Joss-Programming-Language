@@ -168,7 +168,68 @@ print($aviso->texto())
 
 ---
 
-## 6. Navegación segura contra nulos (`?->`)
+## 6. Interfaces y Polimorfismo (`interface` e `implements`)
+
+Cuando trabajas en aplicaciones modulares o arquitectura limpia, muchas veces quieres definir **qué** debe hacer un componente sin atarte a **cómo** lo hace.
+
+Una **interfaz** es un **contrato formal**:
+- Solo declara los prototipos de los métodos públicos (nombre, parámetros tipados y tipo de retorno) sin cuerpo.
+- Una interfaz no se puede instanciar directamente con `new`.
+- Cualquier clase que declare `implements NombreInterfaz` está **obligada por el analizador semántico y el runtime** a implementar todos los métodos prometidos con firmas compatibles.
+- Una clase puede heredar de una clase base y a la vez implementar **múltiples interfaces** separadas por comas: `public class MiClase extends Base implements I1, I2`.
+- Una interfaz puede extender una o varias interfaces: `public interface IDerivada extends IBase1, IBase2`.
+
+Veamos un ejemplo de polimorfismo ejecutable:
+
+<!-- joss-run: ["50", "36"] -->
+```joss
+public interface IFigura {
+    public func calcularArea(): int;
+}
+
+public class Rectangulo implements IFigura {
+    public int $ancho = 0
+    public int $alto = 0
+
+    Init constructor(int $ancho, int $alto) {
+        $this->ancho = $ancho
+        $this->alto = $alto
+    }
+
+    public func calcularArea(): int {
+        return $this->ancho * $this->alto
+    }
+}
+
+public class Cuadrado implements IFigura {
+    public int $lado = 0
+
+    Init constructor(int $lado) {
+        $this->lado = $lado
+    }
+
+    public func calcularArea(): int {
+        return $this->lado * $this->lado
+    }
+}
+
+public func imprimirArea(IFigura $figura): int {
+    return $figura->calcularArea()
+}
+
+$r = new Rectangulo(5, 10)
+$c = new Cuadrado(6)
+print(imprimirArea($r))
+print(imprimirArea($c))
+```
+
+### Ventajas del Polimorfismo con Interfaces:
+1. **Desacoplamiento**: La función `imprimirArea(IFigura $figura)` no necesita saber si recibe un `Rectangulo`, un `Cuadrado` o cualquier figura futura; solo confía en que cumple con el contrato `IFigura`.
+2. **Validación estática exhaustiva**: Si olvidas implementar un método en una clase o declaras un parámetro con un tipo diferente, el analizador semántico emite de inmediato `JOSS-DECL-005`.
+
+---
+
+## 7. Navegación segura contra nulos (`?->`)
 
 Si una variable puede contener una instancia o ser `null` (tipo `Persona?`), intentar acceder a un método con `->` sobre un valor nulo podría causar un error.
 
@@ -183,7 +244,7 @@ Si `$usuario` es `null`, la llamada se cancela de forma silenciosa y segura, y `
 
 ---
 
-## 7. Errores comunes en POO con Joss
+## 8. Errores comunes en POO con Joss
 
 | Error | Causa | Solución |
 |---|---|---|
@@ -191,10 +252,11 @@ Si `$usuario` es `null`, la llamada se cancela de forma silenciosa y segura, y `
 | Intentar acceder a un miembro privado | `$cuenta->saldo` cuando es `private`. | Crea un método público *getter* (como `obtenerSaldo()`) para consultar el valor. |
 | Olvidar `new` al instanciar | `$p = Persona()` en vez de `$p = new Persona()`. | La creación de instancias exige la palabra `new`. |
 | Confundir una instancia con un map | Tratar un objeto como array asociativo (`$objeto["campo"]`). | Los objetos usan flecha (`$objeto->campo`), los maps usan corchetes (`$mapa["campo"]`). |
+| Incumplir contrato de interfaz | La clase declara `implements` pero le falta un método o sus parámetros no coinciden. | Implementar todos los métodos de la interfaz con visibilidad `public` y tipos compatibles (`JOSS-DECL-005`). |
 
 ---
 
-## 8. Ejercicio práctico
+## 9. Ejercicio práctico
 
 1. **Jerarquía de vehículos**:
    - Crea una clase `public class Vehiculo` con una propiedad protegida `protected string $marca` y un método `public func obtenerMarca(): string`.
