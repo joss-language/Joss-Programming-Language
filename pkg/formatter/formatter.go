@@ -11,32 +11,45 @@ import (
 )
 
 type Formatter struct {
-	tokens       []Token
-	pos          int
-	indent       int
-	out          strings.Builder
-	tokensOnLine int
-	consecLines  int
-	prevTok      Token
+	tokens           []Token
+	astInfo          *ASTInfo
+	pos              int
+	indent           int
+	out              strings.Builder
+	tokensOnLine     int
+	consecLines      int
+	prevTok          Token
+	lineEndedByToken bool
 }
 
 func FormatSource(src string) (string, error) {
 	p := parser.NewParser(parser.NewLexer(src))
-	_ = p.ParseProgram()
+	prog := p.ParseProgram()
 	if len(p.Errors()) > 0 {
 		return "", fmt.Errorf("syntax error: %s", p.Errors()[0])
 	}
 
+	astInfo := AnalyzeAST(prog)
 	scanner := NewScanner(src)
 	tokens := scanner.ScanAll()
 
 	f := &Formatter{
-		tokens: tokens,
-		pos:    0,
-		indent: 0,
+		tokens:  tokens,
+		astInfo: astInfo,
+		pos:     0,
+		indent:  0,
 	}
 
-	return f.formatTokens(), nil
+	formatted := f.formatTokens()
+
+	// Safety Guard: verify that formatted code parses cleanly with 0 syntax errors
+	pVerify := parser.NewParser(parser.NewLexer(formatted))
+	_ = pVerify.ParseProgram()
+	if len(pVerify.Errors()) > 0 {
+		return "", fmt.Errorf("formatter safety guard: generated invalid syntax: %s", pVerify.Errors()[0])
+	}
+
+	return formatted, nil
 }
 
 func (f *Formatter) peek() Token {
@@ -63,9 +76,15 @@ func (f *Formatter) advance() Token {
 	return tok
 }
 
-func (f *Formatter) writeIndent() {
-	if f.tokensOnLine == 0 && f.indent > 0 {
-		f.out.WriteString(strings.Repeat("    ", f.indent))
+func (f *Formatter) writeIndent(curr Token) {
+	if f.tokensOnLine == 0 {
+		effectiveIndent := f.indent
+		if curr.Text == "->" || curr.Text == "?->" {
+			effectiveIndent++
+		}
+		if effectiveIndent > 0 {
+			f.out.WriteString(strings.Repeat("    ", effectiveIndent))
+		}
 	}
 }
 
@@ -78,7 +97,7 @@ func (f *Formatter) writeNewline() {
 func (f *Formatter) formatTokens() string {
 	var inGenericBrackets int // tracking <T> in types
 	var blockDepth int        // tracking nesting inside { ... }
-	var sourceConsecNewlines int
+	var ternaryPending int
 
 	for f.pos < len(f.tokens) {
 		tok := f.advance()
@@ -89,17 +108,25 @@ func (f *Formatter) formatTokens() string {
 
 		// Handle Newlines from original source
 		if tok.Kind == TokNewline {
-			sourceConsecNewlines++
-			if sourceConsecNewlines >= 2 && f.consecLines < 2 && f.out.Len() > 0 {
+			if f.lineEndedByToken {
+				// The previous token already emitted the newline for this line.
+				f.lineEndedByToken = false
+				continue
+			}
+			if f.tokensOnLine > 0 {
+				f.writeNewline()
+				continue
+			}
+			// Empty / blank line in source: preserve at most 1 blank line (max 2 consecutive newlines)
+			if f.consecLines < 2 && f.out.Len() > 0 {
 				f.writeNewline()
 			}
 			continue
 		}
-		sourceConsecNewlines = 0
 
 		// Handle Comments
 		if tok.Kind == TokCommentLine || tok.Kind == TokCommentBlock {
-			f.writeIndent()
+			f.writeIndent(tok)
 			if f.tokensOnLine > 0 {
 				f.out.WriteRune(' ')
 			}
@@ -107,6 +134,7 @@ func (f *Formatter) formatTokens() string {
 			f.tokensOnLine++
 			if tok.Kind == TokCommentLine {
 				f.writeNewline()
+				f.lineEndedByToken = true
 			}
 			f.prevTok = tok
 			continue
@@ -123,12 +151,12 @@ func (f *Formatter) formatTokens() string {
 			if f.tokensOnLine > 0 {
 				f.writeNewline()
 			}
-			f.writeIndent()
+			f.writeIndent(tok)
 			f.out.WriteString("}")
 			f.tokensOnLine++
 			f.consecLines = 0
 
-			// If followed by : { (ternary block false branch), stay on same line
+			// If followed by : { (ternary/guard block false branch), stay on same line
 			next := f.peek()
 			if next.Kind == TokDelimiter && next.Text == ":" && f.peekAt(1).Kind == TokDelimiter && f.peekAt(1).Text == "{" {
 				f.out.WriteString(" : {")
@@ -138,6 +166,10 @@ func (f *Formatter) formatTokens() string {
 				blockDepth++
 				f.writeNewline()
 				f.prevTok = Token{Kind: TokDelimiter, Text: "{"}
+				f.lineEndedByToken = true
+				if ternaryPending > 0 {
+					ternaryPending--
+				}
 				continue
 			}
 
@@ -146,6 +178,7 @@ func (f *Formatter) formatTokens() string {
 				f.out.WriteRune(' ')
 			} else if next.Kind != TokDelimiter || (next.Text != ";" && next.Text != "," && next.Text != ")") {
 				f.writeNewline()
+				f.lineEndedByToken = true
 			}
 			f.prevTok = tok
 			continue
@@ -153,8 +186,8 @@ func (f *Formatter) formatTokens() string {
 
 		// Block or Map opening: {
 		if tok.Kind == TokDelimiter && tok.Text == "{" {
-			isBlock := f.isBlockOpen()
-			f.writeIndent()
+			isBlock := f.isBlockOpen(tok)
+			f.writeIndent(tok)
 			if f.tokensOnLine > 0 {
 				f.out.WriteRune(' ')
 			}
@@ -166,6 +199,7 @@ func (f *Formatter) formatTokens() string {
 				blockDepth++
 				f.consecLines = 0
 				f.writeNewline()
+				f.lineEndedByToken = true
 			} else {
 				// Map or object literal inline
 				f.consecLines = 0
@@ -180,6 +214,8 @@ func (f *Formatter) formatTokens() string {
 			f.consecLines = 0
 			f.writeNewline()
 			f.prevTok = tok
+			f.lineEndedByToken = true
+			ternaryPending = 0
 			continue
 		}
 
@@ -188,15 +224,21 @@ func (f *Formatter) formatTokens() string {
 			f.out.WriteString(",")
 			f.tokensOnLine++
 			f.prevTok = tok
-			if f.peek().Kind == TokNewline {
-				f.advance() // consume TokNewline
-				f.writeNewline()
-			}
+			f.lineEndedByToken = false
 			continue
 		}
 
+		// Track ternaries
+		wasInTernary := ternaryPending > 0
+		if tok.Kind == TokDelimiter && tok.Text == "?" {
+			ternaryPending++
+		}
+		if tok.Kind == TokDelimiter && tok.Text == ":" && ternaryPending > 0 {
+			ternaryPending--
+		}
+
 		// Ensure indentation at start of line
-		f.writeIndent()
+		f.writeIndent(tok)
 
 		// Generic bracket tracking: array<int>, map<string, User>
 		if tok.Kind == TokOperator && tok.Text == "<" {
@@ -206,6 +248,7 @@ func (f *Formatter) formatTokens() string {
 				f.tokensOnLine++
 				f.prevTok = tok
 				f.consecLines = 0
+				f.lineEndedByToken = false
 				continue
 			}
 		}
@@ -215,12 +258,13 @@ func (f *Formatter) formatTokens() string {
 			f.tokensOnLine++
 			f.prevTok = tok
 			f.consecLines = 0
+			f.lineEndedByToken = false
 			continue
 		}
 
 		// Spacing before token (only if not first token on line)
 		if f.tokensOnLine > 0 {
-			if shouldSpaceBefore(tok, f.prevTok, inGenericBrackets) {
+			if shouldSpaceBefore(tok, f.prevTok, f.peek(), inGenericBrackets, wasInTernary) {
 				f.out.WriteRune(' ')
 			}
 		}
@@ -229,6 +273,7 @@ func (f *Formatter) formatTokens() string {
 		f.tokensOnLine++
 		f.consecLines = 0
 		f.prevTok = tok
+		f.lineEndedByToken = false
 	}
 
 	result := f.out.String()
@@ -239,19 +284,26 @@ func (f *Formatter) formatTokens() string {
 	return ""
 }
 
-func (f *Formatter) isBlockOpen() bool {
+func (f *Formatter) isBlockOpen(tok Token) bool {
+	if f.astInfo != nil {
+		if f.astInfo.IsBlock(tok.Line, tok.Col) {
+			return true
+		}
+		if f.astInfo.IsMap(tok.Line, tok.Col) {
+			return false
+		}
+	}
+	if f.prevTok.Text == "return" {
+		return false
+	}
 	switch f.prevTok.Text {
-	case ")", ":", "?", "do", "try", "else":
+	case ")", ":", "?", "do", "try", "=>":
 		return true
 	}
-	if f.prevTok.Kind == TokIdent {
-		// Class Name { or func name() {
-		return true
-	}
-	return false
+	return parser.IsDeclarationKeyword(f.prevTok.Text) || f.prevTok.Kind == TokIdent
 }
 
-func shouldSpaceBefore(curr, prev Token, inGenerics int) bool {
+func shouldSpaceBefore(curr, prev, next Token, inGenerics int, inTernary bool) bool {
 	if prev.Kind == TokDelimiter {
 		if prev.Text == "(" || prev.Text == "[" || prev.Text == "{" {
 			return false
@@ -264,12 +316,10 @@ func shouldSpaceBefore(curr, prev Token, inGenerics int) bool {
 	if curr.Kind == TokDelimiter {
 		if curr.Text == "(" {
 			if prev.Kind == TokIdent {
-				switch prev.Text {
-				case "while", "foreach", "match", "catch", "if":
+				if parser.IsControlKeyword(prev.Text) || prev.Text == "if" {
 					return true
-				default:
-					return false
 				}
+				return false
 			}
 			if prev.Kind == TokVar {
 				return false
@@ -279,6 +329,15 @@ func shouldSpaceBefore(curr, prev Token, inGenerics int) bool {
 			return false
 		}
 		if curr.Text == ":" {
+			if next.Kind == TokDelimiter && next.Text == "{" {
+				return true
+			}
+			if inTernary {
+				return true
+			}
+			if prev.Kind == TokVar || prev.Kind == TokNumber {
+				return true
+			}
 			return false
 		}
 		if curr.Text == "{" {
@@ -291,7 +350,7 @@ func shouldSpaceBefore(curr, prev Token, inGenerics int) bool {
 
 	// Operators
 	if curr.Kind == TokOperator {
-		if curr.Text == "->" || curr.Text == "::" || curr.Text == "++" || curr.Text == "--" {
+		if curr.Text == "->" || curr.Text == "?->" || curr.Text == "::" || curr.Text == "++" || curr.Text == "--" || curr.Text == ".." {
 			return false
 		}
 		if inGenerics > 0 && (curr.Text == "<" || curr.Text == ">") {
@@ -300,14 +359,22 @@ func shouldSpaceBefore(curr, prev Token, inGenerics int) bool {
 		if curr.Text == "!" {
 			return false
 		}
+		// Type union: User|null, string|int
+		if curr.Text == "|" && prev.Kind == TokIdent && next.Kind == TokIdent {
+			return false
+		}
 		return true
 	}
 
 	if prev.Kind == TokOperator {
-		if prev.Text == "->" || prev.Text == "::" || prev.Text == "!" {
+		if prev.Text == "->" || prev.Text == "?->" || prev.Text == "::" || prev.Text == "!" || prev.Text == ".." {
 			return false
 		}
 		if inGenerics > 0 && (prev.Text == "<" || prev.Text == ">") {
+			return false
+		}
+		// Type union: User|null
+		if prev.Text == "|" && curr.Kind == TokIdent {
 			return false
 		}
 		return true

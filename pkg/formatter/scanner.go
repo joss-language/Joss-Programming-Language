@@ -3,6 +3,8 @@ package formatter
 import (
 	"strings"
 	"unicode"
+
+	"github.com/jossecurity/joss/pkg/parser"
 )
 
 type TokenKind int
@@ -175,24 +177,23 @@ func (s *Scanner) NextToken() Token {
 		return Token{Kind: TokNumber, Text: b.String(), Line: startLine, Col: startCol}
 	}
 
-	// Multi-character operators
-	if s.pos+3 <= len(s.input) {
-		three := string(s.input[s.pos : s.pos+3])
-		if three == "===" || three == "!==" || three == "<=>" || three == "..." {
-			s.advance()
-			s.advance()
-			s.advance()
-			return Token{Kind: TokOperator, Text: three, Line: startLine, Col: startCol}
-		}
-	}
-
-	if s.pos+2 <= len(s.input) {
-		two := string(s.input[s.pos : s.pos+2])
-		switch two {
-		case "==", "!=", "<=", ">=", "&&", "||", "=>", "->", "::", "??", "++", "--", "+=", "-=", "*=", "/=":
-			s.advance()
-			s.advance()
-			return Token{Kind: TokOperator, Text: two, Line: startLine, Col: startCol}
+	// Multi-character operators dynamically retrieved from canonical parser registry
+	for _, op := range parser.MultiCharOperators() {
+		opRunes := []rune(op)
+		if s.pos+len(opRunes) <= len(s.input) {
+			match := true
+			for i, r := range opRunes {
+				if s.input[s.pos+i] != r {
+					match = false
+					break
+				}
+			}
+			if match {
+				for range opRunes {
+					s.advance()
+				}
+				return Token{Kind: TokOperator, Text: op, Line: startLine, Col: startCol}
+			}
 		}
 	}
 

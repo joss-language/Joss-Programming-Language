@@ -224,3 +224,40 @@ func KeywordNames() []string {
 	sort.Strings(result)
 	return result
 }
+
+var multiCharOperators = []string{
+	// Length 3
+	STRICT_EQ, STRICT_NOT_EQ, SPACESHIP, ELLIPSIS, NULL_SAFE_ARROW, NULL_COALESCE_ASSIGN,
+	// Length 2
+	EQ, NOT_EQ, LTE, GTE, SHIFT_LEFT, SHIFT_RIGHT, AND, OR, INCREMENT, DECREMENT,
+	RANGE, ARROW, DOUBLE_COLON, PIPE, NULL_COALESCE, FAT_ARROW,
+	PLUS_ASSIGN, MINUS_ASSIGN, ASTERISK_ASSIGN, SLASH_ASSIGN,
+}
+
+// MultiCharOperators returns all multi-character operators defined in Joss,
+// sorted by length descending so scanners and formatters can match them dynamically.
+func MultiCharOperators() []string {
+	cp := make([]string, len(multiCharOperators))
+	copy(cp, multiCharOperators)
+	return cp
+}
+
+// IsControlKeyword returns true if ident is a control flow keyword requiring '(' (e.g. guard, while, foreach, match, catch).
+func IsControlKeyword(ident string) bool {
+	switch LookupIdent(ident) {
+	case WHILE, FOREACH, MATCH, CATCH, GUARD:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsDeclarationKeyword returns true if ident is a declaration keyword that may introduce a block (e.g. class, interface, enum, func, Init).
+func IsDeclarationKeyword(ident string) bool {
+	switch LookupIdent(ident) {
+	case CLASS, INTERFACE, ENUM, FUNCTION, INIT:
+		return true
+	default:
+		return false
+	}
+}
