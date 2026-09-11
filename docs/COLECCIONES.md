@@ -58,18 +58,23 @@ Por defecto, un array `array` puede contener tipos mezclados. Si quieres garanti
 array<int> $edades = [18, 25, 30]
 ```
 
-### Desestructuración de arrays: `[$a, $b] = $coleccion`
+### Desestructuración declarativa de arrays y maps
 
-Cuando tienes un array y necesitas extraer sus elementos en variables separadas, no necesitas escribir `$x = $lista[0]` y `$y = $lista[1]`. Puedes desempaquetarlos directamente en una sola línea mediante **desestructuración**:
+Cuando tienes un array o un map y necesitas extraer sus elementos en variables separadas, no necesitas escribir asignaciones individuales repetitivas. Puedes desempaquetarlos directamente en una sola línea mediante **desestructuración declarativa**, incluyendo valores por defecto opcionales:
 
-<!-- joss-run: ["10", "20"] -->
+<!-- joss-run: ["10", "20", "30", "Ada", "cliente"] -->
 ```joss
-[$x, $y] = [10, 20]
+[$x, $y, $z = 30] = [10, 20]
 print($x)
 print($y)
+print($z)
+
+{"nombre": $nombre, "rol": $rol = "cliente"} = {"nombre": "Ada"}
+print($nombre)
+print($rol)
 ```
 
-Esto resulta muy cómodo para desempaquetar pares de coordenadas, resultados devueltos por funciones o listas cortas sin código repetitivo.
+Esto resulta muy cómodo para desempaquetar parámetros de peticiones web, pares de coordenadas o resultados devueltos por funciones sin código ceremonial.
 
 ### Operador Spread (`...`) en arrays
 
@@ -175,6 +180,23 @@ print(sum($escalados))
 $encontrado = $numeros |> find(func(int $x): bool { return $x == 2; })
 print($encontrado * 10)
 print($numeros |> any(func(int $x): bool { return $x == 3; }))
+```
+
+### Métodos fluidos de instancia en colecciones y cadenas
+
+Además del operador pipeline, Joss permite invocar métodos fluidos directamente sobre valores primitivos (`string`, `array`, `map`):
+
+<!-- joss-run: ["hola-mundo", "6, 8", "a-b"] -->
+```joss
+$txt = "  Hola Mundo  "
+print($txt->trim()->lower()->replace(" ", "-"))
+
+$nums = [1, 2, 3, 4]
+$filtrados = $nums->map(func(int $n, int $i): int { return $n * 2; })->filter(func(int $n, int $i): bool { return $n > 4; })
+print($filtrados->join(", "))
+
+$mapa = {"a": 1, "b": 2}
+print($mapa->keys()->join("-"))
 ```
 
 ---

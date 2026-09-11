@@ -102,7 +102,7 @@ Router::registerMiddleware("%s", func() {
     
     // Example: Check Header
     // $auth = Request::header("Authorization")
-    // (!$auth) ? { return Response::json({"error": "Unauthorized"}, 401) } : {}
+    // (!$auth) ? { return Response::json({"error": "Unauthorized"}, 401) }
 })
 `, className, middlewareKey)
 

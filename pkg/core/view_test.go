@@ -140,3 +140,51 @@ func TestViewPreservesJavaScriptTemplateLiterals(t *testing.T) {
 		t.Fatalf("expected '${totalCount}' to be preserved in output, got: %s", html)
 	}
 }
+
+func TestViewSingleBranchTernary(t *testing.T) {
+	tmpDir := t.TempDir()
+	origWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origWd)
+
+	viewsDir := filepath.Join("app", "views", "test")
+	if err := os.MkdirAll(viewsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	viewContent := `<div>
+		{{ ($showAdmin) ? {
+			<span class="badge">Admin</span>
+		} }}
+		{{ ($showGuest) ? {
+			<span class="badge">Guest</span>
+		} }}
+	</div>`
+
+	if err := os.WriteFile(filepath.Join(viewsDir, "single.joss.html"), []byte(viewContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := NewRuntime()
+	out := r.executeViewMethod(nil, "render", []interface{}{
+		"test.single",
+		map[string]interface{}{
+			"showAdmin": true,
+			"showGuest": false,
+		},
+	})
+
+	html, ok := out.(string)
+	if !ok {
+		t.Fatalf("expected string output, got %T: %v", out, out)
+	}
+
+	if !strings.Contains(html, "Admin") {
+		t.Fatalf("expected 'Admin' when $showAdmin is true, got: %s", html)
+	}
+	if strings.Contains(html, "Guest") {
+		t.Fatalf("did not expect 'Guest' when $showGuest is false, got: %s", html)
+	}
+}

@@ -61,28 +61,51 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 			if i < len(items) {
 				elemVal = items[i]
 			}
-			if ident, ok := elem.(*parser.Identifier); ok {
-				if assigned, resolved := r.assignLocal(ident, elemVal, false); resolved {
-					_ = assigned
-					continue
-				}
-				if reference, exists := r.Variables[ident.Value].(*VariableReference); exists {
-					reference.Set(r, elemVal)
-					continue
-				}
-				if expectedType, exists := r.VarTypes[ident.Value]; exists {
-					if expectedType != "mixed" {
-						elemVal = r.coerceToTypedValue(elemVal, expectedType)
-						if !r.checkType(elemVal, expectedType) {
-							panic(fmt.Sprintf("Error de Tipado: No se puede asignar valor a '%s' (se espera %s)", ident.Value, expectedType))
-						}
-					}
-				} else if _, alreadyExists := r.Variables[ident.Value]; !alreadyExists || r.Variables[ident.Value] == nil {
-					if inferredType := runtimeTypeName(elemVal); inferredType != "" {
-						r.VarTypes[ident.Value] = inferredType
+			var ident *parser.Identifier
+			if id, ok := elem.(*parser.Identifier); ok {
+				ident = id
+			} else if assign, ok := elem.(*parser.AssignExpression); ok {
+				if id, ok := assign.Left.(*parser.Identifier); ok {
+					ident = id
+					if elemVal == nil {
+						elemVal = r.evaluateExpression(assign.Value)
 					}
 				}
-				r.Variables[ident.Value] = elemVal
+			}
+			if ident != nil {
+				r.bindDestructuredVariable(ident, elemVal)
+			}
+		}
+		return val
+	}
+
+	if mapLit, ok := ae.Left.(*parser.MapLiteral); ok {
+		var m map[string]interface{}
+		if valMap, ok := val.(map[string]interface{}); ok {
+			m = valMap
+		} else {
+			m = make(map[string]interface{})
+		}
+
+		for keyExpr, valExpr := range mapLit.Pairs {
+			keyVal := fmt.Sprint(r.evaluateExpression(keyExpr))
+			var extractedVal interface{}
+			if item, exists := m[keyVal]; exists {
+				extractedVal = item
+			}
+			var ident *parser.Identifier
+			if id, ok := valExpr.(*parser.Identifier); ok {
+				ident = id
+			} else if assign, ok := valExpr.(*parser.AssignExpression); ok {
+				if id, ok := assign.Left.(*parser.Identifier); ok {
+					ident = id
+					if extractedVal == nil {
+						extractedVal = r.evaluateExpression(assign.Value)
+					}
+				}
+			}
+			if ident != nil {
+				r.bindDestructuredVariable(ident, extractedVal)
 			}
 		}
 		return val
@@ -330,4 +353,28 @@ func (r *Runtime) lookupInstanceFieldOwner(instance *Instance, name string) (*pa
 		}
 	}
 	return nil, ""
+}
+
+func (r *Runtime) bindDestructuredVariable(ident *parser.Identifier, val interface{}) {
+	if assigned, resolved := r.assignLocal(ident, val, false); resolved {
+		_ = assigned
+		return
+	}
+	if reference, exists := r.Variables[ident.Value].(*VariableReference); exists {
+		reference.Set(r, val)
+		return
+	}
+	if expectedType, exists := r.VarTypes[ident.Value]; exists {
+		if expectedType != "mixed" {
+			val = r.coerceToTypedValue(val, expectedType)
+			if !r.checkType(val, expectedType) {
+				panic(fmt.Sprintf("Error de Tipado: No se puede asignar valor a '%s' (se espera %s)", ident.Value, expectedType))
+			}
+		}
+	} else if _, alreadyExists := r.Variables[ident.Value]; !alreadyExists || r.Variables[ident.Value] == nil {
+		if inferredType := runtimeTypeName(val); inferredType != "" {
+			r.VarTypes[ident.Value] = inferredType
+		}
+	}
+	r.Variables[ident.Value] = val
 }

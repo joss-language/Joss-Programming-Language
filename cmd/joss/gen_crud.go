@@ -198,7 +198,7 @@ func createCRUDController(modelName, tableName string, cols []ColumnSchema, rela
         $item = $model->where("id", $id)->first()
         (!$item) ? {
             return redirect("/%s")->with("error", "Registro no encontrado.")
-        } : {}
+        }
         %s
         return view("%s.edit", {"item": $item%s})
     }

@@ -161,6 +161,21 @@ func (i *Instance) MarshalJSON() ([]byte, error) {
 	return json.Marshal(i.Fields)
 }
 
+func (i *Instance) String() string {
+	if i == nil {
+		return "null"
+	}
+	i.Mu.RLock()
+	defer i.Mu.RUnlock()
+	if msg, ok := i.Fields["message"].(string); ok && msg != "" {
+		return msg
+	}
+	if i.Class != nil && i.Class.Name != nil {
+		return "Instance of " + i.Class.Name.Value
+	}
+	return "Instance"
+}
+
 // BoundMethod represents a method bound to an instance
 type BoundMethod struct {
 	Method      *parser.MethodStatement

@@ -99,7 +99,7 @@ $usuarioAutenticado = true
 
 También es válido escribir la forma simétrica con bloque vacío `: {}` si prefieres mantener ambos lados explícitos.
 
-### Guard Clauses: Retorno anticipado dentro de funciones
+### Guard Clauses con ternarios y la sentencia `guard`
 
 En Joss, si ejecutas una instrucción `return` dentro del bloque de un ternario, el `return` **burbujea de inmediato saliendo de la función contenedora**. Esto permite escribir cláusulas de guarda (*guard clauses*) limpias y evitar anidamientos profundos:
 
@@ -114,6 +114,26 @@ public func procesarPago(decimal $monto): bool {
     print("Procesando pago de: " . $monto)
     return true
 }
+```
+
+### Sentencia nativa `guard ... :` con terminación obligatoria y Smart Casts
+
+En consonancia con la filosofía de Joss donde `if` y `else` no existen, la sentencia **`guard`** adopta los dos puntos `:` del operador ternario para definir su bloque de escape:
+
+- Expresa en la condición el estado **deseado** para continuar la ejecución en línea recta.
+- Si la condición no se cumple, se ejecuta obligatoriamente el bloque tras los dos puntos `:`.
+- El bloque de escape **debe terminar la función** mediante `return` o `throw`; de lo contrario, el analizador emite el error de diagnóstico `JOSS-FLOW-005`.
+- Al salir la rama de escape, el sistema de tipos realiza **Smart Cast** (*Type Narrowing*), reduciendo tipos como `T|null` directamente a `T` en el flujo principal subsiguiente:
+
+<!-- joss-run: ["Procesando: 50"] -->
+```joss
+public func procesar(int $monto): string {
+    guard ($monto > 0) : {
+        return "Monto inválido"
+    }
+    return "Procesando: " . $monto
+}
+print(procesar(50))
 ```
 
 ---

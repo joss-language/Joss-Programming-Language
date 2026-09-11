@@ -56,7 +56,19 @@ func (r *Runtime) evaluateInfix(ie *parser.InfixExpression) interface{} {
 		func() {
 			defer func() {
 				if rec := recover(); rec != nil {
-					left = nil
+					switch r := rec.(type) {
+					case *ReturnPanic, *BreakPanic, *ContinuePanic:
+						panic(rec)
+					case *JossError:
+						if r.Type == "ArithmeticError" || r.Code == diagnostics.CodeDivisionByZero || r.Code == diagnostics.CodeArithmeticOverflow {
+							panic(rec)
+						}
+						left = nil
+					case *Instance:
+						panic(rec)
+					default:
+						left = nil
+					}
 				}
 			}()
 			left = r.evaluateExpression(ie.Left)

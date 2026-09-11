@@ -59,6 +59,8 @@ func hasYield(node interface{}) bool {
 		return true
 	case *parser.WhileStatement:
 		return hasYield(n.Body)
+	case *parser.GuardStatement:
+		return hasYield(n.Body)
 	case *parser.DoWhileStatement:
 		return hasYield(n.Body)
 	case *parser.ForeachStatement:

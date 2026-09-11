@@ -101,6 +101,7 @@ const (
 	EXTENDS    = "EXTENDS"
 	IF         = "IF"
 	ELSE       = "ELSE"
+	GUARD      = "GUARD"
 	MATCH      = "MATCH"
 	DEFAULT    = "DEFAULT"
 	ASYNC      = "ASYNC"
@@ -162,6 +163,7 @@ var keywords = map[string]TokenType{
 	"catch":      CATCH,
 	"throw":      THROW,
 	"extends":    EXTENDS,
+	"guard":      GUARD,
 	"match":      MATCH,
 	"default":    DEFAULT,
 	"async":      ASYNC,

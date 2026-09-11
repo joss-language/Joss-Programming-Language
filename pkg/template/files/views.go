@@ -14,14 +14,14 @@ func GetViewFiles(path string) map[string]string {
         <i class="fas fa-check-circle mr-2"></i>
         <span class="text-sm font-medium">{{ $success }}</span>
     </div>
-    } : {} }}
+    } }}
 
     {{ ($error) ? {
     <div class="flex items-center p-4 text-red-800 rounded-xl bg-red-50/50 dark:bg-red-950/10 dark:text-red-400 border border-red-200 dark:border-red-900/30" role="alert">
         <i class="fas fa-exclamation-circle mr-2"></i>
         <span class="text-sm font-medium">{{ $error }}</span>
     </div>
-    } : {} }}
+    } }}
     
     <!-- Profile Banner Card -->
     <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white shadow-lg">
@@ -124,7 +124,7 @@ func GetViewFiles(path string) map[string]string {
                         <div class="sm:col-span-1 flex justify-center">
                             {{ ($qr_code) ? {
                                 <img src="{{ $qr_code }}" alt="QR 2FA" class="w-40 h-40 bg-white p-2 rounded-xl border border-gray-200">
-                            } : {} }}
+                            } }}
                         </div>
                         <div class="sm:col-span-2 space-y-4">
                             <p class="text-xs text-gray-400 leading-relaxed">Escanea este código QR con tu aplicación autenticadora (Google Authenticator o Authy) e introduce el código de 6 dígitos abajo para activarlo.</p>
@@ -183,14 +183,14 @@ func GetViewFiles(path string) map[string]string {
         <i class="fas fa-exclamation-circle mr-2"></i>
         <span class="text-sm font-medium">{{ $error }}</span>
     </div>
-    } : {} }}
+    } }}
 
     {{ ($success) ? {
     <div class="flex items-center p-4 mb-6 text-green-800 rounded-xl bg-green-50/50 dark:bg-green-950/10 dark:text-green-400 border border-green-200 dark:border-green-900/30" role="alert">
         <i class="fas fa-check-circle mr-2"></i>
         <span class="text-sm font-medium">{{ $success }}</span>
     </div>
-    } : {} }}
+    } }}
 
     <form method="POST" action="/login" class="space-y-5">
         {{ csrf_field() }}
@@ -224,7 +224,7 @@ func GetViewFiles(path string) map[string]string {
         <i class="fas fa-exclamation-circle mr-2"></i>
         <span class="text-sm font-medium">{{ $error }}</span>
     </div>
-    } : {} }}
+    } }}
 
     <form method="POST" action="/register" class="space-y-5">
         {{ csrf_field() }}
@@ -276,14 +276,14 @@ func GetViewFiles(path string) map[string]string {
         <i class="fas fa-check-circle mr-2"></i>
         <span class="text-sm font-medium">{{ $success }}</span>
     </div>
-    } : {} }}
+    } }}
 
     {{ ($error) ? {
     <div class="flex items-center p-4 mb-6 text-red-800 rounded-xl bg-red-50/50 dark:bg-red-950/10 dark:text-red-400 border border-red-200 dark:border-red-900/30" role="alert">
         <i class="fas fa-exclamation-circle mr-2"></i>
         <span class="text-sm font-medium">{{ $error }}</span>
     </div>
-    } : {} }}
+    } }}
 
     <form method="POST" action="/password/email" class="space-y-5">
         {{ csrf_field() }}
@@ -308,7 +308,7 @@ func GetViewFiles(path string) map[string]string {
         <i class="fas fa-exclamation-circle mr-2"></i>
         <span class="text-sm font-medium">{{ $error }}</span>
     </div>
-    } : {} }}
+    } }}
 
     <form method="POST" action="/password/reset" class="space-y-5">
         {{ csrf_field() }}
@@ -345,7 +345,7 @@ func GetViewFiles(path string) map[string]string {
             <span class="text-xs text-blue-700 dark:text-blue-400/80 leading-relaxed">Tienes acceso total al sistema. Puedes gestionar repositorios, aplicaciones y notificaciones globales.</span>
         </div>
     </div>
-    } : {} }}
+    } }}
 
     <!-- Stat cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -452,7 +452,7 @@ func GetViewFiles(path string) map[string]string {
                 {{ ($auth_check) ? {
                     <li><a href="/dashboard" class="block py-2 px-3 text-gray-300 hover:text-white">Dashboard</a></li>
                     <!-- Injected Links Here -->
-                } : {} }}
+                } }}
             </ul>
         </div>
       </div>
@@ -487,7 +487,7 @@ func GetViewFiles(path string) map[string]string {
       <div class="p-4 text-sm text-red-800 rounded-xl bg-red-50 dark:bg-red-950/20 dark:text-red-400 border border-red-200 dark:border-red-900/30" role="alert">
           <i class="fas fa-exclamation-circle mr-1"></i> {{ $error }}
       </div>
-      } : {} }}
+      } }}
 
       <form action="/2fa/verify" method="POST" class="space-y-6">
           {{ csrf_field() }}

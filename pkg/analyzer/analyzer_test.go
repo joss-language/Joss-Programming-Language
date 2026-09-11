@@ -255,3 +255,45 @@ public func complete(bool $ok): int {
 		t.Fatalf("return-path diagnostics = %#v", items)
 	}
 }
+
+func TestGuardRequiresElseExitDiagnostic(t *testing.T) {
+	itemsInvalid := analyzeSource(t, `public func test(int $x): int {
+    guard ($x > 0) : {
+        $a = 1
+    }
+    return $x
+}`, NewEnvironment())
+	if !hasCode(itemsInvalid, "JOSS-FLOW-005") {
+		t.Fatalf("expected JOSS-FLOW-005 when guard else does not exit, got %#v", itemsInvalid)
+	}
+
+	itemsValid := analyzeSource(t, `public func test(int $x): int {
+    guard ($x > 0) : {
+        return 0
+    }
+    return $x
+}`, NewEnvironment())
+	if hasCode(itemsValid, "JOSS-FLOW-005") {
+		t.Fatalf("did not expect JOSS-FLOW-005 for valid guard, got %#v", itemsValid)
+	}
+}
+
+func TestSmartCastNarrowing(t *testing.T) {
+	itemsGuard := analyzeSource(t, `public func test(int|null $x): int {
+    guard ($x != null) : {
+        return 0
+    }
+    return $x
+}`, NewEnvironment())
+	if hasCode(itemsGuard, "JOSS-TYPE-008") {
+		t.Fatalf("guard should narrow $x to int, got %#v", itemsGuard)
+	}
+
+	itemsTernary := analyzeSource(t, `public func test(int|null $x): int {
+    ($x == null) ? { return 0 }
+    return $x
+}`, NewEnvironment())
+	if hasCode(itemsTernary, "JOSS-TYPE-008") {
+		t.Fatalf("terminating null-check should narrow $x to int, got %#v", itemsTernary)
+	}
+}

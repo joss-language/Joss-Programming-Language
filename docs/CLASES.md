@@ -89,7 +89,7 @@ Al escribir `new Persona("Ada")`, Joss llama automáticamente al constructor ent
 
 ### Promoción de propiedades en el constructor (Constructor Property Promotion)
 
-Para evitar tener que declarar la propiedad, recibir el parámetro y escribir `$this->prop = $prop` manualmente, Joss permite declarar la visibilidad (`public`, `protected` o `private`) directamente en los parámetros de `Init` o del `constructor`. Joss creará y asignará la propiedad automáticamente:
+Para evitar tener que declarar la propiedad, recibir el parámetro y escribir `$this->prop = $prop` manualmente, Joss permite declarar la visibilidad (`public`, `protected` o `private`) y constancia (`const`) directamente en los parámetros de `Init` o del `constructor`. Joss creará y asignará la propiedad automáticamente:
 
 <!-- joss-run: ["Ada", "30"] -->
 ```joss
@@ -105,6 +105,7 @@ print($u->nombre)
 print($u->edad)
 ```
 
+También es posible declarar propiedades constantes promovidas con `public const Tipo $campo` para protegerlas frente a reasignaciones posteriores.
 
 ---
 
@@ -127,7 +128,7 @@ public class CuentaBancaria {
     public func depositar(decimal $monto) {
         ($monto > 0.0m) ? {
             $this->saldo = $this->saldo + $monto
-        } : {}
+        }
     }
 
     public func obtenerSaldo(): decimal {

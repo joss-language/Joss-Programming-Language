@@ -141,6 +141,9 @@ func (callable *Callable) collectStatement(statement parser.Statement) {
 	case *parser.WhileStatement:
 		callable.collectExpression(node.Condition)
 		callable.collectBlock(node.Body)
+	case *parser.GuardStatement:
+		callable.collectExpression(node.Condition)
+		callable.collectBlock(node.Body)
 	case *parser.DoWhileStatement:
 		callable.collectBlock(node.Body)
 		callable.collectExpression(node.Condition)
@@ -175,8 +178,26 @@ func (callable *Callable) collectExpression(expression parser.Expression) {
 			for _, elem := range arrLit.Elements {
 				if id, ok := elem.(*parser.Identifier); ok {
 					callable.addSlot(Slot{Name: id.Value, Inferred: true})
+				} else if assign, ok := elem.(*parser.AssignExpression); ok {
+					if id, ok := assign.Left.(*parser.Identifier); ok {
+						callable.addSlot(Slot{Name: id.Value, Inferred: true})
+					}
+					callable.collectExpression(assign.Value)
 				} else {
 					callable.collectExpression(elem)
+				}
+			}
+		} else if mapLit, ok := node.Left.(*parser.MapLiteral); ok {
+			for _, valExpr := range mapLit.Pairs {
+				if id, ok := valExpr.(*parser.Identifier); ok {
+					callable.addSlot(Slot{Name: id.Value, Inferred: true})
+				} else if assign, ok := valExpr.(*parser.AssignExpression); ok {
+					if id, ok := assign.Left.(*parser.Identifier); ok {
+						callable.addSlot(Slot{Name: id.Value, Inferred: true})
+					}
+					callable.collectExpression(assign.Value)
+				} else {
+					callable.collectExpression(valExpr)
 				}
 			}
 		} else {
@@ -281,6 +302,9 @@ func (callable *Callable) annotateStatement(statement parser.Statement) {
 	case *parser.ThrowStatement:
 		callable.annotateExpression(node.Value)
 	case *parser.WhileStatement:
+		callable.annotateExpression(node.Condition)
+		callable.annotateBlock(node.Body)
+	case *parser.GuardStatement:
 		callable.annotateExpression(node.Condition)
 		callable.annotateBlock(node.Body)
 	case *parser.DoWhileStatement:
@@ -399,6 +423,8 @@ func (callable *Callable) analyzeLoopControl(block *parser.BlockStatement) {
 			callable.analyzeLoopControl(node.Body)
 		case *parser.ForeachStatement:
 			callable.LoopControl[node.Body] = BlockHasBreakOrContinue(node.Body)
+			callable.analyzeLoopControl(node.Body)
+		case *parser.GuardStatement:
 			callable.analyzeLoopControl(node.Body)
 		case *parser.TryCatchStatement:
 			callable.analyzeLoopControl(node.TryBlock)

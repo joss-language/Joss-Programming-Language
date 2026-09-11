@@ -40,6 +40,7 @@ func (p *Program) String() string {
 
 type Parameter struct {
 	Visibility   Token // Optional: public, protected, private (constructor promotion)
+	IsConst      bool  // Optional: const (constructor promotion)
 	Type         Token // Optional: string, int, etc.
 	Name         *Identifier
 	DefaultValue Expression // Optional: = 200, = "default", etc.

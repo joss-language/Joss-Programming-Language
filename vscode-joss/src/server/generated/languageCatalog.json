@@ -21,6 +21,7 @@
     "false",
     "foreach",
     "func",
+    "guard",
     "implements",
     "instanceof",
     "interface",

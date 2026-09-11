@@ -266,18 +266,69 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 	}
 	if arrLit, ok := assignment.Left.(*parser.ArrayLiteral); ok {
 		for _, elem := range arrLit.Elements {
-			if identifier, ok := elem.(*parser.Identifier); ok {
+			var identifier *parser.Identifier
+			elemType := typesystem.Type{Kind: typesystem.Mixed}
+			if id, ok := elem.(*parser.Identifier); ok {
+				identifier = id
+				if valueType.Element != nil {
+					elemType = *valueType.Element
+				}
+			} else if assign, ok := elem.(*parser.AssignExpression); ok {
+				if id, ok := assign.Left.(*parser.Identifier); ok {
+					identifier = id
+					defType := a.inferExpression(assign.Value, current)
+					if valueType.Element != nil {
+						elemType = *valueType.Element
+					} else {
+						elemType = defType
+					}
+				}
+			}
+			if identifier != nil {
 				name := cleanName(identifier.Value)
 				if existing, exists := current.resolve(name); exists {
 					if existing.Inferred && !existing.Type.IsKnown() {
-						existing.Type = typesystem.Type{Kind: typesystem.Mixed}
+						existing.Type = elemType
 					}
 				} else {
-					current.put(&symbol{Name: name, Type: typesystem.Type{Kind: typesystem.Mixed}, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true})
+					current.put(&symbol{Name: name, Type: elemType, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true})
 				}
 			}
 		}
 		return typesystem.Type{Kind: typesystem.Array}
+	}
+	if mapLit, ok := assignment.Left.(*parser.MapLiteral); ok {
+		for _, valExpr := range mapLit.Pairs {
+			var identifier *parser.Identifier
+			targetType := typesystem.Type{Kind: typesystem.Mixed}
+			if id, ok := valExpr.(*parser.Identifier); ok {
+				identifier = id
+				if valueType.Element != nil {
+					targetType = *valueType.Element
+				}
+			} else if assign, ok := valExpr.(*parser.AssignExpression); ok {
+				if id, ok := assign.Left.(*parser.Identifier); ok {
+					identifier = id
+					defaultType := a.inferExpression(assign.Value, current)
+					if valueType.Element != nil {
+						targetType = *valueType.Element
+					} else {
+						targetType = defaultType
+					}
+				}
+			}
+			if identifier != nil {
+				name := cleanName(identifier.Value)
+				if existing, exists := current.resolve(name); exists {
+					if existing.Inferred && !existing.Type.IsKnown() {
+						existing.Type = targetType
+					}
+				} else {
+					current.put(&symbol{Name: name, Type: targetType, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true})
+				}
+			}
+		}
+		return typesystem.Type{Kind: typesystem.Map}
 	}
 	if member, ok := assignment.Left.(*parser.MemberExpression); ok && member.Property != nil {
 		receiver := a.receiverType(member.Left, current)
@@ -513,6 +564,11 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 				fmt.Sprintf("Class `%s` has no method `%s`.", receiver.Name, member.Property.Value),
 				"The receiver class is known and its method table has been resolved.", "Check the method name or the class API.")
 		}
+		if member.Property != nil {
+			if primType, isPrim := a.inferPrimitiveMethod(receiver, member.Property.Value, call, current); isPrim {
+				return primType
+			}
+		}
 		for _, argument := range call.Arguments {
 			a.inferExpression(argument, current)
 		}
@@ -523,6 +579,66 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 		a.inferExpression(argument, current)
 	}
 	return functionType
+}
+
+func (a *Analyzer) inferPrimitiveMethod(receiver typesystem.Type, method string, call *parser.CallExpression, current *scope) (typesystem.Type, bool) {
+	for _, argument := range call.Arguments {
+		a.inferExpression(argument, current)
+	}
+	switch receiver.Kind {
+	case typesystem.String:
+		switch method {
+		case "trim", "lower", "upper", "replace", "substring", "substr", "repeat":
+			return typesystem.Type{Kind: typesystem.String}, true
+		case "length", "indexOf":
+			return typesystem.Type{Kind: typesystem.Int}, true
+		case "contains", "startsWith", "endsWith":
+			return typesystem.Type{Kind: typesystem.Bool}, true
+		case "split", "lines":
+			strType := typesystem.Type{Kind: typesystem.String}
+			return typesystem.Type{Kind: typesystem.Array, Element: &strType}, true
+		}
+	case typesystem.Array:
+		switch method {
+		case "length", "count", "indexOf":
+			return typesystem.Type{Kind: typesystem.Int}, true
+		case "join":
+			return typesystem.Type{Kind: typesystem.String}, true
+		case "contains", "has":
+			return typesystem.Type{Kind: typesystem.Bool}, true
+		case "slice", "reverse", "push", "filter":
+			return receiver, true
+		case "map":
+			return typesystem.Type{Kind: typesystem.Array}, true
+		case "first", "last", "pop":
+			if receiver.Element != nil {
+				return *receiver.Element, true
+			}
+			return typesystem.Type{Kind: typesystem.Unknown}, true
+		case "reduce":
+			return typesystem.Type{Kind: typesystem.Unknown}, true
+		}
+	case typesystem.Map:
+		switch method {
+		case "keys":
+			strType := typesystem.Type{Kind: typesystem.String}
+			return typesystem.Type{Kind: typesystem.Array, Element: &strType}, true
+		case "values":
+			return typesystem.Type{Kind: typesystem.Array}, true
+		case "has", "contains":
+			return typesystem.Type{Kind: typesystem.Bool}, true
+		case "length", "count":
+			return typesystem.Type{Kind: typesystem.Int}, true
+		case "get":
+			if receiver.Element != nil {
+				return *receiver.Element, true
+			}
+			return typesystem.Type{Kind: typesystem.Unknown}, true
+		case "set", "remove", "merge":
+			return receiver, true
+		}
+	}
+	return typesystem.Type{}, false
 }
 
 func (a *Analyzer) canAccess(visibility, owner string) bool {

@@ -115,10 +115,12 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 									Name:       param.Name,
 									Value:      param.DefaultValue,
 									Visibility: param.Visibility.Literal,
+									IsConst:    param.IsConst,
 								}
 								info := &classFieldInfo{
 									Declaration:  decl,
 									OwnerClass:   cls.Name.Value,
+									IsConst:      param.IsConst,
 									DeclaredType: declaredType,
 									ParsedType:   typesystem.Parse(declaredType),
 								}
@@ -159,10 +161,12 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 									Name:       param.Name,
 									Value:      param.DefaultValue,
 									Visibility: param.Visibility.Literal,
+									IsConst:    param.IsConst,
 								}
 								info := &classFieldInfo{
 									Declaration:  decl,
 									OwnerClass:   cls.Name.Value,
+									IsConst:      param.IsConst,
 									DeclaredType: declaredType,
 									ParsedType:   typesystem.Parse(declaredType),
 								}

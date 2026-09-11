@@ -181,6 +181,9 @@ func (p *Parser) parseStatement() Statement {
 	if p.curToken.Type == WHILE {
 		return p.parseWhileStatement()
 	}
+	if p.curToken.Type == GUARD {
+		return p.parseGuardStatement()
+	}
 	if p.curToken.Type == DO {
 		return p.parseDoWhileStatement()
 	}
@@ -858,6 +861,47 @@ func (p *Parser) parseWhileStatement() *WhileStatement {
 
 	stmt.Body = p.parseBlockStatement()
 
+	return stmt
+}
+
+func (p *Parser) parseGuardStatement() *GuardStatement {
+	stmt := &GuardStatement{Token: p.curToken}
+
+	for p.peekToken.Type == NEWLINE {
+		p.nextToken()
+	}
+
+	if !p.expectPeek(LPAREN) {
+		return nil
+	}
+
+	p.nextToken()
+	stmt.Condition = p.parseExpression(LOWEST)
+
+	if !p.expectPeek(RPAREN) {
+		return nil
+	}
+
+	for p.peekToken.Type == NEWLINE {
+		p.nextToken()
+	}
+
+	if p.peekToken.Type == COLON || p.peekToken.Type == ELSE || p.peekToken.Literal == "else" {
+		p.nextToken() // consume ':' or 'else'
+	} else {
+		p.addError(p.peekToken, "La sentencia `guard` requiere `:` antes del bloque de salida, ejemplo: `guard ($cond) : { return }`.")
+		return nil
+	}
+
+	for p.peekToken.Type == NEWLINE {
+		p.nextToken()
+	}
+
+	if !p.expectPeek(LBRACE) {
+		return nil
+	}
+
+	stmt.Body = p.parseBlockStatement()
 	return stmt
 }
 

@@ -33,13 +33,42 @@ var (
 	reClassVisibility = regexp.MustCompile(`(?m)^([ \t]*)class\s+([a-zA-Z_][a-zA-Z0-9_]*)`)
 	// Fix missing mixed param type: ($x -> (mixed $x, , $y -> , mixed $y
 	reUntypedParam = regexp.MustCompile(`([\(,]\s*)\$([a-zA-Z_][a-zA-Z0-9_]*)`)
+
+	// Fix empty ternary false branch: } : {} -> }
+	reEmptyTernaryElse = regexp.MustCompile(`\}\s*:\s*\{\s*\}`)
+
+	// Fix deprecated type aliases
+	reDeprecatedType = regexp.MustCompile(`\b(integer|double|boolean|dynamic|any|list)\b(\s+\$[a-zA-Z_][a-zA-Z0-9_]*|\s*[\)|,])`)
+
+	// Fix deprecated procedural string helpers to canonical static methods
+	reStrContains   = regexp.MustCompile(`\bstr_contains\s*\(`)
+	reStrStartsWith = regexp.MustCompile(`\bstr_starts_with\s*\(`)
+	reStrEndsWith   = regexp.MustCompile(`\bstr_ends_with\s*\(`)
+	reStrReplace    = regexp.MustCompile(`\bstr_replace\s*\(`)
 )
+
+var deprecatedTypeReplacements = map[string]string{
+	"integer": "int",
+	"double":  "float",
+	"boolean": "bool",
+	"dynamic": "mixed",
+	"any":     "mixed",
+	"list":    "array",
+}
 
 func (f *Fixer) FixSource(src string) (string, int) {
 	applied := 0
 	fixed := src
 
-	// 1. Fix implicit top-level func visibility
+	// 1. Fix empty ternary false branch `: {}`
+	if reEmptyTernaryElse.MatchString(fixed) {
+		fixed = reEmptyTernaryElse.ReplaceAllStringFunc(fixed, func(match string) string {
+			applied++
+			return "}"
+		})
+	}
+
+	// 2. Fix implicit top-level func visibility
 	if reFuncVisibility.MatchString(fixed) {
 		fixed = reFuncVisibility.ReplaceAllStringFunc(fixed, func(match string) string {
 			applied++
@@ -47,7 +76,7 @@ func (f *Fixer) FixSource(src string) (string, int) {
 		})
 	}
 
-	// 2. Fix implicit top-level class visibility
+	// 3. Fix implicit top-level class visibility
 	if reClassVisibility.MatchString(fixed) {
 		fixed = reClassVisibility.ReplaceAllStringFunc(fixed, func(match string) string {
 			applied++
@@ -55,7 +84,46 @@ func (f *Fixer) FixSource(src string) (string, int) {
 		})
 	}
 
-	// 3. Format canonically
+	// 4. Fix deprecated type aliases
+	if reDeprecatedType.MatchString(fixed) {
+		fixed = reDeprecatedType.ReplaceAllStringFunc(fixed, func(match string) string {
+			for oldT, newT := range deprecatedTypeReplacements {
+				if len(match) >= len(oldT) && match[:len(oldT)] == oldT {
+					applied++
+					return newT + match[len(oldT):]
+				}
+			}
+			return match
+		})
+	}
+
+	// 5. Fix procedural helpers to canonical Str calls
+	if reStrContains.MatchString(fixed) {
+		fixed = reStrContains.ReplaceAllStringFunc(fixed, func(match string) string {
+			applied++
+			return "Str::contains("
+		})
+	}
+	if reStrStartsWith.MatchString(fixed) {
+		fixed = reStrStartsWith.ReplaceAllStringFunc(fixed, func(match string) string {
+			applied++
+			return "Str::startsWith("
+		})
+	}
+	if reStrEndsWith.MatchString(fixed) {
+		fixed = reStrEndsWith.ReplaceAllStringFunc(fixed, func(match string) string {
+			applied++
+			return "Str::endsWith("
+		})
+	}
+	if reStrReplace.MatchString(fixed) {
+		fixed = reStrReplace.ReplaceAllStringFunc(fixed, func(match string) string {
+			applied++
+			return "Str::replace("
+		})
+	}
+
+	// 6. Format canonically
 	formatted, err := formatter.FormatSource(fixed)
 	if err == nil && formatted != "" {
 		if formatted != fixed {

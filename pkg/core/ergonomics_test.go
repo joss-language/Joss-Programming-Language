@@ -152,6 +152,33 @@ func TestSingleBranchConditional(t *testing.T) {
 	if r2 != "initial" {
 		t.Fatalf("expected 'initial', got %v", r2)
 	}
+
+	src2 := `public func testSingleBranchExpr(int $x): string {
+    string $status = "initial"
+    ($x > 10) ? $status = "greater"
+    return $status
+}
+public func testSingleBranchCall(int $x): int {
+    int $status = 0
+    ($x > 10) ? { $status = 100 }
+    return $status
+}
+`
+	runtime2 := benchmarkPreparedRuntime(t, src2)
+	fn2 := runtime2.Functions["testSingleBranchExpr"]
+	r3 := runtime2.CallMethodEvaluated(fn2, nil, []interface{}{int64(20)})
+	if r3 != "greater" {
+		t.Fatalf("expected 'greater', got %v", r3)
+	}
+	r4 := runtime2.CallMethodEvaluated(fn2, nil, []interface{}{int64(5)})
+	if r4 != "initial" {
+		t.Fatalf("expected 'initial', got %v", r4)
+	}
+	fn3 := runtime2.Functions["testSingleBranchCall"]
+	r5 := runtime2.CallMethodEvaluated(fn3, nil, []interface{}{int64(20)})
+	if r5 != int64(100) {
+		t.Fatalf("expected 100, got %v", r5)
+	}
 }
 
 func TestStringInterpolationFlutterStyle(t *testing.T) {
@@ -522,5 +549,193 @@ public func testPoly(): int {
 	res := runtime.CallMethodEvaluated(fn, nil, nil)
 	if res != int64(50) {
 		t.Fatalf("expected 50, got %v (%T)", res, res)
+	}
+}
+
+func TestCatchPreservesInstance(t *testing.T) {
+	src := `
+public class CustomError {
+    public string $message = "Detalle del error"
+    public int $code = 404
+    Init constructor(string $msg, int $code) {
+        $this->message = $msg
+        $this->code = $code
+    }
+    public func getCode(): int {
+        return $this->code
+    }
+}
+
+public func testCatch(): int {
+    int $caughtCode = 0
+    try {
+        throw new CustomError("Recurso no encontrado", 404)
+    } catch ($ex) {
+        $caughtCode = $ex->getCode()
+    }
+    return $caughtCode
+}
+`
+	runtime := benchmarkPreparedRuntime(t, src)
+	fn := runtime.Functions["testCatch"]
+	res := runtime.CallMethodEvaluated(fn, nil, nil)
+	if res != int64(404) {
+		t.Fatalf("expected 404 from preserved instance, got %v (%T)", res, res)
+	}
+}
+
+func TestNullCoalesceDoesNotSilencePanic(t *testing.T) {
+	// 1. Missing variable or null should coalesce safely
+	srcSafe := `
+public func testSafeCoalesce(): int {
+    int|null $missing = null
+    return $missing ?? 42
+}
+`
+	rtSafe := benchmarkPreparedRuntime(t, srcSafe)
+	fnSafe := rtSafe.Functions["testSafeCoalesce"]
+	resSafe := rtSafe.CallMethodEvaluated(fnSafe, nil, nil)
+	if resSafe != int64(42) {
+		t.Fatalf("expected 42, got %v", resSafe)
+	}
+
+	// 2. Division by zero should panic and NOT be silenced by ??
+	srcDivZero := `
+public func testDivZero(): int {
+    int $zero = 0
+    return (100 / $zero) ?? 999
+}
+`
+	rtDiv := benchmarkPreparedRuntime(t, srcDivZero)
+	fnDiv := rtDiv.Functions["testDivZero"]
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatalf("expected division by zero panic, but it was silenced by ??")
+		}
+	}()
+	rtDiv.CallMethodEvaluated(fnDiv, nil, nil)
+}
+
+func TestGuardStatementExecution(t *testing.T) {
+	src := `
+public func testGuard(int $val): string {
+    guard ($val > 0) : {
+        return "negative_or_zero"
+    }
+    guard ($val != 100) : {
+        return "century"
+    }
+    return "positive_standard"
+}
+`
+	rt := benchmarkPreparedRuntime(t, src)
+	fn := rt.Functions["testGuard"]
+
+	r1 := rt.CallMethodEvaluated(fn, nil, []interface{}{int64(-5)})
+	if r1 != "negative_or_zero" {
+		t.Fatalf("expected 'negative_or_zero', got %v", r1)
+	}
+
+	r2 := rt.CallMethodEvaluated(fn, nil, []interface{}{int64(100)})
+	if r2 != "century" {
+		t.Fatalf("expected 'century', got %v", r2)
+	}
+
+	r3 := rt.CallMethodEvaluated(fn, nil, []interface{}{int64(42)})
+	if r3 != "positive_standard" {
+		t.Fatalf("expected 'positive_standard', got %v", r3)
+	}
+}
+
+func TestFluentPrimitiveMethods(t *testing.T) {
+	src := `
+public func testStringMethods(string $input): string {
+    return $input->trim()->lower()->replace(" ", "-")
+}
+
+public func testArrayMethods(): string {
+    array $items = [1, 2, 3, 4]
+    return $items->map(func(int $x, int $i): int { return $x * 2; })->filter(func(int $x, int $i): bool { return $x > 4; })->join(", ")
+}
+
+public func testMapMethods(): string {
+    map $m = {"a": 1, "b": 2}
+    return $m->keys()->join("-")
+}
+`
+	rt := benchmarkPreparedRuntime(t, src)
+
+	// String
+	fnStr := rt.Functions["testStringMethods"]
+	resStr := rt.CallMethodEvaluated(fnStr, nil, []interface{}{"  Hello World  "})
+	if resStr != "hello-world" {
+		t.Fatalf("expected 'hello-world', got %v", resStr)
+	}
+
+	// Array
+	fnArr := rt.Functions["testArrayMethods"]
+	resArr := rt.CallMethodEvaluated(fnArr, nil, nil)
+	if resArr != "6, 8" {
+		t.Fatalf("expected '6, 8', got %v", resArr)
+	}
+
+	// Map
+	fnMap := rt.Functions["testMapMethods"]
+	resMap := rt.CallMethodEvaluated(fnMap, nil, nil)
+	if resMap != "a-b" {
+		t.Fatalf("expected 'a-b', got %v", resMap)
+	}
+}
+
+func TestConstructorPromotion(t *testing.T) {
+	src := `
+public class UserDTO {
+    Init(
+        public int $id,
+        public string $email,
+        public string $role = "cliente"
+    ) {}
+}
+
+public func testPromotion(): string {
+    UserDTO $u = new UserDTO(101, "ana@example.com")
+    return $u->email . ":" . $u->role . ":" . $u->id
+}
+`
+	rt := benchmarkPreparedRuntime(t, src)
+	fn := rt.Functions["testPromotion"]
+	res := rt.CallMethodEvaluated(fn, nil, nil)
+	if res != "ana@example.com:cliente:101" {
+		t.Fatalf("expected 'ana@example.com:cliente:101', got %v", res)
+	}
+}
+
+func TestDestructuringAssignment(t *testing.T) {
+	src := `
+public func testArrayDestructuring(): string {
+    array $list = [10, 20];
+    [$a, $b, $c = 30] = $list;
+    return $a . ":" . $b . ":" . $c;
+}
+
+public func testMapDestructuring(): string {
+    map $data = {"name": "Joss", "version": 2};
+    {"name": $n, "version": $v, "status": $s = "active"} = $data;
+    return $n . ":" . $v . ":" . $s;
+}
+`
+	rt := benchmarkPreparedRuntime(t, src)
+
+	fnArr := rt.Functions["testArrayDestructuring"]
+	resArr := rt.CallMethodEvaluated(fnArr, nil, nil)
+	if resArr != "10:20:30" {
+		t.Fatalf("expected '10:20:30', got %v", resArr)
+	}
+
+	fnMap := rt.Functions["testMapDestructuring"]
+	resMap := rt.CallMethodEvaluated(fnMap, nil, nil)
+	if resMap != "Joss:2:active" {
+		t.Fatalf("expected 'Joss:2:active', got %v", resMap)
 	}
 }

@@ -484,3 +484,25 @@ type ContinueStatement struct {
 func (cs *ContinueStatement) statementNode()       {}
 func (cs *ContinueStatement) TokenLiteral() string { return cs.Token.Literal }
 func (cs *ContinueStatement) String() string       { return cs.Token.Literal + ";" }
+
+// Control Flow: Guard (P1)
+type GuardStatement struct {
+	Token     Token // 'guard'
+	Condition Expression
+	Body      *BlockStatement // 'else' block
+}
+
+func (gs *GuardStatement) statementNode()       {}
+func (gs *GuardStatement) TokenLiteral() string { return gs.Token.Literal }
+func (gs *GuardStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("guard (")
+	if gs.Condition != nil {
+		out.WriteString(gs.Condition.String())
+	}
+	out.WriteString(") else ")
+	if gs.Body != nil {
+		out.WriteString(gs.Body.String())
+	}
+	return out.String()
+}

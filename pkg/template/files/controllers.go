@@ -20,7 +20,7 @@ func GetControllerFiles(path string) map[string]string {
             $secret = $totp["secret"]
             Session::put("temp_2fa_secret", $secret)
             $qrCode = $totp["qr_url"]
-        } : {}
+        }
 
         return view("profile.index", {
             "title":       "Mi Perfil",
@@ -60,7 +60,7 @@ func GetControllerFiles(path string) map[string]string {
         
         (empty($secret) || empty($code)) ? {
             return redirect("/profile")->with("error", "Código o sesión de 2FA no válida.")
-        } : {}
+        }
         
         $valid = MFA::verifyTOTP($secret, $code)
         
@@ -112,12 +112,12 @@ func GetControllerFiles(path string) map[string]string {
 
 		filepath.Join(path, "app", "controllers", "auth", "AuthController.joss"): `public class AuthController {
     public func showLogin() {
-        (!Auth::guest()) ? { return redirect("/dashboard") } : {}
+        (!Auth::guest()) ? { return redirect("/dashboard") }
         return view("auth.login", {"title": "Iniciar Sesión"})
     }
     
     public func showRegister() {
-        (!Auth::guest()) ? { return redirect("/dashboard") } : {}
+        (!Auth::guest()) ? { return redirect("/dashboard") }
         return view("auth.register", {"title": "Crear Cuenta"})
     }
     
@@ -146,16 +146,16 @@ func GetControllerFiles(path string) map[string]string {
                     $link = Request::root() . "/verify/" . $newToken
                     $body = "<h1>Verifica tu cuenta</h1><a href='" . $link . "'>Verificar Cuenta</a>"
                     SmtpClient::send($email, "Verifica tu cuenta", $body)
-                } : {}
+                }
                 return back()->with("error", "Cuenta no verificada. Se ha enviado un nuevo correo de verificación.")
-            } : {}
+            }
             return back()->with("error", "El correo o la contraseña son incorrectos.")
         })->response()
     }
 
     public func showVerify2FA() {
         $tempToken = Session::get("temp_2fa_token")
-        (empty($tempToken)) ? { return redirect("/login") } : {}
+        (empty($tempToken)) ? { return redirect("/login") }
         
         return view("auth.verify_2fa", {
             "title": "Verificación 2FA",
@@ -165,7 +165,7 @@ func GetControllerFiles(path string) map[string]string {
 
     public func doVerify2FA() {
         $tempToken = Session::get("temp_2fa_token")
-        (empty($tempToken)) ? { return redirect("/login") } : {}
+        (empty($tempToken)) ? { return redirect("/login") }
         
         $code = Str::trim(request("code"))
         $finalToken = Auth::verify2FAChallenge($tempToken, $code)
@@ -366,7 +366,7 @@ func GetControllerFiles(path string) map[string]string {
         (!$u) ? {
             Auth::logout()
             return redirect("/login")->with("error", "Sesión no válida o usuario inexistente.")
-        } : {}
+        }
 
         $isAdmin = Auth::hasRole("admin")
         $roleName = ($isAdmin) ? "Administrador" : "Cliente"

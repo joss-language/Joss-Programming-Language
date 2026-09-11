@@ -229,6 +229,7 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 						if p != nil && p.Name != nil && p.Visibility.Literal != "" {
 							class.Fields[p.Name.Value] = Field{
 								Type:       typeFromToken(p.Type),
+								Constant:   p.IsConst,
 								Visibility: p.Visibility.Literal,
 								Owner:      name,
 							}
@@ -247,6 +248,7 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 						if p != nil && p.Name != nil && p.Visibility.Literal != "" {
 							class.Fields[p.Name.Value] = Field{
 								Type:       typeFromToken(p.Type),
+								Constant:   p.IsConst,
 								Visibility: p.Visibility.Literal,
 								Owner:      name,
 							}
@@ -711,6 +713,15 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 		a.analyzeMultiDeclaration(node, current, true)
 	case *parser.ExpressionStatement:
 		a.inferExpression(node.Expression, current)
+		if te, ok := node.Expression.(*parser.TernaryExpression); ok {
+			if te.True != nil && expressionTerminatesCallable(te.True) {
+				_, falseScope := a.narrowScopeFromCondition(te.Condition, current)
+				a.applyNarrowedScope(current, falseScope)
+			} else if te.False != nil && expressionTerminatesCallable(te.False) {
+				trueScope, _ := a.narrowScopeFromCondition(te.Condition, current)
+				a.applyNarrowedScope(current, trueScope)
+			}
+		}
 		return expressionTerminatesCallable(node.Expression)
 	case *parser.EchoStatement:
 		a.inferExpression(node.Value, current)
@@ -728,6 +739,20 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 	case *parser.ThrowStatement:
 		a.inferExpression(node.Value, current)
 		return true
+	case *parser.GuardStatement:
+		a.inferExpression(node.Condition, current)
+		if node.Body != nil {
+			_, elseScope := a.narrowScopeFromCondition(node.Condition, current)
+			a.analyzeBlock(node.Body, elseScope)
+			if !blockTerminatesCallable(node.Body) {
+				a.add("JOSS-FLOW-005", diagnostics.SeverityError, a.file, node.Token,
+					"El cuerpo `else` de una sentencia `guard` debe terminar el flujo del callable con `return` o `throw`.",
+					"La sentencia `guard` garantiza la salida anticipada si la condición falla.",
+					"Agrega `return` o `throw` dentro del bloque `else`.")
+			}
+			trueScope, _ := a.narrowScopeFromCondition(node.Condition, current)
+			a.applyNarrowedScope(current, trueScope)
+		}
 	case *parser.WhileStatement:
 		a.inferExpression(node.Condition, current)
 		if node.Body != nil {
@@ -918,7 +943,22 @@ func tokenOfStatement(statement parser.Statement) parser.Token {
 		return node.Token
 	case *parser.InitStatement:
 		return node.Token
+	case *parser.GuardStatement:
+		return node.Token
 	default:
 		return parser.Token{}
+	}
+}
+
+func (a *Analyzer) applyNarrowedScope(target *scope, source *scope) {
+	if target == nil || source == nil {
+		return
+	}
+	for name, sym := range source.symbols {
+		if sym.Synthetic {
+			if existing, ok := target.resolve(name); ok {
+				existing.Type = sym.Type
+			}
+		}
 	}
 }

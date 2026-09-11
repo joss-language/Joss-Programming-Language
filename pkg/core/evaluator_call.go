@@ -260,6 +260,9 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 		slot.Set(val)
 		if instance != nil && param.Visibility.Literal != "" {
 			instance.Fields[param.Name.Value] = val
+			if param.IsConst {
+				instance.Constants[param.Name.Value] = true
+			}
 		}
 	}
 

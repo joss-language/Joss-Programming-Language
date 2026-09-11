@@ -910,6 +910,13 @@ func (p *Parser) parseParameter() *Parameter {
 		param.Visibility = p.curToken
 		p.nextToken()
 	}
+	if p.curToken.Type == CONST {
+		param.IsConst = true
+		if param.Visibility.Literal == "" {
+			param.Visibility = Token{Type: PUBLIC, Literal: "public"}
+		}
+		p.nextToken()
+	}
 	if p.curToken.Type == REF {
 		param.ByReference = true
 		p.nextToken()

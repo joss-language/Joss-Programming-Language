@@ -115,12 +115,30 @@ try {
 }
 ```
 
-### Campos disponibles en el mapa de error:
+### Campos disponibles en el mapa de error interno:
 - `$e["message"]`: El mensaje descriptivo del fallo.
 - `$e["type"]`: La categoría interna del error (por ejemplo, `"IndexOutOfRange"` o `"ArithmeticFault"`).
 - `$e["file"]`: La ruta al archivo fuente donde se originó el fallo.
 - `$e["line"]`: El número de línea exacto.
 - `$e["error"]`: La representación textual completa del error.
+
+### Excepciones personalizadas con instancias de clase
+
+Si tu aplicación arroja una instancia de una clase (`throw new MiExcepcion(...)`), el bloque `catch ($e)` preserva la **instancia viva del objeto**, permitiendo acceder directamente a sus métodos y propiedades especializadas:
+
+<!-- joss-run: ["Campo: email", "Motivo: Formato inválido"] -->
+```joss
+public class ErrorValidacion {
+    Init(public string $campo, public string $motivo) {}
+}
+
+try {
+    throw new ErrorValidacion("email", "Formato inválido")
+} catch ($e) {
+    print("Campo: " . $e->campo)
+    print("Motivo: " . $e->motivo)
+}
+```
 
 ---
 

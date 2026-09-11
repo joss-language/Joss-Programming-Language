@@ -217,6 +217,8 @@ func (r *Runtime) executeStatement(stmt parser.Statement) interface{} {
 		fmt.Println(val)
 	case *parser.WhileStatement:
 		return r.executeWhile(s)
+	case *parser.GuardStatement:
+		return r.executeGuard(s)
 	case *parser.DoWhileStatement:
 		return r.executeDoWhile(s)
 	case *parser.TryCatchStatement:
@@ -379,6 +381,13 @@ func (r *Runtime) executeWhile(ws *parser.WhileStatement) interface{} {
 	return nil
 }
 
+func (r *Runtime) executeGuard(gs *parser.GuardStatement) interface{} {
+	if !r.evaluateCondition(gs.Condition) {
+		return r.executeBlock(gs.Body)
+	}
+	return nil
+}
+
 func (r *Runtime) executeDoWhile(dws *parser.DoWhileStatement) interface{} {
 	hasControl := r.blockHasControl(dws.Body)
 	for {
@@ -443,9 +452,13 @@ func (r *Runtime) executeTryCatch(tcs *parser.TryCatchStatement) (result interfa
 			}
 
 			// Build the value exposed to the catch variable.
-			// If it is a JossError, expose a map so Joss code can inspect fields.
+			// Preserve thrown instances and structured objects (P4).
 			var errVal interface{}
-			if je, ok := err.(*JossError); ok {
+			if inst, ok := err.(*Instance); ok {
+				errVal = inst
+			} else if m, ok := err.(map[string]interface{}); ok {
+				errVal = m
+			} else if je, ok := err.(*JossError); ok {
 				errVal = map[string]interface{}{
 					"message": je.Message,
 					"type":    je.Type,
@@ -456,7 +469,7 @@ func (r *Runtime) executeTryCatch(tcs *parser.TryCatchStatement) (result interfa
 			} else if e, ok := err.(error); ok {
 				errVal = e.Error()
 			} else {
-				errVal = fmt.Sprintf("%v", err)
+				errVal = err
 			}
 
 			// Bind error variable

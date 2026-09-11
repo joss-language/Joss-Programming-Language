@@ -223,12 +223,29 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 		}
 	}
 
-	// Support Map access via dot notation (e.g. $item.id where $item is a map)
+	// Support Map access via dot notation (e.g. $item.id where $item is a map) or fluent methods
 	if m, ok := left.(map[string]interface{}); ok {
 		if val, exists := m[me.Property.Value]; exists {
 			return val
 		}
+		if fn, ok := r.resolveMapMethod(m, me.Property); ok {
+			return fn
+		}
 		return nil
+	}
+
+	// Support fluent methods on string ($str->trim(), $str->lower(), etc.)
+	if s, ok := left.(string); ok {
+		if fn, ok := r.resolveStringMethod(s, me.Property); ok {
+			return fn
+		}
+	}
+
+	// Support fluent methods on array ($arr->map(...), $arr->join(...), etc.)
+	if arr, ok := left.([]interface{}); ok {
+		if fn, ok := r.resolveArrayMethod(arr, me.Property); ok {
+			return fn
+		}
 	}
 
 	// Support EnumValue properties (e.g. $status.name, $status.value)

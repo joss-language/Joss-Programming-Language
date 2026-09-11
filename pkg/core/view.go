@@ -607,6 +607,19 @@ func CompileViewToJOSS(htmlStr string) (string, error) {
 												}
 											}
 										}
+									} else if col+1 < n && str[col] == '}' && str[col+1] == '}' {
+										flushText(lastIdx, i)
+
+										condExpr := str[condStart:condEnd]
+										trueBody := str[tbStart+1 : tbEnd]
+
+										code.WriteString(fmt.Sprintf("(%s) ? {\n", translateExpr(condExpr)))
+										code.WriteString(compileRange(trueBody))
+										code.WriteString("};\n")
+
+										i = col + 2
+										lastIdx = i
+										continue
 									}
 								}
 							}
