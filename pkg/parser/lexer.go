@@ -41,302 +41,77 @@ func (l *Lexer) peekChar() byte {
 	return l.input[l.readPosition]
 }
 
-func (l *Lexer) peekAhead(offset int) byte {
-	pos := l.readPosition + offset
-	if pos >= len(l.input) || pos < 0 {
-		return 0
-	}
-	return l.input[pos]
-}
-
 func (l *Lexer) NextToken() Token {
-	var tok Token
-
 	l.skipWhitespace()
 
+	startLine, startColumn := l.line, l.column
 	switch l.ch {
-	case '=':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			if l.peekChar() == '=' {
-				ch2 := l.ch
-				l.readChar()
-				literal := string(ch) + string(ch2) + string(l.ch)
-				tok = Token{Type: STRICT_EQ, Literal: literal, Line: l.line, Column: l.column - 2}
-			} else {
-				literal := string(ch) + string(l.ch)
-				tok = Token{Type: EQ, Literal: literal, Line: l.line, Column: l.column - 1}
-			}
-		} else if l.peekChar() == '>' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: FAT_ARROW, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else {
-			tok = l.newToken(ASSIGN, l.ch)
-		}
-	case ';':
-		tok = l.newToken(SEMICOLON, l.ch)
-	case '\n':
-		tok = l.newToken(NEWLINE, l.ch)
-	case '(':
-		tok = l.newToken(LPAREN, l.ch)
-	case ')':
-		tok = l.newToken(RPAREN, l.ch)
-	case ',':
-		tok = l.newToken(COMMA, l.ch)
-	case ':':
-		if l.peekChar() == ':' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: DOUBLE_COLON, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else {
-			tok = l.newToken(COLON, l.ch)
-		}
-	case '?':
-		if l.peekChar() == '?' {
-			ch := l.ch
-			l.readChar()
-			if l.peekChar() == '=' {
-				l.readChar()
-				literal := string(ch) + "?" + string(l.ch)
-				tok = Token{Type: NULL_COALESCE_ASSIGN, Literal: literal, Line: l.line, Column: l.column - 2}
-			} else {
-				literal := string(ch) + string(l.ch)
-				tok = Token{Type: NULL_COALESCE, Literal: literal, Line: l.line, Column: l.column - 1}
-			}
-		} else if l.peekChar() == '-' && l.peekAhead(1) == '>' {
-			ch := l.ch
-			l.readChar() // '-'
-			ch2 := l.ch
-			l.readChar() // '>'
-			literal := string(ch) + string(ch2) + string(l.ch)
-			tok = Token{Type: NULL_SAFE_ARROW, Literal: literal, Line: l.line, Column: l.column - 2}
-		} else {
-			tok = l.newToken(QUESTION, l.ch)
-		}
-	case '!':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			if l.peekChar() == '=' {
-				ch2 := l.ch
-				l.readChar()
-				literal := string(ch) + string(ch2) + string(l.ch)
-				tok = Token{Type: STRICT_NOT_EQ, Literal: literal, Line: l.line, Column: l.column - 2}
-			} else {
-				literal := string(ch) + string(l.ch)
-				tok = Token{Type: NOT_EQ, Literal: literal, Line: l.line, Column: l.column - 1}
-			}
-		} else {
-			tok = l.newToken(BANG, l.ch)
-		}
-	case '<':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			if l.peekChar() == '>' {
-				ch2 := l.ch
-				l.readChar()
-				literal := string(ch) + string(ch2) + string(l.ch)
-				tok = Token{Type: SPACESHIP, Literal: literal, Line: l.line, Column: l.column - 2}
-			} else {
-				literal := string(ch) + string(l.ch)
-				tok = Token{Type: LTE, Literal: literal, Line: l.line, Column: l.column - 1}
-			}
-		} else if l.peekChar() == '<' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: SHIFT_LEFT, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else {
-			tok = l.newToken(LT, l.ch)
-		}
-	case '>':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: GTE, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else if l.peekChar() == '>' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: SHIFT_RIGHT, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else {
-			tok = l.newToken(GT, l.ch)
-		}
-	case '+':
-		if l.peekChar() == '+' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: INCREMENT, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: PLUS_ASSIGN, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else {
-			tok = l.newToken(PLUS, l.ch)
-		}
-	case '-':
-		if l.peekChar() == '>' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: ARROW, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else if l.peekChar() == '-' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: DECREMENT, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: MINUS_ASSIGN, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else {
-			tok = l.newToken(MINUS, l.ch)
-		}
-	case '*':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: ASTERISK_ASSIGN, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else {
-			tok = l.newToken(ASTERISK, l.ch)
-		}
 	case '#':
-		// # is treated as a single-line comment (e.g. shebang or Python-style comments)
 		l.skipComment()
 		return l.NextToken()
 	case '/':
 		if l.peekChar() == '/' {
 			l.skipComment()
 			return l.NextToken()
-		} else if l.peekChar() == '*' {
+		}
+		if l.peekChar() == '*' {
 			l.readChar() // consume '*'
 			l.skipBlockComment()
 			return l.NextToken()
-		} else if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: SLASH_ASSIGN, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else {
-			tok = l.newToken(SLASH, l.ch)
 		}
-	case '%':
-		tok = l.newToken(PERCENT, l.ch)
-	case '{':
-		tok = l.newToken(LBRACE, l.ch)
-	case '}':
-		tok = l.newToken(RBRACE, l.ch)
-	case '[':
-		tok = l.newToken(LBRACKET, l.ch)
-	case ']':
-		tok = l.newToken(RBRACKET, l.ch)
-	case '.':
-		if l.peekChar() == '.' {
-			ch := l.ch
-			l.readChar()
-			if l.peekChar() == '.' {
-				l.readChar()
-				tok = Token{Type: ELLIPSIS, Literal: "...", Line: l.line, Column: l.column - 2}
-			} else {
-				literal := string(ch) + string(l.ch)
-				tok = Token{Type: RANGE, Literal: literal, Line: l.line, Column: l.column - 1}
-			}
-		} else {
-			tok = l.newToken(DOT, l.ch)
-		}
+	case '\n':
+		l.readChar()
+		return Token{Type: NEWLINE, Literal: "\n", Line: startLine, Column: startColumn}
 	case '$':
-		tok = Token{Type: VAR, Literal: "$", Line: l.line, Column: l.column}
+		l.readChar()
+		return Token{Type: VAR, Literal: "$", Line: startLine, Column: startColumn}
 	case '"':
-		tok.Type = STRING
-		tok.Literal = l.readString('"')
-		tok.Line = l.line
-		tok.Column = l.column
+		literal := l.readString('"')
+		l.readChar()
+		return Token{Type: STRING, Literal: literal, Line: startLine, Column: startColumn}
 	case '\'':
-		tok.Type = STRING
-		tok.Literal = l.readString('\'')
-		tok.Line = l.line
-		tok.Column = l.column
+		literal := l.readString('\'')
+		l.readChar()
+		return Token{Type: STRING, Literal: literal, Line: startLine, Column: startColumn}
 	case 0:
-		tok.Literal = ""
-		tok.Type = EOF
-		tok.Line = l.line
-		tok.Column = l.column
-	case '&':
-		if l.peekChar() == '&' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: AND, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else {
-			tok = l.newToken(ILLEGAL, l.ch)
-		}
-	case '|':
-		if l.peekChar() == '>' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: PIPE, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else if l.peekChar() == '|' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = Token{Type: OR, Literal: literal, Line: l.line, Column: l.column - 1}
-		} else {
-			tok = l.newToken(TYPE_UNION, l.ch)
-		}
-	default:
-		if isLetter(l.ch) {
-			tok.Literal = l.readIdentifier()
-			tok.Type = LookupIdent(tok.Literal)
-			tok.Line = l.line
-			tok.Column = l.column - len(tok.Literal)
-			if tok.Column < 1 {
-				tok.Column = 1
-			}
-			return tok
-		} else if isDigit(l.ch) {
-			tok.Literal = l.readNumber()
-			if l.ch == '.' && isDigit(l.peekChar()) {
-				l.readChar()
-				tok.Literal += "." + l.readNumber()
-				tok.Type = FLOAT
-			} else {
-				tok.Type = INT
-			}
-			if l.ch == 'm' || l.ch == 'M' {
-				tok.Type = DECIMAL
-				tok.Literal += string(l.ch)
-				l.readChar()
-			}
-			tok.Line = l.line
-			tok.Column = l.column - len(tok.Literal)
-			if tok.Column < 1 {
-				tok.Column = 1
-			}
-			return tok
-		} else if l.ch > 127 {
-			// Skip multi-byte UTF-8 continuation/lead bytes silently
-			for l.ch > 127 {
-				l.readChar()
-			}
-			return l.NextToken()
-		} else {
-			tok = l.newToken(ILLEGAL, l.ch)
-		}
+		return Token{Type: EOF, Line: startLine, Column: startColumn}
 	}
 
+	if isLetter(l.ch) {
+		literal := l.readIdentifier()
+		return Token{Type: LookupIdent(literal), Literal: literal, Line: startLine, Column: startColumn}
+	}
+	if isDigit(l.ch) {
+		literal := l.readNumber()
+		var tokenType TokenType = INT
+		if l.ch == '.' && isDigit(l.peekChar()) {
+			l.readChar()
+			literal += "." + l.readNumber()
+			tokenType = FLOAT
+		}
+		if l.ch == 'm' || l.ch == 'M' {
+			tokenType = DECIMAL
+			literal += string(l.ch)
+			l.readChar()
+		}
+		return Token{Type: tokenType, Literal: literal, Line: startLine, Column: startColumn}
+	}
+	if definition, ok := matchSymbolPrefix(l.input[l.position:]); ok {
+		for range len(definition.Literal) {
+			l.readChar()
+		}
+		return Token{Type: definition.Token, Literal: definition.Literal, Line: startLine, Column: startColumn}
+	}
+	if l.ch > 127 {
+		for l.ch > 127 {
+			l.readChar()
+		}
+		return l.NextToken()
+	}
+
+	literal := string(l.ch)
 	l.readChar()
-	return tok
+	return Token{Type: ILLEGAL, Literal: literal, Line: startLine, Column: startColumn}
 }
 
 func (l *Lexer) skipComment() {
@@ -355,10 +130,6 @@ func (l *Lexer) skipBlockComment() {
 			return
 		}
 	}
-}
-
-func (l *Lexer) newToken(tokenType TokenType, ch byte) Token {
-	return Token{Type: tokenType, Literal: string(ch), Line: l.line, Column: l.column}
 }
 
 func (l *Lexer) readIdentifier() string {

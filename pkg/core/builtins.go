@@ -1,57 +1,123 @@
 package core
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/jossecurity/joss/pkg/typesystem"
+)
+
+type builtinDomain uint8
+
+const (
+	builtinCollections builtinDomain = iota
+	builtinAsync
+	builtinDate
+	builtinIO
+	builtinSerialization
+	builtinString
+)
+
+type builtinDefinition struct {
+	name       string
+	domain     builtinDomain
+	returnType typesystem.Type
+}
+
+func builtinGroup(domain builtinDomain, returnKind typesystem.Kind, names ...string) []builtinDefinition {
+	definitions := make([]builtinDefinition, 0, len(names))
+	for _, name := range names {
+		definitions = append(definitions, builtinDefinition{name: name, domain: domain, returnType: typesystem.Type{Kind: returnKind}})
+	}
+	return definitions
+}
+
+func joinBuiltinGroups(groups ...[]builtinDefinition) []builtinDefinition {
+	var definitions []builtinDefinition
+	for _, group := range groups {
+		definitions = append(definitions, group...)
+	}
+	return definitions
+}
+
+// builtinDefinitions is the canonical global-function catalog. Each name is
+// declared once together with the metadata needed by runtime dispatch and
+// semantic analysis.
+var builtinDefinitions = joinBuiltinGroups(
+	builtinGroup(builtinCollections, typesystem.Bool,
+		"isset", "empty", "is_string", "is_numeric", "is_int", "is_integer", "is_float", "is_double", "is_decimal",
+		"is_array", "is_null", "in_array", "array_key_exists", "any", "all"),
+	builtinGroup(builtinCollections, typesystem.Int, "intval", "boolval", "len", "count"),
+	builtinGroup(builtinCollections, typesystem.Float, "floatval", "doubleval"),
+	builtinGroup(builtinCollections, typesystem.Decimal, "decimal"),
+	builtinGroup(builtinCollections, typesystem.String, "strval"),
+	builtinGroup(builtinCollections, typesystem.Array,
+		"keys", "array_keys", "values", "array_values", "explode", "merge", "array_merge", "array_slice",
+		"array_unique", "array_reverse", "array_column", "map", "filter"),
+	builtinGroup(builtinCollections, typesystem.Mixed,
+		"end", "append", "array_push", "array_pop", "array_shift", "reduce", "find", "sum"),
+
+	builtinGroup(builtinAsync, typesystem.Mixed, "async", "await", "make_chan", "close", "send", "recv"),
+
+	builtinGroup(builtinDate, typesystem.Int, "time"),
+	builtinGroup(builtinDate, typesystem.Float, "microtime"),
+	builtinGroup(builtinDate, typesystem.String, "date"),
+	builtinGroup(builtinDate, typesystem.Mixed, "strtotime", "now", "sleep", "usleep"),
+
+	builtinGroup(builtinIO, typesystem.Bool, "file_exists", "is_dir", "is_file", "toon_verify"),
+	builtinGroup(builtinIO, typesystem.String, "env", "config", "view", "json", "toon_encode"),
+	builtinGroup(builtinIO, typesystem.Mixed,
+		"back", "response", "request", "session", "redirect", "file_get_contents", "file_put_contents", "unlink",
+		"file_delete", "mkdir", "toon_decode", "hive_read_box", "run"),
+
+	builtinGroup(builtinSerialization, typesystem.Bool, "json_verify"),
+	builtinGroup(builtinSerialization, typesystem.String, "json_encode"),
+	builtinGroup(builtinSerialization, typesystem.Mixed, "json_decode"),
+
+	builtinGroup(builtinString, typesystem.Bool,
+		"str_contains", "contains", "str_starts_with", "starts_with", "str_ends_with", "ends_with"),
+	builtinGroup(builtinString, typesystem.Int, "strlen", "strpos", "rand"),
+	builtinGroup(builtinString, typesystem.Float, "round", "floor", "ceil", "abs"),
+	builtinGroup(builtinString, typesystem.String,
+		"html_escape", "__", "csrf_field", "str_replace", "strtolower", "to_lower", "strtoupper", "to_upper",
+		"trim", "ltrim", "rtrim", "substr", "implode", "join", "md5", "sha1", "sha256", "base64_encode",
+		"base64_decode", "ucfirst", "lcfirst", "ucwords", "str_pad", "str_repeat"),
+	builtinGroup(builtinString, typesystem.Mixed, "print", "echo", "cout", "cerr", "printf", "min", "max"),
+)
 
 var (
 	builtinNamesOnce sync.Once
-	builtinNamesMap  map[string]bool
+	builtinNamesMap  map[string]builtinDefinition
 )
-
-// builtinList is the canonical public builtin catalog. Runtime dispatch and
-// static analysis both consult this list; adding a builtin requires adding its
-// implementation and its name here.
-var builtinList = []string{
-	// Arrays, maps and conversion.
-	"isset", "empty", "is_string", "is_numeric", "is_int", "is_integer", "is_float", "is_double", "is_decimal",
-	"intval", "floatval", "doubleval", "decimal", "strval", "boolval", "is_array", "is_null", "len", "count",
-	"keys", "array_keys", "values", "array_values", "explode", "end", "append", "merge", "in_array",
-	"array_key_exists", "array_merge", "array_push", "array_pop", "array_shift", "array_slice", "array_unique",
-	"array_reverse", "array_column", "map", "filter", "reduce", "find", "any", "all", "sum",
-	// Async and channels.
-	"async", "await", "make_chan", "close", "send", "recv",
-	// Date and time.
-	"time", "microtime", "date", "strtotime", "now", "sleep", "usleep",
-	// IO, framework helpers and serialization.
-	"env", "config", "view", "json", "back", "response", "request", "session", "redirect", "file_exists",
-	"file_get_contents", "file_put_contents", "unlink", "file_delete", "mkdir", "is_dir", "is_file",
-	"toon_encode", "toon_decode", "toon_verify", "json_encode", "json_decode", "json_verify", "hive_read_box", "run",
-	// Strings, formatting, hashing and numeric helpers.
-	"html_escape", "__", "csrf_field", "print", "echo", "cout", "cerr", "printf", "str_contains", "contains",
-	"str_starts_with", "starts_with", "str_ends_with", "ends_with", "str_replace", "strtolower", "to_lower",
-	"strtoupper", "to_upper", "trim", "ltrim", "rtrim", "substr", "strpos", "implode", "join", "md5", "sha1",
-	"sha256", "base64_encode", "base64_decode", "strlen", "ucfirst", "lcfirst", "ucwords", "str_pad",
-	"str_repeat", "round", "floor", "ceil", "abs", "min", "max", "rand",
-}
 
 func initBuiltinMap() {
 	builtinNamesOnce.Do(func() {
-		builtinNamesMap = make(map[string]bool, len(builtinList))
-		for _, name := range builtinList {
-			builtinNamesMap[name] = true
+		builtinNamesMap = make(map[string]builtinDefinition, len(builtinDefinitions))
+		for _, definition := range builtinDefinitions {
+			if _, duplicate := builtinNamesMap[definition.name]; duplicate {
+				panic("duplicate builtin definition: " + definition.name)
+			}
+			builtinNamesMap[definition.name] = definition
 		}
 	})
 }
 
-// IsBuiltin returns true if the function name is a core built-in function in Joss.
-func IsBuiltin(name string) bool {
+func builtinDefinitionFor(name string) (builtinDefinition, bool) {
 	initBuiltinMap()
-	return builtinNamesMap[name]
+	definition, exists := builtinNamesMap[name]
+	return definition, exists
 }
 
-// GetBuiltinFunctionNames returns a list of all built-in function names.
+// IsBuiltin returns true if the function name is a core built-in function in Joss.
+func IsBuiltin(name string) bool {
+	_, exists := builtinDefinitionFor(name)
+	return exists
+}
+
+// GetBuiltinFunctionNames returns a copy of all built-in function names.
 func GetBuiltinFunctionNames() []string {
-	initBuiltinMap()
-	result := make([]string, len(builtinList))
-	copy(result, builtinList)
+	result := make([]string, 0, len(builtinDefinitions))
+	for _, definition := range builtinDefinitions {
+		result = append(result, definition.name)
+	}
 	return result
 }

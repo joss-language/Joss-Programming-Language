@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/pkg/viewtemplate"
 )
 
 // Helper to evaluate an expression string within the current runtime context
@@ -373,9 +374,11 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 			reBladeComments := regexp.MustCompile(`\{\{--[\s\S]*?--\}\}`)
 			finalHtml = reBladeComments.ReplaceAllString(finalHtml, "")
 
-			// Pre-process @json(expr) directive to raw {{! json_encode(expr) }}
-			reJsonDirective := regexp.MustCompile(`@json\s*\((.*?)\)`)
-			finalHtml = reJsonDirective.ReplaceAllString(finalHtml, `{{! json_encode($1) }}`)
+			// Pre-process directives through the syntax shared with tooling.
+			finalHtml, err = viewtemplate.RewriteJSON(finalHtml)
+			if err != nil {
+				return fmt.Sprintf("Error compiling view directive: %v", err)
+			}
 
 			// Pre-process csrf_field() to be raw output
 			reCsrfPre := regexp.MustCompile(`\{\{\s*csrf_field\(\)\s*\}\}`)

@@ -12,6 +12,7 @@ import (
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/pkg/viewtemplate"
 )
 
 type RuleCategory string
@@ -280,9 +281,11 @@ func (l *Linter) LintViewSource(filename, content string) []LintIssue {
 	reBladeComments := regexp.MustCompile(`\{\{--[\s\S]*?--\}\}`)
 	cleanHtml := reBladeComments.ReplaceAllString(content, "")
 
-	// Pre-process @json(expr) directive to raw {{! json_encode(expr) }}
-	reJsonDirective := regexp.MustCompile(`@json\s*\((.*?)\)`)
-	cleanHtml = reJsonDirective.ReplaceAllString(cleanHtml, `{{! json_encode($1) }}`)
+	// Pre-process directives through the syntax shared with runtime rendering.
+	cleanHtml, directiveErr := viewtemplate.RewriteJSON(cleanHtml)
+	if directiveErr != nil {
+		return []LintIssue{{RuleID: "JOSS-VIEW-001", Category: CategoryCorrectness, Severity: diagnostics.SeverityError, File: filename, Line: 1, Message: fmt.Sprintf("Directiva de vista invalida: %v", directiveErr), Explanation: "La directiva no cierra correctamente sus argumentos.", Suggestion: "Cierra los parentesis y comillas de la directiva."}}
+	}
 
 	// Pre-process csrf_field() to be raw output
 	reCsrfPre := regexp.MustCompile(`\{\{\s*csrf_field\(\)\s*\}\}`)

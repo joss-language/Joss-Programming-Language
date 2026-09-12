@@ -9,23 +9,43 @@ import (
 )
 
 var (
-	nativeClassesMu  sync.RWMutex
-	nativeClassesMap = make(map[string]bool)
+	nativeClassesMu     sync.RWMutex
+	nativeMethodCatalog = make(map[string][]NativeMethodDefinition)
 )
 
 // Helper to register a native class and its handler
 func (r *Runtime) registerNative(name string, methods []string, handler NativeHandler) {
+	definitions := make([]NativeMethodDefinition, 0, len(methods))
+	for _, method := range methods {
+		definitions = append(definitions, NativeMethodDefinition{Name: method, ReturnType: nativeMethodReturnType(name, method)})
+	}
+	r.registerNativeDefinitions(name, definitions, handler)
+}
+
+func (r *Runtime) registerNativeDefinitions(name string, definitions []NativeMethodDefinition, handler NativeHandler) {
 	nativeClassesMu.Lock()
-	nativeClassesMap[name] = true
+	nativeMethodCatalog[name] = cloneNativeMethodDefinitions(definitions)
 	nativeClassesMu.Unlock()
 
-	// Build MethodStatements
 	stmts := []parser.Statement{}
-	for _, m := range methods {
-		returnType := nativeMethodReturnType(name, m)
+	for _, definition := range definitions {
+		parameters := make([]*parser.Parameter, 0, len(definition.Parameters))
+		for _, parameter := range definition.Parameters {
+			var defaultValue parser.Expression
+			if parameter.HasDefault {
+				defaultValue = &parser.NullLiteral{}
+			}
+			parameters = append(parameters, &parser.Parameter{
+				Name:         &parser.Identifier{Value: parameter.Name},
+				Type:         parser.Token{Type: parser.IDENT, Literal: parameter.Type.String()},
+				DefaultValue: defaultValue,
+				ByReference:  parameter.ByReference,
+			})
+		}
 		stmts = append(stmts, &parser.MethodStatement{
-			Name:       &parser.Identifier{Value: m},
-			ReturnType: parser.Token{Type: parser.IDENT, Literal: returnType.String()},
+			Name:       &parser.Identifier{Value: definition.Name},
+			Parameters: parameters,
+			ReturnType: parser.Token{Type: parser.IDENT, Literal: definition.ReturnType.String()},
 		})
 	}
 
@@ -41,7 +61,31 @@ func (r *Runtime) registerNative(name string, methods []string, handler NativeHa
 func IsNativeClass(name string) bool {
 	nativeClassesMu.RLock()
 	defer nativeClassesMu.RUnlock()
-	return nativeClassesMap[name]
+	_, exists := nativeMethodCatalog[name]
+	return exists
+}
+
+// GetNativeMethodDefinitions returns detached semantic metadata for analyzer,
+// documentation and tooling projections.
+func GetNativeMethodDefinitions() map[string][]NativeMethodDefinition {
+	runtime := &Runtime{Variables: make(map[string]interface{}), Classes: make(map[string]*parser.ClassStatement), NativeHandlers: make(map[string]NativeHandler)}
+	runtime.RegisterNativeClasses()
+	nativeClassesMu.RLock()
+	defer nativeClassesMu.RUnlock()
+	result := make(map[string][]NativeMethodDefinition, len(nativeMethodCatalog))
+	for className, definitions := range nativeMethodCatalog {
+		result[className] = cloneNativeMethodDefinitions(definitions)
+	}
+	return result
+}
+
+func cloneNativeMethodDefinitions(source []NativeMethodDefinition) []NativeMethodDefinition {
+	result := make([]NativeMethodDefinition, len(source))
+	for index, definition := range source {
+		result[index] = definition
+		result[index].Parameters = append([]NativeParameterDefinition(nil), definition.Parameters...)
+	}
+	return result
 }
 
 // GetNativeClassMethods returns a detached catalog built by the same
@@ -77,10 +121,10 @@ func (r *Runtime) RegisterNativeClasses() {
 	// not the original 'r' that tried to register them.
 
 	// Stack
-	r.registerNative("Stack", []string{"push", "pop", "peek"}, (*Runtime).executeStackMethod)
+	r.registerNativeDefinitions("Stack", migratedNativeMethods["Stack"], (*Runtime).executeStackMethod)
 
 	// Queue
-	r.registerNative("Queue", []string{"enqueue", "dequeue", "peek"}, (*Runtime).executeQueueMethod)
+	r.registerNativeDefinitions("Queue", migratedNativeMethods["Queue"], (*Runtime).executeQueueMethod)
 
 	// GranDB
 	granDBMethods := []string{
@@ -182,7 +226,7 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.registerNative("Middleware", []string{}, nil)
 
 	// Math
-	r.registerNative("Math", []string{"random", "floor", "ceil", "abs"}, (*Runtime).executeMathMethod)
+	r.registerNativeDefinitions("Math", migratedNativeMethods["Math"], (*Runtime).executeMathMethod)
 	r.Variables["Math"] = &Instance{Class: r.Classes["Math"], Fields: make(map[string]interface{})}
 
 	// Session

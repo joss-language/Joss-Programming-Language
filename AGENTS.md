@@ -39,14 +39,19 @@ La dirección estricta de dependencias es:
 
 ## 3. Fuentes de verdad canónicas (Nunca duplicar)
 
-1. **Keywords**: Definidas exclusivamente en la tabla de tokens de `pkg/parser/token.go` y proyectadas por `parser.KeywordNames()`.
-2. **Tipos y compatibilidad**: Residen exclusivamente en `pkg/typesystem`. No reintroducir aliases fuera de la lista canónica.
-3. **Built-ins globales**: Nombres definidos en `pkg/core/builtins.go` y retornos publicados en `pkg/core/native_signatures.go`. Toda entrada debe tener un `case` alcanzable en el dispatcher correspondiente.
+1. **Keywords y símbolos léxicos**: Definidos exclusivamente en `pkg/parser/token.go`; tooling consume `parser.KeywordNames()` y `parser.SymbolDefinitions()`. Lexer y formatter no deben recrear listas de operadores o delimitadores.
+2. **Tipos y compatibilidad**: Residen exclusivamente en `pkg/typesystem`, incluidas clasificaciones como `Type.IsNumeric()` y firmas de métodos primitivos en `primitive_methods.go`. Analyzer y runtime consumen `PrimitiveMethod`; no reintroducir aliases ni listas primitivas locales.
+3. **Built-ins globales**: Nombre, dominio de dispatcher y retorno se declaran juntos en `pkg/core/builtins.go`. Toda entrada debe tener un handler alcanzable; `TestBuiltinCatalogHasUniqueDefinitionsAndReachableHandlers` protege esta regla.
 4. **Clases y métodos nativos**: Registrados en `Runtime.RegisterNativeClasses()` y tipados en `pkg/core/native_signatures.go`. Usar `GetNativeClassMethods()` para inspección.
 5. **Plugins**: Índice `pluginpkg.SymbolIndex` del paquete `.jp`.
 6. **Diagnósticos**: Códigos estables `JOSS-...` emitidos como `diagnostics.Diagnostic`.
 7. **Catálogo de VS Code**: `vscode-joss/src/server/generated/languageCatalog.json`, generado automáticamente por `go run ./tools/cataloggen`. **Nunca editarlo manualmente**.
 8. **Catálogo nativo de documentación**: `docs/CATALOGO_NATIVO.md`, generado automáticamente por `go run ./tools/docgen`. **Nunca editarlo manualmente**.
+
+Al modificar invocación u operadores:
+- binding y referencias pertenecen a `pkg/core/call_arguments.go`; ciclo del frame y contratos a `call_method.go`; tipos invocables a `callable_dispatch.go`;
+- `evaluator_infix.go` sólo coordina orden/short-circuit; aritmética, control, pipeline, streams e incremento pertenecen a sus módulos de dominio;
+- mantenga una sola implementación de pipeline y una sola ruta evaluada de llamadas. Los entry points de compatibilidad deben delegar.
 
 ---
 
@@ -140,3 +145,21 @@ npm ci
 npm run compile
 cd ..
 ```
+
+## Tercera fase de arquitectura — septiembre de 2026
+
+El pipeline del analyzer debe permanecer explícito (`collectDeclarations → projectScope → validateNominalContracts → analyzeSourceBodies`) y sus fases se mantienen en archivos cohesivos del mismo package, no en una colección de managers públicos. La resolución de llamadas y miembros consume firmas semánticas; analyzer y runtime pueden compartir metadata/typesystem, pero nunca estado ni ejecución.
+
+Toda extracción de `Runtime`, `MainHandler` o `pub_cli` exige primero characterization tests reproducibles: pool/fork/reset, HTTP con `httptest`, y CLI con `t.TempDir`/registry en memoria. Un runtime devuelto al pool debe limpiar estado por request/ejecución; configuración persistente y recursos externos compartidos deben documentarse explícitamente. No se deben introducir contratos falsos para métodos nativos variádicos.
+
+Las reglas arquitectónicas negativas siguen vigentes: analyzer no importa core; server no define semántica; formatter conserva trivia; VM no promociona semántica experimental. Para directivas de templates, compartir interpretación requiere una representación sintáctica, no una regex duplicada. Las métricas de fan-in/out y Change Surface son observación, no objetivos cosméticos.
+
+## Cuarta fase de arquitectura — septiembre de 2026
+
+- `Runtime` se adquiere/libera mediante `runtime_lifecycle.go`. Todo campo nuevo debe declarar lifetime, owner, política de Fork y política de Free; estado de request/ejecución nunca sobrevive al pool. `DB` es externo y no se cierra en `Free`.
+- En HTTP, registre el cleanup inmediatamente después de `Fork`. Resultados Joss→HTTP pertenecen a `response_writer.go`; request adaptation, rate limit y session storage no deben volver a mezclarse allí.
+- Métodos nativos nuevos deben usar `NativeMethodDefinition` cuando el contrato sea fiable. No represente aridad desconocida como cero parámetros. Runtime implementa; analyzer/LSP/docs consumen proyecciones.
+- Binding runtime y validación analyzer permanecen separados, pero ambos deben respetar positional/named/default/ref/duplicate/missing a partir de la misma firma semántica.
+- La sintaxis de directivas pertenece a `pkg/viewtemplate`; runtime y tooling no deben añadir regex locales para `@json` u otras directivas migradas.
+- Tests nunca escriben en HOME real. Use `t.TempDir`, `httptest` y `GOCACHE` temporal si el host tiene ACLs defectuosas. Para validar la extensión con VS Code bloqueando `node_modules`, use un checkout/directorio temporal limpio.
+- La VM experimental sólo entra en `differentialFeatures` cuando Interpreter y VM soportan realmente la feature. Interpreter y documentación continúan siendo autoridad runtime publicada.

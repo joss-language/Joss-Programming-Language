@@ -47,6 +47,19 @@ type Credentials struct {
 	Email string `json:"email"`
 }
 
+var pubHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
+func pubCacheDir() string {
+	if configured := strings.TrimSpace(os.Getenv("JOSS_PUB_CACHE_DIR")); configured != "" {
+		return configured
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".joss", "cache")
+	}
+	return filepath.Join(home, ".joss", "cache")
+}
+
 // Get standard registry URL (default https://joss.red for Joss Red)
 func getRegistryURL() string {
 	url := os.Getenv("PUB_REGISTRY_URL")
@@ -196,7 +209,7 @@ func pubLogin() {
 		"password": password,
 	})
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
+	resp, err := pubHTTPClient.Post(url, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
 		fmt.Printf("Error al conectar con la plataforma: %v\n", err)
 		return
@@ -234,7 +247,7 @@ func pubLogout() {
 
 func pubSearch(q string) {
 	url := fmt.Sprintf("%s/api/v1/pub/packages?q=%s", getRegistryURL(), q)
-	resp, err := http.Get(url)
+	resp, err := pubHTTPClient.Get(url)
 	if err != nil {
 		fmt.Printf("Error al buscar paquetes: %v\n", err)
 		return
@@ -261,7 +274,7 @@ func pubSearch(q string) {
 
 func pubInfo(name string) {
 	url := fmt.Sprintf("%s/api/v1/pub/packages/%s", getRegistryURL(), name)
-	resp, err := http.Get(url)
+	resp, err := pubHTTPClient.Get(url)
 	if err != nil {
 		fmt.Printf("Error al obtener info del paquete: %v\n", err)
 		return
@@ -296,7 +309,7 @@ func pubAdd(name string, ver string) {
 
 	// 1. Consultar la API del registro oficial joss.red
 	url := fmt.Sprintf("%s/api/v1/pub/packages/%s", getRegistryURL(), name)
-	resp, err := http.Get(url)
+	resp, err := pubHTTPClient.Get(url)
 
 	var repoURL string
 	var pkgFound bool
@@ -401,8 +414,7 @@ func pubRemove(name string) {
 
 func downloadAndExtract(name, ver, downloadUrl, expectedChecksum string) error {
 	// Setup Cache Directory
-	home, _ := os.UserHomeDir()
-	cacheDir := filepath.Join(home, ".joss", "cache")
+	cacheDir := pubCacheDir()
 	os.MkdirAll(cacheDir, 0755)
 
 	isJP := strings.HasSuffix(strings.ToLower(downloadUrl), ".jp")
@@ -427,7 +439,7 @@ func downloadAndExtract(name, ver, downloadUrl, expectedChecksum string) error {
 	}
 
 	// Download File
-	resp, err := http.Get(downloadUrl)
+	resp, err := pubHTTPClient.Get(downloadUrl)
 	if err != nil {
 		return err
 	}
@@ -590,17 +602,22 @@ func isPluginRuntimeFile(relPath string) bool {
 }
 
 func extractZipSecurely(zipPath, name, ver string) error {
+	destDir := filepath.Join("plugins", name)
+	if ver != "" && ver != "latest" {
+		destDir = filepath.Join("plugins", name, ver)
+	}
+	return extractPluginZip(zipPath, destDir)
+}
+
+func extractPluginZip(zipPath, destDir string) error {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return err
 	}
 	defer r.Close()
-
-	destDir := filepath.Join("plugins", name)
-	if ver != "" && ver != "latest" {
-		destDir = filepath.Join("plugins", name, ver)
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return err
 	}
-	os.MkdirAll(destDir, 0755)
 
 	// Check if all files share a common root directory prefix (e.g. repo-main/)
 	var rootPrefix string
@@ -944,7 +961,7 @@ func resolvePackageDownload(name, version string) (string, string, error) {
 	verClean := strings.TrimSpace(version)
 	// First query specific version endpoint from Joss Pub API
 	urlVer := fmt.Sprintf("%s/api/v1/pub/packages/%s/versions/%s", getRegistryURL(), name, verClean)
-	respVer, errVer := http.Get(urlVer)
+	respVer, errVer := pubHTTPClient.Get(urlVer)
 	if errVer == nil && respVer.StatusCode == http.StatusOK {
 		var singleRes struct {
 			DownloadURL string `json:"download_url"`
@@ -961,7 +978,7 @@ func resolvePackageDownload(name, version string) (string, string, error) {
 	}
 
 	url := fmt.Sprintf("%s/api/v1/pub/packages/%s", getRegistryURL(), name)
-	resp, err := http.Get(url)
+	resp, err := pubHTTPClient.Get(url)
 	if err != nil {
 		if fbURL, ok := getOfficialGitHubFallback(name, version); ok {
 			fmt.Printf("[Fallback] Registro no disponible (%v). Descargando '%s %s' desde GitHub...\n", err, name, version)
@@ -1285,8 +1302,7 @@ func verifyPublishArtifact(downloadURL, expectedChecksum, packageName, packageVe
 }
 
 func handleCacheCmd(sub string) {
-	home, _ := os.UserHomeDir()
-	cacheDir := filepath.Join(home, ".joss", "cache")
+	cacheDir := pubCacheDir()
 
 	switch sub {
 	case "clean":

@@ -126,7 +126,13 @@ func TestVerifiedReaderRejectsUnsignedArchive(t *testing.T) {
 }
 
 func TestLoadOrCreateSigningKey(t *testing.T) {
-	// 1. Default creation: generate key in ~/.joss/keys/
+	// Isolate the platform home used by os.UserHomeDir. The production default
+	// remains ~/.joss/keys, while tests never touch the developer's real home.
+	testHome := t.TempDir()
+	t.Setenv("USERPROFILE", testHome)
+	t.Setenv("HOME", testHome)
+
+	// 1. Default creation: generate key in the isolated ~/.joss/keys/
 	pluginName := "test_unit_key_unique"
 	key1, path1, err := LoadOrCreateSigningKey(pluginName)
 	if err != nil {

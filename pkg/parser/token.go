@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 type TokenType string
@@ -225,21 +226,93 @@ func KeywordNames() []string {
 	return result
 }
 
-var multiCharOperators = []string{
-	// Length 3
-	STRICT_EQ, STRICT_NOT_EQ, SPACESHIP, ELLIPSIS, NULL_SAFE_ARROW, NULL_COALESCE_ASSIGN,
-	// Length 2
-	EQ, NOT_EQ, LTE, GTE, SHIFT_LEFT, SHIFT_RIGHT, AND, OR, INCREMENT, DECREMENT,
-	RANGE, ARROW, DOUBLE_COLON, PIPE, NULL_COALESCE, FAT_ARROW,
-	PLUS_ASSIGN, MINUS_ASSIGN, ASTERISK_ASSIGN, SLASH_ASSIGN,
+// SymbolKind describes how source-preserving tooling should classify a symbol.
+// Parsing behavior remains owned by the Pratt parser; this metadata only
+// centralizes the lexical spelling shared by the lexer and formatter.
+type SymbolKind uint8
+
+const (
+	SymbolOperator SymbolKind = iota
+	SymbolDelimiter
+)
+
+// SymbolDefinition is the canonical lexical definition of a punctuation or
+// operator token. Keep language symbols here instead of duplicating switches in
+// the lexer, formatter and tooling.
+type SymbolDefinition struct {
+	Literal string
+	Token   TokenType
+	Kind    SymbolKind
+}
+
+var symbolDefinitions = []SymbolDefinition{
+	{STRICT_EQ, STRICT_EQ, SymbolOperator}, {STRICT_NOT_EQ, STRICT_NOT_EQ, SymbolOperator},
+	{SPACESHIP, SPACESHIP, SymbolOperator}, {ELLIPSIS, ELLIPSIS, SymbolOperator},
+	{NULL_SAFE_ARROW, NULL_SAFE_ARROW, SymbolOperator}, {NULL_COALESCE_ASSIGN, NULL_COALESCE_ASSIGN, SymbolOperator},
+	{EQ, EQ, SymbolOperator}, {NOT_EQ, NOT_EQ, SymbolOperator}, {LTE, LTE, SymbolOperator}, {GTE, GTE, SymbolOperator},
+	{SHIFT_LEFT, SHIFT_LEFT, SymbolOperator}, {SHIFT_RIGHT, SHIFT_RIGHT, SymbolOperator}, {AND, AND, SymbolOperator}, {OR, OR, SymbolOperator},
+	{INCREMENT, INCREMENT, SymbolOperator}, {DECREMENT, DECREMENT, SymbolOperator}, {RANGE, RANGE, SymbolOperator},
+	{ARROW, ARROW, SymbolOperator}, {DOUBLE_COLON, DOUBLE_COLON, SymbolOperator}, {PIPE, PIPE, SymbolOperator},
+	{NULL_COALESCE, NULL_COALESCE, SymbolOperator}, {FAT_ARROW, FAT_ARROW, SymbolOperator},
+	{PLUS_ASSIGN, PLUS_ASSIGN, SymbolOperator}, {MINUS_ASSIGN, MINUS_ASSIGN, SymbolOperator},
+	{ASTERISK_ASSIGN, ASTERISK_ASSIGN, SymbolOperator}, {SLASH_ASSIGN, SLASH_ASSIGN, SymbolOperator},
+	{ASSIGN, ASSIGN, SymbolOperator}, {PLUS, PLUS, SymbolOperator}, {MINUS, MINUS, SymbolOperator},
+	{BANG, BANG, SymbolOperator}, {ASTERISK, ASTERISK, SymbolOperator}, {SLASH, SLASH, SymbolOperator},
+	{PERCENT, PERCENT, SymbolOperator}, {LT, LT, SymbolOperator}, {GT, GT, SymbolOperator},
+	{DOT, DOT, SymbolOperator}, {TYPE_UNION, TYPE_UNION, SymbolOperator},
+	{COMMA, COMMA, SymbolDelimiter}, {SEMICOLON, SEMICOLON, SymbolDelimiter}, {COLON, COLON, SymbolDelimiter},
+	{QUESTION, QUESTION, SymbolDelimiter}, {LPAREN, LPAREN, SymbolDelimiter}, {RPAREN, RPAREN, SymbolDelimiter},
+	{LBRACE, LBRACE, SymbolDelimiter}, {RBRACE, RBRACE, SymbolDelimiter},
+	{LBRACKET, LBRACKET, SymbolDelimiter}, {RBRACKET, RBRACKET, SymbolDelimiter},
+}
+
+func init() {
+	sort.Slice(symbolDefinitions, func(i, j int) bool {
+		if len(symbolDefinitions[i].Literal) != len(symbolDefinitions[j].Literal) {
+			return len(symbolDefinitions[i].Literal) > len(symbolDefinitions[j].Literal)
+		}
+		return symbolDefinitions[i].Literal < symbolDefinitions[j].Literal
+	})
+}
+
+// SymbolDefinitions returns an immutable snapshot ordered longest-first. The
+// ordering lets consumers implement maximal-munch scanning without private
+// copies of Joss's operator list.
+func SymbolDefinitions() []SymbolDefinition {
+	result := make([]SymbolDefinition, len(symbolDefinitions))
+	copy(result, symbolDefinitions)
+	return result
+}
+
+// LookupSymbol resolves a complete source symbol to its token definition.
+func LookupSymbol(literal string) (SymbolDefinition, bool) {
+	for _, definition := range symbolDefinitions {
+		if definition.Literal == literal {
+			return definition, true
+		}
+	}
+	return SymbolDefinition{}, false
 }
 
 // MultiCharOperators returns all multi-character operators defined in Joss,
 // sorted by length descending so scanners and formatters can match them dynamically.
 func MultiCharOperators() []string {
-	cp := make([]string, len(multiCharOperators))
-	copy(cp, multiCharOperators)
-	return cp
+	result := make([]string, 0)
+	for _, definition := range symbolDefinitions {
+		if definition.Kind == SymbolOperator && len(definition.Literal) > 1 {
+			result = append(result, definition.Literal)
+		}
+	}
+	return result
+}
+
+func matchSymbolPrefix(source string) (SymbolDefinition, bool) {
+	for _, definition := range symbolDefinitions {
+		if strings.HasPrefix(source, definition.Literal) {
+			return definition, true
+		}
+	}
+	return SymbolDefinition{}, false
 }
 
 // IsControlKeyword returns true if ident is a control flow keyword requiring '(' (e.g. guard, while, foreach, match, catch).

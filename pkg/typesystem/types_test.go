@@ -126,3 +126,16 @@ func TestTypedCollectionsAndNarrowing(t *testing.T) {
 		t.Fatalf("narrowed User|null without null = %s, want User", narrowed.String())
 	}
 }
+
+func TestNumericClassificationIsCanonical(t *testing.T) {
+	for _, name := range []string{"int", "float", "decimal", "int|float"} {
+		if !Parse(name).IsNumeric() {
+			t.Errorf("%s should be numeric", name)
+		}
+	}
+	for _, name := range []string{"string", "mixed", "int|null", "array<int>"} {
+		if Parse(name).IsNumeric() {
+			t.Errorf("%s should not be numeric", name)
+		}
+	}
+}

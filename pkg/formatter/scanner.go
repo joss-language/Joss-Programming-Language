@@ -36,6 +36,8 @@ type Scanner struct {
 	col   int
 }
 
+var languageSymbols = parser.SymbolDefinitions()
+
 func NewScanner(src string) *Scanner {
 	// Normalize Windows \r\n to \n
 	src = strings.ReplaceAll(src, "\r\n", "\n")
@@ -177,9 +179,9 @@ func (s *Scanner) NextToken() Token {
 		return Token{Kind: TokNumber, Text: b.String(), Line: startLine, Col: startCol}
 	}
 
-	// Multi-character operators dynamically retrieved from canonical parser registry
-	for _, op := range parser.MultiCharOperators() {
-		opRunes := []rune(op)
+	// Symbols are consumed from the parser's canonical lexical registry.
+	for _, definition := range languageSymbols {
+		opRunes := []rune(definition.Literal)
 		if s.pos+len(opRunes) <= len(s.input) {
 			match := true
 			for i, r := range opRunes {
@@ -192,19 +194,13 @@ func (s *Scanner) NextToken() Token {
 				for range opRunes {
 					s.advance()
 				}
-				return Token{Kind: TokOperator, Text: op, Line: startLine, Col: startCol}
+				kind := TokOperator
+				if definition.Kind == parser.SymbolDelimiter {
+					kind = TokDelimiter
+				}
+				return Token{Kind: kind, Text: definition.Literal, Line: startLine, Col: startCol}
 			}
 		}
-	}
-
-	// Single-character delimiters and operators
-	switch ch {
-	case '{', '}', '(', ')', '[', ']', ';', ',', '?', ':':
-		s.advance()
-		return Token{Kind: TokDelimiter, Text: string(ch), Line: startLine, Col: startCol}
-	case '+', '-', '*', '/', '%', '=', '<', '>', '!', '.', '&', '|', '^', '~':
-		s.advance()
-		return Token{Kind: TokOperator, Text: string(ch), Line: startLine, Col: startCol}
 	}
 
 	// Identifiers / Keywords

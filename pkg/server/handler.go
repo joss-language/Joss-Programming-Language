@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -26,16 +25,7 @@ var DefaultLogo []byte
 var (
 	sessionStore = make(map[string]map[string]interface{})
 	sessionMu    sync.Mutex
-
-	// Rate Limiter
-	rateLimitStore = make(map[string]*rateLimitEntry)
-	rateLimitMu    sync.Mutex
 )
-
-type rateLimitEntry struct {
-	count    int
-	lastTime time.Time
-}
 
 func MainHandler(w http.ResponseWriter, r *http.Request) {
 	// Lazy load sessions on first request if empty? No, better to do it once.
@@ -79,6 +69,20 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	rt := currentRuntime.Fork()
 	mutex.RUnlock()
+	webSocketUpgraded := false
+	// Every branch after acquisition, including rate-limit and storage errors,
+	// must release the request runtime.
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			errMsg := core.FormatPanicAsError(recovered)
+			fmt.Printf("[SERVER ERROR] %s\n", errMsg)
+			if !webSocketUpgraded {
+				w.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(w, "<h1>500 Internal Server Error</h1><pre>%s</pre>", errMsg)
+			}
+		}
+		rt.Free()
+	}()
 
 	// rt.LoadEnv(core.GlobalFileSystem) // Fork already has Env copied
 
@@ -97,51 +101,9 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 		rt.SetLocale("en") // Default
 	}
 
-	// 2. Configurable rate limiting. Defaults preserve the historical 60/min behavior.
-	rateLimitRequests := envPositiveInt(rt.Env, "RATE_LIMIT_REQUESTS", 60)
-	rateLimitWindow := time.Duration(envPositiveInt(rt.Env, "RATE_LIMIT_WINDOW_SECONDS", 60)) * time.Second
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip == "" {
-		ip = strings.Split(r.RemoteAddr, ":")[0]
-	} else {
-		// XFF can be "client, proxy1, proxy2"
-		ip = strings.TrimSpace(strings.Split(ip, ",")[0])
-	}
-
-	rateLimitMu.Lock()
-	entry, exists := rateLimitStore[ip]
-	if !exists {
-		entry = &rateLimitEntry{count: 0, lastTime: time.Now()}
-		rateLimitStore[ip] = entry
-	}
-	if time.Since(entry.lastTime) > rateLimitWindow {
-		entry.count = 0
-		entry.lastTime = time.Now()
-	}
-	entry.count++
-	if entry.count > rateLimitRequests {
-		rateLimitMu.Unlock()
-		w.Header().Set("Retry-After", strconv.Itoa(int(rateLimitWindow.Seconds())))
-		w.WriteHeader(http.StatusTooManyRequests)
-		fmt.Fprintf(w, "<h1>429 Too Many Requests</h1>")
+	if !enforceRateLimit(w, r, rt.Env) {
 		return
 	}
-	rateLimitMu.Unlock()
-
-	webSocketUpgraded := false
-
-	// Panic Recovery
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			errMsg := core.FormatPanicAsError(recovered)
-			fmt.Printf("[SERVER ERROR] %s\n", errMsg)
-			if !webSocketUpgraded {
-				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "<h1>500 Internal Server Error</h1><pre>%s</pre>", errMsg)
-			}
-		}
-		rt.Free() // Return to pool
-	}()
 
 	// CORS Headers — controlled by CORS_WEB in env.joss
 	// CORS_WEB=*                     → allow any origin (no Allow-Credentials for browser compat)
@@ -334,98 +296,8 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Parse Request Data
-	reqData := make(map[string]interface{})
-	for k, v := range r.URL.Query() {
-		if len(v) > 0 {
-			reqData[k] = v[0]
-		}
-	}
-
-	contentType := r.Header.Get("Content-Type")
-	if strings.Contains(contentType, "application/json") {
-		var jsonMap map[string]interface{}
-		// Use a temporary decoder to avoid EOF errors if body is empty
-		if r.Body != nil {
-			if err := json.NewDecoder(r.Body).Decode(&jsonMap); err == nil {
-				for k, v := range jsonMap {
-					reqData[k] = v
-				}
-			}
-		}
-	} else {
-		r.ParseMultipartForm(10 << 20) // 10MB
-		for k, v := range r.PostForm {
-			if len(v) > 0 {
-				reqData[k] = v[0]
-			}
-		}
-
-		// Handle Files
-		if r.MultipartForm != nil && r.MultipartForm.File != nil {
-			files := make(map[string]interface{})
-			for k, fheaders := range r.MultipartForm.File {
-				if len(fheaders) > 0 {
-					fh := fheaders[0]
-					file, err := fh.Open()
-					if err == nil {
-						// Read content
-						content := make([]byte, fh.Size)
-						file.Read(content)
-						file.Close()
-
-						// Create temp file on disk so $file["path"] works
-						tmpFile, tmpErr := os.CreateTemp("", "joss_upload_*_"+fh.Filename)
-						pathStr := ""
-						if tmpErr == nil {
-							tmpFile.Write(content)
-							pathStr = tmpFile.Name()
-							tmpFile.Close()
-						}
-
-						// Create file object
-						fileObj := map[string]interface{}{
-							"name":    fh.Filename,
-							"path":    pathStr,
-							"type":    fh.Header.Get("Content-Type"),
-							"size":    fh.Size,
-							"content": string(content), // Store as string for JOSS compatibility
-						}
-						files[k] = fileObj
-					}
-				}
-			}
-			reqData["_files"] = files
-		}
-	}
-
-	// Inject Headers
-	headers := make(map[string]interface{})
-	for k, v := range r.Header {
-		if len(v) > 0 {
-			headers[k] = v[0]
-		}
-	}
-	reqData["_headers"] = headers
-	// Explicitly map Authorization for cleaner access
-	if val := r.Header.Get("Authorization"); val != "" {
-		reqData["Authorization"] = val
-	}
-	reqData["_method"] = r.Method
-	reqData["_path"] = r.URL.Path
-	reqData["_uri"] = r.URL.RequestURI()
-	reqData["_url"] = r.URL.String()
-	reqData["_ip"] = r.RemoteAddr
-	reqData["_referer"] = r.Referer()
-	// Inject Cookies
-	cookies := make(map[string]interface{})
-	for _, c := range r.Cookies() {
-		cookies[c.Name] = c.Value
-	}
-	reqData["_cookies"] = cookies
-
-	reqData["_host"] = host
-	reqData["_scheme"] = scheme
+	// Translate the HTTP request into the stable map exposed to Joss code.
+	reqData := decodeRequestData(r, host, scheme)
 
 	// 4. Session Management
 	sessionID := ""
@@ -586,303 +458,7 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err == nil {
-		fmt.Printf("[HANDLER DEBUG] Result Type: %T\n", result)
-		// Handle Redirect or JSON (Map)
-		if resMap, ok := result.(map[string]interface{}); ok {
-			if val, ok := resMap["_type"]; ok {
-				fmt.Printf("[HANDLER DEBUG] Map Type: %v\n", val)
-				if val == "REDIRECT" {
-					http.Redirect(w, r, resMap["url"].(string), http.StatusFound)
-					return
-				}
-				if val == "JSON" {
-					w.Header().Set("Content-Type", "application/json")
-					statusCode := http.StatusOK
-					if code, ok := resMap["status_code"]; ok {
-						switch v := code.(type) {
-						case int:
-							statusCode = v
-						case int64:
-							statusCode = int(v)
-						case float64:
-							statusCode = int(v)
-						}
-					}
-					w.WriteHeader(statusCode)
-					json.NewEncoder(w).Encode(resMap["data"])
-					return
-				}
-				if val == "RAW" {
-					contentType := "text/plain"
-					if ct, ok := resMap["content_type"].(string); ok {
-						contentType = ct
-					}
-					// Support for custom headers
-					if headers, ok := resMap["headers"].(map[string]interface{}); ok {
-						for k, v := range headers {
-							w.Header().Set(k, fmt.Sprintf("%v", v))
-						}
-					}
-					w.Header().Set("Content-Type", contentType)
-
-					statusCode := http.StatusOK
-					if code, ok := resMap["status_code"]; ok {
-						switch v := code.(type) {
-						case int:
-							statusCode = v
-						case int64:
-							statusCode = int(v)
-						case float64:
-							statusCode = int(v)
-						}
-					}
-					if headers, ok := resMap["headers"].(map[string]interface{}); ok {
-						for k, v := range headers {
-							w.Header().Set(k, fmt.Sprintf("%v", v))
-						}
-					}
-					w.WriteHeader(statusCode)
-
-					data := resMap["data"]
-					switch v := data.(type) {
-					case string:
-						w.Write([]byte(v))
-					case []byte:
-						w.Write(v)
-					default:
-						fmt.Fprintf(w, "%v", v)
-					}
-					return
-				}
-			}
-		}
-
-		// Handle Redirect or JSON (Instance)
-		if resInst, ok := result.(*core.Instance); ok {
-
-			// Handle Cookies (Universal for all WebResponse types)
-			if cookies, ok := resInst.Fields["cookies"].(map[string]interface{}); ok {
-				for k, v := range cookies {
-					valStr := fmt.Sprintf("%v", v)
-					maxAge := 86400 * 30 // 30 Days
-					if valStr == "" {
-						maxAge = -1
-					}
-					http.SetCookie(w, &http.Cookie{
-						Name:     k,
-						Value:    valStr,
-						Path:     "/",
-						HttpOnly: true,
-						Secure:   r.TLS != nil,
-						SameSite: http.SameSiteLaxMode,
-						MaxAge:   maxAge,
-					})
-				}
-			}
-
-			// Handle Headers (Universal)
-			if headers, ok := resInst.Fields["headers"].(map[string]interface{}); ok {
-				for k, v := range headers {
-					w.Header().Set(k, fmt.Sprintf("%v", v))
-				}
-			}
-			// JSON handling from Instance
-			if val, ok := resInst.Fields["_type"]; ok && val == "JSON" {
-				w.Header().Set("Content-Type", "application/json")
-				statusCode := http.StatusOK
-				if code, ok := resInst.Fields["status"]; ok {
-					switch v := code.(type) {
-					case int:
-						statusCode = v
-					case int64:
-						statusCode = int(v)
-					case float64:
-						statusCode = int(v)
-					}
-				}
-				w.WriteHeader(statusCode)
-				json.NewEncoder(w).Encode(resInst.Fields["data"])
-				return
-			}
-
-			// RAW handling
-			if val, ok := resInst.Fields["_type"]; ok && val == "RAW" {
-				contentType := "text/plain"
-				if ct, ok := resInst.Fields["content_type"].(string); ok {
-					contentType = ct
-				}
-				w.Header().Set("Content-Type", contentType)
-
-				statusCode := http.StatusOK
-				if code, ok := resInst.Fields["status_code"]; ok {
-					switch v := code.(type) {
-					case int:
-						statusCode = v
-					case int64:
-						statusCode = int(v)
-					case float64:
-						statusCode = int(v)
-					}
-				}
-				if headers, ok := resInst.Fields["headers"].(map[string]interface{}); ok {
-					for k, v := range headers {
-						w.Header().Set(k, fmt.Sprintf("%v", v))
-					}
-				}
-				w.WriteHeader(statusCode)
-
-				data := resInst.Fields["data"]
-				switch v := data.(type) {
-				case string:
-					w.Write([]byte(v))
-				case []byte:
-					w.Write(v)
-				default:
-					fmt.Fprintf(w, "%v", v)
-				}
-				return
-			}
-
-			// FILE handling (Response::download)
-			if val, ok := resInst.Fields["_type"]; ok && val == "FILE" {
-				filePath, _ := resInst.Fields["data"].(string)
-				if filePath != "" {
-					absPath, err := filepath.Abs(filePath)
-					if err != nil {
-						absPath = filePath
-					}
-					content, err := os.ReadFile(absPath)
-					if err == nil {
-						downloadName := filepath.Base(absPath)
-						if dn, ok := resInst.Fields["download_name"].(string); ok && dn != "" {
-							downloadName = dn
-						}
-
-						// Detect MIME type dynamically (custom, extension-based, or sniffing)
-						contentType := "application/octet-stream"
-						if ct, ok := resInst.Fields["content_type"].(string); ok && ct != "" {
-							contentType = ct
-						} else {
-							ext := filepath.Ext(downloadName)
-							if ext != "" {
-								if mimeType := mime.TypeByExtension(ext); mimeType != "" {
-									contentType = mimeType
-								}
-							}
-							if contentType == "application/octet-stream" && len(content) > 0 {
-								detected := http.DetectContentType(content)
-								if detected != "" {
-									contentType = detected
-								}
-							}
-						}
-
-						w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", downloadName))
-						w.Header().Set("Content-Type", contentType)
-						w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
-						w.WriteHeader(http.StatusOK)
-						w.Write(content)
-						return
-					}
-					http.Error(w, "File read error", http.StatusInternalServerError)
-					return
-				}
-			}
-
-			// STREAM handling
-			if val, ok := resInst.Fields["_type"]; ok && val == "STREAM" {
-				// Headers for SSE
-				w.Header().Set("Content-Type", "text/event-stream")
-				w.Header().Set("Cache-Control", "no-cache")
-				w.Header().Set("Connection", "keep-alive")
-				w.Header().Set("X-Accel-Buffering", "no")
-
-				// Flush headers immediately
-				w.WriteHeader(http.StatusOK)
-				if f, ok := w.(http.Flusher); ok {
-					f.Flush()
-				}
-
-				// Create Stream Instance (inject writer)
-				streamInst := core.NewStreamInstance(rt, w)
-				if streamInst == nil {
-					fmt.Println("[HANDLER] Error creating Stream instance (Class not found?)")
-					return
-				}
-
-				// Retrieve Callback
-				if callback, ok := resInst.Fields["callback"]; ok {
-					// Execute Callback
-					// pass streamInst as argument
-					rt.CallFunction(callback, []interface{}{streamInst})
-				}
-				return
-			}
-
-			// Redirect handling
-			if val, ok := resInst.Fields["_type"]; ok && val == "REDIRECT" {
-				if flash, ok := resInst.Fields["flash"].(map[string]interface{}); ok {
-					sessionMu.Lock()
-					if driver == "redis" {
-						for k, v := range flash {
-							sessData[k] = v
-						}
-						data, _ := json.Marshal(sessData)
-						core.GlobalRedis.Set(core.Ctx, "session:"+sessionID, data, 24*time.Hour)
-					} else {
-						if _, ok := sessionStore[sessionID]; !ok {
-							sessionStore[sessionID] = make(map[string]interface{})
-						}
-						for k, v := range flash {
-							sessionStore[sessionID][k] = v
-						}
-						if driver == "file" {
-							if err := persistFileSessions(rt.Env); err != nil {
-								fmt.Printf("[Session] Error persistiendo flash: %v\n", err)
-							}
-						}
-					}
-					sessionMu.Unlock()
-				}
-
-				// Handle Cookies
-				if cookies, ok := resInst.Fields["cookies"].(map[string]interface{}); ok {
-					for k, v := range cookies {
-						valStr := fmt.Sprintf("%v", v)
-						maxAge := 86400 * 30 // 30 Days
-						if valStr == "" {
-							maxAge = -1
-						}
-						http.SetCookie(w, &http.Cookie{
-							Name:     k,
-							Value:    valStr,
-							Path:     "/",
-							HttpOnly: true,
-							Secure:   r.TLS != nil,
-							SameSite: http.SameSiteLaxMode,
-							MaxAge:   maxAge,
-						})
-					}
-				}
-
-				http.Redirect(w, r, resInst.Fields["url"].(string), resolveRedirectStatus(resInst))
-				return
-			}
-		}
-
-		// If result is string, write it
-		if str, ok := result.(string); ok {
-			// Set default content type if not set
-			if w.Header().Get("Content-Type") == "" {
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			}
-
-			w.Write([]byte(str))
-
-			// Hot Reload Script (ONLY for HTML)
-			if strings.Contains(w.Header().Get("Content-Type"), "text/html") {
-				fmt.Fprint(w, getHotReloadScript())
-			}
+		if writeExecutionResult(w, r, rt, result, responseSession{id: sessionID, driver: driver, data: sessData}) {
 			return
 		}
 	} else {

@@ -2,6 +2,42 @@ package core
 
 import "github.com/jossecurity/joss/pkg/typesystem"
 
+// NativeParameterDefinition contains only a contract that the native runtime
+// can state reliably. Runtime implementation details remain in NativeHandler.
+type NativeParameterDefinition struct {
+	Name        string
+	Type        typesystem.Type
+	HasDefault  bool
+	ByReference bool
+}
+
+// NativeMethodDefinition is the canonical semantic metadata for a native
+// method. ArityKnown distinguishes an intentionally unknown signature from a
+// method that reliably accepts zero parameters.
+type NativeMethodDefinition struct {
+	Name       string
+	ReturnType typesystem.Type
+	Parameters []NativeParameterDefinition
+	ArityKnown bool
+	Variadic   bool
+}
+
+func nativeMethod(name, returnName string) NativeMethodDefinition {
+	return NativeMethodDefinition{Name: name, ReturnType: typesystem.Parse(returnName)}
+}
+
+var migratedNativeMethods = map[string][]NativeMethodDefinition{
+	"Stack": {
+		nativeMethod("push", "mixed"), nativeMethod("pop", "mixed"), nativeMethod("peek", "mixed"),
+	},
+	"Queue": {
+		nativeMethod("enqueue", "mixed"), nativeMethod("dequeue", "mixed"), nativeMethod("peek", "mixed"),
+	},
+	"Math": {
+		nativeMethod("random", "int"), nativeMethod("floor", "float"), nativeMethod("ceil", "float"), nativeMethod("abs", "float"),
+	},
+}
+
 // nativeMethodReturnType is the return-signature source of truth for core
 // classes. Every registered method receives a declared type; mixed means the
 // API is intentionally value-polymorphic, never that metadata is missing.
@@ -77,9 +113,6 @@ var preciseNativeReturns = map[string]string{
 	"Lang::locales":              "array",
 	"Markdown::readFile":         "string",
 	"Markdown::toHtml":           "string",
-	"Math::ceil":                 "float",
-	"Math::floor":                "float",
-	"Math::random":               "int",
 	"MFA::verifyRecoveryCode":    "bool",
 	"MFA::verifyTOTP":            "bool",
 	"Redirect::to":               "WebResponse",
@@ -126,47 +159,6 @@ var preciseNativeReturns = map[string]string{
 	"View::render":               "string",
 	"WebSocket::subscriberCount": "int",
 }
-
-func builtinReturnType(name string) typesystem.Type {
-	if builtinBoolReturns[name] {
-		return typesystem.Type{Kind: typesystem.Bool}
-	}
-	if builtinIntReturns[name] {
-		return typesystem.Type{Kind: typesystem.Int}
-	}
-	if builtinFloatReturns[name] {
-		return typesystem.Type{Kind: typesystem.Float}
-	}
-	if builtinDecimalReturns[name] {
-		return typesystem.Type{Kind: typesystem.Decimal}
-	}
-	if builtinStringReturns[name] {
-		return typesystem.Type{Kind: typesystem.String}
-	}
-	if builtinArrayReturns[name] {
-		return typesystem.Type{Kind: typesystem.Array}
-	}
-	return typesystem.Type{Kind: typesystem.Mixed}
-}
-
-var builtinBoolReturns = nameSet(
-	"isset", "empty", "is_string", "is_numeric", "is_int", "is_integer", "is_float", "is_double", "is_decimal",
-	"is_array", "is_null", "in_array", "array_key_exists", "file_exists", "is_dir", "is_file",
-	"json_verify", "toon_verify", "str_contains", "contains", "str_starts_with", "starts_with", "str_ends_with", "ends_with",
-	"any", "all",
-)
-var builtinIntReturns = nameSet("intval", "boolval", "len", "count", "time", "strlen", "strpos", "rand")
-var builtinFloatReturns = nameSet("floatval", "doubleval", "microtime", "round", "floor", "ceil", "abs")
-var builtinDecimalReturns = nameSet("decimal")
-var builtinStringReturns = nameSet(
-	"strval", "date", "env", "config", "view", "json", "toon_encode", "json_encode", "html_escape", "__", "csrf_field",
-	"str_replace", "strtolower", "to_lower", "strtoupper", "to_upper", "trim", "ltrim", "rtrim", "substr", "implode", "join",
-	"md5", "sha1", "sha256", "base64_encode", "base64_decode", "ucfirst", "lcfirst", "ucwords", "str_pad", "str_repeat",
-)
-var builtinArrayReturns = nameSet(
-	"keys", "array_keys", "values", "array_values", "explode", "merge", "array_merge", "array_slice", "array_unique", "array_reverse", "array_column",
-	"map", "filter",
-)
 
 func nameSet(names ...string) map[string]bool {
 	result := make(map[string]bool, len(names))

@@ -251,7 +251,8 @@ public func worker(int $a, int $b): int {
     return $d
 }
 `
-	r := benchmarkPreparedRuntime(nil, source)
+	r := benchmarkPreparedRuntime(b, source)
+	b.Cleanup(r.Free)
 	fn := r.Functions["worker"]
 	args := []interface{}{int64(10), int64(20)}
 	b.ReportAllocs()

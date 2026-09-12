@@ -109,7 +109,7 @@ Implementación: [executeCacheMethod](../pkg/core/native_cache.go#L18).
 
 ## Console
 
-Implementación: [executeConsoleMethod](../pkg/core/native.go#L263).
+Implementación: [executeConsoleMethod](../pkg/core/native.go#L307).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -135,7 +135,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L324).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L368).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -352,11 +352,9 @@ Implementación: [executeMarkdownMethod](../pkg/core/markdown.go#L15).
 
 ## Math
 
-Implementación: [executeMathMethod](../pkg/core/native_extensions.go#L10).
-
 | Método | Retorno publicado al analizador |
 |---|---|
-| `abs` | `mixed` |
+| `abs` | `float` |
 | `ceil` | `float` |
 | `floor` | `float` |
 | `random` | `int` |
@@ -396,8 +394,6 @@ Implementación: [executeProcessMethod](../pkg/core/native_process.go#L13).
 | `wait` | `mixed` |
 
 ## Queue
-
-Implementación: [executeQueueMethod](../pkg/core/queue.go#L4).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -578,8 +574,6 @@ Implementación: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 
 ## Stack
 
-Implementación: [executeStackMethod](../pkg/core/stack.go#L4).
-
 | Método | Retorno publicado al analizador |
 |---|---|
 | `peek` | `mixed` |
@@ -664,7 +658,7 @@ Implementación: [executeUserStorageMethod](../pkg/core/lib_storage.go#L20).
 
 ## View
 
-Implementación: [executeViewMethod](../pkg/core/view.go#L60).
+Implementación: [executeViewMethod](../pkg/core/view.go#L61).
 
 | Método | Retorno publicado al analizador |
 |---|---|

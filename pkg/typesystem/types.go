@@ -74,6 +74,25 @@ func (t Type) IsKnown() bool {
 }
 func (t Type) IsDynamic() bool { return t.Kind == Mixed }
 
+// IsNumeric reports whether every alternative is one of Joss's canonical
+// numeric types. Keeping this rule in typesystem prevents analyzers and tools
+// from maintaining their own primitive-type lists.
+func (t Type) IsNumeric() bool {
+	if t.Kind == Union {
+		members := t.Members()
+		if len(members) == 0 {
+			return false
+		}
+		for _, member := range members {
+			if !member.IsNumeric() {
+				return false
+			}
+		}
+		return true
+	}
+	return t.Kind == Int || t.Kind == Float || t.Kind == Decimal
+}
+
 // Members returns the normalized alternatives of a union. Non-union types
 // return themselves as a single member.
 func (t Type) Members() []Type {

@@ -51,9 +51,10 @@ flowchart LR
 
 ## Fuentes de verdad
 
-- Keywords: `pkg/parser/token.go`; `parser.KeywordNames()` es la proyección para tooling.
-- Tipos y compatibilidad: `pkg/typesystem`.
-- Built-ins globales: nombres en `pkg/core/builtins.go`, retornos en `pkg/core/native_signatures.go`. El dispatcher rechaza nombres fuera del catálogo.
+- Keywords y símbolos: `pkg/parser/token.go`; `parser.KeywordNames()` y `parser.SymbolDefinitions()` son las proyecciones para lexer, formatter y generadores.
+- Tipos y compatibilidad: `pkg/typesystem`, incluidas clasificaciones semánticas como `Type.IsNumeric()`.
+- Métodos de primitivas: nombre y retorno en `pkg/typesystem/primitive_methods.go`. `pkg/analyzer` proyecta esa metadata y `pkg/core/primitives.go` conserva únicamente la implementación runtime. Toda definición debe quedar cubierta por `TestPrimitiveMethodCatalogHasRuntimeImplementations`.
+- Built-ins globales: `pkg/core/builtins.go` declara una sola vez nombre, dominio de dispatcher y retorno. El runtime despacha directamente por ese descriptor y rechaza nombres fuera del catálogo.
 - Clases/métodos nativos: llamadas a `registerNative` dentro de `Runtime.RegisterNativeClasses()`; sus retornos se tipan en `pkg/core/native_signatures.go`.
 - Símbolos de plugins: `pluginpkg.SymbolIndex` incluido en cada `.jp`.
 - Diagnósticos: `pkg/diagnostics.Diagnostic` y códigos emitidos por `pkg/analyzer`.
@@ -97,3 +98,33 @@ anterior. Del mismo modo, JPBC sólo define ejecución de plugins. Al documentar
 ## Regla de dependencia
 
 Las capas de lenguaje (`parser`, `typesystem`, `diagnostics`, `analyzer`) no importan `core`. `core` adapta sus registros al analizador. Esta dirección evita que el type checker dependa de efectos secundarios del servidor o de la base de datos.
+
+El servidor mantiene sus adaptadores HTTP fuera del intérprete: `request_data.go` traduce `net/http` al mapa estable consumido por Joss y `rate_limiter.go` encapsula el estado de limitación. `handler.go` continúa como orquestador y no debe volver a absorber estas responsabilidades.
+
+## Fronteras internas del evaluator
+
+Las llamadas conservan una sola ruta evaluada. `call_arguments.go` transforma expresiones fuente y aplica binding posicional/nombrado/default/ref; `call_method.go` instala parámetros, administra el frame, recursión, defers y contrato de retorno; `callable_dispatch.go` adapta closures, métodos ligados, plugins y funciones Go a esa ruta; `evaluator_call.go` sólo resuelve una llamada fuente y el dominio del built-in. Los entry points públicos históricos delegan, no reimplementan reglas.
+
+Los infijos se coordinan en `evaluator_infix.go` porque el orden observable —coalescencia, pipeline, short-circuit, entrada, evaluación derecha y salida— debe permanecer explícito. Sus conductas viven por dominio en `evaluator_control.go`, `evaluator_pipeline.go`, `evaluator_numeric.go`, `evaluator_stream.go` y `evaluator_update.go`. No se debe volver a añadir un operador directamente al coordinador salvo que afecte el orden de evaluación.
+
+En el analyzer, `infer_nominal.go` amplía `typesystem.Assignable` con clases/interfaces del proyecto; `infer_narrowing.go` crea scopes refinados por `is` y comparaciones con null. Estas reglas permanecen separadas del runtime: comparten tipos y metadata, no ejecución ni estado.
+
+## Tercera fase de arquitectura — septiembre de 2026
+
+El analyzer tiene un pipeline semántico explícito: recolección de declaraciones, scope de proyecto, contratos nominales, cuerpos/callables y diagnósticos. Las responsabilidades se separan en archivos del mismo package para conservar encapsulación y evitar APIs públicas artificiales. `call_resolution.go` y `member_resolution.go` proyectan funciones, métodos, nativos, primitivos y plugins a la firma semántica de `Callable`; la ejecución continúa en `core`.
+
+Antes de cambiar infraestructura se añadieron caracterizaciones de runtime (fork/reset/reuse), HTTP (503, CORS, sesiones, CSRF y respuesta) y publicación (ZIP, traversal, lockfile y registry). Estas pruebas ya encontraron y corrigieron un caso real de estado residual en `Runtime.Free`. El handler y el CLI siguen siendo coordinadores grandes: la extracción queda condicionada a completar WebSocket, response mapping y más casos registry.
+
+Las reglas negativas se mantienen: analyzer no importa core, parser no conoce runtime, server no redefine semántica, formatter no descarta trivia para reutilizar lexer y VM no define semántica publicada. `@json` y `NativeMethodDefinition` siguen como deudas P1 hasta disponer de una representación común mantenible.
+
+## Cuarta fase de arquitectura — septiembre de 2026
+
+El lifecycle de runtime vive en `runtime_lifecycle.go`: construcción, pool, adquisición, bindings host y reset. `Runtime.Free` elimina todo estado per-request/per-execution y caches; no cierra `DB`, porque el pool SQL es un recurso externo compartido cuyo owner es la aplicación. `Fork` copia mapas mutables, reinicia cursores/caches y comparte únicamente AST/planes/configuración inmutable, plugin registry y recursos externos. Tests concurrentes y de aislamiento protegen estas reglas.
+
+`MainHandler` adquiere el fork y registra inmediatamente un cleanup único. La adaptación de resultados reside en `response_writer.go`; request decoding continúa en `request_data.go`, rate limiting en `rate_limiter.go`, y session/CSRF permanece en el handler hasta completar sus backends. La frontera publicada reconoce string, JSON, RAW, FILE, STREAM y REDIRECT; otros valores continúan al fallback de archivo/404.
+
+`NativeMethodDefinition` es metadata semántica, no reflection runtime. Publica sólo nombre, retorno y parámetros confiables, distinguiendo aridad desconocida. Stack, Queue y Math son la migración inicial; las demás clases usan el adaptador legacy. Todas se proyectan finalmente a `analyzer.Callable` y catálogos generados.
+
+`pkg/viewtemplate` posee la sintaxis mínima compartida de directivas. El scanner reconoce rangos, quotes y paréntesis anidados; runtime y linter comparten la interpretación de `@json`. Rendering, acceso a archivos y políticas de lint permanecen en sus dominios.
+
+La autoridad se divide explícitamente: syntax truth en parser, type truth en typesystem/analyzer, runtime truth en Interpreter/core y tooling como proyección. La VM sólo participa en un corpus diferencial declarado para features soportadas; nunca define semántica publicada.

@@ -6,11 +6,15 @@ import (
 	"strings"
 
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/pkg/typesystem"
 )
 
 // resolveStringMethod resolves fluent methods called on a string primitive.
 func (r *Runtime) resolveStringMethod(s string, prop *parser.Identifier) (func([]interface{}) interface{}, bool) {
 	method := prop.Value
+	if _, _, exists := typesystem.PrimitiveMethod(typesystem.Type{Kind: typesystem.String}, method); !exists {
+		return nil, false
+	}
 	switch method {
 	case "trim":
 		return func(args []interface{}) interface{} {
@@ -163,6 +167,9 @@ func (r *Runtime) resolveStringMethod(s string, prop *parser.Identifier) (func([
 // resolveArrayMethod resolves fluent methods called on an array primitive.
 func (r *Runtime) resolveArrayMethod(arr []interface{}, prop *parser.Identifier) (func([]interface{}) interface{}, bool) {
 	method := prop.Value
+	if _, _, exists := typesystem.PrimitiveMethod(typesystem.Type{Kind: typesystem.Array}, method); !exists {
+		return nil, false
+	}
 	switch method {
 	case "length", "count":
 		return func(args []interface{}) interface{} {
@@ -343,6 +350,9 @@ func (r *Runtime) resolveArrayMethod(arr []interface{}, prop *parser.Identifier)
 // resolveMapMethod resolves fluent methods called on a map primitive.
 func (r *Runtime) resolveMapMethod(m map[string]interface{}, prop *parser.Identifier) (func([]interface{}) interface{}, bool) {
 	method := prop.Value
+	if _, _, exists := typesystem.PrimitiveMethod(typesystem.Type{Kind: typesystem.Map}, method); !exists {
+		return nil, false
+	}
 	switch method {
 	case "keys":
 		return func(args []interface{}) interface{} {

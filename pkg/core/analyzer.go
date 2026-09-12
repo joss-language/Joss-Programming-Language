@@ -70,9 +70,9 @@ func AnalysisReportFromDiagnostics(items []diagnostics.Diagnostic) *AnalysisRepo
 // symbol indexes are the source of truth for the analyzer as well as execution.
 func buildAnalysisEnvironment() semanticanalyzer.Environment {
 	environment := semanticanalyzer.NewEnvironment()
-	for _, name := range GetBuiltinFunctionNames() {
-		environment.Builtins[name] = semanticanalyzer.Callable{
-			Name: name, ReturnType: builtinReturnType(name), Variadic: true,
+	for _, definition := range builtinDefinitions {
+		environment.Builtins[definition.name] = semanticanalyzer.Callable{
+			Name: definition.name, ReturnType: definition.returnType, Variadic: true,
 		}
 	}
 
@@ -115,6 +115,23 @@ func buildAnalysisEnvironment() semanticanalyzer.Environment {
 			}
 		}
 		environment.Classes[name] = class
+	}
+	// Native runtime implementations expose semantic contracts through
+	// NativeMethodDefinition. Legacy definitions deliberately remain variadic
+	// until their arity is migrated and verified.
+	for className, definitions := range GetNativeMethodDefinitions() {
+		class := environment.Classes[className]
+		if class.Methods == nil {
+			class = semanticanalyzer.Class{Name: className, Methods: make(map[string]semanticanalyzer.Callable), Fields: make(map[string]semanticanalyzer.Field)}
+		}
+		for _, definition := range definitions {
+			parameters := make([]semanticanalyzer.Parameter, 0, len(definition.Parameters))
+			for _, parameter := range definition.Parameters {
+				parameters = append(parameters, semanticanalyzer.Parameter{Name: parameter.Name, Type: parameter.Type, HasDefault: parameter.HasDefault, ByReference: parameter.ByReference})
+			}
+			class.Methods[definition.Name] = semanticanalyzer.Callable{Name: definition.Name, Parameters: parameters, ReturnType: definition.ReturnType, Variadic: definition.Variadic || !definition.ArityKnown, Owner: className}
+		}
+		environment.Classes[className] = class
 	}
 
 	ifaceNames := make([]string, 0, len(runtime.Interfaces))

@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -27,41 +26,6 @@ var (
 
 	// GlobalFileSystem is the VFS for the application
 	GlobalFileSystem http.FileSystem
-
-	runtimePool = sync.Pool{
-		New: func() interface{} {
-			r := &Runtime{
-				Env:                make(map[string]string),
-				Variables:          make(map[string]interface{}),
-				VarTypes:           make(map[string]string),
-				Constants:          make(map[string]bool),
-				HostGlobals:        make(map[string]bool),
-				Classes:            make(map[string]*parser.ClassStatement),
-				Interfaces:         make(map[string]*parser.InterfaceStatement),
-				Enums:              make(map[string]*EnumDefinition),
-				Functions:          make(map[string]*parser.MethodStatement),
-				Routes:             make(map[string]map[string]interface{}),
-				CurrentMiddleware:  make([]string, 0),
-				CustomMiddlewares:  make(map[string]interface{}),
-				NativeHandlers:     make(map[string]NativeHandler),
-				NativePlugins:      make(map[string]*NativePluginDefinition),
-				NativeDrivers:      make(map[string]*NativeDriverDefinition),
-				callablePlans:      make(map[*parser.MethodStatement]*runtimeplan.Callable),
-				functionPlans:      make(map[*parser.FunctionLiteral]*runtimeplan.Callable),
-				classMetadataCache: make(map[string]*classMetadata),
-				MaxCallDepth:       DefaultMaxCallDepth,
-			}
-			r.Variables["cout"] = &Cout{}
-			r.Variables["cin"] = &Cin{}
-			r.Variables["cerr"] = &Cerr{}
-			r.Variables["endl"] = "\n"
-			r.Constants["endl"] = true
-			r.Variables["JOSS_VERSION"] = version.Version
-			r.RegisterNativeClasses()
-			r.markCurrentVariablesAsHostGlobals()
-			return r
-		},
-	}
 )
 
 // SetFileSystem sets the global file system
@@ -69,154 +33,32 @@ func SetFileSystem(fs http.FileSystem) {
 	GlobalFileSystem = fs
 }
 
-// NewRuntime gets a runtime from the pool
-func NewRuntime() *Runtime {
-	// Initialize Logger globally once
-	InitLogger()
-
-	r := runtimePool.Get().(*Runtime)
-	if r.Constants == nil {
-		r.Constants = make(map[string]bool)
-	}
-	if r.NativePlugins == nil {
-		r.NativePlugins = make(map[string]*NativePluginDefinition)
-	}
-	if r.NativeDrivers == nil {
-		r.NativeDrivers = make(map[string]*NativeDriverDefinition)
-	}
-	if r.HostGlobals == nil {
-		r.HostGlobals = make(map[string]bool)
-	}
-	if r.callablePlans == nil {
-		r.callablePlans = make(map[*parser.MethodStatement]*runtimeplan.Callable)
-	}
-	if r.functionPlans == nil {
-		r.functionPlans = make(map[*parser.FunctionLiteral]*runtimeplan.Callable)
-	}
-	if r.classMetadataCache == nil {
-		r.classMetadataCache = make(map[string]*classMetadata)
-	}
-	if r.MaxCallDepth <= 0 {
-		r.MaxCallDepth = DefaultMaxCallDepth
-	}
-	// Ensure native classes are registered (if recycled)
-	if _, ok := r.Variables["View"]; !ok {
-		r.Variables["cout"] = &Cout{}
-		r.Variables["cin"] = &Cin{}
-		r.Variables["cerr"] = &Cerr{}
-		r.Variables["endl"] = "\n"
-		r.Constants["endl"] = true
-		r.Variables["JOSS_VERSION"] = version.Version
-		r.RegisterNativeClasses()
-		r.markCurrentVariablesAsHostGlobals()
-
-		// Initialize GlobalAssetManager once
-		am := GetAssetManager()
-		am.Initialize()
-	}
-	r.AutoloadPlugins(".")
-	r.markCurrentVariablesAsHostGlobals()
-	return r
-}
-
-// FreeRuntime returns the runtime to the pool
-func (r *Runtime) Free() {
-	// Reset state
-	for k := range r.Variables {
-		delete(r.Variables, k)
-	}
-	for k := range r.VarTypes {
-		delete(r.VarTypes, k)
-	}
-	for k := range r.Constants {
-		delete(r.Constants, k)
-	}
-	for k := range r.HostGlobals {
-		delete(r.HostGlobals, k)
-	}
-	for k := range r.Classes {
-		delete(r.Classes, k)
-	}
-	for k := range r.Interfaces {
-		delete(r.Interfaces, k)
-	}
-	for k := range r.Enums {
-		delete(r.Enums, k)
-	}
-	for k := range r.Functions {
-		delete(r.Functions, k)
-	}
-	for k := range r.Routes {
-		delete(r.Routes, k)
-	}
-	for k := range r.CustomMiddlewares {
-		delete(r.CustomMiddlewares, k)
-	}
-	for k := range r.NativeHandlers {
-		delete(r.NativeHandlers, k)
-	}
-	for k := range r.NativePlugins {
-		delete(r.NativePlugins, k)
-	}
-	for k := range r.NativeDrivers {
-		delete(r.NativeDrivers, k)
-	}
-	for method := range r.callablePlans {
-		delete(r.callablePlans, method)
-	}
-	for function := range r.functionPlans {
-		delete(r.functionPlans, function)
-	}
-	// PluginRegistry owns symbol tables whose host context is this Runtime.
-	// Keeping it while clearing Variables/Classes makes a recycled runtime skip
-	// plugin registration because the archive still appears to be loaded.
-	r.PluginRegistry = nil
-	// Restore standard variables
-	r.Variables["cout"] = &Cout{}
-	r.Variables["cin"] = &Cin{}
-	r.Variables["cerr"] = &Cerr{}
-	r.Variables["endl"] = "\n"
-	r.Constants["endl"] = true
-	r.markCurrentVariablesAsHostGlobals()
-
-	r.CurrentMiddleware = r.CurrentMiddleware[:0]
-	r.ProjectRoot = ""
-	r.callDepth = 0
-	r.callStack = r.callStack[:0]
-	r.currentFrame = nil
-	r.MaxCallDepth = DefaultMaxCallDepth
-	r.captureEnvironment = nil
-	r.SitemapEntries = r.SitemapEntries[:0]
-	r.SitemapProviders = r.SitemapProviders[:0]
-	r.SitemapExclusions = r.SitemapExclusions[:0]
-
-	runtimePool.Put(r)
-}
-
 // Fork creates a lightweight copy of the runtime for request isolation
 func (r *Runtime) Fork() *Runtime {
 	// fmt.Printf("[RUNTIME] Forking from %p\n", r)
 	newR := &Runtime{
-		Env:               make(map[string]string),
-		Classes:           copyClassMap(r.Classes),
-		Interfaces:        copyInterfaceMap(r.Interfaces),
-		Functions:         copyMethodMap(r.Functions),
-		Routes:            make(map[string]map[string]interface{}),
-		CurrentMiddleware: make([]string, 0),
-		CustomMiddlewares: make(map[string]interface{}),
-		DB:                r.DB, // Share DB Connection (Thread-Safe)
-		Variables:         make(map[string]interface{}),
-		VarTypes:          make(map[string]string),
-		Constants:         copyBoolMap(r.Constants),
-		HostGlobals:       copyBoolMap(r.HostGlobals),
-		NativeHandlers:    copyNativeHandlerMap(r.NativeHandlers),
-		NativePlugins:     copyNativePluginMap(r.NativePlugins),
-		NativeDrivers:     copyNativeDriverMap(r.NativeDrivers),
-		callablePlans:     copyCallablePlanMap(r.callablePlans),
-		functionPlans:     copyFunctionPlanMap(r.functionPlans),
-		MaxCallDepth:      r.MaxCallDepth,
-		PluginRegistry:    r.PluginRegistry,
-		ProjectRoot:       r.ProjectRoot,
+		Env:                make(map[string]string),
+		Classes:            copyClassMap(r.Classes),
+		Interfaces:         copyInterfaceMap(r.Interfaces),
+		Enums:              copyEnumMap(r.Enums),
+		Functions:          copyMethodMap(r.Functions),
+		Routes:             make(map[string]map[string]interface{}),
+		CurrentMiddleware:  make([]string, 0),
+		CustomMiddlewares:  make(map[string]interface{}),
+		DB:                 r.DB, // Share DB Connection (Thread-Safe)
+		Variables:          make(map[string]interface{}),
+		VarTypes:           make(map[string]string),
+		Constants:          copyBoolMap(r.Constants),
+		HostGlobals:        copyBoolMap(r.HostGlobals),
+		NativeHandlers:     copyNativeHandlerMap(r.NativeHandlers),
+		NativePlugins:      copyNativePluginMap(r.NativePlugins),
+		NativeDrivers:      copyNativeDriverMap(r.NativeDrivers),
+		callablePlans:      copyCallablePlanMap(r.callablePlans),
+		functionPlans:      copyFunctionPlanMap(r.functionPlans),
+		classMetadataCache: make(map[string]*classMetadata),
+		MaxCallDepth:       r.MaxCallDepth,
+		PluginRegistry:     r.PluginRegistry,
+		ProjectRoot:        r.ProjectRoot,
 	}
 	// fmt.Println("[RUNTIME] Fork: Maps initialized")
 
@@ -324,6 +166,14 @@ func copyInterfaceMap(source map[string]*parser.InterfaceStatement) map[string]*
 		return make(map[string]*parser.InterfaceStatement)
 	}
 	result := make(map[string]*parser.InterfaceStatement, len(source))
+	for key, value := range source {
+		result[key] = value
+	}
+	return result
+}
+
+func copyEnumMap(source map[string]*EnumDefinition) map[string]*EnumDefinition {
+	result := make(map[string]*EnumDefinition, len(source))
 	for key, value := range source {
 		result[key] = value
 	}
