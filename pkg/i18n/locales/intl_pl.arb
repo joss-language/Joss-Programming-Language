@@ -904,5 +904,843 @@
   "seedersNotFound": "Nie znaleziono siewników w aplikacji/bazie danych/seederach/",
   "@seedersNotFound": {
     "description": "Mensaje cuando el directorio de seeders está vacío"
+  },
+  "dbErrConnectingDest": "Błąd podczas łączenia z celem ({dest}): {err}",
+  "@dbErrConnectingDest": {
+    "description": "Mensaje de error al conectar con la base de datos de destino",
+    "placeholders": {
+      "dest": {},
+      "err": {}
+    }
+  },
+  "dbErrConnectingSource": "Błąd podczas łączenia ze źródłem ({source}): {err}",
+  "@dbErrConnectingSource": {
+    "description": "Mensaje de error al conectar con la base de datos de origen",
+    "placeholders": {
+      "source": {},
+      "err": {}
+    }
+  },
+  "dbChangingEngine": "Zmiana silnika bazy danych na: {target}",
+  "@dbChangingEngine": {
+    "description": "Mensaje informativo al iniciar el cambio de motor de base de datos",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbAlreadyEngine": "Silnik bazy danych jest już {target}",
+  "@dbAlreadyEngine": {
+    "description": "Mensaje cuando el motor solicitado ya está activo",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbPreparingDestSchema": "Przygotowywanie schematu w docelowej bazie danych...",
+  "@dbPreparingDestSchema": {
+    "description": "Mensaje informativo al preparar tablas y esquema destino"
+  },
+  "dbStartingDataMigration": "Rozpoczynam migrację danych...",
+  "@dbStartingDataMigration": {
+    "description": "Mensaje informativo al iniciar la copia de datos entre tablas"
+  },
+  "dbMigratingBetweenConfigured": "Migracja danych pomiędzy skonfigurowanymi silnikami baz danych...",
+  "@dbMigratingBetweenConfigured": {
+    "description": "Mensaje inicial del comando change db migrate"
+  },
+  "dbOrigin": "Pochodzenie",
+  "@dbOrigin": {
+    "description": "Etiqueta para indicar el motor o servidor de origen"
+  },
+  "dbDestination": "Miejsce docelowe",
+  "@dbDestination": {
+    "description": "Etiqueta para indicar el motor o servidor de destino"
+  },
+  "dbMigratingTable": "Migracja tabeli: {table}...",
+  "@dbMigratingTable": {
+    "description": "Mensaje de progreso al migrar una tabla individual",
+    "placeholders": {
+      "table": {}
+    }
+  },
+  "dbMigratedRows": "({count} wierszy)",
+  "@dbMigratedRows": {
+    "description": "Cantidad de filas migradas en una tabla",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dbTableDone": "Wypełniony.",
+  "@dbTableDone": {
+    "description": "Indicador de fin de migración de una tabla"
+  },
+  "dbPrefixUpdated": "Prefiks bazy danych zaktualizowany do: „{prefix}”",
+  "@dbPrefixUpdated": {
+    "description": "Mensaje al actualizar el prefijo de tablas",
+    "placeholders": {
+      "prefix": {}
+    }
+  },
+  "dbPrefixEmpty": "Błąd: Prefiks nie może być pusty.",
+  "@dbPrefixEmpty": {
+    "description": "Mensaje de error cuando se pasa un prefijo vacío"
+  },
+  "storageConfiguring": "Konfigurowanie pamięci dla dostawcy: {provider}",
+  "@storageConfiguring": {
+    "description": "Mensaje al iniciar configuración de almacenamiento",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageNotSupported": "Dostawca „{provider}” nie jest jeszcze obsługiwany.",
+  "@storageNotSupported": {
+    "description": "Mensaje de proveedor no disponible",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageUnknownProvider": "Nieznany dostawca: {provider}",
+  "@storageUnknownProvider": {
+    "description": "Mensaje de proveedor no reconocido",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storagePromptDownloadOci": "Czy chcesz pobrać pliki z OCI do lokalnego?",
+  "@storagePromptDownloadOci": {
+    "description": "Pregunta interactiva para descargar archivos desde la nube OCI"
+  },
+  "storageConfiguredLocal": "Magazyn ustawiony na LOKALNY.",
+  "@storageConfiguredLocal": {
+    "description": "Confirmación de configuración a almacenamiento local"
+  },
+  "storageOciTitle": "---Skonfiguruj infrastrukturę Oracle Cloud (OCI) ---",
+  "@storageOciTitle": {
+    "description": "Título del asistente de configuración OCI"
+  },
+  "storageOciSaved": "Konfiguracja OCI została zapisana.",
+  "@storageOciSaved": {
+    "description": "Confirmación de guardado de credenciales OCI"
+  },
+  "storagePromptUploadOci": "Czy chcesz przesłać istniejące pliki lokalne do OCI?",
+  "@storagePromptUploadOci": {
+    "description": "Pregunta interactiva para subir archivos locales a la nube OCI"
+  },
+  "storageStartingMigrationOci": "Rozpoczynanie migracji do OCI...",
+  "@storageStartingMigrationOci": {
+    "description": "Mensaje inicial al subir almacenamiento a OCI"
+  },
+  "storageUploading": "Przesyłanie: {source} -> {dest}",
+  "@storageUploading": {
+    "description": "Progreso al subir un archivo individual a la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageMigrationOciCompleted": "Migracja do OCI zakończona.",
+  "@storageMigrationOciCompleted": {
+    "description": "Confirmación de fin de subida de archivos a OCI"
+  },
+  "storageStartingDownloadOci": "Rozpoczynanie pobierania z OCI...",
+  "@storageStartingDownloadOci": {
+    "description": "Mensaje inicial al descargar archivos desde OCI"
+  },
+  "storageDownloading": "Pobieranie: {source} -> {dest}",
+  "@storageDownloading": {
+    "description": "Progreso al descargar un archivo individual desde la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageDownloadCompleted": "Pobieranie zakończone.",
+  "@storageDownloadCompleted": {
+    "description": "Confirmación de fin de descarga de archivos desde OCI"
+  },
+  "dbMigrationCompleted": "✨ Migracja danych zakończona pomyślnie. Plik {file} został zaktualizowany i utworzono kopię zapasową.",
+  "@dbMigrationCompleted": {
+    "description": "Mensaje de éxito al completar la migración entre bases de datos",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "nativeBuildPackagingAssets": "📦 Pakowanie i prekompilacja zasobów (AOT Bytecode AST)...",
+  "@nativeBuildPackagingAssets": {
+    "description": "Mensaje informativo durante la fase de empaquetado de assets"
+  },
+  "nativeBuildSuccessTitle": "✨ UDANA KOMPILACJA NATYWNA!",
+  "@nativeBuildSuccessTitle": {
+    "description": "Título de éxito al finalizar la compilación nativa"
+  },
+  "nativeBuildCompilingRunner": "🔨 Kompilowanie natywnego pliku wykonywalnego za pomocą zestawu narzędzi Go...",
+  "@nativeBuildCompilingRunner": {
+    "description": "Mensaje informativo al compilar el binario nativo"
+  },
+  "nativeBuildMissingGo": "Błąd: Nie znaleziono narzędzia „go” zainstalowanego w systemie.",
+  "@nativeBuildMissingGo": {
+    "description": "Error cuando el compilador Go no está instalado en PATH"
+  },
+  "nativeBuildTarget": "Miejsce docelowe",
+  "@nativeBuildTarget": {
+    "description": "Etiqueta para el sistema operativo y arquitectura destino"
+  },
+  "nativeBuildMode": "Tryb",
+  "@nativeBuildMode": {
+    "description": "Etiqueta para el modo de compilación (consola o GUI)"
+  },
+  "nativeBuildOutputFile": "Plik wyjściowy",
+  "@nativeBuildOutputFile": {
+    "description": "Etiqueta para la ruta del binario compilado"
+  },
+  "nativeBuildBinarySize": "Rozmiar binarny",
+  "@nativeBuildBinarySize": {
+    "description": "Etiqueta para el tamaño del binario resultante"
+  },
+  "nativeBuildInstructions": "Instrukcje: Skopiuj „{path}” na dowolny komputer z {os} i uruchom go bezpośrednio.",
+  "@nativeBuildInstructions": {
+    "description": "Instrucciones finales para el usuario tras compilar un binario nativo",
+    "placeholders": {
+      "path": {},
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedOS": "Błąd: system operacyjny „{os}” nie jest obsługiwany. Opcje: Windows, Linux, Darwin.",
+  "@nativeBuildUnsupportedOS": {
+    "description": "Mensaje de error cuando el sistema operativo destino es inválido",
+    "placeholders": {
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedArch": "Błąd: architektura „{arch}” nie jest obsługiwana dla {os}. Opcje: {options}",
+  "@nativeBuildUnsupportedArch": {
+    "description": "Mensaje de error cuando la arquitectura destino es inválida",
+    "placeholders": {
+      "arch": {},
+      "os": {},
+      "options": {}
+    }
+  },
+  "updaterNewVersionTitle": "Dostępna nowa wersja!",
+  "@updaterNewVersionTitle": {
+    "description": "Aviso cuando hay una versión más reciente de Joss"
+  },
+  "updaterRunHint": "Uruchom „joss update --{channel}”, aby automatycznie zaktualizować środowisko wykonawcze, SDK i rozszerzenie.",
+  "@updaterRunHint": {
+    "description": "Sugerencia del comando de actualización a ejecutar",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterTitle": "🔄 AKTUALIZACJA JOSSA",
+  "@updaterTitle": {
+    "description": "Título del asistente de actualización de Joss"
+  },
+  "updaterCurrentVersion": "Aktualna wersja",
+  "@updaterCurrentVersion": {
+    "description": "Etiqueta de la versión actualmente instalada"
+  },
+  "updaterSelectedChannel": "Wybrany kanał",
+  "@updaterSelectedChannel": {
+    "description": "Etiqueta del canal de actualización seleccionado"
+  },
+  "updaterForcedMode": "Tryb wymuszony",
+  "@updaterForcedMode": {
+    "description": "Etiqueta de estado del modo forzado"
+  },
+  "updaterCheckingGitHub": "🌐 Konsultacja z interfejsem API GitHub Releases...",
+  "@updaterCheckingGitHub": {
+    "description": "Mensaje al buscar actualizaciones en el repositorio remoto"
+  },
+  "updaterNoReleasesFound": "W GitHubie nie znaleziono żadnych publicznych wydań Jossa.",
+  "@updaterNoReleasesFound": {
+    "description": "Aviso si no hay versiones publicadas en el repositorio"
+  },
+  "updaterNoReleaseForChannel": "Nie znaleziono dostępnej wersji dla kanału „{channel}”.",
+  "@updaterNoReleaseForChannel": {
+    "description": "Aviso cuando no hay release para el canal solicitado",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterAlreadyUpdated": "✨ Joss jest już zaktualizowany w wersji v{version} dla kanału {channel}.",
+  "@updaterAlreadyUpdated": {
+    "description": "Mensaje cuando Joss ya está al día",
+    "placeholders": {
+      "version": {},
+      "channel": {}
+    }
+  },
+  "updaterForcedRedownload": "⚠️ Ponowne pobieranie i ponowne instalowanie wersji w trybie wymuszonym (-f)...",
+  "@updaterForcedRedownload": {
+    "description": "Aviso al ejecutar en modo forzado"
+  },
+  "updaterForceTip": "💡 Wskazówka: użyj polecenia „joss update -f”, aby wymusić ponowne pobranie i instalację pliku binarnego.",
+  "@updaterForceTip": {
+    "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
+  },
+  "updaterNoBinariesFound": "Błąd: w tej wersji nie ma dostępnych plików binarnych do pobrania.",
+  "@updaterNoBinariesFound": {
+    "description": "Error si el release no tiene archivos binarios asociados"
+  },
+  "updaterDownloading": "⬇️ Pobieram aktualizację...",
+  "@updaterDownloading": {
+    "description": "Mensaje de descarga de paquete de actualización"
+  },
+  "updaterNewVersion": "Przerobić",
+  "@updaterNewVersion": {
+    "description": "Etiqueta de la nueva versión instalada"
+  },
+  "updaterApplying": "⚙️ Stosowanie aktualizacji środowiska wykonawczego, pakietu SDK i rozszerzenia...",
+  "@updaterApplying": {
+    "description": "Mensaje de progreso al reemplazar el binario de Joss"
+  },
+  "updaterSuccessTitle": "✨ JOSS ZOSTAŁ POMYŚLNIE ZAKTUALIZOWANY!",
+  "@updaterSuccessTitle": {
+    "description": "Título de éxito al completar la actualización"
+  },
+  "updaterExecutable": "Wykonywalny",
+  "@updaterExecutable": {
+    "description": "Etiqueta de la ruta del ejecutable actualizado"
+  },
+  "pubCmdAddDesc": "Dodaj pakiet do projektu",
+  "@pubCmdAddDesc": {
+    "description": "Descripción del comando para añadir un paquete"
+  },
+  "pubManagerTitle": "Menedżer pakietów Joss (Joss Pub)",
+  "@pubManagerTitle": {
+    "description": "Título principal de la ayuda del gestor de paquetes Joss"
+  },
+  "pubCmdRemoveDesc": "Usuń pakiet z projektu",
+  "@pubCmdRemoveDesc": {
+    "description": "Descripción del comando para eliminar un paquete"
+  },
+  "pubCommandsLabel": "Polecenia:",
+  "@pubCommandsLabel": {
+    "description": "Etiqueta para la sección de comandos disponibles"
+  },
+  "pubCmdInstallDesc": "Zainstaluj zadeklarowane zależności",
+  "@pubCmdInstallDesc": {
+    "description": "Descripción del comando para instalar dependencias"
+  },
+  "pubCmdUpdateDesc": "Zaktualizuj zależności do najnowszego obsługiwanego zakresu",
+  "@pubCmdUpdateDesc": {
+    "description": "Descripción del comando para actualizar dependencias"
+  },
+  "pubCmdSearchDesc": "Szukaj pakietów na platformie",
+  "@pubCmdSearchDesc": {
+    "description": "Descripción del comando para buscar paquetes"
+  },
+  "pubCmdInfoDesc": "Wyświetla szczegółowe informacje o pakiecie",
+  "@pubCmdInfoDesc": {
+    "description": "Descripción del comando para mostrar información de un paquete"
+  },
+  "pubCmdPublishDesc": "Opublikuj bieżącą wersję pakietu",
+  "@pubCmdPublishDesc": {
+    "description": "Descripción del comando para publicar un paquete"
+  },
+  "pubCmdLogoutDesc": "Wyloguj się lokalnie",
+  "@pubCmdLogoutDesc": {
+    "description": "Descripción del comando para cerrar sesión"
+  },
+  "pubCmdLoginDesc": "Zaloguj się do platformy",
+  "@pubCmdLoginDesc": {
+    "description": "Descripción del comando para iniciar sesión"
+  },
+  "pubEmailPrompt": "E-mail:",
+  "@pubEmailPrompt": {
+    "description": "Etiqueta o prompt para introducir el correo electrónico"
+  },
+  "pubCmdCacheCleanDesc": "Wyczyść globalną pamięć podręczną pobierania",
+  "@pubCmdCacheCleanDesc": {
+    "description": "Descripción del comando para limpiar la caché"
+  },
+  "pubPasswordPrompt": "Hasło:",
+  "@pubPasswordPrompt": {
+    "description": "Etiqueta o prompt para introducir la contraseña"
+  },
+  "pubConnectError": "Błąd połączenia z platformą: {error}",
+  "@pubConnectError": {
+    "description": "Mensaje de error cuando falla la conexión de red con el registro",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubInvalidCredentials": "Nieprawidłowe dane uwierzytelniające lub niezweryfikowane konto.",
+  "@pubInvalidCredentials": {
+    "description": "Mensaje de error cuando las credenciales no son válidas"
+  },
+  "pubInvalidToken": "Błąd: odpowiedź nie zawiera prawidłowego tokena.",
+  "@pubInvalidToken": {
+    "description": "Mensaje de error si la respuesta del servidor no tiene token"
+  },
+  "pubSaveCredentialsError": "Błąd podczas zapisywania danych uwierzytelniających: {error}",
+  "@pubSaveCredentialsError": {
+    "description": "Mensaje de error al persistir credenciales de usuario en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubLogoutSuccess": "Sesja zamknięta. Usunięto dane uwierzytelniające.",
+  "@pubLogoutSuccess": {
+    "description": "Mensaje de confirmación tras cerrar sesión localmente"
+  },
+  "pubLoginSuccess": "Pomyślne logowanie! Zapisane dane uwierzytelniające.",
+  "@pubLoginSuccess": {
+    "description": "Mensaje de éxito al autenticarse en la plataforma"
+  },
+  "pubSearchError": "Błąd podczas wyszukiwania pakietów: {error}",
+  "@pubSearchError": {
+    "description": "Mensaje de error cuando falla la búsqueda de paquetes",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNoPackagesFound": "Nie znaleziono pakietów.",
+  "@pubNoPackagesFound": {
+    "description": "Mensaje cuando una búsqueda no arroja resultados"
+  },
+  "pubPackagesFound": "Znaleziono pakiety:",
+  "@pubPackagesFound": {
+    "description": "Encabezado de la lista de paquetes coincidentes"
+  },
+  "pubPackageDownloads": "Pliki do pobrania: {downloads} | Ostatnia akcja: _{updated}",
+  "@pubPackageDownloads": {
+    "description": "Línea con estadísticas de descargas y última actualización",
+    "placeholders": {
+      "downloads": {},
+      "updated": {}
+    }
+  },
+  "pubGetInfoError": "Błąd podczas pobierania informacji o paczce: {error}",
+  "@pubGetInfoError": {
+    "description": "Mensaje de error al consultar información detallada de un paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubPackageNotFound": "Pakiet „{name}” nie istnieje.",
+  "@pubPackageNotFound": {
+    "description": "Aviso cuando el paquete solicitado no existe en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageIdentifier": "Identyfikator: {name}",
+  "@pubPackageIdentifier": {
+    "description": "Etiqueta con el identificador único del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageName": "Imię: _{name}",
+  "@pubPackageName": {
+    "description": "Etiqueta con el nombre visible del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageDescription": "Opis: {description}",
+  "@pubPackageDescription": {
+    "description": "Etiqueta con la descripción del paquete",
+    "placeholders": {
+      "description": {}
+    }
+  },
+  "pubPackageDownloadsCount": "Pliki do pobrania: {downloads}",
+  "@pubPackageDownloadsCount": {
+    "description": "Etiqueta con el conteo de descargas del paquete",
+    "placeholders": {
+      "downloads": {}
+    }
+  },
+  "pubResolvingPlatform": "Rozwiązywanie zależności z joss.red...",
+  "@pubResolvingPlatform": {
+    "description": "Mensaje al resolver dependencias remotas del registro"
+  },
+  "pubFoundPlatform": "✓ Pakiet „{name}” znaleziony na joss.red",
+  "@pubFoundPlatform": {
+    "description": "Aviso cuando el paquete fue encontrado en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubDownloadingPackageVer": "Pobieranie {name} {version}...",
+  "@pubDownloadingPackageVer": {
+    "description": "Mensaje al descargar una versión específica de un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubSearchingPlatform": "Wyszukiwanie {name} na joss.red...",
+  "@pubSearchingPlatform": {
+    "description": "Mensaje de búsqueda de paquete en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubInstallSuccessPlatform": "✓ {name} {version} pomyślnie zainstalowano z joss.red",
+  "@pubInstallSuccessPlatform": {
+    "description": "Mensaje de éxito tras instalar un paquete desde el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubInstallSuccessGit": "✓ {name} (najnowsza) pomyślnie zainstalowana z {repo}",
+  "@pubInstallSuccessGit": {
+    "description": "Mensaje de éxito al instalar última versión desde Git",
+    "placeholders": {
+      "name": {},
+      "repo": {}
+    }
+  },
+  "pubSyncingFromRepo": "Synchronizacja z połączonego repozytorium ({repo})...",
+  "@pubSyncingFromRepo": {
+    "description": "Aviso de sincronización desde el repositorio Git vinculado",
+    "placeholders": {
+      "repo": {}
+    }
+  },
+  "pubSearchingGitRepo": "Przeszukiwanie repozytorium Git...",
+  "@pubSearchingGitRepo": {
+    "description": "Mensaje al buscar el paquete directamente en Git"
+  },
+  "pubInstallFailedAll": "Błąd: Nie można zainstalować „{name}” ani z joss.red, ani z repozytorium Git.",
+  "@pubInstallFailedAll": {
+    "description": "Error crítico cuando fallan todas las fuentes de instalación",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovingPackage": "Usuwanie {name}...",
+  "@pubRemovingPackage": {
+    "description": "Aviso de inicio de eliminación de un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovedSuccess": "✓ {name} usunięty",
+  "@pubRemovedSuccess": {
+    "description": "Mensaje de confirmación tras eliminar un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemoveLocalFolderWarning": "Ostrzeżenie: nie udało się usunąć folderu lokalnego: {error}",
+  "@pubRemoveLocalFolderWarning": {
+    "description": "Advertencia si no se puede borrar la carpeta del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubManifestNotFound": "Błąd: w tym katalogu nie znaleziono pliku „joss.yaml”.",
+  "@pubManifestNotFound": {
+    "description": "Error cuando el manifiesto del proyecto no existe"
+  },
+  "pubNoDependenciesDeclared": "W pliku joss.yaml nie zadeklarowano żadnych zależności.",
+  "@pubNoDependenciesDeclared": {
+    "description": "Aviso informativo cuando no hay dependencias en el proyecto"
+  },
+  "pubManifestReadError": "Błąd podczas odczytu pliku joss.yaml: {error}",
+  "@pubManifestReadError": {
+    "description": "Error al leer el archivo manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubUsingCachedPackage": "Korzystanie z pakietu buforowanego...",
+  "@pubUsingCachedPackage": {
+    "description": "Aviso cuando se reutiliza una descarga previa en caché"
+  },
+  "pubResolvePackageError": "Błąd podczas rozwiązywania „{name}”: {error}",
+  "@pubResolvePackageError": {
+    "description": "Error al calcular la versión de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubResolvingDependencies": "Rozwiązywanie zależności...",
+  "@pubResolvingDependencies": {
+    "description": "Mensaje al iniciar la resolución de dependencias"
+  },
+  "pubInstallPackageError": "Błąd podczas instalacji „{name}”: {error}",
+  "@pubInstallPackageError": {
+    "description": "Error durante la instalación física de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubPackageOfflineError": "Błąd: Pakiet „{name} {version}” nie jest zainstalowany i aktywny jest tryb offline.",
+  "@pubPackageOfflineError": {
+    "description": "Error si falta un paquete y se especificó modo sin conexión",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubResolveTransitiveError": "Błąd podczas rozwiązywania zależności przechodnich: {error}",
+  "@pubResolveTransitiveError": {
+    "description": "Error al resolver subdependencias del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubMustLoginToPublish": "Błąd: Musisz się zalogować przed opublikowaniem.",
+  "@pubMustLoginToPublish": {
+    "description": "Error cuando el usuario intenta publicar sin haberse autenticado"
+  },
+  "pubCheckingUpdates": "Sprawdzam dostępność aktualizacji pakietów...",
+  "@pubCheckingUpdates": {
+    "description": "Mensaje al consultar nuevas versiones disponibles"
+  },
+  "pubDependenciesInstalledSuccess": "✓ Zależności zainstalowane poprawnie.",
+  "@pubDependenciesInstalledSuccess": {
+    "description": "Mensaje de éxito tras completar la instalación de dependencias"
+  },
+  "pubManifestMissingRequiredFields": "Błąd: plik joss.yaml musi zawierać co najmniej: name, version, repository",
+  "@pubManifestMissingRequiredFields": {
+    "description": "Error si el manifiesto carece de metadatos mínimos para publicación"
+  },
+  "pubPreparingPublish": "Przygotowanie publikacji {name} v{version}...",
+  "@pubPreparingPublish": {
+    "description": "Aviso previo a publicar el paquete en el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubPromptReleaseUrl": "Wprowadź adres URL bezpośredniego pobrania wersji zip w serwisie GitHub:",
+  "@pubPromptReleaseUrl": {
+    "description": "Solicitud interactiva de la URL del release zip"
+  },
+  "pubPromptReleaseSha": "Wprowadź skrót SHA-256 wersji zip:",
+  "@pubPromptReleaseSha": {
+    "description": "Solicitud interactiva del hash SHA-256 del artefacto"
+  },
+  "pubArtifactVerifyError": "Błąd podczas weryfikacji podpisanego artefaktu: {error}",
+  "@pubArtifactVerifyError": {
+    "description": "Error al verificar la firma criptográfica del artefacto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNetworkError": "Błąd sieci: {error}",
+  "@pubNetworkError": {
+    "description": "Error genérico de red al comunicarse con el servidor",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubSignatureVerified": "Zweryfikowany podpis JP: {key}",
+  "@pubSignatureVerified": {
+    "description": "Aviso de verificación criptográfica exitosa del paquete",
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "pubPublishedSuccess": "Gratulacje! {name} v{version} pomyślnie opublikowany w Joss Pub.",
+  "@pubPublishedSuccess": {
+    "description": "Mensaje de felicitación y éxito al publicar un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubCacheIsEmpty": "Pamięć podręczna pobierania jest pusta.",
+  "@pubCacheIsEmpty": {
+    "description": "Aviso cuando no hay archivos temporales en la caché"
+  },
+  "pubCacheEmptied": "Globalna pamięć podręczna pobierania została wyczyszczona.",
+  "@pubCacheEmptied": {
+    "description": "Confirmación tras vaciar la caché de descargas"
+  },
+  "pubPublishFailedHttp": "Błąd podczas publikowania pakietu (HTTP {code}): {error}",
+  "@pubPublishFailedHttp": {
+    "description": "Error devuelto por la API del registro al intentar publicar",
+    "placeholders": {
+      "code": {},
+      "error": {}
+    }
+  },
+  "pubCacheFilesList": "Pliki w pamięci podręcznej:",
+  "@pubCacheFilesList": {
+    "description": "Encabezado del listado de archivos en la caché"
+  },
+  "pubCacheVerifyingIntegrity": "Sprawdzanie integralności pamięci podręcznej...",
+  "@pubCacheVerifyingIntegrity": {
+    "description": "Aviso durante la verificación de sumas de comprobación de la caché"
+  },
+  "pubCacheVerified": "Zweryfikowana pamięć podręczna.",
+  "@pubCacheVerified": {
+    "description": "Confirmación de verificación exitosa de la caché"
+  },
+  "pluginUsageTitle": "Użycie poleceń wtyczek Joss:",
+  "@pluginUsageTitle": {
+    "description": "Encabezado de ayuda para los comandos de plugins"
+  },
+  "pluginCompileError": "Błąd podczas kompilacji wtyczki: {error}",
+  "@pluginCompileError": {
+    "description": "Mensaje de error en caso de fallo durante la compilación",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginSpecifySourceError": "Błąd: określ katalog lub plik źródłowy do kompilacji.",
+  "@pluginSpecifySourceError": {
+    "description": "Error cuando falta la ruta del código fuente a compilar"
+  },
+  "pluginGenerated": "Wygenerowana wtyczka: {path}",
+  "@pluginGenerated": {
+    "description": "Ruta donde se generó el artefacto del plugin",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pluginPackageSize": "Rozmiar pakietu: {size} KB",
+  "@pluginPackageSize": {
+    "description": "Tamaño en kilobytes del paquete de plugin generado",
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "pluginCompileSuccess": "✓ Budowanie udane!",
+  "@pluginCompileSuccess": {
+    "description": "Mensaje de éxito tras compilar un plugin"
+  },
+  "pluginCompiling": "[Kompilator wtyczek Joss] Kompilacja {path} (język: {lang})...",
+  "@pluginCompiling": {
+    "description": "Aviso de inicio de compilación de un plugin",
+    "placeholders": {
+      "path": {},
+      "lang": {}
+    }
+  },
+  "pluginTreeShaking": "Potrząsanie drzewem: {retained} funkcje zachowane ({removed} usunięte)",
+  "@pluginTreeShaking": {
+    "description": "Métricas de optimización tree-shaking de funciones",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginStructuresRetained": "Zachowane konstrukcje: {retained} ({removed} usunięte)",
+  "@pluginStructuresRetained": {
+    "description": "Métricas de optimización de estructuras y tipos",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginInspectSpecifyError": "Błąd: Określ plik .jp do sprawdzenia.",
+  "@pluginInspectSpecifyError": {
+    "description": "Error cuando no se indica el archivo JP a inspeccionar"
+  },
+  "pluginOpenError": "Błąd podczas otwierania {path}: {error}",
+  "@pluginOpenError": {
+    "description": "Error al intentar abrir el archivo de plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginDecodeError": "Błąd dekodowania {path}: {error}",
+  "@pluginDecodeError": {
+    "description": "Error al decodificar el formato binario del plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginInspectVersion": "Wersja: _{version}",
+  "@pluginInspectVersion": {
+    "description": "Etiqueta con la versión del plugin inspeccionado",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginInspectTitle": "Wtyczka: {name}",
+  "@pluginInspectTitle": {
+    "description": "Etiqueta con el nombre del plugin inspeccionado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginSignatureVerifiedStatus": "Podpis: {algo} ({key}) zweryfikowany",
+  "@pluginSignatureVerifiedStatus": {
+    "description": "Detalles de verificación de firma del paquete",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginBytecodeTarget": "Docelowy kod bajtowy: JPBC (kod bajtowy wtyczki Joss)",
+  "@pluginBytecodeTarget": {
+    "description": "Información sobre el formato de bytecode destino"
+  },
+  "pluginPermissionsNone": "(nic)",
+  "@pluginPermissionsNone": {
+    "description": "Texto mostrado cuando el plugin no solicita permisos especiales"
+  },
+  "pluginDeclaredClasses": "Deklarowane klasy:",
+  "@pluginDeclaredClasses": {
+    "description": "Encabezado de clases provistas por el plugin"
+  },
+  "pluginExportedFunctions": "Eksportowane funkcje:",
+  "@pluginExportedFunctions": {
+    "description": "Encabezado del listado de funciones públicas del plugin"
+  },
+  "pluginDeclaredPermissions": "Deklarowane uprawnienia:",
+  "@pluginDeclaredPermissions": {
+    "description": "Encabezado de permisos requeridos por el plugin"
+  },
+  "pluginSignatureValid": "Status: Podpis Ed25519 WAŻNY i ZWERYFIKOWANY ✅",
+  "@pluginSignatureValid": {
+    "description": "Confirmación de firma digital válida y auténtica"
+  },
+  "pluginVerifySpecifyError": "Błąd: Określ plik .jp do sprawdzenia.",
+  "@pluginVerifySpecifyError": {
+    "description": "Error cuando no se provee el archivo JP a verificar"
+  },
+  "pluginVerificationError": "Błąd weryfikacji w „{path}”: {error}",
+  "@pluginVerificationError": {
+    "description": "Error de verificación criptográfica de firma",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginSignatureAlgorithm": "Algorytm: {algo} ({key})",
+  "@pluginSignatureAlgorithm": {
+    "description": "Algoritmo y clave pública de la firma digital",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginNoProtectedCommands": "Ta wtyczka nie udostępnia chronionych ani dodatkowych poleceń CLI.",
+  "@pluginNoProtectedCommands": {
+    "description": "Aviso si el plugin no tiene comandos de consola asociados"
+  },
+  "pluginNotFound": "Błąd: nie znaleziono wtyczki o nazwie „{name}”.",
+  "@pluginNotFound": {
+    "description": "Aviso cuando el plugin solicitado no está registrado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginAvailableTitle": "Polecenia wtyczek dostępne w Joss:",
+  "@pluginAvailableTitle": {
+    "description": "Título principal del catálogo de plugins de Joss"
+  },
+  "pluginProvidedCommands": "Dostarczone polecenia:",
+  "@pluginProvidedCommands": {
+    "description": "Encabezado de comandos de consola provistos por un plugin"
+  },
+  "pluginNoDirectCli": "(Nie deklaruje bezpośrednich poleceń CLI)",
+  "@pluginNoDirectCli": {
+    "description": "Nota cuando un plugin en la lista no añade comandos directos"
   }
 }

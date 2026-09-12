@@ -904,5 +904,843 @@
   "seedersNotFound": "app/database/seeders/ にシーダーが見つかりません",
   "@seedersNotFound": {
     "description": "Mensaje cuando el directorio de seeders está vacío"
+  },
+  "dbErrConnectingDest": "宛先への接続エラー ({dest}): {err}",
+  "@dbErrConnectingDest": {
+    "description": "Mensaje de error al conectar con la base de datos de destino",
+    "placeholders": {
+      "dest": {},
+      "err": {}
+    }
+  },
+  "dbErrConnectingSource": "ソースへの接続エラー ({source}): {err}",
+  "@dbErrConnectingSource": {
+    "description": "Mensaje de error al conectar con la base de datos de origen",
+    "placeholders": {
+      "source": {},
+      "err": {}
+    }
+  },
+  "dbChangingEngine": "データベース エンジンを次のように変更します: {target}",
+  "@dbChangingEngine": {
+    "description": "Mensaje informativo al iniciar el cambio de motor de base de datos",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbAlreadyEngine": "データベース エンジンはすでに {target} です",
+  "@dbAlreadyEngine": {
+    "description": "Mensaje cuando el motor solicitado ya está activo",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbPreparingDestSchema": "ターゲット データベースでスキーマを準備しています...",
+  "@dbPreparingDestSchema": {
+    "description": "Mensaje informativo al preparar tablas y esquema destino"
+  },
+  "dbStartingDataMigration": "データ移行を開始しています...",
+  "@dbStartingDataMigration": {
+    "description": "Mensaje informativo al iniciar la copia de datos entre tablas"
+  },
+  "dbMigrationCompleted": "✨ データ移行が正常に完了しました。 {file} ファイルが更新され、バックアップが作成されました。",
+  "@dbMigrationCompleted": {
+    "description": "Mensaje de éxito al completar la migración entre bases de datos",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "dbMigratingBetweenConfigured": "構成されたデータベース エンジン間でデータを移行しています...",
+  "@dbMigratingBetweenConfigured": {
+    "description": "Mensaje inicial del comando change db migrate"
+  },
+  "dbOrigin": "起源",
+  "@dbOrigin": {
+    "description": "Etiqueta para indicar el motor o servidor de origen"
+  },
+  "dbDestination": "行き先",
+  "@dbDestination": {
+    "description": "Etiqueta para indicar el motor o servidor de destino"
+  },
+  "dbMigratingTable": "テーブルを移行中: {table}...",
+  "@dbMigratingTable": {
+    "description": "Mensaje de progreso al migrar una tabla individual",
+    "placeholders": {
+      "table": {}
+    }
+  },
+  "dbMigratedRows": "({count} 行)",
+  "@dbMigratedRows": {
+    "description": "Cantidad de filas migradas en una tabla",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dbTableDone": "満たされました。",
+  "@dbTableDone": {
+    "description": "Indicador de fin de migración de una tabla"
+  },
+  "dbPrefixUpdated": "データベース接頭辞が「{prefix}」に更新されました",
+  "@dbPrefixUpdated": {
+    "description": "Mensaje al actualizar el prefijo de tablas",
+    "placeholders": {
+      "prefix": {}
+    }
+  },
+  "dbPrefixEmpty": "エラー: プレフィックスを空にすることはできません。",
+  "@dbPrefixEmpty": {
+    "description": "Mensaje de error cuando se pasa un prefijo vacío"
+  },
+  "storageConfiguring": "プロバイダーのストレージを構成しています: {provider}",
+  "@storageConfiguring": {
+    "description": "Mensaje al iniciar configuración de almacenamiento",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageNotSupported": "プロバイダー「{provider}」はまだサポートされていません。",
+  "@storageNotSupported": {
+    "description": "Mensaje de proveedor no disponible",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageUnknownProvider": "不明なサプライヤー: {provider}",
+  "@storageUnknownProvider": {
+    "description": "Mensaje de proveedor no reconocido",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storagePromptDownloadOci": "ファイルをOCIからローカルにダウンロードしますか?",
+  "@storagePromptDownloadOci": {
+    "description": "Pregunta interactiva para descargar archivos desde la nube OCI"
+  },
+  "storageConfiguredLocal": "ストレージはローカルに設定されています。",
+  "@storageConfiguredLocal": {
+    "description": "Confirmación de configuración a almacenamiento local"
+  },
+  "storageOciTitle": "---Oracle Cloud Infrastructure (OCI)の構成---",
+  "@storageOciTitle": {
+    "description": "Título del asistente de configuración OCI"
+  },
+  "storageOciSaved": "OCI構成が保存されました。",
+  "@storageOciSaved": {
+    "description": "Confirmación de guardado de credenciales OCI"
+  },
+  "storagePromptUploadOci": "既存のローカル ファイルを OCI にアップロードしますか?",
+  "@storagePromptUploadOci": {
+    "description": "Pregunta interactiva para subir archivos locales a la nube OCI"
+  },
+  "storageStartingMigrationOci": "OCIへの移行を開始しています...",
+  "@storageStartingMigrationOci": {
+    "description": "Mensaje inicial al subir almacenamiento a OCI"
+  },
+  "storageUploading": "アップロード中: {source} -> {dest}",
+  "@storageUploading": {
+    "description": "Progreso al subir un archivo individual a la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageMigrationOciCompleted": "OCIへの移行が完了しました。",
+  "@storageMigrationOciCompleted": {
+    "description": "Confirmación de fin de subida de archivos a OCI"
+  },
+  "storageStartingDownloadOci": "OCIからのダウンロードを開始しています...",
+  "@storageStartingDownloadOci": {
+    "description": "Mensaje inicial al descargar archivos desde OCI"
+  },
+  "storageDownloading": "ダウンロード中: {source} -> {dest}",
+  "@storageDownloading": {
+    "description": "Progreso al descargar un archivo individual desde la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageDownloadCompleted": "ダウンロードが完了しました。",
+  "@storageDownloadCompleted": {
+    "description": "Confirmación de fin de descarga de archivos desde OCI"
+  },
+  "nativeBuildPackagingAssets": "📦 アセットのパッケージ化と事前コンパイル (AOT Bytecode AST)...",
+  "@nativeBuildPackagingAssets": {
+    "description": "Mensaje informativo durante la fase de empaquetado de assets"
+  },
+  "nativeBuildSuccessTitle": "✨ ネイティブコンパイルが成功しました!",
+  "@nativeBuildSuccessTitle": {
+    "description": "Título de éxito al finalizar la compilación nativa"
+  },
+  "nativeBuildCompilingRunner": "🔨 Go ツールチェーンを使用してネイティブ実行可能ファイルをコンパイルしています...",
+  "@nativeBuildCompilingRunner": {
+    "description": "Mensaje informativo al compilar el binario nativo"
+  },
+  "nativeBuildMissingGo": "エラー: システムにインストールされている「go」ツールが見つかりませんでした。",
+  "@nativeBuildMissingGo": {
+    "description": "Error cuando el compilador Go no está instalado en PATH"
+  },
+  "nativeBuildTarget": "行き先",
+  "@nativeBuildTarget": {
+    "description": "Etiqueta para el sistema operativo y arquitectura destino"
+  },
+  "nativeBuildMode": "モード",
+  "@nativeBuildMode": {
+    "description": "Etiqueta para el modo de compilación (consola o GUI)"
+  },
+  "nativeBuildOutputFile": "出力ファイル",
+  "@nativeBuildOutputFile": {
+    "description": "Etiqueta para la ruta del binario compilado"
+  },
+  "nativeBuildBinarySize": "バイナリサイズ",
+  "@nativeBuildBinarySize": {
+    "description": "Etiqueta para el tamaño del binario resultante"
+  },
+  "nativeBuildInstructions": "手順: 「{path}」を {os} がインストールされているコンピュータにコピーし、直接実行します。",
+  "@nativeBuildInstructions": {
+    "description": "Instrucciones finales para el usuario tras compilar un binario nativo",
+    "placeholders": {
+      "path": {},
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedOS": "エラー: オペレーティング システム「{os}」はサポートされていません。オプション: Windows、Linux、ダーウィン。",
+  "@nativeBuildUnsupportedOS": {
+    "description": "Mensaje de error cuando el sistema operativo destino es inválido",
+    "placeholders": {
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedArch": "エラー: アーキテクチャ '{arch}' は {os} ではサポートされていません。オプション: {options}",
+  "@nativeBuildUnsupportedArch": {
+    "description": "Mensaje de error cuando la arquitectura destino es inválida",
+    "placeholders": {
+      "arch": {},
+      "os": {},
+      "options": {}
+    }
+  },
+  "updaterNewVersionTitle": "新しいバージョンが利用可能になりました!",
+  "@updaterNewVersionTitle": {
+    "description": "Aviso cuando hay una versión más reciente de Joss"
+  },
+  "updaterRunHint": "「joss update --{channel}」を実行して、ランタイム、SDK、拡張機能を自動的に更新します。",
+  "@updaterRunHint": {
+    "description": "Sugerencia del comando de actualización a ejecutar",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterTitle": "🔄ジョスのアップデート",
+  "@updaterTitle": {
+    "description": "Título del asistente de actualización de Joss"
+  },
+  "updaterCurrentVersion": "現在のバージョン",
+  "@updaterCurrentVersion": {
+    "description": "Etiqueta de la versión actualmente instalada"
+  },
+  "updaterSelectedChannel": "選択されたチャンネル",
+  "@updaterSelectedChannel": {
+    "description": "Etiqueta del canal de actualización seleccionado"
+  },
+  "updaterForcedMode": "強制モード",
+  "@updaterForcedMode": {
+    "description": "Etiqueta de estado del modo forzado"
+  },
+  "updaterCheckingGitHub": "🌐 GitHub リリース API を参照しています...",
+  "@updaterCheckingGitHub": {
+    "description": "Mensaje al buscar actualizaciones en el repositorio remoto"
+  },
+  "updaterNoReleasesFound": "Joss の公開リリースは GitHub 上に見つかりませんでした。",
+  "@updaterNoReleasesFound": {
+    "description": "Aviso si no hay versiones publicadas en el repositorio"
+  },
+  "updaterNoReleaseForChannel": "チャンネル「{channel}」に利用可能なリリースが見つかりません。",
+  "@updaterNoReleaseForChannel": {
+    "description": "Aviso cuando no hay release para el canal solicitado",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterAlreadyUpdated": "✨ Joss は、チャネル {channel} のバージョン v{version} ですでに更新されています。",
+  "@updaterAlreadyUpdated": {
+    "description": "Mensaje cuando Joss ya está al día",
+    "placeholders": {
+      "version": {},
+      "channel": {}
+    }
+  },
+  "updaterForcedRedownload": "⚠️ 強制モード (-f) でリリースバージョンを再ダウンロードして再インストールしています...",
+  "@updaterForcedRedownload": {
+    "description": "Aviso al ejecutar en modo forzado"
+  },
+  "updaterForceTip": "💡 ヒント: バイナリの再ダウンロードとインストールを強制するには、「joss update -f」を使用します。",
+  "@updaterForceTip": {
+    "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
+  },
+  "updaterNoBinariesFound": "エラー: このリリースではダウンロードできるバイナリがありません。",
+  "@updaterNoBinariesFound": {
+    "description": "Error si el release no tiene archivos binarios asociados"
+  },
+  "updaterDownloading": "⬇️ アップデートをダウンロード中...",
+  "@updaterDownloading": {
+    "description": "Mensaje de descarga de paquete de actualización"
+  },
+  "updaterNewVersion": "リメイク",
+  "@updaterNewVersion": {
+    "description": "Etiqueta de la nueva versión instalada"
+  },
+  "updaterApplying": "⚙️ ランタイム、SDK、拡張機能のアップデートを適用しています...",
+  "@updaterApplying": {
+    "description": "Mensaje de progreso al reemplazar el binario de Joss"
+  },
+  "updaterSuccessTitle": "✨ JOSS は正常に更新されました!",
+  "@updaterSuccessTitle": {
+    "description": "Título de éxito al completar la actualización"
+  },
+  "updaterExecutable": "実行可能",
+  "@updaterExecutable": {
+    "description": "Etiqueta de la ruta del ejecutable actualizado"
+  },
+  "pubCmdAddDesc": "プロジェクトにパッケージを追加する",
+  "@pubCmdAddDesc": {
+    "description": "Descripción del comando para añadir un paquete"
+  },
+  "pubManagerTitle": "Joss パッケージマネージャー (Joss Pub)",
+  "@pubManagerTitle": {
+    "description": "Título principal de la ayuda del gestor de paquetes Joss"
+  },
+  "pubCmdRemoveDesc": "プロジェクトからパッケージを削除する",
+  "@pubCmdRemoveDesc": {
+    "description": "Descripción del comando para eliminar un paquete"
+  },
+  "pubCommandsLabel": "コマンド:",
+  "@pubCommandsLabel": {
+    "description": "Etiqueta para la sección de comandos disponibles"
+  },
+  "pubCmdInstallDesc": "宣言された依存関係をインストールする",
+  "@pubCmdInstallDesc": {
+    "description": "Descripción del comando para instalar dependencias"
+  },
+  "pubCmdUpdateDesc": "依存関係を最新のサポート対象範囲に更新します",
+  "@pubCmdUpdateDesc": {
+    "description": "Descripción del comando para actualizar dependencias"
+  },
+  "pubCmdSearchDesc": "プラットフォーム上のパッケージを検索する",
+  "@pubCmdSearchDesc": {
+    "description": "Descripción del comando para buscar paquetes"
+  },
+  "pubCmdInfoDesc": "パッケージに関する詳細情報を表示します",
+  "@pubCmdInfoDesc": {
+    "description": "Descripción del comando para mostrar información de un paquete"
+  },
+  "pubCmdPublishDesc": "現在のパッケージのバージョンを公開する",
+  "@pubCmdPublishDesc": {
+    "description": "Descripción del comando para publicar un paquete"
+  },
+  "pubCmdLogoutDesc": "ローカルでサインアウトする",
+  "@pubCmdLogoutDesc": {
+    "description": "Descripción del comando para cerrar sesión"
+  },
+  "pubCmdLoginDesc": "プラットフォームにログインする",
+  "@pubCmdLoginDesc": {
+    "description": "Descripción del comando para iniciar sesión"
+  },
+  "pubEmailPrompt": "電子メール:",
+  "@pubEmailPrompt": {
+    "description": "Etiqueta o prompt para introducir el correo electrónico"
+  },
+  "pubCmdCacheCleanDesc": "グローバルダウンロードキャッシュをクリアする",
+  "@pubCmdCacheCleanDesc": {
+    "description": "Descripción del comando para limpiar la caché"
+  },
+  "pubPasswordPrompt": "パスワード：",
+  "@pubPasswordPrompt": {
+    "description": "Etiqueta o prompt para introducir la contraseña"
+  },
+  "pubConnectError": "プラットフォームへの接続エラー: {error}",
+  "@pubConnectError": {
+    "description": "Mensaje de error cuando falla la conexión de red con el registro",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubInvalidCredentials": "認証情報が間違っているか、アカウントが認証されていません。",
+  "@pubInvalidCredentials": {
+    "description": "Mensaje de error cuando las credenciales no son válidas"
+  },
+  "pubInvalidToken": "エラー: 応答には有効なトークンが含まれていません。",
+  "@pubInvalidToken": {
+    "description": "Mensaje de error si la respuesta del servidor no tiene token"
+  },
+  "pubSaveCredentialsError": "認証情報の保存中にエラーが発生しました: {error}",
+  "@pubSaveCredentialsError": {
+    "description": "Mensaje de error al persistir credenciales de usuario en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubLogoutSuccess": "クローズドセッション。認証情報が削除されました。",
+  "@pubLogoutSuccess": {
+    "description": "Mensaje de confirmación tras cerrar sesión localmente"
+  },
+  "pubLoginSuccess": "ログイン成功！保存された認証情報。",
+  "@pubLoginSuccess": {
+    "description": "Mensaje de éxito al autenticarse en la plataforma"
+  },
+  "pubSearchError": "パッケージ検索エラー: {error}",
+  "@pubSearchError": {
+    "description": "Mensaje de error cuando falla la búsqueda de paquetes",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNoPackagesFound": "パッケージが見つかりませんでした。",
+  "@pubNoPackagesFound": {
+    "description": "Mensaje cuando una búsqueda no arroja resultados"
+  },
+  "pubPackagesFound": "見つかったパッケージ:",
+  "@pubPackagesFound": {
+    "description": "Encabezado de la lista de paquetes coincidentes"
+  },
+  "pubPackageDownloads": "ダウンロード: {downloads} |最後のアクション: {updated}",
+  "@pubPackageDownloads": {
+    "description": "Línea con estadísticas de descargas y última actualización",
+    "placeholders": {
+      "downloads": {},
+      "updated": {}
+    }
+  },
+  "pubGetInfoError": "パッケージ情報の取得中にエラーが発生しました: {error}",
+  "@pubGetInfoError": {
+    "description": "Mensaje de error al consultar información detallada de un paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubPackageNotFound": "パッケージ「{name}」は存在しません。",
+  "@pubPackageNotFound": {
+    "description": "Aviso cuando el paquete solicitado no existe en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageIdentifier": "識別子: {name}",
+  "@pubPackageIdentifier": {
+    "description": "Etiqueta con el identificador único del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageName": "名前: {name}",
+  "@pubPackageName": {
+    "description": "Etiqueta con el nombre visible del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageDescription": "説明: {description}",
+  "@pubPackageDescription": {
+    "description": "Etiqueta con la descripción del paquete",
+    "placeholders": {
+      "description": {}
+    }
+  },
+  "pubPackageDownloadsCount": "ダウンロード: {downloads}",
+  "@pubPackageDownloadsCount": {
+    "description": "Etiqueta con el conteo de descargas del paquete",
+    "placeholders": {
+      "downloads": {}
+    }
+  },
+  "pubResolvingPlatform": "joss.red から依存関係を解決しています...",
+  "@pubResolvingPlatform": {
+    "description": "Mensaje al resolver dependencias remotas del registro"
+  },
+  "pubFoundPlatform": "✓ パッケージ「{name}」が joss.red で見つかりました",
+  "@pubFoundPlatform": {
+    "description": "Aviso cuando el paquete fue encontrado en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubDownloadingPackageVer": "{name} {version} をダウンロードしています...",
+  "@pubDownloadingPackageVer": {
+    "description": "Mensaje al descargar una versión específica de un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubSearchingPlatform": "joss.red で {name} を検索しています...",
+  "@pubSearchingPlatform": {
+    "description": "Mensaje de búsqueda de paquete en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubInstallSuccessPlatform": "✓ {name} {version} が joss.red から正常にインストールされました",
+  "@pubInstallSuccessPlatform": {
+    "description": "Mensaje de éxito tras instalar un paquete desde el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubInstallSuccessGit": "✓ {name} (最新) が {repo} から正常にインストールされました",
+  "@pubInstallSuccessGit": {
+    "description": "Mensaje de éxito al instalar última versión desde Git",
+    "placeholders": {
+      "name": {},
+      "repo": {}
+    }
+  },
+  "pubSyncingFromRepo": "リンクされたリポジトリ ({repo}) から同期しています...",
+  "@pubSyncingFromRepo": {
+    "description": "Aviso de sincronización desde el repositorio Git vinculado",
+    "placeholders": {
+      "repo": {}
+    }
+  },
+  "pubSearchingGitRepo": "Git リポジトリを検索しています...",
+  "@pubSearchingGitRepo": {
+    "description": "Mensaje al buscar el paquete directamente en Git"
+  },
+  "pubInstallFailedAll": "エラー: joss.red または Git リポジトリから '{name}' をインストールできませんでした。",
+  "@pubInstallFailedAll": {
+    "description": "Error crítico cuando fallan todas las fuentes de instalación",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovingPackage": "{name} を削除しています...",
+  "@pubRemovingPackage": {
+    "description": "Aviso de inicio de eliminación de un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovedSuccess": "✓ {name} が削除されました",
+  "@pubRemovedSuccess": {
+    "description": "Mensaje de confirmación tras eliminar un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemoveLocalFolderWarning": "警告: ローカル フォルダーの削除に失敗しました: {error}",
+  "@pubRemoveLocalFolderWarning": {
+    "description": "Advertencia si no se puede borrar la carpeta del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubManifestNotFound": "エラー: 「joss.yaml」がこのディレクトリに見つかりませんでした。",
+  "@pubManifestNotFound": {
+    "description": "Error cuando el manifiesto del proyecto no existe"
+  },
+  "pubNoDependenciesDeclared": "joss.yaml で宣言された依存関係はありません。",
+  "@pubNoDependenciesDeclared": {
+    "description": "Aviso informativo cuando no hay dependencias en el proyecto"
+  },
+  "pubManifestReadError": "joss.yaml の読み取りエラー: {error}",
+  "@pubManifestReadError": {
+    "description": "Error al leer el archivo manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubUsingCachedPackage": "キャッシュされたパッケージを使用しています...",
+  "@pubUsingCachedPackage": {
+    "description": "Aviso cuando se reutiliza una descarga previa en caché"
+  },
+  "pubResolvePackageError": "「{name}」の解決中にエラーが発生しました: {error}",
+  "@pubResolvePackageError": {
+    "description": "Error al calcular la versión de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubResolvingDependencies": "依存関係を解決しています...",
+  "@pubResolvingDependencies": {
+    "description": "Mensaje al iniciar la resolución de dependencias"
+  },
+  "pubInstallPackageError": "「{name}」のインストール中にエラーが発生しました: {error}",
+  "@pubInstallPackageError": {
+    "description": "Error durante la instalación física de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubPackageOfflineError": "エラー: パッケージ '{name} {version}' がインストールされておらず、オフライン モードがアクティブです。",
+  "@pubPackageOfflineError": {
+    "description": "Error si falta un paquete y se especificó modo sin conexión",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubResolveTransitiveError": "推移的な依存関係の解決中にエラーが発生しました: {error}",
+  "@pubResolveTransitiveError": {
+    "description": "Error al resolver subdependencias del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubMustLoginToPublish": "エラー: 投稿する前にログインする必要があります。",
+  "@pubMustLoginToPublish": {
+    "description": "Error cuando el usuario intenta publicar sin haberse autenticado"
+  },
+  "pubCheckingUpdates": "パッケージの更新を確認しています...",
+  "@pubCheckingUpdates": {
+    "description": "Mensaje al consultar nuevas versiones disponibles"
+  },
+  "pubDependenciesInstalledSuccess": "✓ 依存関係が正しくインストールされている。",
+  "@pubDependenciesInstalledSuccess": {
+    "description": "Mensaje de éxito tras completar la instalación de dependencias"
+  },
+  "pubManifestMissingRequiredFields": "エラー: joss.yaml には少なくとも次のフィールドが含まれている必要があります: name, version, repository",
+  "@pubManifestMissingRequiredFields": {
+    "description": "Error si el manifiesto carece de metadatos mínimos para publicación"
+  },
+  "pubPreparingPublish": "{name} v{version} の出版を準備しています...",
+  "@pubPreparingPublish": {
+    "description": "Aviso previo a publicar el paquete en el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubPromptReleaseUrl": "GitHub 上の zip リリースの直接ダウンロード URL を入力します。",
+  "@pubPromptReleaseUrl": {
+    "description": "Solicitud interactiva de la URL del release zip"
+  },
+  "pubPromptReleaseSha": "zip リリースの SHA-256 ハッシュを入力します。",
+  "@pubPromptReleaseSha": {
+    "description": "Solicitud interactiva del hash SHA-256 del artefacto"
+  },
+  "pubArtifactVerifyError": "署名済みアーティファクトの検証中にエラーが発生しました: {error}",
+  "@pubArtifactVerifyError": {
+    "description": "Error al verificar la firma criptográfica del artefacto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNetworkError": "ネットワーク エラー: {error}",
+  "@pubNetworkError": {
+    "description": "Error genérico de red al comunicarse con el servidor",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubSignatureVerified": "検証済みのJP署名: {key}",
+  "@pubSignatureVerified": {
+    "description": "Aviso de verificación criptográfica exitosa del paquete",
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "pubPublishedSuccess": "おめでとう！ {name} v{version} が Joss Pub に正常に公開されました。",
+  "@pubPublishedSuccess": {
+    "description": "Mensaje de felicitación y éxito al publicar un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubCacheIsEmpty": "ダウンロード キャッシュが空です。",
+  "@pubCacheIsEmpty": {
+    "description": "Aviso cuando no hay archivos temporales en la caché"
+  },
+  "pubCacheEmptied": "グローバル ダウンロード キャッシュがクリアされました。",
+  "@pubCacheEmptied": {
+    "description": "Confirmación tras vaciar la caché de descargas"
+  },
+  "pubPublishFailedHttp": "パッケージ公開エラー (HTTP {code}): {error}",
+  "@pubPublishFailedHttp": {
+    "description": "Error devuelto por la API del registro al intentar publicar",
+    "placeholders": {
+      "code": {},
+      "error": {}
+    }
+  },
+  "pubCacheFilesList": "キャッシュされたファイル:",
+  "@pubCacheFilesList": {
+    "description": "Encabezado del listado de archivos en la caché"
+  },
+  "pubCacheVerifyingIntegrity": "キャッシュの整合性を確認しています...",
+  "@pubCacheVerifyingIntegrity": {
+    "description": "Aviso durante la verificación de sumas de comprobación de la caché"
+  },
+  "pubCacheVerified": "キャッシュを確認しました。",
+  "@pubCacheVerified": {
+    "description": "Confirmación de verificación exitosa de la caché"
+  },
+  "pluginUsageTitle": "Jossプラグインコマンドの使用:",
+  "@pluginUsageTitle": {
+    "description": "Encabezado de ayuda para los comandos de plugins"
+  },
+  "pluginCompileError": "プラグインのコンパイル中にエラーが発生しました: {error}",
+  "@pluginCompileError": {
+    "description": "Mensaje de error en caso de fallo durante la compilación",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginSpecifySourceError": "エラー: コンパイルするソースディレクトリまたはファイルを指定してください。",
+  "@pluginSpecifySourceError": {
+    "description": "Error cuando falta la ruta del código fuente a compilar"
+  },
+  "pluginGenerated": "生成されたプラグイン: {path}",
+  "@pluginGenerated": {
+    "description": "Ruta donde se generó el artefacto del plugin",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pluginPackageSize": "パッケージサイズ: {size} KB",
+  "@pluginPackageSize": {
+    "description": "Tamaño en kilobytes del paquete de plugin generado",
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "pluginCompileSuccess": "✓ ビルドが成功しました!",
+  "@pluginCompileSuccess": {
+    "description": "Mensaje de éxito tras compilar un plugin"
+  },
+  "pluginCompiling": "[Joss Plugins Compiler] {path} (言語: {lang}) をコンパイルしています...",
+  "@pluginCompiling": {
+    "description": "Aviso de inicio de compilación de un plugin",
+    "placeholders": {
+      "path": {},
+      "lang": {}
+    }
+  },
+  "pluginTreeShaking": "ツリーシェイキング: {retained} 機能は保持 ({removed} は削除)",
+  "@pluginTreeShaking": {
+    "description": "Métricas de optimización tree-shaking de funciones",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginStructuresRetained": "保存された構造: {retained} ({removed} は削除されました)",
+  "@pluginStructuresRetained": {
+    "description": "Métricas de optimización de estructuras y tipos",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginInspectSpecifyError": "エラー: 検査する .jp ファイルを指定してください。",
+  "@pluginInspectSpecifyError": {
+    "description": "Error cuando no se indica el archivo JP a inspeccionar"
+  },
+  "pluginOpenError": "{path} を開くときにエラーが発生しました: {error}",
+  "@pluginOpenError": {
+    "description": "Error al intentar abrir el archivo de plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginDecodeError": "{path} のデコード中にエラーが発生しました: {error}",
+  "@pluginDecodeError": {
+    "description": "Error al decodificar el formato binario del plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginInspectVersion": "バージョン: {version}",
+  "@pluginInspectVersion": {
+    "description": "Etiqueta con la versión del plugin inspeccionado",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginInspectTitle": "プラグイン: {name}",
+  "@pluginInspectTitle": {
+    "description": "Etiqueta con el nombre del plugin inspeccionado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginSignatureVerifiedStatus": "署名: {algo} ({key}) 確認済み",
+  "@pluginSignatureVerifiedStatus": {
+    "description": "Detalles de verificación de firma del paquete",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginBytecodeTarget": "バイトコードターゲット: JPBC (Joss プラグインバイトコード)",
+  "@pluginBytecodeTarget": {
+    "description": "Información sobre el formato de bytecode destino"
+  },
+  "pluginPermissionsNone": "（なし）",
+  "@pluginPermissionsNone": {
+    "description": "Texto mostrado cuando el plugin no solicita permisos especiales"
+  },
+  "pluginDeclaredClasses": "宣言されたクラス:",
+  "@pluginDeclaredClasses": {
+    "description": "Encabezado de clases provistas por el plugin"
+  },
+  "pluginExportedFunctions": "エクスポートされた関数:",
+  "@pluginExportedFunctions": {
+    "description": "Encabezado del listado de funciones públicas del plugin"
+  },
+  "pluginDeclaredPermissions": "宣言された権限:",
+  "@pluginDeclaredPermissions": {
+    "description": "Encabezado de permisos requeridos por el plugin"
+  },
+  "pluginSignatureValid": "ステータス: 署名 Ed25519 有効かつ検証済み ✅",
+  "@pluginSignatureValid": {
+    "description": "Confirmación de firma digital válida y auténtica"
+  },
+  "pluginVerifySpecifyError": "エラー: 確認する .jp ファイルを指定してください。",
+  "@pluginVerifySpecifyError": {
+    "description": "Error cuando no se provee el archivo JP a verificar"
+  },
+  "pluginVerificationError": "「{path}」での検証エラー: {error}",
+  "@pluginVerificationError": {
+    "description": "Error de verificación criptográfica de firma",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginSignatureAlgorithm": "アルゴリズム: {algo} ({key})",
+  "@pluginSignatureAlgorithm": {
+    "description": "Algoritmo y clave pública de la firma digital",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginNoProtectedCommands": "このプラグインは、保護された CLI コマンドや追加の CLI コマンドを公開しません。",
+  "@pluginNoProtectedCommands": {
+    "description": "Aviso si el plugin no tiene comandos de consola asociados"
+  },
+  "pluginNotFound": "エラー: '{name}' という名前のプラグインが見つかりません。",
+  "@pluginNotFound": {
+    "description": "Aviso cuando el plugin solicitado no está registrado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginAvailableTitle": "Joss で使用できるプラグイン コマンド:",
+  "@pluginAvailableTitle": {
+    "description": "Título principal del catálogo de plugins de Joss"
+  },
+  "pluginProvidedCommands": "提供されるコマンド:",
+  "@pluginProvidedCommands": {
+    "description": "Encabezado de comandos de consola provistos por un plugin"
+  },
+  "pluginNoDirectCli": "(直接の CLI コマンドは宣言しません)",
+  "@pluginNoDirectCli": {
+    "description": "Nota cuando un plugin en la lista no añade comandos directos"
   }
 }

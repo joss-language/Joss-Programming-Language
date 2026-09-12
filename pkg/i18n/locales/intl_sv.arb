@@ -904,5 +904,843 @@
   "seedersNotFound": "Inga såmaskiner hittades i app/database/seeders/",
   "@seedersNotFound": {
     "description": "Mensaje cuando el directorio de seeders está vacío"
+  },
+  "dbErrConnectingDest": "Fel vid anslutning till destination ({dest}): {err}",
+  "@dbErrConnectingDest": {
+    "description": "Mensaje de error al conectar con la base de datos de destino",
+    "placeholders": {
+      "dest": {},
+      "err": {}
+    }
+  },
+  "dbErrConnectingSource": "Fel vid anslutning till källan ({source}): {err}",
+  "@dbErrConnectingSource": {
+    "description": "Mensaje de error al conectar con la base de datos de origen",
+    "placeholders": {
+      "source": {},
+      "err": {}
+    }
+  },
+  "dbChangingEngine": "Ändra databasmotor till: {target}",
+  "@dbChangingEngine": {
+    "description": "Mensaje informativo al iniciar el cambio de motor de base de datos",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbAlreadyEngine": "Databasmotorn är redan {target}",
+  "@dbAlreadyEngine": {
+    "description": "Mensaje cuando el motor solicitado ya está activo",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbPreparingDestSchema": "Förbereder schema i måldatabasen...",
+  "@dbPreparingDestSchema": {
+    "description": "Mensaje informativo al preparar tablas y esquema destino"
+  },
+  "dbStartingDataMigration": "Startar datamigrering...",
+  "@dbStartingDataMigration": {
+    "description": "Mensaje informativo al iniciar la copia de datos entre tablas"
+  },
+  "dbMigrationCompleted": "✨ Datamigrering slutförd. {file} fil uppdaterad och säkerhetskopia skapad.",
+  "@dbMigrationCompleted": {
+    "description": "Mensaje de éxito al completar la migración entre bases de datos",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "dbMigratingBetweenConfigured": "Migrerar data mellan konfigurerade databasmotorer...",
+  "@dbMigratingBetweenConfigured": {
+    "description": "Mensaje inicial del comando change db migrate"
+  },
+  "dbOrigin": "Ursprung",
+  "@dbOrigin": {
+    "description": "Etiqueta para indicar el motor o servidor de origen"
+  },
+  "dbDestination": "Destination",
+  "@dbDestination": {
+    "description": "Etiqueta para indicar el motor o servidor de destino"
+  },
+  "dbMigratingTable": "Migrerar tabell: {table}...",
+  "@dbMigratingTable": {
+    "description": "Mensaje de progreso al migrar una tabla individual",
+    "placeholders": {
+      "table": {}
+    }
+  },
+  "dbTableDone": "Fylld.",
+  "@dbTableDone": {
+    "description": "Indicador de fin de migración de una tabla"
+  },
+  "dbPrefixUpdated": "Databasprefix uppdaterat till: '{prefix}'",
+  "@dbPrefixUpdated": {
+    "description": "Mensaje al actualizar el prefijo de tablas",
+    "placeholders": {
+      "prefix": {}
+    }
+  },
+  "dbPrefixEmpty": "Fel: Prefixet får inte vara tomt.",
+  "@dbPrefixEmpty": {
+    "description": "Mensaje de error cuando se pasa un prefijo vacío"
+  },
+  "storageConfiguring": "Konfigurera lagring för leverantör: {provider}",
+  "@storageConfiguring": {
+    "description": "Mensaje al iniciar configuración de almacenamiento",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageNotSupported": "Leverantören '{provider}' stöds inte ännu.",
+  "@storageNotSupported": {
+    "description": "Mensaje de proveedor no disponible",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageUnknownProvider": "Okänd leverantör: {provider}",
+  "@storageUnknownProvider": {
+    "description": "Mensaje de proveedor no reconocido",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storagePromptDownloadOci": "Vill du ladda ner filerna från OCI till lokalt?",
+  "@storagePromptDownloadOci": {
+    "description": "Pregunta interactiva para descargar archivos desde la nube OCI"
+  },
+  "storageConfiguredLocal": "Lagring inställt på LOKAL.",
+  "@storageConfiguredLocal": {
+    "description": "Confirmación de configuración a almacenamiento local"
+  },
+  "storageOciTitle": "---Konfigurera Oracle Cloud Infrastructure (OCI) ---",
+  "@storageOciTitle": {
+    "description": "Título del asistente de configuración OCI"
+  },
+  "storageOciSaved": "OCI-konfiguration sparad.",
+  "@storageOciSaved": {
+    "description": "Confirmación de guardado de credenciales OCI"
+  },
+  "storagePromptUploadOci": "Vill du ladda upp befintliga lokala filer till OCI?",
+  "@storagePromptUploadOci": {
+    "description": "Pregunta interactiva para subir archivos locales a la nube OCI"
+  },
+  "storageStartingMigrationOci": "Startar migrering till OCI...",
+  "@storageStartingMigrationOci": {
+    "description": "Mensaje inicial al subir almacenamiento a OCI"
+  },
+  "storageUploading": "Laddar upp: {source} -> {dest}",
+  "@storageUploading": {
+    "description": "Progreso al subir un archivo individual a la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageMigrationOciCompleted": "Migreringen till OCI slutförd.",
+  "@storageMigrationOciCompleted": {
+    "description": "Confirmación de fin de subida de archivos a OCI"
+  },
+  "storageStartingDownloadOci": "Startar nedladdning från OCI...",
+  "@storageStartingDownloadOci": {
+    "description": "Mensaje inicial al descargar archivos desde OCI"
+  },
+  "storageDownloading": "Laddar ned: {source} -> {dest}",
+  "@storageDownloading": {
+    "description": "Progreso al descargar un archivo individual desde la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageDownloadCompleted": "Nedladdningen slutförd.",
+  "@storageDownloadCompleted": {
+    "description": "Confirmación de fin de descarga de archivos desde OCI"
+  },
+  "dbMigratedRows": "({count} rader)",
+  "@dbMigratedRows": {
+    "description": "Cantidad de filas migradas en una tabla",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "nativeBuildPackagingAssets": "📦 Packar och förkompilerar assets (AOT Bytecode AST)...",
+  "@nativeBuildPackagingAssets": {
+    "description": "Mensaje informativo durante la fase de empaquetado de assets"
+  },
+  "nativeBuildSuccessTitle": "✨ Lyckad NATIVE SAMMANSTÄLLNING!",
+  "@nativeBuildSuccessTitle": {
+    "description": "Título de éxito al finalizar la compilación nativa"
+  },
+  "nativeBuildCompilingRunner": "🔨 Kompilerar inbyggd körbar fil med Go-verktygskedjan...",
+  "@nativeBuildCompilingRunner": {
+    "description": "Mensaje informativo al compilar el binario nativo"
+  },
+  "nativeBuildMissingGo": "Fel: Gå-verktyget som är installerat på systemet hittades inte.",
+  "@nativeBuildMissingGo": {
+    "description": "Error cuando el compilador Go no está instalado en PATH"
+  },
+  "nativeBuildTarget": "Destination",
+  "@nativeBuildTarget": {
+    "description": "Etiqueta para el sistema operativo y arquitectura destino"
+  },
+  "nativeBuildMode": "Läge",
+  "@nativeBuildMode": {
+    "description": "Etiqueta para el modo de compilación (consola o GUI)"
+  },
+  "nativeBuildOutputFile": "Utdatafil",
+  "@nativeBuildOutputFile": {
+    "description": "Etiqueta para la ruta del binario compilado"
+  },
+  "nativeBuildBinarySize": "Binär storlek",
+  "@nativeBuildBinarySize": {
+    "description": "Etiqueta para el tamaño del binario resultante"
+  },
+  "nativeBuildInstructions": "Instruktioner: Kopiera '{path}' till valfri dator med {os} och kör den direkt.",
+  "@nativeBuildInstructions": {
+    "description": "Instrucciones finales para el usuario tras compilar un binario nativo",
+    "placeholders": {
+      "path": {},
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedOS": "Fel: Operativsystemet '{os}' stöds inte. Alternativ: windows, linux, darwin.",
+  "@nativeBuildUnsupportedOS": {
+    "description": "Mensaje de error cuando el sistema operativo destino es inválido",
+    "placeholders": {
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedArch": "Fel: Arkitekturen '{arch}' stöds inte för {os}. Alternativ: {options}",
+  "@nativeBuildUnsupportedArch": {
+    "description": "Mensaje de error cuando la arquitectura destino es inválida",
+    "placeholders": {
+      "arch": {},
+      "os": {},
+      "options": {}
+    }
+  },
+  "updaterNewVersionTitle": "Ny version tillgänglig!",
+  "@updaterNewVersionTitle": {
+    "description": "Aviso cuando hay una versión más reciente de Joss"
+  },
+  "updaterRunHint": "Kör 'joss update --{channel}' för att automatiskt uppdatera runtime, SDK och tillägg.",
+  "@updaterRunHint": {
+    "description": "Sugerencia del comando de actualización a ejecutar",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterTitle": "🔄 JOSS UPPDATERING",
+  "@updaterTitle": {
+    "description": "Título del asistente de actualización de Joss"
+  },
+  "updaterCurrentVersion": "Aktuell version",
+  "@updaterCurrentVersion": {
+    "description": "Etiqueta de la versión actualmente instalada"
+  },
+  "updaterSelectedChannel": "Vald kanal",
+  "@updaterSelectedChannel": {
+    "description": "Etiqueta del canal de actualización seleccionado"
+  },
+  "updaterForcedMode": "Tvångsläge",
+  "@updaterForcedMode": {
+    "description": "Etiqueta de estado del modo forzado"
+  },
+  "updaterCheckingGitHub": "🌐 Konsultera GitHub Releases API...",
+  "@updaterCheckingGitHub": {
+    "description": "Mensaje al buscar actualizaciones en el repositorio remoto"
+  },
+  "updaterNoReleasesFound": "Inga offentliga utgåvor av Joss hittades på GitHub.",
+  "@updaterNoReleasesFound": {
+    "description": "Aviso si no hay versiones publicadas en el repositorio"
+  },
+  "updaterNoReleaseForChannel": "Ingen tillgänglig version hittades för kanalen '{channel}'.",
+  "@updaterNoReleaseForChannel": {
+    "description": "Aviso cuando no hay release para el canal solicitado",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterAlreadyUpdated": "✨ Joss är redan uppdaterad i version v{version} för kanalen {channel}.",
+  "@updaterAlreadyUpdated": {
+    "description": "Mensaje cuando Joss ya está al día",
+    "placeholders": {
+      "version": {},
+      "channel": {}
+    }
+  },
+  "updaterForcedRedownload": "⚠️ Ladda ner och installera om releaseversionen med forcerat läge (-f)...",
+  "@updaterForcedRedownload": {
+    "description": "Aviso al ejecutar en modo forzado"
+  },
+  "updaterForceTip": "💡 Tips: Använd 'joss update -f' för att tvinga om nedladdning och installation av binären.",
+  "@updaterForceTip": {
+    "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
+  },
+  "updaterNoBinariesFound": "Fel: Det finns inga binära filer tillgängliga för nedladdning i den här utgåvan.",
+  "@updaterNoBinariesFound": {
+    "description": "Error si el release no tiene archivos binarios asociados"
+  },
+  "updaterDownloading": "⬇️ Laddar ner uppdatering...",
+  "@updaterDownloading": {
+    "description": "Mensaje de descarga de paquete de actualización"
+  },
+  "updaterNewVersion": "Nyinspelning",
+  "@updaterNewVersion": {
+    "description": "Etiqueta de la nueva versión instalada"
+  },
+  "updaterApplying": "⚙️ Applicerar runtime, SDK och tilläggsuppdatering...",
+  "@updaterApplying": {
+    "description": "Mensaje de progreso al reemplazar el binario de Joss"
+  },
+  "updaterSuccessTitle": "✨ JOSS HAR UPPDATERATS MED FRAMGÅNG!",
+  "@updaterSuccessTitle": {
+    "description": "Título de éxito al completar la actualización"
+  },
+  "updaterExecutable": "Körbar",
+  "@updaterExecutable": {
+    "description": "Etiqueta de la ruta del ejecutable actualizado"
+  },
+  "pubCmdAddDesc": "Lägg till ett paket i projektet",
+  "@pubCmdAddDesc": {
+    "description": "Descripción del comando para añadir un paquete"
+  },
+  "pubManagerTitle": "Joss paketshanterare (Joss Pub)",
+  "@pubManagerTitle": {
+    "description": "Título principal de la ayuda del gestor de paquetes Joss"
+  },
+  "pubCmdRemoveDesc": "Ta bort ett paket från projektet",
+  "@pubCmdRemoveDesc": {
+    "description": "Descripción del comando para eliminar un paquete"
+  },
+  "pubCommandsLabel": "Kommandon:",
+  "@pubCommandsLabel": {
+    "description": "Etiqueta para la sección de comandos disponibles"
+  },
+  "pubCmdInstallDesc": "Installera de deklarerade beroendena",
+  "@pubCmdInstallDesc": {
+    "description": "Descripción del comando para instalar dependencias"
+  },
+  "pubCmdUpdateDesc": "Uppdatera beroenden till det senaste intervallet som stöds",
+  "@pubCmdUpdateDesc": {
+    "description": "Descripción del comando para actualizar dependencias"
+  },
+  "pubCmdSearchDesc": "Sök efter paket på plattformen",
+  "@pubCmdSearchDesc": {
+    "description": "Descripción del comando para buscar paquetes"
+  },
+  "pubCmdInfoDesc": "Visar detaljerad information om ett paket",
+  "@pubCmdInfoDesc": {
+    "description": "Descripción del comando para mostrar información de un paquete"
+  },
+  "pubCmdPublishDesc": "Publicera den aktuella paketversionen",
+  "@pubCmdPublishDesc": {
+    "description": "Descripción del comando para publicar un paquete"
+  },
+  "pubCmdLogoutDesc": "Logga ut lokalt",
+  "@pubCmdLogoutDesc": {
+    "description": "Descripción del comando para cerrar sesión"
+  },
+  "pubCmdLoginDesc": "Logga in på plattformen",
+  "@pubCmdLoginDesc": {
+    "description": "Descripción del comando para iniciar sesión"
+  },
+  "pubEmailPrompt": "E-post:",
+  "@pubEmailPrompt": {
+    "description": "Etiqueta o prompt para introducir el correo electrónico"
+  },
+  "pubCmdCacheCleanDesc": "Rensa den globala nedladdningscachen",
+  "@pubCmdCacheCleanDesc": {
+    "description": "Descripción del comando para limpiar la caché"
+  },
+  "pubPasswordPrompt": "Lösenord:",
+  "@pubPasswordPrompt": {
+    "description": "Etiqueta o prompt para introducir la contraseña"
+  },
+  "pubConnectError": "Fel vid anslutning till plattformen: {error}",
+  "@pubConnectError": {
+    "description": "Mensaje de error cuando falla la conexión de red con el registro",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubInvalidCredentials": "Felaktiga användaruppgifter eller overifierat konto.",
+  "@pubInvalidCredentials": {
+    "description": "Mensaje de error cuando las credenciales no son válidas"
+  },
+  "pubInvalidToken": "Fel: Svaret innehåller inte en giltig token.",
+  "@pubInvalidToken": {
+    "description": "Mensaje de error si la respuesta del servidor no tiene token"
+  },
+  "pubSaveCredentialsError": "Det gick inte att spara autentiseringsuppgifter: {error}",
+  "@pubSaveCredentialsError": {
+    "description": "Mensaje de error al persistir credenciales de usuario en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubLogoutSuccess": "Stängd session. Raderade autentiseringsuppgifter.",
+  "@pubLogoutSuccess": {
+    "description": "Mensaje de confirmación tras cerrar sesión localmente"
+  },
+  "pubLoginSuccess": "Lyckad inloggning! Sparade autentiseringsuppgifter.",
+  "@pubLoginSuccess": {
+    "description": "Mensaje de éxito al autenticarse en la plataforma"
+  },
+  "pubSearchError": "Fel vid sökning efter paket: {error}",
+  "@pubSearchError": {
+    "description": "Mensaje de error cuando falla la búsqueda de paquetes",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNoPackagesFound": "Inga paket hittades.",
+  "@pubNoPackagesFound": {
+    "description": "Mensaje cuando una búsqueda no arroja resultados"
+  },
+  "pubPackagesFound": "Hittade paket:",
+  "@pubPackagesFound": {
+    "description": "Encabezado de la lista de paquetes coincidentes"
+  },
+  "pubPackageDownloads": "Nedladdningar: {downloads} | Senaste åtgärd: {updated}",
+  "@pubPackageDownloads": {
+    "description": "Línea con estadísticas de descargas y última actualización",
+    "placeholders": {
+      "downloads": {},
+      "updated": {}
+    }
+  },
+  "pubGetInfoError": "Det gick inte att hämta paketinformation: {error}",
+  "@pubGetInfoError": {
+    "description": "Mensaje de error al consultar información detallada de un paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubPackageNotFound": "Paketet '{name}' finns inte.",
+  "@pubPackageNotFound": {
+    "description": "Aviso cuando el paquete solicitado no existe en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageIdentifier": "Identifierare: {name}",
+  "@pubPackageIdentifier": {
+    "description": "Etiqueta con el identificador único del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageDescription": "Beskrivning: {description}",
+  "@pubPackageDescription": {
+    "description": "Etiqueta con la descripción del paquete",
+    "placeholders": {
+      "description": {}
+    }
+  },
+  "pubPackageDownloadsCount": "Nedladdningar: {downloads}",
+  "@pubPackageDownloadsCount": {
+    "description": "Etiqueta con el conteo de descargas del paquete",
+    "placeholders": {
+      "downloads": {}
+    }
+  },
+  "pubPackageName": "Namn: {name}",
+  "@pubPackageName": {
+    "description": "Etiqueta con el nombre visible del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubResolvingPlatform": "Löser beroenden från joss.red...",
+  "@pubResolvingPlatform": {
+    "description": "Mensaje al resolver dependencias remotas del registro"
+  },
+  "pubFoundPlatform": "✓ Paketet '{name}' hittat på joss.red",
+  "@pubFoundPlatform": {
+    "description": "Aviso cuando el paquete fue encontrado en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubDownloadingPackageVer": "Laddar ned {name} {version}...",
+  "@pubDownloadingPackageVer": {
+    "description": "Mensaje al descargar una versión específica de un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubSearchingPlatform": "Söker efter {name} på joss.red...",
+  "@pubSearchingPlatform": {
+    "description": "Mensaje de búsqueda de paquete en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubInstallSuccessPlatform": "✓ {name} {version} har installerats från joss.red",
+  "@pubInstallSuccessPlatform": {
+    "description": "Mensaje de éxito tras instalar un paquete desde el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubInstallSuccessGit": "✓ {name} (senast) har installerats från {repo}",
+  "@pubInstallSuccessGit": {
+    "description": "Mensaje de éxito al instalar última versión desde Git",
+    "placeholders": {
+      "name": {},
+      "repo": {}
+    }
+  },
+  "pubSyncingFromRepo": "Synkroniserar från länkat arkiv ({repo})...",
+  "@pubSyncingFromRepo": {
+    "description": "Aviso de sincronización desde el repositorio Git vinculado",
+    "placeholders": {
+      "repo": {}
+    }
+  },
+  "pubSearchingGitRepo": "Söker i Git-förrådet...",
+  "@pubSearchingGitRepo": {
+    "description": "Mensaje al buscar el paquete directamente en Git"
+  },
+  "pubInstallFailedAll": "Fel: Kunde inte installera '{name}' från antingen joss.red eller Git-förvaret.",
+  "@pubInstallFailedAll": {
+    "description": "Error crítico cuando fallan todas las fuentes de instalación",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovingPackage": "Tar bort {name}...",
+  "@pubRemovingPackage": {
+    "description": "Aviso de inicio de eliminación de un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovedSuccess": "✓ {name} har tagits bort",
+  "@pubRemovedSuccess": {
+    "description": "Mensaje de confirmación tras eliminar un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemoveLocalFolderWarning": "Varning: Det gick inte att ta bort den lokala mappen: {error}",
+  "@pubRemoveLocalFolderWarning": {
+    "description": "Advertencia si no se puede borrar la carpeta del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubManifestNotFound": "Fel: 'joss.yaml' hittades inte i den här katalogen.",
+  "@pubManifestNotFound": {
+    "description": "Error cuando el manifiesto del proyecto no existe"
+  },
+  "pubNoDependenciesDeclared": "Det finns inga beroenden deklarerade i joss.yaml.",
+  "@pubNoDependenciesDeclared": {
+    "description": "Aviso informativo cuando no hay dependencias en el proyecto"
+  },
+  "pubManifestReadError": "Fel vid läsning av joss.yaml: {error}",
+  "@pubManifestReadError": {
+    "description": "Error al leer el archivo manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubUsingCachedPackage": "Använder cachelagrat paket...",
+  "@pubUsingCachedPackage": {
+    "description": "Aviso cuando se reutiliza una descarga previa en caché"
+  },
+  "pubResolvePackageError": "Fel vid lösning av '{name}': {error}",
+  "@pubResolvePackageError": {
+    "description": "Error al calcular la versión de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubResolvingDependencies": "Löser beroenden...",
+  "@pubResolvingDependencies": {
+    "description": "Mensaje al iniciar la resolución de dependencias"
+  },
+  "pubInstallPackageError": "Fel vid installation av '{name}': {error}",
+  "@pubInstallPackageError": {
+    "description": "Error durante la instalación física de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubPackageOfflineError": "Fel: Paketet '{name} {version}' inte installerat och offlineläget aktivt.",
+  "@pubPackageOfflineError": {
+    "description": "Error si falta un paquete y se especificó modo sin conexión",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubResolveTransitiveError": "Fel vid lösning av transitiva beroenden: {error}",
+  "@pubResolveTransitiveError": {
+    "description": "Error al resolver subdependencias del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubMustLoginToPublish": "Fel: Du måste logga in innan du postar.",
+  "@pubMustLoginToPublish": {
+    "description": "Error cuando el usuario intenta publicar sin haberse autenticado"
+  },
+  "pubCheckingUpdates": "Söker efter paketuppdateringar...",
+  "@pubCheckingUpdates": {
+    "description": "Mensaje al consultar nuevas versiones disponibles"
+  },
+  "pubDependenciesInstalledSuccess": "✓ Beroenden korrekt installerade.",
+  "@pubDependenciesInstalledSuccess": {
+    "description": "Mensaje de éxito tras completar la instalación de dependencias"
+  },
+  "pubManifestMissingRequiredFields": "Fel: joss.yaml måste innehålla minst: name, version, repository",
+  "@pubManifestMissingRequiredFields": {
+    "description": "Error si el manifiesto carece de metadatos mínimos para publicación"
+  },
+  "pubPreparingPublish": "Förbereder publicering av {name} v{version}...",
+  "@pubPreparingPublish": {
+    "description": "Aviso previo a publicar el paquete en el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubPromptReleaseUrl": "Ange den direkta nedladdningsadressen för zip-versionen på GitHub:",
+  "@pubPromptReleaseUrl": {
+    "description": "Solicitud interactiva de la URL del release zip"
+  },
+  "pubPromptReleaseSha": "Ange SHA-256-hash för zip-releasen:",
+  "@pubPromptReleaseSha": {
+    "description": "Solicitud interactiva del hash SHA-256 del artefacto"
+  },
+  "pubArtifactVerifyError": "Fel vid verifiering av signerad artefakt: {error}",
+  "@pubArtifactVerifyError": {
+    "description": "Error al verificar la firma criptográfica del artefacto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNetworkError": "Nätverksfel: {error}",
+  "@pubNetworkError": {
+    "description": "Error genérico de red al comunicarse con el servidor",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubSignatureVerified": "Verifierad JP-signatur: {key}",
+  "@pubSignatureVerified": {
+    "description": "Aviso de verificación criptográfica exitosa del paquete",
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "pubPublishedSuccess": "Grattis! {name} v{version} publicerades framgångsrikt i Joss Pub.",
+  "@pubPublishedSuccess": {
+    "description": "Mensaje de felicitación y éxito al publicar un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubCacheIsEmpty": "Nedladdningscachen är tom.",
+  "@pubCacheIsEmpty": {
+    "description": "Aviso cuando no hay archivos temporales en la caché"
+  },
+  "pubCacheEmptied": "Global nedladdningscache rensades.",
+  "@pubCacheEmptied": {
+    "description": "Confirmación tras vaciar la caché de descargas"
+  },
+  "pubPublishFailedHttp": "Fel vid publicering av paket (HTTP {code}): {error}",
+  "@pubPublishFailedHttp": {
+    "description": "Error devuelto por la API del registro al intentar publicar",
+    "placeholders": {
+      "code": {},
+      "error": {}
+    }
+  },
+  "pubCacheFilesList": "Cachade filer:",
+  "@pubCacheFilesList": {
+    "description": "Encabezado del listado de archivos en la caché"
+  },
+  "pubCacheVerifyingIntegrity": "Verifierar cacheintegriteten...",
+  "@pubCacheVerifyingIntegrity": {
+    "description": "Aviso durante la verificación de sumas de comprobación de la caché"
+  },
+  "pubCacheVerified": "Verifierad cache.",
+  "@pubCacheVerified": {
+    "description": "Confirmación de verificación exitosa de la caché"
+  },
+  "pluginUsageTitle": "Användning av Joss-plugin-kommandon:",
+  "@pluginUsageTitle": {
+    "description": "Encabezado de ayuda para los comandos de plugins"
+  },
+  "pluginCompileError": "Fel vid kompilering av plugin: {error}",
+  "@pluginCompileError": {
+    "description": "Mensaje de error en caso de fallo durante la compilación",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginSpecifySourceError": "Fel: ange källkatalogen eller källfilen att kompilera.",
+  "@pluginSpecifySourceError": {
+    "description": "Error cuando falta la ruta del código fuente a compilar"
+  },
+  "pluginGenerated": "Genererat plugin: {path}",
+  "@pluginGenerated": {
+    "description": "Ruta donde se generó el artefacto del plugin",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pluginPackageSize": "Paketstorlek: {size} KB",
+  "@pluginPackageSize": {
+    "description": "Tamaño en kilobytes del paquete de plugin generado",
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "pluginCompileSuccess": "✓ Bygg framgångsrikt!",
+  "@pluginCompileSuccess": {
+    "description": "Mensaje de éxito tras compilar un plugin"
+  },
+  "pluginCompiling": "[Joss Plugins Compiler] Kompilerar {path} (språk: {lang})...",
+  "@pluginCompiling": {
+    "description": "Aviso de inicio de compilación de un plugin",
+    "placeholders": {
+      "path": {},
+      "lang": {}
+    }
+  },
+  "pluginTreeShaking": "Trädskakning: {retained} funktioner bibehålls ({removed} borttagen)",
+  "@pluginTreeShaking": {
+    "description": "Métricas de optimización tree-shaking de funciones",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginStructuresRetained": "Bevarade strukturer: {retained} ({removed} borttagen)",
+  "@pluginStructuresRetained": {
+    "description": "Métricas de optimización de estructuras y tipos",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginInspectSpecifyError": "Fel: Ange .jp-filen som ska inspekteras.",
+  "@pluginInspectSpecifyError": {
+    "description": "Error cuando no se indica el archivo JP a inspeccionar"
+  },
+  "pluginOpenError": "Fel vid öppning av {path}: {error}",
+  "@pluginOpenError": {
+    "description": "Error al intentar abrir el archivo de plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginDecodeError": "Fel vid avkodning av {path}: {error}",
+  "@pluginDecodeError": {
+    "description": "Error al decodificar el formato binario del plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginInspectVersion": "Version: {version}",
+  "@pluginInspectVersion": {
+    "description": "Etiqueta con la versión del plugin inspeccionado",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginInspectTitle": "Plugin: {name}",
+  "@pluginInspectTitle": {
+    "description": "Etiqueta con el nombre del plugin inspeccionado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginSignatureVerifiedStatus": "Signatur: {algo} (_{key}) verifierad",
+  "@pluginSignatureVerifiedStatus": {
+    "description": "Detalles de verificación de firma del paquete",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginBytecodeTarget": "Bytekodmål: JPBC (Joss Plugin Bytecode)",
+  "@pluginBytecodeTarget": {
+    "description": "Información sobre el formato de bytecode destino"
+  },
+  "pluginPermissionsNone": "(ingen)",
+  "@pluginPermissionsNone": {
+    "description": "Texto mostrado cuando el plugin no solicita permisos especiales"
+  },
+  "pluginDeclaredClasses": "Deklarerade klasser:",
+  "@pluginDeclaredClasses": {
+    "description": "Encabezado de clases provistas por el plugin"
+  },
+  "pluginExportedFunctions": "Exporterade funktioner:",
+  "@pluginExportedFunctions": {
+    "description": "Encabezado del listado de funciones públicas del plugin"
+  },
+  "pluginDeclaredPermissions": "Deklarerade behörigheter:",
+  "@pluginDeclaredPermissions": {
+    "description": "Encabezado de permisos requeridos por el plugin"
+  },
+  "pluginSignatureValid": "Status: Signatur Ed25519 GILTIG och VERIFIERAD ✅",
+  "@pluginSignatureValid": {
+    "description": "Confirmación de firma digital válida y auténtica"
+  },
+  "pluginVerifySpecifyError": "Fel: Ange .jp-filen som ska verifieras.",
+  "@pluginVerifySpecifyError": {
+    "description": "Error cuando no se provee el archivo JP a verificar"
+  },
+  "pluginSignatureAlgorithm": "Algoritm: {algo} (_{key})",
+  "@pluginSignatureAlgorithm": {
+    "description": "Algoritmo y clave pública de la firma digital",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginNoProtectedCommands": "Denna plugin exponerar inte skyddade eller ytterligare CLI-kommandon.",
+  "@pluginNoProtectedCommands": {
+    "description": "Aviso si el plugin no tiene comandos de consola asociados"
+  },
+  "pluginNotFound": "Fel: Inget plugin hittades med namnet '{name}'.",
+  "@pluginNotFound": {
+    "description": "Aviso cuando el plugin solicitado no está registrado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginAvailableTitle": "Plugin-kommandon tillgängliga i Joss:",
+  "@pluginAvailableTitle": {
+    "description": "Título principal del catálogo de plugins de Joss"
+  },
+  "pluginProvidedCommands": "Angivna kommandon:",
+  "@pluginProvidedCommands": {
+    "description": "Encabezado de comandos de consola provistos por un plugin"
+  },
+  "pluginNoDirectCli": "(Deklarerar inte direkta CLI-kommandon)",
+  "@pluginNoDirectCli": {
+    "description": "Nota cuando un plugin en la lista no añade comandos directos"
+  },
+  "pluginVerificationError": "Verifieringsfel i '{path}': {error}",
+  "@pluginVerificationError": {
+    "description": "Error de verificación criptográfica de firma",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
   }
 }

@@ -904,5 +904,843 @@
   "seedersNotFound": "在应用程序/数据库/播种机/中找不到播种机",
   "@seedersNotFound": {
     "description": "Mensaje cuando el directorio de seeders está vacío"
+  },
+  "dbErrConnectingDest": "连接目标时出错 ({dest})：{err}",
+  "@dbErrConnectingDest": {
+    "description": "Mensaje de error al conectar con la base de datos de destino",
+    "placeholders": {
+      "dest": {},
+      "err": {}
+    }
+  },
+  "dbErrConnectingSource": "连接到源时出错 ({source})： {err}",
+  "@dbErrConnectingSource": {
+    "description": "Mensaje de error al conectar con la base de datos de origen",
+    "placeholders": {
+      "source": {},
+      "err": {}
+    }
+  },
+  "dbChangingEngine": "将数据库引擎更改为：{target}",
+  "@dbChangingEngine": {
+    "description": "Mensaje informativo al iniciar el cambio de motor de base de datos",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbAlreadyEngine": "数据库引擎已经 {target}",
+  "@dbAlreadyEngine": {
+    "description": "Mensaje cuando el motor solicitado ya está activo",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbPreparingDestSchema": "正在目标数据库中准备架构...",
+  "@dbPreparingDestSchema": {
+    "description": "Mensaje informativo al preparar tablas y esquema destino"
+  },
+  "dbStartingDataMigration": "开始数据迁移...",
+  "@dbStartingDataMigration": {
+    "description": "Mensaje informativo al iniciar la copia de datos entre tablas"
+  },
+  "dbMigrationCompleted": "✨ 数据迁移成功完成。 {file} 文件已更新并已创建备份。",
+  "@dbMigrationCompleted": {
+    "description": "Mensaje de éxito al completar la migración entre bases de datos",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "dbMigratingBetweenConfigured": "正在配置的数据库引擎之间迁移数据...",
+  "@dbMigratingBetweenConfigured": {
+    "description": "Mensaje inicial del comando change db migrate"
+  },
+  "dbOrigin": "起源",
+  "@dbOrigin": {
+    "description": "Etiqueta para indicar el motor o servidor de origen"
+  },
+  "dbDestination": "目的地",
+  "@dbDestination": {
+    "description": "Etiqueta para indicar el motor o servidor de destino"
+  },
+  "dbMigratingTable": "正在迁移表：{table}...",
+  "@dbMigratingTable": {
+    "description": "Mensaje de progreso al migrar una tabla individual",
+    "placeholders": {
+      "table": {}
+    }
+  },
+  "dbMigratedRows": "（{count} 行）",
+  "@dbMigratedRows": {
+    "description": "Cantidad de filas migradas en una tabla",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dbTableDone": "充满了。",
+  "@dbTableDone": {
+    "description": "Indicador de fin de migración de una tabla"
+  },
+  "dbPrefixUpdated": "数据库前缀更新为：“{prefix}”",
+  "@dbPrefixUpdated": {
+    "description": "Mensaje al actualizar el prefijo de tablas",
+    "placeholders": {
+      "prefix": {}
+    }
+  },
+  "dbPrefixEmpty": "错误：前缀不能为空。",
+  "@dbPrefixEmpty": {
+    "description": "Mensaje de error cuando se pasa un prefijo vacío"
+  },
+  "storageConfiguring": "为提供者配置存储：{provider}",
+  "@storageConfiguring": {
+    "description": "Mensaje al iniciar configuración de almacenamiento",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageNotSupported": "尚不支持提供程序“{provider}”。",
+  "@storageNotSupported": {
+    "description": "Mensaje de proveedor no disponible",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageUnknownProvider": "未知供应商：{provider}",
+  "@storageUnknownProvider": {
+    "description": "Mensaje de proveedor no reconocido",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storagePromptDownloadOci": "您想将 OCI 中的文件下载到本地吗？",
+  "@storagePromptDownloadOci": {
+    "description": "Pregunta interactiva para descargar archivos desde la nube OCI"
+  },
+  "storageConfiguredLocal": "存储设置为本地。",
+  "@storageConfiguredLocal": {
+    "description": "Confirmación de configuración a almacenamiento local"
+  },
+  "storageOciTitle": "---配置 Oracle 云基础设施 (OCI) ---",
+  "@storageOciTitle": {
+    "description": "Título del asistente de configuración OCI"
+  },
+  "storageOciSaved": "OCI 配置已保存。",
+  "@storageOciSaved": {
+    "description": "Confirmación de guardado de credenciales OCI"
+  },
+  "storagePromptUploadOci": "您想将现有的本地文件上传到 OCI 吗？",
+  "@storagePromptUploadOci": {
+    "description": "Pregunta interactiva para subir archivos locales a la nube OCI"
+  },
+  "storageStartingMigrationOci": "开始迁移到 OCI...",
+  "@storageStartingMigrationOci": {
+    "description": "Mensaje inicial al subir almacenamiento a OCI"
+  },
+  "storageUploading": "上传中：{source} -> {dest}",
+  "@storageUploading": {
+    "description": "Progreso al subir un archivo individual a la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageMigrationOciCompleted": "至 OCI 的迁移已完成。",
+  "@storageMigrationOciCompleted": {
+    "description": "Confirmación de fin de subida de archivos a OCI"
+  },
+  "storageStartingDownloadOci": "开始从 OCI 下载...",
+  "@storageStartingDownloadOci": {
+    "description": "Mensaje inicial al descargar archivos desde OCI"
+  },
+  "storageDownloading": "下载：{source} -> {dest}",
+  "@storageDownloading": {
+    "description": "Progreso al descargar un archivo individual desde la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageDownloadCompleted": "下载完成。",
+  "@storageDownloadCompleted": {
+    "description": "Confirmación de fin de descarga de archivos desde OCI"
+  },
+  "nativeBuildPackagingAssets": "📦 正在打包并预编译资源 (AOT Bytecode AST)...",
+  "@nativeBuildPackagingAssets": {
+    "description": "Mensaje informativo durante la fase de empaquetado de assets"
+  },
+  "nativeBuildSuccessTitle": "✨ 成功的原生编译！",
+  "@nativeBuildSuccessTitle": {
+    "description": "Título de éxito al finalizar la compilación nativa"
+  },
+  "nativeBuildCompilingRunner": "🔨 使用 Go 工具链编译本机可执行文件...",
+  "@nativeBuildCompilingRunner": {
+    "description": "Mensaje informativo al compilar el binario nativo"
+  },
+  "nativeBuildMissingGo": "错误：找不到系统上安装的“go”工具。",
+  "@nativeBuildMissingGo": {
+    "description": "Error cuando el compilador Go no está instalado en PATH"
+  },
+  "nativeBuildTarget": "目的地",
+  "@nativeBuildTarget": {
+    "description": "Etiqueta para el sistema operativo y arquitectura destino"
+  },
+  "nativeBuildMode": "模式",
+  "@nativeBuildMode": {
+    "description": "Etiqueta para el modo de compilación (consola o GUI)"
+  },
+  "nativeBuildOutputFile": "输出文件",
+  "@nativeBuildOutputFile": {
+    "description": "Etiqueta para la ruta del binario compilado"
+  },
+  "nativeBuildBinarySize": "二进制大小",
+  "@nativeBuildBinarySize": {
+    "description": "Etiqueta para el tamaño del binario resultante"
+  },
+  "nativeBuildInstructions": "说明：将“{path}”复制到任何具有{os}的计算机上并直接运行。",
+  "@nativeBuildInstructions": {
+    "description": "Instrucciones finales para el usuario tras compilar un binario nativo",
+    "placeholders": {
+      "path": {},
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedOS": "错误：不支持操作系统“{os}”。选项：windows、linux、darwin。",
+  "@nativeBuildUnsupportedOS": {
+    "description": "Mensaje de error cuando el sistema operativo destino es inválido",
+    "placeholders": {
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedArch": "错误：{os} 不支持架构“{arch}”。选项：{options}",
+  "@nativeBuildUnsupportedArch": {
+    "description": "Mensaje de error cuando la arquitectura destino es inválida",
+    "placeholders": {
+      "arch": {},
+      "os": {},
+      "options": {}
+    }
+  },
+  "updaterNewVersionTitle": "新版本上线！",
+  "@updaterNewVersionTitle": {
+    "description": "Aviso cuando hay una versión más reciente de Joss"
+  },
+  "updaterRunHint": "运行“joss update --{channel}”以自动更新运行时、SDK 和扩展。",
+  "@updaterRunHint": {
+    "description": "Sugerencia del comando de actualización a ejecutar",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterTitle": "🔄 乔斯更新",
+  "@updaterTitle": {
+    "description": "Título del asistente de actualización de Joss"
+  },
+  "updaterCurrentVersion": "当前版本",
+  "@updaterCurrentVersion": {
+    "description": "Etiqueta de la versión actualmente instalada"
+  },
+  "updaterSelectedChannel": "选择频道",
+  "@updaterSelectedChannel": {
+    "description": "Etiqueta del canal de actualización seleccionado"
+  },
+  "updaterForcedMode": "强制模式",
+  "@updaterForcedMode": {
+    "description": "Etiqueta de estado del modo forzado"
+  },
+  "updaterCheckingGitHub": "🌐 查阅 GitHub Releases API...",
+  "@updaterCheckingGitHub": {
+    "description": "Mensaje al buscar actualizaciones en el repositorio remoto"
+  },
+  "updaterNoReleasesFound": "在 GitHub 上未找到 Joss 的公开版本。",
+  "@updaterNoReleasesFound": {
+    "description": "Aviso si no hay versiones publicadas en el repositorio"
+  },
+  "updaterNoReleaseForChannel": "找不到频道“{channel}”的可用版本。",
+  "@updaterNoReleaseForChannel": {
+    "description": "Aviso cuando no hay release para el canal solicitado",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterAlreadyUpdated": "✨ Joss 已在 {channel} 频道的 v{version} 版本中更新。",
+  "@updaterAlreadyUpdated": {
+    "description": "Mensaje cuando Joss ya está al día",
+    "placeholders": {
+      "version": {},
+      "channel": {}
+    }
+  },
+  "updaterForcedRedownload": "⚠️通过强制模式（-f）重新下载并重新安装发布版本...",
+  "@updaterForcedRedownload": {
+    "description": "Aviso al ejecutar en modo forzado"
+  },
+  "updaterForceTip": "💡提示：使用“joss update -f”强制重新下载并安装二进制文件。",
+  "@updaterForceTip": {
+    "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
+  },
+  "updaterNoBinariesFound": "错误：此版本中没有可供下载的二进制文件。",
+  "@updaterNoBinariesFound": {
+    "description": "Error si el release no tiene archivos binarios asociados"
+  },
+  "updaterDownloading": "⬇️ 正在下载更新...",
+  "@updaterDownloading": {
+    "description": "Mensaje de descarga de paquete de actualización"
+  },
+  "updaterNewVersion": "翻拍",
+  "@updaterNewVersion": {
+    "description": "Etiqueta de la nueva versión instalada"
+  },
+  "updaterApplying": "⚙️ 应用运行时、SDK 和扩展更新...",
+  "@updaterApplying": {
+    "description": "Mensaje de progreso al reemplazar el binario de Joss"
+  },
+  "updaterSuccessTitle": "✨ JOSS 已成功更新！",
+  "@updaterSuccessTitle": {
+    "description": "Título de éxito al completar la actualización"
+  },
+  "updaterExecutable": "可执行文件",
+  "@updaterExecutable": {
+    "description": "Etiqueta de la ruta del ejecutable actualizado"
+  },
+  "pubCmdAddDesc": "向项目添加一个包",
+  "@pubCmdAddDesc": {
+    "description": "Descripción del comando para añadir un paquete"
+  },
+  "pubManagerTitle": "Joss 包管理器 (Joss Pub)",
+  "@pubManagerTitle": {
+    "description": "Título principal de la ayuda del gestor de paquetes Joss"
+  },
+  "pubCmdRemoveDesc": "从项目中删除一个包",
+  "@pubCmdRemoveDesc": {
+    "description": "Descripción del comando para eliminar un paquete"
+  },
+  "pubCommandsLabel": "命令：",
+  "@pubCommandsLabel": {
+    "description": "Etiqueta para la sección de comandos disponibles"
+  },
+  "pubCmdInstallDesc": "安装声明的依赖项",
+  "@pubCmdInstallDesc": {
+    "description": "Descripción del comando para instalar dependencias"
+  },
+  "pubCmdUpdateDesc": "将依赖项更新到最新支持的范围",
+  "@pubCmdUpdateDesc": {
+    "description": "Descripción del comando para actualizar dependencias"
+  },
+  "pubCmdSearchDesc": "在平台上搜索包",
+  "@pubCmdSearchDesc": {
+    "description": "Descripción del comando para buscar paquetes"
+  },
+  "pubCmdInfoDesc": "显示有关包的详细信息",
+  "@pubCmdInfoDesc": {
+    "description": "Descripción del comando para mostrar información de un paquete"
+  },
+  "pubCmdPublishDesc": "发布当前包版本",
+  "@pubCmdPublishDesc": {
+    "description": "Descripción del comando para publicar un paquete"
+  },
+  "pubCmdLogoutDesc": "本地退出",
+  "@pubCmdLogoutDesc": {
+    "description": "Descripción del comando para cerrar sesión"
+  },
+  "pubCmdLoginDesc": "登录平台",
+  "@pubCmdLoginDesc": {
+    "description": "Descripción del comando para iniciar sesión"
+  },
+  "pubEmailPrompt": "电子邮件：",
+  "@pubEmailPrompt": {
+    "description": "Etiqueta o prompt para introducir el correo electrónico"
+  },
+  "pubCmdCacheCleanDesc": "清除全局下载缓存",
+  "@pubCmdCacheCleanDesc": {
+    "description": "Descripción del comando para limpiar la caché"
+  },
+  "pubPasswordPrompt": "密码：",
+  "@pubPasswordPrompt": {
+    "description": "Etiqueta o prompt para introducir la contraseña"
+  },
+  "pubConnectError": "连接到平台时出错：{error}",
+  "@pubConnectError": {
+    "description": "Mensaje de error cuando falla la conexión de red con el registro",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubInvalidCredentials": "凭据不正确或帐户未经验证。",
+  "@pubInvalidCredentials": {
+    "description": "Mensaje de error cuando las credenciales no son válidas"
+  },
+  "pubInvalidToken": "错误：响应不包含有效令牌。",
+  "@pubInvalidToken": {
+    "description": "Mensaje de error si la respuesta del servidor no tiene token"
+  },
+  "pubSaveCredentialsError": "保存凭据时出错：{error}",
+  "@pubSaveCredentialsError": {
+    "description": "Mensaje de error al persistir credenciales de usuario en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubLogoutSuccess": "闭门会议。已删除凭据。",
+  "@pubLogoutSuccess": {
+    "description": "Mensaje de confirmación tras cerrar sesión localmente"
+  },
+  "pubLoginSuccess": "登录成功！已保存凭据。",
+  "@pubLoginSuccess": {
+    "description": "Mensaje de éxito al autenticarse en la plataforma"
+  },
+  "pubSearchError": "搜索包时出错：{error}",
+  "@pubSearchError": {
+    "description": "Mensaje de error cuando falla la búsqueda de paquetes",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNoPackagesFound": "没有找到包裹。",
+  "@pubNoPackagesFound": {
+    "description": "Mensaje cuando una búsqueda no arroja resultados"
+  },
+  "pubPackagesFound": "找到的包：",
+  "@pubPackagesFound": {
+    "description": "Encabezado de la lista de paquetes coincidentes"
+  },
+  "pubPackageDownloads": "下载次数：{downloads} |最后一次操作： {updated}",
+  "@pubPackageDownloads": {
+    "description": "Línea con estadísticas de descargas y última actualización",
+    "placeholders": {
+      "downloads": {},
+      "updated": {}
+    }
+  },
+  "pubGetInfoError": "获取包信息时出错：{error}",
+  "@pubGetInfoError": {
+    "description": "Mensaje de error al consultar información detallada de un paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubPackageNotFound": "包“{name}”不存在。",
+  "@pubPackageNotFound": {
+    "description": "Aviso cuando el paquete solicitado no existe en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageIdentifier": "标识符： {name}",
+  "@pubPackageIdentifier": {
+    "description": "Etiqueta con el identificador único del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageName": "姓名： {name}",
+  "@pubPackageName": {
+    "description": "Etiqueta con el nombre visible del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageDescription": "描述：{description}",
+  "@pubPackageDescription": {
+    "description": "Etiqueta con la descripción del paquete",
+    "placeholders": {
+      "description": {}
+    }
+  },
+  "pubPackageDownloadsCount": "下载次数：{downloads}",
+  "@pubPackageDownloadsCount": {
+    "description": "Etiqueta con el conteo de descargas del paquete",
+    "placeholders": {
+      "downloads": {}
+    }
+  },
+  "pubResolvingPlatform": "正在从 joss.red 解析依赖...",
+  "@pubResolvingPlatform": {
+    "description": "Mensaje al resolver dependencias remotas del registro"
+  },
+  "pubFoundPlatform": "✓ 在 joss.red 上找到包“{name}”",
+  "@pubFoundPlatform": {
+    "description": "Aviso cuando el paquete fue encontrado en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubDownloadingPackageVer": "正在下载 {name} {version}...",
+  "@pubDownloadingPackageVer": {
+    "description": "Mensaje al descargar una versión específica de un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubSearchingPlatform": "在 joss.red 上搜索 {name}...",
+  "@pubSearchingPlatform": {
+    "description": "Mensaje de búsqueda de paquete en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubInstallSuccessPlatform": "✓ {name} {version} 已从 joss.red 成功安装",
+  "@pubInstallSuccessPlatform": {
+    "description": "Mensaje de éxito tras instalar un paquete desde el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubInstallSuccessGit": "✓ 从 {repo} 成功安装 {name}（最新）",
+  "@pubInstallSuccessGit": {
+    "description": "Mensaje de éxito al instalar última versión desde Git",
+    "placeholders": {
+      "name": {},
+      "repo": {}
+    }
+  },
+  "pubSyncingFromRepo": "正在从链接存储库同步 ({repo})...",
+  "@pubSyncingFromRepo": {
+    "description": "Aviso de sincronización desde el repositorio Git vinculado",
+    "placeholders": {
+      "repo": {}
+    }
+  },
+  "pubSearchingGitRepo": "正在搜索 Git 存储库...",
+  "@pubSearchingGitRepo": {
+    "description": "Mensaje al buscar el paquete directamente en Git"
+  },
+  "pubInstallFailedAll": "错误：无法从 joss.red 或 Git 存储库安装“{name}”。",
+  "@pubInstallFailedAll": {
+    "description": "Error crítico cuando fallan todas las fuentes de instalación",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovingPackage": "正在删除 {name}...",
+  "@pubRemovingPackage": {
+    "description": "Aviso de inicio de eliminación de un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovedSuccess": "✓ {name} 已删除",
+  "@pubRemovedSuccess": {
+    "description": "Mensaje de confirmación tras eliminar un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemoveLocalFolderWarning": "警告：无法删除本地文件夹：{error}",
+  "@pubRemoveLocalFolderWarning": {
+    "description": "Advertencia si no se puede borrar la carpeta del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubManifestNotFound": "错误：在此目录中找不到“joss.yaml”。",
+  "@pubManifestNotFound": {
+    "description": "Error cuando el manifiesto del proyecto no existe"
+  },
+  "pubNoDependenciesDeclared": "joss.yaml 中没有声明依赖项。",
+  "@pubNoDependenciesDeclared": {
+    "description": "Aviso informativo cuando no hay dependencias en el proyecto"
+  },
+  "pubManifestReadError": "读取 joss.yaml 时出错：{error}",
+  "@pubManifestReadError": {
+    "description": "Error al leer el archivo manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubUsingCachedPackage": "使用缓存的包...",
+  "@pubUsingCachedPackage": {
+    "description": "Aviso cuando se reutiliza una descarga previa en caché"
+  },
+  "pubResolvePackageError": "解析“{name}”时出错：{error}",
+  "@pubResolvePackageError": {
+    "description": "Error al calcular la versión de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubResolvingDependencies": "解决依赖关系...",
+  "@pubResolvingDependencies": {
+    "description": "Mensaje al iniciar la resolución de dependencias"
+  },
+  "pubInstallPackageError": "安装“{name}”时出错：{error}",
+  "@pubInstallPackageError": {
+    "description": "Error durante la instalación física de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubPackageOfflineError": "错误：软件包“{name} {version}”未安装且离线模式处于活动状态。",
+  "@pubPackageOfflineError": {
+    "description": "Error si falta un paquete y se especificó modo sin conexión",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubResolveTransitiveError": "解析传递依赖项时出错：{error}",
+  "@pubResolveTransitiveError": {
+    "description": "Error al resolver subdependencias del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubMustLoginToPublish": "错误：您必须先登录才能发帖。",
+  "@pubMustLoginToPublish": {
+    "description": "Error cuando el usuario intenta publicar sin haberse autenticado"
+  },
+  "pubCheckingUpdates": "正在检查软件包更新...",
+  "@pubCheckingUpdates": {
+    "description": "Mensaje al consultar nuevas versiones disponibles"
+  },
+  "pubDependenciesInstalledSuccess": "✓ 依赖项已正确安装。",
+  "@pubDependenciesInstalledSuccess": {
+    "description": "Mensaje de éxito tras completar la instalación de dependencias"
+  },
+  "pubManifestMissingRequiredFields": "错误：joss.yaml 必须至少包含：name, version, repository",
+  "@pubManifestMissingRequiredFields": {
+    "description": "Error si el manifiesto carece de metadatos mínimos para publicación"
+  },
+  "pubPreparingPublish": "正在准备发布 {name} v{version}...",
+  "@pubPreparingPublish": {
+    "description": "Aviso previo a publicar el paquete en el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubPromptReleaseUrl": "输入 GitHub 上 zip 版本的直接下载 URL：",
+  "@pubPromptReleaseUrl": {
+    "description": "Solicitud interactiva de la URL del release zip"
+  },
+  "pubPromptReleaseSha": "输入 zip 版本的 SHA-256 哈希值：",
+  "@pubPromptReleaseSha": {
+    "description": "Solicitud interactiva del hash SHA-256 del artefacto"
+  },
+  "pubArtifactVerifyError": "验证签名工件时出错：{error}",
+  "@pubArtifactVerifyError": {
+    "description": "Error al verificar la firma criptográfica del artefacto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNetworkError": "网络错误：{error}",
+  "@pubNetworkError": {
+    "description": "Error genérico de red al comunicarse con el servidor",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubSignatureVerified": "已验证的 JP 签名：{key}",
+  "@pubSignatureVerified": {
+    "description": "Aviso de verificación criptográfica exitosa del paquete",
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "pubPublishedSuccess": "恭喜！ {name} v{version} 在 Joss Pub 成功发布。",
+  "@pubPublishedSuccess": {
+    "description": "Mensaje de felicitación y éxito al publicar un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubCacheIsEmpty": "下载缓存为空。",
+  "@pubCacheIsEmpty": {
+    "description": "Aviso cuando no hay archivos temporales en la caché"
+  },
+  "pubCacheEmptied": "全局下载缓存已清除。",
+  "@pubCacheEmptied": {
+    "description": "Confirmación tras vaciar la caché de descargas"
+  },
+  "pubPublishFailedHttp": "发布包时出错 (HTTP {code}): {error}",
+  "@pubPublishFailedHttp": {
+    "description": "Error devuelto por la API del registro al intentar publicar",
+    "placeholders": {
+      "code": {},
+      "error": {}
+    }
+  },
+  "pubCacheFilesList": "缓存文件：",
+  "@pubCacheFilesList": {
+    "description": "Encabezado del listado de archivos en la caché"
+  },
+  "pubCacheVerifyingIntegrity": "正在验证缓存完整性...",
+  "@pubCacheVerifyingIntegrity": {
+    "description": "Aviso durante la verificación de sumas de comprobación de la caché"
+  },
+  "pubCacheVerified": "已验证缓存。",
+  "@pubCacheVerified": {
+    "description": "Confirmación de verificación exitosa de la caché"
+  },
+  "pluginUsageTitle": "Joss 插件命令的使用:",
+  "@pluginUsageTitle": {
+    "description": "Encabezado de ayuda para los comandos de plugins"
+  },
+  "pluginCompileError": "插件编译期间出错：{error}",
+  "@pluginCompileError": {
+    "description": "Mensaje de error en caso de fallo durante la compilación",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginSpecifySourceError": "错误：指定要编译的源目录或文件。",
+  "@pluginSpecifySourceError": {
+    "description": "Error cuando falta la ruta del código fuente a compilar"
+  },
+  "pluginGenerated": "生成的插件：{path}",
+  "@pluginGenerated": {
+    "description": "Ruta donde se generó el artefacto del plugin",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pluginPackageSize": "包大小：{size} KB",
+  "@pluginPackageSize": {
+    "description": "Tamaño en kilobytes del paquete de plugin generado",
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "pluginCompileSuccess": "✓ 构建成功！",
+  "@pluginCompileSuccess": {
+    "description": "Mensaje de éxito tras compilar un plugin"
+  },
+  "pluginCompiling": "[Joss 插件编译器] 编译 {path}（语言：{lang}）...",
+  "@pluginCompiling": {
+    "description": "Aviso de inicio de compilación de un plugin",
+    "placeholders": {
+      "path": {},
+      "lang": {}
+    }
+  },
+  "pluginTreeShaking": "Tree Shaking：保留 {retained} 函数（删除 {removed}）",
+  "@pluginTreeShaking": {
+    "description": "Métricas de optimización tree-shaking de funciones",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginStructuresRetained": "保留的结构：{retained}（{removed} 已删除）",
+  "@pluginStructuresRetained": {
+    "description": "Métricas de optimización de estructuras y tipos",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginInspectSpecifyError": "错误：指定要检查的 .jp 文件。",
+  "@pluginInspectSpecifyError": {
+    "description": "Error cuando no se indica el archivo JP a inspeccionar"
+  },
+  "pluginOpenError": "打开 {path} 时出错：{error}",
+  "@pluginOpenError": {
+    "description": "Error al intentar abrir el archivo de plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginDecodeError": "解码 {path} 时出错： {error}",
+  "@pluginDecodeError": {
+    "description": "Error al decodificar el formato binario del plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginInspectVersion": "版本：{version}",
+  "@pluginInspectVersion": {
+    "description": "Etiqueta con la versión del plugin inspeccionado",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginInspectTitle": "插件：{name}",
+  "@pluginInspectTitle": {
+    "description": "Etiqueta con el nombre del plugin inspeccionado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginSignatureVerifiedStatus": "签名： {algo} ({key}) 已验证",
+  "@pluginSignatureVerifiedStatus": {
+    "description": "Detalles de verificación de firma del paquete",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginBytecodeTarget": "字节码目标：JPBC（Joss插件字节码）",
+  "@pluginBytecodeTarget": {
+    "description": "Información sobre el formato de bytecode destino"
+  },
+  "pluginPermissionsNone": "（没有任何）",
+  "@pluginPermissionsNone": {
+    "description": "Texto mostrado cuando el plugin no solicita permisos especiales"
+  },
+  "pluginDeclaredClasses": "声明的类：",
+  "@pluginDeclaredClasses": {
+    "description": "Encabezado de clases provistas por el plugin"
+  },
+  "pluginExportedFunctions": "导出函数：",
+  "@pluginExportedFunctions": {
+    "description": "Encabezado del listado de funciones públicas del plugin"
+  },
+  "pluginDeclaredPermissions": "声明的权限：",
+  "@pluginDeclaredPermissions": {
+    "description": "Encabezado de permisos requeridos por el plugin"
+  },
+  "pluginSignatureValid": "状态：签名 Ed25519 有效且已验证 ✅",
+  "@pluginSignatureValid": {
+    "description": "Confirmación de firma digital válida y auténtica"
+  },
+  "pluginVerifySpecifyError": "错误：指定要验证的 .jp 文件。",
+  "@pluginVerifySpecifyError": {
+    "description": "Error cuando no se provee el archivo JP a verificar"
+  },
+  "pluginVerificationError": "“{path}”处的验证错误：{error}",
+  "@pluginVerificationError": {
+    "description": "Error de verificación criptográfica de firma",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginSignatureAlgorithm": "算法：{algo} ({key})",
+  "@pluginSignatureAlgorithm": {
+    "description": "Algoritmo y clave pública de la firma digital",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginNoProtectedCommands": "该插件不会公开受保护的或附加的 CLI 命令。",
+  "@pluginNoProtectedCommands": {
+    "description": "Aviso si el plugin no tiene comandos de consola asociados"
+  },
+  "pluginNotFound": "错误：未找到名为“{name}”的插件。",
+  "@pluginNotFound": {
+    "description": "Aviso cuando el plugin solicitado no está registrado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginAvailableTitle": "Joss 中可用的插件命令：",
+  "@pluginAvailableTitle": {
+    "description": "Título principal del catálogo de plugins de Joss"
+  },
+  "pluginProvidedCommands": "提供的命令：",
+  "@pluginProvidedCommands": {
+    "description": "Encabezado de comandos de consola provistos por un plugin"
+  },
+  "pluginNoDirectCli": "（不声明直接 CLI 命令）",
+  "@pluginNoDirectCli": {
+    "description": "Nota cuando un plugin en la lista no añade comandos directos"
   }
 }

@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/jossecurity/joss/pkg/i18n"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,69 +25,24 @@ type PluginManifestInfo struct {
 	Version     string                       `yaml:"version" json:"version"`
 	Description string                       `yaml:"description" json:"description"`
 	Repository  string                       `yaml:"repository" json:"repository"`
+	Dir         string                       `yaml:"-" json:"-"`
 	Commands    map[string]PluginCommandInfo `yaml:"commands" json:"commands"`
-}
-
-// Default standard commands for official Joss plugins when not explicitly overridden
-var defaultOfficialPluginCommands = map[string]map[string]PluginCommandInfo{
-	"joss_ai": {
-		"ai:activate": {
-			Name:        "ai:activate",
-			Description: "Configura proveedores y modelos de Inteligencia Artificial (Groq, OpenAI, Gemini)",
-			Usage:       "joss ai:activate",
-			Protected:   true,
-		},
-	},
-	"joss_brevo": {
-		"brevo:config": {
-			Name:        "brevo:config",
-			Description: "Configura credenciales API y remitente para envíos de correo vía Brevo",
-			Usage:       "joss brevo:config [--enable|--disable] [--api-key=CLAVE]",
-			Protected:   true,
-		},
-	},
-	"joss_backup": {
-		"backup:create": {
-			Name:        "backup:create",
-			Description: "Genera una copia de seguridad comprimida de la base de datos y archivos",
-			Usage:       "joss backup:create [directorio_destino]",
-			Protected:   false,
-		},
-		"backup:restore": {
-			Name:        "backup:restore",
-			Description: "Restaura la base de datos y archivos desde un respaldo previo",
-			Usage:       "joss backup:restore <archivo.zip>",
-			Protected:   true,
-		},
-	},
-	"joss_bg_remover": {
-		"bg:remove": {
-			Name:        "bg:remove",
-			Description: "Elimina el fondo de una imagen y genera un PNG transparente",
-			Usage:       "joss bg:remove <archivo_origen> [archivo_destino]",
-			Protected:   false,
-		},
-	},
-	"joss_notify": {
-		"notify:send": {
-			Name:        "notify:send",
-			Description: "Envía una notificación de prueba o alerta a un canal específico",
-			Usage:       "joss notify:send <canal> <mensaje>",
-			Protected:   true,
-		},
-	},
 }
 
 // discoverPlugins scans local folders, examples, and joss.yaml to find all available plugins
 func discoverPlugins() map[string]PluginManifestInfo {
 	plugins := make(map[string]PluginManifestInfo)
 
-	// 1. Search in local plugins/ directory
+	// 1. Search in local plugins/ directory and example plugin directories
 	searchPluginDirs := []string{
 		"plugins",
+		filepath.Join("..", "plugins"),
+		filepath.Join("..", "..", "plugins"),
 		filepath.Join("ejemplos", "plugins"),
 		filepath.Join("..", "ejemplos", "plugins"),
+		filepath.Join("..", "..", "ejemplos", "plugins"),
 	}
+
 
 	for _, baseDir := range searchPluginDirs {
 		entries, err := os.ReadDir(baseDir)
@@ -103,12 +60,8 @@ func discoverPlugins() map[string]PluginManifestInfo {
 							Name:        pName,
 							Version:     "latest",
 							Description: fmt.Sprintf("Paquete compilado .jp de %s", pName),
+							Dir:         baseDir,
 							Commands:    make(map[string]PluginCommandInfo),
-						}
-						if defs, ok := defaultOfficialPluginCommands[pName]; ok {
-							for k, v := range defs {
-								manifest.Commands[k] = v
-							}
 						}
 						plugins[pName] = manifest
 					}
@@ -123,37 +76,14 @@ func discoverPlugins() map[string]PluginManifestInfo {
 				if err == nil {
 					var manifest PluginManifestInfo
 					if err := yaml.Unmarshal(data, &manifest); err == nil && manifest.Name != "" {
+						manifest.Dir = pluginDir
 						if manifest.Commands == nil {
 							manifest.Commands = make(map[string]PluginCommandInfo)
-						}
-						// Merge defaults if any
-						if defs, ok := defaultOfficialPluginCommands[manifest.Name]; ok {
-							for k, v := range defs {
-								if _, exists := manifest.Commands[k]; !exists {
-									manifest.Commands[k] = v
-								}
-							}
 						}
 						plugins[manifest.Name] = manifest
 					}
 				}
 			}
-		}
-	}
-
-	// 2. Ensure official plugins exist even if scanning in clean subfolder
-	for pName, defCmds := range defaultOfficialPluginCommands {
-		if _, ok := plugins[pName]; !ok {
-			manifest := PluginManifestInfo{
-				Name:        pName,
-				Version:     "oficial",
-				Description: fmt.Sprintf("Plugin oficial %s", pName),
-				Commands:    make(map[string]PluginCommandInfo),
-			}
-			for k, v := range defCmds {
-				manifest.Commands[k] = v
-			}
-			plugins[pName] = manifest
 		}
 	}
 
@@ -175,7 +105,7 @@ func handlePluginHelp(pluginName string) {
 		}
 
 		if !found {
-			fmt.Printf("Error: No se encontró ningún plugin con el nombre '%s'.\n", pluginName)
+			fmt.Println(i18n.Tr("pluginNotFound", i18n.M{"name": pluginName}))
 			fmt.Println("Usa 'joss help plugins' para ver la lista de plugins disponibles.")
 			return
 		}
@@ -190,11 +120,11 @@ func handlePluginHelp(pluginName string) {
 		fmt.Println()
 
 		if len(manifest.Commands) == 0 {
-			fmt.Println("Este plugin no expone comandos CLI protegidos o adicionales.")
+			fmt.Println(i18n.Tr("pluginNoProtectedCommands"))
 			return
 		}
 
-		fmt.Println("Comandos provistos:")
+		fmt.Println(i18n.Tr("pluginProvidedCommands"))
 		// Sort commands
 		cmdNames := make([]string, 0, len(manifest.Commands))
 		for cName := range manifest.Commands {
@@ -221,7 +151,7 @@ func handlePluginHelp(pluginName string) {
 	}
 
 	// Print all plugins
-	fmt.Println("Comandos de Plugins Disponibles en Joss:")
+	fmt.Println(i18n.Tr("pluginAvailableTitle"))
 	fmt.Println()
 
 	pluginNames := make([]string, 0, len(allPlugins))
@@ -239,7 +169,7 @@ func handlePluginHelp(pluginName string) {
 		fmt.Printf("[%s] v%s — %s\n", manifest.Name, manifest.Version, desc)
 
 		if len(manifest.Commands) == 0 {
-			fmt.Println("  (No declara comandos CLI directos)")
+			fmt.Println("  " + i18n.Tr("pluginNoDirectCli"))
 		} else {
 			cmdNames := make([]string, 0, len(manifest.Commands))
 			for cName := range manifest.Commands {
@@ -264,46 +194,55 @@ func handlePluginHelp(pluginName string) {
 
 // tryDispatchPluginCommand executes recognized plugin commands
 func tryDispatchPluginCommand(command string, args []string) bool {
-	switch command {
-	case "ai:activate":
-		activateAI()
-		return true
-	case "brevo:config":
-		handleBrevoConfig()
-		return true
-	case "backup:create":
-		fmt.Println("📦 [joss_backup] Iniciando generación de respaldo completo del proyecto...")
-		dest := "backups"
-		if len(args) > 0 {
-			dest = args[0]
+	plugins := discoverPlugins()
+	for _, p := range plugins {
+		cmd, ok := p.Commands[command]
+		if !ok {
+			continue
 		}
-		fmt.Printf("✓ Respaldo de base de datos y assets creado satisfactoriamente en '%s'.\n", dest)
-		return true
-	case "backup:restore":
-		if len(args) == 0 {
-			fmt.Println("Uso: joss backup:restore <archivo.zip>")
-			return true
+
+		if cmd.Handler != "" && p.Dir != "" {
+			handlerPath := filepath.Join(p.Dir, cmd.Handler)
+			if strings.HasSuffix(handlerPath, ".joss") && fileExists(handlerPath) {
+				executeScript(handlerPath)
+				return true
+			}
+			if strings.HasSuffix(handlerPath, ".go") && fileExists(handlerPath) {
+				cmdArgs := append([]string{"run", handlerPath}, args...)
+				c := exec.Command("go", cmdArgs...)
+				c.Stdout = os.Stdout
+				c.Stderr = os.Stderr
+				c.Stdin = os.Stdin
+				if err := c.Run(); err != nil {
+					fmt.Printf("Error al ejecutar comando '%s': %v\n", command, err)
+				}
+				return true
+			}
+			if fileExists(handlerPath) {
+				c := exec.Command(handlerPath, args...)
+				c.Stdout = os.Stdout
+				c.Stderr = os.Stderr
+				c.Stdin = os.Stdin
+				if err := c.Run(); err != nil {
+					fmt.Printf("Error al ejecutar comando '%s': %v\n", command, err)
+				}
+				return true
+			}
 		}
-		fmt.Printf("🔄 [joss_backup] [Protegido] Restaurando sistema desde '%s'...\n", args[0])
-		fmt.Println("✓ Restauración completada exitosamente.")
-		return true
-	case "bg:remove":
-		if len(args) == 0 {
-			fmt.Println("Uso: joss bg:remove <input.jpg> [output.png]")
-			return true
+
+		fmt.Printf("Comando '%s' provisto por el plugin '%s'.\n", command, p.Name)
+		if cmd.Description != "" {
+			fmt.Printf("  Descripción: %s\n", cmd.Description)
 		}
-		fmt.Printf("🎨 [joss_bg_remover] Procesando eliminación de fondo para '%s'...\n", args[0])
-		fmt.Println("✓ Imagen procesada exitosamente.")
-		return true
-	case "notify:send":
-		if len(args) < 2 {
-			fmt.Println("Uso: joss notify:send <canal> <mensaje>")
-			return true
+		if cmd.Usage != "" {
+			fmt.Printf("  Uso:         %s\n", cmd.Usage)
 		}
-		fmt.Printf("🔔 [joss_notify] [Protegido] Enviando notificación al canal '%s'...\n", args[0])
-		fmt.Println("✓ Notificación despachada con éxito.")
 		return true
-	default:
-		return false
 	}
+	return false
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }

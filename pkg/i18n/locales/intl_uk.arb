@@ -904,5 +904,843 @@
   "seedersNotFound": "Немає сівалок у app/database/seeders/",
   "@seedersNotFound": {
     "description": "Mensaje cuando el directorio de seeders está vacío"
+  },
+  "dbErrConnectingDest": "Помилка підключення до призначення ({dest}): {err}",
+  "@dbErrConnectingDest": {
+    "description": "Mensaje de error al conectar con la base de datos de destino",
+    "placeholders": {
+      "dest": {},
+      "err": {}
+    }
+  },
+  "dbErrConnectingSource": "Помилка підключення до джерела ({source}): {err}",
+  "@dbErrConnectingSource": {
+    "description": "Mensaje de error al conectar con la base de datos de origen",
+    "placeholders": {
+      "source": {},
+      "err": {}
+    }
+  },
+  "dbChangingEngine": "Зміна механізму бази даних на: {target}",
+  "@dbChangingEngine": {
+    "description": "Mensaje informativo al iniciar el cambio de motor de base de datos",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbAlreadyEngine": "Механізм бази даних уже {target}",
+  "@dbAlreadyEngine": {
+    "description": "Mensaje cuando el motor solicitado ya está activo",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbPreparingDestSchema": "Підготовка схеми в цільовій базі даних...",
+  "@dbPreparingDestSchema": {
+    "description": "Mensaje informativo al preparar tablas y esquema destino"
+  },
+  "dbStartingDataMigration": "Початок міграції даних...",
+  "@dbStartingDataMigration": {
+    "description": "Mensaje informativo al iniciar la copia de datos entre tablas"
+  },
+  "dbMigrationCompleted": "✨ Перенесення даних успішно завершено. {file} файл оновлено та створено резервну копію.",
+  "@dbMigrationCompleted": {
+    "description": "Mensaje de éxito al completar la migración entre bases de datos",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "dbMigratingBetweenConfigured": "Перенесення даних між налаштованими механізмами баз даних...",
+  "@dbMigratingBetweenConfigured": {
+    "description": "Mensaje inicial del comando change db migrate"
+  },
+  "dbOrigin": "Походження",
+  "@dbOrigin": {
+    "description": "Etiqueta para indicar el motor o servidor de origen"
+  },
+  "dbDestination": "Пункт призначення",
+  "@dbDestination": {
+    "description": "Etiqueta para indicar el motor o servidor de destino"
+  },
+  "dbMigratingTable": "Таблиця міграції: {table}...",
+  "@dbMigratingTable": {
+    "description": "Mensaje de progreso al migrar una tabla individual",
+    "placeholders": {
+      "table": {}
+    }
+  },
+  "dbMigratedRows": "({count} рядків)",
+  "@dbMigratedRows": {
+    "description": "Cantidad de filas migradas en una tabla",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dbTableDone": "Заповнений.",
+  "@dbTableDone": {
+    "description": "Indicador de fin de migración de una tabla"
+  },
+  "dbPrefixUpdated": "Префікс бази даних оновлено до: \"{prefix}\"",
+  "@dbPrefixUpdated": {
+    "description": "Mensaje al actualizar el prefijo de tablas",
+    "placeholders": {
+      "prefix": {}
+    }
+  },
+  "dbPrefixEmpty": "Помилка: префікс не може бути порожнім.",
+  "@dbPrefixEmpty": {
+    "description": "Mensaje de error cuando se pasa un prefijo vacío"
+  },
+  "storageConfiguring": "Налаштування сховища для постачальника: {provider}",
+  "@storageConfiguring": {
+    "description": "Mensaje al iniciar configuración de almacenamiento",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageNotSupported": "Постачальник \"{provider}\" ще не підтримується.",
+  "@storageNotSupported": {
+    "description": "Mensaje de proveedor no disponible",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageUnknownProvider": "Невідомий постачальник: {provider}",
+  "@storageUnknownProvider": {
+    "description": "Mensaje de proveedor no reconocido",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storagePromptDownloadOci": "Бажаєте завантажити файли з OCI на локальний?",
+  "@storagePromptDownloadOci": {
+    "description": "Pregunta interactiva para descargar archivos desde la nube OCI"
+  },
+  "storageConfiguredLocal": "Для пам’яті встановлено LOCAL.",
+  "@storageConfiguredLocal": {
+    "description": "Confirmación de configuración a almacenamiento local"
+  },
+  "storageOciTitle": "---Налаштувати Oracle Cloud Infrastructure (OCI) ---",
+  "@storageOciTitle": {
+    "description": "Título del asistente de configuración OCI"
+  },
+  "storageOciSaved": "Конфігурацію OCI збережено.",
+  "@storageOciSaved": {
+    "description": "Confirmación de guardado de credenciales OCI"
+  },
+  "storagePromptUploadOci": "Ви бажаєте завантажити існуючі локальні файли в OCI?",
+  "@storagePromptUploadOci": {
+    "description": "Pregunta interactiva para subir archivos locales a la nube OCI"
+  },
+  "storageStartingMigrationOci": "Початок міграції до OCI...",
+  "@storageStartingMigrationOci": {
+    "description": "Mensaje inicial al subir almacenamiento a OCI"
+  },
+  "storageUploading": "Завантаження: {source} -> {dest}",
+  "@storageUploading": {
+    "description": "Progreso al subir un archivo individual a la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageMigrationOciCompleted": "Перехід до OCI завершено.",
+  "@storageMigrationOciCompleted": {
+    "description": "Confirmación de fin de subida de archivos a OCI"
+  },
+  "storageStartingDownloadOci": "Початок завантаження з OCI...",
+  "@storageStartingDownloadOci": {
+    "description": "Mensaje inicial al descargar archivos desde OCI"
+  },
+  "storageDownloading": "Завантаження: {source} -> {dest}",
+  "@storageDownloading": {
+    "description": "Progreso al descargar un archivo individual desde la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageDownloadCompleted": "Завантаження завершено.",
+  "@storageDownloadCompleted": {
+    "description": "Confirmación de fin de descarga de archivos desde OCI"
+  },
+  "nativeBuildPackagingAssets": "📦 Пакування та попередня компіляція ресурсів (AOT Bytecode AST)...",
+  "@nativeBuildPackagingAssets": {
+    "description": "Mensaje informativo durante la fase de empaquetado de assets"
+  },
+  "nativeBuildSuccessTitle": "✨ УСПІШНОЇ НАТИВНОЇ КОМПІЛЯЦІЇ!",
+  "@nativeBuildSuccessTitle": {
+    "description": "Título de éxito al finalizar la compilación nativa"
+  },
+  "nativeBuildCompilingRunner": "🔨 Компіляція нативного виконуваного файлу за допомогою інструментарію Go...",
+  "@nativeBuildCompilingRunner": {
+    "description": "Mensaje informativo al compilar el binario nativo"
+  },
+  "nativeBuildMissingGo": "Помилка: Інструмент \"go\", встановлений у системі, не знайдено.",
+  "@nativeBuildMissingGo": {
+    "description": "Error cuando el compilador Go no está instalado en PATH"
+  },
+  "nativeBuildTarget": "Пункт призначення",
+  "@nativeBuildTarget": {
+    "description": "Etiqueta para el sistema operativo y arquitectura destino"
+  },
+  "nativeBuildMode": "Режим",
+  "@nativeBuildMode": {
+    "description": "Etiqueta para el modo de compilación (consola o GUI)"
+  },
+  "nativeBuildOutputFile": "Вихідний файл",
+  "@nativeBuildOutputFile": {
+    "description": "Etiqueta para la ruta del binario compilado"
+  },
+  "nativeBuildBinarySize": "Двійковий розмір",
+  "@nativeBuildBinarySize": {
+    "description": "Etiqueta para el tamaño del binario resultante"
+  },
+  "nativeBuildInstructions": "Інструкції: скопіюйте '{path}' на будь-який комп'ютер за допомогою {os} і запустіть його безпосередньо.",
+  "@nativeBuildInstructions": {
+    "description": "Instrucciones finales para el usuario tras compilar un binario nativo",
+    "placeholders": {
+      "path": {},
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedOS": "Помилка: операційна система '{os}' не підтримується. Варіанти: windows, linux, darwin.",
+  "@nativeBuildUnsupportedOS": {
+    "description": "Mensaje de error cuando el sistema operativo destino es inválido",
+    "placeholders": {
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedArch": "Помилка: архітектура '{arch}' не підтримується для {os}. Варіанти: {options}",
+  "@nativeBuildUnsupportedArch": {
+    "description": "Mensaje de error cuando la arquitectura destino es inválida",
+    "placeholders": {
+      "arch": {},
+      "os": {},
+      "options": {}
+    }
+  },
+  "updaterNewVersionTitle": "Доступна нова версія!",
+  "@updaterNewVersionTitle": {
+    "description": "Aviso cuando hay una versión más reciente de Joss"
+  },
+  "updaterRunHint": "Запустіть «joss update --{channel}», щоб автоматично оновити середовище виконання, SDK і розширення.",
+  "@updaterRunHint": {
+    "description": "Sugerencia del comando de actualización a ejecutar",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterTitle": "🔄 ОНОВЛЕННЯ JOSS",
+  "@updaterTitle": {
+    "description": "Título del asistente de actualización de Joss"
+  },
+  "updaterCurrentVersion": "Поточна версія",
+  "@updaterCurrentVersion": {
+    "description": "Etiqueta de la versión actualmente instalada"
+  },
+  "updaterSelectedChannel": "Обраний канал",
+  "@updaterSelectedChannel": {
+    "description": "Etiqueta del canal de actualización seleccionado"
+  },
+  "updaterForcedMode": "Примусовий режим",
+  "@updaterForcedMode": {
+    "description": "Etiqueta de estado del modo forzado"
+  },
+  "updaterCheckingGitHub": "🌐 Консультації щодо GitHub Releases API...",
+  "@updaterCheckingGitHub": {
+    "description": "Mensaje al buscar actualizaciones en el repositorio remoto"
+  },
+  "updaterNoReleasesFound": "На GitHub не знайдено публічних випусків Joss.",
+  "@updaterNoReleasesFound": {
+    "description": "Aviso si no hay versiones publicadas en el repositorio"
+  },
+  "updaterNoReleaseForChannel": "Немає доступних випусків для каналу \"{channel}\".",
+  "@updaterNoReleaseForChannel": {
+    "description": "Aviso cuando no hay release para el canal solicitado",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterAlreadyUpdated": "✨ Joss уже оновлено у версії v{version} для каналу {channel}.",
+  "@updaterAlreadyUpdated": {
+    "description": "Mensaje cuando Joss ya está al día",
+    "placeholders": {
+      "version": {},
+      "channel": {}
+    }
+  },
+  "updaterForcedRedownload": "⚠️ Повторне завантаження та повторне встановлення випускної версії за допомогою примусового режиму (-f)...",
+  "@updaterForcedRedownload": {
+    "description": "Aviso al ejecutar en modo forzado"
+  },
+  "updaterForceTip": "💡 Порада: використовуйте 'joss update -f', щоб примусово повторно завантажити та встановити двійковий файл.",
+  "@updaterForceTip": {
+    "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
+  },
+  "updaterNoBinariesFound": "Помилка: у цьому випуску немає двійкових файлів, доступних для завантаження.",
+  "@updaterNoBinariesFound": {
+    "description": "Error si el release no tiene archivos binarios asociados"
+  },
+  "updaterDownloading": "⬇️ Завантаження оновлення...",
+  "@updaterDownloading": {
+    "description": "Mensaje de descarga de paquete de actualización"
+  },
+  "updaterNewVersion": "Ремейк",
+  "@updaterNewVersion": {
+    "description": "Etiqueta de la nueva versión instalada"
+  },
+  "updaterApplying": "⚙️ Застосування середовища виконання, SDK і оновлення розширення...",
+  "@updaterApplying": {
+    "description": "Mensaje de progreso al reemplazar el binario de Joss"
+  },
+  "updaterSuccessTitle": "✨ JOSS УСПІШНО ОНОВЛЕНО!",
+  "@updaterSuccessTitle": {
+    "description": "Título de éxito al completar la actualización"
+  },
+  "updaterExecutable": "Виконуваний файл",
+  "@updaterExecutable": {
+    "description": "Etiqueta de la ruta del ejecutable actualizado"
+  },
+  "pubCmdAddDesc": "Додати пакет до проекту",
+  "@pubCmdAddDesc": {
+    "description": "Descripción del comando para añadir un paquete"
+  },
+  "pubManagerTitle": "Менеджер пакетів Joss (Joss Pub)",
+  "@pubManagerTitle": {
+    "description": "Título principal de la ayuda del gestor de paquetes Joss"
+  },
+  "pubCmdRemoveDesc": "Видалити пакет з проєкту",
+  "@pubCmdRemoveDesc": {
+    "description": "Descripción del comando para eliminar un paquete"
+  },
+  "pubCommandsLabel": "команди:",
+  "@pubCommandsLabel": {
+    "description": "Etiqueta para la sección de comandos disponibles"
+  },
+  "pubCmdInstallDesc": "Встановіть оголошені залежності",
+  "@pubCmdInstallDesc": {
+    "description": "Descripción del comando para instalar dependencias"
+  },
+  "pubCmdUpdateDesc": "Оновіть залежності до останнього підтримуваного діапазону",
+  "@pubCmdUpdateDesc": {
+    "description": "Descripción del comando para actualizar dependencias"
+  },
+  "pubCmdSearchDesc": "Шукайте пакети на платформі",
+  "@pubCmdSearchDesc": {
+    "description": "Descripción del comando para buscar paquetes"
+  },
+  "pubCmdInfoDesc": "Показує детальну інформацію про пакет",
+  "@pubCmdInfoDesc": {
+    "description": "Descripción del comando para mostrar información de un paquete"
+  },
+  "pubCmdPublishDesc": "Опублікувати поточну версію пакета",
+  "@pubCmdPublishDesc": {
+    "description": "Descripción del comando para publicar un paquete"
+  },
+  "pubCmdLogoutDesc": "Вийти локально",
+  "@pubCmdLogoutDesc": {
+    "description": "Descripción del comando para cerrar sesión"
+  },
+  "pubCmdLoginDesc": "Увійдіть на платформу",
+  "@pubCmdLoginDesc": {
+    "description": "Descripción del comando para iniciar sesión"
+  },
+  "pubEmailPrompt": "Електронна пошта:",
+  "@pubEmailPrompt": {
+    "description": "Etiqueta o prompt para introducir el correo electrónico"
+  },
+  "pubCmdCacheCleanDesc": "Очистіть глобальний кеш завантажень",
+  "@pubCmdCacheCleanDesc": {
+    "description": "Descripción del comando para limpiar la caché"
+  },
+  "pubPasswordPrompt": "Пароль:",
+  "@pubPasswordPrompt": {
+    "description": "Etiqueta o prompt para introducir la contraseña"
+  },
+  "pubConnectError": "Помилка підключення до платформи: {error}",
+  "@pubConnectError": {
+    "description": "Mensaje de error cuando falla la conexión de red con el registro",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubInvalidCredentials": "Неправильні облікові дані або неперевірений обліковий запис.",
+  "@pubInvalidCredentials": {
+    "description": "Mensaje de error cuando las credenciales no son válidas"
+  },
+  "pubInvalidToken": "Помилка: відповідь не містить дійсний маркер.",
+  "@pubInvalidToken": {
+    "description": "Mensaje de error si la respuesta del servidor no tiene token"
+  },
+  "pubSaveCredentialsError": "Помилка збереження облікових даних: {error}",
+  "@pubSaveCredentialsError": {
+    "description": "Mensaje de error al persistir credenciales de usuario en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubLogoutSuccess": "Закрите засідання. Видалені облікові дані.",
+  "@pubLogoutSuccess": {
+    "description": "Mensaje de confirmación tras cerrar sesión localmente"
+  },
+  "pubLoginSuccess": "Успішного входу! Збережені облікові дані.",
+  "@pubLoginSuccess": {
+    "description": "Mensaje de éxito al autenticarse en la plataforma"
+  },
+  "pubSearchError": "Помилка пошуку пакетів: {error}",
+  "@pubSearchError": {
+    "description": "Mensaje de error cuando falla la búsqueda de paquetes",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNoPackagesFound": "Пакунки не знайдено.",
+  "@pubNoPackagesFound": {
+    "description": "Mensaje cuando una búsqueda no arroja resultados"
+  },
+  "pubPackagesFound": "Знайдені пакети:",
+  "@pubPackagesFound": {
+    "description": "Encabezado de la lista de paquetes coincidentes"
+  },
+  "pubPackageDownloads": "Завантажень: {downloads} | Остання дія: {updated}",
+  "@pubPackageDownloads": {
+    "description": "Línea con estadísticas de descargas y última actualización",
+    "placeholders": {
+      "downloads": {},
+      "updated": {}
+    }
+  },
+  "pubGetInfoError": "Помилка отримання інформації про пакет: {error}",
+  "@pubGetInfoError": {
+    "description": "Mensaje de error al consultar información detallada de un paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubPackageNotFound": "Пакет \"{name}\" не існує.",
+  "@pubPackageNotFound": {
+    "description": "Aviso cuando el paquete solicitado no existe en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageIdentifier": "Ідентифікатор: {name}",
+  "@pubPackageIdentifier": {
+    "description": "Etiqueta con el identificador único del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageName": "Ім'я: {name}",
+  "@pubPackageName": {
+    "description": "Etiqueta con el nombre visible del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageDescription": "Опис: {description}",
+  "@pubPackageDescription": {
+    "description": "Etiqueta con la descripción del paquete",
+    "placeholders": {
+      "description": {}
+    }
+  },
+  "pubPackageDownloadsCount": "Завантажень: {downloads}",
+  "@pubPackageDownloadsCount": {
+    "description": "Etiqueta con el conteo de descargas del paquete",
+    "placeholders": {
+      "downloads": {}
+    }
+  },
+  "pubResolvingPlatform": "Вирішення залежностей з joss.red...",
+  "@pubResolvingPlatform": {
+    "description": "Mensaje al resolver dependencias remotas del registro"
+  },
+  "pubFoundPlatform": "✓ Пакет \"{name}\" знайдено на joss.red",
+  "@pubFoundPlatform": {
+    "description": "Aviso cuando el paquete fue encontrado en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubDownloadingPackageVer": "Завантаження {name} {version}...",
+  "@pubDownloadingPackageVer": {
+    "description": "Mensaje al descargar una versión específica de un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubSearchingPlatform": "Пошук {name} на joss.red...",
+  "@pubSearchingPlatform": {
+    "description": "Mensaje de búsqueda de paquete en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubInstallSuccessPlatform": "✓ {name} {version} успішно встановлено з joss.red",
+  "@pubInstallSuccessPlatform": {
+    "description": "Mensaje de éxito tras instalar un paquete desde el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubInstallSuccessGit": "✓ {name} (останній) успішно встановлено з {repo}",
+  "@pubInstallSuccessGit": {
+    "description": "Mensaje de éxito al instalar última versión desde Git",
+    "placeholders": {
+      "name": {},
+      "repo": {}
+    }
+  },
+  "pubSyncingFromRepo": "Синхронізація з пов’язаного репозиторію ({repo})...",
+  "@pubSyncingFromRepo": {
+    "description": "Aviso de sincronización desde el repositorio Git vinculado",
+    "placeholders": {
+      "repo": {}
+    }
+  },
+  "pubSearchingGitRepo": "Пошук у сховищі Git...",
+  "@pubSearchingGitRepo": {
+    "description": "Mensaje al buscar el paquete directamente en Git"
+  },
+  "pubInstallFailedAll": "Помилка: не вдалося встановити '{name}' ні з joss.red, ні зі сховища Git.",
+  "@pubInstallFailedAll": {
+    "description": "Error crítico cuando fallan todas las fuentes de instalación",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovingPackage": "Видалення {name}...",
+  "@pubRemovingPackage": {
+    "description": "Aviso de inicio de eliminación de un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovedSuccess": "✓ {name} видалено",
+  "@pubRemovedSuccess": {
+    "description": "Mensaje de confirmación tras eliminar un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemoveLocalFolderWarning": "Попередження: не вдалося видалити локальну папку: {error}",
+  "@pubRemoveLocalFolderWarning": {
+    "description": "Advertencia si no se puede borrar la carpeta del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubManifestNotFound": "Помилка: 'joss.yaml' не знайдено в цьому каталозі.",
+  "@pubManifestNotFound": {
+    "description": "Error cuando el manifiesto del proyecto no existe"
+  },
+  "pubNoDependenciesDeclared": "У joss.yaml не оголошено жодних залежностей.",
+  "@pubNoDependenciesDeclared": {
+    "description": "Aviso informativo cuando no hay dependencias en el proyecto"
+  },
+  "pubManifestReadError": "Помилка читання joss.yaml: {error}",
+  "@pubManifestReadError": {
+    "description": "Error al leer el archivo manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubUsingCachedPackage": "Використання кешованого пакета...",
+  "@pubUsingCachedPackage": {
+    "description": "Aviso cuando se reutiliza una descarga previa en caché"
+  },
+  "pubResolvePackageError": "Вирішення помилки \"{name}\": {error}",
+  "@pubResolvePackageError": {
+    "description": "Error al calcular la versión de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubResolvingDependencies": "Вирішення залежностей...",
+  "@pubResolvingDependencies": {
+    "description": "Mensaje al iniciar la resolución de dependencias"
+  },
+  "pubInstallPackageError": "Помилка встановлення '{name}': {error}",
+  "@pubInstallPackageError": {
+    "description": "Error durante la instalación física de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubPackageOfflineError": "Помилка: Пакет \"{name} {version}\" не встановлено, режим офлайн активний.",
+  "@pubPackageOfflineError": {
+    "description": "Error si falta un paquete y se especificó modo sin conexión",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubResolveTransitiveError": "Помилка вирішення транзитивних залежностей: {error}",
+  "@pubResolveTransitiveError": {
+    "description": "Error al resolver subdependencias del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubMustLoginToPublish": "Помилка: Ви повинні увійти перед публікацією.",
+  "@pubMustLoginToPublish": {
+    "description": "Error cuando el usuario intenta publicar sin haberse autenticado"
+  },
+  "pubCheckingUpdates": "Перевірка оновлень пакетів...",
+  "@pubCheckingUpdates": {
+    "description": "Mensaje al consultar nuevas versiones disponibles"
+  },
+  "pubDependenciesInstalledSuccess": "✓ Залежності встановлено правильно.",
+  "@pubDependenciesInstalledSuccess": {
+    "description": "Mensaje de éxito tras completar la instalación de dependencias"
+  },
+  "pubManifestMissingRequiredFields": "Помилка: joss.yaml має містити принаймні: name, version, repository",
+  "@pubManifestMissingRequiredFields": {
+    "description": "Error si el manifiesto carece de metadatos mínimos para publicación"
+  },
+  "pubPreparingPublish": "Підготовка до публікації {name} v{version}...",
+  "@pubPreparingPublish": {
+    "description": "Aviso previo a publicar el paquete en el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubPromptReleaseUrl": "Введіть URL-адресу для прямого завантаження архіву zip на GitHub:",
+  "@pubPromptReleaseUrl": {
+    "description": "Solicitud interactiva de la URL del release zip"
+  },
+  "pubPromptReleaseSha": "Введіть хеш SHA-256 випуску zip:",
+  "@pubPromptReleaseSha": {
+    "description": "Solicitud interactiva del hash SHA-256 del artefacto"
+  },
+  "pubArtifactVerifyError": "Помилка перевірки підписаного артефакту: {error}",
+  "@pubArtifactVerifyError": {
+    "description": "Error al verificar la firma criptográfica del artefacto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNetworkError": "Помилка мережі: {error}",
+  "@pubNetworkError": {
+    "description": "Error genérico de red al comunicarse con el servidor",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubSignatureVerified": "Перевірений підпис JP: {key}",
+  "@pubSignatureVerified": {
+    "description": "Aviso de verificación criptográfica exitosa del paquete",
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "pubPublishedSuccess": "Щиро вітаю! {name} v{version} успішно опубліковано в Joss Pub.",
+  "@pubPublishedSuccess": {
+    "description": "Mensaje de felicitación y éxito al publicar un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubCacheIsEmpty": "Кеш завантажень порожній.",
+  "@pubCacheIsEmpty": {
+    "description": "Aviso cuando no hay archivos temporales en la caché"
+  },
+  "pubCacheEmptied": "Глобальний кеш завантажень очищено.",
+  "@pubCacheEmptied": {
+    "description": "Confirmación tras vaciar la caché de descargas"
+  },
+  "pubPublishFailedHttp": "Помилка публікації пакета (HTTP {code}): {error}",
+  "@pubPublishFailedHttp": {
+    "description": "Error devuelto por la API del registro al intentar publicar",
+    "placeholders": {
+      "code": {},
+      "error": {}
+    }
+  },
+  "pubCacheFilesList": "Кешовані файли:",
+  "@pubCacheFilesList": {
+    "description": "Encabezado del listado de archivos en la caché"
+  },
+  "pubCacheVerifyingIntegrity": "Перевірка цілісності кешу...",
+  "@pubCacheVerifyingIntegrity": {
+    "description": "Aviso durante la verificación de sumas de comprobación de la caché"
+  },
+  "pubCacheVerified": "Перевірений кеш.",
+  "@pubCacheVerified": {
+    "description": "Confirmación de verificación exitosa de la caché"
+  },
+  "pluginUsageTitle": "Використання команд плагінів Joss:",
+  "@pluginUsageTitle": {
+    "description": "Encabezado de ayuda para los comandos de plugins"
+  },
+  "pluginCompileError": "Помилка під час компіляції плагіна: {error}",
+  "@pluginCompileError": {
+    "description": "Mensaje de error en caso de fallo durante la compilación",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginSpecifySourceError": "Помилка: вкажіть каталог або вихідний файл для компіляції.",
+  "@pluginSpecifySourceError": {
+    "description": "Error cuando falta la ruta del código fuente a compilar"
+  },
+  "pluginGenerated": "Згенерований плагін: {path}",
+  "@pluginGenerated": {
+    "description": "Ruta donde se generó el artefacto del plugin",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pluginPackageSize": "Розмір пакета: {size} КБ",
+  "@pluginPackageSize": {
+    "description": "Tamaño en kilobytes del paquete de plugin generado",
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "pluginCompileSuccess": "✓ Будуйте успішно!",
+  "@pluginCompileSuccess": {
+    "description": "Mensaje de éxito tras compilar un plugin"
+  },
+  "pluginCompiling": "[Компілятор плагінів Joss] Компіляція {path} (мова: {lang})...",
+  "@pluginCompiling": {
+    "description": "Aviso de inicio de compilación de un plugin",
+    "placeholders": {
+      "path": {},
+      "lang": {}
+    }
+  },
+  "pluginTreeShaking": "Tree Shaking: {retained} функцій збережено ({removed} видалено)",
+  "@pluginTreeShaking": {
+    "description": "Métricas de optimización tree-shaking de funciones",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginStructuresRetained": "Збережено структур: {retained} ({removed} видалено)",
+  "@pluginStructuresRetained": {
+    "description": "Métricas de optimización de estructuras y tipos",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginInspectSpecifyError": "Помилка: укажіть файл .jp для перевірки.",
+  "@pluginInspectSpecifyError": {
+    "description": "Error cuando no se indica el archivo JP a inspeccionar"
+  },
+  "pluginOpenError": "Помилка відкриття {path}: {error}",
+  "@pluginOpenError": {
+    "description": "Error al intentar abrir el archivo de plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginDecodeError": "Помилка декодування {path}: {error}",
+  "@pluginDecodeError": {
+    "description": "Error al decodificar el formato binario del plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginInspectVersion": "Версія: {version}",
+  "@pluginInspectVersion": {
+    "description": "Etiqueta con la versión del plugin inspeccionado",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginInspectTitle": "Плагін: {name}",
+  "@pluginInspectTitle": {
+    "description": "Etiqueta con el nombre del plugin inspeccionado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginSignatureVerifiedStatus": "Підпис: {algo} ({key}) перевірено",
+  "@pluginSignatureVerifiedStatus": {
+    "description": "Detalles de verificación de firma del paquete",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginBytecodeTarget": "Мета байт-коду: JPBC (байт-код плагіна Joss)",
+  "@pluginBytecodeTarget": {
+    "description": "Información sobre el formato de bytecode destino"
+  },
+  "pluginPermissionsNone": "(жоден)",
+  "@pluginPermissionsNone": {
+    "description": "Texto mostrado cuando el plugin no solicita permisos especiales"
+  },
+  "pluginDeclaredClasses": "Заявлені класи:",
+  "@pluginDeclaredClasses": {
+    "description": "Encabezado de clases provistas por el plugin"
+  },
+  "pluginExportedFunctions": "Експортовані функції:",
+  "@pluginExportedFunctions": {
+    "description": "Encabezado del listado de funciones públicas del plugin"
+  },
+  "pluginDeclaredPermissions": "Оголошені дозволи:",
+  "@pluginDeclaredPermissions": {
+    "description": "Encabezado de permisos requeridos por el plugin"
+  },
+  "pluginSignatureValid": "Статус: підпис Ed25519 ДІЙСНИЙ і ПЕРЕВІРЕНО ✅",
+  "@pluginSignatureValid": {
+    "description": "Confirmación de firma digital válida y auténtica"
+  },
+  "pluginVerifySpecifyError": "Помилка: укажіть файл .jp для перевірки.",
+  "@pluginVerifySpecifyError": {
+    "description": "Error cuando no se provee el archivo JP a verificar"
+  },
+  "pluginVerificationError": "Помилка підтвердження в \"{path}\": {error}",
+  "@pluginVerificationError": {
+    "description": "Error de verificación criptográfica de firma",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginSignatureAlgorithm": "Алгоритм: {algo} ({key})",
+  "@pluginSignatureAlgorithm": {
+    "description": "Algoritmo y clave pública de la firma digital",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginNoProtectedCommands": "Цей плагін не надає захищених або додаткових команд CLI.",
+  "@pluginNoProtectedCommands": {
+    "description": "Aviso si el plugin no tiene comandos de consola asociados"
+  },
+  "pluginNotFound": "Помилка: не знайдено плагіна з назвою \"{name}\".",
+  "@pluginNotFound": {
+    "description": "Aviso cuando el plugin solicitado no está registrado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginAvailableTitle": "Команди плагіна, доступні в Joss:",
+  "@pluginAvailableTitle": {
+    "description": "Título principal del catálogo de plugins de Joss"
+  },
+  "pluginProvidedCommands": "Надані команди:",
+  "@pluginProvidedCommands": {
+    "description": "Encabezado de comandos de consola provistos por un plugin"
+  },
+  "pluginNoDirectCli": "(Не оголошує прямі команди CLI)",
+  "@pluginNoDirectCli": {
+    "description": "Nota cuando un plugin en la lista no añade comandos directos"
   }
 }

@@ -10,11 +10,12 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/i18n"
 	_ "modernc.org/sqlite"
 )
 
 func changeDatabaseEngine(target string) {
-	fmt.Printf("Cambiando motor de base de datos a: %s\n", target)
+	fmt.Println(i18n.Tr("dbChangingEngine", map[string]interface{}{"target": target}))
 
 	envMap := readEnvFile(GetEnvFile())
 	currentDB := envMap["DB"]
@@ -23,38 +24,38 @@ func changeDatabaseEngine(target string) {
 	}
 
 	if currentDB == target {
-		fmt.Println("El motor de base de datos ya es " + target)
+		fmt.Println(i18n.Tr("dbAlreadyEngine", map[string]interface{}{"target": target}))
 		return
 	}
 
 	srcDB, err := connectToDB(currentDB, envMap)
 	if err != nil {
-		fmt.Printf("Error conectando a origen (%s): %v\n", currentDB, err)
+		fmt.Println(i18n.Tr("dbErrConnectingSource", map[string]interface{}{"source": currentDB, "err": err}))
 		return
 	}
 	defer srcDB.Close()
 
 	destDB, err := connectToDB(target, envMap)
 	if err != nil {
-		fmt.Printf("Error conectando a destino (%s): %v\n", target, err)
+		fmt.Println(i18n.Tr("dbErrConnectingDest", map[string]interface{}{"dest": target, "err": err}))
 		return
 	}
 	defer destDB.Close()
 
-	fmt.Println("Conectado a origen y destino.")
+	fmt.Println(i18n.Tr("dbConnectedSourceDest"))
 	prepareDestinationSchema(destDB, target, envMap)
 
-	fmt.Println("Iniciando migración de datos...")
+	fmt.Println(i18n.Tr("dbStartingDataMigration"))
 	if err := migrateTablesToDatabase(srcDB, destDB, currentDB, target, envMap); err != nil {
 		fmt.Printf("Advertencia en migración: %v\n", err)
 	}
 
 	updateEnvFile(GetEnvFile(), "DB", target)
-	fmt.Printf("Migración completada. Archivo %s actualizado.\n", GetEnvFile())
+	fmt.Println(i18n.Tr("dbMigrationCompleted", map[string]interface{}{"file": GetEnvFile()}))
 }
 
 func prepareDestinationSchema(destDB *sql.DB, target string, envMap map[string]string) {
-	fmt.Println("Preparando esquema en base de datos destino...")
+	fmt.Println(i18n.Tr("dbPreparingDestSchema"))
 	destRt := core.NewRuntime()
 	destRt.DB = destDB
 	destRt.Env = make(map[string]string)
@@ -70,7 +71,7 @@ func prepareDestinationSchema(destDB *sql.DB, target string, envMap map[string]s
 }
 
 func changeDatabaseMigrate() {
-	fmt.Println("Migrando datos entre motores de base de datos configurados...")
+	fmt.Println(i18n.Tr("dbMigratingBetweenConfigured"))
 
 	envFile := GetEnvFile()
 	envMap := readEnvFile(envFile)
@@ -92,12 +93,12 @@ func changeDatabaseMigrate() {
 		}
 	}
 
-	fmt.Printf("Origen : %s\n", srcDriver)
-	fmt.Printf("Destino: %s\n", destDriver)
+	fmt.Printf("%s : %s\n", i18n.Tr("dbOrigin"), srcDriver)
+	fmt.Printf("%s: %s\n", i18n.Tr("dbDestination"), destDriver)
 
 	srcDB, err := connectToDB(srcDriver, envMap)
 	if err != nil {
-		fmt.Printf("Error conectando a origen (%s): %v\n", srcDriver, err)
+		fmt.Println(i18n.Tr("dbErrConnectingSource", map[string]interface{}{"source": srcDriver, "err": err}))
 		return
 	}
 	defer srcDB.Close()
@@ -130,7 +131,7 @@ func changeDatabaseMigrate() {
 	}
 	defer destDB.Close()
 
-	fmt.Println("Conectado exitosamente a origen y destino.")
+	fmt.Println(i18n.Tr("dbConnectedSourceDest"))
 	prepareDestinationSchema(destDB, destDriver, destEnv)
 
 	if err := migrateTablesToDatabase(srcDB, destDB, srcDriver, destDriver, envMap); err != nil {
@@ -157,11 +158,11 @@ func changeDatabaseMigrate() {
 		updateEnvFile(envFile, "DB_PORT", val)
 	}
 
-	fmt.Printf("✨ Migración de datos completada exitosamente.\nArchivo %s actualizado y respaldo creado.\n", envFile)
+	fmt.Println(i18n.Tr("dbMigrationCompleted", map[string]interface{}{"file": envFile}))
 }
 
 func migrateTablesToDatabase(srcDB, destDB *sql.DB, srcDriver, destDriver string, envMap map[string]string) error {
-	fmt.Println("Iniciando migración de datos...")
+	fmt.Println(i18n.Tr("dbStartingDataMigration"))
 
 	tables, err := getTables(srcDB, srcDriver)
 	if err != nil {
@@ -187,7 +188,7 @@ func migrateTablesToDatabase(srcDB, destDB *sql.DB, srcDriver, destDriver string
 }
 
 func migrateSingleTableData(srcDB, destDB *sql.DB, srcDriver, destDriver, table string) error {
-	fmt.Printf("Migrando tabla: %s... ", table)
+	fmt.Printf("%s ", i18n.Tr("dbMigratingTable", map[string]interface{}{"table": table}))
 	rows, err := srcDB.Query(fmt.Sprintf("SELECT * FROM %s", quoteSQLName(srcDriver, table)))
 	if err != nil {
 		return err
@@ -250,7 +251,7 @@ func migrateSingleTableData(srcDB, destDB *sql.DB, srcDriver, destDriver, table 
 
 	tx.Commit()
 	rows.Close()
-	fmt.Printf("OK (%d filas)\n", count)
+	fmt.Printf("%s %s\n", i18n.Tr("dbTableDone"), i18n.Tr("dbMigratedRows", map[string]interface{}{"count": count}))
 	return nil
 }
 
@@ -310,7 +311,7 @@ func getTables(db *sql.DB, driver string) ([]string, error) {
 }
 
 func changeDatabasePrefix(newPrefix string) {
-	fmt.Printf("Cambiando prefijo de base de datos a: %s\n", newPrefix)
+	fmt.Println(i18n.Tr("dbPrefixUpdated", map[string]interface{}{"prefix": newPrefix}))
 
 	envMap := readEnvFile(GetEnvFile())
 	currentPrefix := envMap["PREFIX"]

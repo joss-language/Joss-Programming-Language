@@ -904,5 +904,843 @@
   "seedersNotFound": "ਐਪ/ਡਾਟਾਬੇਸ/ਸੀਡਰ/ ਵਿੱਚ ਕੋਈ ਸੀਡਰ ਨਹੀਂ ਮਿਲੇ",
   "@seedersNotFound": {
     "description": "Mensaje cuando el directorio de seeders está vacío"
+  },
+  "dbErrConnectingDest": "ਮੰਜ਼ਿਲ ਨਾਲ ਕਨੈਕਟ ਕਰਨ ਵਿੱਚ ਗਲਤੀ ({dest}): {err}",
+  "@dbErrConnectingDest": {
+    "description": "Mensaje de error al conectar con la base de datos de destino",
+    "placeholders": {
+      "dest": {},
+      "err": {}
+    }
+  },
+  "dbErrConnectingSource": "ਸਰੋਤ ਨਾਲ ਕਨੈਕਟ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ ({source}): {err}",
+  "@dbErrConnectingSource": {
+    "description": "Mensaje de error al conectar con la base de datos de origen",
+    "placeholders": {
+      "source": {},
+      "err": {}
+    }
+  },
+  "dbChangingEngine": "ਡਾਟਾਬੇਸ ਇੰਜਣ ਨੂੰ ਇਸ ਵਿੱਚ ਬਦਲਣਾ: {target}",
+  "@dbChangingEngine": {
+    "description": "Mensaje informativo al iniciar el cambio de motor de base de datos",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbAlreadyEngine": "ਡਾਟਾਬੇਸ ਇੰਜਣ ਪਹਿਲਾਂ ਹੀ {target} ਹੈ",
+  "@dbAlreadyEngine": {
+    "description": "Mensaje cuando el motor solicitado ya está activo",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbPreparingDestSchema": "ਟੀਚਾ ਡੇਟਾਬੇਸ ਵਿੱਚ ਸਕੀਮਾ ਤਿਆਰ ਕਰ ਰਿਹਾ ਹੈ...",
+  "@dbPreparingDestSchema": {
+    "description": "Mensaje informativo al preparar tablas y esquema destino"
+  },
+  "dbStartingDataMigration": "ਡਾਟਾ ਮਾਈਗ੍ਰੇਸ਼ਨ ਸ਼ੁਰੂ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@dbStartingDataMigration": {
+    "description": "Mensaje informativo al iniciar la copia de datos entre tablas"
+  },
+  "dbMigrationCompleted": "✨ ਡਾਟਾ ਮਾਈਗ੍ਰੇਸ਼ਨ ਸਫਲਤਾਪੂਰਵਕ ਪੂਰਾ ਹੋਇਆ। {file} ਫਾਈਲ ਅੱਪਡੇਟ ਕੀਤੀ ਗਈ ਅਤੇ ਬੈਕਅੱਪ ਬਣਾਇਆ ਗਿਆ।",
+  "@dbMigrationCompleted": {
+    "description": "Mensaje de éxito al completar la migración entre bases de datos",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "dbMigratingBetweenConfigured": "ਕੌਂਫਿਗਰ ਕੀਤੇ ਡੇਟਾਬੇਸ ਇੰਜਣਾਂ ਵਿਚਕਾਰ ਡੇਟਾ ਨੂੰ ਮਾਈਗਰੇਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@dbMigratingBetweenConfigured": {
+    "description": "Mensaje inicial del comando change db migrate"
+  },
+  "dbOrigin": "ਮੂਲ",
+  "@dbOrigin": {
+    "description": "Etiqueta para indicar el motor o servidor de origen"
+  },
+  "dbDestination": "ਮੰਜ਼ਿਲ",
+  "@dbDestination": {
+    "description": "Etiqueta para indicar el motor o servidor de destino"
+  },
+  "dbMigratingTable": "ਮਾਈਗ੍ਰੇਟਿੰਗ ਸਾਰਣੀ: {table}...",
+  "@dbMigratingTable": {
+    "description": "Mensaje de progreso al migrar una tabla individual",
+    "placeholders": {
+      "table": {}
+    }
+  },
+  "dbMigratedRows": "({count} ਕਤਾਰਾਂ)",
+  "@dbMigratedRows": {
+    "description": "Cantidad de filas migradas en una tabla",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dbTableDone": "ਭਰਿਆ।",
+  "@dbTableDone": {
+    "description": "Indicador de fin de migración de una tabla"
+  },
+  "dbPrefixUpdated": "ਡਾਟਾਬੇਸ ਅਗੇਤਰ ਇਸ ਵਿੱਚ ਅੱਪਡੇਟ ਕੀਤਾ ਗਿਆ: '{prefix}'",
+  "@dbPrefixUpdated": {
+    "description": "Mensaje al actualizar el prefijo de tablas",
+    "placeholders": {
+      "prefix": {}
+    }
+  },
+  "dbPrefixEmpty": "ਤਰੁੱਟੀ: ਅਗੇਤਰ ਖਾਲੀ ਨਹੀਂ ਹੋ ਸਕਦਾ।",
+  "@dbPrefixEmpty": {
+    "description": "Mensaje de error cuando se pasa un prefijo vacío"
+  },
+  "storageConfiguring": "ਪ੍ਰਦਾਤਾ ਲਈ ਸਟੋਰੇਜ ਨੂੰ ਕੌਂਫਿਗਰ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ: {provider}",
+  "@storageConfiguring": {
+    "description": "Mensaje al iniciar configuración de almacenamiento",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageNotSupported": "ਪ੍ਰਦਾਤਾ '{provider}' ਅਜੇ ਸਮਰਥਿਤ ਨਹੀਂ ਹੈ।",
+  "@storageNotSupported": {
+    "description": "Mensaje de proveedor no disponible",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageUnknownProvider": "ਅਗਿਆਤ ਸਪਲਾਇਰ: {provider}",
+  "@storageUnknownProvider": {
+    "description": "Mensaje de proveedor no reconocido",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storagePromptDownloadOci": "ਕੀ ਤੁਸੀਂ ਫਾਈਲਾਂ ਨੂੰ OCI ਤੋਂ ਲੋਕਲ ਵਿੱਚ ਡਾਊਨਲੋਡ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?",
+  "@storagePromptDownloadOci": {
+    "description": "Pregunta interactiva para descargar archivos desde la nube OCI"
+  },
+  "storageConfiguredLocal": "ਸਟੋਰੇਜ ਨੂੰ LOCAL 'ਤੇ ਸੈੱਟ ਕੀਤਾ ਗਿਆ।",
+  "@storageConfiguredLocal": {
+    "description": "Confirmación de configuración a almacenamiento local"
+  },
+  "storageOciTitle": "---ਓਰੇਕਲ ਕਲਾਉਡ ਬੁਨਿਆਦੀ ਢਾਂਚੇ (OCI) ਨੂੰ ਕੌਂਫਿਗਰ ਕਰੋ ---",
+  "@storageOciTitle": {
+    "description": "Título del asistente de configuración OCI"
+  },
+  "storageOciSaved": "OCI ਕੌਂਫਿਗਰੇਸ਼ਨ ਸੁਰੱਖਿਅਤ ਕੀਤੀ ਗਈ।",
+  "@storageOciSaved": {
+    "description": "Confirmación de guardado de credenciales OCI"
+  },
+  "storagePromptUploadOci": "ਕੀ ਤੁਸੀਂ ਮੌਜੂਦਾ ਸਥਾਨਕ ਫਾਈਲਾਂ ਨੂੰ OCI 'ਤੇ ਅਪਲੋਡ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?",
+  "@storagePromptUploadOci": {
+    "description": "Pregunta interactiva para subir archivos locales a la nube OCI"
+  },
+  "storageStartingMigrationOci": "OCI ਵਿੱਚ ਮਾਈਗ੍ਰੇਸ਼ਨ ਸ਼ੁਰੂ ਕਰ ਰਿਹਾ ਹੈ...",
+  "@storageStartingMigrationOci": {
+    "description": "Mensaje inicial al subir almacenamiento a OCI"
+  },
+  "storageUploading": "ਅੱਪਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ: {source} -> {dest}",
+  "@storageUploading": {
+    "description": "Progreso al subir un archivo individual a la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageMigrationOciCompleted": "OCI ਵਿੱਚ ਮਾਈਗ੍ਰੇਸ਼ਨ ਪੂਰਾ ਹੋਇਆ।",
+  "@storageMigrationOciCompleted": {
+    "description": "Confirmación de fin de subida de archivos a OCI"
+  },
+  "storageStartingDownloadOci": "OCI ਤੋਂ ਡਾਊਨਲੋਡ ਸ਼ੁਰੂ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@storageStartingDownloadOci": {
+    "description": "Mensaje inicial al descargar archivos desde OCI"
+  },
+  "storageDownloading": "ਡਾਊਨਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ: {source} -> {dest}",
+  "@storageDownloading": {
+    "description": "Progreso al descargar un archivo individual desde la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageDownloadCompleted": "ਡਾਊਨਲੋਡ ਪੂਰਾ ਹੋਇਆ।",
+  "@storageDownloadCompleted": {
+    "description": "Confirmación de fin de descarga de archivos desde OCI"
+  },
+  "nativeBuildPackagingAssets": "📦 ਐਸੈੱਟਸ ਨੂੰ ਪੈਕੇਜਿੰਗ ਅਤੇ ਪਹਿਲਾਂ-ਕੰਪਾਇਲ ਕਰ ਰਹੇ ਹਾਂ (AOT Bytecode AST)...",
+  "@nativeBuildPackagingAssets": {
+    "description": "Mensaje informativo durante la fase de empaquetado de assets"
+  },
+  "nativeBuildSuccessTitle": "✨ ਸਫਲ ਮੂਲ ਸੰਗ੍ਰਹਿ!",
+  "@nativeBuildSuccessTitle": {
+    "description": "Título de éxito al finalizar la compilación nativa"
+  },
+  "nativeBuildCompilingRunner": "🔨 ਗੋ ਟੂਲਚੇਨ ਨਾਲ ਨੇਟਿਵ ਐਗਜ਼ੀਕਿਊਟੇਬਲ ਕੰਪਾਈਲ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@nativeBuildCompilingRunner": {
+    "description": "Mensaje informativo al compilar el binario nativo"
+  },
+  "nativeBuildMissingGo": "ਗਲਤੀ: ਸਿਸਟਮ 'ਤੇ ਸਥਾਪਿਤ 'ਗੋ' ਟੂਲ ਨਹੀਂ ਮਿਲਿਆ।",
+  "@nativeBuildMissingGo": {
+    "description": "Error cuando el compilador Go no está instalado en PATH"
+  },
+  "nativeBuildTarget": "ਮੰਜ਼ਿਲ",
+  "@nativeBuildTarget": {
+    "description": "Etiqueta para el sistema operativo y arquitectura destino"
+  },
+  "nativeBuildMode": "ਮੋਡ",
+  "@nativeBuildMode": {
+    "description": "Etiqueta para el modo de compilación (consola o GUI)"
+  },
+  "nativeBuildOutputFile": "ਆਉਟਪੁੱਟ ਫਾਇਲ",
+  "@nativeBuildOutputFile": {
+    "description": "Etiqueta para la ruta del binario compilado"
+  },
+  "nativeBuildBinarySize": "ਬਾਈਨਰੀ ਆਕਾਰ",
+  "@nativeBuildBinarySize": {
+    "description": "Etiqueta para el tamaño del binario resultante"
+  },
+  "nativeBuildInstructions": "ਹਦਾਇਤਾਂ: '{path}' ਨੂੰ {os} ਵਾਲੇ ਕਿਸੇ ਵੀ ਕੰਪਿਊਟਰ 'ਤੇ ਕਾਪੀ ਕਰੋ ਅਤੇ ਇਸਨੂੰ ਸਿੱਧਾ ਚਲਾਓ।",
+  "@nativeBuildInstructions": {
+    "description": "Instrucciones finales para el usuario tras compilar un binario nativo",
+    "placeholders": {
+      "path": {},
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedOS": "ਤਰੁੱਟੀ: ਓਪਰੇਟਿੰਗ ਸਿਸਟਮ '{os}' ਸਮਰਥਿਤ ਨਹੀਂ ਹੈ। ਵਿਕਲਪ: ਵਿੰਡੋਜ਼, ਲੀਨਕਸ, ਡਾਰਵਿਨ।",
+  "@nativeBuildUnsupportedOS": {
+    "description": "Mensaje de error cuando el sistema operativo destino es inválido",
+    "placeholders": {
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedArch": "ਤਰੁੱਟੀ: ਆਰਕੀਟੈਕਚਰ '{arch}' {os} ਲਈ ਸਮਰਥਿਤ ਨਹੀਂ ਹੈ। ਵਿਕਲਪ: {options}",
+  "@nativeBuildUnsupportedArch": {
+    "description": "Mensaje de error cuando la arquitectura destino es inválida",
+    "placeholders": {
+      "arch": {},
+      "os": {},
+      "options": {}
+    }
+  },
+  "updaterNewVersionTitle": "ਨਵਾਂ ਸੰਸਕਰਣ ਉਪਲਬਧ ਹੈ!",
+  "@updaterNewVersionTitle": {
+    "description": "Aviso cuando hay una versión más reciente de Joss"
+  },
+  "updaterRunHint": "ਰਨਟਾਈਮ, SDK ਅਤੇ ਐਕਸਟੈਂਸ਼ਨ ਨੂੰ ਆਪਣੇ ਆਪ ਅੱਪਡੇਟ ਕਰਨ ਲਈ 'joss update --{channel}' ਚਲਾਓ।",
+  "@updaterRunHint": {
+    "description": "Sugerencia del comando de actualización a ejecutar",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterTitle": "🔄 JOSS ਅੱਪਡੇਟ",
+  "@updaterTitle": {
+    "description": "Título del asistente de actualización de Joss"
+  },
+  "updaterCurrentVersion": "ਮੌਜੂਦਾ ਸੰਸਕਰਣ",
+  "@updaterCurrentVersion": {
+    "description": "Etiqueta de la versión actualmente instalada"
+  },
+  "updaterSelectedChannel": "ਚੈਨਲ ਚੁਣਿਆ",
+  "@updaterSelectedChannel": {
+    "description": "Etiqueta del canal de actualización seleccionado"
+  },
+  "updaterForcedMode": "ਜ਼ਬਰਦਸਤੀ ਮੋਡ",
+  "@updaterForcedMode": {
+    "description": "Etiqueta de estado del modo forzado"
+  },
+  "updaterCheckingGitHub": "🌐 GitHub ਰੀਲੀਜ਼ API ਦੀ ਸਲਾਹ ਲੈ ਰਿਹਾ ਹੈ...",
+  "@updaterCheckingGitHub": {
+    "description": "Mensaje al buscar actualizaciones en el repositorio remoto"
+  },
+  "updaterNoReleasesFound": "GitHub 'ਤੇ Joss ਦੀ ਕੋਈ ਜਨਤਕ ਰੀਲੀਜ਼ ਨਹੀਂ ਮਿਲੀ।",
+  "@updaterNoReleasesFound": {
+    "description": "Aviso si no hay versiones publicadas en el repositorio"
+  },
+  "updaterNoReleaseForChannel": "ਚੈਨਲ '{channel}' ਲਈ ਕੋਈ ਉਪਲਬਧ ਰੀਲੀਜ਼ ਨਹੀਂ ਮਿਲੀ।",
+  "@updaterNoReleaseForChannel": {
+    "description": "Aviso cuando no hay release para el canal solicitado",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterAlreadyUpdated": "✨ Joss ਪਹਿਲਾਂ ਹੀ ਚੈਨਲ {channel} ਲਈ ਵਰਜਨ v{version} ਵਿੱਚ ਅੱਪਡੇਟ ਕੀਤਾ ਗਿਆ ਹੈ।",
+  "@updaterAlreadyUpdated": {
+    "description": "Mensaje cuando Joss ya está al día",
+    "placeholders": {
+      "version": {},
+      "channel": {}
+    }
+  },
+  "updaterForcedRedownload": "⚠️ ਜਬਰੀ ਮੋਡ (-f) ਦੁਆਰਾ ਰੀਲੀਜ਼ ਸੰਸਕਰਣ ਨੂੰ ਮੁੜ-ਡਾਊਨਲੋਡ ਕਰਨਾ ਅਤੇ ਮੁੜ-ਇੰਸਟਾਲ ਕਰਨਾ...",
+  "@updaterForcedRedownload": {
+    "description": "Aviso al ejecutar en modo forzado"
+  },
+  "updaterForceTip": "💡 ਸੁਝਾਅ: ਬਾਈਨਰੀ ਨੂੰ ਮੁੜ-ਡਾਊਨਲੋਡ ਕਰਨ ਅਤੇ ਸਥਾਪਨਾ ਕਰਨ ਲਈ ਮਜਬੂਰ ਕਰਨ ਲਈ 'joss update -f' ਦੀ ਵਰਤੋਂ ਕਰੋ।",
+  "@updaterForceTip": {
+    "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
+  },
+  "updaterNoBinariesFound": "ਗਲਤੀ: ਇਸ ਰੀਲੀਜ਼ ਵਿੱਚ ਡਾਊਨਲੋਡ ਕਰਨ ਲਈ ਕੋਈ ਬਾਈਨਰੀ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।",
+  "@updaterNoBinariesFound": {
+    "description": "Error si el release no tiene archivos binarios asociados"
+  },
+  "updaterDownloading": "⬇️ ਅੱਪਡੇਟ ਡਾਊਨਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@updaterDownloading": {
+    "description": "Mensaje de descarga de paquete de actualización"
+  },
+  "updaterNewVersion": "ਰੀਮੇਕ",
+  "@updaterNewVersion": {
+    "description": "Etiqueta de la nueva versión instalada"
+  },
+  "updaterApplying": "⚙️ ਰਨਟਾਈਮ, SDK ਅਤੇ ਐਕਸਟੈਂਸ਼ਨ ਅੱਪਡੇਟ ਲਾਗੂ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@updaterApplying": {
+    "description": "Mensaje de progreso al reemplazar el binario de Joss"
+  },
+  "updaterSuccessTitle": "✨ JOSS ਨੂੰ ਸਫਲਤਾਪੂਰਵਕ ਅੱਪਡੇਟ ਕੀਤਾ ਗਿਆ ਹੈ!",
+  "@updaterSuccessTitle": {
+    "description": "Título de éxito al completar la actualización"
+  },
+  "updaterExecutable": "ਚੱਲਣਯੋਗ",
+  "@updaterExecutable": {
+    "description": "Etiqueta de la ruta del ejecutable actualizado"
+  },
+  "pubCmdAddDesc": "ਪ੍ਰੋਜੈਕਟ ਵਿੱਚ ਇੱਕ ਪੈਕੇਜ ਸ਼ਾਮਲ ਕਰੋ",
+  "@pubCmdAddDesc": {
+    "description": "Descripción del comando para añadir un paquete"
+  },
+  "pubManagerTitle": "Joss ਪੈਕੇਜ ਮੈਨੇਜਰ (Joss Pub)",
+  "@pubManagerTitle": {
+    "description": "Título principal de la ayuda del gestor de paquetes Joss"
+  },
+  "pubCmdRemoveDesc": "ਪ੍ਰੋਜੈਕਟ ਤੋਂ ਇੱਕ ਪੈਕੇਜ ਹਟਾਓ",
+  "@pubCmdRemoveDesc": {
+    "description": "Descripción del comando para eliminar un paquete"
+  },
+  "pubCommandsLabel": "ਹੁਕਮ:",
+  "@pubCommandsLabel": {
+    "description": "Etiqueta para la sección de comandos disponibles"
+  },
+  "pubCmdInstallDesc": "ਘੋਸ਼ਿਤ ਨਿਰਭਰਤਾਵਾਂ ਨੂੰ ਸਥਾਪਿਤ ਕਰੋ",
+  "@pubCmdInstallDesc": {
+    "description": "Descripción del comando para instalar dependencias"
+  },
+  "pubCmdUpdateDesc": "ਨਵੀਨਤਮ ਸਮਰਥਿਤ ਰੇਂਜ ਲਈ ਨਿਰਭਰਤਾਵਾਂ ਨੂੰ ਅੱਪਡੇਟ ਕਰੋ",
+  "@pubCmdUpdateDesc": {
+    "description": "Descripción del comando para actualizar dependencias"
+  },
+  "pubCmdSearchDesc": "ਪਲੇਟਫਾਰਮ 'ਤੇ ਪੈਕੇਜਾਂ ਦੀ ਖੋਜ ਕਰੋ",
+  "@pubCmdSearchDesc": {
+    "description": "Descripción del comando para buscar paquetes"
+  },
+  "pubCmdInfoDesc": "ਇੱਕ ਪੈਕੇਜ ਬਾਰੇ ਵਿਸਤ੍ਰਿਤ ਜਾਣਕਾਰੀ ਦਿਖਾਉਂਦਾ ਹੈ",
+  "@pubCmdInfoDesc": {
+    "description": "Descripción del comando para mostrar información de un paquete"
+  },
+  "pubCmdPublishDesc": "ਮੌਜੂਦਾ ਪੈਕੇਜ ਸੰਸਕਰਣ ਪ੍ਰਕਾਸ਼ਿਤ ਕਰੋ",
+  "@pubCmdPublishDesc": {
+    "description": "Descripción del comando para publicar un paquete"
+  },
+  "pubCmdLogoutDesc": "ਸਥਾਨਕ ਤੌਰ 'ਤੇ ਸਾਈਨ ਆਊਟ ਕਰੋ",
+  "@pubCmdLogoutDesc": {
+    "description": "Descripción del comando para cerrar sesión"
+  },
+  "pubCmdLoginDesc": "ਪਲੇਟਫਾਰਮ ਵਿੱਚ ਲੌਗ ਇਨ ਕਰੋ",
+  "@pubCmdLoginDesc": {
+    "description": "Descripción del comando para iniciar sesión"
+  },
+  "pubEmailPrompt": "ਈ-ਮੇਲ:",
+  "@pubEmailPrompt": {
+    "description": "Etiqueta o prompt para introducir el correo electrónico"
+  },
+  "pubCmdCacheCleanDesc": "ਗਲੋਬਲ ਡਾਊਨਲੋਡ ਕੈਸ਼ ਨੂੰ ਸਾਫ਼ ਕਰੋ",
+  "@pubCmdCacheCleanDesc": {
+    "description": "Descripción del comando para limpiar la caché"
+  },
+  "pubPasswordPrompt": "ਪਾਸਵਰਡ:",
+  "@pubPasswordPrompt": {
+    "description": "Etiqueta o prompt para introducir la contraseña"
+  },
+  "pubConnectError": "ਪਲੇਟਫਾਰਮ ਨਾਲ ਕਨੈਕਟ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ: {error}",
+  "@pubConnectError": {
+    "description": "Mensaje de error cuando falla la conexión de red con el registro",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubInvalidCredentials": "ਗਲਤ ਪ੍ਰਮਾਣ-ਪੱਤਰ ਜਾਂ ਗੈਰ-ਪ੍ਰਮਾਣਿਤ ਖਾਤਾ।",
+  "@pubInvalidCredentials": {
+    "description": "Mensaje de error cuando las credenciales no son válidas"
+  },
+  "pubInvalidToken": "ਗਲਤੀ: ਜਵਾਬ ਵਿੱਚ ਇੱਕ ਵੈਧ ਟੋਕਨ ਨਹੀਂ ਹੈ।",
+  "@pubInvalidToken": {
+    "description": "Mensaje de error si la respuesta del servidor no tiene token"
+  },
+  "pubSaveCredentialsError": "ਪ੍ਰਮਾਣ ਪੱਤਰਾਂ ਨੂੰ ਸੁਰੱਖਿਅਤ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ: {error}",
+  "@pubSaveCredentialsError": {
+    "description": "Mensaje de error al persistir credenciales de usuario en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubLogoutSuccess": "ਬੰਦ ਸੈਸ਼ਨ। ਮਿਟਾਏ ਗਏ ਪ੍ਰਮਾਣ ਪੱਤਰ।",
+  "@pubLogoutSuccess": {
+    "description": "Mensaje de confirmación tras cerrar sesión localmente"
+  },
+  "pubLoginSuccess": "ਸਫਲ ਲੌਗਇਨ! ਰੱਖਿਅਤ ਕੀਤੇ ਪ੍ਰਮਾਣ ਪੱਤਰ।",
+  "@pubLoginSuccess": {
+    "description": "Mensaje de éxito al autenticarse en la plataforma"
+  },
+  "pubSearchError": "ਪੈਕੇਜਾਂ ਦੀ ਖੋਜ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ: {error}",
+  "@pubSearchError": {
+    "description": "Mensaje de error cuando falla la búsqueda de paquetes",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNoPackagesFound": "ਕੋਈ ਪੈਕੇਜ ਨਹੀਂ ਮਿਲੇ।",
+  "@pubNoPackagesFound": {
+    "description": "Mensaje cuando una búsqueda no arroja resultados"
+  },
+  "pubPackagesFound": "ਪੈਕੇਜ ਮਿਲੇ:",
+  "@pubPackagesFound": {
+    "description": "Encabezado de la lista de paquetes coincidentes"
+  },
+  "pubPackageDownloads": "ਡਾਊਨਲੋਡ: {downloads} | ਆਖਰੀ ਕਾਰਵਾਈ: {updated}",
+  "@pubPackageDownloads": {
+    "description": "Línea con estadísticas de descargas y última actualización",
+    "placeholders": {
+      "downloads": {},
+      "updated": {}
+    }
+  },
+  "pubGetInfoError": "ਪੈਕੇਜ ਜਾਣਕਾਰੀ ਪ੍ਰਾਪਤ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ: {error}",
+  "@pubGetInfoError": {
+    "description": "Mensaje de error al consultar información detallada de un paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubPackageNotFound": "ਪੈਕੇਜ '{name}' ਮੌਜੂਦ ਨਹੀਂ ਹੈ।",
+  "@pubPackageNotFound": {
+    "description": "Aviso cuando el paquete solicitado no existe en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageIdentifier": "ਪਛਾਣਕਰਤਾ: {name}",
+  "@pubPackageIdentifier": {
+    "description": "Etiqueta con el identificador único del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageName": "ਨਾਮ: {name}",
+  "@pubPackageName": {
+    "description": "Etiqueta con el nombre visible del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageDescription": "ਵਰਣਨ: {description}",
+  "@pubPackageDescription": {
+    "description": "Etiqueta con la descripción del paquete",
+    "placeholders": {
+      "description": {}
+    }
+  },
+  "pubPackageDownloadsCount": "ਡਾਊਨਲੋਡ: {downloads}",
+  "@pubPackageDownloadsCount": {
+    "description": "Etiqueta con el conteo de descargas del paquete",
+    "placeholders": {
+      "downloads": {}
+    }
+  },
+  "pubResolvingPlatform": "joss.red ਤੋਂ ਨਿਰਭਰਤਾਵਾਂ ਨੂੰ ਹੱਲ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@pubResolvingPlatform": {
+    "description": "Mensaje al resolver dependencias remotas del registro"
+  },
+  "pubFoundPlatform": "✓ ਪੈਕੇਜ '{name}' joss.red 'ਤੇ ਮਿਲਿਆ",
+  "@pubFoundPlatform": {
+    "description": "Aviso cuando el paquete fue encontrado en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubDownloadingPackageVer": "{name} {version} ਨੂੰ ਡਾਊਨਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@pubDownloadingPackageVer": {
+    "description": "Mensaje al descargar una versión específica de un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubSearchingPlatform": "joss.red 'ਤੇ {name} ਦੀ ਖੋਜ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ...",
+  "@pubSearchingPlatform": {
+    "description": "Mensaje de búsqueda de paquete en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubInstallSuccessPlatform": "✓ {name} {version} ਸਫਲਤਾਪੂਰਵਕ joss.red ਤੋਂ ਸਥਾਪਿਤ ਕੀਤਾ ਗਿਆ",
+  "@pubInstallSuccessPlatform": {
+    "description": "Mensaje de éxito tras instalar un paquete desde el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubInstallSuccessGit": "✓ {name} (ਨਵੀਨਤਮ) {repo} ਤੋਂ ਸਫਲਤਾਪੂਰਵਕ ਸਥਾਪਿਤ ਕੀਤਾ ਗਿਆ",
+  "@pubInstallSuccessGit": {
+    "description": "Mensaje de éxito al instalar última versión desde Git",
+    "placeholders": {
+      "name": {},
+      "repo": {}
+    }
+  },
+  "pubSyncingFromRepo": "ਲਿੰਕਡ ਰਿਪੋਜ਼ਟਰੀ ({repo}) ਤੋਂ ਸਮਕਾਲੀਕਰਨ...",
+  "@pubSyncingFromRepo": {
+    "description": "Aviso de sincronización desde el repositorio Git vinculado",
+    "placeholders": {
+      "repo": {}
+    }
+  },
+  "pubSearchingGitRepo": "Git ਰਿਪੋਜ਼ਟਰੀ ਖੋਜ ਰਿਹਾ ਹੈ...",
+  "@pubSearchingGitRepo": {
+    "description": "Mensaje al buscar el paquete directamente en Git"
+  },
+  "pubInstallFailedAll": "ਗਲਤੀ: joss.red ਜਾਂ Git ਰਿਪੋਜ਼ਟਰੀ ਤੋਂ '{name}' ਨੂੰ ਸਥਾਪਿਤ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ।",
+  "@pubInstallFailedAll": {
+    "description": "Error crítico cuando fallan todas las fuentes de instalación",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovingPackage": "{name} ਨੂੰ ਹਟਾਇਆ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@pubRemovingPackage": {
+    "description": "Aviso de inicio de eliminación de un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovedSuccess": "✓ {name} ਹਟਾਇਆ ਗਿਆ",
+  "@pubRemovedSuccess": {
+    "description": "Mensaje de confirmación tras eliminar un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemoveLocalFolderWarning": "ਚੇਤਾਵਨੀ: ਸਥਾਨਕ ਫੋਲਡਰ ਨੂੰ ਮਿਟਾਉਣ ਵਿੱਚ ਅਸਫਲ: {error}",
+  "@pubRemoveLocalFolderWarning": {
+    "description": "Advertencia si no se puede borrar la carpeta del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubManifestNotFound": "ਗਲਤੀ: 'joss.yaml' ਇਸ ਡਾਇਰੈਕਟਰੀ ਵਿੱਚ ਨਹੀਂ ਮਿਲੀ।",
+  "@pubManifestNotFound": {
+    "description": "Error cuando el manifiesto del proyecto no existe"
+  },
+  "pubNoDependenciesDeclared": "joss.yaml ਵਿੱਚ ਘੋਸ਼ਿਤ ਕੋਈ ਨਿਰਭਰਤਾ ਨਹੀਂ ਹੈ।",
+  "@pubNoDependenciesDeclared": {
+    "description": "Aviso informativo cuando no hay dependencias en el proyecto"
+  },
+  "pubManifestReadError": "joss.yaml ਪੜ੍ਹਨ ਵਿੱਚ ਤਰੁੱਟੀ: {error}",
+  "@pubManifestReadError": {
+    "description": "Error al leer el archivo manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubUsingCachedPackage": "ਕੈਸ਼ ਕੀਤੇ ਪੈਕੇਜ ਦੀ ਵਰਤੋਂ ਕਰ ਰਿਹਾ ਹੈ...",
+  "@pubUsingCachedPackage": {
+    "description": "Aviso cuando se reutiliza una descarga previa en caché"
+  },
+  "pubResolvePackageError": "'{name}' ਨੂੰ ਹੱਲ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ: {error}",
+  "@pubResolvePackageError": {
+    "description": "Error al calcular la versión de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubResolvingDependencies": "ਨਿਰਭਰਤਾ ਨੂੰ ਹੱਲ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@pubResolvingDependencies": {
+    "description": "Mensaje al iniciar la resolución de dependencias"
+  },
+  "pubInstallPackageError": "'{name}' ਨੂੰ ਸਥਾਪਿਤ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ: {error}",
+  "@pubInstallPackageError": {
+    "description": "Error durante la instalación física de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubPackageOfflineError": "ਤਰੁੱਟੀ: ਪੈਕੇਜ '{name} {version}' ਸਥਾਪਤ ਨਹੀਂ ਹੈ ਅਤੇ ਔਫਲਾਈਨ ਮੋਡ ਕਿਰਿਆਸ਼ੀਲ ਹੈ।",
+  "@pubPackageOfflineError": {
+    "description": "Error si falta un paquete y se especificó modo sin conexión",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubResolveTransitiveError": "ਪਰਿਵਰਤਨਸ਼ੀਲ ਨਿਰਭਰਤਾਵਾਂ ਨੂੰ ਹੱਲ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ: {error}",
+  "@pubResolveTransitiveError": {
+    "description": "Error al resolver subdependencias del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubMustLoginToPublish": "ਗਲਤੀ: ਤੁਹਾਨੂੰ ਪੋਸਟ ਕਰਨ ਤੋਂ ਪਹਿਲਾਂ ਲੌਗ ਇਨ ਕਰਨਾ ਚਾਹੀਦਾ ਹੈ।",
+  "@pubMustLoginToPublish": {
+    "description": "Error cuando el usuario intenta publicar sin haberse autenticado"
+  },
+  "pubCheckingUpdates": "ਪੈਕੇਜ ਅੱਪਡੇਟ ਲਈ ਜਾਂਚ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ...",
+  "@pubCheckingUpdates": {
+    "description": "Mensaje al consultar nuevas versiones disponibles"
+  },
+  "pubDependenciesInstalledSuccess": "✓ ਨਿਰਭਰਤਾਵਾਂ ਸਹੀ ਢੰਗ ਨਾਲ ਸਥਾਪਿਤ ਕੀਤੀਆਂ ਗਈਆਂ ਹਨ।",
+  "@pubDependenciesInstalledSuccess": {
+    "description": "Mensaje de éxito tras completar la instalación de dependencias"
+  },
+  "pubManifestMissingRequiredFields": "ਗਲਤੀ: joss.yaml ਵਿੱਚ ਘੱਟੋ-ਘੱਟ ਸ਼ਾਮਲ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ: name, version, repository",
+  "@pubManifestMissingRequiredFields": {
+    "description": "Error si el manifiesto carece de metadatos mínimos para publicación"
+  },
+  "pubPreparingPublish": "{name} v{version} ਦੇ ਪ੍ਰਕਾਸ਼ਨ ਦੀ ਤਿਆਰੀ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ...",
+  "@pubPreparingPublish": {
+    "description": "Aviso previo a publicar el paquete en el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubPromptReleaseUrl": "GitHub 'ਤੇ ਜ਼ਿਪ ਰੀਲੀਜ਼ ਦਾ ਸਿੱਧਾ ਡਾਊਨਲੋਡ URL ਦਾਖਲ ਕਰੋ:",
+  "@pubPromptReleaseUrl": {
+    "description": "Solicitud interactiva de la URL del release zip"
+  },
+  "pubPromptReleaseSha": "ਜ਼ਿਪ ਰੀਲੀਜ਼ ਦਾ SHA-256 ਹੈਸ਼ ਦਾਖਲ ਕਰੋ:",
+  "@pubPromptReleaseSha": {
+    "description": "Solicitud interactiva del hash SHA-256 del artefacto"
+  },
+  "pubArtifactVerifyError": "ਹਸਤਾਖਰਿਤ ਆਰਟੀਫੈਕਟ ਦੀ ਪੁਸ਼ਟੀ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ: {error}",
+  "@pubArtifactVerifyError": {
+    "description": "Error al verificar la firma criptográfica del artefacto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNetworkError": "ਨੈੱਟਵਰਕ ਗੜਬੜ: {error}",
+  "@pubNetworkError": {
+    "description": "Error genérico de red al comunicarse con el servidor",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubSignatureVerified": "ਪ੍ਰਮਾਣਿਤ JP ਦਸਤਖਤ: {key}",
+  "@pubSignatureVerified": {
+    "description": "Aviso de verificación criptográfica exitosa del paquete",
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "pubPublishedSuccess": "ਵਧਾਈਆਂ! {name} v{version} ਸਫਲਤਾਪੂਰਵਕ Joss Pub ਵਿੱਚ ਪ੍ਰਕਾਸ਼ਿਤ ਕੀਤਾ ਗਿਆ।",
+  "@pubPublishedSuccess": {
+    "description": "Mensaje de felicitación y éxito al publicar un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubCacheIsEmpty": "ਡਾਊਨਲੋਡ ਕੈਸ਼ ਖਾਲੀ ਹੈ।",
+  "@pubCacheIsEmpty": {
+    "description": "Aviso cuando no hay archivos temporales en la caché"
+  },
+  "pubCacheEmptied": "ਗਲੋਬਲ ਡਾਊਨਲੋਡ ਕੈਸ਼ ਕਲੀਅਰ ਕੀਤਾ ਗਿਆ।",
+  "@pubCacheEmptied": {
+    "description": "Confirmación tras vaciar la caché de descargas"
+  },
+  "pubPublishFailedHttp": "ਪੈਕੇਜ ਪ੍ਰਕਾਸ਼ਿਤ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ (HTTP {code}): {error}",
+  "@pubPublishFailedHttp": {
+    "description": "Error devuelto por la API del registro al intentar publicar",
+    "placeholders": {
+      "code": {},
+      "error": {}
+    }
+  },
+  "pubCacheFilesList": "ਕੈਸ਼ ਕੀਤੀਆਂ ਫਾਈਲਾਂ:",
+  "@pubCacheFilesList": {
+    "description": "Encabezado del listado de archivos en la caché"
+  },
+  "pubCacheVerifyingIntegrity": "ਕੈਸ਼ ਦੀ ਇਕਸਾਰਤਾ ਦੀ ਪੁਸ਼ਟੀ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ...",
+  "@pubCacheVerifyingIntegrity": {
+    "description": "Aviso durante la verificación de sumas de comprobación de la caché"
+  },
+  "pubCacheVerified": "ਪ੍ਰਮਾਣਿਤ ਕੈਸ਼।",
+  "@pubCacheVerified": {
+    "description": "Confirmación de verificación exitosa de la caché"
+  },
+  "pluginUsageTitle": "Joss ਪਲੱਗਇਨ ਕਮਾਂਡਾਂ ਦੀ ਵਰਤੋਂ:",
+  "@pluginUsageTitle": {
+    "description": "Encabezado de ayuda para los comandos de plugins"
+  },
+  "pluginCompileError": "ਪਲੱਗਇਨ ਕੰਪਾਇਲ ਕਰਨ ਦੌਰਾਨ ਗਲਤੀ: {error}",
+  "@pluginCompileError": {
+    "description": "Mensaje de error en caso de fallo durante la compilación",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginSpecifySourceError": "ਗਲਤੀ: ਕੰਪਾਇਲ ਕਰਨ ਲਈ ਸਰੋਤ ਡਾਇਰੈਕਟਰੀ ਜਾਂ ਫਾਈਲ ਦਰਸਾਓ।",
+  "@pluginSpecifySourceError": {
+    "description": "Error cuando falta la ruta del código fuente a compilar"
+  },
+  "pluginGenerated": "ਤਿਆਰ ਪਲੱਗਇਨ: {path}",
+  "@pluginGenerated": {
+    "description": "Ruta donde se generó el artefacto del plugin",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pluginPackageSize": "ਪੈਕੇਜ ਦਾ ਆਕਾਰ: {size} KB",
+  "@pluginPackageSize": {
+    "description": "Tamaño en kilobytes del paquete de plugin generado",
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "pluginCompileSuccess": "✓ ਸਫਲ ਬਣਾਓ!",
+  "@pluginCompileSuccess": {
+    "description": "Mensaje de éxito tras compilar un plugin"
+  },
+  "pluginCompiling": "[ਜੌਸ ਪਲੱਗਇਨ ਕੰਪਾਈਲਰ] ਕੰਪਾਈਲਿੰਗ {path} (ਭਾਸ਼ਾ: {lang})...",
+  "@pluginCompiling": {
+    "description": "Aviso de inicio de compilación de un plugin",
+    "placeholders": {
+      "path": {},
+      "lang": {}
+    }
+  },
+  "pluginTreeShaking": "ਟ੍ਰੀ ਹਿੱਲਣਾ: {retained} ਫੰਕਸ਼ਨ ਬਰਕਰਾਰ ਰੱਖੇ ਗਏ ({removed} ਹਟਾਏ ਗਏ)",
+  "@pluginTreeShaking": {
+    "description": "Métricas de optimización tree-shaking de funciones",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginStructuresRetained": "ਸੰਰਚਨਾਵਾਂ ਨੂੰ ਸੁਰੱਖਿਅਤ ਕੀਤਾ ਗਿਆ: {retained} ({removed} ਹਟਾਇਆ ਗਿਆ)",
+  "@pluginStructuresRetained": {
+    "description": "Métricas de optimización de estructuras y tipos",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginInspectSpecifyError": "ਤਰੁੱਟੀ: ਜਾਂਚ ਕਰਨ ਲਈ .jp ਫਾਈਲ ਦਿਓ।",
+  "@pluginInspectSpecifyError": {
+    "description": "Error cuando no se indica el archivo JP a inspeccionar"
+  },
+  "pluginOpenError": "ਖੋਲ੍ਹਣ ਵਿੱਚ ਤਰੁੱਟੀ {path}: {error}",
+  "@pluginOpenError": {
+    "description": "Error al intentar abrir el archivo de plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginDecodeError": "ਡੀਕੋਡ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ {path}: {error}",
+  "@pluginDecodeError": {
+    "description": "Error al decodificar el formato binario del plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginInspectVersion": "ਸੰਸਕਰਣ: {version}",
+  "@pluginInspectVersion": {
+    "description": "Etiqueta con la versión del plugin inspeccionado",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginInspectTitle": "ਪਲੱਗਇਨ: {name}",
+  "@pluginInspectTitle": {
+    "description": "Etiqueta con el nombre del plugin inspeccionado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginSignatureVerifiedStatus": "ਦਸਤਖਤ: {algo} ({key}) ਪ੍ਰਮਾਣਿਤ",
+  "@pluginSignatureVerifiedStatus": {
+    "description": "Detalles de verificación de firma del paquete",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginBytecodeTarget": "ਬਾਈਟਕੋਡ ਟੀਚਾ: JPBC (ਜੌਸ ਪਲੱਗਇਨ ਬਾਈਟਕੋਡ)",
+  "@pluginBytecodeTarget": {
+    "description": "Información sobre el formato de bytecode destino"
+  },
+  "pluginPermissionsNone": "(ਕੋਈ ਨਹੀਂ)",
+  "@pluginPermissionsNone": {
+    "description": "Texto mostrado cuando el plugin no solicita permisos especiales"
+  },
+  "pluginDeclaredClasses": "ਘੋਸ਼ਿਤ ਕਲਾਸਾਂ:",
+  "@pluginDeclaredClasses": {
+    "description": "Encabezado de clases provistas por el plugin"
+  },
+  "pluginExportedFunctions": "ਨਿਰਯਾਤ ਫੰਕਸ਼ਨ:",
+  "@pluginExportedFunctions": {
+    "description": "Encabezado del listado de funciones públicas del plugin"
+  },
+  "pluginDeclaredPermissions": "ਐਲਾਨੀਆਂ ਇਜਾਜ਼ਤਾਂ:",
+  "@pluginDeclaredPermissions": {
+    "description": "Encabezado de permisos requeridos por el plugin"
+  },
+  "pluginSignatureValid": "ਸਥਿਤੀ: ਦਸਤਖਤ Ed25519 ਵੈਧ ਅਤੇ ਪ੍ਰਮਾਣਿਤ ✅",
+  "@pluginSignatureValid": {
+    "description": "Confirmación de firma digital válida y auténtica"
+  },
+  "pluginVerifySpecifyError": "ਤਰੁੱਟੀ: ਤਸਦੀਕ ਕਰਨ ਲਈ .jp ਫਾਈਲ ਦਿਓ।",
+  "@pluginVerifySpecifyError": {
+    "description": "Error cuando no se provee el archivo JP a verificar"
+  },
+  "pluginVerificationError": "'{path}' 'ਤੇ ਪੁਸ਼ਟੀਕਰਨ ਗੜਬੜ: {error}",
+  "@pluginVerificationError": {
+    "description": "Error de verificación criptográfica de firma",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginSignatureAlgorithm": "ਐਲਗੋਰਿਦਮ: {algo} ({key})",
+  "@pluginSignatureAlgorithm": {
+    "description": "Algoritmo y clave pública de la firma digital",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginNoProtectedCommands": "ਇਹ ਪਲੱਗਇਨ ਸੁਰੱਖਿਅਤ ਜਾਂ ਵਾਧੂ CLI ਕਮਾਂਡਾਂ ਦਾ ਪਰਦਾਫਾਸ਼ ਨਹੀਂ ਕਰਦਾ ਹੈ।",
+  "@pluginNoProtectedCommands": {
+    "description": "Aviso si el plugin no tiene comandos de consola asociados"
+  },
+  "pluginNotFound": "ਗਲਤੀ: '{name}' ਨਾਮ ਨਾਲ ਕੋਈ ਪਲੱਗਇਨ ਨਹੀਂ ਮਿਲਿਆ।",
+  "@pluginNotFound": {
+    "description": "Aviso cuando el plugin solicitado no está registrado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginAvailableTitle": "ਜੋਸ ਵਿੱਚ ਪਲੱਗਇਨ ਕਮਾਂਡਾਂ ਉਪਲਬਧ ਹਨ:",
+  "@pluginAvailableTitle": {
+    "description": "Título principal del catálogo de plugins de Joss"
+  },
+  "pluginProvidedCommands": "ਪ੍ਰਦਾਨ ਕੀਤੀਆਂ ਕਮਾਂਡਾਂ:",
+  "@pluginProvidedCommands": {
+    "description": "Encabezado de comandos de consola provistos por un plugin"
+  },
+  "pluginNoDirectCli": "(ਸਿੱਧੀ CLI ਕਮਾਂਡਾਂ ਦਾ ਐਲਾਨ ਨਹੀਂ ਕਰਦਾ)",
+  "@pluginNoDirectCli": {
+    "description": "Nota cuando un plugin en la lista no añade comandos directos"
   }
 }

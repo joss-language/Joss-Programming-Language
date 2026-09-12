@@ -92,8 +92,8 @@ func printHelp(topics ...string) {
 	fmt.Println(i18n.Tr("cliSectionSystem"))
 	fmt.Printf("  version                        %s\n", i18n.Tr("version"))
 	fmt.Printf("  update [-f|--canary|--stable]  %s\n", i18n.Tr("cliCmdUpdate"))
-	fmt.Printf("  ai:activate                    %s\n", i18n.Tr("cliCmdAiActivate"))
 	fmt.Printf("  help [comando]                 %s\n", i18n.Tr("helpPrint"))
+
 	fmt.Println()
 	fmt.Println(i18n.Tr("cliHelpFooter"))
 }

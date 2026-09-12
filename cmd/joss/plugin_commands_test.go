@@ -19,20 +19,23 @@ func TestPluginCommandsDiscoveryAndHelp(t *testing.T) {
 		t.Fatalf("expected ai:activate command in joss_ai")
 	}
 
-	// Verify joss_backup plugin
-	backup, ok := plugins["joss_backup"]
+	// Verify joss_brevo plugin
+	brevo, ok := plugins["joss_brevo"]
 	if !ok {
-		t.Fatalf("expected joss_backup plugin to be discovered")
+		t.Fatalf("expected joss_brevo plugin to be discovered")
 	}
-	if _, ok := backup.Commands["backup:create"]; !ok {
-		t.Fatalf("expected backup:create command in joss_backup")
-	}
-	if restoreCmd, ok := backup.Commands["backup:restore"]; !ok || !restoreCmd.Protected {
-		t.Fatalf("expected backup:restore to be protected command in joss_backup")
+	if _, ok := brevo.Commands["brevo:config"]; !ok {
+		t.Fatalf("expected brevo:config command in joss_brevo")
 	}
 
-	// Test tryDispatchPluginCommand
-	if !tryDispatchPluginCommand("backup:create", []string{"test_backups"}) {
-		t.Fatalf("expected backup:create to be dispatched")
+	// Verify unknown command returns false
+	if tryDispatchPluginCommand("unknown:cmd", nil) {
+		t.Fatalf("expected unknown:cmd to return false")
+	}
+
+	// Verify known plugin command returns true
+	if !tryDispatchPluginCommand("notify:send", nil) {
+		t.Fatalf("expected notify:send to be dispatched by discovered plugin")
 	}
 }
+

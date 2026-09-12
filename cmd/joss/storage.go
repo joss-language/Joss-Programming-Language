@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/objectstorage"
 )
@@ -21,30 +22,30 @@ func handleUserStorage(provider string) {
 	case "migrate-local", "sync-local":
 		migrateFromOCI()
 	case "local":
-		fmt.Printf("Configurando UserStorage para proveedor: %s\n", provider)
+		fmt.Println(i18n.Tr("storageConfiguring", map[string]interface{}{"provider": provider}))
 		configureLocal()
 	case "oci":
-		fmt.Printf("Configurando UserStorage para proveedor: %s\n", provider)
+		fmt.Println(i18n.Tr("storageConfiguring", map[string]interface{}{"provider": provider}))
 		configureOCI()
 	case "aws", "azure":
-		fmt.Printf("El proveedor '%s' aún no está soportado.\n", provider)
+		fmt.Println(i18n.Tr("storageNotSupported", map[string]interface{}{"provider": provider}))
 	default:
-		fmt.Printf("Proveedor desconocido: %s\n", provider)
+		fmt.Println(i18n.Tr("storageUnknownProvider", map[string]interface{}{"provider": provider}))
 	}
 }
 
 func configureLocal() {
 	// 1. Update Env to STORAGE=local
 	updateEnvVariable("STORAGE", "local")
-	fmt.Println("Almacenamiento configurado a LOCAL.")
+	fmt.Println(i18n.Tr("storageConfiguredLocal"))
 
 	// 2. Ask if user wants to migrate FROM OCI to Local
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("¿Deseas descargar los archivos desde OCI hacia local? (s/n): ")
+	fmt.Printf("%s (s/n): ", i18n.Tr("storagePromptDownloadOci"))
 	text, _ := reader.ReadString('\n')
 	text = strings.TrimSpace(strings.ToLower(text))
 
-	if text == "s" {
+	if text == "s" || text == "y" || text == "si" || text == "yes" {
 		migrateFromOCI()
 	}
 }
@@ -55,7 +56,7 @@ func configureOCI() {
 	// Gather OCI Details
 	config := make(map[string]string)
 
-	fmt.Println("\n--- Configuración de Oracle Cloud Infrastructure (OCI) ---")
+	fmt.Printf("\n%s\n", i18n.Tr("storageOciTitle"))
 
 	fields := []struct {
 		Key   string
@@ -82,14 +83,14 @@ func configureOCI() {
 	}
 
 	updateEnvVariable("STORAGE", "OCI")
-	fmt.Println("\nConfiguración OCI guardada.")
+	fmt.Printf("\n%s\n", i18n.Tr("storageOciSaved"))
 
 	// Ask for migration
-	fmt.Print("¿Deseas subir los archivos locales existentes a OCI? (s/n): ")
+	fmt.Printf("%s (s/n): ", i18n.Tr("storagePromptUploadOci"))
 	text, _ := reader.ReadString('\n')
 	text = strings.TrimSpace(strings.ToLower(text))
 
-	if text == "s" {
+	if text == "s" || text == "y" || text == "si" || text == "yes" {
 		migrateToOCI()
 	}
 }
@@ -130,7 +131,7 @@ func getOCIClient() (objectstorage.ObjectStorageClient, context.Context, error) 
 }
 
 func migrateToOCI() {
-	fmt.Println("\nIniciando migración a OCI...")
+	fmt.Printf("\n%s\n", i18n.Tr("storageStartingMigrationOci"))
 
 	client, ctx, err := getOCIClient()
 	if err != nil {
@@ -156,7 +157,7 @@ func migrateToOCI() {
 				// Convert backslashes to slashes for object storage keys
 				objectName := filepath.ToSlash(relPath)
 
-				fmt.Printf("Subiendo: %s -> %s\n", path, objectName)
+				fmt.Println(i18n.Tr("storageUploading", map[string]interface{}{"source": path, "dest": objectName}))
 
 				file, err := os.Open(path)
 				if err != nil {
@@ -187,12 +188,12 @@ func migrateToOCI() {
 	if err != nil {
 		fmt.Printf("Error recorriendo directorios: %v\n", err)
 	} else {
-		fmt.Println("Migración a OCI completada.")
+		fmt.Println(i18n.Tr("storageMigrationOciCompleted"))
 	}
 }
 
 func migrateFromOCI() {
-	fmt.Println("\nIniciando descarga desde OCI...")
+	fmt.Printf("\n%s\n", i18n.Tr("storageStartingDownloadOci"))
 
 	client, ctx, err := getOCIClient()
 	if err != nil {
@@ -227,7 +228,7 @@ func migrateFromOCI() {
 			objectName := *item.Name
 			targetPath := filepath.Join(baseDir, objectName)
 
-			fmt.Printf("Descargando: %s -> %s\n", objectName, targetPath)
+			fmt.Println(i18n.Tr("storageDownloading", map[string]interface{}{"source": objectName, "dest": targetPath}))
 
 			// Ensure dir
 			os.MkdirAll(filepath.Dir(targetPath), 0755)
@@ -267,7 +268,7 @@ func migrateFromOCI() {
 		start = *resp.NextStartWith
 	}
 
-	fmt.Println("Descarga completada.")
+	fmt.Println(i18n.Tr("storageDownloadCompleted"))
 }
 
 func loadEnvMap() map[string]string {

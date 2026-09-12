@@ -172,3 +172,42 @@ Las reglas arquitectónicas negativas siguen vigentes: analyzer no importa core;
 - **Protección contra Double-Free en Runtime Pool**: `Runtime` mantiene una guarda booleana `freed` protegida por `poolMu` para prevenir que llamadas duplicadas a `Free()` corrompan el `sync.Pool` o introduzcan carreras de datos en estructuras compartidas (`Classes`, `GlobalScope`).
 - **Metadata Nativa Declarativa**: 10 clases nativas (`Stack`, `Queue`, `Math`, `JSON`, `Markdown`, `Str`, `UUID`, `Lang`, `Console`, `Zip`) se migran formalmente a `NativeMethodDefinition`, distinguiendo firmas canónicas, nombres tipados y aridad fija o variable hacia el analyzer, catálogo LSP y documentación.
 - **Directivas y Posicionamiento de Plantillas**: `pkg/viewtemplate` implementa cálculo de columnas basado en runas Unicode (`utf8.RuneCountInString`), garantizando que caracteres acentuados o multibyte en directivas mantengan rangos 1-based exactos y compatibles con LSP/diagnósticos.
+
+---
+
+## 8. Reglas de internacionalización (i18n) y archivos ARB
+
+Para mantener la consistencia entre los 30 idiomas soportados y evitar que los motores de traducción corrompan sintaxis de comandos o flujos interactivos de consola:
+
+1. **Aislamiento estricto de sintaxis CLI**:
+   * En los archivos `.arb` va **únicamente prosa humana, descripciones y etiquetas legibles**.
+   * **Nunca** incluir comandos ejecutables (`joss run`, `joss migrate`, `joss make:...`), flags (`--write`, `--dry-run`), ni nombres de archivo de ejemplo (`main.joss`, `tu_script.joss`) dentro de los valores de cadenas a traducir.
+   * La sintaxis CLI se formatea siempre en código Go con `fmt.Printf`, inyectando únicamente las etiquetas o descripciones traducidas.
+   * Para prefijar líneas de ayuda con "Uso:", usar la clave canónica `cliUsageLabel` (`"Uso:"`), interpolando el comando en Go:
+     ```go
+     fmt.Printf("%s joss run [archivo.joss]\n", i18n.Tr("cliUsageLabel"))
+     ```
+
+2. **Prompts interactivos de consola (`s/n` vs `y/n`)**:
+   * **Nunca** incluir el sufijo selector `(s/n): ` o `(y/n): ` dentro del texto de la pregunta en el ARB.
+   * La cadena ARB debe contener únicamente la pregunta limpia en prosa (ej: `"¿Deseas descargar los archivos desde OCI hacia local?"`).
+   * El indicador de opciones se formatea directamente en Go:
+     ```go
+     fmt.Printf("%s (s/n): ", i18n.Tr("storagePromptDownloadOci"))
+     ```
+   * La validación de entrada por teclado en Go debe aceptar indistintamente opciones afirmativas en español e internacional:
+     ```go
+     if text == "s" || text == "y" || text == "si" || text == "yes" {
+     ```
+
+3. **Placeholders y metadata obligatoria**:
+   * Toda cadena que use variables interpoladas `{param}` debe tener obligatoriamente su bloque `@key` con `"placeholders": { "param": {} }`.
+   * El tooling de traducción (`Traductor-de-Proyectos-arb-xml`) y los characterization tests (`pkg/i18n/i18n_test.go`) validan esta paridad.
+
+4. **Paridad de claves al 100%**:
+   * Los 30 archivos `intl_*.arb` deben contener exactamente el mismo conjunto de claves. No se admiten claves huérfanas ni traducciones que dejen el valor del comando en español en archivos de otros idiomas.
+
+5. **Protección absoluta de códigos de diagnóstico y nombres canónicos**:
+   * Los códigos estables de diagnóstico (`JOSS-SYM-008`, `JOSS-TYPE-011`, `JOSS-PARSE-001`, `JOSS-CALL-001`, etc.) son invariantes arquitectónicas del compilador, analizador y linter. **Bajo ninguna circunstancia se deben borrar, traducir, alterar o reemplazar**.
+   * Nombres de archivos de configuración técnica (`joss.yaml`) y nombres de propiedades canónicas (`name, version, repository`) se mantienen estrictamente literales en todos los idiomas sin traducir ni añadir sufijos gramaticales de otros idiomas.
+

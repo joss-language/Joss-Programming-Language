@@ -53,8 +53,13 @@ frontera de permisos real; declararla en metadata no basta.
 
 Las keywords se proyectan con `parser.KeywordNames()`. VS Code consume
 `vscode-joss/src/server/generated/languageCatalog.json`; nunca se edita a mano.
-Las guías canónicas viven en `docs/*.md`; la publicación versionada de JosSecurity
-debe coincidir byte por byte y su menú/controlador deben cubrir el mismo conjunto.
+Las guías canónicas en español viven en `docs/*.md`; inglés y portugués conservan
+el mismo nombre de archivo en `docs/en` y `docs/pt`. La publicación versionada de
+JosSecurity usa `assets/docs/{es,en,pt}` y debe coincidir byte por byte con cada
+idioma fuente. Tras modificar español, ejecuta
+`go run ./tools/docsi18n -translate -sync`; el manifest de hashes evita trabajo
+innecesario y `go run ./tools/docsi18n -check` detecta traducciones obsoletas,
+faltantes, enlaces locales rotos y diferencias del espejo público.
 
 Los ejemplos completos verificables usan marcadores `joss-run`, `joss-check` o
 `joss-error` inmediatamente antes de su fence. `documentation_test.go` analiza
@@ -67,6 +72,7 @@ fragmentos que dependen de servidor, DB o plugins y explica ese contexto.
 gofmt -w archivos_go_modificados
 go run ./tools/cataloggen --check
 go run ./tools/docgen --check
+go run ./tools/docsi18n -check
 go vet ./...
 go test ./...
 go test -race ./pkg/parser ./pkg/typesystem ./pkg/analyzer ./pkg/core

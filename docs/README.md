@@ -4,6 +4,18 @@ Esta documentación describe el comportamiento del código actual. Está separad
 en aprendizaje, guías, referencia e internos para que una persona nueva pueda
 avanzar en orden y una persona experimentada encuentre reglas concretas.
 
+## Idiomas
+
+- Español (fuente canónica): este directorio.
+- [English](en/README.md)
+- [Português](pt/README.md)
+
+Los 46 documentos mantienen el mismo nombre en cada idioma para que los enlaces
+relativos funcionen igual. Después de editar el español, ejecuta
+`go run ./tools/docsi18n -translate -sync` para actualizar traducciones y espejo
+web; `go run ./tools/docsi18n -check` detecta archivos ausentes, traducciones
+desactualizadas, enlaces rotos o diferencias con JosSecurity.
+
 ## Aprender Joss (Ruta guiada para principiantes)
 
 Si nunca has programado o estás aprendiendo Joss por primera vez, lee este recorrido en orden. Cada página introduce los conceptos con explicaciones pedagógicas, ejemplos visuales paso a paso y chuletas rápidas antes de profundizar en los aspectos técnicos avanzados.

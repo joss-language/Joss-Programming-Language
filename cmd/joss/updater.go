@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/version"
 )
 
@@ -133,8 +134,8 @@ func checkUpdateBackground() {
 
 func printUpdateNotification(remoteVer, channel string) {
 	channelTag := strings.ToUpper(channel)
-	fmt.Printf("\n💡 \033[1;33m[JOSS UPDATE]\033[0m ¡Nueva versión disponible! \033[1;36mv%s\033[0m -> \033[1;32mv%s\033[0m (%s)\n", version.Version, remoteVer, channelTag)
-	fmt.Printf("   Ejecuta \033[1;35mjoss update --%s\033[0m para actualizar automáticamente el runtime, SDK y extensión.\n\n", strings.ToLower(channel))
+	fmt.Printf("\n💡 \033[1;33m[JOSS UPDATE]\033[0m %s \033[1;36mv%s\033[0m -> \033[1;32mv%s\033[0m (%s)\n", i18n.Tr("updaterNewVersionTitle"), version.Version, remoteVer, channelTag)
+	fmt.Printf("   %s\n\n", i18n.Tr("updaterRunHint", map[string]interface{}{"channel": strings.ToLower(channel)}))
 }
 
 // handleUpdateCommand executes the 'joss update' CLI command.
@@ -156,15 +157,15 @@ func handleUpdateCommand(args []string) {
 	saveUpdateConfig(cfg)
 
 	fmt.Printf("\n=======================================================\n")
-	fmt.Printf("🔄 ACTUALIZADOR DE JOSS (Joss Auto-Updater)\n")
-	fmt.Printf(" Versión Actual : v%s\n", version.Version)
-	fmt.Printf(" Canal Elegido  : %s\n", strings.ToUpper(cfg.Channel))
+	fmt.Printf("%s (Joss Auto-Updater)\n", i18n.Tr("updaterTitle"))
+	fmt.Printf(" %s : v%s\n", i18n.Tr("updaterCurrentVersion"), version.Version)
+	fmt.Printf(" %s  : %s\n", i18n.Tr("updaterSelectedChannel"), strings.ToUpper(cfg.Channel))
 	if force {
-		fmt.Printf(" Modo Forzado   : ACTIVO (-f)\n")
+		fmt.Printf(" %s   : ACTIVO (-f)\n", i18n.Tr("updaterForcedMode"))
 	}
 	fmt.Printf("=======================================================\n\n")
 
-	fmt.Println("🌐 Consultando la API de GitHub Releases...")
+	fmt.Println(i18n.Tr("updaterCheckingGitHub"))
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", githubReleasesURL, nil)
@@ -188,13 +189,13 @@ func handleUpdateCommand(args []string) {
 
 	var releases []GitHubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil || len(releases) == 0 {
-		fmt.Println("No se encontraron releases públicas de Joss en GitHub.")
+		fmt.Println(i18n.Tr("updaterNoReleasesFound"))
 		return
 	}
 
 	targetRelease := selectReleaseByChannel(releases, cfg.Channel)
 	if targetRelease == nil {
-		fmt.Printf("No se encontró ningún release disponible para el canal '%s'.\n", cfg.Channel)
+		fmt.Println(i18n.Tr("updaterNoReleaseForChannel", map[string]interface{}{"channel": cfg.Channel}))
 		return
 	}
 
@@ -202,14 +203,14 @@ func handleUpdateCommand(args []string) {
 	fmt.Printf("📦 Release seleccionado : %s (%s)\n", targetRelease.Name, targetRelease.TagName)
 
 	if !force && compareVersions(remoteVer, version.Version) == 0 {
-		fmt.Printf("✨ Joss ya se encuentra actualizado en la versión v%s para el canal %s.\n", version.Version, strings.ToUpper(cfg.Channel))
-		fmt.Println("💡 Tip: Usa 'joss update -f' para forzar la re-descarga e instalación del binario.")
+		fmt.Println(i18n.Tr("updaterAlreadyUpdated", map[string]interface{}{"version": version.Version, "channel": strings.ToUpper(cfg.Channel)}))
+		fmt.Println(i18n.Tr("updaterForceTip"))
 		fmt.Println()
 		return
 	}
 
 	if force {
-		fmt.Println("⚠️  Re-descargando y re-instalando la versión del release por modo forzado (-f)...")
+		fmt.Println(i18n.Tr("updaterForcedRedownload"))
 	}
 
 	assetURL := findMatchingAsset(targetRelease.Assets, runtime.GOOS, runtime.GOARCH)
@@ -222,11 +223,11 @@ func handleUpdateCommand(args []string) {
 	}
 
 	if assetURL == "" {
-		fmt.Println("Error: No hay binarios disponibles para descargar en este release.")
+		fmt.Println(i18n.Tr("updaterNoBinariesFound"))
 		return
 	}
 
-	fmt.Printf("⬇️  Descargando actualización desde: %s\n", assetURL)
+	fmt.Println(i18n.Tr("updaterDownloading"))
 
 	tempDir, err := os.MkdirTemp("", "joss-update-*")
 	if err != nil {
@@ -288,7 +289,7 @@ func handleUpdateCommand(args []string) {
 		}
 	}
 
-	fmt.Println("⚙️  Aplicando actualización de runtime, SDK y extensión...")
+	fmt.Println(i18n.Tr("updaterApplying"))
 
 	currentExe, err := os.Executable()
 	if err != nil {
@@ -307,9 +308,9 @@ func handleUpdateCommand(args []string) {
 	cfg.LatestAssetURL = assetURL
 	saveUpdateConfig(cfg)
 
-	fmt.Printf("\n✨ ¡JOSS SE HA ACTUALIZADO EXITOSAMENTE!\n")
-	fmt.Printf(" Nueva Versión : v%s (%s)\n", remoteVer, strings.ToUpper(cfg.Channel))
-	fmt.Printf(" Ejecutable     : %s\n\n", currentExe)
+	fmt.Printf("\n%s\n", i18n.Tr("updaterSuccessTitle"))
+	fmt.Printf(" %s : v%s (%s)\n", i18n.Tr("updaterNewVersion"), remoteVer, strings.ToUpper(cfg.Channel))
+	fmt.Printf(" %s     : %s\n\n", i18n.Tr("updaterExecutable"), currentExe)
 }
 
 func selectReleaseByChannel(releases []GitHubRelease, channel string) *GitHubRelease {

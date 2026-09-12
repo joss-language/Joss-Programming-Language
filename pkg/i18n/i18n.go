@@ -16,6 +16,9 @@ import (
 //go:embed locales/*.arb
 var embeddedLocales embed.FS
 
+// M is a convenience alias for translation arguments
+type M = map[string]interface{}
+
 type Manager struct {
 	locales       map[string]map[string]string
 	mu            sync.RWMutex

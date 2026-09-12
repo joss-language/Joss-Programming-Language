@@ -282,8 +282,6 @@ func main() {
 			return
 		}
 		handleUserStorage(os.Args[2])
-	case "brevo:config":
-		handleBrevoConfig()
 	case "version":
 		fmt.Printf("%s v%s (%s)\n", version.Name, version.Version, version.NameVersion)
 	case "pub":
@@ -294,11 +292,10 @@ func main() {
 		} else {
 			fmt.Println("Uso: joss package inspect archivo.jp")
 		}
-	case "ai:activate":
-		activateAI()
+
 	case "change":
 		if len(os.Args) < 4 || os.Args[2] != "db" {
-			fmt.Println("Uso: joss change db [motor] o joss change db prefix [nuevo_prefijo]")
+			fmt.Printf("%s joss change db [motor] o joss change db prefix [nuevo_prefijo]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 
@@ -307,7 +304,7 @@ func main() {
 			changeDatabaseMigrate()
 		case "prefix":
 			if len(os.Args) < 5 {
-				fmt.Println("Uso: joss change db prefix [nuevo_prefijo]")
+				fmt.Printf("%s joss change db prefix [nuevo_prefijo]\n", i18n.Tr("cliUsageLabel"))
 				return
 			}
 			newPrefix := os.Args[4]

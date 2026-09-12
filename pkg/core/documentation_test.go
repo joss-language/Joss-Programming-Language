@@ -152,11 +152,7 @@ func TestDocumentationNavigationAndPublicMirror(t *testing.T) {
 	if got := len(regexp.MustCompile(`data-page="[A-Z0-9_]+"`).FindAll(menu, -1)); got != len(docs) {
 		t.Errorf("public menu has %d page entries; want %d", got, len(docs))
 	}
-	titleBlock := regexp.MustCompile(`(?s)\$titles\s*=\s*\{(.*?)\}`).FindSubmatch(controller)
-	if len(titleBlock) != 2 {
-		t.Fatal("DocsController pageHeading title map not found")
-	}
-	if got := len(regexp.MustCompile(`"[A-Z0-9_]+"\s*:`).FindAll(titleBlock[1], -1)); got != len(docs) {
+	if got := len(regexp.MustCompile(`(?m)^\s{12}"[A-Z0-9_]+"\s*:`).FindAll(controller, -1)); got != len(docs) {
 		t.Errorf("DocsController has %d title entries; want %d", got, len(docs))
 	}
 }

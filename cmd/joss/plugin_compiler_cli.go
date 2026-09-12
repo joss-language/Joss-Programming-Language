@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/plugincompiler"
 	"github.com/jossecurity/joss/pkg/pluginpkg"
 )
@@ -32,7 +33,7 @@ func runPluginCommand(args []string) {
 }
 
 func printPluginUsage() {
-	fmt.Println("Uso de comandos de plugins de Joss:")
+	fmt.Println(i18n.Tr("pluginUsageTitle"))
 	fmt.Println("  joss plugin compile <dir|archivo> [--lang=java|python|php|wasm] [--name=nombre] [--ver=1.0.0] [--exports=f1,f2]")
 	fmt.Println("  joss plugin inspect <plugin.jp>")
 	fmt.Println("  joss plugin verify <plugin.jp>")
@@ -40,7 +41,7 @@ func printPluginUsage() {
 
 func handlePluginCompile(args []string) {
 	if len(args) < 1 {
-		fmt.Println("Error: especifica el directorio o archivo fuente a compilar.")
+		fmt.Println(i18n.Tr("pluginSpecifySourceError"))
 		fmt.Println("Ejemplo: joss plugin compile MiPlugin.jar --lang=java --name=music-plugin --exports=searchSong,getSong")
 		return
 	}
@@ -105,7 +106,7 @@ func handlePluginCompile(args []string) {
 		return
 	}
 
-	fmt.Printf("[Compilador de Plugins Joss] Compilando %s (Lenguaje: %s)...\n", sourcePath, lang)
+	fmt.Println(i18n.Tr("pluginCompiling", i18n.M{"path": sourcePath, "lang": lang}))
 
 	opts := plugincompiler.Options{
 		SourceDir:   filepath.Dir(sourcePath),
@@ -120,23 +121,23 @@ func handlePluginCompile(args []string) {
 
 	outPath, result, err := plugincompiler.CompileProject(opts)
 	if err != nil {
-		fmt.Printf("Error durante la compilacion del plugin: %v\n", err)
+		fmt.Println(i18n.Tr("pluginCompileError", i18n.M{"error": err.Error()}))
 		return
 	}
 
 	fi, _ := os.Stat(outPath)
 	sizeKB := float64(fi.Size()) / 1024.0
 
-	fmt.Println("✓ Compilacion exitosa!")
-	fmt.Printf("  Plugin generado: %s\n", outPath)
-	fmt.Printf("  Tamaño del paquete: %.2f KB\n", sizeKB)
-	fmt.Printf("  Tree Shaking: %d funciones conservadas (%d eliminadas)\n", result.OptimizedFuncs, result.RemovedFuncs)
-	fmt.Printf("  Estructuras conservadas: %d (%d eliminadas)\n", result.OptimizedStructs, result.RemovedStructs)
+	fmt.Println(i18n.Tr("pluginCompileSuccess"))
+	fmt.Println("  " + i18n.Tr("pluginGenerated", i18n.M{"path": outPath}))
+	fmt.Printf("  %s\n", i18n.Tr("pluginPackageSize", i18n.M{"size": fmt.Sprintf("%.2f", sizeKB)}))
+	fmt.Println("  " + i18n.Tr("pluginTreeShaking", i18n.M{"retained": result.OptimizedFuncs, "removed": result.RemovedFuncs}))
+	fmt.Println("  " + i18n.Tr("pluginStructuresRetained", i18n.M{"retained": result.OptimizedStructs, "removed": result.RemovedStructs}))
 }
 
 func handlePluginInspect(args []string) {
 	if len(args) < 1 {
-		fmt.Println("Error: especifica el archivo .jp a inspeccionar.")
+		fmt.Println(i18n.Tr("pluginInspectSpecifyError"))
 		fmt.Println("Ejemplo: joss plugin inspect music-plugin.jp")
 		return
 	}
@@ -144,13 +145,13 @@ func handlePluginInspect(args []string) {
 	jpPath := args[0]
 	archive, err := os.ReadFile(jpPath)
 	if err != nil {
-		fmt.Printf("Error al abrir %s: %v\n", jpPath, err)
+		fmt.Println(i18n.Tr("pluginOpenError", i18n.M{"path": jpPath, "error": err.Error()}))
 		return
 	}
 
 	pkg, err := pluginpkg.Read(archive)
 	if err != nil {
-		fmt.Printf("Error al decodificar %s: %v\n", jpPath, err)
+		fmt.Println(i18n.Tr("pluginDecodeError", i18n.M{"path": jpPath, "error": err.Error()}))
 		return
 	}
 
@@ -158,15 +159,15 @@ func handlePluginInspect(args []string) {
 	sizeKB := float64(fi.Size()) / 1024.0
 
 	fmt.Println("========================================")
-	fmt.Printf(" Plugin: %s\n", pkg.Metadata.Name)
-	fmt.Printf(" Version: %s\n", pkg.Metadata.Version)
-	fmt.Printf(" Bytecode Target: JPBC (Joss Plugin Bytecode)\n")
-	fmt.Printf(" Tamaño Paquete: %.2f KB\n", sizeKB)
+	fmt.Println(" " + i18n.Tr("pluginInspectTitle", i18n.M{"name": pkg.Metadata.Name}))
+	fmt.Println(" " + i18n.Tr("pluginInspectVersion", i18n.M{"version": pkg.Metadata.Version}))
+	fmt.Println(" " + i18n.Tr("pluginBytecodeTarget"))
+	fmt.Printf("  %s\n", i18n.Tr("pluginPackageSize", i18n.M{"size": fmt.Sprintf("%.2f", sizeKB)}))
 	if pkg.Metadata.Signature != "" {
-		fmt.Printf(" Firma: %s (%s) verificada\n", pkg.Metadata.SignatureAlgorithm, pkg.Metadata.KeyID)
+		fmt.Println(" " + i18n.Tr("pluginSignatureVerifiedStatus", i18n.M{"algo": pkg.Metadata.SignatureAlgorithm, "key": pkg.Metadata.KeyID}))
 	}
 	fmt.Println("----------------------------------------")
-	fmt.Println(" Funciones Exportadas:")
+	fmt.Println(" " + i18n.Tr("pluginExportedFunctions"))
 	for _, exp := range pkg.Metadata.Exports {
 		fmt.Printf("   - %s()\n", exp)
 	}
@@ -175,7 +176,7 @@ func handlePluginInspect(args []string) {
 			var symbols pluginpkg.SymbolIndex
 			if err := json.Unmarshal(symData, &symbols); err == nil {
 				if len(symbols.Classes) > 0 {
-					fmt.Println(" Clases Declaradas:")
+					fmt.Println(" " + i18n.Tr("pluginDeclaredClasses"))
 					for _, cls := range symbols.Classes {
 						fmt.Printf("   - class %s\n", cls.Name)
 						for _, m := range cls.Methods {
@@ -186,9 +187,9 @@ func handlePluginInspect(args []string) {
 			}
 		}
 	}
-	fmt.Println(" Permisos Declarados:")
+	fmt.Println(" " + i18n.Tr("pluginDeclaredPermissions"))
 	if len(pkg.Metadata.Permissions) == 0 {
-		fmt.Println("   (ninguno)")
+		fmt.Println("   " + i18n.Tr("pluginPermissionsNone"))
 	} else {
 		for _, perm := range pkg.Metadata.Permissions {
 			fmt.Printf("   - %s\n", perm)
@@ -199,7 +200,7 @@ func handlePluginInspect(args []string) {
 
 func handlePluginVerify(args []string) {
 	if len(args) < 1 {
-		fmt.Println("Error: especifica el archivo .jp a verificar.")
+		fmt.Println(i18n.Tr("pluginVerifySpecifyError"))
 		fmt.Println("Ejemplo: joss plugin verify mi_plugin.jp")
 		return
 	}
@@ -207,22 +208,22 @@ func handlePluginVerify(args []string) {
 	jpPath := args[0]
 	archive, err := os.ReadFile(jpPath)
 	if err != nil {
-		fmt.Printf("❌ Error al abrir %s: %v\n", jpPath, err)
+		fmt.Println("❌ " + i18n.Tr("pluginOpenError", i18n.M{"path": jpPath, "error": err.Error()}))
 		os.Exit(1)
 	}
 
 	pkg, err := pluginpkg.ReadVerified(archive)
 	if err != nil {
-		fmt.Printf("❌ Error de verificación en '%s': %v\n", jpPath, err)
+		fmt.Println("❌ " + i18n.Tr("pluginVerificationError", i18n.M{"path": jpPath, "error": err.Error()}))
 		os.Exit(1)
 	}
 
 	fmt.Println("========================================")
-	fmt.Printf(" Plugin: %s\n", pkg.Metadata.Name)
-	fmt.Printf(" Version: %s\n", pkg.Metadata.Version)
-	fmt.Printf(" Estado: Firma Ed25519 VÁLIDA y VERIFICADA ✅\n")
+	fmt.Println(" " + i18n.Tr("pluginInspectTitle", i18n.M{"name": pkg.Metadata.Name}))
+	fmt.Println(" " + i18n.Tr("pluginInspectVersion", i18n.M{"version": pkg.Metadata.Version}))
+	fmt.Println(" " + i18n.Tr("pluginSignatureValid"))
 	if pkg.Metadata.SignatureAlgorithm != "" {
-		fmt.Printf(" Algoritmo: %s (%s)\n", pkg.Metadata.SignatureAlgorithm, pkg.Metadata.KeyID)
+		fmt.Println(" " + i18n.Tr("pluginSignatureAlgorithm", i18n.M{"algo": pkg.Metadata.SignatureAlgorithm, "key": pkg.Metadata.KeyID}))
 	}
 	fmt.Println("========================================")
 }

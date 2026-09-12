@@ -82,7 +82,18 @@ func TestI18nConsistencyAcrossAllLocales(t *testing.T) {
 		"buildProgramStart", "pkgBuildStarting", "pkgBuildSuccess",
 		"cliUsageLabel", "cliSectionExec", "cliCmdMakeController",
 		"migrateFreshStarting", "migrateFreshSuccess", "seedersRunning",
+		"dbChangingEngine", "dbMigrationCompleted", "storageConfiguring",
+		"storagePromptDownloadOci", "storageUploading",
+		"nativeBuildMissingGo", "nativeBuildSuccessTitle",
+		"updaterNewVersionTitle", "updaterAlreadyUpdated",
+		"pubManagerTitle", "pubCommandsLabel", "pubCmdAddDesc",
+		"pubConnectError", "pubLoginSuccess", "pubPackageDownloads", "pubPackageName",
+		"pubSearchingPlatform", "pubInstallSuccessPlatform", "pubManifestNotFound",
+		"pubResolvingDependencies", "pubPublishedSuccess", "pubCacheEmptied",
+		"pluginUsageTitle", "pluginCompiling", "pluginCompileSuccess", "pluginPackageSize",
+		"pluginTreeShaking", "pluginInspectTitle", "pluginSignatureValid",
 	}
+
 
 	esKeys := make(map[string]string)
 	for _, k := range testKeys {

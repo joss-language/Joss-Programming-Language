@@ -904,5 +904,843 @@
   "seedersNotFound": "ആപ്പ്/ഡാറ്റാബേസ്/സീഡറുകൾ/ എന്നിവയിൽ സീഡറുകളൊന്നും കണ്ടെത്തിയില്ല.",
   "@seedersNotFound": {
     "description": "Mensaje cuando el directorio de seeders está vacío"
+  },
+  "dbErrConnectingDest": "ലക്ഷ്യസ്ഥാനത്തേക്ക് കണക്റ്റ് ചെയ്യുന്നതിൽ പിശക് ({dest}): {err}",
+  "@dbErrConnectingDest": {
+    "description": "Mensaje de error al conectar con la base de datos de destino",
+    "placeholders": {
+      "dest": {},
+      "err": {}
+    }
+  },
+  "dbErrConnectingSource": "ഉറവിടത്തിലേക്ക് ബന്ധിപ്പിക്കുന്നതിൽ പിശക് ({source}): {err}",
+  "@dbErrConnectingSource": {
+    "description": "Mensaje de error al conectar con la base de datos de origen",
+    "placeholders": {
+      "source": {},
+      "err": {}
+    }
+  },
+  "dbChangingEngine": "ഡാറ്റാബേസ് എഞ്ചിൻ ഇതിലേക്ക് മാറ്റുന്നു: {target}",
+  "@dbChangingEngine": {
+    "description": "Mensaje informativo al iniciar el cambio de motor de base de datos",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbAlreadyEngine": "ഡാറ്റാബേസ് എഞ്ചിൻ ഇതിനകം {target} ആണ്",
+  "@dbAlreadyEngine": {
+    "description": "Mensaje cuando el motor solicitado ya está activo",
+    "placeholders": {
+      "target": {}
+    }
+  },
+  "dbPreparingDestSchema": "ടാർഗെറ്റ് ഡാറ്റാബേസിൽ സ്കീമ തയ്യാറാക്കുന്നു...",
+  "@dbPreparingDestSchema": {
+    "description": "Mensaje informativo al preparar tablas y esquema destino"
+  },
+  "dbStartingDataMigration": "ഡാറ്റ മൈഗ്രേഷൻ ആരംഭിക്കുന്നു...",
+  "@dbStartingDataMigration": {
+    "description": "Mensaje informativo al iniciar la copia de datos entre tablas"
+  },
+  "dbMigrationCompleted": "✨ ഡാറ്റ മൈഗ്രേഷൻ വിജയകരമായി പൂർത്തിയാക്കി. {file} ഫയൽ അപ്ഡേറ്റ് ചെയ്യുകയും ബാക്കപ്പ് സൃഷ്ടിക്കുകയും ചെയ്തു.",
+  "@dbMigrationCompleted": {
+    "description": "Mensaje de éxito al completar la migración entre bases de datos",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "dbMigratingBetweenConfigured": "കോൺഫിഗർ ചെയ്ത ഡാറ്റാബേസ് എഞ്ചിനുകൾക്കിടയിൽ ഡാറ്റ മൈഗ്രേറ്റ് ചെയ്യുന്നു...",
+  "@dbMigratingBetweenConfigured": {
+    "description": "Mensaje inicial del comando change db migrate"
+  },
+  "dbOrigin": "ഉത്ഭവം",
+  "@dbOrigin": {
+    "description": "Etiqueta para indicar el motor o servidor de origen"
+  },
+  "dbDestination": "ലക്ഷ്യസ്ഥാനം",
+  "@dbDestination": {
+    "description": "Etiqueta para indicar el motor o servidor de destino"
+  },
+  "dbMigratingTable": "മൈഗ്രേറ്റിംഗ് പട്ടിക: {table}...",
+  "@dbMigratingTable": {
+    "description": "Mensaje de progreso al migrar una tabla individual",
+    "placeholders": {
+      "table": {}
+    }
+  },
+  "dbMigratedRows": "({count} വരികൾ)",
+  "@dbMigratedRows": {
+    "description": "Cantidad de filas migradas en una tabla",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dbTableDone": "നിറഞ്ഞു.",
+  "@dbTableDone": {
+    "description": "Indicador de fin de migración de una tabla"
+  },
+  "dbPrefixUpdated": "ഡാറ്റാബേസ് പ്രിഫിക്‌സ് ഇതിലേക്ക് അപ്‌ഡേറ്റ് ചെയ്‌തു: '{prefix}'",
+  "@dbPrefixUpdated": {
+    "description": "Mensaje al actualizar el prefijo de tablas",
+    "placeholders": {
+      "prefix": {}
+    }
+  },
+  "dbPrefixEmpty": "പിശക്: പ്രിഫിക്സ് ശൂന്യമായിരിക്കരുത്.",
+  "@dbPrefixEmpty": {
+    "description": "Mensaje de error cuando se pasa un prefijo vacío"
+  },
+  "storageConfiguring": "ദാതാവിനായി സംഭരണം ക്രമീകരിക്കുന്നു: {provider}",
+  "@storageConfiguring": {
+    "description": "Mensaje al iniciar configuración de almacenamiento",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageNotSupported": "ദാതാവ് '{provider}' ഇതുവരെ പിന്തുണച്ചിട്ടില്ല.",
+  "@storageNotSupported": {
+    "description": "Mensaje de proveedor no disponible",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storageUnknownProvider": "അജ്ഞാത വിതരണക്കാരൻ: {provider}",
+  "@storageUnknownProvider": {
+    "description": "Mensaje de proveedor no reconocido",
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "storagePromptDownloadOci": "OCI-യിൽ നിന്ന് ലോക്കലിലേക്ക് ഫയലുകൾ ഡൗൺലോഡ് ചെയ്യണോ?",
+  "@storagePromptDownloadOci": {
+    "description": "Pregunta interactiva para descargar archivos desde la nube OCI"
+  },
+  "storageConfiguredLocal": "സംഭരണം LOCAL ആയി സജ്ജീകരിച്ചു.",
+  "@storageConfiguredLocal": {
+    "description": "Confirmación de configuración a almacenamiento local"
+  },
+  "storageOciTitle": "---ഒറാക്കിൾ ക്ലൗഡ് ഇൻഫ്രാസ്ട്രക്ചർ (ഒസിഐ) കോൺഫിഗർ ചെയ്യുക ---",
+  "@storageOciTitle": {
+    "description": "Título del asistente de configuración OCI"
+  },
+  "storageOciSaved": "OCI കോൺഫിഗറേഷൻ സംരക്ഷിച്ചു.",
+  "@storageOciSaved": {
+    "description": "Confirmación de guardado de credenciales OCI"
+  },
+  "storagePromptUploadOci": "നിങ്ങൾക്ക് നിലവിലുള്ള പ്രാദേശിക ഫയലുകൾ OCI-ലേക്ക് അപ്‌ലോഡ് ചെയ്യണോ?",
+  "@storagePromptUploadOci": {
+    "description": "Pregunta interactiva para subir archivos locales a la nube OCI"
+  },
+  "storageStartingMigrationOci": "OCI ലേക്ക് മൈഗ്രേഷൻ ആരംഭിക്കുന്നു...",
+  "@storageStartingMigrationOci": {
+    "description": "Mensaje inicial al subir almacenamiento a OCI"
+  },
+  "storageUploading": "അപ്‌ലോഡ് ചെയ്യുന്നു: {source} -> {dest}",
+  "@storageUploading": {
+    "description": "Progreso al subir un archivo individual a la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageMigrationOciCompleted": "OCI യിലേക്കുള്ള മൈഗ്രേഷൻ പൂർത്തിയായി.",
+  "@storageMigrationOciCompleted": {
+    "description": "Confirmación de fin de subida de archivos a OCI"
+  },
+  "storageStartingDownloadOci": "OCI-ൽ നിന്ന് ഡൗൺലോഡ് ആരംഭിക്കുന്നു...",
+  "@storageStartingDownloadOci": {
+    "description": "Mensaje inicial al descargar archivos desde OCI"
+  },
+  "storageDownloading": "ഡൗൺലോഡ് ചെയ്യുന്നു: {source} -> {dest}",
+  "@storageDownloading": {
+    "description": "Progreso al descargar un archivo individual desde la nube",
+    "placeholders": {
+      "source": {},
+      "dest": {}
+    }
+  },
+  "storageDownloadCompleted": "ഡൗൺലോഡ് പൂർത്തിയായി.",
+  "@storageDownloadCompleted": {
+    "description": "Confirmación de fin de descarga de archivos desde OCI"
+  },
+  "nativeBuildPackagingAssets": "📦 ആസ്തികൾ പാക്കേജ് ചെയ്യുകയും മുൻകൂട്ടി കമ്പൈൽ ചെയ്യുകയും ചെയ്യുന്നു (AOT Bytecode AST)...",
+  "@nativeBuildPackagingAssets": {
+    "description": "Mensaje informativo durante la fase de empaquetado de assets"
+  },
+  "nativeBuildSuccessTitle": "✨ വിജയകരമായ നേറ്റീവ് കംപൈലേഷൻ!",
+  "@nativeBuildSuccessTitle": {
+    "description": "Título de éxito al finalizar la compilación nativa"
+  },
+  "nativeBuildCompilingRunner": "🔨 Go ടൂൾചെയിൻ ഉപയോഗിച്ച് നേറ്റീവ് എക്സിക്യൂട്ടബിൾ കംപൈൽ ചെയ്യുന്നു...",
+  "@nativeBuildCompilingRunner": {
+    "description": "Mensaje informativo al compilar el binario nativo"
+  },
+  "nativeBuildMissingGo": "പിശക്: സിസ്റ്റത്തിൽ ഇൻസ്റ്റാൾ ചെയ്ത 'go' ടൂൾ കണ്ടെത്തിയില്ല.",
+  "@nativeBuildMissingGo": {
+    "description": "Error cuando el compilador Go no está instalado en PATH"
+  },
+  "nativeBuildTarget": "ലക്ഷ്യസ്ഥാനം",
+  "@nativeBuildTarget": {
+    "description": "Etiqueta para el sistema operativo y arquitectura destino"
+  },
+  "nativeBuildMode": "മോഡ്",
+  "@nativeBuildMode": {
+    "description": "Etiqueta para el modo de compilación (consola o GUI)"
+  },
+  "nativeBuildOutputFile": "ഔട്ട്പുട്ട് ഫയൽ",
+  "@nativeBuildOutputFile": {
+    "description": "Etiqueta para la ruta del binario compilado"
+  },
+  "nativeBuildBinarySize": "ബൈനറി വലുപ്പം",
+  "@nativeBuildBinarySize": {
+    "description": "Etiqueta para el tamaño del binario resultante"
+  },
+  "nativeBuildInstructions": "നിർദ്ദേശങ്ങൾ: {os} ഉപയോഗിച്ച് ഏത് കമ്പ്യൂട്ടറിലേക്കും '{path}' പകർത്തി നേരിട്ട് പ്രവർത്തിപ്പിക്കുക.",
+  "@nativeBuildInstructions": {
+    "description": "Instrucciones finales para el usuario tras compilar un binario nativo",
+    "placeholders": {
+      "path": {},
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedOS": "പിശക്: ഓപ്പറേറ്റിംഗ് സിസ്റ്റം '{os}' പിന്തുണയ്ക്കുന്നില്ല. ഓപ്ഷനുകൾ: വിൻഡോസ്, ലിനക്സ്, ഡാർവിൻ.",
+  "@nativeBuildUnsupportedOS": {
+    "description": "Mensaje de error cuando el sistema operativo destino es inválido",
+    "placeholders": {
+      "os": {}
+    }
+  },
+  "nativeBuildUnsupportedArch": "പിശക്: ആർക്കിടെക്ചർ '{arch}' {os}-ന് പിന്തുണയ്‌ക്കുന്നില്ല. ഓപ്ഷനുകൾ: {options}",
+  "@nativeBuildUnsupportedArch": {
+    "description": "Mensaje de error cuando la arquitectura destino es inválida",
+    "placeholders": {
+      "arch": {},
+      "os": {},
+      "options": {}
+    }
+  },
+  "updaterNewVersionTitle": "പുതിയ പതിപ്പ് ലഭ്യമാണ്!",
+  "@updaterNewVersionTitle": {
+    "description": "Aviso cuando hay una versión más reciente de Joss"
+  },
+  "updaterRunHint": "റൺടൈം, SDK, എക്സ്റ്റൻഷൻ എന്നിവ സ്വയമേവ അപ്ഡേറ്റ് ചെയ്യാൻ 'joss update --{channel}' റൺ ചെയ്യുക.",
+  "@updaterRunHint": {
+    "description": "Sugerencia del comando de actualización a ejecutar",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterTitle": "🔄 ജോസ് അപ്ഡേറ്റ്",
+  "@updaterTitle": {
+    "description": "Título del asistente de actualización de Joss"
+  },
+  "updaterCurrentVersion": "നിലവിലെ പതിപ്പ്",
+  "@updaterCurrentVersion": {
+    "description": "Etiqueta de la versión actualmente instalada"
+  },
+  "updaterSelectedChannel": "തിരഞ്ഞെടുത്ത ചാനൽ",
+  "@updaterSelectedChannel": {
+    "description": "Etiqueta del canal de actualización seleccionado"
+  },
+  "updaterForcedMode": "നിർബന്ധിത മോഡ്",
+  "@updaterForcedMode": {
+    "description": "Etiqueta de estado del modo forzado"
+  },
+  "updaterCheckingGitHub": "🌐 GitHub റിലീസുകളുടെ API കൺസൾട്ടിംഗ്...",
+  "@updaterCheckingGitHub": {
+    "description": "Mensaje al buscar actualizaciones en el repositorio remoto"
+  },
+  "updaterNoReleasesFound": "GitHub-ൽ ജോസിൻ്റെ പൊതു റിലീസുകളൊന്നും കണ്ടെത്തിയില്ല.",
+  "@updaterNoReleasesFound": {
+    "description": "Aviso si no hay versiones publicadas en el repositorio"
+  },
+  "updaterNoReleaseForChannel": "'{channel}' ചാനലിനായി ലഭ്യമായ റിലീസ് ഒന്നും കണ്ടെത്തിയില്ല.",
+  "@updaterNoReleaseForChannel": {
+    "description": "Aviso cuando no hay release para el canal solicitado",
+    "placeholders": {
+      "channel": {}
+    }
+  },
+  "updaterAlreadyUpdated": "✨ {channel} ചാനലിനായി ജോസ് ഇതിനകം v{version} പതിപ്പിൽ അപ്ഡേറ്റ് ചെയ്തിട്ടുണ്ട്.",
+  "@updaterAlreadyUpdated": {
+    "description": "Mensaje cuando Joss ya está al día",
+    "placeholders": {
+      "version": {},
+      "channel": {}
+    }
+  },
+  "updaterForcedRedownload": "⚠️ നിർബന്ധിത മോഡ് (-f) വഴി റിലീസ് പതിപ്പ് വീണ്ടും ഡൗൺലോഡ് ചെയ്യുകയും വീണ്ടും ഇൻസ്റ്റാൾ ചെയ്യുകയും ചെയ്യുന്നു...",
+  "@updaterForcedRedownload": {
+    "description": "Aviso al ejecutar en modo forzado"
+  },
+  "updaterForceTip": "💡 നുറുങ്ങ്: ബൈനറി വീണ്ടും ഡൗൺലോഡ് ചെയ്യാനും ഇൻസ്റ്റാൾ ചെയ്യാനും 'joss update -f' ഉപയോഗിക്കുക.",
+  "@updaterForceTip": {
+    "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
+  },
+  "updaterNoBinariesFound": "പിശക്: ഈ റിലീസിൽ ഡൗൺലോഡ് ചെയ്യാൻ ബൈനറികളൊന്നും ലഭ്യമല്ല.",
+  "@updaterNoBinariesFound": {
+    "description": "Error si el release no tiene archivos binarios asociados"
+  },
+  "updaterDownloading": "⬇️ അപ്‌ഡേറ്റ് ഡൗൺലോഡ് ചെയ്യുന്നു...",
+  "@updaterDownloading": {
+    "description": "Mensaje de descarga de paquete de actualización"
+  },
+  "updaterNewVersion": "റീമേക്ക്",
+  "@updaterNewVersion": {
+    "description": "Etiqueta de la nueva versión instalada"
+  },
+  "updaterApplying": "⚙️ റൺടൈം, SDK, എക്സ്റ്റൻഷൻ അപ്ഡേറ്റ് എന്നിവ പ്രയോഗിക്കുന്നു...",
+  "@updaterApplying": {
+    "description": "Mensaje de progreso al reemplazar el binario de Joss"
+  },
+  "updaterSuccessTitle": "✨ ജോസ് വിജയകരമായി അപ്ഡേറ്റ് ചെയ്തു!",
+  "@updaterSuccessTitle": {
+    "description": "Título de éxito al completar la actualización"
+  },
+  "updaterExecutable": "എക്സിക്യൂട്ടബിൾ",
+  "@updaterExecutable": {
+    "description": "Etiqueta de la ruta del ejecutable actualizado"
+  },
+  "pubCmdAddDesc": "പ്രോജക്റ്റിലേക്ക് ഒരു പാക്കേജ് ചേർക്കുക",
+  "@pubCmdAddDesc": {
+    "description": "Descripción del comando para añadir un paquete"
+  },
+  "pubManagerTitle": "Joss പാക്കേജ് മാനേജർ (Joss Pub)",
+  "@pubManagerTitle": {
+    "description": "Título principal de la ayuda del gestor de paquetes Joss"
+  },
+  "pubCmdRemoveDesc": "പ്രോജക്റ്റിൽ നിന്ന് ഒരു പാക്കേജ് നീക്കം ചെയ്യുക",
+  "@pubCmdRemoveDesc": {
+    "description": "Descripción del comando para eliminar un paquete"
+  },
+  "pubCommandsLabel": "കമാൻഡുകൾ:",
+  "@pubCommandsLabel": {
+    "description": "Etiqueta para la sección de comandos disponibles"
+  },
+  "pubCmdInstallDesc": "പ്രഖ്യാപിച്ച ഡിപൻഡൻസികൾ ഇൻസ്റ്റാൾ ചെയ്യുക",
+  "@pubCmdInstallDesc": {
+    "description": "Descripción del comando para instalar dependencias"
+  },
+  "pubCmdUpdateDesc": "ഏറ്റവും പുതിയ പിന്തുണയുള്ള ശ്രേണിയിലേക്ക് ഡിപൻഡൻസികൾ അപ്ഡേറ്റ് ചെയ്യുക",
+  "@pubCmdUpdateDesc": {
+    "description": "Descripción del comando para actualizar dependencias"
+  },
+  "pubCmdSearchDesc": "പ്ലാറ്റ്‌ഫോമിൽ പാക്കേജുകൾക്കായി തിരയുക",
+  "@pubCmdSearchDesc": {
+    "description": "Descripción del comando para buscar paquetes"
+  },
+  "pubCmdInfoDesc": "ഒരു പാക്കേജിനെക്കുറിച്ചുള്ള വിശദമായ വിവരങ്ങൾ കാണിക്കുന്നു",
+  "@pubCmdInfoDesc": {
+    "description": "Descripción del comando para mostrar información de un paquete"
+  },
+  "pubCmdPublishDesc": "നിലവിലെ പാക്കേജ് പതിപ്പ് പ്രസിദ്ധീകരിക്കുക",
+  "@pubCmdPublishDesc": {
+    "description": "Descripción del comando para publicar un paquete"
+  },
+  "pubCmdLogoutDesc": "പ്രാദേശികമായി സൈൻ ഔട്ട് ചെയ്യുക",
+  "@pubCmdLogoutDesc": {
+    "description": "Descripción del comando para cerrar sesión"
+  },
+  "pubCmdLoginDesc": "പ്ലാറ്റ്‌ഫോമിൽ ലോഗിൻ ചെയ്യുക",
+  "@pubCmdLoginDesc": {
+    "description": "Descripción del comando para iniciar sesión"
+  },
+  "pubEmailPrompt": "ഇ-മെയിൽ:",
+  "@pubEmailPrompt": {
+    "description": "Etiqueta o prompt para introducir el correo electrónico"
+  },
+  "pubCmdCacheCleanDesc": "ആഗോള ഡൗൺലോഡ് കാഷെ മായ്‌ക്കുക",
+  "@pubCmdCacheCleanDesc": {
+    "description": "Descripción del comando para limpiar la caché"
+  },
+  "pubPasswordPrompt": "പാസ്‌വേഡ്:",
+  "@pubPasswordPrompt": {
+    "description": "Etiqueta o prompt para introducir la contraseña"
+  },
+  "pubConnectError": "പ്ലാറ്റ്‌ഫോമിലേക്ക് ബന്ധിപ്പിക്കുന്നതിൽ പിശക്: {error}",
+  "@pubConnectError": {
+    "description": "Mensaje de error cuando falla la conexión de red con el registro",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubInvalidCredentials": "തെറ്റായ ക്രെഡൻഷ്യലുകൾ അല്ലെങ്കിൽ പരിശോധിച്ചുറപ്പിക്കാത്ത അക്കൗണ്ട്.",
+  "@pubInvalidCredentials": {
+    "description": "Mensaje de error cuando las credenciales no son válidas"
+  },
+  "pubInvalidToken": "പിശക്: പ്രതികരണത്തിൽ സാധുവായ ഒരു ടോക്കൺ അടങ്ങിയിട്ടില്ല.",
+  "@pubInvalidToken": {
+    "description": "Mensaje de error si la respuesta del servidor no tiene token"
+  },
+  "pubSaveCredentialsError": "ക്രെഡൻഷ്യലുകൾ സംരക്ഷിക്കുന്നതിൽ പിശക്: {error}",
+  "@pubSaveCredentialsError": {
+    "description": "Mensaje de error al persistir credenciales de usuario en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubLogoutSuccess": "അടച്ച സെഷൻ. ക്രെഡൻഷ്യലുകൾ ഇല്ലാതാക്കി.",
+  "@pubLogoutSuccess": {
+    "description": "Mensaje de confirmación tras cerrar sesión localmente"
+  },
+  "pubLoginSuccess": "വിജയകരമായ ലോഗിൻ! ക്രെഡൻഷ്യലുകൾ സംരക്ഷിച്ചു.",
+  "@pubLoginSuccess": {
+    "description": "Mensaje de éxito al autenticarse en la plataforma"
+  },
+  "pubSearchError": "പാക്കേജുകൾക്കായി തിരയുന്നതിൽ പിശക്: {error}",
+  "@pubSearchError": {
+    "description": "Mensaje de error cuando falla la búsqueda de paquetes",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNoPackagesFound": "പാക്കേജുകളൊന്നും കണ്ടെത്തിയില്ല.",
+  "@pubNoPackagesFound": {
+    "description": "Mensaje cuando una búsqueda no arroja resultados"
+  },
+  "pubPackagesFound": "പാക്കേജുകൾ കണ്ടെത്തി:",
+  "@pubPackagesFound": {
+    "description": "Encabezado de la lista de paquetes coincidentes"
+  },
+  "pubPackageDownloads": "ഡൗൺലോഡുകൾ: {downloads} | അവസാന പ്രവർത്തനം: {updated}",
+  "@pubPackageDownloads": {
+    "description": "Línea con estadísticas de descargas y última actualización",
+    "placeholders": {
+      "downloads": {},
+      "updated": {}
+    }
+  },
+  "pubGetInfoError": "പാക്കേജ് വിവരം ലഭിക്കുന്നതിൽ പിശക്: {error}",
+  "@pubGetInfoError": {
+    "description": "Mensaje de error al consultar información detallada de un paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubPackageNotFound": "പാക്കേജ് '{name}' നിലവിലില്ല.",
+  "@pubPackageNotFound": {
+    "description": "Aviso cuando el paquete solicitado no existe en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageIdentifier": "ഐഡൻ്റിഫയർ: {name}",
+  "@pubPackageIdentifier": {
+    "description": "Etiqueta con el identificador único del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageName": "പേര്: {name}",
+  "@pubPackageName": {
+    "description": "Etiqueta con el nombre visible del paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubPackageDescription": "വിവരണം: {description}",
+  "@pubPackageDescription": {
+    "description": "Etiqueta con la descripción del paquete",
+    "placeholders": {
+      "description": {}
+    }
+  },
+  "pubPackageDownloadsCount": "ഡൗൺലോഡുകൾ: {downloads}",
+  "@pubPackageDownloadsCount": {
+    "description": "Etiqueta con el conteo de descargas del paquete",
+    "placeholders": {
+      "downloads": {}
+    }
+  },
+  "pubResolvingPlatform": "joss.red-ൽ നിന്ന് ആശ്രിതത്വങ്ങൾ പരിഹരിക്കുന്നു...",
+  "@pubResolvingPlatform": {
+    "description": "Mensaje al resolver dependencias remotas del registro"
+  },
+  "pubFoundPlatform": "✓ '{name}' പാക്കേജ് joss.red-ൽ കണ്ടെത്തി",
+  "@pubFoundPlatform": {
+    "description": "Aviso cuando el paquete fue encontrado en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubDownloadingPackageVer": "ഡൗൺലോഡ് ചെയ്യുന്നു {name} {version}...",
+  "@pubDownloadingPackageVer": {
+    "description": "Mensaje al descargar una versión específica de un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubSearchingPlatform": "joss.red-ൽ {name} തിരയുന്നു...",
+  "@pubSearchingPlatform": {
+    "description": "Mensaje de búsqueda de paquete en el registro",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubInstallSuccessPlatform": "✓ {name} {version} joss.red-ൽ നിന്ന് വിജയകരമായി ഇൻസ്റ്റാൾ ചെയ്തു",
+  "@pubInstallSuccessPlatform": {
+    "description": "Mensaje de éxito tras instalar un paquete desde el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubInstallSuccessGit": "✓ {name} (ഏറ്റവും പുതിയത്) {repo} മുതൽ വിജയകരമായി ഇൻസ്റ്റാൾ ചെയ്തു",
+  "@pubInstallSuccessGit": {
+    "description": "Mensaje de éxito al instalar última versión desde Git",
+    "placeholders": {
+      "name": {},
+      "repo": {}
+    }
+  },
+  "pubSyncingFromRepo": "ലിങ്ക് ചെയ്ത ശേഖരത്തിൽ നിന്ന് സമന്വയിപ്പിക്കുന്നു ({repo})...",
+  "@pubSyncingFromRepo": {
+    "description": "Aviso de sincronización desde el repositorio Git vinculado",
+    "placeholders": {
+      "repo": {}
+    }
+  },
+  "pubSearchingGitRepo": "Git ശേഖരം തിരയുന്നു...",
+  "@pubSearchingGitRepo": {
+    "description": "Mensaje al buscar el paquete directamente en Git"
+  },
+  "pubInstallFailedAll": "പിശക്: joss.red-ൽ നിന്നോ Git റിപ്പോസിറ്ററിയിൽ നിന്നോ '{name}' ഇൻസ്റ്റാൾ ചെയ്യാൻ കഴിഞ്ഞില്ല.",
+  "@pubInstallFailedAll": {
+    "description": "Error crítico cuando fallan todas las fuentes de instalación",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovingPackage": "{name} നീക്കം ചെയ്യുന്നു...",
+  "@pubRemovingPackage": {
+    "description": "Aviso de inicio de eliminación de un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemovedSuccess": "✓ {name} നീക്കം ചെയ്തു",
+  "@pubRemovedSuccess": {
+    "description": "Mensaje de confirmación tras eliminar un paquete",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pubRemoveLocalFolderWarning": "മുന്നറിയിപ്പ്: പ്രാദേശിക ഫോൾഡർ ഇല്ലാതാക്കുന്നതിൽ പരാജയപ്പെട്ടു: {error}",
+  "@pubRemoveLocalFolderWarning": {
+    "description": "Advertencia si no se puede borrar la carpeta del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubManifestNotFound": "പിശക്: 'joss.yaml' ഈ ഡയറക്ടറിയിൽ കണ്ടെത്തിയില്ല.",
+  "@pubManifestNotFound": {
+    "description": "Error cuando el manifiesto del proyecto no existe"
+  },
+  "pubNoDependenciesDeclared": "joss.yaml-ൽ ഡിപൻഡൻസികളൊന്നും പ്രഖ്യാപിച്ചിട്ടില്ല.",
+  "@pubNoDependenciesDeclared": {
+    "description": "Aviso informativo cuando no hay dependencias en el proyecto"
+  },
+  "pubManifestReadError": "joss.yaml വായിക്കുന്നതിൽ പിശക്: {error}",
+  "@pubManifestReadError": {
+    "description": "Error al leer el archivo manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubUsingCachedPackage": "കാഷെ ചെയ്ത പാക്കേജ് ഉപയോഗിക്കുന്നു...",
+  "@pubUsingCachedPackage": {
+    "description": "Aviso cuando se reutiliza una descarga previa en caché"
+  },
+  "pubResolvePackageError": "'{name}' പരിഹരിക്കുന്നതിൽ പിശക്: {error}",
+  "@pubResolvePackageError": {
+    "description": "Error al calcular la versión de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubResolvingDependencies": "ഡിപൻഡൻസികൾ പരിഹരിക്കുന്നു...",
+  "@pubResolvingDependencies": {
+    "description": "Mensaje al iniciar la resolución de dependencias"
+  },
+  "pubInstallPackageError": "'{name}' ഇൻസ്റ്റാൾ ചെയ്യുന്നതിൽ പിശക്: {error}",
+  "@pubInstallPackageError": {
+    "description": "Error durante la instalación física de una dependencia",
+    "placeholders": {
+      "name": {},
+      "error": {}
+    }
+  },
+  "pubPackageOfflineError": "പിശക്: '{name} {version}' പാക്കേജ് ഇൻസ്റ്റാൾ ചെയ്തിട്ടില്ല, ഓഫ്‌ലൈൻ മോഡ് സജീവമാണ്.",
+  "@pubPackageOfflineError": {
+    "description": "Error si falta un paquete y se especificó modo sin conexión",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubResolveTransitiveError": "ട്രാൻസിറ്റീവ് ഡിപൻഡൻസികൾ പരിഹരിക്കുന്നതിൽ പിശക്: {error}",
+  "@pubResolveTransitiveError": {
+    "description": "Error al resolver subdependencias del paquete",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubMustLoginToPublish": "പിശക്: പോസ്റ്റുചെയ്യുന്നതിന് മുമ്പ് നിങ്ങൾ ലോഗിൻ ചെയ്യണം.",
+  "@pubMustLoginToPublish": {
+    "description": "Error cuando el usuario intenta publicar sin haberse autenticado"
+  },
+  "pubCheckingUpdates": "പാക്കേജ് അപ്‌ഡേറ്റുകൾക്കായി പരിശോധിക്കുന്നു...",
+  "@pubCheckingUpdates": {
+    "description": "Mensaje al consultar nuevas versiones disponibles"
+  },
+  "pubDependenciesInstalledSuccess": "✓ ആശ്രിതത്വം ശരിയായി ഇൻസ്റ്റാൾ ചെയ്തു.",
+  "@pubDependenciesInstalledSuccess": {
+    "description": "Mensaje de éxito tras completar la instalación de dependencias"
+  },
+  "pubManifestMissingRequiredFields": "പിശക്: joss.yaml കുറഞ്ഞത് അടങ്ങിയിരിക്കണം: name, version, repository",
+  "@pubManifestMissingRequiredFields": {
+    "description": "Error si el manifiesto carece de metadatos mínimos para publicación"
+  },
+  "pubPreparingPublish": "{name} v{version} എന്നതിൻ്റെ പ്രസിദ്ധീകരണം തയ്യാറാക്കുന്നു...",
+  "@pubPreparingPublish": {
+    "description": "Aviso previo a publicar el paquete en el registro",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubPromptReleaseUrl": "GitHub-ൽ zip റിലീസിൻ്റെ നേരിട്ടുള്ള ഡൗൺലോഡ് URL നൽകുക:",
+  "@pubPromptReleaseUrl": {
+    "description": "Solicitud interactiva de la URL del release zip"
+  },
+  "pubPromptReleaseSha": "zip റിലീസിൻ്റെ SHA-256 ഹാഷ് നൽകുക:",
+  "@pubPromptReleaseSha": {
+    "description": "Solicitud interactiva del hash SHA-256 del artefacto"
+  },
+  "pubArtifactVerifyError": "ഒപ്പിട്ട പുരാവസ്തു പരിശോധിക്കുന്നതിൽ പിശക്: {error}",
+  "@pubArtifactVerifyError": {
+    "description": "Error al verificar la firma criptográfica del artefacto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubNetworkError": "നെറ്റ്‌വർക്ക് പിശക്: {error}",
+  "@pubNetworkError": {
+    "description": "Error genérico de red al comunicarse con el servidor",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pubSignatureVerified": "പരിശോധിച്ച JP ഒപ്പ്: {key}",
+  "@pubSignatureVerified": {
+    "description": "Aviso de verificación criptográfica exitosa del paquete",
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "pubPublishedSuccess": "അഭിനന്ദനങ്ങൾ! {name} v{version} ജോസ് പബ്ബിൽ വിജയകരമായി പ്രസിദ്ധീകരിച്ചു.",
+  "@pubPublishedSuccess": {
+    "description": "Mensaje de felicitación y éxito al publicar un paquete",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pubCacheIsEmpty": "ഡൗൺലോഡ് കാഷെ ശൂന്യമാണ്.",
+  "@pubCacheIsEmpty": {
+    "description": "Aviso cuando no hay archivos temporales en la caché"
+  },
+  "pubCacheEmptied": "ആഗോള ഡൗൺലോഡ് കാഷെ മായ്‌ച്ചു.",
+  "@pubCacheEmptied": {
+    "description": "Confirmación tras vaciar la caché de descargas"
+  },
+  "pubPublishFailedHttp": "പാക്കേജ് പ്രസിദ്ധീകരിക്കുന്നതിൽ പിശക് (HTTP {code}): {error}",
+  "@pubPublishFailedHttp": {
+    "description": "Error devuelto por la API del registro al intentar publicar",
+    "placeholders": {
+      "code": {},
+      "error": {}
+    }
+  },
+  "pubCacheFilesList": "കാഷെ ചെയ്ത ഫയലുകൾ:",
+  "@pubCacheFilesList": {
+    "description": "Encabezado del listado de archivos en la caché"
+  },
+  "pubCacheVerifyingIntegrity": "കാഷെ സമഗ്രത പരിശോധിക്കുന്നു...",
+  "@pubCacheVerifyingIntegrity": {
+    "description": "Aviso durante la verificación de sumas de comprobación de la caché"
+  },
+  "pubCacheVerified": "പരിശോധിച്ച കാഷെ.",
+  "@pubCacheVerified": {
+    "description": "Confirmación de verificación exitosa de la caché"
+  },
+  "pluginUsageTitle": "Joss പ്ലഗിൻ കമാൻഡുകളുടെ ഉപയോഗം:",
+  "@pluginUsageTitle": {
+    "description": "Encabezado de ayuda para los comandos de plugins"
+  },
+  "pluginCompileError": "പ്ലഗിൻ കമ്പൈൽ ചെയ്യുമ്പോൾ പിശക്: {error}",
+  "@pluginCompileError": {
+    "description": "Mensaje de error en caso de fallo durante la compilación",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginSpecifySourceError": "പിശക്: കമ്പൈൽ ചെയ്യാൻ സോഴ്‌സ് ഡയറക്ടറി അല്ലെങ്കിൽ ഫയൽ വ്യക്തമാക്കുക.",
+  "@pluginSpecifySourceError": {
+    "description": "Error cuando falta la ruta del código fuente a compilar"
+  },
+  "pluginGenerated": "സൃഷ്ടിച്ച പ്ലഗിൻ: {path}",
+  "@pluginGenerated": {
+    "description": "Ruta donde se generó el artefacto del plugin",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pluginPackageSize": "പാക്കേജ് വലുപ്പം: {size} KB",
+  "@pluginPackageSize": {
+    "description": "Tamaño en kilobytes del paquete de plugin generado",
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "pluginCompileSuccess": "✓ ബിൽഡ് വിജയകരം!",
+  "@pluginCompileSuccess": {
+    "description": "Mensaje de éxito tras compilar un plugin"
+  },
+  "pluginCompiling": "[ജോസ് പ്ലഗിൻസ് കംപൈലർ] കംപൈൽ ചെയ്യുന്നു {path} (ഭാഷ: {lang})...",
+  "@pluginCompiling": {
+    "description": "Aviso de inicio de compilación de un plugin",
+    "placeholders": {
+      "path": {},
+      "lang": {}
+    }
+  },
+  "pluginTreeShaking": "ട്രീ കുലുക്കം: {retained} പ്രവർത്തനങ്ങൾ നിലനിർത്തി ({removed} നീക്കംചെയ്തു)",
+  "@pluginTreeShaking": {
+    "description": "Métricas de optimización tree-shaking de funciones",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginStructuresRetained": "സംരക്ഷിത ഘടനകൾ: {retained} ({removed} നീക്കംചെയ്തു)",
+  "@pluginStructuresRetained": {
+    "description": "Métricas de optimización de estructuras y tipos",
+    "placeholders": {
+      "retained": {},
+      "removed": {}
+    }
+  },
+  "pluginInspectSpecifyError": "പിശക്: പരിശോധിക്കാൻ .jp ഫയൽ വ്യക്തമാക്കുക.",
+  "@pluginInspectSpecifyError": {
+    "description": "Error cuando no se indica el archivo JP a inspeccionar"
+  },
+  "pluginOpenError": "തുറക്കുന്നതിൽ പിശക് {path}: {error}",
+  "@pluginOpenError": {
+    "description": "Error al intentar abrir el archivo de plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginDecodeError": "ഡീകോഡ് ചെയ്യുന്നതിൽ പിശക് {path}: {error}",
+  "@pluginDecodeError": {
+    "description": "Error al decodificar el formato binario del plugin",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginInspectVersion": "പതിപ്പ്: {version}",
+  "@pluginInspectVersion": {
+    "description": "Etiqueta con la versión del plugin inspeccionado",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginInspectTitle": "പ്ലഗിൻ: {name}",
+  "@pluginInspectTitle": {
+    "description": "Etiqueta con el nombre del plugin inspeccionado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginSignatureVerifiedStatus": "ഒപ്പ്: {algo} ({key}) പരിശോധിച്ചു",
+  "@pluginSignatureVerifiedStatus": {
+    "description": "Detalles de verificación de firma del paquete",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginBytecodeTarget": "ബൈറ്റ്കോഡ് ലക്ഷ്യം: JPBC (ജോസ് പ്ലഗിൻ ബൈറ്റ്കോഡ്)",
+  "@pluginBytecodeTarget": {
+    "description": "Información sobre el formato de bytecode destino"
+  },
+  "pluginPermissionsNone": "(ഒന്നുമില്ല)",
+  "@pluginPermissionsNone": {
+    "description": "Texto mostrado cuando el plugin no solicita permisos especiales"
+  },
+  "pluginDeclaredClasses": "പ്രഖ്യാപിത ക്ലാസുകൾ:",
+  "@pluginDeclaredClasses": {
+    "description": "Encabezado de clases provistas por el plugin"
+  },
+  "pluginExportedFunctions": "കയറ്റുമതി ചെയ്ത പ്രവർത്തനങ്ങൾ:",
+  "@pluginExportedFunctions": {
+    "description": "Encabezado del listado de funciones públicas del plugin"
+  },
+  "pluginDeclaredPermissions": "പ്രഖ്യാപിത അനുമതികൾ:",
+  "@pluginDeclaredPermissions": {
+    "description": "Encabezado de permisos requeridos por el plugin"
+  },
+  "pluginSignatureValid": "നില: ഒപ്പ് Ed25519 സാധുതയുള്ളതും പരിശോധിച്ചുറപ്പിച്ചതും ✅",
+  "@pluginSignatureValid": {
+    "description": "Confirmación de firma digital válida y auténtica"
+  },
+  "pluginVerifySpecifyError": "പിശക്: പരിശോധിക്കാൻ .jp ഫയൽ വ്യക്തമാക്കുക.",
+  "@pluginVerifySpecifyError": {
+    "description": "Error cuando no se provee el archivo JP a verificar"
+  },
+  "pluginVerificationError": "'{path}' എന്നതിലെ സ്ഥിരീകരണ പിശക്: {error}",
+  "@pluginVerificationError": {
+    "description": "Error de verificación criptográfica de firma",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pluginSignatureAlgorithm": "അൽഗോരിതം: {algo} ({key})",
+  "@pluginSignatureAlgorithm": {
+    "description": "Algoritmo y clave pública de la firma digital",
+    "placeholders": {
+      "algo": {},
+      "key": {}
+    }
+  },
+  "pluginNoProtectedCommands": "ഈ പ്ലഗിൻ സംരക്ഷിത അല്ലെങ്കിൽ അധിക CLI കമാൻഡുകൾ വെളിപ്പെടുത്തുന്നില്ല.",
+  "@pluginNoProtectedCommands": {
+    "description": "Aviso si el plugin no tiene comandos de consola asociados"
+  },
+  "pluginNotFound": "പിശക്: '{name}' എന്ന പേരിൽ പ്ലഗിൻ ഒന്നും കണ്ടെത്തിയില്ല.",
+  "@pluginNotFound": {
+    "description": "Aviso cuando el plugin solicitado no está registrado",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "pluginAvailableTitle": "ജോസിൽ പ്ലഗിൻ കമാൻഡുകൾ ലഭ്യമാണ്:",
+  "@pluginAvailableTitle": {
+    "description": "Título principal del catálogo de plugins de Joss"
+  },
+  "pluginProvidedCommands": "നൽകിയിരിക്കുന്ന കമാൻഡുകൾ:",
+  "@pluginProvidedCommands": {
+    "description": "Encabezado de comandos de consola provistos por un plugin"
+  },
+  "pluginNoDirectCli": "(നേരിട്ട് CLI കമാൻഡുകൾ പ്രഖ്യാപിക്കുന്നില്ല)",
+  "@pluginNoDirectCli": {
+    "description": "Nota cuando un plugin en la lista no añade comandos directos"
   }
 }

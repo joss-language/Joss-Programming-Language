@@ -14,6 +14,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/bytecode"
 	"github.com/jossecurity/joss/pkg/crypto"
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
 )
 
@@ -25,33 +26,31 @@ const (
 
 var supportedTargets = map[string][]string{
 	"windows": {"amd64", "arm64", "386"},
-	"linux":   {"amd64", "arm64", "386"},
+	"linux":   {"amd64", "arm64", "arm", "386", "riscv64"},
 	"darwin":  {"amd64", "arm64"},
 }
 
-// buildNative builds a standalone native executable binary.
+// buildNative orchestrates self-contained native binary compilation.
 func buildNative(targetOS, targetArch string, enableGUI bool) {
 	tOS, tArch, valid := validateBuildTarget(targetOS, targetArch)
 	if !valid {
 		os.Exit(1)
 	}
 
-	modeStr := "Consola/Servidor Headless"
+	modeStr := "Console CLI"
 	if enableGUI {
-		modeStr = "Interfaz Gráfica GUI (WebView2)"
+		modeStr = "Desktop GUI (Sin consola CMD)"
 	}
 
 	fmt.Printf("\n=======================================================\n")
-	fmt.Printf("🚀 COMPILADOR NATIVO DE JOSS (AOT & Standalone Mode)\n")
-	fmt.Printf(" Target OS   : %s\n", strings.ToUpper(tOS))
-	fmt.Printf(" Target Arch : %s\n", strings.ToUpper(tArch))
-	fmt.Printf(" Modo GUI    : %s\n", modeStr)
-	fmt.Printf(" Stripped    : -ldflags=\"-s -w\"\n")
+	fmt.Printf("🔨 JOSS NATIVE COMPILER (Cross-Platform Native Binary)\n")
+	fmt.Printf(" Destino     : %s/%s\n", tOS, tArch)
+	fmt.Printf(" Modo        : %s\n", modeStr)
 	fmt.Printf(" CGO Enabled : 0 (Enlazado Estático Puro)\n")
 	fmt.Printf("=======================================================\n\n")
 
 	if _, err := exec.LookPath("go"); err != nil {
-		fmt.Println("Error: No se encontró la herramienta 'go' instalada en el sistema.")
+		fmt.Println(i18n.Tr("nativeBuildMissingGo"))
 		os.Exit(1)
 	}
 
@@ -62,14 +61,14 @@ func buildNative(targetOS, targetArch string, enableGUI bool) {
 		os.Exit(1)
 	}
 
-	fmt.Println("📦 Empaquetando y precompilando assets (AOT Bytecode AST)...")
+	fmt.Println(i18n.Tr("nativeBuildPackagingAssets"))
 	encryptedAssets, buildKey, err := collectAndEncryptAssets(enableGUI)
 	if err != nil {
 		fmt.Printf("Error procesando assets del proyecto: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("🔨 Compilando ejecutable nativo con la toolchain de Go...")
+	fmt.Println(i18n.Tr("nativeBuildCompilingRunner"))
 	runnerBytes, err := compileRunnerBinary(tOS, tArch, enableGUI)
 	if err != nil {
 		fmt.Printf("Error compilando runner nativo: %v\n", err)
@@ -87,12 +86,12 @@ func buildNative(targetOS, targetArch string, enableGUI bool) {
 	stat, _ := os.Stat(outPath)
 	sizeMB := float64(stat.Size()) / (1024 * 1024)
 
-	fmt.Printf("\n✨ ¡COMPILACIÓN NATIVA EXITOSA!\n")
-	fmt.Printf(" Archivo de Salida : %s\n", outPath)
-	fmt.Printf(" Tamaño Binario   : %.2f MB (Minificado & Comprimido)\n", sizeMB)
-	fmt.Printf(" Destino           : %s/%s\n", tOS, tArch)
-	fmt.Printf(" Modo              : %s\n", modeStr)
-	fmt.Printf(" Instrucciones    : Copia '%s' a cualquier PC con %s y ejecútalo directamente.\n\n", outPath, strings.ToUpper(tOS))
+	fmt.Printf("\n%s\n", i18n.Tr("nativeBuildSuccessTitle"))
+	fmt.Printf(" %s : %s\n", i18n.Tr("nativeBuildOutputFile"), outPath)
+	fmt.Printf(" %s   : %.2f MB\n", i18n.Tr("nativeBuildBinarySize"), sizeMB)
+	fmt.Printf(" %s           : %s/%s\n", i18n.Tr("nativeBuildTarget"), tOS, tArch)
+	fmt.Printf(" %s              : %s\n", i18n.Tr("nativeBuildMode"), modeStr)
+	fmt.Printf(" %s\n\n", i18n.Tr("nativeBuildInstructions", map[string]interface{}{"path": outPath, "os": strings.ToUpper(tOS)}))
 }
 
 func validateBuildTarget(targetOS, targetArch string) (string, string, bool) {
@@ -108,7 +107,7 @@ func validateBuildTarget(targetOS, targetArch string) (string, string, bool) {
 
 	archs, osValid := supportedTargets[tOS]
 	if !osValid {
-		fmt.Printf("Error: Sistema operativo '%s' no soportado. Opciones: windows, linux, darwin.\n", targetOS)
+		fmt.Println(i18n.Tr("nativeBuildUnsupportedOS", map[string]interface{}{"os": targetOS}))
 		return tOS, tArch, false
 	}
 
@@ -118,7 +117,7 @@ func validateBuildTarget(targetOS, targetArch string) (string, string, bool) {
 		}
 	}
 
-	fmt.Printf("Error: Arquitectura '%s' no soportada para %s. Opciones: %s\n", targetArch, targetOS, strings.Join(archs, ", "))
+	fmt.Println(i18n.Tr("nativeBuildUnsupportedArch", map[string]interface{}{"arch": targetArch, "os": targetOS, "options": strings.Join(archs, ", ")}))
 	return tOS, tArch, false
 }
 

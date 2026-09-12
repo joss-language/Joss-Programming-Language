@@ -26,7 +26,12 @@ const (
 	publicRoot   = "ejemplos/Joss-Red-JosSecurity/assets/docs"
 )
 
-var markdownLink = regexp.MustCompile(`\[[^]]+\]\(([^)]+)\)`)
+var (
+	markdownLink      = regexp.MustCompile(`\[[^]]+\]\(([^)]+)\)`)
+	inlineCode        = regexp.MustCompile("`[^`\\r\\n]+`")
+	translationSyntax = regexp.MustCompile("`[^`\\r\\n]+`")
+	protectedMarkdown = regexp.MustCompile("(?s)<!--.*?-->|```.*?```|~~~.*?~~~")
+)
 
 type manifest struct {
 	Version      int                          `json:"version"`
@@ -35,15 +40,21 @@ type manifest struct {
 	Sources      map[string]map[string]string `json:"sources"`
 }
 
+type protectedSyntax struct {
+	links  []string
+	inline []string
+}
+
 func main() {
 	translate := flag.Bool("translate", false, "translate stale or missing English and Portuguese documents")
 	force := flag.Bool("force", false, "translate every document even when its source hash is current")
+	fixLinks := flag.Bool("fix-links", false, "normalize translated relative links without calling the translation provider")
 	syncPublic := flag.Bool("sync", false, "synchronize all three locales to the JosSecurity public mirror")
 	check := flag.Bool("check", false, "verify translation coverage, freshness, links and public mirrors")
 	filesFlag := flag.String("files", "", "optional comma-separated canonical Markdown filenames")
 	flag.Parse()
 
-	if !*translate && !*syncPublic && !*check {
+	if !*translate && !*fixLinks && !*syncPublic && !*check {
 		flag.Usage()
 		os.Exit(2)
 	}
@@ -60,6 +71,9 @@ func main() {
 			}
 		}
 		writeManifest(m)
+	}
+	if *fixLinks {
+		fixTranslatedLinks(files)
 	}
 	if *syncPublic {
 		syncMirrors(canonicalFiles())
@@ -140,8 +154,88 @@ func translateFile(sourcePath, locale string, m *manifest, force bool) {
 	translated, err := translateMarkdown(string(source), locale)
 	must(err)
 	must(os.MkdirAll(filepath.Dir(target), 0755))
+	translated = restoreInlineCode(string(source), translated, locale)
+	translated = restoreLinkTargets(string(source), translated, locale)
 	must(os.WriteFile(target, []byte(translated), 0644))
 	m.Sources[locale][name] = hash
+}
+
+func fixTranslatedLinks(files []string) {
+	for _, locale := range []string{"en", "pt"} {
+		for _, canonical := range files {
+			path := filepath.Join("docs", locale, filepath.Base(canonical))
+			source, err := os.ReadFile(canonical)
+			must(err)
+			data, err := os.ReadFile(path)
+			must(err)
+			fixed := string(data)
+			if len(inlineCode.FindAllStringIndex(string(source), -1)) == len(inlineCode.FindAllStringIndex(fixed, -1)) {
+				fixed = restoreInlineCode(string(source), fixed, locale)
+			} else {
+				fmt.Printf("inline syntax requires retranslation: %s/%s\n", locale, filepath.Base(canonical))
+			}
+			fixed = restoreLinkTargets(string(source), fixed, locale)
+			must(os.WriteFile(path, []byte(fixed), 0644))
+		}
+	}
+}
+
+func restoreInlineCode(source, translated, locale string) string {
+	sourceSpans := inlineCode.FindAllStringIndex(source, -1)
+	translatedSpans := inlineCode.FindAllStringIndex(translated, -1)
+	if len(sourceSpans) != len(translatedSpans) {
+		must(fmt.Errorf("translation changed inline code count for locale %s: got %d, want %d", locale, len(translatedSpans), len(sourceSpans)))
+	}
+	var output strings.Builder
+	position := 0
+	for index, translatedSpan := range translatedSpans {
+		sourceSpan := sourceSpans[index]
+		output.WriteString(translated[position:translatedSpan[0]])
+		output.WriteString(source[sourceSpan[0]:sourceSpan[1]])
+		position = translatedSpan[1]
+	}
+	output.WriteString(translated[position:])
+	return output.String()
+}
+
+func restoreLinkTargets(source, translated, locale string) string {
+	sourceLinks := markdownLink.FindAllStringSubmatchIndex(source, -1)
+	translatedLinks := markdownLink.FindAllStringSubmatchIndex(translated, -1)
+	if len(sourceLinks) != len(translatedLinks) {
+		must(fmt.Errorf("translation changed Markdown link count for locale %s: got %d, want %d", locale, len(translatedLinks), len(sourceLinks)))
+	}
+	var output strings.Builder
+	position := 0
+	for index, translatedLink := range translatedLinks {
+		sourceLink := sourceLinks[index]
+		output.WriteString(translated[position:translatedLink[2]])
+		output.WriteString(localizedTarget(source[sourceLink[2]:sourceLink[3]], locale))
+		position = translatedLink[3]
+	}
+	output.WriteString(translated[position:])
+	return output.String()
+}
+
+func localizedTarget(target, locale string) string {
+	wrapped := strings.HasPrefix(target, "<") && strings.HasSuffix(target, ">")
+	clean := strings.Trim(target, "<>")
+	if clean == "" || strings.HasPrefix(clean, "#") || strings.Contains(clean, "://") {
+		return target
+	}
+	if strings.HasPrefix(clean, "../") {
+		clean = "../" + clean
+	} else if strings.HasPrefix(clean, "en/") || strings.HasPrefix(clean, "pt/") {
+		parts := strings.SplitN(clean, "/", 2)
+		if parts[0] == locale {
+			clean = parts[1]
+		} else {
+			clean = "../" + clean
+		}
+	}
+	if wrapped {
+		clean = "<" + clean + ">"
+	}
+	return clean
 }
 
 func translateMarkdown(source, locale string) (string, error) {
@@ -154,10 +248,17 @@ func translateMarkdown(source, locale string) (string, error) {
 		if prose.Len() == 0 {
 			return nil
 		}
-		translated, err := googleTranslate(prose.String(), locale)
+		original := prose.String()
+		masked, protected := maskTranslationSyntax(original)
+		translated, err := googleTranslate(masked, locale)
 		if err != nil {
 			return err
 		}
+		translated, err = unmaskTranslationSyntax(translated, protected)
+		if err != nil {
+			return err
+		}
+		translated = restoreBoundaryNewlines(original, translated)
 		output.WriteString(translated)
 		prose.Reset()
 		return nil
@@ -183,7 +284,7 @@ func translateMarkdown(source, locale string) (string, error) {
 			}
 			continue
 		}
-		if prose.Len()+len(line) > 3200 {
+		if prose.Len()+len(line) > 2400 {
 			if err := flush(); err != nil {
 				return "", err
 			}
@@ -196,11 +297,62 @@ func translateMarkdown(source, locale string) (string, error) {
 	return output.String(), nil
 }
 
+func restoreBoundaryNewlines(source, translated string) string {
+	leading := len(source) - len(strings.TrimLeft(source, "\r\n"))
+	trailing := len(source) - len(strings.TrimRight(source, "\r\n"))
+	translated = strings.Trim(translated, "\r\n")
+	return source[:leading] + translated + source[len(source)-trailing:]
+}
+
+func maskTranslationSyntax(text string) (string, protectedSyntax) {
+	protected := protectedSyntax{}
+	protectInline := func(value string) string {
+		placeholder := fmt.Sprintf("https://joss.invalid/inline/%06d", len(protected.inline))
+		protected.inline = append(protected.inline, value)
+		return placeholder
+	}
+	masked := markdownLink.ReplaceAllStringFunc(text, func(link string) string {
+		separator := strings.LastIndex(link, "](")
+		if separator < 1 || !strings.HasSuffix(link, ")") {
+			return link
+		}
+		index := len(protected.links)
+		protected.links = append(protected.links, link[separator+2:len(link)-1])
+		start := fmt.Sprintf("https://joss.invalid/link-start/%06d", index)
+		end := fmt.Sprintf("https://joss.invalid/link-end/%06d", index)
+		return start + " " + link[1:separator] + " " + end
+	})
+	masked = translationSyntax.ReplaceAllStringFunc(masked, protectInline)
+	return masked, protected
+}
+
+func unmaskTranslationSyntax(text string, protected protectedSyntax) (string, error) {
+	for index, value := range protected.links {
+		start := fmt.Sprintf("https://joss.invalid/link-start/%06d", index)
+		end := fmt.Sprintf("https://joss.invalid/link-end/%06d", index)
+		startAt := strings.Index(text, start)
+		endAt := strings.Index(text, end)
+		if startAt < 0 || endAt < startAt {
+			return "", fmt.Errorf("translation provider changed protected Markdown link %q", value)
+		}
+		label := strings.TrimSpace(text[startAt+len(start) : endAt])
+		text = text[:startAt] + "[" + label + "](" + value + ")" + text[endAt+len(end):]
+	}
+	for index, value := range protected.inline {
+		placeholder := fmt.Sprintf("https://joss.invalid/inline/%06d", index)
+		if !strings.Contains(text, placeholder) {
+			return "", fmt.Errorf("translation provider changed protected Markdown syntax %q", value)
+		}
+		text = strings.ReplaceAll(text, placeholder, value)
+	}
+	return text, nil
+}
+
 func googleTranslate(text, locale string) (string, error) {
 	endpoint := "https://translate.googleapis.com/translate_a/single?client=gtx&sl=es&tl=" + url.QueryEscape(locale) + "&dt=t&q=" + url.QueryEscape(text)
 	client := &http.Client{Timeout: 45 * time.Second}
 	var lastErr error
-	for attempt := 0; attempt < 5; attempt++ {
+	for attempt := 0; attempt < 8; attempt++ {
 		response, err := client.Get(endpoint)
 		if err == nil && response.StatusCode == http.StatusOK {
 			var payload []any
@@ -215,7 +367,11 @@ func googleTranslate(text, locale string) (string, error) {
 			err = fmt.Errorf("translation service returned %s: %s", response.Status, strings.TrimSpace(string(body)))
 		}
 		lastErr = err
-		time.Sleep(time.Duration(attempt+1) * time.Second)
+		if response != nil && response.StatusCode == http.StatusTooManyRequests {
+			time.Sleep(time.Duration(attempt+1) * 15 * time.Second)
+		} else {
+			time.Sleep(time.Duration(attempt+1) * time.Second)
+		}
 	}
 	return "", lastErr
 }
@@ -284,6 +440,14 @@ func checkAll(files []string, m *manifest) error {
 				if m.Sources[locale][name] != digest(canonicalData) {
 					problems = append(problems, fmt.Sprintf("stale translation %s/%s", locale, name))
 				}
+				canonicalProtected := protectedMarkdown.FindAll(canonicalData, -1)
+				translatedProtected := protectedMarkdown.FindAll(data, -1)
+				if !equalBlocks(canonicalProtected, translatedProtected) {
+					problems = append(problems, fmt.Sprintf("code fences or contracts changed in %s/%s", locale, name))
+				}
+				if !equalBlocks(inlineCode.FindAll(canonicalData, -1), inlineCode.FindAll(data, -1)) {
+					problems = append(problems, fmt.Sprintf("inline code changed in %s/%s", locale, name))
+				}
 			}
 			checkLinks(source, data, names, &problems)
 			published, err := os.ReadFile(filepath.Join(publicRoot, locale, name))
@@ -297,6 +461,18 @@ func checkAll(files []string, m *manifest) error {
 	}
 	fmt.Printf("documentation i18n is current: %d files x 3 locales\n", len(files))
 	return nil
+}
+
+func equalBlocks(left, right [][]byte) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if !bytes.Equal(left[index], right[index]) {
+			return false
+		}
+	}
+	return true
 }
 
 func checkLinks(path string, data []byte, names map[string]bool, problems *[]string) {

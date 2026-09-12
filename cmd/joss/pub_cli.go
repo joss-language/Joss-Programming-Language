@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/pluginpkg"
 )
 
@@ -130,19 +131,19 @@ func handlePubCli(args []string) {
 		pubLogout()
 	case "search":
 		if len(args) < 2 {
-			fmt.Println("Uso: joss pub search [termino]")
+			fmt.Printf("%s joss pub search [termino]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		pubSearch(args[1])
 	case "info":
 		if len(args) < 2 {
-			fmt.Println("Uso: joss pub info [paquete]")
+			fmt.Printf("%s joss pub info [paquete]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		pubInfo(args[1])
 	case "add":
 		if len(args) < 2 {
-			fmt.Println("Uso: joss pub add [paquete] [version_opcional]")
+			fmt.Printf("%s joss pub add [paquete] [version_opcional]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		ver := ""
@@ -152,7 +153,7 @@ func handlePubCli(args []string) {
 		pubAdd(args[1], ver)
 	case "remove":
 		if len(args) < 2 {
-			fmt.Println("Uso: joss pub remove [paquete]")
+			fmt.Printf("%s joss pub remove [paquete]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		pubRemove(args[1])
@@ -168,7 +169,7 @@ func handlePubCli(args []string) {
 		pubPublish()
 	case "cache":
 		if len(args) < 2 {
-			fmt.Println("Uso: joss pub cache [clean|list|verify]")
+			fmt.Printf("%s joss pub cache [clean|list|verify]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		handleCacheCmd(args[1])
@@ -180,26 +181,26 @@ func handlePubCli(args []string) {
 }
 
 func printPubHelp() {
-	fmt.Println("Gestor de Paquetes Joss (Joss Pub)")
-	fmt.Println("Uso: joss pub [comando] [argumentos]")
-	fmt.Println("Comandos:")
-	fmt.Println("  add [paquete] [version] - Añade un paquete al proyecto")
-	fmt.Println("  remove [paquete]        - Elimina un paquete del proyecto")
-	fmt.Println("  install [--offline]     - Instala las dependencias declaradas")
-	fmt.Println("  update                  - Actualiza las dependencias al último rango compatible")
-	fmt.Println("  search [termino]        - Busca paquetes en la plataforma")
-	fmt.Println("  info [paquete]          - Muestra información detallada de un paquete")
-	fmt.Println("  publish                 - Publica la versión del paquete actual")
-	fmt.Println("  login                   - Inicia sesión en la plataforma")
-	fmt.Println("  logout                  - Cierra sesión localmente")
-	fmt.Println("  cache clean             - Limpia la caché global de descargas")
+	fmt.Println(i18n.Tr("pubManagerTitle"))
+	fmt.Printf("%s joss pub [comando] [argumentos]\n", i18n.Tr("cliUsageLabel"))
+	fmt.Println(i18n.Tr("pubCommandsLabel"))
+	fmt.Printf("  add [paquete] [version] - %s\n", i18n.Tr("pubCmdAddDesc"))
+	fmt.Printf("  remove [paquete]        - %s\n", i18n.Tr("pubCmdRemoveDesc"))
+	fmt.Printf("  install [--offline]     - %s\n", i18n.Tr("pubCmdInstallDesc"))
+	fmt.Printf("  update                  - %s\n", i18n.Tr("pubCmdUpdateDesc"))
+	fmt.Printf("  search [termino]        - %s\n", i18n.Tr("pubCmdSearchDesc"))
+	fmt.Printf("  info [paquete]          - %s\n", i18n.Tr("pubCmdInfoDesc"))
+	fmt.Printf("  publish                 - %s\n", i18n.Tr("pubCmdPublishDesc"))
+	fmt.Printf("  login                   - %s\n", i18n.Tr("pubCmdLoginDesc"))
+	fmt.Printf("  logout                  - %s\n", i18n.Tr("pubCmdLogoutDesc"))
+	fmt.Printf("  cache clean             - %s\n", i18n.Tr("pubCmdCacheCleanDesc"))
 }
 
 func pubLogin() {
 	var email, password string
-	fmt.Print("Email: ")
+	fmt.Print(i18n.Tr("pubEmailPrompt") + " ")
 	fmt.Scanln(&email)
-	fmt.Print("Contraseña: ")
+	fmt.Print(i18n.Tr("pubPasswordPrompt") + " ")
 	// In production we should hide input, but simple Scanln is cross-compatible for now
 	fmt.Scanln(&password)
 
@@ -211,13 +212,13 @@ func pubLogin() {
 
 	resp, err := pubHTTPClient.Post(url, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
-		fmt.Printf("Error al conectar con la plataforma: %v\n", err)
+		fmt.Println(i18n.Tr("pubConnectError", i18n.M{"error": err.Error()}))
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Credenciales incorrectas o cuenta no verificada.")
+		fmt.Println(i18n.Tr("pubInvalidCredentials"))
 		return
 	}
 
@@ -226,30 +227,30 @@ func pubLogin() {
 
 	token, ok := res["token"].(string)
 	if !ok {
-		fmt.Println("Error: La respuesta no contiene un token válido.")
+		fmt.Println(i18n.Tr("pubInvalidToken"))
 		return
 	}
 
 	err = saveCredentials(&Credentials{Token: token, Email: email})
 	if err != nil {
-		fmt.Printf("Error al guardar credenciales: %v\n", err)
+		fmt.Println(i18n.Tr("pubSaveCredentialsError", i18n.M{"error": err.Error()}))
 		return
 	}
 
-	fmt.Println("¡Inicio de sesión exitoso! Credenciales guardadas.")
+	fmt.Println(i18n.Tr("pubLoginSuccess"))
 }
 
 func pubLogout() {
 	path := getCredentialsPath()
 	os.Remove(path)
-	fmt.Println("Sesión cerrada. Credenciales eliminadas.")
+	fmt.Println(i18n.Tr("pubLogoutSuccess"))
 }
 
 func pubSearch(q string) {
 	url := fmt.Sprintf("%s/api/v1/pub/packages?q=%s", getRegistryURL(), q)
 	resp, err := pubHTTPClient.Get(url)
 	if err != nil {
-		fmt.Printf("Error al buscar paquetes: %v\n", err)
+		fmt.Println(i18n.Tr("pubSearchError", i18n.M{"error": err.Error()}))
 		return
 	}
 	defer resp.Body.Close()
@@ -259,16 +260,16 @@ func pubSearch(q string) {
 
 	data, ok := res["data"].([]interface{})
 	if !ok || len(data) == 0 {
-		fmt.Println("No se encontraron paquetes.")
+		fmt.Println(i18n.Tr("pubNoPackagesFound"))
 		return
 	}
 
-	fmt.Println("Paquetes encontrados:")
+	fmt.Println(i18n.Tr("pubPackagesFound"))
 	fmt.Println("--------------------------------------------------")
 	for _, item := range data {
 		pkg := item.(map[string]interface{})
 		fmt.Printf("📦 %s - %s\n", pkg["name"], pkg["description"])
-		fmt.Printf("   Descargas: %.0f | Última act: %s\n\n", pkg["downloads"], pkg["updated_at"])
+		fmt.Printf("   %s\n\n", i18n.Tr("pubPackageDownloads", i18n.M{"downloads": fmt.Sprintf("%.0f", pkg["downloads"]), "updated": fmt.Sprint(pkg["updated_at"])}))
 	}
 }
 
@@ -276,13 +277,13 @@ func pubInfo(name string) {
 	url := fmt.Sprintf("%s/api/v1/pub/packages/%s", getRegistryURL(), name)
 	resp, err := pubHTTPClient.Get(url)
 	if err != nil {
-		fmt.Printf("Error al obtener info del paquete: %v\n", err)
+		fmt.Println(i18n.Tr("pubGetInfoError", i18n.M{"error": err.Error()}))
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		fmt.Printf("El paquete '%s' no existe.\n", name)
+		fmt.Println(i18n.Tr("pubPackageNotFound", i18n.M{"name": name}))
 		return
 	}
 
@@ -290,10 +291,10 @@ func pubInfo(name string) {
 	json.NewDecoder(resp.Body).Decode(&res)
 
 	pkg := res["package"].(map[string]interface{})
-	fmt.Printf("Nombre: %s\n", pkg["display_name"])
-	fmt.Printf("Identificador: %s\n", pkg["name"])
-	fmt.Printf("Descripción: %s\n", pkg["description"])
-	fmt.Printf("Descargas: %.0f\n", pkg["downloads"])
+	fmt.Println(i18n.Tr("pubPackageName", i18n.M{"name": fmt.Sprint(pkg["display_name"])}))
+	fmt.Println(i18n.Tr("pubPackageIdentifier", i18n.M{"name": fmt.Sprint(pkg["name"])}))
+	fmt.Println(i18n.Tr("pubPackageDescription", i18n.M{"description": fmt.Sprint(pkg["description"])}))
+	fmt.Println(i18n.Tr("pubPackageDownloadsCount", i18n.M{"downloads": fmt.Sprintf("%.0f", pkg["downloads"])}))
 	fmt.Printf("Repositorio: %s\n", pkg["repository_url"])
 	fmt.Println("\nVersiones disponibles:")
 
@@ -305,7 +306,7 @@ func pubInfo(name string) {
 }
 
 func pubAdd(name string, ver string) {
-	fmt.Printf("Buscando %s en joss.red...\n", name)
+	fmt.Println(i18n.Tr("pubSearchingPlatform", i18n.M{"name": name}))
 
 	// 1. Consultar la API del registro oficial joss.red
 	url := fmt.Sprintf("%s/api/v1/pub/packages/%s", getRegistryURL(), name)
@@ -323,9 +324,9 @@ func pubAdd(name string, ver string) {
 				repoURL, _ = pkgInfo["repository_url"].(string)
 				displayName, _ := pkgInfo["display_name"].(string)
 				if displayName != "" {
-					fmt.Printf("✓ Paquete '%s' encontrado en joss.red\n", displayName)
+					fmt.Println(i18n.Tr("pubFoundPlatform", i18n.M{"name": displayName}))
 				} else {
-					fmt.Printf("✓ Paquete '%s' encontrado en joss.red\n", name)
+					fmt.Println(i18n.Tr("pubFoundPlatform", i18n.M{"name": name}))
 				}
 			}
 
@@ -349,15 +350,15 @@ func pubAdd(name string, ver string) {
 					downloadUrl, _ := targetVer["download_url"].(string)
 					checksum, _ := targetVer["checksum"].(string)
 
-					fmt.Printf("Resolviendo dependencias desde joss.red...\n")
-					fmt.Printf("Descargando %s %s...\n", name, resolvedVer)
+					fmt.Println(i18n.Tr("pubResolvingPlatform"))
+					fmt.Println(i18n.Tr("pubDownloadingPackageVer", i18n.M{"name": name, "version": resolvedVer}))
 
 					if err := downloadAndExtract(name, resolvedVer, downloadUrl, checksum); err == nil {
 						updateJossYamlDependency(name, "^"+resolvedVer)
 						if manifestData, readErr := os.ReadFile("joss.yaml"); readErr == nil {
 							generateLockFile(parseManifestDependencies(string(manifestData)))
 						}
-						fmt.Printf("✓ %s %s instalado correctamente desde joss.red\n", name, resolvedVer)
+						fmt.Println(i18n.Tr("pubInstallSuccessPlatform", i18n.M{"name": name, "version": resolvedVer}))
 						return
 					}
 				}
@@ -368,9 +369,9 @@ func pubAdd(name string, ver string) {
 
 	// 2. Descargar desde el repositorio vinculado (GitHub)
 	if pkgFound {
-		fmt.Printf("Sincronizando desde repositorio vinculado (%s)...\n", repoURL)
+		fmt.Println(i18n.Tr("pubSyncingFromRepo", i18n.M{"repo": repoURL}))
 	} else {
-		fmt.Printf("Buscando en repositorio Git...\n")
+		fmt.Println(i18n.Tr("pubSearchingGitRepo"))
 	}
 
 	if repoURL == "" {
@@ -386,21 +387,21 @@ func pubAdd(name string, ver string) {
 		if manifestData, readErr := os.ReadFile("joss.yaml"); readErr == nil {
 			generateLockFile(parseManifestDependencies(string(manifestData)))
 		}
-		fmt.Printf("✓ %s (latest) instalado correctamente desde %s\n", name, repoURL)
+		fmt.Println(i18n.Tr("pubInstallSuccessGit", i18n.M{"name": name, "repo": repoURL}))
 		return
 	}
 
-	fmt.Printf("Error: No se pudo instalar '%s' ni desde joss.red ni desde el repositorio Git.\n", name)
+	fmt.Println(i18n.Tr("pubInstallFailedAll", i18n.M{"name": name}))
 }
 
 func pubRemove(name string) {
-	fmt.Printf("Eliminando %s...\n", name)
+	fmt.Println(i18n.Tr("pubRemovingPackage", i18n.M{"name": name}))
 
 	// Delete from plugins/
 	path := filepath.Join("plugins", name)
 	err := os.RemoveAll(path)
 	if err != nil {
-		fmt.Printf("Advertencia: No se pudo eliminar la carpeta local: %v\n", err)
+		fmt.Println(i18n.Tr("pubRemoveLocalFolderWarning", i18n.M{"error": err.Error()}))
 	}
 
 	// Read and update joss.yaml
@@ -409,7 +410,7 @@ func pubRemove(name string) {
 		generateLockFile(parseManifestDependencies(string(manifestData)))
 	}
 
-	fmt.Printf("✓ %s eliminado\n", name)
+	fmt.Println(i18n.Tr("pubRemovedSuccess", i18n.M{"name": name}))
 }
 
 func downloadAndExtract(name, ver, downloadUrl, expectedChecksum string) error {
@@ -429,7 +430,7 @@ func downloadAndExtract(name, ver, downloadUrl, expectedChecksum string) error {
 	// Check if already in cache and checksum matches
 	if _, err := os.Stat(cachePath); err == nil {
 		if expectedChecksum != "" && expectedChecksum != "checksum_placeholder" && verifyFileSHA256(cachePath, expectedChecksum) {
-			fmt.Println("Usando paquete cacheado...")
+			fmt.Println(i18n.Tr("pubUsingCachedPackage"))
 			if isJP {
 				return installJPFile(cachePath, name, ver)
 			}
@@ -802,13 +803,13 @@ dependencies:
 func pubInstall(offline bool) {
 	filePath := "joss.yaml"
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		fmt.Println("Error: No se encontró 'joss.yaml' en este directorio.")
+		fmt.Println(i18n.Tr("pubManifestNotFound"))
 		return
 	}
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		fmt.Printf("Error leyendo joss.yaml: %v\n", err)
+		fmt.Println(i18n.Tr("pubManifestReadError", i18n.M{"error": err.Error()}))
 		return
 	}
 
@@ -841,11 +842,11 @@ func pubInstall(offline bool) {
 	}
 
 	if len(deps) == 0 {
-		fmt.Println("No hay dependencias declaradas en joss.yaml.")
+		fmt.Println(i18n.Tr("pubNoDependenciesDeclared"))
 		return
 	}
 
-	fmt.Println("Resolviendo dependencias...")
+	fmt.Println(i18n.Tr("pubResolvingDependencies"))
 	for name, verRange := range deps {
 		// Clean range characters (e.g. ^1.2.3 -> 1.2.3)
 		verClean := strings.TrimPrefix(verRange, "^")
@@ -857,30 +858,30 @@ func pubInstall(offline bool) {
 		pluginPath := filepath.Join("plugins", name, verClean)
 		if _, err := os.Stat(pluginPath); os.IsNotExist(err) {
 			if offline {
-				fmt.Printf("Error: Paquete '%s %s' no instalado y modo offline activo.\n", name, verClean)
+				fmt.Println(i18n.Tr("pubPackageOfflineError", i18n.M{"name": name, "version": verClean}))
 				os.Exit(1)
 			}
 			downloadURL, checksum, err := resolvePackageDownload(name, verClean)
 			if err != nil {
-				fmt.Printf("Error resolviendo '%s': %v\n", name, err)
+				fmt.Println(i18n.Tr("pubResolvePackageError", i18n.M{"name": name, "error": err.Error()}))
 				return
 			}
 
 			err = downloadAndExtract(name, verClean, downloadURL, checksum)
 			if err != nil {
-				fmt.Printf("Error instalando '%s': %v\n", name, err)
+				fmt.Println(i18n.Tr("pubInstallPackageError", i18n.M{"name": name, "error": err.Error()}))
 				os.Exit(1)
 			}
 		}
 	}
 	if err := installTransitiveDependencies(deps, offline); err != nil {
-		fmt.Printf("Error resolviendo dependencias transitivas: %v\n", err)
+		fmt.Println(i18n.Tr("pubResolveTransitiveError", i18n.M{"error": err.Error()}))
 		return
 	}
 
 	// Generate joss.lock
 	generateLockFile(deps)
-	fmt.Println("✓ Dependencias instaladas correctamente.")
+	fmt.Println(i18n.Tr("pubDependenciesInstalledSuccess"))
 }
 
 func installTransitiveDependencies(rootDeps map[string]string, offline bool) error {
@@ -1140,7 +1141,7 @@ func parseManifestDependencies(content string) map[string]string {
 }
 
 func pubUpdate() {
-	fmt.Println("Buscando actualizaciones de paquetes...")
+	fmt.Println(i18n.Tr("pubCheckingUpdates"))
 	// Force full resolution
 	pubInstall(false)
 }
@@ -1148,13 +1149,13 @@ func pubUpdate() {
 func pubPublish() {
 	creds, err := loadCredentials()
 	if err != nil {
-		fmt.Println("Error: Debes iniciar sesión antes de publicar. Ejecuta: joss pub login")
+		fmt.Println(i18n.Tr("pubMustLoginToPublish"))
 		return
 	}
 
 	// Check local joss.yaml
 	if _, err := os.Stat("joss.yaml"); os.IsNotExist(err) {
-		fmt.Println("Error: No se encontró 'joss.yaml' en el directorio actual.")
+		fmt.Println(i18n.Tr("pubManifestNotFound"))
 		return
 	}
 
@@ -1177,26 +1178,26 @@ func pubPublish() {
 	desc := pkgInfo["description"]
 
 	if name == "" || version == "" || repo == "" {
-		fmt.Println("Error: joss.yaml debe contener al menos: name, version, repository")
+		fmt.Println(i18n.Tr("pubManifestMissingRequiredFields"))
 		return
 	}
 
-	fmt.Printf("Preparando publicación de %s v%s...\n", name, version)
+	fmt.Println(i18n.Tr("pubPreparingPublish", i18n.M{"name": name, "version": version}))
 
 	// Create sample zip or verify release file
-	fmt.Print("Introduce la URL de descarga directa de la release zip en GitHub: ")
+	fmt.Print(i18n.Tr("pubPromptReleaseUrl") + " ")
 	var downloadUrl string
 	fmt.Scanln(&downloadUrl)
 
-	fmt.Print("Introduce el hash SHA-256 de la release zip: ")
+	fmt.Print(i18n.Tr("pubPromptReleaseSha") + " ")
 	var checksum string
 	fmt.Scanln(&checksum)
 	keyID, err := verifyPublishArtifact(downloadUrl, checksum, name, version)
 	if err != nil {
-		fmt.Printf("Error verificando artefacto firmado: %v\n", err)
+		fmt.Println(i18n.Tr("pubArtifactVerifyError", i18n.M{"error": err.Error()}))
 		return
 	}
-	fmt.Printf("Firma JP verificada: %s\n", keyID)
+	fmt.Println(i18n.Tr("pubSignatureVerified", i18n.M{"key": keyID}))
 
 	// Send publish post
 	url := getRegistryURL() + "/api/v1/pub/packages/publish"
@@ -1221,17 +1222,17 @@ func pubPublish() {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error de red: %v\n", err)
+		fmt.Println(i18n.Tr("pubNetworkError", i18n.M{"error": err.Error()}))
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusCreated {
-		fmt.Printf("¡Enhorabuena! %s v%s publicado correctamente en Joss Pub.\n", name, version)
+		fmt.Println(i18n.Tr("pubPublishedSuccess", i18n.M{"name": name, "version": version}))
 	} else {
 		var errRes map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&errRes)
-		fmt.Printf("Error al publicar paquete (HTTP %d): %v\n", resp.StatusCode, errRes["message"])
+		fmt.Println(i18n.Tr("pubPublishFailedHttp", i18n.M{"code": resp.StatusCode, "error": fmt.Sprint(errRes["message"])}))
 	}
 }
 
@@ -1308,21 +1309,21 @@ func handleCacheCmd(sub string) {
 	case "clean":
 		os.RemoveAll(cacheDir)
 		os.MkdirAll(cacheDir, 0755)
-		fmt.Println("Caché global de descargas vaciada.")
+		fmt.Println(i18n.Tr("pubCacheEmptied"))
 	case "list":
 		files, err := os.ReadDir(cacheDir)
 		if err != nil || len(files) == 0 {
-			fmt.Println("La caché de descargas está vacía.")
+			fmt.Println(i18n.Tr("pubCacheIsEmpty"))
 			return
 		}
-		fmt.Println("Archivos en caché:")
+		fmt.Println(i18n.Tr("pubCacheFilesList"))
 		for _, f := range files {
 			info, _ := f.Info()
 			fmt.Printf("  - %s (%d bytes)\n", f.Name(), info.Size())
 		}
 	case "verify":
-		fmt.Println("Verificando integridad de la caché...")
+		fmt.Println(i18n.Tr("pubCacheVerifyingIntegrity"))
 		// Simple validation
-		fmt.Println("Caché verificado.")
+		fmt.Println(i18n.Tr("pubCacheVerified"))
 	}
 }
