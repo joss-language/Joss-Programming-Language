@@ -231,5 +231,223 @@
   "version": "Viser gjeldende versjon",
   "@version": {
     "description": ""
+  },
+  "cliCmdRun": "Kjør et Joss‑skript eller -fil direkte",
+  "@cliCmdRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "cliAppTitle": "Joss — Moderne språk og utviklingsplattform",
+  "@cliAppTitle": {
+    "description": "Título principal mostrado en la ayuda de la CLI"
+  },
+  "cliUsage": "Bruk: joss <comando> [argumentos] [opciones]",
+  "@cliUsage": {
+    "description": "Línea de uso general de la CLI"
+  },
+  "cliCmdRepl": "Start den interaktive konsollen (REPL)",
+  "@cliCmdRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "cliCmdAnalyze": "Statisk semantisk analyse og uttømmende typekontroll",
+  "@cliCmdAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "cliCmdServer": "Start HTTP-nettserveren med høy ytelse",
+  "@cliCmdServer": {
+    "description": "Descripción del comando joss server start / joss serve"
+  },
+  "cliCmdLint": "Inspiser koden for advarsler, avskrivninger og beste praksis",
+  "@cliCmdLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "cliCmdFormat": "Formater .joss-filer i henhold til den kanoniske språkstandarden",
+  "@cliCmdFormat": {
+    "description": "Descripción del comando joss format / joss fmt"
+  },
+  "cliCmdTest": "Kjør enhets- og integrasjonstestpakken (*_test.joss)",
+  "@cliCmdTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "cliCmdBuild": "Kompiler prosjektet for distribusjon (web eller frittstående binær)",
+  "@cliCmdBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "cliCmdPub": "Offisiell pakke- og plugin-manager for Joss-økosystemet",
+  "@cliCmdPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "serverStopped": "Nettserver stoppet.",
+  "@serverStopped": {
+    "description": "Mensaje de parada del servidor"
+  },
+  "serverStarting": "Starter HTTP-nettserver på http://{host}:{port}",
+  "@serverStarting": {
+    "description": "Mensaje de inicio del servidor",
+    "placeholders": {
+      "host": {},
+      "port": {}
+    }
+  },
+  "lintSuccess": "Ingen problemer ble funnet i kildekoden.",
+  "@lintSuccess": {
+    "description": "Mensaje de éxito del linter"
+  },
+  "analyzeSuccess": "Semantisk analyse fullført: ingen problemer funnet.",
+  "@analyzeSuccess": {
+    "description": "Mensaje de éxito del analizador estático"
+  },
+  "cliUsageRun": "Bruk: joss run [archivo.joss]",
+  "@cliUsageRun": {
+    "description": "Mensaje de uso del comando run"
+  },
+  "cliErrRequireMain": "Alle prosjekter må ha et inngangspunkt 'main.joss' som starter serveren.",
+  "@cliErrRequireMain": {
+    "description": "Explicación de la necesidad del archivo main.joss"
+  },
+  "cliExecMain": "[CLI] Kjører oppstartsskript (main.joss)...",
+  "@cliExecMain": {
+    "description": "Mensaje informativo al arrancar el script main.joss"
+  },
+  "cliErrNoMain": "Feil: 'main.joss' ikke funnet.",
+  "@cliErrNoMain": {
+    "description": "Error cuando falta el archivo de entrada principal"
+  },
+  "cliUsageServer": "Bruk: joss server start",
+  "@cliUsageServer": {
+    "description": "Mensaje de uso del comando server"
+  },
+  "cliUsageMakeController": "Bruk: joss make:controller [Navn]",
+  "@cliUsageMakeController": {
+    "description": "Mensaje de uso del generador de controladores"
+  },
+  "cliUsageBuildPkg": "Bruk: joss build-pakke [pakkebane]",
+  "@cliUsageBuildPkg": {
+    "description": "Mensaje de uso del comando build package"
+  },
+  "cliUsageProgram": "Bruk: joss program start",
+  "@cliUsageProgram": {
+    "description": "Mensaje de uso del comando program"
+  },
+  "cliUsageMakeModel": "Bruk: joss make:model [Navn]",
+  "@cliUsageMakeModel": {
+    "description": "Mensaje de uso del generador de modelos"
+  },
+  "cliUsageMakeMvc": "Bruk: joss make:mvc [Navn]",
+  "@cliUsageMakeMvc": {
+    "description": "Mensaje de uso del generador de MVC"
+  },
+  "cliUsageMakeView": "Bruk: joss make:view [Navn]",
+  "@cliUsageMakeView": {
+    "description": "Mensaje de uso del generador de vistas"
+  },
+  "cliUsageMakeMiddleware": "Bruk: joss make:middleware [Navn]",
+  "@cliUsageMakeMiddleware": {
+    "description": "Mensaje de uso del generador de middleware"
+  },
+  "cliUsageMakeCrud": "Bruk: joss make:crud [Tabell]",
+  "@cliUsageMakeCrud": {
+    "description": "Mensaje de uso del generador de CRUD"
+  },
+  "cliUsageRemoveCrud": "Bruk: joss remove:crud [Tabell]",
+  "@cliUsageRemoveCrud": {
+    "description": "Mensaje de uso para eliminar CRUD"
+  },
+  "cliUsageMakeMigration": "Bruk: joss make:migrering [navn]",
+  "@cliUsageMakeMigration": {
+    "description": "Mensaje de uso del generador de migraciones"
+  },
+  "checkVerifying": "[SJEKK] Bekrefter prosjektet i '{path}' (parse, semantisk analyse, typer, lint, format)...",
+  "@checkVerifying": {
+    "description": "Mensaje inicial del comando joss check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "checkFormatOk": "✓ Format: OK",
+  "@checkFormatOk": {
+    "description": "Confirmación de formato canónico válido"
+  },
+  "checkSemanticOk": "✓ Semantisk analyse og typer: OK",
+  "@checkSemanticOk": {
+    "description": "Confirmación de análisis semántico correcto"
+  },
+  "checkLintOk": "✓ Linter og sikkerhetsregler: OK",
+  "@checkLintOk": {
+    "description": "Confirmación de reglas de linter superadas"
+  },
+  "checkResultOk": "[SJEKK RESULTAT] Prosjektet er fullstendig verifisert og klart.",
+  "@checkResultOk": {
+    "description": "Resultado positivo de verificación general"
+  },
+  "checkResultFail": "[SJEKK RESULTAT] Prosjektet inneholder problemer som må løses.",
+  "@checkResultFail": {
+    "description": "Resultado con errores en verificación"
+  },
+  "formatAllOk": "[FORMAT OK] Alle .joss-filer samsvarer med det kanoniske formatet.",
+  "@formatAllOk": {
+    "description": "Éxito cuando todos los archivos están formateados"
+  },
+  "formatFileOk": "[FORMAT OK] {file} er riktig formatert.",
+  "@formatFileOk": {
+    "description": "Éxito de formateo para un archivo individual",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileFormatted": "[FORMAT] {file} formatert riktig.",
+  "@formatFileFormatted": {
+    "description": "Mensaje cuando un archivo fue modificado con formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixNoChanges": "[RETT OK] {file} krever ingen endringer.",
+  "@fixNoChanges": {
+    "description": "Resultado para un archivo sin modificaciones en fix",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileAlready": "[FORMAT] {file} er nå i kanonisk format.",
+  "@formatFileAlready": {
+    "description": "Mensaje cuando el archivo no requería cambios de formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixAllClean": "[RETT OK] Alle .joss-filer er rene og i kanonisk format.",
+  "@fixAllClean": {
+    "description": "Resultado cuando fix no detectó problemas"
+  },
+  "testNoFilesFound": "Ingen testfiler (*_test.joss) ble funnet.",
+  "@testNoFilesFound": {
+    "description": "Aviso cuando no hay archivos de prueba"
+  },
+  "migrateStarting": "Kjører overføringer...",
+  "@migrateStarting": {
+    "description": "Inicio del proceso de migraciones"
+  },
+  "migrateDbSuccess": "Tilkobling til DB vellykket.",
+  "@migrateDbSuccess": {
+    "description": "Mensaje de conexión establecida con la base de datos"
+  },
+  "testRunning": "Kjører enhetstester på {path}...",
+  "@testRunning": {
+    "description": "Inicio de ejecución de pruebas unitarias",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "migrateNoPending": "Det er ingen ventende migrasjoner.",
+  "@migrateNoPending": {
+    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
+  },
+  "migrateNoneFound": "Ingen migreringer funnet i app/database/migrations/",
+  "@migrateNoneFound": {
+    "description": "Aviso cuando la carpeta de migraciones está vacía"
+  },
+  "migrateCompleted": "Migreringer fullført.",
+  "@migrateCompleted": {
+    "description": "Mensaje final de éxito en migraciones"
   }
 }

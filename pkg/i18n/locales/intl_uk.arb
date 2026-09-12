@@ -231,5 +231,223 @@
   "version": "Показує поточну версію",
   "@version": {
     "description": ""
+  },
+  "cliCmdRun": "Запустіть скрипт або файл Joss безпосередньо",
+  "@cliCmdRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "cliAppTitle": "Joss — Сучасна мова та платформа розробки",
+  "@cliAppTitle": {
+    "description": "Título principal mostrado en la ayuda de la CLI"
+  },
+  "cliUsage": "Використання: joss <comando> [argumentos] [opciones]",
+  "@cliUsage": {
+    "description": "Línea de uso general de la CLI"
+  },
+  "cliCmdRepl": "Запустіть інтерактивну консоль (REPL)",
+  "@cliCmdRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "cliCmdAnalyze": "Статичний семантичний аналіз і вичерпна перевірка типу",
+  "@cliCmdAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "cliCmdServer": "Запустіть високопродуктивний веб-сервер HTTP",
+  "@cliCmdServer": {
+    "description": "Descripción del comando joss server start / joss serve"
+  },
+  "cliCmdLint": "Перевірте код на наявність застережень, застарілих і передових методів",
+  "@cliCmdLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "cliCmdFormat": "Відформатуйте файли .joss відповідно до канонічного стандарту мови",
+  "@cliCmdFormat": {
+    "description": "Descripción del comando joss format / joss fmt"
+  },
+  "cliCmdTest": "Запустіть набір тестів модуля та інтеграції (*_test.joss)",
+  "@cliCmdTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "cliCmdBuild": "Скомпілюйте проект для розповсюдження (веб або автономний двійковий файл)",
+  "@cliCmdBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "cliCmdPub": "Офіційний менеджер пакетів і плагінів екосистеми Joss",
+  "@cliCmdPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "serverStopped": "Веб-сервер зупинено.",
+  "@serverStopped": {
+    "description": "Mensaje de parada del servidor"
+  },
+  "serverStarting": "Запуск веб-сервера HTTP за адресою http://{host}:{port}",
+  "@serverStarting": {
+    "description": "Mensaje de inicio del servidor",
+    "placeholders": {
+      "host": {},
+      "port": {}
+    }
+  },
+  "lintSuccess": "У вихідному коді проблем не виявлено.",
+  "@lintSuccess": {
+    "description": "Mensaje de éxito del linter"
+  },
+  "analyzeSuccess": "Семантичний аналіз завершено: проблем не виявлено.",
+  "@analyzeSuccess": {
+    "description": "Mensaje de éxito del analizador estático"
+  },
+  "cliUsageRun": "Використання: joss run [archivo.joss]",
+  "@cliUsageRun": {
+    "description": "Mensaje de uso del comando run"
+  },
+  "cliErrRequireMain": "Усі проєкти повинні мати точку входу 'main.joss', яка запускає сервер.",
+  "@cliErrRequireMain": {
+    "description": "Explicación de la necesidad del archivo main.joss"
+  },
+  "cliExecMain": "[CLI] Запуск сценарію запуску (main.joss)...",
+  "@cliExecMain": {
+    "description": "Mensaje informativo al arrancar el script main.joss"
+  },
+  "cliErrNoMain": "Помилка: 'main.joss' не знайдено.",
+  "@cliErrNoMain": {
+    "description": "Error cuando falta el archivo de entrada principal"
+  },
+  "cliUsageServer": "Використання: запуск сервера joss",
+  "@cliUsageServer": {
+    "description": "Mensaje de uso del comando server"
+  },
+  "cliUsageMakeController": "Використання: joss make:controller [Назва]",
+  "@cliUsageMakeController": {
+    "description": "Mensaje de uso del generador de controladores"
+  },
+  "cliUsageBuildPkg": "Використання: joss build package [package_path]",
+  "@cliUsageBuildPkg": {
+    "description": "Mensaje de uso del comando build package"
+  },
+  "cliUsageProgram": "Використання: запуск програми joss",
+  "@cliUsageProgram": {
+    "description": "Mensaje de uso del comando program"
+  },
+  "cliUsageMakeModel": "Використання: joss make:model [Назва]",
+  "@cliUsageMakeModel": {
+    "description": "Mensaje de uso del generador de modelos"
+  },
+  "cliUsageMakeMvc": "Використання: joss make:mvc [Назва]",
+  "@cliUsageMakeMvc": {
+    "description": "Mensaje de uso del generador de MVC"
+  },
+  "cliUsageMakeView": "Використання: joss make:view [Назва]",
+  "@cliUsageMakeView": {
+    "description": "Mensaje de uso del generador de vistas"
+  },
+  "cliUsageMakeMiddleware": "Використання: joss make:middleware [Назва]",
+  "@cliUsageMakeMiddleware": {
+    "description": "Mensaje de uso del generador de middleware"
+  },
+  "cliUsageMakeCrud": "Використання: joss make:crud [Таблиця]",
+  "@cliUsageMakeCrud": {
+    "description": "Mensaje de uso del generador de CRUD"
+  },
+  "cliUsageRemoveCrud": "Використання: joss remove:crud [Таблиця]",
+  "@cliUsageRemoveCrud": {
+    "description": "Mensaje de uso para eliminar CRUD"
+  },
+  "cliUsageMakeMigration": "Використання: joss make:migration [Назва]",
+  "@cliUsageMakeMigration": {
+    "description": "Mensaje de uso del generador de migraciones"
+  },
+  "checkVerifying": "[ПЕРЕВІРИТИ] Перевірка проекту в '{path}' (розбір, семантичний аналіз, типи, лінт, формат)...",
+  "@checkVerifying": {
+    "description": "Mensaje inicial del comando joss check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "checkFormatOk": "✓ Формат: OK",
+  "@checkFormatOk": {
+    "description": "Confirmación de formato canónico válido"
+  },
+  "checkSemanticOk": "✓ Семантичний аналіз і типи: OK",
+  "@checkSemanticOk": {
+    "description": "Confirmación de análisis semántico correcto"
+  },
+  "checkLintOk": "✓ Лінтер і правила безпеки: OK",
+  "@checkLintOk": {
+    "description": "Confirmación de reglas de linter superadas"
+  },
+  "checkResultOk": "[ПЕРЕВІРИТИ РЕЗУЛЬТАТ] Проект повністю вивірений і готовий.",
+  "@checkResultOk": {
+    "description": "Resultado positivo de verificación general"
+  },
+  "checkResultFail": "[ПЕРЕВІРИТИ РЕЗУЛЬТАТ] Проект містить проблеми, які необхідно вирішити.",
+  "@checkResultFail": {
+    "description": "Resultado con errores en verificación"
+  },
+  "formatAllOk": "[ФОРМАТ OK] Усі файли .joss відповідають канонічному формату.",
+  "@formatAllOk": {
+    "description": "Éxito cuando todos los archivos están formateados"
+  },
+  "formatFileOk": "[ФОРМАТ ОК] {file} відформатовано правильно.",
+  "@formatFileOk": {
+    "description": "Éxito de formateo para un archivo individual",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileFormatted": "[ФОРМАТ] {file} відформатовано правильно.",
+  "@formatFileFormatted": {
+    "description": "Mensaje cuando un archivo fue modificado con formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixNoChanges": "[ВИПРАВИТИ OK] {file} не вимагає змін.",
+  "@fixNoChanges": {
+    "description": "Resultado para un archivo sin modificaciones en fix",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileAlready": "[ФОРМАТ] {file} тепер у канонічному форматі.",
+  "@formatFileAlready": {
+    "description": "Mensaje cuando el archivo no requería cambios de formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixAllClean": "[ВИПРАВИТИ OK] Усі файли .joss чисті та мають канонічний формат.",
+  "@fixAllClean": {
+    "description": "Resultado cuando fix no detectó problemas"
+  },
+  "testNoFilesFound": "Тестових файлів (*_test.joss) не знайдено.",
+  "@testNoFilesFound": {
+    "description": "Aviso cuando no hay archivos de prueba"
+  },
+  "migrateStarting": "Запуск міграцій...",
+  "@migrateStarting": {
+    "description": "Inicio del proceso de migraciones"
+  },
+  "migrateDbSuccess": "Підключення до БД успішне.",
+  "@migrateDbSuccess": {
+    "description": "Mensaje de conexión establecida con la base de datos"
+  },
+  "testRunning": "Виконання модульних тестів на {path}...",
+  "@testRunning": {
+    "description": "Inicio de ejecución de pruebas unitarias",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "migrateNoPending": "Немає незавершених міграцій.",
+  "@migrateNoPending": {
+    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
+  },
+  "migrateNoneFound": "Немає міграцій у app/database/migrations/",
+  "@migrateNoneFound": {
+    "description": "Aviso cuando la carpeta de migraciones está vacía"
+  },
+  "migrateCompleted": "Перенесення успішно завершено.",
+  "@migrateCompleted": {
+    "description": "Mensaje final de éxito en migraciones"
   }
 }

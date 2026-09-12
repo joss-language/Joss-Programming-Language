@@ -231,5 +231,223 @@
   "version": "Menampilkan versi saat ini",
   "@version": {
     "description": ""
+  },
+  "cliCmdRun": "Jalankan skrip atau file Joss secara langsung",
+  "@cliCmdRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "cliAppTitle": "Joss — Bahasa dan Platform Pengembangan Modern",
+  "@cliAppTitle": {
+    "description": "Título principal mostrado en la ayuda de la CLI"
+  },
+  "cliUsage": "Penggunaan: joss <comando> [argumentos] [opciones]",
+  "@cliUsage": {
+    "description": "Línea de uso general de la CLI"
+  },
+  "cliCmdRepl": "Mulai konsol interaktif (REPL)",
+  "@cliCmdRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "cliCmdAnalyze": "Analisis semantik statis dan pemeriksaan tipe menyeluruh",
+  "@cliCmdAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "cliCmdServer": "Mulai server web HTTP berkinerja tinggi",
+  "@cliCmdServer": {
+    "description": "Descripción del comando joss server start / joss serve"
+  },
+  "cliCmdLint": "Periksa kode untuk mengetahui peringatan, penghentian, dan praktik terbaik",
+  "@cliCmdLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "cliCmdFormat": "Format file .joss sesuai dengan standar bahasa kanonik",
+  "@cliCmdFormat": {
+    "description": "Descripción del comando joss format / joss fmt"
+  },
+  "cliCmdTest": "Jalankan rangkaian pengujian unit dan integrasi (*_test.joss)",
+  "@cliCmdTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "cliCmdBuild": "Kompilasi proyek untuk distribusi (web atau biner mandiri)",
+  "@cliCmdBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "cliCmdPub": "Manajer paket dan plugin resmi ekosistem Joss",
+  "@cliCmdPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "serverStopped": "Server web berhenti.",
+  "@serverStopped": {
+    "description": "Mensaje de parada del servidor"
+  },
+  "serverStarting": "Memulai server web HTTP di http://{host}:{port}",
+  "@serverStarting": {
+    "description": "Mensaje de inicio del servidor",
+    "placeholders": {
+      "host": {},
+      "port": {}
+    }
+  },
+  "lintSuccess": "Tidak ada masalah yang ditemukan pada kode sumber.",
+  "@lintSuccess": {
+    "description": "Mensaje de éxito del linter"
+  },
+  "analyzeSuccess": "Analisis semantik selesai: tidak ditemukan masalah.",
+  "@analyzeSuccess": {
+    "description": "Mensaje de éxito del analizador estático"
+  },
+  "cliUsageRun": "Penggunaan: joss run [archivo.joss]",
+  "@cliUsageRun": {
+    "description": "Mensaje de uso del comando run"
+  },
+  "cliErrRequireMain": "Semua proyekti harus memiliki titik masuk 'main.joss' yang memulai server.",
+  "@cliErrRequireMain": {
+    "description": "Explicación de la necesidad del archivo main.joss"
+  },
+  "cliExecMain": "[CLI] Menjalankan skrip startup (main.joss)...",
+  "@cliExecMain": {
+    "description": "Mensaje informativo al arrancar el script main.joss"
+  },
+  "cliErrNoMain": "Kesalahan: 'main.joss' tidak ditemukan.",
+  "@cliErrNoMain": {
+    "description": "Error cuando falta el archivo de entrada principal"
+  },
+  "cliUsageServer": "Penggunaan: server joss dimulai",
+  "@cliUsageServer": {
+    "description": "Mensaje de uso del comando server"
+  },
+  "cliUsageMakeController": "Penggunaan: joss make:controller [Nama]",
+  "@cliUsageMakeController": {
+    "description": "Mensaje de uso del generador de controladores"
+  },
+  "cliUsageBuildPkg": "Penggunaan: paket joss build [package_path]",
+  "@cliUsageBuildPkg": {
+    "description": "Mensaje de uso del comando build package"
+  },
+  "cliUsageProgram": "Penggunaan: program joss dimulai",
+  "@cliUsageProgram": {
+    "description": "Mensaje de uso del comando program"
+  },
+  "cliUsageMakeModel": "Penggunaan: joss make:model [Nama]",
+  "@cliUsageMakeModel": {
+    "description": "Mensaje de uso del generador de modelos"
+  },
+  "cliUsageMakeMvc": "Penggunaan: joss make:mvc [Nama]",
+  "@cliUsageMakeMvc": {
+    "description": "Mensaje de uso del generador de MVC"
+  },
+  "cliUsageMakeView": "Penggunaan: joss make:view [Nama]",
+  "@cliUsageMakeView": {
+    "description": "Mensaje de uso del generador de vistas"
+  },
+  "cliUsageMakeMiddleware": "Penggunaan: joss make:middleware [Nama]",
+  "@cliUsageMakeMiddleware": {
+    "description": "Mensaje de uso del generador de middleware"
+  },
+  "cliUsageMakeCrud": "Penggunaan: joss make:crud [Tabel]",
+  "@cliUsageMakeCrud": {
+    "description": "Mensaje de uso del generador de CRUD"
+  },
+  "cliUsageRemoveCrud": "Penggunaan: joss hapus: kasar [Tabel]",
+  "@cliUsageRemoveCrud": {
+    "description": "Mensaje de uso para eliminar CRUD"
+  },
+  "cliUsageMakeMigration": "Penggunaan: joss make:migrasi [Nama]",
+  "@cliUsageMakeMigration": {
+    "description": "Mensaje de uso del generador de migraciones"
+  },
+  "checkVerifying": "[PERIKSA] Memverifikasi proyek dalam '{path}' (parse, analisis semantik, jenis, lint, format)...",
+  "@checkVerifying": {
+    "description": "Mensaje inicial del comando joss check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "checkFormatOk": "✓ Format: Oke",
+  "@checkFormatOk": {
+    "description": "Confirmación de formato canónico válido"
+  },
+  "checkSemanticOk": "✓ Analisis dan tipe semantik: OK",
+  "@checkSemanticOk": {
+    "description": "Confirmación de análisis semántico correcto"
+  },
+  "checkLintOk": "✓ Aturan linter dan keselamatan: OK",
+  "@checkLintOk": {
+    "description": "Confirmación de reglas de linter superadas"
+  },
+  "checkResultOk": "[PERIKSA HASIL] Proyek telah sepenuhnya diverifikasi dan siap.",
+  "@checkResultOk": {
+    "description": "Resultado positivo de verificación general"
+  },
+  "checkResultFail": "[PERIKSA HASIL] Proyek ini mengandung masalah yang perlu diselesaikan.",
+  "@checkResultFail": {
+    "description": "Resultado con errores en verificación"
+  },
+  "formatAllOk": "[FORMAT OK] Semua file .joss mematuhi format kanonik.",
+  "@formatAllOk": {
+    "description": "Éxito cuando todos los archivos están formateados"
+  },
+  "formatFileOk": "[FORMAT OK] {file} diformat dengan benar.",
+  "@formatFileOk": {
+    "description": "Éxito de formateo para un archivo individual",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileFormatted": "[FORMAT] {file} diformat dengan benar.",
+  "@formatFileFormatted": {
+    "description": "Mensaje cuando un archivo fue modificado con formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixNoChanges": "[FIX OK] {file} tidak memerlukan perubahan.",
+  "@fixNoChanges": {
+    "description": "Resultado para un archivo sin modificaciones en fix",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileAlready": "[FORMAT] {file} sekarang dalam format kanonik.",
+  "@formatFileAlready": {
+    "description": "Mensaje cuando el archivo no requería cambios de formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixAllClean": "[FIX OK] Semua file .joss bersih dan dalam format kanonik.",
+  "@fixAllClean": {
+    "description": "Resultado cuando fix no detectó problemas"
+  },
+  "testNoFilesFound": "Tidak ada file pengujian (*_test.joss) yang ditemukan.",
+  "@testNoFilesFound": {
+    "description": "Aviso cuando no hay archivos de prueba"
+  },
+  "migrateStarting": "Menjalankan migrasi...",
+  "@migrateStarting": {
+    "description": "Inicio del proceso de migraciones"
+  },
+  "migrateDbSuccess": "Koneksi ke DB berhasil.",
+  "@migrateDbSuccess": {
+    "description": "Mensaje de conexión establecida con la base de datos"
+  },
+  "testRunning": "Menjalankan pengujian unit pada {path}...",
+  "@testRunning": {
+    "description": "Inicio de ejecución de pruebas unitarias",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "migrateNoPending": "Tidak ada migrasi yang tertunda.",
+  "@migrateNoPending": {
+    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
+  },
+  "migrateNoneFound": "Tidak ada migrasi yang ditemukan di aplikasi/database/migrasi/",
+  "@migrateNoneFound": {
+    "description": "Aviso cuando la carpeta de migraciones está vacía"
+  },
+  "migrateCompleted": "Migrasi berhasil diselesaikan.",
+  "@migrateCompleted": {
+    "description": "Mensaje final de éxito en migraciones"
   }
 }

@@ -231,5 +231,223 @@
   "version": "Geçerli sürümü gösterir",
   "@version": {
     "description": ""
+  },
+  "cliCmdRun": "Bir Joss betiğini veya dosyasını doğrudan çalıştır",
+  "@cliCmdRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "cliAppTitle": "Joss — Modern Dil ve Geliştirme Platformu",
+  "@cliAppTitle": {
+    "description": "Título principal mostrado en la ayuda de la CLI"
+  },
+  "cliUsage": "Kullanım: joss <comando> [argumentos] [opciones]",
+  "@cliUsage": {
+    "description": "Línea de uso general de la CLI"
+  },
+  "cliCmdRepl": "Etkileşimli konsolu (REPL) başlat",
+  "@cliCmdRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "cliCmdAnalyze": "Statik semantik analiz ve kapsamlı tür kontrolü",
+  "@cliCmdAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "cliCmdServer": "Yüksek performanslı HTTP web sunucusunu başlatın",
+  "@cliCmdServer": {
+    "description": "Descripción del comando joss server start / joss serve"
+  },
+  "cliCmdLint": "Kodu uyarılar, kullanımdan kaldırmalar ve en iyi uygulamalar açısından inceleyin",
+  "@cliCmdLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "cliCmdFormat": ".Joss dosyalarını standart dil standardına göre biçimlendirin",
+  "@cliCmdFormat": {
+    "description": "Descripción del comando joss format / joss fmt"
+  },
+  "cliCmdTest": "Birim ve entegrasyon test paketini çalıştırın (*_test.joss)",
+  "@cliCmdTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "cliCmdBuild": "Projeyi dağıtım için derleyin (web veya bağımsız ikili)",
+  "@cliCmdBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "cliCmdPub": "Joss ekosisteminin resmi paket ve eklenti yöneticisi",
+  "@cliCmdPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "serverStopped": "Web sunucusu durduruldu.",
+  "@serverStopped": {
+    "description": "Mensaje de parada del servidor"
+  },
+  "serverStarting": "HTTP web sunucusu http://{host}:{port} adresinde başlatılıyor",
+  "@serverStarting": {
+    "description": "Mensaje de inicio del servidor",
+    "placeholders": {
+      "host": {},
+      "port": {}
+    }
+  },
+  "lintSuccess": "Kaynak kodunda herhangi bir sorun bulunamadı.",
+  "@lintSuccess": {
+    "description": "Mensaje de éxito del linter"
+  },
+  "analyzeSuccess": "Anlamsal analiz tamamlandı: sorun bulunamadı.",
+  "@analyzeSuccess": {
+    "description": "Mensaje de éxito del analizador estático"
+  },
+  "cliUsageRun": "Kullanım: joss run [archivo.joss]",
+  "@cliUsageRun": {
+    "description": "Mensaje de uso del comando run"
+  },
+  "cliErrRequireMain": "Tüm projeler, sunucuyu başlatan 'main.joss' giriş noktasına sahip olmalıdır.",
+  "@cliErrRequireMain": {
+    "description": "Explicación de la necesidad del archivo main.joss"
+  },
+  "cliExecMain": "[CLI] Başlangıç ​​betiği (main.joss) çalıştırılıyor...",
+  "@cliExecMain": {
+    "description": "Mensaje informativo al arrancar el script main.joss"
+  },
+  "cliErrNoMain": "Hata: 'main.joss' bulunamadı.",
+  "@cliErrNoMain": {
+    "description": "Error cuando falta el archivo de entrada principal"
+  },
+  "cliUsageServer": "Kullanım: joss sunucusu başlangıcı",
+  "@cliUsageServer": {
+    "description": "Mensaje de uso del comando server"
+  },
+  "cliUsageMakeController": "Kullanım: joss make:kontrolör [Ad]",
+  "@cliUsageMakeController": {
+    "description": "Mensaje de uso del generador de controladores"
+  },
+  "cliUsageBuildPkg": "Kullanım: joss derleme paketi [package_path]",
+  "@cliUsageBuildPkg": {
+    "description": "Mensaje de uso del comando build package"
+  },
+  "cliUsageProgram": "Kullanım: joss programı başlatma",
+  "@cliUsageProgram": {
+    "description": "Mensaje de uso del comando program"
+  },
+  "cliUsageMakeModel": "Kullanım: joss make:model [Ad]",
+  "@cliUsageMakeModel": {
+    "description": "Mensaje de uso del generador de modelos"
+  },
+  "cliUsageMakeMvc": "Kullanım: joss make:mvc [Ad]",
+  "@cliUsageMakeMvc": {
+    "description": "Mensaje de uso del generador de MVC"
+  },
+  "cliUsageMakeView": "Kullanım: joss make:view [Ad]",
+  "@cliUsageMakeView": {
+    "description": "Mensaje de uso del generador de vistas"
+  },
+  "cliUsageMakeMiddleware": "Kullanım: joss make:middleware [Ad]",
+  "@cliUsageMakeMiddleware": {
+    "description": "Mensaje de uso del generador de middleware"
+  },
+  "cliUsageMakeCrud": "Kullanım: joss make:crud [Tablo]",
+  "@cliUsageMakeCrud": {
+    "description": "Mensaje de uso del generador de CRUD"
+  },
+  "cliUsageRemoveCrud": "Kullanım: joss kaldır:crud [Tablo]",
+  "@cliUsageRemoveCrud": {
+    "description": "Mensaje de uso para eliminar CRUD"
+  },
+  "cliUsageMakeMigration": "Kullanım: joss make:migration [Ad]",
+  "@cliUsageMakeMigration": {
+    "description": "Mensaje de uso del generador de migraciones"
+  },
+  "checkVerifying": "[CHECK] '{path}' içindeki proje doğrulanıyor (ayrıştırma, anlamsal analiz, türler, tüy bırakmayan, biçim)...",
+  "@checkVerifying": {
+    "description": "Mensaje inicial del comando joss check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "checkFormatOk": "✓ Biçim: Tamam",
+  "@checkFormatOk": {
+    "description": "Confirmación de formato canónico válido"
+  },
+  "checkSemanticOk": "✓ Anlamsal analiz ve türleri: Tamam",
+  "@checkSemanticOk": {
+    "description": "Confirmación de análisis semántico correcto"
+  },
+  "checkLintOk": "✓ Linter ve güvenlik kuralları: Tamam",
+  "@checkLintOk": {
+    "description": "Confirmación de reglas de linter superadas"
+  },
+  "checkResultOk": "[SONUCU KONTROL EDİN] Proje tamamen doğrulandı ve hazır.",
+  "@checkResultOk": {
+    "description": "Resultado positivo de verificación general"
+  },
+  "checkResultFail": "[SONUCU KONTROL EDİN] Proje çözülmesi gereken sorunlar içeriyor.",
+  "@checkResultFail": {
+    "description": "Resultado con errores en verificación"
+  },
+  "formatAllOk": "[FORMAT TAMAM] Tüm .joss dosyaları standart formatla uyumludur.",
+  "@formatAllOk": {
+    "description": "Éxito cuando todos los archivos están formateados"
+  },
+  "formatFileOk": "[FORMAT OK] {file} doğru biçimlendirilmiş.",
+  "@formatFileOk": {
+    "description": "Éxito de formateo para un archivo individual",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileFormatted": "[FORMAT] {file} doğru biçimlendirilmiş.",
+  "@formatFileFormatted": {
+    "description": "Mensaje cuando un archivo fue modificado con formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixNoChanges": "[FIX OK] {file} değişiklik gerektirmez.",
+  "@fixNoChanges": {
+    "description": "Resultado para un archivo sin modificaciones en fix",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileAlready": "[FORMAT] {file} artık standart biçimdedir.",
+  "@formatFileAlready": {
+    "description": "Mensaje cuando el archivo no requería cambios de formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixAllClean": "[DÜZELTME TAMAM] Tüm .joss dosyaları temiz ve standart formattadır.",
+  "@fixAllClean": {
+    "description": "Resultado cuando fix no detectó problemas"
+  },
+  "testNoFilesFound": "Hiçbir test dosyası (*_test.joss) bulunamadı.",
+  "@testNoFilesFound": {
+    "description": "Aviso cuando no hay archivos de prueba"
+  },
+  "migrateStarting": "Taşıma işlemleri yürütülüyor...",
+  "@migrateStarting": {
+    "description": "Inicio del proceso de migraciones"
+  },
+  "migrateDbSuccess": "DB'ye bağlantı başarılı.",
+  "@migrateDbSuccess": {
+    "description": "Mensaje de conexión establecida con la base de datos"
+  },
+  "testRunning": "{path}_ üzerinde birim testleri çalıştırılıyor...",
+  "@testRunning": {
+    "description": "Inicio de ejecución de pruebas unitarias",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "migrateNoPending": "Bekleyen herhangi bir taşıma işlemi yok.",
+  "@migrateNoPending": {
+    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
+  },
+  "migrateNoneFound": "Uygulama/veritabanı/migrations/'da taşıma bulunamadı",
+  "@migrateNoneFound": {
+    "description": "Aviso cuando la carpeta de migraciones está vacía"
+  },
+  "migrateCompleted": "Taşıma işlemleri başarıyla tamamlandı.",
+  "@migrateCompleted": {
+    "description": "Mensaje final de éxito en migraciones"
   }
 }

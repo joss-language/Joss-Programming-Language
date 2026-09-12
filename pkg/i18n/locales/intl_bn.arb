@@ -231,5 +231,223 @@
   "version": "বর্তমান সংস্করণ দেখায়",
   "@version": {
     "description": ""
+  },
+  "cliCmdRun": "একটি Joss স্ক্রিপ্ট বা ফাইল সরাসরি চালান",
+  "@cliCmdRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "cliAppTitle": "Joss — আধুনিক ভাষা এবং উন্নয়ন প্ল্যাটফর্ম",
+  "@cliAppTitle": {
+    "description": "Título principal mostrado en la ayuda de la CLI"
+  },
+  "cliUsage": "ব্যবহার: joss <comando> [argumentos] [opciones]",
+  "@cliUsage": {
+    "description": "Línea de uso general de la CLI"
+  },
+  "cliCmdRepl": "ইন্টারেক্টিভ কনসোল (REPL) চালু করুন",
+  "@cliCmdRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "cliCmdAnalyze": "স্ট্যাটিক শব্দার্থিক বিশ্লেষণ এবং সম্পূর্ণ টাইপ চেকিং",
+  "@cliCmdAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "cliCmdServer": "উচ্চ-পারফরম্যান্স HTTP ওয়েব সার্ভার শুরু করুন",
+  "@cliCmdServer": {
+    "description": "Descripción del comando joss server start / joss serve"
+  },
+  "cliCmdLint": "সতর্কতা, অবমূল্যায়ন এবং সর্বোত্তম অনুশীলনের জন্য কোড পরিদর্শন করুন",
+  "@cliCmdLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "cliCmdFormat": "ক্যানোনিকাল ভাষার মান অনুযায়ী .joss ফাইল ফরম্যাট করুন",
+  "@cliCmdFormat": {
+    "description": "Descripción del comando joss format / joss fmt"
+  },
+  "cliCmdTest": "ইউনিট এবং ইন্টিগ্রেশন টেস্ট স্যুট চালান (*_test.joss)",
+  "@cliCmdTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "cliCmdBuild": "বিতরণের জন্য প্রকল্পটি কম্পাইল করুন (ওয়েব বা স্বতন্ত্র বাইনারি)",
+  "@cliCmdBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "cliCmdPub": "Joss ইকোসিস্টেমের অফিসিয়াল প্যাকেজ এবং প্লাগইন ম্যানেজার",
+  "@cliCmdPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "serverStopped": "ওয়েব সার্ভার বন্ধ।",
+  "@serverStopped": {
+    "description": "Mensaje de parada del servidor"
+  },
+  "serverStarting": "http://{host}:{port} এ HTTP ওয়েব সার্ভার শুরু হচ্ছে",
+  "@serverStarting": {
+    "description": "Mensaje de inicio del servidor",
+    "placeholders": {
+      "host": {},
+      "port": {}
+    }
+  },
+  "lintSuccess": "সোর্স কোডে কোন সমস্যা পাওয়া যায়নি।",
+  "@lintSuccess": {
+    "description": "Mensaje de éxito del linter"
+  },
+  "analyzeSuccess": "শব্দার্থগত বিশ্লেষণ সম্পন্ন হয়েছে: কোনো সমস্যা পাওয়া যায়নি।",
+  "@analyzeSuccess": {
+    "description": "Mensaje de éxito del analizador estático"
+  },
+  "cliUsageRun": "ব্যবহার: joss run [archivo.joss]",
+  "@cliUsageRun": {
+    "description": "Mensaje de uso del comando run"
+  },
+  "cliErrRequireMain": "সব প্রকল্পের একটি এন্ট্রি পয়েন্ট 'main.joss' থাকতে হবে যা সার্ভার চালু করে।",
+  "@cliErrRequireMain": {
+    "description": "Explicación de la necesidad del archivo main.joss"
+  },
+  "cliExecMain": "[CLI] স্টার্টআপ স্ক্রিপ্ট চলছে (main.joss)...",
+  "@cliExecMain": {
+    "description": "Mensaje informativo al arrancar el script main.joss"
+  },
+  "cliErrNoMain": "ত্রুটি: 'main.joss' পাওয়া যায়নি।",
+  "@cliErrNoMain": {
+    "description": "Error cuando falta el archivo de entrada principal"
+  },
+  "cliUsageServer": "ব্যবহার: জস সার্ভার শুরু",
+  "@cliUsageServer": {
+    "description": "Mensaje de uso del comando server"
+  },
+  "cliUsageMakeController": "ব্যবহার: জস মেক: কন্ট্রোলার [নাম]",
+  "@cliUsageMakeController": {
+    "description": "Mensaje de uso del generador de controladores"
+  },
+  "cliUsageBuildPkg": "ব্যবহার: জস বিল্ড প্যাকেজ [প্যাকেজ_পথ]",
+  "@cliUsageBuildPkg": {
+    "description": "Mensaje de uso del comando build package"
+  },
+  "cliUsageProgram": "ব্যবহার: জস প্রোগ্রাম শুরু",
+  "@cliUsageProgram": {
+    "description": "Mensaje de uso del comando program"
+  },
+  "cliUsageMakeModel": "ব্যবহার: জস মেক: মডেল [নাম]",
+  "@cliUsageMakeModel": {
+    "description": "Mensaje de uso del generador de modelos"
+  },
+  "cliUsageMakeMvc": "ব্যবহার: joss make:mvc [নাম]",
+  "@cliUsageMakeMvc": {
+    "description": "Mensaje de uso del generador de MVC"
+  },
+  "cliUsageMakeView": "ব্যবহার: joss make:view [নাম]",
+  "@cliUsageMakeView": {
+    "description": "Mensaje de uso del generador de vistas"
+  },
+  "cliUsageMakeMiddleware": "ব্যবহার: জস মেক: মিডলওয়্যার [নাম]",
+  "@cliUsageMakeMiddleware": {
+    "description": "Mensaje de uso del generador de middleware"
+  },
+  "cliUsageMakeCrud": "ব্যবহার: জস মেক: ক্রুড [টেবিল]",
+  "@cliUsageMakeCrud": {
+    "description": "Mensaje de uso del generador de CRUD"
+  },
+  "cliUsageRemoveCrud": "ব্যবহার: জস রিমুভ: ক্রুড [টেবিল]",
+  "@cliUsageRemoveCrud": {
+    "description": "Mensaje de uso para eliminar CRUD"
+  },
+  "cliUsageMakeMigration": "ব্যবহার: জস মেক: মাইগ্রেশন [নাম]",
+  "@cliUsageMakeMigration": {
+    "description": "Mensaje de uso del generador de migraciones"
+  },
+  "checkVerifying": "[চেক] '{path}'-এ প্রকল্প যাচাই করা হচ্ছে (পার্স, শব্দার্থিক বিশ্লেষণ, প্রকার, লিন্ট, বিন্যাস)...",
+  "@checkVerifying": {
+    "description": "Mensaje inicial del comando joss check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "checkFormatOk": "✓ বিন্যাস: ঠিক আছে",
+  "@checkFormatOk": {
+    "description": "Confirmación de formato canónico válido"
+  },
+  "checkSemanticOk": "✓ শব্দার্থগত বিশ্লেষণ এবং প্রকার: ঠিক আছে",
+  "@checkSemanticOk": {
+    "description": "Confirmación de análisis semántico correcto"
+  },
+  "checkLintOk": "✓ লিন্টার এবং নিরাপত্তা নিয়ম: ঠিক আছে",
+  "@checkLintOk": {
+    "description": "Confirmación de reglas de linter superadas"
+  },
+  "checkResultOk": "[ফলাফল পরীক্ষা করুন] প্রকল্পটি সম্পূর্ণরূপে যাচাইকৃত এবং প্রস্তুত।",
+  "@checkResultOk": {
+    "description": "Resultado positivo de verificación general"
+  },
+  "checkResultFail": "[ফলাফল পরীক্ষা করুন] প্রকল্পটিতে এমন সমস্যা রয়েছে যেগুলোর সমাধান করা দরকার।",
+  "@checkResultFail": {
+    "description": "Resultado con errores en verificación"
+  },
+  "formatAllOk": "[ফরম্যাট ঠিক আছে] সমস্ত .joss ফাইল ক্যানোনিকাল ফরম্যাট মেনে চলে।",
+  "@formatAllOk": {
+    "description": "Éxito cuando todos los archivos están formateados"
+  },
+  "formatFileOk": "[ফরম্যাট ঠিক আছে] {file} সঠিকভাবে ফরম্যাট করা হয়েছে।",
+  "@formatFileOk": {
+    "description": "Éxito de formateo para un archivo individual",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileFormatted": "[FORMAT] {file} সঠিকভাবে ফরম্যাট করা হয়েছে।",
+  "@formatFileFormatted": {
+    "description": "Mensaje cuando un archivo fue modificado con formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixNoChanges": "[ঠিক আছে] {file} পরিবর্তনের প্রয়োজন নেই।",
+  "@fixNoChanges": {
+    "description": "Resultado para un archivo sin modificaciones en fix",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileAlready": "[FORMAT] {file} এখন ক্যানোনিকাল ফর্ম্যাটে রয়েছে৷",
+  "@formatFileAlready": {
+    "description": "Mensaje cuando el archivo no requería cambios de formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixAllClean": "[ঠিক আছে] সমস্ত .joss ফাইল পরিষ্কার এবং ক্যানোনিকাল ফরম্যাটে।",
+  "@fixAllClean": {
+    "description": "Resultado cuando fix no detectó problemas"
+  },
+  "testNoFilesFound": "কোনো পরীক্ষার ফাইল (*_test.joss) পাওয়া যায়নি।",
+  "@testNoFilesFound": {
+    "description": "Aviso cuando no hay archivos de prueba"
+  },
+  "migrateStarting": "মাইগ্রেশন চলছে...",
+  "@migrateStarting": {
+    "description": "Inicio del proceso de migraciones"
+  },
+  "migrateDbSuccess": "DB এর সাথে সংযোগ সফল হয়েছে৷",
+  "@migrateDbSuccess": {
+    "description": "Mensaje de conexión establecida con la base de datos"
+  },
+  "testRunning": "{path} এ ইউনিট পরীক্ষা চলছে...",
+  "@testRunning": {
+    "description": "Inicio de ejecución de pruebas unitarias",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "migrateNoPending": "কোন মুলতুবি মাইগ্রেশন নেই.",
+  "@migrateNoPending": {
+    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
+  },
+  "migrateNoneFound": "অ্যাপ/ডাটাবেস/মাইগ্রেশন/-এ কোন মাইগ্রেশন পাওয়া যায়নি",
+  "@migrateNoneFound": {
+    "description": "Aviso cuando la carpeta de migraciones está vacía"
+  },
+  "migrateCompleted": "মাইগ্রেশন সফলভাবে সম্পন্ন হয়েছে।",
+  "@migrateCompleted": {
+    "description": "Mensaje final de éxito en migraciones"
   }
 }

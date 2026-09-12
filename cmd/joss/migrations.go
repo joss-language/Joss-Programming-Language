@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 
 	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
 )
 
 func runMigrations() {
-	fmt.Println("Ejecutando migraciones...")
+	fmt.Println(i18n.Tr("migrateStarting"))
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -27,7 +28,7 @@ func runMigrations() {
 		fmt.Println("Error: No se pudo conectar a la base de datos.")
 		return
 	}
-	fmt.Println("Conexión a DB exitosa.")
+	fmt.Println(i18n.Tr("migrateDbSuccess"))
 
 	// Ensure migration table exists
 	if err := rt.EnsureMigrationTable(); err != nil {
@@ -50,7 +51,7 @@ func performMigrations(rt *core.Runtime) error {
 	}
 
 	if len(files) == 0 {
-		fmt.Println("No se encontraron migraciones en app/database/migrations/")
+		fmt.Println(i18n.Tr("migrateNoneFound"))
 		return nil
 	}
 
@@ -124,9 +125,9 @@ func performMigrations(rt *core.Runtime) error {
 	}
 
 	if count == 0 {
-		fmt.Println("No hay migraciones pendientes.")
+		fmt.Println(i18n.Tr("migrateNoPending"))
 	} else {
-		fmt.Printf("Migraciones completadas: %d\n", count)
+		fmt.Println(i18n.Tr("migrateCompleted"))
 	}
 	return nil
 }

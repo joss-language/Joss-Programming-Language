@@ -1,0 +1,151 @@
+{
+  "@@locale": "es",
+  "buildWebStart": "Iniciando compilación WEB de Joss...",
+  "@buildWebStart": {
+    "description": "Inicio de la compilación web"
+  },
+  "buildMissingRequired": "Error de Arquitectura: Falta archivo/directorio requerido '{file}'",
+  "@buildMissingRequired": {
+    "description": "Falta un archivo o directorio indispensable",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "buildStrictStructure": "La Biblia de Joss requiere una estructura estricta.",
+  "@buildStrictStructure": {
+    "description": "Recordatorio de estructura arquitectónica"
+  },
+  "buildMissingEnv": "Error de Arquitectura: Falta archivo de entorno ('env.joss' o '.env')",
+  "@buildMissingEnv": {
+    "description": "Falta el archivo de configuración de entorno"
+  },
+  "buildCreatingDir": "Creando directorio de salida '{dir}'...",
+  "@buildCreatingDir": {
+    "description": "Creación del directorio de salida del build",
+    "placeholders": {
+      "dir": {}
+    }
+  },
+  "buildCopyingFiles": "Copiando archivos del proyecto...",
+  "@buildCopyingFiles": {
+    "description": "Copia de assets y código"
+  },
+  "buildPromptNodeModules": "¿Desea incluir 'node_modules' en el build? (y/n): ",
+  "@buildPromptNodeModules": {
+    "description": "Pregunta interactiva para incluir dependencias JS"
+  },
+  "buildIncludeNodeModules": "-> Se incluirá node_modules.",
+  "@buildIncludeNodeModules": {
+    "description": "Confirmación de inclusión de node_modules"
+  },
+  "buildOmitNodeModules": "-> Se omitirá node_modules.",
+  "@buildOmitNodeModules": {
+    "description": "Confirmación de exclusión de node_modules"
+  },
+  "buildDbCopied": "Base de datos copiada a build/",
+  "@buildDbCopied": {
+    "description": "Copia de base de datos sqlite en el build"
+  },
+  "buildNginxPortCreated": "Archivo nginx_port.conf creado con puerto {port}",
+  "@buildNginxPortCreated": {
+    "description": "Generación del archivo de configuración para nginx",
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "buildEncryptingEnv": "Encriptando entorno para producción...",
+  "@buildEncryptingEnv": {
+    "description": "Encriptación segura de credenciales"
+  },
+  "buildWebSuccess": "Build WEB completado exitosamente en carpeta 'build/'.",
+  "@buildWebSuccess": {
+    "description": "Éxito en compilación web"
+  },
+  "buildWebDeployTip": "Para desplegar, sube el contenido de la carpeta 'build/' a tu servidor.",
+  "@buildWebDeployTip": {
+    "description": "Instrucción de despliegue"
+  },
+  "buildWebRunTip": "Solo necesitas ejecutar joss run main.joss dentro de ella en el servidor.",
+  "@buildWebRunTip": {
+    "description": "Instrucción de ejecución en servidor"
+  },
+  "buildProgramStart": "Iniciando compilación PROGRAM de Joss (NATIVE STANDALONE MODE)...",
+  "@buildProgramStart": {
+    "description": "Inicio de compilación en modo nativo/desktop"
+  },
+  "buildSelectTargetOs": "Seleccione el sistema operativo destino:",
+  "@buildSelectTargetOs": {
+    "description": "Menú selector de SO destino"
+  },
+  "buildOsWindows": "1. Windows (x64)",
+  "@buildOsWindows": {
+    "description": "Opción Windows"
+  },
+  "buildOsLinux": "2. Linux (x64)",
+  "@buildOsLinux": {
+    "description": "Opción Linux"
+  },
+  "buildOsMacArm": "3. macOS Apple Silicon (arm64)",
+  "@buildOsMacArm": {
+    "description": "Opción macOS ARM"
+  },
+  "buildOsMacIntel": "4. macOS Intel (amd64)",
+  "@buildOsMacIntel": {
+    "description": "Opción macOS Intel"
+  },
+  "buildOsCurrent": "5. Sistema Operativo Actual ({os}/{arch})",
+  "@buildOsCurrent": {
+    "description": "Opción SO anfitrión actual",
+    "placeholders": {
+      "os": {},
+      "arch": {}
+    }
+  },
+  "buildPromptOption": "Opción [1-5]: ",
+  "@buildPromptOption": {
+    "description": "Prompt interactivo de selección"
+  },
+  "buildInvalidOption": "Opción no válida. Cancelando compilación.",
+  "@buildInvalidOption": {
+    "description": "Error al elegir opción no permitida"
+  },
+  "buildEnvEncryptedSaved": "Entorno encriptado guardado en {path}",
+  "@buildEnvEncryptedSaved": {
+    "description": "Confirmación de almacenamiento del env.enc",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildStarting": "[Package Build] Iniciando compilación de paquete en '{path}'...",
+  "@pkgBuildStarting": {
+    "description": "Inicio de compilación de plugin o paquete",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildInvalidDir": "Error: La ruta '{path}' no es un directorio válido",
+  "@pkgBuildInvalidDir": {
+    "description": "Directorio de paquete inválido",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildMissingYaml": "Error: Falta manifiesto 'joss.yaml' en '{path}'",
+  "@pkgBuildMissingYaml": {
+    "description": "Falta manifiesto joss.yaml",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildSuccess": "[Package Build] JP v2 firmado y compilado sin fuentes de implementación: {path}",
+  "@pkgBuildSuccess": {
+    "description": "Éxito al empaquetar binario JP v2",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectJpV1Deprecated": "Error: El formato de paquete JP v1 fue eliminado. Joss requiere el formato estructurado y firmado JP v2.",
+  "@pkgInspectJpV1Deprecated": {
+    "description": "Aviso de versión obsoleta JP v1"
+  }
+}

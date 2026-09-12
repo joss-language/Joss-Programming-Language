@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/tester"
 )
 
@@ -24,6 +25,8 @@ func handleTestCommand(args []string) {
 	runner := tester.NewRunner()
 	runner.Filter = *filter
 
+	fmt.Println(i18n.Tr("testRunning", map[string]interface{}{"path": targetPath}))
+
 	report, err := runner.Run(targetPath)
 	if err != nil {
 		fmt.Printf("Error ejecutando pruebas: %v\n", err)
@@ -31,7 +34,7 @@ func handleTestCommand(args []string) {
 	}
 
 	if len(report.Suites) == 0 {
-		fmt.Println("No se encontraron archivos de prueba (*_test.joss).")
+		fmt.Println(i18n.Tr("testNoFilesFound"))
 		return
 	}
 

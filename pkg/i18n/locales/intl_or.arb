@@ -231,5 +231,223 @@
   "version": "ସାମ୍ପ୍ରତିକ ସଂସ୍କରଣ ଦେଖାଏ |",
   "@version": {
     "description": ""
+  },
+  "cliCmdRun": "ଏକ Joss ସ୍କ୍ରିପ୍ଟ କିମ୍ବା ଫାଇଲ୍ ସିଧାସଳଖ ଚାଲାନ୍ତୁ",
+  "@cliCmdRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "cliAppTitle": "Joss — ଆଧୁନିକ ଭାଷା ଏବଂ ବିକାଶ ପ୍ଲାଟଫର୍ମ",
+  "@cliAppTitle": {
+    "description": "Título principal mostrado en la ayuda de la CLI"
+  },
+  "cliUsage": "ବ୍ୟବହାର: joss <comando> [argumentos] [opciones]",
+  "@cliUsage": {
+    "description": "Línea de uso general de la CLI"
+  },
+  "cliCmdRepl": "ଇଣ୍ଟର୍ଆକ୍ଟିଭ୍ କନସୋଲ୍ (REPL) ଆରମ୍ଭ କରନ୍ତୁ",
+  "@cliCmdRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "cliCmdAnalyze": "ଷ୍ଟାଟିକ୍ ଅର୍ଥଗତ ବିଶ୍ଳେଷଣ ଏବଂ ସମ୍ପୁର୍ଣ୍ଣ ପ୍ରକାର ଯାଞ୍ଚ |",
+  "@cliCmdAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "cliCmdServer": "ଉଚ୍ଚ କ୍ଷମତା ସମ୍ପନ୍ନ HTTP ୱେବ୍ ସର୍ଭର ଆରମ୍ଭ କରନ୍ତୁ |",
+  "@cliCmdServer": {
+    "description": "Descripción del comando joss server start / joss serve"
+  },
+  "cliCmdLint": "ଗୁମ୍ଫା, ନାପସନ୍ଦ ଏବଂ ସର୍ବୋତ୍ତମ ଅଭ୍ୟାସ ପାଇଁ କୋଡ୍ ଯାଞ୍ଚ କରନ୍ତୁ |",
+  "@cliCmdLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "cliCmdFormat": "କାନୋନିକାଲ୍ ଭାଷା ମାନାଙ୍କ ଅନୁଯାୟୀ .joss ଫାଇଲଗୁଡିକ ଫର୍ମାଟ୍ କରନ୍ତୁ |",
+  "@cliCmdFormat": {
+    "description": "Descripción del comando joss format / joss fmt"
+  },
+  "cliCmdTest": "ୟୁନିଟ୍ ଏବଂ ଏକୀକରଣ ପରୀକ୍ଷା ସୁଟ୍ ଚଲାନ୍ତୁ (* _test.joss)",
+  "@cliCmdTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "cliCmdBuild": "ବଣ୍ଟନ ପାଇଁ ପ୍ରକଳ୍ପ ସଂକଳନ କରନ୍ତୁ (ୱେବ୍ କିମ୍ବା ସ୍ୱତନ୍ତ୍ର ବାଇନାରୀ)",
+  "@cliCmdBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "cliCmdPub": "ଜସ୍ ଇକୋସିଷ୍ଟମର ଅଫିସିଆଲ୍ ପ୍ୟାକେଜ୍ ଏବଂ ପ୍ଲଗଇନ୍ ମ୍ୟାନେଜର |",
+  "@cliCmdPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "serverStopped": "ୱେବ୍ ସର୍ଭର ବନ୍ଦ ହୋଇଗଲା |",
+  "@serverStopped": {
+    "description": "Mensaje de parada del servidor"
+  },
+  "serverStarting": "Http: // {host}: {port} ରେ HTTP ୱେବ୍ ସର୍ଭର ଆରମ୍ଭ କରିବା |",
+  "@serverStarting": {
+    "description": "Mensaje de inicio del servidor",
+    "placeholders": {
+      "host": {},
+      "port": {}
+    }
+  },
+  "lintSuccess": "ଉତ୍ସ କୋଡ଼ରେ କ problems ଣସି ଅସୁବିଧା ମିଳିଲା ନାହିଁ |",
+  "@lintSuccess": {
+    "description": "Mensaje de éxito del linter"
+  },
+  "analyzeSuccess": "ଅର୍ଥଗତ ବିଶ୍ଳେଷଣ ସମାପ୍ତ: କ issues ଣସି ସମସ୍ୟା ମିଳିଲା ନାହିଁ |",
+  "@analyzeSuccess": {
+    "description": "Mensaje de éxito del analizador estático"
+  },
+  "cliUsageRun": "ବ୍ୟବହାର: joss run [archivo.joss]",
+  "@cliUsageRun": {
+    "description": "Mensaje de uso del comando run"
+  },
+  "cliErrRequireMain": "ସମସ୍ତ ପ୍ରକଳ୍ପରେ 'main.joss' ନାମକ ଏଣ୍ଟ୍ରି ପଏଣ୍ଟ ଥିବା ଉଚିତ୍ ଯାହା ସର୍ଭର୍ ଆରମ୍ଭ କରେ।",
+  "@cliErrRequireMain": {
+    "description": "Explicación de la necesidad del archivo main.joss"
+  },
+  "cliExecMain": "[CLI] ଚାଲୁଥିବା ଷ୍ଟାର୍ଟଅପ୍ ସ୍କ୍ରିପ୍ଟ (main.joss) ...",
+  "@cliExecMain": {
+    "description": "Mensaje informativo al arrancar el script main.joss"
+  },
+  "cliErrNoMain": "ତ୍ରୁଟି: 'main.joss' ମିଳିଲା ନାହିଁ |",
+  "@cliErrNoMain": {
+    "description": "Error cuando falta el archivo de entrada principal"
+  },
+  "cliUsageServer": "ବ୍ୟବହାର: joss ସର୍ଭର ଆରମ୍ଭ |",
+  "@cliUsageServer": {
+    "description": "Mensaje de uso del comando server"
+  },
+  "cliUsageMakeController": "ବ୍ୟବହାର: joss make: ନିୟନ୍ତ୍ରକ [ନାମ]",
+  "@cliUsageMakeController": {
+    "description": "Mensaje de uso del generador de controladores"
+  },
+  "cliUsageBuildPkg": "ବ୍ୟବହାର: joss build package [package_path]",
+  "@cliUsageBuildPkg": {
+    "description": "Mensaje de uso del comando build package"
+  },
+  "cliUsageProgram": "ବ୍ୟବହାର: ଜସ୍ ପ୍ରୋଗ୍ରାମ୍ ଆରମ୍ଭ |",
+  "@cliUsageProgram": {
+    "description": "Mensaje de uso del comando program"
+  },
+  "cliUsageMakeModel": "ବ୍ୟବହାର: joss make: ମଡେଲ୍ [ନାମ]",
+  "@cliUsageMakeModel": {
+    "description": "Mensaje de uso del generador de modelos"
+  },
+  "cliUsageMakeMvc": "ବ୍ୟବହାର: joss make: mvc [ନାମ]",
+  "@cliUsageMakeMvc": {
+    "description": "Mensaje de uso del generador de MVC"
+  },
+  "cliUsageMakeView": "ବ୍ୟବହାର: joss make: ଦର୍ଶନ [ନାମ]",
+  "@cliUsageMakeView": {
+    "description": "Mensaje de uso del generador de vistas"
+  },
+  "cliUsageMakeMiddleware": "ବ୍ୟବହାର: joss make: ମଧ୍ୟମ ସଫ୍ଟୱେର୍ [ନାମ]",
+  "@cliUsageMakeMiddleware": {
+    "description": "Mensaje de uso del generador de middleware"
+  },
+  "cliUsageMakeCrud": "ବ୍ୟବହାର: joss make: crud [ଟେବୁଲ୍]",
+  "@cliUsageMakeCrud": {
+    "description": "Mensaje de uso del generador de CRUD"
+  },
+  "cliUsageRemoveCrud": "ବ୍ୟବହାର: ଜୋସ୍ ଅପସାରଣ: କ୍ରୁଡ୍ [ଟେବୁଲ୍]",
+  "@cliUsageRemoveCrud": {
+    "description": "Mensaje de uso para eliminar CRUD"
+  },
+  "cliUsageMakeMigration": "ବ୍ୟବହାର: joss make: ସ୍ଥାନାନ୍ତରଣ [ନାମ]",
+  "@cliUsageMakeMigration": {
+    "description": "Mensaje de uso del generador de migraciones"
+  },
+  "checkVerifying": "[CHECK] '{path}' ରେ ପ୍ରୋଜେକ୍ଟ ଯାଞ୍ଚ କରୁଛି (ପାର୍ସ, ଅର୍ଥଗତ ବିଶ୍ଳେଷଣ, ପ୍ରକାର, ଲିନଟ୍, ଫର୍ମାଟ୍) ...",
+  "@checkVerifying": {
+    "description": "Mensaje inicial del comando joss check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "checkFormatOk": "At ଫର୍ମାଟ୍: ଠିକ ଅଛି |",
+  "@checkFormatOk": {
+    "description": "Confirmación de formato canónico válido"
+  },
+  "checkSemanticOk": "✓ ଅର୍ଥଗତ ବିଶ୍ଳେଷଣ ଏବଂ ପ୍ରକାରଗୁଡିକ: ଠିକ ଅଛି |",
+  "@checkSemanticOk": {
+    "description": "Confirmación de análisis semántico correcto"
+  },
+  "checkLintOk": "Ter ଲିନଟର ଏବଂ ସୁରକ୍ଷା ନିୟମ: ଠିକ ଅଛି |",
+  "@checkLintOk": {
+    "description": "Confirmación de reglas de linter superadas"
+  },
+  "checkResultOk": "[ଫଳାଫଳ ଯାଞ୍ଚ କରନ୍ତୁ] ପ୍ରକଳ୍ପଟି ସମ୍ପୂର୍ଣ୍ଣ ଯାଞ୍ଚ ଏବଂ ପ୍ରସ୍ତୁତ |",
+  "@checkResultOk": {
+    "description": "Resultado positivo de verificación general"
+  },
+  "checkResultFail": "[ଫଳାଫଳ ଯାଞ୍ଚ କରନ୍ତୁ] ଏହି ପ୍ରକଳ୍ପରେ ସମସ୍ୟାଗୁଡିକ ଅଛି ଯାହାକି ସମାଧାନ ହେବା ଆବଶ୍ୟକ |",
+  "@checkResultFail": {
+    "description": "Resultado con errores en verificación"
+  },
+  "formatAllOk": "[FORMAT ଠିକ ଅଛି] ସମସ୍ତ .joss ଫାଇଲଗୁଡିକ କାନୋନିକାଲ୍ ଫର୍ମାଟ୍ ସହିତ ପାଳନ କରେ |",
+  "@formatAllOk": {
+    "description": "Éxito cuando todos los archivos están formateados"
+  },
+  "formatFileOk": "[FORMAT ଠିକ ଅଛି] {file} ସଠିକ୍ ଭାବରେ ଫର୍ମାଟ୍ ହୋଇଛି |",
+  "@formatFileOk": {
+    "description": "Éxito de formateo para un archivo individual",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileFormatted": "[FORMAT] {file} ସଠିକ୍ ଭାବରେ ଫର୍ମାଟ୍ ହୋଇଛି |",
+  "@formatFileFormatted": {
+    "description": "Mensaje cuando un archivo fue modificado con formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixNoChanges": "[FIX ଠିକ ଅଛି] {file} ପରିବର୍ତ୍ତନ ଆବଶ୍ୟକ କରେ ନାହିଁ |",
+  "@fixNoChanges": {
+    "description": "Resultado para un archivo sin modificaciones en fix",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileAlready": "[FORMAT] {file} ବର୍ତ୍ତମାନ କାନୋନିକାଲ୍ ଫର୍ମାଟରେ ଅଛି |",
+  "@formatFileAlready": {
+    "description": "Mensaje cuando el archivo no requería cambios de formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixAllClean": "[FIX ଠିକ ଅଛି] ସମସ୍ତ .joss ଫାଇଲଗୁଡିକ ସଫା ଏବଂ କାନୋନିକାଲ୍ ଫର୍ମାଟରେ |",
+  "@fixAllClean": {
+    "description": "Resultado cuando fix no detectó problemas"
+  },
+  "testNoFilesFound": "କ test ଣସି ପରୀକ୍ଷା ଫାଇଲ (* _test.joss) ମିଳିଲା ନାହିଁ |",
+  "@testNoFilesFound": {
+    "description": "Aviso cuando no hay archivos de prueba"
+  },
+  "migrateStarting": "ସ୍ଥାନାନ୍ତରଣ ଚାଲୁଅଛି ...",
+  "@migrateStarting": {
+    "description": "Inicio del proceso de migraciones"
+  },
+  "migrateDbSuccess": "DB ସହିତ ସଂଯୋଗ ସଫଳ ହୋଇଛି |",
+  "@migrateDbSuccess": {
+    "description": "Mensaje de conexión establecida con la base de datos"
+  },
+  "testRunning": "{path}.. ଉପରେ ୟୁନିଟ୍ ପରୀକ୍ଷା ଚାଲୁଅଛି |",
+  "@testRunning": {
+    "description": "Inicio de ejecución de pruebas unitarias",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "migrateNoPending": "କ pending ଣସି ବିଚାରାଧୀନ ସ୍ଥାନାନ୍ତରଣ ନାହିଁ |",
+  "@migrateNoPending": {
+    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
+  },
+  "migrateNoneFound": "ଆପ୍ / ଡାଟାବେସ୍ / ସ୍ଥାନାନ୍ତରଣରେ କ No ଣସି ସ୍ଥାନାନ୍ତରଣ ମିଳିଲା ନାହିଁ |",
+  "@migrateNoneFound": {
+    "description": "Aviso cuando la carpeta de migraciones está vacía"
+  },
+  "migrateCompleted": "ସ୍ଥାନାନ୍ତରଣ ସଫଳତାର ସହିତ ସମାପ୍ତ ହେଲା |",
+  "@migrateCompleted": {
+    "description": "Mensaje final de éxito en migraciones"
   }
 }

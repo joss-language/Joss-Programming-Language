@@ -12,6 +12,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
 	_ "github.com/jossecurity/joss/pkg/server"
 	"github.com/jossecurity/joss/pkg/template"
@@ -87,21 +88,21 @@ func main() {
 		if len(os.Args) >= 3 && os.Args[2] == "start" {
 			// Always require main.joss
 			if _, err := os.Stat("main.joss"); err == nil {
-				fmt.Println("[CLI] Ejecutando script de inicio (main.joss)...")
+				fmt.Println(i18n.Tr("cliExecMain"))
 				executeScript("main.joss")
 			} else {
-				fmt.Println("Error: No se encontró 'main.joss'.")
-				fmt.Println("Todos los proyectos deben tener un punto de entrada 'main.joss' que inicie el servidor.")
+				fmt.Println(i18n.Tr("cliErrNoMain"))
+				fmt.Println(i18n.Tr("cliErrRequireMain"))
 				os.Exit(1)
 			}
 		} else {
-			fmt.Println("Uso: joss server start")
+			fmt.Println(i18n.Tr("cliUsageServer"))
 		}
 	case "program":
 		if len(os.Args) >= 3 && os.Args[2] == "start" {
 			startProgram()
 		} else {
-			fmt.Println("Uso: joss program start")
+			fmt.Println(i18n.Tr("cliUsageProgram"))
 		}
 	case "format":
 		handleFormatCommand(os.Args[2:])
@@ -121,7 +122,7 @@ func main() {
 		analyzeScript(filename)
 	case "run":
 		if len(os.Args) < 3 {
-			fmt.Println("Uso: joss run [archivo.joss]")
+			fmt.Println(i18n.Tr("cliUsageRun"))
 			return
 		}
 		filename := os.Args[2]
@@ -167,7 +168,7 @@ func main() {
 			}
 		case "package":
 			if len(os.Args) < 4 {
-				fmt.Println("Uso: joss build package [ruta_del_paquete]")
+				fmt.Println(i18n.Tr("cliUsageBuildPkg"))
 				return
 			}
 			buildPackage(os.Args[3])
@@ -176,37 +177,37 @@ func main() {
 		}
 	case "make:controller":
 		if len(os.Args) < 3 {
-			fmt.Println("Uso: joss make:controller [Nombre]")
+			fmt.Println(i18n.Tr("cliUsageMakeController"))
 			return
 		}
 		createController(os.Args[2])
 	case "make:middleware":
 		if len(os.Args) < 3 {
-			fmt.Println("Uso: joss make:middleware [Nombre]")
+			fmt.Println(i18n.Tr("cliUsageMakeMiddleware"))
 			return
 		}
 		createMiddleware(os.Args[2])
 	case "make:model":
 		if len(os.Args) < 3 {
-			fmt.Println("Uso: joss make:model [Nombre]")
+			fmt.Println(i18n.Tr("cliUsageMakeModel"))
 			return
 		}
 		createModel(os.Args[2])
 	case "make:view":
 		if len(os.Args) < 3 {
-			fmt.Println("Uso: joss make:view [Nombre]")
+			fmt.Println(i18n.Tr("cliUsageMakeView"))
 			return
 		}
 		createView(os.Args[2])
 	case "make:mvc":
 		if len(os.Args) < 3 {
-			fmt.Println("Uso: joss make:mvc [Nombre]")
+			fmt.Println(i18n.Tr("cliUsageMakeMvc"))
 			return
 		}
 		createMVC(os.Args[2])
 	case "make:crud":
 		if len(os.Args) < 3 {
-			fmt.Println("Uso: joss make:crud [Tabla]")
+			fmt.Println(i18n.Tr("cliUsageMakeCrud"))
 			return
 		}
 		if err := createCRUD(os.Args[2]); err != nil {
@@ -215,13 +216,13 @@ func main() {
 		}
 	case "remove:crud":
 		if len(os.Args) < 3 {
-			fmt.Println("Uso: joss remove:crud [Tabla]")
+			fmt.Println(i18n.Tr("cliUsageRemoveCrud"))
 			return
 		}
 		removeCRUD(os.Args[2])
 	case "make:migration":
 		if len(os.Args) < 3 {
-			fmt.Println("Uso: joss make:migration [Nombre]")
+			fmt.Println(i18n.Tr("cliUsageMakeMigration"))
 			return
 		}
 		if err := createMigration(os.Args[2]); err != nil {

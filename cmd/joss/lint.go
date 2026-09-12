@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/linter"
 )
 
@@ -45,7 +46,7 @@ func handleLintCommand(args []string) {
 	}
 
 	if len(issues) == 0 {
-		fmt.Println("[LINT OK] No se encontraron problemas en el código fuente.")
+		fmt.Printf("[LINT OK] %s\n", i18n.Tr("lintSuccess"))
 		return
 	}
 

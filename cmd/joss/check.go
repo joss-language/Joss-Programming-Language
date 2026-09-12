@@ -6,6 +6,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/formatter"
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/linter"
 )
 
@@ -17,7 +18,8 @@ func handleCheckCommand(args []string) {
 		targetPath = "."
 	}
 
-	fmt.Printf("[CHECK] Verificando proyecto en '%s' (parse, semantic analysis, types, lint, format)...\n\n", targetPath)
+	fmt.Println(i18n.Tr("checkVerifying", map[string]interface{}{"path": targetPath}))
+	fmt.Println()
 
 	hasErrors := false
 
@@ -33,7 +35,7 @@ func handleCheckCommand(args []string) {
 		}
 		fmt.Println()
 	} else {
-		fmt.Println("  ✓ Formato: OK")
+		fmt.Printf("  %s\n", i18n.Tr("checkFormatOk"))
 	}
 
 	// 2. Lint & Semantic Analysis check
@@ -63,16 +65,16 @@ func handleCheckCommand(args []string) {
 				}
 			}
 		} else {
-			fmt.Println("  ✓ Análisis semántico y tipos: OK")
-			fmt.Println("  ✓ Reglas de linter y seguridad: OK")
+			fmt.Printf("  %s\n", i18n.Tr("checkSemanticOk"))
+			fmt.Printf("  %s\n", i18n.Tr("checkLintOk"))
 		}
 	}
 
 	fmt.Println()
 	if hasErrors {
-		fmt.Println("[CHECK RESULT] ❌ El proyecto contiene problemas que deben resolverse.")
+		fmt.Println(i18n.Tr("checkResultFail"))
 		os.Exit(1)
 	}
 
-	fmt.Println("[CHECK RESULT]  El proyecto está completamente verificado y listo.")
+	fmt.Println(i18n.Tr("checkResultOk"))
 }

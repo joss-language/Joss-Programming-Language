@@ -231,5 +231,223 @@
   "version": "ਮੌਜੂਦਾ ਸੰਸਕਰਣ ਦਿਖਾਉਂਦਾ ਹੈ",
   "@version": {
     "description": ""
+  },
+  "cliCmdRun": "ਸਿੱਧਾ ਇੱਕ Joss ਸਕ੍ਰਿਪਟ ਜਾਂ ਫਾਈਲ ਚਲਾਓ",
+  "@cliCmdRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "cliAppTitle": "Joss — ਆਧੁਨਿਕ ਭਾਸ਼ਾ ਅਤੇ ਵਿਕਾਸ ਪਲੇਟਫਾਰਮ",
+  "@cliAppTitle": {
+    "description": "Título principal mostrado en la ayuda de la CLI"
+  },
+  "cliUsage": "ਵਰਤੋਂ: joss <comando> [argumentos] [opciones]",
+  "@cliUsage": {
+    "description": "Línea de uso general de la CLI"
+  },
+  "cliCmdRepl": "ਇੰਟਰੈਕਟਿਵ ਕੰਸੋਲ (REPL) ਸ਼ੁਰੂ ਕਰੋ",
+  "@cliCmdRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "cliCmdAnalyze": "ਸਥਿਰ ਅਰਥਗਤ ਵਿਸ਼ਲੇਸ਼ਣ ਅਤੇ ਵਿਸਤ੍ਰਿਤ ਕਿਸਮ ਦੀ ਜਾਂਚ",
+  "@cliCmdAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "cliCmdServer": "ਉੱਚ-ਪ੍ਰਦਰਸ਼ਨ ਵਾਲਾ HTTP ਵੈੱਬ ਸਰਵਰ ਸ਼ੁਰੂ ਕਰੋ",
+  "@cliCmdServer": {
+    "description": "Descripción del comando joss server start / joss serve"
+  },
+  "cliCmdLint": "ਚੇਤਾਵਨੀਆਂ, ਬਰਤਰਫ਼ੀਆਂ, ਅਤੇ ਵਧੀਆ ਅਭਿਆਸਾਂ ਲਈ ਕੋਡ ਦੀ ਜਾਂਚ ਕਰੋ",
+  "@cliCmdLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "cliCmdFormat": "ਕੈਨੋਨੀਕਲ ਭਾਸ਼ਾ ਦੇ ਮਿਆਰ ਅਨੁਸਾਰ .joss ਫਾਈਲਾਂ ਨੂੰ ਫਾਰਮੈਟ ਕਰੋ",
+  "@cliCmdFormat": {
+    "description": "Descripción del comando joss format / joss fmt"
+  },
+  "cliCmdTest": "ਯੂਨਿਟ ਅਤੇ ਏਕੀਕਰਣ ਟੈਸਟ ਸੂਟ ਚਲਾਓ (*_test.joss)",
+  "@cliCmdTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "cliCmdBuild": "ਵੰਡ ਲਈ ਪ੍ਰੋਜੈਕਟ ਨੂੰ ਕੰਪਾਇਲ ਕਰੋ (ਵੈੱਬ ਜਾਂ ਸਟੈਂਡਅਲੋਨ ਬਾਈਨਰੀ)",
+  "@cliCmdBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "cliCmdPub": "ਜੌਸ ਈਕੋਸਿਸਟਮ ਦਾ ਅਧਿਕਾਰਤ ਪੈਕੇਜ ਅਤੇ ਪਲੱਗਇਨ ਮੈਨੇਜਰ",
+  "@cliCmdPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "serverStopped": "ਵੈੱਬ ਸਰਵਰ ਬੰਦ ਹੋ ਗਿਆ।",
+  "@serverStopped": {
+    "description": "Mensaje de parada del servidor"
+  },
+  "serverStarting": "http://{host}:{port} 'ਤੇ HTTP ਵੈੱਬ ਸਰਵਰ ਸ਼ੁਰੂ ਹੋ ਰਿਹਾ ਹੈ",
+  "@serverStarting": {
+    "description": "Mensaje de inicio del servidor",
+    "placeholders": {
+      "host": {},
+      "port": {}
+    }
+  },
+  "lintSuccess": "ਸਰੋਤ ਕੋਡ ਵਿੱਚ ਕੋਈ ਸਮੱਸਿਆ ਨਹੀਂ ਮਿਲੀ।",
+  "@lintSuccess": {
+    "description": "Mensaje de éxito del linter"
+  },
+  "analyzeSuccess": "ਸਿਮੈਂਟਿਕ ਵਿਸ਼ਲੇਸ਼ਣ ਪੂਰਾ ਹੋਇਆ: ਕੋਈ ਸਮੱਸਿਆ ਨਹੀਂ ਮਿਲੀ।",
+  "@analyzeSuccess": {
+    "description": "Mensaje de éxito del analizador estático"
+  },
+  "cliUsageRun": "ਵਰਤੋਂ: joss run [archivo.joss]",
+  "@cliUsageRun": {
+    "description": "Mensaje de uso del comando run"
+  },
+  "cliErrRequireMain": "ਸਾਰੇ ਪ੍ਰੋਜੈਕਟਾਂ ਨੂੰ 'main.joss' ਨਾਮਕ ਐਂਟਰੀ ਪੌਇੰਟ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ ਜੋ ਸਰਵਰ ਨੂੰ ਸ਼ੁਰੂ ਕਰਦਾ ਹੈ।",
+  "@cliErrRequireMain": {
+    "description": "Explicación de la necesidad del archivo main.joss"
+  },
+  "cliExecMain": "[CLI] ਸਟਾਰਟਅੱਪ ਸਕ੍ਰਿਪਟ ਚੱਲ ਰਹੀ ਹੈ (main.joss)...",
+  "@cliExecMain": {
+    "description": "Mensaje informativo al arrancar el script main.joss"
+  },
+  "cliErrNoMain": "ਗਲਤੀ: 'main.joss' ਨਹੀਂ ਮਿਲੀ।",
+  "@cliErrNoMain": {
+    "description": "Error cuando falta el archivo de entrada principal"
+  },
+  "cliUsageServer": "ਵਰਤੋਂ: ਜੌਸ ਸਰਵਰ ਸ਼ੁਰੂ",
+  "@cliUsageServer": {
+    "description": "Mensaje de uso del comando server"
+  },
+  "cliUsageMakeController": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਕੰਟਰੋਲਰ [ਨਾਮ]",
+  "@cliUsageMakeController": {
+    "description": "Mensaje de uso del generador de controladores"
+  },
+  "cliUsageBuildPkg": "ਵਰਤੋਂ: joss ਬਿਲਡ ਪੈਕੇਜ [package_path]",
+  "@cliUsageBuildPkg": {
+    "description": "Mensaje de uso del comando build package"
+  },
+  "cliUsageProgram": "ਵਰਤੋਂ: ਜੌਸ ਪ੍ਰੋਗਰਾਮ ਸ਼ੁਰੂ",
+  "@cliUsageProgram": {
+    "description": "Mensaje de uso del comando program"
+  },
+  "cliUsageMakeModel": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਮਾਡਲ [ਨਾਮ]",
+  "@cliUsageMakeModel": {
+    "description": "Mensaje de uso del generador de modelos"
+  },
+  "cliUsageMakeMvc": "ਉਪਯੋਗਤਾ: joss make:mvc [ਨਾਮ]",
+  "@cliUsageMakeMvc": {
+    "description": "Mensaje de uso del generador de MVC"
+  },
+  "cliUsageMakeView": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਵੇਖੋ [ਨਾਮ]",
+  "@cliUsageMakeView": {
+    "description": "Mensaje de uso del generador de vistas"
+  },
+  "cliUsageMakeMiddleware": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਮਿਡਲਵੇਅਰ [ਨਾਮ]",
+  "@cliUsageMakeMiddleware": {
+    "description": "Mensaje de uso del generador de middleware"
+  },
+  "cliUsageMakeCrud": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਕਰੂਡ [ਟੇਬਲ]",
+  "@cliUsageMakeCrud": {
+    "description": "Mensaje de uso del generador de CRUD"
+  },
+  "cliUsageRemoveCrud": "ਉਪਯੋਗਤਾ: joss ਹਟਾਓ: crud [ਸਾਰਣੀ]",
+  "@cliUsageRemoveCrud": {
+    "description": "Mensaje de uso para eliminar CRUD"
+  },
+  "cliUsageMakeMigration": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਮਾਈਗ੍ਰੇਸ਼ਨ [ਨਾਮ]",
+  "@cliUsageMakeMigration": {
+    "description": "Mensaje de uso del generador de migraciones"
+  },
+  "checkVerifying": "[ਚੈੱਕ] '{path}' (ਪਾਰਸ, ਅਰਥ ਵਿਸ਼ਲੇਸ਼ਣ, ਕਿਸਮਾਂ, ਲਿੰਟ, ਫਾਰਮੈਟ) ਵਿੱਚ ਪ੍ਰੋਜੈਕਟ ਦੀ ਪੁਸ਼ਟੀ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ...",
+  "@checkVerifying": {
+    "description": "Mensaje inicial del comando joss check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "checkFormatOk": "✓ ਫਾਰਮੈਟ: ਠੀਕ ਹੈ",
+  "@checkFormatOk": {
+    "description": "Confirmación de formato canónico válido"
+  },
+  "checkSemanticOk": "✓ ਅਰਥ ਵਿਸ਼ਲੇਸ਼ਣ ਅਤੇ ਕਿਸਮਾਂ: ਠੀਕ ਹੈ",
+  "@checkSemanticOk": {
+    "description": "Confirmación de análisis semántico correcto"
+  },
+  "checkLintOk": "✓ ਲਿੰਟਰ ਅਤੇ ਸੁਰੱਖਿਆ ਨਿਯਮ: ਠੀਕ ਹੈ",
+  "@checkLintOk": {
+    "description": "Confirmación de reglas de linter superadas"
+  },
+  "checkResultOk": "[ਨਤੀਜੇ ਦੀ ਜਾਂਚ ਕਰੋ] ਪ੍ਰੋਜੈਕਟ ਪੂਰੀ ਤਰ੍ਹਾਂ ਪ੍ਰਮਾਣਿਤ ਅਤੇ ਤਿਆਰ ਹੈ।",
+  "@checkResultOk": {
+    "description": "Resultado positivo de verificación general"
+  },
+  "checkResultFail": "[ਨਤੀਜੇ ਦੀ ਜਾਂਚ ਕਰੋ] ਪ੍ਰੋਜੈਕਟ ਵਿੱਚ ਅਜਿਹੀਆਂ ਸਮੱਸਿਆਵਾਂ ਹਨ ਜਿਨ੍ਹਾਂ ਨੂੰ ਹੱਲ ਕਰਨ ਦੀ ਲੋੜ ਹੈ।",
+  "@checkResultFail": {
+    "description": "Resultado con errores en verificación"
+  },
+  "formatAllOk": "[ਫਾਰਮੈਟ ਠੀਕ ਹੈ] ਸਾਰੀਆਂ .joss ਫਾਈਲਾਂ ਕੈਨੋਨੀਕਲ ਫਾਰਮੈਟ ਦੀ ਪਾਲਣਾ ਕਰਦੀਆਂ ਹਨ।",
+  "@formatAllOk": {
+    "description": "Éxito cuando todos los archivos están formateados"
+  },
+  "formatFileOk": "[ਫਾਰਮੈਟ ਠੀਕ ਹੈ] {file} ਸਹੀ ਢੰਗ ਨਾਲ ਫਾਰਮੈਟ ਕੀਤਾ ਗਿਆ ਹੈ।",
+  "@formatFileOk": {
+    "description": "Éxito de formateo para un archivo individual",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileFormatted": "[FORMAT] {file} ਸਹੀ ਢੰਗ ਨਾਲ ਫਾਰਮੈਟ ਕੀਤਾ ਗਿਆ।",
+  "@formatFileFormatted": {
+    "description": "Mensaje cuando un archivo fue modificado con formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixNoChanges": "[ਠੀਕ ਹੈ] {file} ਨੂੰ ਤਬਦੀਲੀਆਂ ਦੀ ਲੋੜ ਨਹੀਂ ਹੈ।",
+  "@fixNoChanges": {
+    "description": "Resultado para un archivo sin modificaciones en fix",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileAlready": "[FORMAT] {file} ਹੁਣ ਕੈਨੋਨੀਕਲ ਫਾਰਮੈਟ ਵਿੱਚ ਹੈ।",
+  "@formatFileAlready": {
+    "description": "Mensaje cuando el archivo no requería cambios de formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixAllClean": "[ਠੀਕ ਹੈ] ਸਾਰੀਆਂ .joss ਫਾਈਲਾਂ ਸਾਫ਼ ਅਤੇ ਕੈਨੋਨੀਕਲ ਫਾਰਮੈਟ ਵਿੱਚ ਹਨ।",
+  "@fixAllClean": {
+    "description": "Resultado cuando fix no detectó problemas"
+  },
+  "testNoFilesFound": "ਕੋਈ ਟੈਸਟ ਫਾਈਲਾਂ (*_test.joss) ਨਹੀਂ ਮਿਲੀਆਂ।",
+  "@testNoFilesFound": {
+    "description": "Aviso cuando no hay archivos de prueba"
+  },
+  "migrateStarting": "ਚੱਲ ਰਹੇ ਮਾਈਗ੍ਰੇਸ਼ਨ...",
+  "@migrateStarting": {
+    "description": "Inicio del proceso de migraciones"
+  },
+  "migrateDbSuccess": "DB ਨਾਲ ਕਨੈਕਸ਼ਨ ਸਫਲ ਰਿਹਾ।",
+  "@migrateDbSuccess": {
+    "description": "Mensaje de conexión establecida con la base de datos"
+  },
+  "testRunning": "{path} 'ਤੇ ਯੂਨਿਟ ਟੈਸਟ ਚੱਲ ਰਿਹਾ ਹੈ...",
+  "@testRunning": {
+    "description": "Inicio de ejecución de pruebas unitarias",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "migrateNoPending": "ਕੋਈ ਬਕਾਇਆ ਮਾਈਗ੍ਰੇਸ਼ਨ ਨਹੀਂ ਹਨ।",
+  "@migrateNoPending": {
+    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
+  },
+  "migrateNoneFound": "ਐਪ/ਡਾਟਾਬੇਸ/ਮਾਈਗ੍ਰੇਸ਼ਨ/ ਵਿੱਚ ਕੋਈ ਮਾਈਗ੍ਰੇਸ਼ਨ ਨਹੀਂ ਮਿਲੀ",
+  "@migrateNoneFound": {
+    "description": "Aviso cuando la carpeta de migraciones está vacía"
+  },
+  "migrateCompleted": "ਮਾਈਗ੍ਰੇਸ਼ਨ ਸਫਲਤਾਪੂਰਵਕ ਪੂਰਾ ਹੋਇਆ।",
+  "@migrateCompleted": {
+    "description": "Mensaje final de éxito en migraciones"
   }
 }

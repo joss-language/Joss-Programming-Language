@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/i18n"
 )
 
 var (
@@ -138,11 +139,10 @@ func Start(fileSystem http.FileSystem) {
 		return
 	}
 
-	scheme := "http"
-	if certFile != "" {
-		scheme = "https"
-	}
-	fmt.Printf("Iniciando servidor Joss en %s://localhost:%s\n", scheme, port)
+	fmt.Println(i18n.Tr("serverStarting", map[string]interface{}{
+		"host": "localhost",
+		"port": port,
+	}))
 	var err error
 	if certFile != "" {
 		err = srv.ListenAndServeTLS(certFile, keyFile)
@@ -152,5 +152,8 @@ func Start(fileSystem http.FileSystem) {
 	if err != nil && err != http.ErrServerClosed {
 		fmt.Printf("FATAL: Error iniciando servidor: %v\n", err)
 		os.Exit(1)
+	}
+	if err == http.ErrServerClosed {
+		fmt.Println(i18n.Tr("serverStopped"))
 	}
 }

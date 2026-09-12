@@ -231,5 +231,223 @@
   "version": "Εμφανίζει την τρέχουσα έκδοση",
   "@version": {
     "description": ""
+  },
+  "cliCmdRun": "Εκτελέστε ένα script ή αρχείο Joss απευθείας",
+  "@cliCmdRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "cliAppTitle": "Joss — Σύγχρονη γλώσσα και πλατφόρμα ανάπτυξης",
+  "@cliAppTitle": {
+    "description": "Título principal mostrado en la ayuda de la CLI"
+  },
+  "cliUsage": "Χρήση: joss <comando> [argumentos] [opciones]",
+  "@cliUsage": {
+    "description": "Línea de uso general de la CLI"
+  },
+  "cliCmdRepl": "Ξεκινήστε την διαδραστική κονσόλα (REPL)",
+  "@cliCmdRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "cliCmdAnalyze": "Στατική σημασιολογική ανάλυση και εξαντλητικός έλεγχος τύπων",
+  "@cliCmdAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "cliCmdServer": "Εκκινήστε τον διακομιστή web HTTP υψηλής απόδοσης",
+  "@cliCmdServer": {
+    "description": "Descripción del comando joss server start / joss serve"
+  },
+  "cliCmdLint": "Επιθεωρήστε τον κώδικα για προειδοποιήσεις, καταργήσεις και βέλτιστες πρακτικές",
+  "@cliCmdLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "cliCmdFormat": "Μορφοποιήστε τα αρχεία .joss σύμφωνα με το πρότυπο κανονικής γλώσσας",
+  "@cliCmdFormat": {
+    "description": "Descripción del comando joss format / joss fmt"
+  },
+  "cliCmdTest": "Εκτελέστε τη σουίτα δοκιμών μονάδας και ενοποίησης (*_test.joss)",
+  "@cliCmdTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "cliCmdBuild": "Μεταγλώττιση του έργου για διανομή (web ή αυτόνομο δυαδικό)",
+  "@cliCmdBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "cliCmdPub": "Επίσημος διαχειριστής πακέτων και plugin του οικοσυστήματος Joss",
+  "@cliCmdPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "serverStopped": "Ο διακομιστής Ιστού σταμάτησε.",
+  "@serverStopped": {
+    "description": "Mensaje de parada del servidor"
+  },
+  "serverStarting": "Εκκίνηση διακομιστή ιστού HTTP στη διεύθυνση http://{host}:{port}",
+  "@serverStarting": {
+    "description": "Mensaje de inicio del servidor",
+    "placeholders": {
+      "host": {},
+      "port": {}
+    }
+  },
+  "lintSuccess": "Δεν βρέθηκαν προβλήματα στον πηγαίο κώδικα.",
+  "@lintSuccess": {
+    "description": "Mensaje de éxito del linter"
+  },
+  "analyzeSuccess": "Η σημασιολογική ανάλυση ολοκληρώθηκε: δεν βρέθηκαν προβλήματα.",
+  "@analyzeSuccess": {
+    "description": "Mensaje de éxito del analizador estático"
+  },
+  "cliUsageRun": "Χρήση: joss run [archivo.joss]",
+  "@cliUsageRun": {
+    "description": "Mensaje de uso del comando run"
+  },
+  "cliErrRequireMain": "Όλα τα έργα πρέπει να έχουν ένα σημείο εισόδου 'main.joss' που ξεκινά τον διακομιστή.",
+  "@cliErrRequireMain": {
+    "description": "Explicación de la necesidad del archivo main.joss"
+  },
+  "cliExecMain": "[CLI] Εκτέλεση σεναρίου εκκίνησης (main.joss)...",
+  "@cliExecMain": {
+    "description": "Mensaje informativo al arrancar el script main.joss"
+  },
+  "cliErrNoMain": "Σφάλμα: το 'main.joss' δεν βρέθηκε.",
+  "@cliErrNoMain": {
+    "description": "Error cuando falta el archivo de entrada principal"
+  },
+  "cliUsageServer": "Χρήση: έναρξη διακομιστή joss",
+  "@cliUsageServer": {
+    "description": "Mensaje de uso del comando server"
+  },
+  "cliUsageMakeController": "Χρήση: joss make:controller [Όνομα]",
+  "@cliUsageMakeController": {
+    "description": "Mensaje de uso del generador de controladores"
+  },
+  "cliUsageBuildPkg": "Χρήση: Joss build πακέτο [package_path]",
+  "@cliUsageBuildPkg": {
+    "description": "Mensaje de uso del comando build package"
+  },
+  "cliUsageProgram": "Χρήση: Έναρξη προγράμματος joss",
+  "@cliUsageProgram": {
+    "description": "Mensaje de uso del comando program"
+  },
+  "cliUsageMakeModel": "Χρήση: joss make:model [Όνομα]",
+  "@cliUsageMakeModel": {
+    "description": "Mensaje de uso del generador de modelos"
+  },
+  "cliUsageMakeMvc": "Χρήση: joss make:mvc [Όνομα]",
+  "@cliUsageMakeMvc": {
+    "description": "Mensaje de uso del generador de MVC"
+  },
+  "cliUsageMakeView": "Χρήση: joss make:view [Όνομα]",
+  "@cliUsageMakeView": {
+    "description": "Mensaje de uso del generador de vistas"
+  },
+  "cliUsageMakeMiddleware": "Χρήση: joss make:middleware [Όνομα]",
+  "@cliUsageMakeMiddleware": {
+    "description": "Mensaje de uso del generador de middleware"
+  },
+  "cliUsageMakeCrud": "Χρήση: joss make:crud [Πίνακας]",
+  "@cliUsageMakeCrud": {
+    "description": "Mensaje de uso del generador de CRUD"
+  },
+  "cliUsageRemoveCrud": "Χρήση: joss remove:crud [Πίνακας]",
+  "@cliUsageRemoveCrud": {
+    "description": "Mensaje de uso para eliminar CRUD"
+  },
+  "cliUsageMakeMigration": "Χρήση: joss make:migration [Όνομα]",
+  "@cliUsageMakeMigration": {
+    "description": "Mensaje de uso del generador de migraciones"
+  },
+  "checkVerifying": "[ΕΛΕΓΧΟΣ] Επαλήθευση έργου σε '{path}' (ανάλυση, σημασιολογική ανάλυση, τύποι, χείλος, μορφή)...",
+  "@checkVerifying": {
+    "description": "Mensaje inicial del comando joss check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "checkFormatOk": "✓ Μορφή: ΟΚ",
+  "@checkFormatOk": {
+    "description": "Confirmación de formato canónico válido"
+  },
+  "checkSemanticOk": "✓ Σημασιολογική ανάλυση και τύποι: ΟΚ",
+  "@checkSemanticOk": {
+    "description": "Confirmación de análisis semántico correcto"
+  },
+  "checkLintOk": "✓ Υποστρώματα και κανόνες ασφαλείας: ΟΚ",
+  "@checkLintOk": {
+    "description": "Confirmación de reglas de linter superadas"
+  },
+  "checkResultOk": "[ΕΛΕΓΧΟΣ ΑΠΟΤΕΛΕΣΜΑΤΟΣ] Το έργο είναι πλήρως επαληθευμένο και έτοιμο.",
+  "@checkResultOk": {
+    "description": "Resultado positivo de verificación general"
+  },
+  "checkResultFail": "[ΕΛΕΓΧΟΣ ΑΠΟΤΕΛΕΣΜΑΤΟΣ] Το έργο περιέχει προβλήματα που πρέπει να επιλυθούν.",
+  "@checkResultFail": {
+    "description": "Resultado con errores en verificación"
+  },
+  "formatAllOk": "[FORMAT OK] Όλα τα αρχεία .joss συμμορφώνονται με την κανονική μορφή.",
+  "@formatAllOk": {
+    "description": "Éxito cuando todos los archivos están formateados"
+  },
+  "formatFileOk": "[FORMAT OK] {file} έχει μορφοποιηθεί σωστά.",
+  "@formatFileOk": {
+    "description": "Éxito de formateo para un archivo individual",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileFormatted": "[FORMAT] {file} έχει μορφοποιηθεί σωστά.",
+  "@formatFileFormatted": {
+    "description": "Mensaje cuando un archivo fue modificado con formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixNoChanges": "[ΔΙΟΡΘΩΣΗ ΟΚ] {file} δεν απαιτεί αλλαγές.",
+  "@fixNoChanges": {
+    "description": "Resultado para un archivo sin modificaciones en fix",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileAlready": "[FORMAT] {file} είναι τώρα σε κανονική μορφή.",
+  "@formatFileAlready": {
+    "description": "Mensaje cuando el archivo no requería cambios de formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "fixAllClean": "[ΔΙΟΡΘΩΣΗ OK] Όλα τα αρχεία .joss είναι καθαρά και σε κανονική μορφή.",
+  "@fixAllClean": {
+    "description": "Resultado cuando fix no detectó problemas"
+  },
+  "testNoFilesFound": "Δεν βρέθηκαν αρχεία δοκιμής (*_test.joss).",
+  "@testNoFilesFound": {
+    "description": "Aviso cuando no hay archivos de prueba"
+  },
+  "migrateStarting": "Εκτελούνται μετεγκαταστάσεις...",
+  "@migrateStarting": {
+    "description": "Inicio del proceso de migraciones"
+  },
+  "migrateDbSuccess": "Επιτυχής σύνδεση στο DB.",
+  "@migrateDbSuccess": {
+    "description": "Mensaje de conexión establecida con la base de datos"
+  },
+  "testRunning": "Εκτέλεση δοκιμών μονάδας σε {path}...",
+  "@testRunning": {
+    "description": "Inicio de ejecución de pruebas unitarias",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "migrateNoPending": "Δεν υπάρχουν εκκρεμείς μεταναστεύσεις.",
+  "@migrateNoPending": {
+    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
+  },
+  "migrateNoneFound": "Δεν βρέθηκαν μετεγκαταστάσεις στην εφαρμογή/βάση δεδομένων/μεταναστεύσεις/",
+  "@migrateNoneFound": {
+    "description": "Aviso cuando la carpeta de migraciones está vacía"
+  },
+  "migrateCompleted": "Οι μετεγκαταστάσεις ολοκληρώθηκαν με επιτυχία.",
+  "@migrateCompleted": {
+    "description": "Mensaje final de éxito en migraciones"
   }
 }

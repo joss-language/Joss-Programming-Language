@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/jossecurity/joss/pkg/formatter"
+	"github.com/jossecurity/joss/pkg/i18n"
 )
 
 func handleFormatCommand(args []string) {
@@ -63,13 +64,13 @@ func handleFormatCommand(args []string) {
 				fmt.Printf("[FORMAT ERROR] %s no cumple con el formato canónico de Joss.\n", targetPath)
 				os.Exit(1)
 			}
-			fmt.Printf("[FORMAT OK] %s está correctamente formateado.\n", targetPath)
+			fmt.Println(i18n.Tr("formatFileOk", map[string]interface{}{"file": targetPath}))
 			return
 		}
 		if changed {
-			fmt.Printf("[FORMAT] %s formateado correctamente.\n", targetPath)
+			fmt.Println(i18n.Tr("formatFileFormatted", map[string]interface{}{"file": targetPath}))
 		} else {
-			fmt.Printf("[FORMAT] %s ya está en formato canónico.\n", targetPath)
+			fmt.Println(i18n.Tr("formatFileAlready", map[string]interface{}{"file": targetPath}))
 		}
 		return
 	}
@@ -88,7 +89,7 @@ func handleFormatCommand(args []string) {
 			}
 			os.Exit(1)
 		}
-		fmt.Println("[FORMAT OK] Todos los archivos .joss cumplen con el formato canónico.")
+		fmt.Println(i18n.Tr("formatAllOk"))
 		return
 	}
 

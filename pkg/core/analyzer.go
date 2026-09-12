@@ -6,6 +6,7 @@ import (
 
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/diagnostics"
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/typesystem"
 )
@@ -33,7 +34,7 @@ func (ar *AnalysisReport) Count(severity diagnostics.Severity) int {
 
 func (ar *AnalysisReport) PrintReport() {
 	if !ar.HasIssues() {
-		fmt.Println("Static analysis completed: no problems found.")
+		fmt.Println(i18n.Tr("analyzeSuccess"))
 		return
 	}
 	fmt.Println("\nJoss static analysis")

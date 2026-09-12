@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/jossecurity/joss/pkg/fixer"
+	"github.com/jossecurity/joss/pkg/i18n"
 )
 
 func handleFixCommand(args []string) {
@@ -47,7 +48,7 @@ func handleFixCommand(args []string) {
 				fmt.Printf("[FIX OK] %s: %d corrección(es) aplicadas con éxito.\n", targetPath, res.FixesApplied)
 			}
 		} else {
-			fmt.Printf("[FIX OK] %s no requiere cambios.\n", targetPath)
+			fmt.Println(i18n.Tr("fixNoChanges", map[string]interface{}{"file": targetPath}))
 		}
 		return
 	}
@@ -59,7 +60,7 @@ func handleFixCommand(args []string) {
 	}
 
 	if len(results) == 0 {
-		fmt.Println("[FIX OK] Todos los archivos .joss están limpios y en formato canónico.")
+		fmt.Println(i18n.Tr("fixAllClean"))
 		return
 	}
 
