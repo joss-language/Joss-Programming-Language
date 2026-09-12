@@ -1742,5 +1742,210 @@
       "path": {},
       "error": {}
     }
+  },
+  "seedersExecError": "[JOSS körfel i Seeders] {error}",
+  "@seedersExecError": {
+    "description": "Mensaje de error cuando falla la ejecución de los seeders",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "seederReadError": "Fel vid läsning av {file}: {error}",
+  "@seederReadError": {
+    "description": "Error al leer el archivo de seeder",
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "seedersSearchError": "Fel vid sökning efter seeders: {error}",
+  "@seedersSearchError": {
+    "description": "Error al buscar archivos de seeders en el proyecto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "seederItem": "Såmaskin: {name}...",
+  "@seederItem": {
+    "description": "Aviso de ejecución de un archivo seeder individual",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "seedersCompleted": "Färdiga såmaskiner: {count}",
+  "@seedersCompleted": {
+    "description": "Cantidad de seeders completados exitosamente",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "seederMissingRun": "Varning: Metoden \"kör\" hittades inte på {class}",
+  "@seederMissingRun": {
+    "description": "Aviso cuando la clase seeder no contiene método run",
+    "placeholders": {
+      "class": {}
+    }
+  },
+  "seederParseError": "Parsningsfel i {file}:",
+  "@seederParseError": {
+    "description": "Error sintáctico al parsear el archivo de seeder",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "migrateExecError": "[JOSS Execution Error in Migrations] {error}",
+  "@migrateExecError": {
+    "description": "Mensaje de error al fallar la ejecución de migraciones",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateTableCreateError": "Fel vid skapande av migreringstabell: {error}",
+  "@migrateTableCreateError": {
+    "description": "Error al inicializar la tabla de control de migraciones",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateRunError": "Fel vid körning av migrering: {error}",
+  "@migrateRunError": {
+    "description": "Error al procesar las migraciones pendientes",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateRunningUp": "Kör upp() från {class}...",
+  "@migrateRunningUp": {
+    "description": "Aviso de ejecución del método up de la migración",
+    "placeholders": {
+      "class": {}
+    }
+  },
+  "dbMigrationWarning": "Migrationsvarning: {error}",
+  "@dbMigrationWarning": {
+    "description": "Aviso de advertencia durante la migración de base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateItem": "Migrerar: {name} (batch {batch})...",
+  "@migrateItem": {
+    "description": "Aviso de migración en curso con nombre y lote",
+    "placeholders": {
+      "name": {},
+      "batch": {}
+    }
+  },
+  "dbMigrationError": "Fel under migreringen: {error}",
+  "@dbMigrationError": {
+    "description": "Fallo durante la migración de base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbGetTablesError": "Det gick inte att hämta tabeller: {error}",
+  "@dbGetTablesError": {
+    "description": "Error al consultar la lista de tablas en la base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbMigrateTableError": "Fel vid migrering av tabell {table}: {error}",
+  "@dbMigrateTableError": {
+    "description": "Error al migrar datos de una tabla específica",
+    "placeholders": {
+      "table": {},
+      "error": {}
+    }
+  },
+  "dbConnectError": "Fel vid anslutning till databasen: {error}",
+  "@dbConnectError": {
+    "description": "Error al intentar establecer conexión con la base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbRenamingTable": "Byter namn på {old} till {new}...",
+  "@dbRenamingTable": {
+    "description": "Aviso de renombramiento de tabla individual",
+    "placeholders": {
+      "old": {},
+      "new": {}
+    }
+  },
+  "dbUpdatingSourceCodePrefix": "Uppdaterar källkod (modeller och migrationer)...",
+  "@dbUpdatingSourceCodePrefix": {
+    "description": "Aviso de actualización de prefijo de tablas en código fuente"
+  },
+  "dbPrefixTablesRenamed": "Uppdaterat prefix. {count} har bytt namn på tabeller.",
+  "@dbPrefixTablesRenamed": {
+    "description": "Confirmación tras renombrar tablas con el nuevo prefijo",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dbTableMissingCreating": "Tabell {table} finns inte i destinationen. Skapar det dynamiskt...",
+  "@dbTableMissingCreating": {
+    "description": "Aviso de creación dinámica de tabla ausente en destino",
+    "placeholders": {
+      "table": {}
+    }
+  },
+  "storageOciInitError": "Fel vid initialisering av OCI-klient: {error}",
+  "@storageOciInitError": {
+    "description": "Error al configurar el cliente de Oracle Cloud Storage",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageWalkDirError": "Fel vid genomgång av kataloger: {error}",
+  "@storageWalkDirError": {
+    "description": "Error al inspeccionar directorios locales para sincronizar",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageOpenFileError": "Fel vid öppning av filen {path}: {error}",
+  "@storageOpenFileError": {
+    "description": "Error al abrir un archivo para transferencia en almacenamiento",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "storageUploadError": "Fel vid uppladdning till OCI: {error}",
+  "@storageUploadError": {
+    "description": "Error al subir un objeto a Oracle Cloud Storage",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageDownloadError": "Fel vid nedladdning av objekt: {error}",
+  "@storageDownloadError": {
+    "description": "Error al descargar un archivo desde almacenamiento remoto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageListObjectsError": "Fel vid listning av objekt: {error}",
+  "@storageListObjectsError": {
+    "description": "Error al consultar los objetos disponibles en el bucket",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageCreateFileError": "Fel vid skapande av lokal fil: {error}",
+  "@storageCreateFileError": {
+    "description": "Error al guardar el archivo descargado en el sistema local",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageWriteFileError": "Fel vid skrivning av fil: {error}",
+  "@storageWriteFileError": {
+    "description": "Error al escribir el contenido descargado en el disco",
+    "placeholders": {
+      "error": {}
+    }
   }
 }

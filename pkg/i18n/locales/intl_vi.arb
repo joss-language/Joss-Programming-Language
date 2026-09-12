@@ -1742,5 +1742,210 @@
   "pluginNoDirectCli": "(Không khai báo lệnh CLI trực tiếp)",
   "@pluginNoDirectCli": {
     "description": "Nota cuando un plugin en la lista no añade comandos directos"
+  },
+  "seedersExecError": "[Lỗi thực thi JOSS trong Seeders] {error}",
+  "@seedersExecError": {
+    "description": "Mensaje de error cuando falla la ejecución de los seeders",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "seederReadError": "Lỗi khi đọc {file}: {error}",
+  "@seederReadError": {
+    "description": "Error al leer el archivo de seeder",
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "seedersSearchError": "Lỗi khi tìm seeders: {error}",
+  "@seedersSearchError": {
+    "description": "Error al buscar archivos de seeders en el proyecto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "seederItem": "Người gieo hạt: {name}...",
+  "@seederItem": {
+    "description": "Aviso de ejecución de un archivo seeder individual",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "seedersCompleted": "Máy gieo hạt đã hoàn thành: {count}",
+  "@seedersCompleted": {
+    "description": "Cantidad de seeders completados exitosamente",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "seederMissingRun": "Cảnh báo: Không tìm thấy phương thức 'chạy' trên {class}",
+  "@seederMissingRun": {
+    "description": "Aviso cuando la clase seeder no contiene método run",
+    "placeholders": {
+      "class": {}
+    }
+  },
+  "seederParseError": "Lỗi phân tích cú pháp trong {file}:",
+  "@seederParseError": {
+    "description": "Error sintáctico al parsear el archivo de seeder",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "migrateExecError": "[Lỗi thực thi JOSS trong quá trình di chuyển] {error}",
+  "@migrateExecError": {
+    "description": "Mensaje de error al fallar la ejecución de migraciones",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateTableCreateError": "Lỗi tạo bảng di chuyển: {error}",
+  "@migrateTableCreateError": {
+    "description": "Error al inicializar la tabla de control de migraciones",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateRunError": "Lỗi khi thực hiện di chuyển: {error}",
+  "@migrateRunError": {
+    "description": "Error al procesar las migraciones pendientes",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateRunningUp": "Chạy lên() từ {class}...",
+  "@migrateRunningUp": {
+    "description": "Aviso de ejecución del método up de la migración",
+    "placeholders": {
+      "class": {}
+    }
+  },
+  "dbMigrationWarning": "Cảnh báo di chuyển: {error}",
+  "@dbMigrationWarning": {
+    "description": "Aviso de advertencia durante la migración de base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateItem": "Đang di chuyển: {name} (Đợt {batch})...",
+  "@migrateItem": {
+    "description": "Aviso de migración en curso con nombre y lote",
+    "placeholders": {
+      "name": {},
+      "batch": {}
+    }
+  },
+  "dbMigrationError": "Lỗi trong quá trình di chuyển: {error}",
+  "@dbMigrationError": {
+    "description": "Fallo durante la migración de base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbGetTablesError": "Lỗi lấy bảng: {error}",
+  "@dbGetTablesError": {
+    "description": "Error al consultar la lista de tablas en la base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbMigrateTableError": "Lỗi di chuyển bảng {table}: {error}",
+  "@dbMigrateTableError": {
+    "description": "Error al migrar datos de una tabla específica",
+    "placeholders": {
+      "table": {},
+      "error": {}
+    }
+  },
+  "dbConnectError": "Lỗi kết nối với cơ sở dữ liệu: {error}",
+  "@dbConnectError": {
+    "description": "Error al intentar establecer conexión con la base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbRenamingTable": "Đang đổi tên {old} thành {new}...",
+  "@dbRenamingTable": {
+    "description": "Aviso de renombramiento de tabla individual",
+    "placeholders": {
+      "old": {},
+      "new": {}
+    }
+  },
+  "dbUpdatingSourceCodePrefix": "Đang cập nhật mã nguồn (Mô hình và Di chuyển)...",
+  "@dbUpdatingSourceCodePrefix": {
+    "description": "Aviso de actualización de prefijo de tablas en código fuente"
+  },
+  "dbPrefixTablesRenamed": "Tiền tố được cập nhật. {count} đã đổi tên bảng.",
+  "@dbPrefixTablesRenamed": {
+    "description": "Confirmación tras renombrar tablas con el nuevo prefijo",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dbTableMissingCreating": "Bảng {table} không tồn tại ở đích. Tạo nó một cách linh hoạt...",
+  "@dbTableMissingCreating": {
+    "description": "Aviso de creación dinámica de tabla ausente en destino",
+    "placeholders": {
+      "table": {}
+    }
+  },
+  "storageOciInitError": "Lỗi khởi tạo ứng dụng khách OCI: {error}",
+  "@storageOciInitError": {
+    "description": "Error al configurar el cliente de Oracle Cloud Storage",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageWalkDirError": "Lỗi duyệt qua thư mục: {error}",
+  "@storageWalkDirError": {
+    "description": "Error al inspeccionar directorios locales para sincronizar",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageOpenFileError": "Lỗi mở tệp {path}: {error}",
+  "@storageOpenFileError": {
+    "description": "Error al abrir un archivo para transferencia en almacenamiento",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "storageUploadError": "Lỗi tải lên OCI: {error}",
+  "@storageUploadError": {
+    "description": "Error al subir un objeto a Oracle Cloud Storage",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageDownloadError": "Lỗi tải xuống đối tượng: {error}",
+  "@storageDownloadError": {
+    "description": "Error al descargar un archivo desde almacenamiento remoto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageListObjectsError": "Lỗi liệt kê đối tượng: {error}",
+  "@storageListObjectsError": {
+    "description": "Error al consultar los objetos disponibles en el bucket",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageCreateFileError": "Lỗi tạo tệp cục bộ: {error}",
+  "@storageCreateFileError": {
+    "description": "Error al guardar el archivo descargado en el sistema local",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageWriteFileError": "Lỗi ghi tập tin: {error}",
+  "@storageWriteFileError": {
+    "description": "Error al escribir el contenido descargado en el disco",
+    "placeholders": {
+      "error": {}
+    }
   }
 }

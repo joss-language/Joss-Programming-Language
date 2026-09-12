@@ -135,7 +135,7 @@ func migrateToOCI() {
 
 	client, ctx, err := getOCIClient()
 	if err != nil {
-		fmt.Printf("Error inicializando cliente OCI: %v\n", err)
+		fmt.Println(i18n.Tr("storageOciInitError", i18n.M{"error": err}))
 		return
 	}
 
@@ -161,7 +161,7 @@ func migrateToOCI() {
 
 				file, err := os.Open(path)
 				if err != nil {
-					fmt.Printf("Error abriendo archivo %s: %v\n", path, err)
+					fmt.Println(i18n.Tr("storageOpenFileError", i18n.M{"path": path, "error": err}))
 					return nil
 				}
 				defer file.Close()
@@ -178,7 +178,7 @@ func migrateToOCI() {
 
 				_, err = client.PutObject(ctx, req)
 				if err != nil {
-					fmt.Printf("Error subiendo a OCI: %v\n", err)
+					fmt.Println(i18n.Tr("storageUploadError", i18n.M{"error": err}))
 				}
 			}
 			return nil
@@ -186,7 +186,7 @@ func migrateToOCI() {
 	}
 
 	if err != nil {
-		fmt.Printf("Error recorriendo directorios: %v\n", err)
+		fmt.Println(i18n.Tr("storageWalkDirError", i18n.M{"error": err}))
 	} else {
 		fmt.Println(i18n.Tr("storageMigrationOciCompleted"))
 	}
@@ -197,7 +197,7 @@ func migrateFromOCI() {
 
 	client, ctx, err := getOCIClient()
 	if err != nil {
-		fmt.Printf("Error inicializando cliente OCI: %v\n", err)
+		fmt.Println(i18n.Tr("storageOciInitError", i18n.M{"error": err}))
 		return
 	}
 
@@ -220,7 +220,7 @@ func migrateFromOCI() {
 
 		resp, err := client.ListObjects(ctx, req)
 		if err != nil {
-			fmt.Printf("Error listando objetos: %v\n", err)
+			fmt.Println(i18n.Tr("storageListObjectsError", i18n.M{"error": err}))
 			return
 		}
 
@@ -242,13 +242,13 @@ func migrateFromOCI() {
 
 			getResp, err := client.GetObject(ctx, getReq)
 			if err != nil {
-				fmt.Printf("Error descargando objeto: %v\n", err)
+				fmt.Println(i18n.Tr("storageDownloadError", i18n.M{"error": err}))
 				continue
 			}
 
 			outFile, err := os.Create(targetPath)
 			if err != nil {
-				fmt.Printf("Error creando archivo local: %v\n", err)
+				fmt.Println(i18n.Tr("storageCreateFileError", i18n.M{"error": err}))
 				getResp.Content.Close()
 				continue
 			}
@@ -258,7 +258,7 @@ func migrateFromOCI() {
 			getResp.Content.Close()
 
 			if err != nil {
-				fmt.Printf("Error escribiendo archivo: %v\n", err)
+				fmt.Println(i18n.Tr("storageWriteFileError", i18n.M{"error": err}))
 			}
 		}
 

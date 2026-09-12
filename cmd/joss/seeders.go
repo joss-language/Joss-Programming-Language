@@ -15,7 +15,8 @@ func runSeeders() {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("\n[Error de Ejecucion JOSS en Seeders] %v\n", r)
+			fmt.Println()
+			fmt.Println(i18n.Tr("seedersExecError", i18n.M{"error": r}))
 			os.Exit(1)
 		}
 	}()
@@ -30,7 +31,7 @@ func runSeeders() {
 
 	files, err := filepath.Glob("app/database/seeders/*.joss")
 	if err != nil {
-		fmt.Printf("Error buscando seeders: %v\n", err)
+		fmt.Println(i18n.Tr("seedersSearchError", i18n.M{"error": err}))
 		return
 	}
 	if len(files) == 0 {
@@ -40,10 +41,10 @@ func runSeeders() {
 
 	count := 0
 	for _, file := range files {
-		fmt.Printf("Seeder: %s...\n", filepath.Base(file))
+		fmt.Println(i18n.Tr("seederItem", i18n.M{"name": filepath.Base(file)}))
 		data, err := os.ReadFile(file)
 		if err != nil {
-			fmt.Printf("Error leyendo %s: %v\n", file, err)
+			fmt.Println(i18n.Tr("seederReadError", i18n.M{"file": file, "error": err}))
 			continue
 		}
 
@@ -51,7 +52,7 @@ func runSeeders() {
 		p := parser.NewParser(l)
 		program := p.ParseProgram()
 		if len(p.Errors()) != 0 {
-			fmt.Printf("Error de parseo en %s:\n", file)
+			fmt.Println(i18n.Tr("seederParseError", i18n.M{"file": file}))
 			for _, msg := range p.Errors() {
 				fmt.Printf("\t%s\n", msg)
 			}
@@ -82,7 +83,7 @@ func runSeeders() {
 			}
 		}
 		if runMethod == nil {
-			fmt.Printf("Advertencia: No se encontro el metodo 'run' en %s\n", seederClass.Name.Value)
+			fmt.Println(i18n.Tr("seederMissingRun", i18n.M{"class": seederClass.Name.Value}))
 			continue
 		}
 
@@ -90,5 +91,6 @@ func runSeeders() {
 		count++
 	}
 
-	fmt.Printf("Seeders completados: %d\n", count)
+	fmt.Println(i18n.Tr("seedersCompleted", i18n.M{"count": count}))
+
 }

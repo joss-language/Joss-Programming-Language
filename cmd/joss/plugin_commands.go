@@ -30,7 +30,7 @@ type PluginManifestInfo struct {
 }
 
 // discoverPlugins scans local folders, examples, and joss.yaml to find all available plugins
-func discoverPlugins() map[string]PluginManifestInfo {
+func discoverPlugins(extraDirs ...string) map[string]PluginManifestInfo {
 	plugins := make(map[string]PluginManifestInfo)
 
 	// 1. Search in local plugins/ directory and example plugin directories
@@ -42,7 +42,14 @@ func discoverPlugins() map[string]PluginManifestInfo {
 		filepath.Join("..", "ejemplos", "plugins"),
 		filepath.Join("..", "..", "ejemplos", "plugins"),
 	}
-
+	if envPath := os.Getenv("JOSS_PLUGINS_PATH"); envPath != "" {
+		for _, p := range strings.Split(envPath, string(os.PathListSeparator)) {
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				searchPluginDirs = append(searchPluginDirs, trimmed)
+			}
+		}
+	}
+	searchPluginDirs = append(searchPluginDirs, extraDirs...)
 
 	for _, baseDir := range searchPluginDirs {
 		entries, err := os.ReadDir(baseDir)
@@ -91,8 +98,8 @@ func discoverPlugins() map[string]PluginManifestInfo {
 }
 
 // handlePluginHelp prints command details for all plugins or a specific plugin
-func handlePluginHelp(pluginName string) {
-	allPlugins := discoverPlugins()
+func handlePluginHelp(pluginName string, extraDirs ...string) {
+	allPlugins := discoverPlugins(extraDirs...)
 
 	if pluginName != "" {
 		pName := strings.ToLower(strings.TrimSpace(pluginName))
@@ -193,8 +200,8 @@ func handlePluginHelp(pluginName string) {
 }
 
 // tryDispatchPluginCommand executes recognized plugin commands
-func tryDispatchPluginCommand(command string, args []string) bool {
-	plugins := discoverPlugins()
+func tryDispatchPluginCommand(command string, args []string, extraDirs ...string) bool {
+	plugins := discoverPlugins(extraDirs...)
 	for _, p := range plugins {
 		cmd, ok := p.Commands[command]
 		if !ok {

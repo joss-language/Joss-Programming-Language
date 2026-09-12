@@ -1742,5 +1742,210 @@
   "pluginNoDirectCli": "（不声明直接 CLI 命令）",
   "@pluginNoDirectCli": {
     "description": "Nota cuando un plugin en la lista no añade comandos directos"
+  },
+  "seedersExecError": "[Seeders 中的 JOSS 执行错误] {error}",
+  "@seedersExecError": {
+    "description": "Mensaje de error cuando falla la ejecución de los seeders",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "seederReadError": "读取 {file} 时出错：{error}",
+  "@seederReadError": {
+    "description": "Error al leer el archivo de seeder",
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "seedersSearchError": "搜索种子时出错: {error}",
+  "@seedersSearchError": {
+    "description": "Error al buscar archivos de seeders en el proyecto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "seederItem": "播种者：{name}...",
+  "@seederItem": {
+    "description": "Aviso de ejecución de un archivo seeder individual",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "seedersCompleted": "已完成的播种机：{count}",
+  "@seedersCompleted": {
+    "description": "Cantidad de seeders completados exitosamente",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "seederMissingRun": "警告：在 {class} 上找不到方法“运行”",
+  "@seederMissingRun": {
+    "description": "Aviso cuando la clase seeder no contiene método run",
+    "placeholders": {
+      "class": {}
+    }
+  },
+  "seederParseError": "{file} 中的解析错误：",
+  "@seederParseError": {
+    "description": "Error sintáctico al parsear el archivo de seeder",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "migrateExecError": "[迁移中的 JOSS 执行错误] {error}",
+  "@migrateExecError": {
+    "description": "Mensaje de error al fallar la ejecución de migraciones",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateTableCreateError": "创建迁移表时出错：{error}",
+  "@migrateTableCreateError": {
+    "description": "Error al inicializar la tabla de control de migraciones",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateRunError": "执行迁移时出错：{error}",
+  "@migrateRunError": {
+    "description": "Error al procesar las migraciones pendientes",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateRunningUp": "从 {class} 开始运行（）...",
+  "@migrateRunningUp": {
+    "description": "Aviso de ejecución del método up de la migración",
+    "placeholders": {
+      "class": {}
+    }
+  },
+  "dbMigrationWarning": "迁移警告：{error}",
+  "@dbMigrationWarning": {
+    "description": "Aviso de advertencia durante la migración de base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateItem": "正在迁移：{name}（批次 {batch}）...",
+  "@migrateItem": {
+    "description": "Aviso de migración en curso con nombre y lote",
+    "placeholders": {
+      "name": {},
+      "batch": {}
+    }
+  },
+  "dbMigrationError": "迁移期间出错：{error}",
+  "@dbMigrationError": {
+    "description": "Fallo durante la migración de base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbGetTablesError": "获取表时出错：{error}",
+  "@dbGetTablesError": {
+    "description": "Error al consultar la lista de tablas en la base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbMigrateTableError": "迁移表 {table} 时出错：{error}",
+  "@dbMigrateTableError": {
+    "description": "Error al migrar datos de una tabla específica",
+    "placeholders": {
+      "table": {},
+      "error": {}
+    }
+  },
+  "dbConnectError": "连接到数据库时出错：{error}",
+  "@dbConnectError": {
+    "description": "Error al intentar establecer conexión con la base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbRenamingTable": "正在将 {old} 重命名为 {new}...",
+  "@dbRenamingTable": {
+    "description": "Aviso de renombramiento de tabla individual",
+    "placeholders": {
+      "old": {},
+      "new": {}
+    }
+  },
+  "dbUpdatingSourceCodePrefix": "更新源代码（模型和迁移）...",
+  "@dbUpdatingSourceCodePrefix": {
+    "description": "Aviso de actualización de prefijo de tablas en código fuente"
+  },
+  "dbPrefixTablesRenamed": "更新了前缀。 {count} 已重命名表。",
+  "@dbPrefixTablesRenamed": {
+    "description": "Confirmación tras renombrar tablas con el nuevo prefijo",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dbTableMissingCreating": "目标中不存在表 {table}。动态创建它...",
+  "@dbTableMissingCreating": {
+    "description": "Aviso de creación dinámica de tabla ausente en destino",
+    "placeholders": {
+      "table": {}
+    }
+  },
+  "storageOciInitError": "初始化 OCI 客户端时出错：{error}",
+  "@storageOciInitError": {
+    "description": "Error al configurar el cliente de Oracle Cloud Storage",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageWalkDirError": "遍历目录时出错：{error}",
+  "@storageWalkDirError": {
+    "description": "Error al inspeccionar directorios locales para sincronizar",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageOpenFileError": "打开文件 {path} 时出错： {error}",
+  "@storageOpenFileError": {
+    "description": "Error al abrir un archivo para transferencia en almacenamiento",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "storageUploadError": "上传到 OCI 时出错：{error}",
+  "@storageUploadError": {
+    "description": "Error al subir un objeto a Oracle Cloud Storage",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageDownloadError": "下载对象时出错：{error}",
+  "@storageDownloadError": {
+    "description": "Error al descargar un archivo desde almacenamiento remoto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageListObjectsError": "列出对象时出错：{error}",
+  "@storageListObjectsError": {
+    "description": "Error al consultar los objetos disponibles en el bucket",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageCreateFileError": "创建本地文件时出错：{error}",
+  "@storageCreateFileError": {
+    "description": "Error al guardar el archivo descargado en el sistema local",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageWriteFileError": "写入文件时出错：{error}",
+  "@storageWriteFileError": {
+    "description": "Error al escribir el contenido descargado en el disco",
+    "placeholders": {
+      "error": {}
+    }
   }
 }

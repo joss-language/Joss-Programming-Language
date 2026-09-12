@@ -92,8 +92,9 @@ func TestI18nConsistencyAcrossAllLocales(t *testing.T) {
 		"pubResolvingDependencies", "pubPublishedSuccess", "pubCacheEmptied",
 		"pluginUsageTitle", "pluginCompiling", "pluginCompileSuccess", "pluginPackageSize",
 		"pluginTreeShaking", "pluginInspectTitle", "pluginSignatureValid",
+		"seedersExecError", "seederItem", "migrateExecError", "dbMigrationError",
+		"dbPrefixTablesRenamed", "storageOciInitError", "storageUploadError",
 	}
-
 
 	esKeys := make(map[string]string)
 	for _, k := range testKeys {

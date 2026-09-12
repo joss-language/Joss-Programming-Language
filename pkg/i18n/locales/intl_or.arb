@@ -1742,5 +1742,210 @@
   "pluginNoDirectCli": "(ସିଧାସଳଖ CLI ନିର୍ଦ୍ଦେଶ ଘୋଷଣା କରେ ନାହିଁ)",
   "@pluginNoDirectCli": {
     "description": "Nota cuando un plugin en la lista no añade comandos directos"
+  },
+  "seedersExecError": "[Seedersରେ JOSS ନିଷ୍ପାଦନ ତ୍ରୁଟି] {error}",
+  "@seedersExecError": {
+    "description": "Mensaje de error cuando falla la ejecución de los seeders",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "seederReadError": "{file} ପଢିବାରେ ତ୍ରୁଟି: {error}",
+  "@seederReadError": {
+    "description": "Error al leer el archivo de seeder",
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "seedersSearchError": "ସିଡର୍ସ ଖୋଜିବାରେ ତ୍ରୁଟି: {error}",
+  "@seedersSearchError": {
+    "description": "Error al buscar archivos de seeders en el proyecto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "seederItem": "ବିହନ: {name}...",
+  "@seederItem": {
+    "description": "Aviso de ejecución de un archivo seeder individual",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "seedersCompleted": "ସଂପୂର୍ଣ୍ଣ ବିହନ: {count}",
+  "@seedersCompleted": {
+    "description": "Cantidad de seeders completados exitosamente",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "seederMissingRun": "ଚେତାବନୀ: ପଦ୍ଧତି 'ଚାଲିବା' {class} ରେ ମିଳିଲା ନାହିଁ |",
+  "@seederMissingRun": {
+    "description": "Aviso cuando la clase seeder no contiene método run",
+    "placeholders": {
+      "class": {}
+    }
+  },
+  "seederParseError": "{file} ରେ ପାର୍ସିଂ ତ୍ରୁଟି:",
+  "@seederParseError": {
+    "description": "Error sintáctico al parsear el archivo de seeder",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "migrateExecError": "[ସ୍ଥାନାନ୍ତରଣରେ JOSS ନିଷ୍ପାଦନ ତ୍ରୁଟି] {error}",
+  "@migrateExecError": {
+    "description": "Mensaje de error al fallar la ejecución de migraciones",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateTableCreateError": "ସ୍ଥାନାନ୍ତରଣ ସାରଣୀ ସୃଷ୍ଟି କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@migrateTableCreateError": {
+    "description": "Error al inicializar la tabla de control de migraciones",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateRunError": "ସ୍ଥାନାନ୍ତରଣକୁ କାର୍ଯ୍ୟକାରୀ କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@migrateRunError": {
+    "description": "Error al procesar las migraciones pendientes",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateRunningUp": "{class}..ରୁ ଚାଲୁଛି ()",
+  "@migrateRunningUp": {
+    "description": "Aviso de ejecución del método up de la migración",
+    "placeholders": {
+      "class": {}
+    }
+  },
+  "dbMigrationWarning": "ସ୍ଥାନାନ୍ତରଣ ଚେତାବନୀ: {error}",
+  "@dbMigrationWarning": {
+    "description": "Aviso de advertencia durante la migración de base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "migrateItem": "ସ୍ଥାନାନ୍ତରଣ: {name} (ବ୍ୟାଚ୍ {batch}) ...",
+  "@migrateItem": {
+    "description": "Aviso de migración en curso con nombre y lote",
+    "placeholders": {
+      "name": {},
+      "batch": {}
+    }
+  },
+  "dbMigrationError": "ସ୍ଥାନାନ୍ତରଣ ସମୟରେ ତ୍ରୁଟି: {error}",
+  "@dbMigrationError": {
+    "description": "Fallo durante la migración de base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbGetTablesError": "ସାରଣୀ ପାଇବାରେ ତ୍ରୁଟି: {error} |",
+  "@dbGetTablesError": {
+    "description": "Error al consultar la lista de tablas en la base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbMigrateTableError": "ସାରଣୀ ସ୍ଥାନାନ୍ତରଣରେ ତ୍ରୁଟି {table}: {error}",
+  "@dbMigrateTableError": {
+    "description": "Error al migrar datos de una tabla específica",
+    "placeholders": {
+      "table": {},
+      "error": {}
+    }
+  },
+  "dbConnectError": "ଡାଟାବେସ୍ ସହିତ ସଂଯୋଗ କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@dbConnectError": {
+    "description": "Error al intentar establecer conexión con la base de datos",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "dbRenamingTable": "{old} ରୁ {new}...",
+  "@dbRenamingTable": {
+    "description": "Aviso de renombramiento de tabla individual",
+    "placeholders": {
+      "old": {},
+      "new": {}
+    }
+  },
+  "dbUpdatingSourceCodePrefix": "ଉତ୍ସ କୋଡ୍ ଅପଡେଟ୍ (ମଡେଲ୍ ଏବଂ ସ୍ଥାନାନ୍ତରଣ) ...",
+  "@dbUpdatingSourceCodePrefix": {
+    "description": "Aviso de actualización de prefijo de tablas en código fuente"
+  },
+  "dbPrefixTablesRenamed": "ଉପସର୍ଗକୁ ଅଦ୍ୟତନ କରାଯାଇଛି {count} ସାରଣୀଗୁଡ଼ିକର ନାମ ପରିବର୍ତ୍ତନ କରାଯାଇଛି |",
+  "@dbPrefixTablesRenamed": {
+    "description": "Confirmación tras renombrar tablas con el nuevo prefijo",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "dbTableMissingCreating": "ସାରଣୀ {table} ଗନ୍ତବ୍ୟ ସ୍ଥଳରେ ବିଦ୍ୟମାନ ନାହିଁ | ଏହାକୁ ଗତିଶୀଳ ଭାବରେ ସୃଷ୍ଟି ...",
+  "@dbTableMissingCreating": {
+    "description": "Aviso de creación dinámica de tabla ausente en destino",
+    "placeholders": {
+      "table": {}
+    }
+  },
+  "storageOciInitError": "OCI କ୍ଲାଏଣ୍ଟ ଆରମ୍ଭ କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@storageOciInitError": {
+    "description": "Error al configurar el cliente de Oracle Cloud Storage",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageWalkDirError": "ଡିରେକ୍ଟୋରୀଗୁଡିକ ଅତିକ୍ରମ କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@storageWalkDirError": {
+    "description": "Error al inspeccionar directorios locales para sincronizar",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageOpenFileError": "ଫାଇଲ ଖୋଲିବାରେ ତ୍ରୁଟି {path}: {error}",
+  "@storageOpenFileError": {
+    "description": "Error al abrir un archivo para transferencia en almacenamiento",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "storageUploadError": "OCI ରେ ଅପଲୋଡ୍ କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@storageUploadError": {
+    "description": "Error al subir un objeto a Oracle Cloud Storage",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageDownloadError": "ବସ୍ତୁ ଡାଉନଲୋଡ୍ କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@storageDownloadError": {
+    "description": "Error al descargar un archivo desde almacenamiento remoto",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageListObjectsError": "ବସ୍ତୁ ତାଲିକାଭୁକ୍ତ କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@storageListObjectsError": {
+    "description": "Error al consultar los objetos disponibles en el bucket",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageCreateFileError": "ସ୍ଥାନୀୟ ଫାଇଲ୍ ସୃଷ୍ଟି କରିବାରେ ତ୍ରୁଟି: {error} |",
+  "@storageCreateFileError": {
+    "description": "Error al guardar el archivo descargado en el sistema local",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "storageWriteFileError": "ଫାଇଲ ଲେଖିବାରେ ତ୍ରୁଟି: {error}",
+  "@storageWriteFileError": {
+    "description": "Error al escribir el contenido descargado en el disco",
+    "placeholders": {
+      "error": {}
+    }
   }
 }

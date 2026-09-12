@@ -47,7 +47,7 @@ func changeDatabaseEngine(target string) {
 
 	fmt.Println(i18n.Tr("dbStartingDataMigration"))
 	if err := migrateTablesToDatabase(srcDB, destDB, currentDB, target, envMap); err != nil {
-		fmt.Printf("Advertencia en migración: %v\n", err)
+		fmt.Println(i18n.Tr("dbMigrationWarning", i18n.M{"error": err}))
 	}
 
 	updateEnvFile(GetEnvFile(), "DB", target)
@@ -135,7 +135,7 @@ func changeDatabaseMigrate() {
 	prepareDestinationSchema(destDB, destDriver, destEnv)
 
 	if err := migrateTablesToDatabase(srcDB, destDB, srcDriver, destDriver, envMap); err != nil {
-		fmt.Printf("Error durante la migración: %v\n", err)
+		fmt.Println(i18n.Tr("dbMigrationError", i18n.M{"error": err}))
 		return
 	}
 
@@ -181,8 +181,9 @@ func migrateTablesToDatabase(srcDB, destDB *sql.DB, srcDriver, destDriver string
 			continue
 		}
 		if err := migrateSingleTableData(srcDB, destDB, srcDriver, destDriver, table); err != nil {
-			fmt.Printf("Error migrando tabla %s: %v\n", table, err)
+			fmt.Println(i18n.Tr("dbMigrateTableError", i18n.M{"table": table, "error": err}))
 		}
+
 	}
 	return nil
 }
@@ -334,14 +335,14 @@ func changeDatabasePrefix(newPrefix string) {
 
 	db, err := connectToDB(dbDriver, envMap)
 	if err != nil {
-		fmt.Printf("Error conectando a BD: %v\n", err)
+		fmt.Println(i18n.Tr("dbConnectError", i18n.M{"error": err}))
 		return
 	}
 	defer db.Close()
 
 	tables, err := getTables(db, dbDriver)
 	if err != nil {
-		fmt.Printf("Error obteniendo tablas: %v\n", err)
+		fmt.Println(i18n.Tr("dbGetTablesError", i18n.M{"error": err}))
 		return
 	}
 
@@ -354,17 +355,17 @@ func changeDatabasePrefix(newPrefix string) {
 		}
 	}
 
-	fmt.Println("Actualizando código fuente (Modelos y Migraciones)...")
+	fmt.Println(i18n.Tr("dbUpdatingSourceCodePrefix"))
 	updateSourceCodePrefix(currentPrefix, newPrefix)
 
 	updateEnvFile(GetEnvFile(), "PREFIX", newPrefix)
 	updateEnvFile(GetEnvFile(), "DB_PREFIX", newPrefix)
-	fmt.Printf("Prefijo actualizado. %d tablas renombradas.\n", count)
+	fmt.Println(i18n.Tr("dbPrefixTablesRenamed", i18n.M{"count": count}))
 }
 
 func renameSingleTablePrefix(db *sql.DB, dbDriver, currentPrefix, newPrefix, table string) error {
 	newTableName := strings.Replace(table, currentPrefix, newPrefix, 1)
-	fmt.Printf("Renombrando %s a %s... ", table, newTableName)
+	fmt.Print(i18n.Tr("dbRenamingTable", i18n.M{"old": table, "new": newTableName}) + " ")
 
 	var query string
 	switch dbDriver {
@@ -433,7 +434,8 @@ func checkTableExists(destDB *sql.DB, driver, table string) bool {
 }
 
 func createMissingTableSchema(destDB *sql.DB, driver, table string, colTypes []*sql.ColumnType) error {
-	fmt.Printf("Tabla %s no existe en destino. Creándola dinámicamente...\n", table)
+	fmt.Println(i18n.Tr("dbTableMissingCreating", i18n.M{"table": table}))
+
 	var colsDef []string
 	for _, ct := range colTypes {
 		sqlType := mapTypeToSQL(ct, driver)

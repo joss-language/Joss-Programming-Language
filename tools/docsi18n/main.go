@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -45,6 +46,16 @@ type protectedSyntax struct {
 	inline []string
 }
 
+type translateFunc func(string, string) (string, error)
+
+type bingTranslator struct {
+	client *http.Client
+	ig     string
+	iid    string
+	key    string
+	token  string
+}
+
 func main() {
 	translate := flag.Bool("translate", false, "translate stale or missing English and Portuguese documents")
 	force := flag.Bool("force", false, "translate every document even when its source hash is current")
@@ -52,6 +63,7 @@ func main() {
 	syncPublic := flag.Bool("sync", false, "synchronize all three locales to the JosSecurity public mirror")
 	check := flag.Bool("check", false, "verify translation coverage, freshness, links and public mirrors")
 	filesFlag := flag.String("files", "", "optional comma-separated canonical Markdown filenames")
+	provider := flag.String("provider", "bing", "translation provider: bing or google")
 	flag.Parse()
 
 	if !*translate && !*fixLinks && !*syncPublic && !*check {
@@ -65,9 +77,11 @@ func main() {
 	}
 	m := readManifest()
 	if *translate {
+		translator, err := newTranslator(*provider)
+		must(err)
 		for _, locale := range []string{"en", "pt"} {
 			for _, path := range files {
-				translateFile(path, locale, m, *force)
+				translateFile(path, locale, m, *force, translator)
 			}
 		}
 		writeManifest(m)
@@ -138,7 +152,7 @@ func writeManifest(m *manifest) {
 	must(os.WriteFile(manifestPath, data, 0644))
 }
 
-func translateFile(sourcePath, locale string, m *manifest, force bool) {
+func translateFile(sourcePath, locale string, m *manifest, force bool, translator translateFunc) {
 	source, err := os.ReadFile(sourcePath)
 	must(err)
 	name := filepath.Base(sourcePath)
@@ -151,7 +165,7 @@ func translateFile(sourcePath, locale string, m *manifest, force bool) {
 		}
 	}
 	fmt.Printf("translating %s -> %s/%s\n", name, locale, name)
-	translated, err := translateMarkdown(string(source), locale)
+	translated, err := translateMarkdown(string(source), locale, translator)
 	must(err)
 	must(os.MkdirAll(filepath.Dir(target), 0755))
 	translated = restoreInlineCode(string(source), translated, locale)
@@ -238,7 +252,7 @@ func localizedTarget(target, locale string) string {
 	return clean
 }
 
-func translateMarkdown(source, locale string) (string, error) {
+func translateMarkdown(source, locale string, translator translateFunc) (string, error) {
 	lines := strings.SplitAfter(source, "\n")
 	var output strings.Builder
 	var prose strings.Builder
@@ -250,7 +264,7 @@ func translateMarkdown(source, locale string) (string, error) {
 		}
 		original := prose.String()
 		masked, protected := maskTranslationSyntax(original)
-		translated, err := googleTranslate(masked, locale)
+		translated, err := translator(masked, locale)
 		if err != nil {
 			return err
 		}
@@ -295,6 +309,99 @@ func translateMarkdown(source, locale string) (string, error) {
 		return "", err
 	}
 	return output.String(), nil
+}
+
+func newTranslator(provider string) (translateFunc, error) {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "bing", "microsoft":
+		client, err := newBingTranslator()
+		if err != nil {
+			return nil, err
+		}
+		return client.translate, nil
+	case "google":
+		return googleTranslate, nil
+	default:
+		return nil, fmt.Errorf("unknown translation provider %q", provider)
+	}
+}
+
+func newBingTranslator() (*bingTranslator, error) {
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, err
+	}
+	client := &http.Client{Timeout: 45 * time.Second, Jar: jar}
+	request, err := http.NewRequest(http.MethodGet, "https://www.bing.com/translator", nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("User-Agent", "Mozilla/5.0")
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Microsoft Translator session returned %s", response.Status)
+	}
+	page, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	extract := func(pattern string) (string, error) {
+		match := regexp.MustCompile(pattern).FindSubmatch(page)
+		if len(match) != 2 {
+			return "", fmt.Errorf("Microsoft Translator session parameter not found")
+		}
+		return string(match[1]), nil
+	}
+	ig, err := extract(`IG:"([A-F0-9]+)"`)
+	if err != nil {
+		return nil, err
+	}
+	iid, err := extract(`data-iid="(translator\.[0-9]+)"`)
+	if err != nil {
+		return nil, err
+	}
+	abuse := regexp.MustCompile(`params_AbusePreventionHelper\s*=\s*\[([0-9]+),"([^"]+)"`).FindSubmatch(page)
+	if len(abuse) != 3 {
+		return nil, fmt.Errorf("Microsoft Translator anti-abuse parameters not found")
+	}
+	return &bingTranslator{client: client, ig: ig, iid: iid, key: string(abuse[1]), token: string(abuse[2])}, nil
+}
+
+func (translator *bingTranslator) translate(text, locale string) (string, error) {
+	endpoint := "https://www.bing.com/ttranslatev3?isVertical=1&IG=" + url.QueryEscape(translator.ig) + "&IID=" + url.QueryEscape(translator.iid+".1")
+	form := url.Values{"text": {text}, "fromLang": {"es"}, "to": {locale}, "token": {translator.token}, "key": {translator.key}}
+	request, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", err
+	}
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("Referer", "https://www.bing.com/translator")
+	request.Header.Set("User-Agent", "Mozilla/5.0")
+	response, err := translator.client.Do(request)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return "", err
+	}
+	if response.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Microsoft Translator returned %s: %s", response.Status, strings.TrimSpace(string(body)))
+	}
+	var payload []struct {
+		Translations []struct {
+			Text string `json:"text"`
+		} `json:"translations"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil || len(payload) == 0 || len(payload[0].Translations) == 0 {
+		return "", fmt.Errorf("unexpected Microsoft Translator response: %s", strings.TrimSpace(string(body)))
+	}
+	return payload[0].Translations[0].Text, nil
 }
 
 func restoreBoundaryNewlines(source, translated string) string {

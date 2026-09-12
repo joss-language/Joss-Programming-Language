@@ -15,7 +15,8 @@ func runMigrations() {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("\n[Error de Ejecución JOSS en Migraciones] %v\n", r)
+			fmt.Println()
+			fmt.Println(i18n.Tr("migrateExecError", i18n.M{"error": r}))
 			os.Exit(1)
 		}
 	}()
@@ -25,20 +26,20 @@ func runMigrations() {
 	rt.LoadEnv(nil)
 
 	if rt.GetDB() == nil {
-		fmt.Println("Error: No se pudo conectar a la base de datos.")
+		fmt.Println(i18n.Tr("dbConnError"))
 		return
 	}
 	fmt.Println(i18n.Tr("migrateDbSuccess"))
 
 	// Ensure migration table exists
 	if err := rt.EnsureMigrationTable(); err != nil {
-		fmt.Printf("Error creando tabla de migraciones: %v\n", err)
+		fmt.Println(i18n.Tr("migrateTableCreateError", i18n.M{"error": err}))
 		os.Exit(1)
 	}
 	rt.EnsureAuthTables()
 
 	if err := performMigrations(rt); err != nil {
-		fmt.Printf("Error ejecutando migraciones: %v\n", err)
+		fmt.Println(i18n.Tr("migrateRunError", i18n.M{"error": err}))
 		os.Exit(1)
 	}
 }
@@ -67,7 +68,7 @@ func performMigrations(rt *core.Runtime) error {
 			continue
 		}
 
-		fmt.Printf("Migrando: %s (Batch %d)...\n", filename, batch)
+		fmt.Println(i18n.Tr("migrateItem", i18n.M{"name": filename, "batch": batch}))
 
 		data, err := os.ReadFile(file)
 		if err != nil {
@@ -109,11 +110,12 @@ func performMigrations(rt *core.Runtime) error {
 			}
 
 			if upMethod != nil {
-				fmt.Printf("Ejecutando up() de %s...\n", migrationClass.Name.Value)
+				fmt.Println(i18n.Tr("migrateRunningUp", i18n.M{"class": migrationClass.Name.Value}))
 				rt.CallMethodEvaluated(upMethod, instance, []interface{}{})
 			} else {
 				return fmt.Errorf("la migracion %s no define up()", filename)
 			}
+
 		} else {
 			return fmt.Errorf("la migracion %s no define una clase", filename)
 		}
