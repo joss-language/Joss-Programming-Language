@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Próbálja ki most a következővel: joss run a your_script.joss-t",
+  "aiTryScript": "Próbálja ki most a következővel: joss run tu_script.joss",
   "@aiTryScript": {},
   "aiWizardConfig": "Ez a varázsló konfigurálja a natív AI-t a projektben.",
   "@aiWizardConfig": {},
@@ -240,10 +240,6 @@
   "@cliAppTitle": {
     "description": "Título principal mostrado en la ayuda de la CLI"
   },
-  "cliUsage": "Használat: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
   "cliCmdRepl": "Indítsa el az interaktív konzolt (REPL)",
   "@cliCmdRepl": {
     "description": "Descripción del comando joss repl"
@@ -296,10 +292,6 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliUsageRun": "Használat: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
   "cliErrRequireMain": "Minden projektnek rendelkeznie kell egy 'main.joss' belépési ponttal, amely elindítja a szervert.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
@@ -311,50 +303,6 @@
   "cliErrNoMain": "Hiba: \"main.joss\" nem található.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
-  },
-  "cliUsageServer": "Használat: joss szerver indítása",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
-  "cliUsageMakeController": "Használat: joss gyártmány:vezérlő [név]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageBuildPkg": "Használat: joss build csomag [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageProgram": "Használata: joss program indítása",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageMakeModel": "Használat: joss gyártmány: modell [név]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "Használat: joss gyártmány: mvc [név]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "Használat: joss make:view [név]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageMakeMiddleware": "Használat: joss gyártmány: középprogram [név]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeCrud": "Használat: joss make:crud [táblázat]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageRemoveCrud": "Használat: joss remove:crud [Táblázat]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageMakeMigration": "Használat: joss gyártmány: migráció [név]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
   },
   "checkVerifying": "[ELLENŐRZÉS] A projekt ellenőrzése a következőben: '{path}' (elemzés, szemantikai elemzés, típusok, szösz, formátum)...",
   "@checkVerifying": {
@@ -573,5 +521,388 @@
   "pkgInspectJpV1Deprecated": "Hiba: A JP v1 csomagformátumot eltávolították. A Jossnak szüksége van a JP v2 strukturált és aláírt formátumára.",
   "@pkgInspectJpV1Deprecated": {
     "description": "Aviso de versión obsoleta JP v1"
+  },
+  "helpTopicReplExitHint": "Kilépés az interaktív REPL-ből",
+  "@helpTopicReplExitHint": {
+    "description": "Descripción del atajo exit/quit en el REPL"
+  },
+  "helpTopicReplCtrlCHint": "Szakítsa meg a jelenlegi sort, vagy lépjen ki a REPL-ből",
+  "@helpTopicReplCtrlCHint": {
+    "description": "Descripción del atajo Ctrl+C en el REPL"
+  },
+  "helpTopicProgram": "Indítsa el az alkalmazást asztali módban.",
+  "@helpTopicProgram": {
+    "description": "Descripción del comando joss program"
+  },
+  "helpTopicRun": "A szintaxis és a szemantikai elemzés ellenőrzése után közvetlenül futtat egy Joss-szkriptet. Típushibák blokk végrehajtása; A figyelmeztetéseket leállítás nélkül jelentik.",
+  "@helpTopicRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "helpTopicBuild": "Összeállítja vagy csomagolja a projektet gyártáshoz és terjesztéshez.",
+  "@helpTopicBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "helpTopicServer": "Indítsa el a nagy teljesítményű HTTP webszervert a „main.joss” belépési pont futtatásával. Automatikusan betölti az összes illesztőprogramot, modellt és útvonalat az app/. A kiszolgáló biztonságos leállításához nyomja meg a 'q' vagy a Ctrl+C billentyűkombinációt a konzolon.",
+  "@helpTopicServer": {
+    "description": "Descripción del comando joss server"
+  },
+  "helpTopicRepl": "Elindítja a Joss interaktív konzolját (Read-Eval-Print Loop). Lehetővé teszi a kifejezések értékelését, a függvények tesztelését, a változók deklarálását és a valós idejű kísérletezést.",
+  "@helpTopicRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "helpTopicBuildModeProgram": "Készítse elő az asztali verziót",
+  "@helpTopicBuildModeProgram": {
+    "description": "Descripción del modo program de joss build"
+  },
+  "helpTopicBuildModeNative": "Fordítson le egy önálló natív végrehajtható fájlt",
+  "@helpTopicBuildModeNative": {
+    "description": "Descripción del modo native de joss build"
+  },
+  "helpTopicBuildModePackage": "Csomagoljon be egy Joss-könyvtárat .jp formátumba",
+  "@helpTopicBuildModePackage": {
+    "description": "Descripción del modo package de joss build"
+  },
+  "helpTopicBuildModeWeb": "Készítsen eszközöket és fájlokat a webes telepítéshez",
+  "@helpTopicBuildModeWeb": {
+    "description": "Descripción del modo web de joss build"
+  },
+  "helpTopicAnalyze": "Végezze el a projekt szigorú szemantikai elemzését végrehajtás nélkül. Ellenőrzi a típusok, a nem deklarált változók, az aláírások és a vezérlőfolyamatok konzisztenciáját.",
+  "@helpTopicAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "helpTopicFormat": "A .joss fájlokat a kanonikus nyelvi szabvány szerint formázza.",
+  "@helpTopicFormat": {
+    "description": "Descripción del comando joss format"
+  },
+  "helpTopicLint": "Statikus elemzést futtat, és felismeri a stílus-, típus- és biztonsági problémákat.",
+  "@helpTopicLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "helpTopicFix": "Biztonságos automatikus javításokat és kanonikus formázást alkalmaz.",
+  "@helpTopicFix": {
+    "description": "Descripción del comando joss fix"
+  },
+  "helpTopicFormatOptWrite": "Változások írása a fájlba (alapértelmezett a fájl átadásakor)",
+  "@helpTopicFormatOptWrite": {
+    "description": "Descripción de la opción --write de joss format"
+  },
+  "helpTopicFormatOptCheck": "Ellenőrizze, hogy a fájlok formázva vannak-e módosításuk nélkül (hasznos CI-ben)",
+  "@helpTopicFormatOptCheck": {
+    "description": "Descripción de la opción --check de joss format"
+  },
+  "helpTopicLintOptJson": "Strukturált JSON formátumban adja ki a diagnosztikai jelentést",
+  "@helpTopicLintOptJson": {
+    "description": "Descripción de la opción --json de joss lint"
+  },
+  "helpTopicTest": "Futtassa a hivatalos egységtesztelési és érvényesítési csomagot (*_test.joss).",
+  "@helpTopicTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "helpTopicNew": "Új projektstruktúrát hoz létre.",
+  "@helpTopicNew": {
+    "description": "Descripción del comando joss new"
+  },
+  "helpTopicFixOptDryRun": "Megmutatja, hogy mely módosításokat alkalmaznák a fájlok módosítása nélkül",
+  "@helpTopicFixOptDryRun": {
+    "description": "Descripción de la opción --dry-run de joss fix"
+  },
+  "helpTopicCheck": "Átfogó minőségellenőrzést hajt végre: kanonikus formátum, szintaxis, szigorú szemantikai elemzés és linterszabályok.",
+  "@helpTopicCheck": {
+    "description": "Descripción del comando joss check"
+  },
+  "helpTopicTestOptFilter": "Csak azokat a teszteket szűrje és futtassa, amelyek neve tartalmazza a szöveget",
+  "@helpTopicTestOptFilter": {
+    "description": "Descripción de la opción --filter de joss test"
+  },
+  "helpTopicNewTypeWeb": "MVC webprojekt befejezése (alapértelmezett)",
+  "@helpTopicNewTypeWeb": {
+    "description": "Tipo web de joss new"
+  },
+  "helpTopicMakeController": "Hozzon létre egy új webvezérlőt az app/controllers/ mappában.",
+  "@helpTopicMakeController": {
+    "description": "Descripción del comando make:controller"
+  },
+  "helpTopicNewTypeConsole": "CLI konzol projekt",
+  "@helpTopicNewTypeConsole": {
+    "description": "Tipo console de joss new"
+  },
+  "helpTopicMakeModel": "Hozzon létre egy új ORM-modellt az app/models/ mappában.",
+  "@helpTopicMakeModel": {
+    "description": "Descripción del comando make:model"
+  },
+  "helpTopicMakeView": "Hozzon létre egy új nézetsablont az app/views/ mappában.",
+  "@helpTopicMakeView": {
+    "description": "Descripción del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "Hozzon létre egy új HTTP köztes szoftvert az alkalmazásban/middleware/.",
+  "@helpTopicMakeMiddleware": {
+    "description": "Descripción del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "Egyidejűleg létrehozza a modellt, a nézetet és a vezérlőt az entitáshoz.",
+  "@helpTopicMakeMvc": {
+    "description": "Descripción del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "Automatikusan generál modellt, nézeteket, vezérlőket és útvonalakat egy adatbázistáblához. Érzékeli az idegen kulcsokat, a látható oszlopokat és beilleszti a navigációs hivatkozásokat.",
+  "@helpTopicMakeCrud": {
+    "description": "Descripción del comando make:crud"
+  },
+  "helpTopicMakeMigration": "Hozzon létre egy új migrációs fájlt időbélyeggel az app/database/migrations/ mappában.",
+  "@helpTopicMakeMigration": {
+    "description": "Descripción del comando make:migration"
+  },
+  "helpTopicNewTypePackage": "Terjeszthető csomag a Joss ökoszisztémához",
+  "@helpTopicNewTypePackage": {
+    "description": "Tipo package de joss new"
+  },
+  "helpTopicNewTypePlugin": "Natív bővítmény .jp bájtkódra fordítással",
+  "@helpTopicNewTypePlugin": {
+    "description": "Tipo plugin de joss new"
+  },
+  "helpTopicMigrate": "Függőben lévő áttelepítések alkalmazása az alkalmazásban/adatbázisban/migrációkban.",
+  "@helpTopicMigrate": {
+    "description": "Descripción del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "Törölje az összes adatbázistáblát, és futtassa újra az összes migrációt. Hasznos a fejlesztés során a kapcsolási rajz visszaállításához.",
+  "@helpTopicMigrateFresh": {
+    "description": "Descripción del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "Futtatja az alkalmazásban/adatbázisban/magozóban definiált telepítő vetőgépeket.",
+  "@helpTopicDbSeed": {
+    "description": "Descripción del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "Konfigurálja vagy módosítsa a projekt adatbázis-kapcsolatát.",
+  "@helpTopicChangeDb": {
+    "description": "Descripción del comando joss change db"
+  },
+  "helpTopicRemoveCrud": "Tisztán eltávolítja a generált CRUD modult: törli a vezérlőt, a modellt, a nézeteket és eltávolítja az útvonalakat és hivatkozásokat a navigációs sávról.",
+  "@helpTopicRemoveCrud": {
+    "description": "Descripción del comando remove:crud"
+  },
+  "helpTopicUserStorage": "Konfigurálja és szinkronizálja a projektfájlok tárolását.",
+  "@helpTopicUserStorage": {
+    "description": "Descripción del comando joss userstorage"
+  },
+  "helpTopicChangeDbMotor": "Az adatbázismotor módosítása (sqlite, mysql)",
+  "@helpTopicChangeDbMotor": {
+    "description": "Subcomando change db <motor>"
+  },
+  "helpTopicChangeDbMigrate": "Az adatok és a séma áttelepítése új MySQL-be",
+  "@helpTopicChangeDbMigrate": {
+    "description": "Subcomando change db migrate"
+  },
+  "helpTopicChangeDbPrefix": "Állítsa be a globális táblázat előtagját",
+  "@helpTopicChangeDbPrefix": {
+    "description": "Subcomando change db prefix"
+  },
+  "helpTopicUserStorageLocal": "Konfigurálja a helyi lemeztárat",
+  "@helpTopicUserStorageLocal": {
+    "description": "Opción local de joss userstorage"
+  },
+  "helpTopicUserStorageOci": "Tárhely konfigurálása az Oracle Cloud Infrastructure-ban",
+  "@helpTopicUserStorageOci": {
+    "description": "Opción oci de joss userstorage"
+  },
+  "helpTopicUserStorageSyncLocal": "Töltse le az OCI fájlokat a helyi lemezre",
+  "@helpTopicUserStorageSyncLocal": {
+    "description": "Opción sync-local de joss userstorage"
+  },
+  "helpTopicUserStorageSyncOci": "Töltse fel a helyi fájlokat az OCI tárolóba",
+  "@helpTopicUserStorageSyncOci": {
+    "description": "Opción sync-oci de joss userstorage"
+  },
+  "helpTopicPub": "Joss csomag és függőségi menedzser.",
+  "@helpTopicPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "helpTopicPubAdd": "Adjon hozzá egy függőséget a joss.yaml fájlhoz, és telepítse",
+  "@helpTopicPubAdd": {
+    "description": "Subcomando pub add"
+  },
+  "helpTopicPubRemove": "Távolítson el egy függőséget a joss.yaml fájlból",
+  "@helpTopicPubRemove": {
+    "description": "Subcomando pub remove"
+  },
+  "helpTopicPubInstall": "Töltse le és telepítse a joss.yaml függőségeket",
+  "@helpTopicPubInstall": {
+    "description": "Subcomando pub install"
+  },
+  "helpTopicPubUpdate": "Frissítse a telepített függőségeket",
+  "@helpTopicPubUpdate": {
+    "description": "Subcomando pub update"
+  },
+  "helpTopicUpdate": "Frissítse a Joss bináris, SDK és hivatalos eszközöket.",
+  "@helpTopicUpdate": {
+    "description": "Descripción del comando joss update"
+  },
+  "helpTopicPackage": "Megvizsgálja a lefordított Joss-csomag metaadatait, szimbólumait és függőségeit.",
+  "@helpTopicPackage": {
+    "description": "Descripción del comando joss package inspect"
+  },
+  "helpTopicPlugin": "A telepített bővítmények és parancsaik megtekintéséhez használja a „joss help plugins”-t.",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPubPublish": "Tegye közzé csomagját a hivatalos nyilvántartásban",
+  "@helpTopicPubPublish": {
+    "description": "Subcomando pub publish"
+  },
+  "helpTopicVersion": "Megmutatja a Joss telepített verzióját és kódnevét.",
+  "@helpTopicVersion": {
+    "description": "Descripción del comando joss version"
+  },
+  "helpTopicAiActivate": "Konfigurálja a mesterséges intelligencia szolgáltatóit és modelljeit (Groq, OpenAI, Gemini).",
+  "@helpTopicAiActivate": {
+    "description": "Descripción del comando joss ai:activate"
+  },
+  "helpTopicUpdateOptForce": "Újratelepítés kényszerítése",
+  "@helpTopicUpdateOptForce": {
+    "description": "Opción --force de joss update"
+  },
+  "helpTopicNotFound": "Nincs konkrét segítség a '{cmd}' parancshoz.",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  },
+  "helpTopicUpdateOptCanary": "Frissítés a legújabb fejlesztési verzióra",
+  "@helpTopicUpdateOptCanary": {
+    "description": "Opción --canary de joss update"
+  },
+  "helpTopicUpdateOptStable": "Frissítés a legújabb stabil verzióra (alapértelmezett)",
+  "@helpTopicUpdateOptStable": {
+    "description": "Opción --stable de joss update"
+  },
+  "cliSectionExec": "VÉGREHAJTÁS ÉS REPL:",
+  "@cliSectionExec": {
+    "description": "Encabezado de sección de comandos de ejecución en el menú de ayuda"
+  },
+  "cliUsageLabel": "Használat:",
+  "@cliUsageLabel": {
+    "description": "Etiqueta para indicar el uso de un comando CLI"
+  },
+  "cliSectionQuality": "KÓD MINŐSÉG ÉS ESZKÖZÖK:",
+  "@cliSectionQuality": {
+    "description": "Encabezado de sección de calidad de código en el menú de ayuda"
+  },
+  "cliSectionScaffolding": "GENERÁTOROK ÉS SZERKEZET (SCAFFOLDING):",
+  "@cliSectionScaffolding": {
+    "description": "Encabezado de sección de generadores en el menú de ayuda"
+  },
+  "cliSectionPackages": "CSOMAGOK ÉS BŐVÍTŐK:",
+  "@cliSectionPackages": {
+    "description": "Encabezado de sección de paquetes y plugins en el menú de ayuda"
+  },
+  "cliSectionDatabase": "ADATBÁZIS ÉS TÁROLÁS:",
+  "@cliSectionDatabase": {
+    "description": "Encabezado de sección de base de datos y almacenamiento en el menú de ayuda"
+  },
+  "cliSectionSystem": "RENDSZER ÉS SZOLGÁLTATÁSOK:",
+  "@cliSectionSystem": {
+    "description": "Encabezado de sección de sistema y utilidades en el menú de ayuda"
+  },
+  "cliCmdCheck": "Átfogó ellenőrzés (formátum, szintaxis, típusok és szösz)",
+  "@cliCmdCheck": {
+    "description": "Descripción breve del comando check en el menú de ayuda"
+  },
+  "cliCmdFix": "Alkalmazzon biztonságos automatikus javításokat és formázást",
+  "@cliCmdFix": {
+    "description": "Descripción breve del comando fix en el menú de ayuda"
+  },
+  "cliCmdMakeController": "Webvezérlő létrehozása",
+  "@cliCmdMakeController": {
+    "description": "Descripción breve del comando make:controller en el menú de ayuda"
+  },
+  "cliCmdMakeModel": "Adatmodellt generál",
+  "@cliCmdMakeModel": {
+    "description": "Descripción breve del comando make:model en el menú de ayuda"
+  },
+  "cliCmdMakeView": "Nézetsablon létrehozása",
+  "@cliCmdMakeView": {
+    "description": "Descripción breve del comando make:view en el menú de ayuda"
+  },
+  "cliCmdMakeMiddleware": "HTTP köztes szoftver létrehozása",
+  "@cliCmdMakeMiddleware": {
+    "description": "Descripción breve del comando make:middleware en el menú de ayuda"
+  },
+  "cliCmdMakeMvc": "Modell, nézet és vezérlő létrehozása egy lépésben",
+  "@cliCmdMakeMvc": {
+    "description": "Descripción breve del comando make:mvc en el menú de ayuda"
+  },
+  "cliCmdMakeCrud": "Készítsen teljes CRUD-t útvonalakkal és nézetekkel",
+  "@cliCmdMakeCrud": {
+    "description": "Descripción breve del comando make:crud en el menú de ayuda"
+  },
+  "cliCmdDbSeed": "Futtasson vetőgépeket az alkalmazásból/adatbázisból/magvetőből",
+  "@cliCmdDbSeed": {
+    "description": "Descripción breve del comando db:seed en el menú de ayuda"
+  },
+  "cliCmdPluginCompile": "Fordítsa le a kódot .jp bináris csomagba",
+  "@cliCmdPluginCompile": {
+    "description": "Descripción breve del comando plugin compile en el menú de ayuda"
+  },
+  "cliCmdChangeDbMigrate": "A jelenlegi kapcsolat áttelepítése egy új MySQL-be",
+  "@cliCmdChangeDbMigrate": {
+    "description": "Descripción breve del subcomando change db migrate en el menú de ayuda"
+  },
+  "cliCmdStorageSync": "Fájlok szinkronizálása az Oracle Cloud szolgáltatással",
+  "@cliCmdStorageSync": {
+    "description": "Descripción breve del subcomando userstorage sync en el menú de ayuda"
+  },
+  "cliCmdPluginInspect": "Vizsgálja meg a bővítmény bájtkódját és szimbólumait",
+  "@cliCmdPluginInspect": {
+    "description": "Descripción breve del comando plugin inspect en el menú de ayuda"
+  },
+  "cliCmdPackageInspect": "Ellenőrzi a csomag metaadatait és aláírásait",
+  "@cliCmdPackageInspect": {
+    "description": "Descripción breve del comando package inspect en el menú de ayuda"
+  },
+  "cliCmdHelpPlugins": "Listázza a beépülő modulok által biztosított parancsokat és opciókat",
+  "@cliCmdHelpPlugins": {
+    "description": "Descripción breve del comando help plugins en el menú de ayuda"
+  },
+  "cliCmdPluginVerify": "Ellenőrizze az Ed25519 aláírásokat és a beépülő modul integritását",
+  "@cliCmdPluginVerify": {
+    "description": "Descripción breve del comando plugin verify en el menú de ayuda"
+  },
+  "cliCmdUpdate": "Frissítse a Joss, az SDK és a beépülő modulok verzióját",
+  "@cliCmdUpdate": {
+    "description": "Descripción breve del comando update en el menú de ayuda"
+  },
+  "cliCmdAiActivate": "Konfigurálja a szolgáltatókat és a mesterséges intelligencia modelleket",
+  "@cliCmdAiActivate": {
+    "description": "Descripción breve del comando ai:activate en el menú de ayuda"
+  },
+  "cliHelpFooter": "Használja a „joss help <command>” vagy a „joss help plugins” parancsot a lehetőségekhez és példákhoz.",
+  "@cliHelpFooter": {
+    "description": "Mensaje de pie de página en el menú de ayuda general"
+  },
+  "migrateFreshStarting": "Az összes tábla törlése és az áttelepítések futtatása a semmiből...",
+  "@migrateFreshStarting": {
+    "description": "Mensaje inicial del comando migrate:fresh"
+  },
+  "dbConnSuccess": "Sikeres csatlakozás a DB-hez.",
+  "@dbConnSuccess": {
+    "description": "Mensaje cuando la conexión a la base de datos es exitosa"
+  },
+  "migrateFreshDroppingTables": "Az összes tábla törlése...",
+  "@migrateFreshDroppingTables": {
+    "description": "Mensaje al eliminar tablas en migrate:fresh"
+  },
+  "migrateFreshSuccess": "Az áttelepítések sikeresen végrehajtva!",
+  "@migrateFreshSuccess": {
+    "description": "Mensaje de éxito al completar migrate:fresh"
+  },
+  "dbConnError": "Hiba: Nem sikerült csatlakozni az adatbázishoz.",
+  "@dbConnError": {
+    "description": "Mensaje de error cuando falla la conexión a la base de datos"
+  },
+  "seedersRunning": "Működő vetőgépek...",
+  "@seedersRunning": {
+    "description": "Mensaje inicial al ejecutar seeders"
+  },
+  "seedersNotFound": "Nem található vetőgép az alkalmazásban/adatbázisban/vetőkben/",
+  "@seedersNotFound": {
+    "description": "Mensaje cuando el directorio de seeders está vacío"
   }
 }

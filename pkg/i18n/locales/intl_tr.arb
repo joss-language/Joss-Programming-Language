@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Şimdi şunu deneyin: joss run your_script.joss",
+  "aiTryScript": "Şimdi şunu deneyin: joss run tu_script.joss",
   "@aiTryScript": {},
   "aiWizardConfig": "Bu sihirbaz projenizdeki yerel yapay zekayı yapılandıracaktır.",
   "@aiWizardConfig": {},
@@ -240,10 +240,6 @@
   "@cliAppTitle": {
     "description": "Título principal mostrado en la ayuda de la CLI"
   },
-  "cliUsage": "Kullanım: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
   "cliCmdRepl": "Etkileşimli konsolu (REPL) başlat",
   "@cliCmdRepl": {
     "description": "Descripción del comando joss repl"
@@ -296,10 +292,6 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliUsageRun": "Kullanım: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
   "cliErrRequireMain": "Tüm projeler, sunucuyu başlatan 'main.joss' giriş noktasına sahip olmalıdır.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
@@ -311,50 +303,6 @@
   "cliErrNoMain": "Hata: 'main.joss' bulunamadı.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
-  },
-  "cliUsageServer": "Kullanım: joss sunucusu başlangıcı",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
-  "cliUsageMakeController": "Kullanım: joss make:kontrolör [Ad]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageBuildPkg": "Kullanım: joss derleme paketi [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageProgram": "Kullanım: joss programı başlatma",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageMakeModel": "Kullanım: joss make:model [Ad]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "Kullanım: joss make:mvc [Ad]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "Kullanım: joss make:view [Ad]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageMakeMiddleware": "Kullanım: joss make:middleware [Ad]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeCrud": "Kullanım: joss make:crud [Tablo]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageRemoveCrud": "Kullanım: joss kaldır:crud [Tablo]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageMakeMigration": "Kullanım: joss make:migration [Ad]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
   },
   "checkVerifying": "[CHECK] '{path}' içindeki proje doğrulanıyor (ayrıştırma, anlamsal analiz, türler, tüy bırakmayan, biçim)...",
   "@checkVerifying": {
@@ -573,5 +521,388 @@
   "pkgInspectJpV1Deprecated": "Hata: JP v1 paket formatı kaldırıldı. Joss, JP v2 yapılandırılmış ve imzalı formatı gerektirir.",
   "@pkgInspectJpV1Deprecated": {
     "description": "Aviso de versión obsoleta JP v1"
+  },
+  "helpTopicReplExitHint": "Etkileşimli REPL'den çık",
+  "@helpTopicReplExitHint": {
+    "description": "Descripción del atajo exit/quit en el REPL"
+  },
+  "helpTopicReplCtrlCHint": "Mevcut satırı kesintiye uğratın veya REPL'den çıkın",
+  "@helpTopicReplCtrlCHint": {
+    "description": "Descripción del atajo Ctrl+C en el REPL"
+  },
+  "helpTopicProgram": "Uygulamayı masaüstü modunda başlatın.",
+  "@helpTopicProgram": {
+    "description": "Descripción del comando joss program"
+  },
+  "helpTopicRun": "Sözdizimini ve anlamsal analizi doğruladıktan sonra doğrudan bir Joss betiğini çalıştırır. Tür hataları yürütmeyi engeller; Uyarılar durdurulmadan raporlanır.",
+  "@helpTopicRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "helpTopicBuild": "Projeyi üretim ve dağıtım için derler veya paketler.",
+  "@helpTopicBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "helpTopicServer": "'Main.joss' giriş noktasını çalıştırarak yüksek performanslı HTTP web sunucusunu başlatın. Tüm sürücüleri, modelleri ve rotaları otomatik olarak app/.app dosyasına yükleyin. Sunucuyu güvenli bir şekilde durdurmak için konsolda 'q' veya Ctrl+C tuşlarına basın.",
+  "@helpTopicServer": {
+    "description": "Descripción del comando joss server"
+  },
+  "helpTopicRepl": "Joss'un etkileşimli konsolunu (Okuma-Değerlendirme-Yazdırma Döngüsü) başlatır. İfadeleri değerlendirmenize, işlevleri test etmenize, değişkenleri bildirmenize ve gerçek zamanlı olarak deneme yapmanıza olanak tanır.",
+  "@helpTopicRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "helpTopicBuildModeProgram": "Masaüstü sürümünü hazırlayın",
+  "@helpTopicBuildModeProgram": {
+    "description": "Descripción del modo program de joss build"
+  },
+  "helpTopicBuildModeNative": "Bağımsız bir yerel yürütülebilir dosya derleyin",
+  "@helpTopicBuildModeNative": {
+    "description": "Descripción del modo native de joss build"
+  },
+  "helpTopicBuildModePackage": "Bir Joss kütüphanesini .jp formatında paketleme",
+  "@helpTopicBuildModePackage": {
+    "description": "Descripción del modo package de joss build"
+  },
+  "helpTopicBuildModeWeb": "Varlıkları ve dosyaları web dağıtımı için hazırlama",
+  "@helpTopicBuildModeWeb": {
+    "description": "Descripción del modo web de joss build"
+  },
+  "helpTopicAnalyze": "Projeyi yürütmeden, sıkı bir anlamsal analiz gerçekleştirin. Türlerin, bildirilmemiş değişkenlerin, imzaların ve kontrol akışının tutarlılığını kontrol eder.",
+  "@helpTopicAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "helpTopicFormat": ".Joss dosyalarını kanonik dil standardına göre biçimlendirir.",
+  "@helpTopicFormat": {
+    "description": "Descripción del comando joss format"
+  },
+  "helpTopicLint": "Statik analiz çalıştırır ve stil, tür ve güvenlik sorunlarını tespit eder.",
+  "@helpTopicLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "helpTopicFix": "Güvenli otomatik düzeltmeler ve kurallı biçimlendirme uygular.",
+  "@helpTopicFix": {
+    "description": "Descripción del comando joss fix"
+  },
+  "helpTopicFormatOptWrite": "Değişiklikleri dosyaya yaz (bir dosyayı aktarırken varsayılandır)",
+  "@helpTopicFormatOptWrite": {
+    "description": "Descripción de la opción --write de joss format"
+  },
+  "helpTopicFormatOptCheck": "Dosyaların değiştirilmeden biçimlendirilip biçimlendirilmediğini kontrol edin (CI'da kullanışlıdır)",
+  "@helpTopicFormatOptCheck": {
+    "description": "Descripción de la opción --check de joss format"
+  },
+  "helpTopicLintOptJson": "Tanılama raporunu yapılandırılmış JSON formatında yayınlar",
+  "@helpTopicLintOptJson": {
+    "description": "Descripción de la opción --json de joss lint"
+  },
+  "helpTopicTest": "Resmi birim testi ve onaylama paketini (*_test.joss) çalıştırın.",
+  "@helpTopicTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "helpTopicNew": "Yeni bir proje yapısı oluşturur.",
+  "@helpTopicNew": {
+    "description": "Descripción del comando joss new"
+  },
+  "helpTopicFixOptDryRun": "Dosyalarda değişiklik yapılmadan hangi değişikliklerin uygulanacağını gösterir",
+  "@helpTopicFixOptDryRun": {
+    "description": "Descripción de la opción --dry-run de joss fix"
+  },
+  "helpTopicCheck": "Kapsamlı bir kalite kontrolü gerçekleştirir: kanonik format, sözdizimi, katı anlamsal analiz ve linter kuralları.",
+  "@helpTopicCheck": {
+    "description": "Descripción del comando joss check"
+  },
+  "helpTopicTestOptFilter": "Yalnızca adı metni içeren testleri filtreleyin ve çalıştırın",
+  "@helpTopicTestOptFilter": {
+    "description": "Descripción de la opción --filter de joss test"
+  },
+  "helpTopicNewTypeWeb": "MVC web projesini tamamlayın (varsayılan)",
+  "@helpTopicNewTypeWeb": {
+    "description": "Tipo web de joss new"
+  },
+  "helpTopicMakeController": "app/controllers/ konumunda yeni bir web denetleyicisi oluşturun.",
+  "@helpTopicMakeController": {
+    "description": "Descripción del comando make:controller"
+  },
+  "helpTopicNewTypeConsole": "CLI konsol projesi",
+  "@helpTopicNewTypeConsole": {
+    "description": "Tipo console de joss new"
+  },
+  "helpTopicMakeModel": "app/models/ konumunda yeni bir ORM modeli oluşturun.",
+  "@helpTopicMakeModel": {
+    "description": "Descripción del comando make:model"
+  },
+  "helpTopicMakeView": "app/views/'de yeni bir görünüm şablonu oluşturun.",
+  "@helpTopicMakeView": {
+    "description": "Descripción del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "app/middleware/'de yeni bir HTTP ara yazılımı oluşturun.",
+  "@helpTopicMakeMiddleware": {
+    "description": "Descripción del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "Varlık için aynı anda Model, Görünüm ve Denetleyici oluşturur.",
+  "@helpTopicMakeMvc": {
+    "description": "Descripción del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "Bir veritabanı tablosu için otomatik olarak Model, Görünümler, Denetleyici ve Rotalar oluşturur. Yabancı anahtarları, görünür sütunları algılar ve gezinme bağlantılarını enjekte eder.",
+  "@helpTopicMakeCrud": {
+    "description": "Descripción del comando make:crud"
+  },
+  "helpTopicMakeMigration": "app/database/migrations/ konumunda zaman damgasını içeren yeni bir geçiş dosyası oluşturun.",
+  "@helpTopicMakeMigration": {
+    "description": "Descripción del comando make:migration"
+  },
+  "helpTopicNewTypePackage": "Joss ekosistemi için dağıtılabilir paket",
+  "@helpTopicNewTypePackage": {
+    "description": "Tipo package de joss new"
+  },
+  "helpTopicNewTypePlugin": ".jp bayt koduna derlemeli yerel eklenti",
+  "@helpTopicNewTypePlugin": {
+    "description": "Tipo plugin de joss new"
+  },
+  "helpTopicMigrate": "Bekleyen geçişleri uygulama/veritabanı/geçişlerde uygulayın.",
+  "@helpTopicMigrate": {
+    "description": "Descripción del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "Tüm veritabanı tablolarını silin ve tüm geçişleri yeniden çalıştırın. Geliştirme sırasında şemayı sıfırlamak için kullanışlıdır.",
+  "@helpTopicMigrateFresh": {
+    "description": "Descripción del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "app/database/seeders'da tanımlanan yerleşimci ekme makinelerini çalıştırır.",
+  "@helpTopicDbSeed": {
+    "description": "Descripción del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "Projenin veritabanı bağlantısını yapılandırın veya değiştirin.",
+  "@helpTopicChangeDb": {
+    "description": "Descripción del comando joss change db"
+  },
+  "helpTopicRemoveCrud": "Oluşturulan bir CRUD modülünü temiz bir şekilde kaldırır: denetleyiciyi, modeli siler, gezinti çubuğundaki rotaları ve bağlantıları görüntüler ve kaldırır.",
+  "@helpTopicRemoveCrud": {
+    "description": "Descripción del comando remove:crud"
+  },
+  "helpTopicUserStorage": "Proje dosyası depolamasını yapılandırın ve senkronize edin.",
+  "@helpTopicUserStorage": {
+    "description": "Descripción del comando joss userstorage"
+  },
+  "helpTopicChangeDbMotor": "Veritabanı motorunu değiştirin (sqlite, mysql)",
+  "@helpTopicChangeDbMotor": {
+    "description": "Subcomando change db <motor>"
+  },
+  "helpTopicChangeDbMigrate": "Verileri ve şemayı yeni bir MySQL'e taşıyın",
+  "@helpTopicChangeDbMigrate": {
+    "description": "Subcomando change db migrate"
+  },
+  "helpTopicChangeDbPrefix": "Genel tablo önekini ayarlayın",
+  "@helpTopicChangeDbPrefix": {
+    "description": "Subcomando change db prefix"
+  },
+  "helpTopicUserStorageLocal": "Yerel disk depolama alanını yapılandırın",
+  "@helpTopicUserStorageLocal": {
+    "description": "Opción local de joss userstorage"
+  },
+  "helpTopicUserStorageOci": "Oracle Cloud Infrastructure'da depolamayı yapılandırma",
+  "@helpTopicUserStorageOci": {
+    "description": "Opción oci de joss userstorage"
+  },
+  "helpTopicUserStorageSyncLocal": "OCI dosyalarını yerel diske indirin",
+  "@helpTopicUserStorageSyncLocal": {
+    "description": "Opción sync-local de joss userstorage"
+  },
+  "helpTopicUserStorageSyncOci": "Yerel dosyaları OCI paketine yükleyin",
+  "@helpTopicUserStorageSyncOci": {
+    "description": "Opción sync-oci de joss userstorage"
+  },
+  "helpTopicPub": "Joss paketi ve bağımlılık yöneticisi.",
+  "@helpTopicPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "helpTopicPubAdd": "Joss.yaml'a bir bağımlılık ekleyin ve yükleyin",
+  "@helpTopicPubAdd": {
+    "description": "Subcomando pub add"
+  },
+  "helpTopicPubRemove": "Joss.yaml'dan bir bağımlılığı kaldırın",
+  "@helpTopicPubRemove": {
+    "description": "Subcomando pub remove"
+  },
+  "helpTopicPubInstall": "Joss.yaml bağımlılıklarını indirip yükleyin",
+  "@helpTopicPubInstall": {
+    "description": "Subcomando pub install"
+  },
+  "helpTopicPubUpdate": "Yüklü bağımlılıkları güncelle",
+  "@helpTopicPubUpdate": {
+    "description": "Subcomando pub update"
+  },
+  "helpTopicUpdate": "Joss ikili programını, SDK'yı ve resmi araçları güncelleyin.",
+  "@helpTopicUpdate": {
+    "description": "Descripción del comando joss update"
+  },
+  "helpTopicPackage": "Derlenmiş bir Joss paketinin meta verilerini, sembollerini ve bağımlılıklarını inceler.",
+  "@helpTopicPackage": {
+    "description": "Descripción del comando joss package inspect"
+  },
+  "helpTopicPlugin": "Yüklü eklentileri ve komutlarını görüntülemek için 'joss yardım eklentileri'ni kullanın.",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPubPublish": "Paketinizi resmi kayıt defterinde yayınlayın",
+  "@helpTopicPubPublish": {
+    "description": "Subcomando pub publish"
+  },
+  "helpTopicVersion": "Yüklü Joss sürümünü ve kod adını gösterir.",
+  "@helpTopicVersion": {
+    "description": "Descripción del comando joss version"
+  },
+  "helpTopicAiActivate": "Yapay Zeka sağlayıcılarını ve modellerini (Groq, OpenAI, Gemini) yapılandırın.",
+  "@helpTopicAiActivate": {
+    "description": "Descripción del comando joss ai:activate"
+  },
+  "helpTopicUpdateOptForce": "Yeniden yüklemeye zorla",
+  "@helpTopicUpdateOptForce": {
+    "description": "Opción --force de joss update"
+  },
+  "helpTopicNotFound": "'{cmd}_' komutu için özel bir yardım yoktur.",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  },
+  "helpTopicUpdateOptCanary": "En son geliştirme sürümüne güncelleyin",
+  "@helpTopicUpdateOptCanary": {
+    "description": "Opción --canary de joss update"
+  },
+  "helpTopicUpdateOptStable": "En son kararlı sürüme güncelleyin (varsayılan)",
+  "@helpTopicUpdateOptStable": {
+    "description": "Opción --stable de joss update"
+  },
+  "cliSectionExec": "ÇALIŞTIRMA VE REPL:",
+  "@cliSectionExec": {
+    "description": "Encabezado de sección de comandos de ejecución en el menú de ayuda"
+  },
+  "cliUsageLabel": "Kullanım:",
+  "@cliUsageLabel": {
+    "description": "Etiqueta para indicar el uso de un comando CLI"
+  },
+  "cliSectionQuality": "KOD KALİTESİ VE ARAÇLAR:",
+  "@cliSectionQuality": {
+    "description": "Encabezado de sección de calidad de código en el menú de ayuda"
+  },
+  "cliSectionScaffolding": "JENERATÖRLER VE YAPI (SCAFFOLDING):",
+  "@cliSectionScaffolding": {
+    "description": "Encabezado de sección de generadores en el menú de ayuda"
+  },
+  "cliSectionPackages": "PAKETLER VE EKLENTİLER:",
+  "@cliSectionPackages": {
+    "description": "Encabezado de sección de paquetes y plugins en el menú de ayuda"
+  },
+  "cliSectionDatabase": "VERİTABANI VE DEPOLAMA:",
+  "@cliSectionDatabase": {
+    "description": "Encabezado de sección de base de datos y almacenamiento en el menú de ayuda"
+  },
+  "cliSectionSystem": "SİSTEM VE YARDIMCI PROGRAMLAR:",
+  "@cliSectionSystem": {
+    "description": "Encabezado de sección de sistema y utilidades en el menú de ayuda"
+  },
+  "cliCmdCheck": "Kapsamlı doğrulama (biçim, sözdizimi, türler ve tüysüz)",
+  "@cliCmdCheck": {
+    "description": "Descripción breve del comando check en el menú de ayuda"
+  },
+  "cliCmdFix": "Güvenli otomatik düzeltmeler ve biçimlendirme uygulayın",
+  "@cliCmdFix": {
+    "description": "Descripción breve del comando fix en el menú de ayuda"
+  },
+  "cliCmdMakeController": "Bir web denetleyicisi oluşturun",
+  "@cliCmdMakeController": {
+    "description": "Descripción breve del comando make:controller en el menú de ayuda"
+  },
+  "cliCmdMakeModel": "Veri modeli oluşturma",
+  "@cliCmdMakeModel": {
+    "description": "Descripción breve del comando make:model en el menú de ayuda"
+  },
+  "cliCmdMakeView": "Görünüm şablonu oluşturma",
+  "@cliCmdMakeView": {
+    "description": "Descripción breve del comando make:view en el menú de ayuda"
+  },
+  "cliCmdMakeMiddleware": "HTTP ara yazılımı oluştur",
+  "@cliCmdMakeMiddleware": {
+    "description": "Descripción breve del comando make:middleware en el menú de ayuda"
+  },
+  "cliCmdMakeMvc": "Tek adımda Model, Görünüm ve Denetleyici Oluşturun",
+  "@cliCmdMakeMvc": {
+    "description": "Descripción breve del comando make:mvc en el menú de ayuda"
+  },
+  "cliCmdMakeCrud": "Rotalar ve görünümlerle eksiksiz CRUD oluşturun",
+  "@cliCmdMakeCrud": {
+    "description": "Descripción breve del comando make:crud en el menú de ayuda"
+  },
+  "cliCmdDbSeed": "Ekme makinelerini uygulama/veritabanı/seeder'lardan çalıştırın",
+  "@cliCmdDbSeed": {
+    "description": "Descripción breve del comando db:seed en el menú de ayuda"
+  },
+  "cliCmdPluginCompile": "Kodu .jp ikili paketine derleyin",
+  "@cliCmdPluginCompile": {
+    "description": "Descripción breve del comando plugin compile en el menú de ayuda"
+  },
+  "cliCmdChangeDbMigrate": "Mevcut bağlantıyı yeni bir MySQL'e taşıyın",
+  "@cliCmdChangeDbMigrate": {
+    "description": "Descripción breve del subcomando change db migrate en el menú de ayuda"
+  },
+  "cliCmdStorageSync": "Dosyaları Oracle Cloud ile senkronize edin",
+  "@cliCmdStorageSync": {
+    "description": "Descripción breve del subcomando userstorage sync en el menú de ayuda"
+  },
+  "cliCmdPluginInspect": "Bir eklentinin bayt kodunu ve sembollerini inceleyin",
+  "@cliCmdPluginInspect": {
+    "description": "Descripción breve del comando plugin inspect en el menú de ayuda"
+  },
+  "cliCmdPackageInspect": "Bir paketin meta verilerini ve imzalarını inceler",
+  "@cliCmdPackageInspect": {
+    "description": "Descripción breve del comando package inspect en el menú de ayuda"
+  },
+  "cliCmdHelpPlugins": "Eklentiler tarafından sağlanan komutları ve seçenekleri listeleyin",
+  "@cliCmdHelpPlugins": {
+    "description": "Descripción breve del comando help plugins en el menú de ayuda"
+  },
+  "cliCmdPluginVerify": "Bir eklentinin Ed25519 imzalarını ve bütünlüğünü doğrulama",
+  "@cliCmdPluginVerify": {
+    "description": "Descripción breve del comando plugin verify en el menú de ayuda"
+  },
+  "cliCmdUpdate": "Joss, SDK ve eklentilerin sürümünü güncelleyin",
+  "@cliCmdUpdate": {
+    "description": "Descripción breve del comando update en el menú de ayuda"
+  },
+  "cliCmdAiActivate": "Sağlayıcıları ve Yapay Zeka modellerini yapılandırma",
+  "@cliCmdAiActivate": {
+    "description": "Descripción breve del comando ai:activate en el menú de ayuda"
+  },
+  "cliHelpFooter": "Seçenekler ve örnekler için 'joss help <komut>' veya 'joss yardım eklentileri'ni kullanın.",
+  "@cliHelpFooter": {
+    "description": "Mensaje de pie de página en el menú de ayuda general"
+  },
+  "migrateFreshStarting": "Tüm tablolar siliniyor ve taşıma işlemleri sıfırdan başlatılıyor...",
+  "@migrateFreshStarting": {
+    "description": "Mensaje inicial del comando migrate:fresh"
+  },
+  "dbConnSuccess": "DB'ye bağlantı başarılı.",
+  "@dbConnSuccess": {
+    "description": "Mensaje cuando la conexión a la base de datos es exitosa"
+  },
+  "migrateFreshDroppingTables": "Tüm tablolar siliniyor...",
+  "@migrateFreshDroppingTables": {
+    "description": "Mensaje al eliminar tablas en migrate:fresh"
+  },
+  "migrateFreshSuccess": "Taşıma işlemleri başarıyla gerçekleştirildi!",
+  "@migrateFreshSuccess": {
+    "description": "Mensaje de éxito al completar migrate:fresh"
+  },
+  "dbConnError": "Hata: Veritabanına bağlanılamadı.",
+  "@dbConnError": {
+    "description": "Mensaje de error cuando falla la conexión a la base de datos"
+  },
+  "seedersRunning": "Ekim makineleri çalıştırılıyor...",
+  "@seedersRunning": {
+    "description": "Mensaje inicial al ejecutar seeders"
+  },
+  "seedersNotFound": "Uygulama/veritabanı/seeders/'de ekme makinesi bulunamadı",
+  "@seedersNotFound": {
+    "description": "Mensaje cuando el directorio de seeders está vacío"
   }
 }

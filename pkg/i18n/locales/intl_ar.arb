@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "حاول الآن باستخدام: joss run your_script.joss",
+  "aiTryScript": "حاول الآن باستخدام: joss run tu_script.joss",
   "@aiTryScript": {},
   "aiWizardConfig": "سيقوم هذا المعالج بتكوين الذكاء الاصطناعي الأصلي في مشروعك.",
   "@aiWizardConfig": {},
@@ -335,58 +335,6 @@
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliUsage": "الاستخدام: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
-  "cliUsageBuildPkg": "الاستخدام: حزمة بناء جوس [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageMakeController": "الاستخدام: شركة جوس: وحدة تحكم [الاسم]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageMakeCrud": "الاستخدام: جوس ماك: خام [الجدول]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageMakeMiddleware": "الاستخدام: joss make: البرامج الوسيطة [الاسم]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeMigration": "الاستخدام: صناعة جوس: الهجرة [الاسم]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
-  },
-  "cliUsageMakeModel": "الاستخدام: ماركة جوس: الموديل [الاسم]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "الاستخدام: جوس ماك: MVC [الاسم]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "الاستعمال: جوس ميك:عرض [الاسم]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageProgram": "الاستعمال: بدء برنامج جوس",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageRemoveCrud": "الاستعمال: إزالة جوس: الخام [الجدول]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageRun": "الاستخدام: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
-  "cliUsageServer": "الاستخدام: بدء تشغيل خادم جوس",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
   "compileProjectDist": "بناء المشروع للتوزيع",
   "@compileProjectDist": {
     "description": ""
@@ -573,5 +521,388 @@
   "version": "يظهر الإصدار الحالي",
   "@version": {
     "description": ""
+  },
+  "helpTopicReplExitHint": "الخروج من REPL التفاعلي",
+  "@helpTopicReplExitHint": {
+    "description": "Descripción del atajo exit/quit en el REPL"
+  },
+  "helpTopicReplCtrlCHint": "قاطع السطر الحالي أو اخرج من REPL",
+  "@helpTopicReplCtrlCHint": {
+    "description": "Descripción del atajo Ctrl+C en el REPL"
+  },
+  "helpTopicProgram": "ابدأ تشغيل التطبيق في وضع سطح المكتب.",
+  "@helpTopicProgram": {
+    "description": "Descripción del comando joss program"
+  },
+  "helpTopicRun": "يقوم بتشغيل برنامج Joss النصي مباشرة بعد التحقق من صحة بناء الجملة والتحليل الدلالي. أخطاء الكتابة تمنع التنفيذ؛ يتم الإبلاغ عن التحذيرات دون إيقافها.",
+  "@helpTopicRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "helpTopicBuild": "يجمع أو يحزم المشروع للإنتاج والتوزيع.",
+  "@helpTopicBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "helpTopicServer": "ابدأ تشغيل خادم ويب HTTP عالي الأداء عن طريق تشغيل نقطة الإدخال \"main.joss\". تحميل جميع برامج التشغيل والنماذج والمسارات تلقائيًا في التطبيق/. اضغط على \"q\" أو Ctrl+C في وحدة التحكم لإيقاف الخادم بأمان.",
+  "@helpTopicServer": {
+    "description": "Descripción del comando joss server"
+  },
+  "helpTopicRepl": "يبدأ تشغيل وحدة التحكم التفاعلية (حلقة القراءة-التقييم-الطباعة) الخاصة بـ Joss. يسمح لك بتقييم التعبيرات واختبار الوظائف وإعلان المتغيرات والتجربة في الوقت الفعلي.",
+  "@helpTopicRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "helpTopicBuildModeProgram": "تحضير نسخة سطح المكتب",
+  "@helpTopicBuildModeProgram": {
+    "description": "Descripción del modo program de joss build"
+  },
+  "helpTopicBuildModeNative": "تجميع ملف تنفيذي أصلي قائم بذاته",
+  "@helpTopicBuildModeNative": {
+    "description": "Descripción del modo native de joss build"
+  },
+  "helpTopicBuildModePackage": "قم بتعبئة مكتبة Joss بتنسيق .jp",
+  "@helpTopicBuildModePackage": {
+    "description": "Descripción del modo package de joss build"
+  },
+  "helpTopicBuildModeWeb": "إعداد الأصول والملفات لنشر الويب",
+  "@helpTopicBuildModeWeb": {
+    "description": "Descripción del modo web de joss build"
+  },
+  "helpTopicAnalyze": "إجراء تحليل دلالي صارم للمشروع دون تنفيذه. التحقق من اتساق الأنواع والمتغيرات غير المعلنة والتوقيعات وتدفق التحكم.",
+  "@helpTopicAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "helpTopicFormat": "تنسيق ملفات joss وفقًا لمعايير اللغة الأساسية.",
+  "@helpTopicFormat": {
+    "description": "Descripción del comando joss format"
+  },
+  "helpTopicLint": "يقوم بتشغيل التحليل الثابت ويكتشف مشكلات النمط والنوع والأمان.",
+  "@helpTopicLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "helpTopicFix": "يطبق الإصلاحات التلقائية الآمنة والتنسيق الأساسي.",
+  "@helpTopicFix": {
+    "description": "Descripción del comando joss fix"
+  },
+  "helpTopicFormatOptWrite": "كتابة التغييرات على الملف (الافتراضي عند تمرير ملف)",
+  "@helpTopicFormatOptWrite": {
+    "description": "Descripción de la opción --write de joss format"
+  },
+  "helpTopicFormatOptCheck": "التحقق من تنسيق الملفات دون تعديلها (مفيد في CI)",
+  "@helpTopicFormatOptCheck": {
+    "description": "Descripción de la opción --check de joss format"
+  },
+  "helpTopicLintOptJson": "يصدر التقرير التشخيصي بتنسيق JSON المنظم",
+  "@helpTopicLintOptJson": {
+    "description": "Descripción de la opción --json de joss lint"
+  },
+  "helpTopicTest": "قم بتشغيل مجموعة اختبار وتأكيد الوحدة الرسمية (*_test.joss).",
+  "@helpTopicTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "helpTopicNew": "يولد هيكل المشروع الجديد.",
+  "@helpTopicNew": {
+    "description": "Descripción del comando joss new"
+  },
+  "helpTopicFixOptDryRun": "يعرض التغييرات التي سيتم تطبيقها دون تعديل الملفات",
+  "@helpTopicFixOptDryRun": {
+    "description": "Descripción de la opción --dry-run de joss fix"
+  },
+  "helpTopicCheck": "يجري فحصًا شاملاً للجودة: التنسيق الأساسي، وبناء الجملة، والتحليل الدلالي الصارم، وقواعد linter.",
+  "@helpTopicCheck": {
+    "description": "Descripción del comando joss check"
+  },
+  "helpTopicTestOptFilter": "تصفية وتشغيل الاختبارات التي يحتوي اسمها على النص فقط",
+  "@helpTopicTestOptFilter": {
+    "description": "Descripción de la opción --filter de joss test"
+  },
+  "helpTopicNewTypeWeb": "إكمال مشروع ويب MVC (افتراضي)",
+  "@helpTopicNewTypeWeb": {
+    "description": "Tipo web de joss new"
+  },
+  "helpTopicMakeController": "قم بإنشاء وحدة تحكم ويب جديدة في التطبيق/وحدات التحكم/.",
+  "@helpTopicMakeController": {
+    "description": "Descripción del comando make:controller"
+  },
+  "helpTopicNewTypeConsole": "مشروع وحدة تحكم CLI",
+  "@helpTopicNewTypeConsole": {
+    "description": "Tipo console de joss new"
+  },
+  "helpTopicMakeModel": "قم بإنشاء نموذج ORM جديد في التطبيق/النماذج/.",
+  "@helpTopicMakeModel": {
+    "description": "Descripción del comando make:model"
+  },
+  "helpTopicMakeView": "قم بإنشاء قالب عرض جديد في التطبيق/طرق العرض/.",
+  "@helpTopicMakeView": {
+    "description": "Descripción del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "قم بإنشاء برنامج وسيط HTTP جديد في التطبيق/البرنامج الوسيط/.",
+  "@helpTopicMakeMiddleware": {
+    "description": "Descripción del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "يقوم في نفس الوقت بإنشاء النموذج والعرض ووحدة التحكم للكيان.",
+  "@helpTopicMakeMvc": {
+    "description": "Descripción del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "يقوم تلقائيًا بإنشاء النموذج وطرق العرض ووحدة التحكم والمسارات لجدول قاعدة البيانات. يكتشف المفاتيح الخارجية والأعمدة المرئية ويدخل روابط التنقل.",
+  "@helpTopicMakeCrud": {
+    "description": "Descripción del comando make:crud"
+  },
+  "helpTopicMakeMigration": "قم بإنشاء ملف ترحيل جديد بطابع زمني في التطبيق/قاعدة البيانات/migrations/.",
+  "@helpTopicMakeMigration": {
+    "description": "Descripción del comando make:migration"
+  },
+  "helpTopicNewTypePackage": "حزمة قابلة للتوزيع لنظام جوس البيئي",
+  "@helpTopicNewTypePackage": {
+    "description": "Tipo package de joss new"
+  },
+  "helpTopicNewTypePlugin": "البرنامج المساعد الأصلي مع التحويل البرمجي إلى .jp bytecode",
+  "@helpTopicNewTypePlugin": {
+    "description": "Tipo plugin de joss new"
+  },
+  "helpTopicMigrate": "تطبيق عمليات الترحيل المعلقة في التطبيق/قاعدة البيانات/الترحيلات.",
+  "@helpTopicMigrate": {
+    "description": "Descripción del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "احذف كافة جداول قاعدة البيانات وأعد تشغيل كافة عمليات الترحيل. مفيد أثناء التطوير لإعادة تعيين التخطيطي.",
+  "@helpTopicMigrateFresh": {
+    "description": "Descripción del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "يقوم بتشغيل بذارات المستوطنين المحددة في التطبيق/قاعدة البيانات/البذرات.",
+  "@helpTopicDbSeed": {
+    "description": "Descripción del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "تكوين أو تعديل اتصال قاعدة بيانات المشروع.",
+  "@helpTopicChangeDb": {
+    "description": "Descripción del comando joss change db"
+  },
+  "helpTopicRemoveCrud": "يزيل بشكل نظيف وحدة CRUD التي تم إنشاؤها: يحذف وحدة التحكم والنموذج وطرق العرض ويزيل المسارات والروابط من شريط التنقل.",
+  "@helpTopicRemoveCrud": {
+    "description": "Descripción del comando remove:crud"
+  },
+  "helpTopicUserStorage": "تكوين ومزامنة تخزين ملفات المشروع.",
+  "@helpTopicUserStorage": {
+    "description": "Descripción del comando joss userstorage"
+  },
+  "helpTopicChangeDbMotor": "تغيير محرك قاعدة البيانات (sqlite، mysql)",
+  "@helpTopicChangeDbMotor": {
+    "description": "Subcomando change db <motor>"
+  },
+  "helpTopicChangeDbMigrate": "ترحيل البيانات والمخطط إلى MySQL جديد",
+  "@helpTopicChangeDbMigrate": {
+    "description": "Subcomando change db migrate"
+  },
+  "helpTopicChangeDbPrefix": "قم بتعيين بادئة الجدول العالمية",
+  "@helpTopicChangeDbPrefix": {
+    "description": "Subcomando change db prefix"
+  },
+  "helpTopicUserStorageLocal": "تكوين تخزين القرص المحلي",
+  "@helpTopicUserStorageLocal": {
+    "description": "Opción local de joss userstorage"
+  },
+  "helpTopicUserStorageOci": "تكوين التخزين في Oracle Cloud Infrastructure",
+  "@helpTopicUserStorageOci": {
+    "description": "Opción oci de joss userstorage"
+  },
+  "helpTopicUserStorageSyncLocal": "قم بتنزيل ملفات OCI على القرص المحلي",
+  "@helpTopicUserStorageSyncLocal": {
+    "description": "Opción sync-local de joss userstorage"
+  },
+  "helpTopicUserStorageSyncOci": "قم بتحميل الملفات المحلية إلى مجموعة OCI",
+  "@helpTopicUserStorageSyncOci": {
+    "description": "Opción sync-oci de joss userstorage"
+  },
+  "helpTopicPub": "حزمة جوس ومدير التبعية",
+  "@helpTopicPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "helpTopicPubAdd": "أضف تبعية إلى joss.yaml وقم بتثبيتها",
+  "@helpTopicPubAdd": {
+    "description": "Subcomando pub add"
+  },
+  "helpTopicPubRemove": "قم بإزالة التبعية من joss.yaml",
+  "@helpTopicPubRemove": {
+    "description": "Subcomando pub remove"
+  },
+  "helpTopicPubInstall": "قم بتنزيل وتثبيت تبعيات joss.yaml",
+  "@helpTopicPubInstall": {
+    "description": "Subcomando pub install"
+  },
+  "helpTopicPubUpdate": "تحديث التبعيات المثبتة",
+  "@helpTopicPubUpdate": {
+    "description": "Subcomando pub update"
+  },
+  "helpTopicUpdate": "قم بتحديث Joss Binary وSDK والأدوات الرسمية.",
+  "@helpTopicUpdate": {
+    "description": "Descripción del comando joss update"
+  },
+  "helpTopicPackage": "يفحص البيانات التعريفية والرموز والتبعيات لحزمة Joss المترجمة.",
+  "@helpTopicPackage": {
+    "description": "Descripción del comando joss package inspect"
+  },
+  "helpTopicPlugin": "لعرض المكونات الإضافية المثبتة وأوامرها، استخدم \"joss help plugins\".",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPubPublish": "انشر الحزمة الخاصة بك في السجل الرسمي",
+  "@helpTopicPubPublish": {
+    "description": "Subcomando pub publish"
+  },
+  "helpTopicVersion": "يُظهر إصدار Joss المثبت والاسم الرمزي الخاص به.",
+  "@helpTopicVersion": {
+    "description": "Descripción del comando joss version"
+  },
+  "helpTopicAiActivate": "تكوين موفري ونماذج الذكاء الاصطناعي (Groq، OpenAI، Gemini).",
+  "@helpTopicAiActivate": {
+    "description": "Descripción del comando joss ai:activate"
+  },
+  "helpTopicUpdateOptForce": "فرض إعادة التثبيت",
+  "@helpTopicUpdateOptForce": {
+    "description": "Opción --force de joss update"
+  },
+  "helpTopicNotFound": "لا توجد مساعدة محددة للأمر '_{cmd}_'.",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  },
+  "helpTopicUpdateOptCanary": "التحديث إلى أحدث إصدار التطوير",
+  "@helpTopicUpdateOptCanary": {
+    "description": "Opción --canary de joss update"
+  },
+  "helpTopicUpdateOptStable": "التحديث إلى أحدث إصدار ثابت (افتراضي)",
+  "@helpTopicUpdateOptStable": {
+    "description": "Opción --stable de joss update"
+  },
+  "cliSectionExec": "التنفيذ و REPL:",
+  "@cliSectionExec": {
+    "description": "Encabezado de sección de comandos de ejecución en el menú de ayuda"
+  },
+  "cliUsageLabel": "الاستخدام:",
+  "@cliUsageLabel": {
+    "description": "Etiqueta para indicar el uso de un comando CLI"
+  },
+  "cliSectionQuality": "جودة الكود والأدوات:",
+  "@cliSectionQuality": {
+    "description": "Encabezado de sección de calidad de código en el menú de ayuda"
+  },
+  "cliSectionScaffolding": "المولدات والبنية (SCAFFOLDING):",
+  "@cliSectionScaffolding": {
+    "description": "Encabezado de sección de generadores en el menú de ayuda"
+  },
+  "cliSectionPackages": "الحزم والمكونات الإضافية:",
+  "@cliSectionPackages": {
+    "description": "Encabezado de sección de paquetes y plugins en el menú de ayuda"
+  },
+  "cliSectionDatabase": "قاعدة البيانات والتخزين:",
+  "@cliSectionDatabase": {
+    "description": "Encabezado de sección de base de datos y almacenamiento en el menú de ayuda"
+  },
+  "cliSectionSystem": "النظام والمرافق:",
+  "@cliSectionSystem": {
+    "description": "Encabezado de sección de sistema y utilidades en el menú de ayuda"
+  },
+  "cliCmdCheck": "التحقق الشامل (التنسيق وبناء الجملة والأنواع والوبر)",
+  "@cliCmdCheck": {
+    "description": "Descripción breve del comando check en el menú de ayuda"
+  },
+  "cliCmdFix": "تطبيق التصحيحات والتنسيقات التلقائية الآمنة",
+  "@cliCmdFix": {
+    "description": "Descripción breve del comando fix en el menú de ayuda"
+  },
+  "cliCmdMakeController": "إنشاء وحدة تحكم ويب",
+  "@cliCmdMakeController": {
+    "description": "Descripción breve del comando make:controller en el menú de ayuda"
+  },
+  "cliCmdMakeModel": "إنشاء نموذج بيانات",
+  "@cliCmdMakeModel": {
+    "description": "Descripción breve del comando make:model en el menú de ayuda"
+  },
+  "cliCmdMakeView": "إنشاء قالب عرض",
+  "@cliCmdMakeView": {
+    "description": "Descripción breve del comando make:view en el menú de ayuda"
+  },
+  "cliCmdMakeMiddleware": "إنشاء وسيطة HTTP",
+  "@cliCmdMakeMiddleware": {
+    "description": "Descripción breve del comando make:middleware en el menú de ayuda"
+  },
+  "cliCmdMakeMvc": "قم بإنشاء النموذج والعرض ووحدة التحكم في خطوة واحدة",
+  "@cliCmdMakeMvc": {
+    "description": "Descripción breve del comando make:mvc en el menú de ayuda"
+  },
+  "cliCmdMakeCrud": "إنشاء CRUD كاملة مع الطرق ووجهات النظر",
+  "@cliCmdMakeCrud": {
+    "description": "Descripción breve del comando make:crud en el menú de ayuda"
+  },
+  "cliCmdDbSeed": "قم بتشغيل البذر من التطبيق/قاعدة البيانات/البذارة",
+  "@cliCmdDbSeed": {
+    "description": "Descripción breve del comando db:seed en el menú de ayuda"
+  },
+  "cliCmdPluginCompile": "ترجمة التعليمات البرمجية إلى الحزمة الثنائية .jp",
+  "@cliCmdPluginCompile": {
+    "description": "Descripción breve del comando plugin compile en el menú de ayuda"
+  },
+  "cliCmdChangeDbMigrate": "ترحيل الاتصال الحالي إلى MySQL جديد",
+  "@cliCmdChangeDbMigrate": {
+    "description": "Descripción breve del subcomando change db migrate en el menú de ayuda"
+  },
+  "cliCmdStorageSync": "مزامنة الملفات مع Oracle Cloud",
+  "@cliCmdStorageSync": {
+    "description": "Descripción breve del subcomando userstorage sync en el menú de ayuda"
+  },
+  "cliCmdPluginInspect": "فحص الرمز الثانوي ورموز البرنامج المساعد",
+  "@cliCmdPluginInspect": {
+    "description": "Descripción breve del comando plugin inspect en el menú de ayuda"
+  },
+  "cliCmdPackageInspect": "يفحص البيانات التعريفية والتوقيعات الخاصة بالحزمة",
+  "@cliCmdPackageInspect": {
+    "description": "Descripción breve del comando package inspect en el menú de ayuda"
+  },
+  "cliCmdHelpPlugins": "سرد الأوامر والخيارات التي توفرها المكونات الإضافية",
+  "@cliCmdHelpPlugins": {
+    "description": "Descripción breve del comando help plugins en el menú de ayuda"
+  },
+  "cliCmdPluginVerify": "تحقق من توقيعات Ed25519 وسلامة المكون الإضافي",
+  "@cliCmdPluginVerify": {
+    "description": "Descripción breve del comando plugin verify en el menú de ayuda"
+  },
+  "cliCmdUpdate": "قم بتحديث إصدار Joss وSDK والمكونات الإضافية",
+  "@cliCmdUpdate": {
+    "description": "Descripción breve del comando update en el menú de ayuda"
+  },
+  "cliCmdAiActivate": "تكوين مقدمي الخدمات ونماذج الذكاء الاصطناعي",
+  "@cliCmdAiActivate": {
+    "description": "Descripción breve del comando ai:activate en el menú de ayuda"
+  },
+  "cliHelpFooter": "استخدم \"joss help <command>\" أو \"joss help plugins\" للحصول على الخيارات والأمثلة.",
+  "@cliHelpFooter": {
+    "description": "Mensaje de pie de página en el menú de ayuda general"
+  },
+  "migrateFreshStarting": "حذف كافة الجداول وتشغيل عمليات الترحيل من البداية...",
+  "@migrateFreshStarting": {
+    "description": "Mensaje inicial del comando migrate:fresh"
+  },
+  "dbConnSuccess": "تم الاتصال بقاعدة البيانات بنجاح.",
+  "@dbConnSuccess": {
+    "description": "Mensaje cuando la conexión a la base de datos es exitosa"
+  },
+  "migrateFreshDroppingTables": "جارٍ حذف جميع الجداول...",
+  "@migrateFreshDroppingTables": {
+    "description": "Mensaje al eliminar tablas en migrate:fresh"
+  },
+  "migrateFreshSuccess": "تم تنفيذ عمليات الترحيل بنجاح!",
+  "@migrateFreshSuccess": {
+    "description": "Mensaje de éxito al completar migrate:fresh"
+  },
+  "dbConnError": "خطأ: تعذر الاتصال بقاعدة البيانات.",
+  "@dbConnError": {
+    "description": "Mensaje de error cuando falla la conexión a la base de datos"
+  },
+  "seedersRunning": "تشغيل البذر...",
+  "@seedersRunning": {
+    "description": "Mensaje inicial al ejecutar seeders"
+  },
+  "seedersNotFound": "لم يتم العثور على بذارات في التطبيق/قاعدة البيانات/البذارات/",
+  "@seedersNotFound": {
+    "description": "Mensaje cuando el directorio de seeders está vacío"
   }
 }

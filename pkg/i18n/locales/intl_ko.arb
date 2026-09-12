@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "지금 사용해 보세요: joss run your_script.joss",
+  "aiTryScript": "지금 사용해 보세요: joss run tu_script.joss",
   "@aiTryScript": {},
   "aiWizardConfig": "이 마법사는 프로젝트의 기본 AI를 구성합니다.",
   "@aiWizardConfig": {},
@@ -335,58 +335,6 @@
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliUsage": "사용법: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
-  "cliUsageBuildPkg": "사용법: joss 빌드 패키지 [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageMakeController": "사용법: joss make:controller [이름]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageMakeCrud": "사용법: joss make:crud [테이블]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageMakeMiddleware": "사용법: joss make:middleware [이름]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeMigration": "사용법: joss make:migration [이름]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
-  },
-  "cliUsageMakeModel": "사용법: joss make:model [이름]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "사용법: joss make:mvc [이름]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "사용법: joss make:view [이름]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageProgram": "사용법: 조스 프로그램 시작",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageRemoveCrud": "사용법: joss Remove:crud [테이블]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageRun": "사용법: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
-  "cliUsageServer": "사용법: 조스 서버 시작",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
   "compileProjectDist": "배포용 프로젝트 빌드",
   "@compileProjectDist": {
     "description": ""
@@ -573,5 +521,388 @@
   "version": "현재 버전을 표시합니다",
   "@version": {
     "description": ""
+  },
+  "helpTopicReplExitHint": "대화형 REPL 종료",
+  "@helpTopicReplExitHint": {
+    "description": "Descripción del atajo exit/quit en el REPL"
+  },
+  "helpTopicReplCtrlCHint": "현재 라인을 중단하거나 REPL을 종료합니다",
+  "@helpTopicReplCtrlCHint": {
+    "description": "Descripción del atajo Ctrl+C en el REPL"
+  },
+  "helpTopicProgram": "데스크톱 모드에서 애플리케이션을 시작합니다.",
+  "@helpTopicProgram": {
+    "description": "Descripción del comando joss program"
+  },
+  "helpTopicRun": "구문 및 의미 분석을 검증한 후 직접 Joss 스크립트를 실행합니다. 유형 오류로 인해 실행이 차단됩니다. 경고는 중지하지 않고 보고됩니다.",
+  "@helpTopicRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "helpTopicBuild": "생산 및 배포를 위해 프로젝트를 컴파일하거나 패키징합니다.",
+  "@helpTopicBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "helpTopicServer": "'main.joss' 진입점을 실행하여 고성능 HTTP 웹 서버를 시작합니다. app/의 모든 드라이버, 모델 및 경로를 자동으로 로드합니다. 서버를 안전하게 중지하려면 콘솔에서 'q' 또는 Ctrl+C를 누르세요.",
+  "@helpTopicServer": {
+    "description": "Descripción del comando joss server"
+  },
+  "helpTopicRepl": "Joss의 대화형 콘솔(읽기-평가-인쇄 루프)을 시작합니다. 이를 통해 실시간으로 표현식을 평가하고, 함수를 테스트하고, 변수를 선언하고 실험할 수 있습니다.",
+  "@helpTopicRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "helpTopicBuildModeProgram": "데스크톱 버전 준비",
+  "@helpTopicBuildModeProgram": {
+    "description": "Descripción del modo program de joss build"
+  },
+  "helpTopicBuildModeNative": "독립적인 네이티브 실행 파일 컴파일",
+  "@helpTopicBuildModeNative": {
+    "description": "Descripción del modo native de joss build"
+  },
+  "helpTopicBuildModePackage": "Joss 라이브러리를 .jp 형식으로 패키징",
+  "@helpTopicBuildModePackage": {
+    "description": "Descripción del modo package de joss build"
+  },
+  "helpTopicBuildModeWeb": "웹 배포를 위한 자산 및 파일 준비",
+  "@helpTopicBuildModeWeb": {
+    "description": "Descripción del modo web de joss build"
+  },
+  "helpTopicAnalyze": "프로젝트를 실행하지 않고 엄격한 의미론적 분석을 수행합니다. 유형, 선언되지 않은 변수, 서명 및 제어 흐름의 일관성을 확인합니다.",
+  "@helpTopicAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "helpTopicFormat": "표준 언어 표준에 따라 .joss 파일 형식을 지정합니다.",
+  "@helpTopicFormat": {
+    "description": "Descripción del comando joss format"
+  },
+  "helpTopicLint": "정적 분석을 실행하고 스타일, 유형 및 보안 문제를 감지합니다.",
+  "@helpTopicLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "helpTopicFix": "안전한 자동 수정 및 표준 형식을 적용합니다.",
+  "@helpTopicFix": {
+    "description": "Descripción del comando joss fix"
+  },
+  "helpTopicFormatOptWrite": "파일에 변경 사항 쓰기(파일을 전달할 때 기본값)",
+  "@helpTopicFormatOptWrite": {
+    "description": "Descripción de la opción --write de joss format"
+  },
+  "helpTopicFormatOptCheck": "파일을 수정하지 않고 포맷되었는지 확인(CI에 유용)",
+  "@helpTopicFormatOptCheck": {
+    "description": "Descripción de la opción --check de joss format"
+  },
+  "helpTopicLintOptJson": "구조화된 JSON 형식으로 진단 보고서를 발행합니다.",
+  "@helpTopicLintOptJson": {
+    "description": "Descripción de la opción --json de joss lint"
+  },
+  "helpTopicTest": "공식 단위 테스트 및 어설션 모음(*_test.joss)을 실행합니다.",
+  "@helpTopicTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "helpTopicNew": "새로운 프로젝트 구조를 생성합니다.",
+  "@helpTopicNew": {
+    "description": "Descripción del comando joss new"
+  },
+  "helpTopicFixOptDryRun": "파일을 수정하지 않고 적용할 변경 사항을 표시합니다.",
+  "@helpTopicFixOptDryRun": {
+    "description": "Descripción de la opción --dry-run de joss fix"
+  },
+  "helpTopicCheck": "표준 형식, 구문, 엄격한 의미 분석 및 린터 규칙 등 포괄적인 품질 검사를 실행합니다.",
+  "@helpTopicCheck": {
+    "description": "Descripción del comando joss check"
+  },
+  "helpTopicTestOptFilter": "이름에 텍스트가 포함된 테스트만 필터링하고 실행합니다.",
+  "@helpTopicTestOptFilter": {
+    "description": "Descripción de la opción --filter de joss test"
+  },
+  "helpTopicNewTypeWeb": "MVC 웹 프로젝트 완료(기본값)",
+  "@helpTopicNewTypeWeb": {
+    "description": "Tipo web de joss new"
+  },
+  "helpTopicMakeController": "app/controllers/에서 새 웹 컨트롤러를 생성합니다.",
+  "@helpTopicMakeController": {
+    "description": "Descripción del comando make:controller"
+  },
+  "helpTopicNewTypeConsole": "CLI 콘솔 프로젝트",
+  "@helpTopicNewTypeConsole": {
+    "description": "Tipo console de joss new"
+  },
+  "helpTopicMakeModel": "app/models/에서 새 ORM 모델을 생성합니다.",
+  "@helpTopicMakeModel": {
+    "description": "Descripción del comando make:model"
+  },
+  "helpTopicMakeView": "app/views/에 새 보기 템플릿을 생성합니다.",
+  "@helpTopicMakeView": {
+    "description": "Descripción del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "app/middleware/에 새로운 HTTP 미들웨어를 생성합니다.",
+  "@helpTopicMakeMiddleware": {
+    "description": "Descripción del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "엔터티에 대한 모델, 뷰 및 컨트롤러를 동시에 생성합니다.",
+  "@helpTopicMakeMvc": {
+    "description": "Descripción del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "데이터베이스 테이블에 대한 모델, 뷰, 컨트롤러 및 경로를 자동으로 생성합니다. 외래 키, 표시되는 열을 감지하고 탐색 링크를 삽입합니다.",
+  "@helpTopicMakeCrud": {
+    "description": "Descripción del comando make:crud"
+  },
+  "helpTopicMakeMigration": "app/database/migrations/에 타임스탬프가 포함된 새 마이그레이션 파일을 생성합니다.",
+  "@helpTopicMakeMigration": {
+    "description": "Descripción del comando make:migration"
+  },
+  "helpTopicNewTypePackage": "Joss 생태계를 위한 배포 가능 패키지",
+  "@helpTopicNewTypePackage": {
+    "description": "Tipo package de joss new"
+  },
+  "helpTopicNewTypePlugin": ".jp 바이트코드로 컴파일되는 네이티브 플러그인",
+  "@helpTopicNewTypePlugin": {
+    "description": "Tipo plugin de joss new"
+  },
+  "helpTopicMigrate": "앱/데이터베이스/마이그레이션에서 보류 중인 마이그레이션을 적용합니다.",
+  "@helpTopicMigrate": {
+    "description": "Descripción del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "모든 데이터베이스 테이블을 삭제하고 모든 마이그레이션을 다시 실행합니다. 개발 중에 회로도를 재설정하는 데 유용합니다.",
+  "@helpTopicMigrateFresh": {
+    "description": "Descripción del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "app/database/seeders에 정의된 정착민 시더를 실행합니다.",
+  "@helpTopicDbSeed": {
+    "description": "Descripción del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "프로젝트의 데이터베이스 연결을 구성하거나 수정합니다.",
+  "@helpTopicChangeDb": {
+    "description": "Descripción del comando joss change db"
+  },
+  "helpTopicRemoveCrud": "생성된 CRUD 모듈을 완전히 제거합니다. 컨트롤러, 모델, 보기를 삭제하고 탐색 모음에서 경로와 링크를 제거합니다.",
+  "@helpTopicRemoveCrud": {
+    "description": "Descripción del comando remove:crud"
+  },
+  "helpTopicUserStorage": "프로젝트 파일 저장소를 구성하고 동기화합니다.",
+  "@helpTopicUserStorage": {
+    "description": "Descripción del comando joss userstorage"
+  },
+  "helpTopicChangeDbMotor": "데이터베이스 엔진 변경(sqlite, mysql)",
+  "@helpTopicChangeDbMotor": {
+    "description": "Subcomando change db <motor>"
+  },
+  "helpTopicChangeDbMigrate": "데이터와 스키마를 새로운 MySQL로 마이그레이션",
+  "@helpTopicChangeDbMigrate": {
+    "description": "Subcomando change db migrate"
+  },
+  "helpTopicChangeDbPrefix": "전역 테이블 접두사 설정",
+  "@helpTopicChangeDbPrefix": {
+    "description": "Subcomando change db prefix"
+  },
+  "helpTopicUserStorageLocal": "로컬 디스크 스토리지 구성",
+  "@helpTopicUserStorageLocal": {
+    "description": "Opción local de joss userstorage"
+  },
+  "helpTopicUserStorageOci": "Oracle Cloud Infrastructure에서 스토리지 구성",
+  "@helpTopicUserStorageOci": {
+    "description": "Opción oci de joss userstorage"
+  },
+  "helpTopicUserStorageSyncLocal": "OCI 파일을 로컬 디스크에 다운로드",
+  "@helpTopicUserStorageSyncLocal": {
+    "description": "Opción sync-local de joss userstorage"
+  },
+  "helpTopicUserStorageSyncOci": "OCI 버킷에 로컬 파일 업로드",
+  "@helpTopicUserStorageSyncOci": {
+    "description": "Opción sync-oci de joss userstorage"
+  },
+  "helpTopicPub": "Joss 패키지 및 종속성 관리자.",
+  "@helpTopicPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "helpTopicPubAdd": "joss.yaml에 종속성을 추가하고 설치합니다.",
+  "@helpTopicPubAdd": {
+    "description": "Subcomando pub add"
+  },
+  "helpTopicPubRemove": "joss.yaml에서 종속성 제거",
+  "@helpTopicPubRemove": {
+    "description": "Subcomando pub remove"
+  },
+  "helpTopicPubInstall": "joss.yaml 종속성 다운로드 및 설치",
+  "@helpTopicPubInstall": {
+    "description": "Subcomando pub install"
+  },
+  "helpTopicPubUpdate": "설치된 종속성 업데이트",
+  "@helpTopicPubUpdate": {
+    "description": "Subcomando pub update"
+  },
+  "helpTopicUpdate": "Joss 바이너리, SDK 및 공식 도구를 업데이트하세요.",
+  "@helpTopicUpdate": {
+    "description": "Descripción del comando joss update"
+  },
+  "helpTopicPackage": "컴파일된 Joss 패키지의 메타데이터, 기호 및 종속성을 검사합니다.",
+  "@helpTopicPackage": {
+    "description": "Descripción del comando joss package inspect"
+  },
+  "helpTopicPlugin": "설치된 플러그인과 해당 명령을 보려면 'joss help 플러그인'을 사용하십시오.",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPubPublish": "공식 레지스트리에 패키지 게시",
+  "@helpTopicPubPublish": {
+    "description": "Subcomando pub publish"
+  },
+  "helpTopicVersion": "설치된 Joss의 버전과 코드명이 표시됩니다.",
+  "@helpTopicVersion": {
+    "description": "Descripción del comando joss version"
+  },
+  "helpTopicAiActivate": "인공 지능 공급자 및 모델(Groq, OpenAI, Gemini)을 구성합니다.",
+  "@helpTopicAiActivate": {
+    "description": "Descripción del comando joss ai:activate"
+  },
+  "helpTopicUpdateOptForce": "강제 재설치",
+  "@helpTopicUpdateOptForce": {
+    "description": "Opción --force de joss update"
+  },
+  "helpTopicNotFound": "'{cmd}' 명령에 대한 구체적인 도움말은 없습니다.",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  },
+  "helpTopicUpdateOptCanary": "최신 개발 버전으로 업데이트",
+  "@helpTopicUpdateOptCanary": {
+    "description": "Opción --canary de joss update"
+  },
+  "helpTopicUpdateOptStable": "최신 안정 버전으로 업데이트(기본값)",
+  "@helpTopicUpdateOptStable": {
+    "description": "Opción --stable de joss update"
+  },
+  "cliSectionExec": "실행 및 REPL:",
+  "@cliSectionExec": {
+    "description": "Encabezado de sección de comandos de ejecución en el menú de ayuda"
+  },
+  "cliUsageLabel": "사용법:",
+  "@cliUsageLabel": {
+    "description": "Etiqueta para indicar el uso de un comando CLI"
+  },
+  "cliSectionQuality": "코드 품질 및 툴링:",
+  "@cliSectionQuality": {
+    "description": "Encabezado de sección de calidad de código en el menú de ayuda"
+  },
+  "cliSectionScaffolding": "발전기 및 구조 (SCAFFOLDING):",
+  "@cliSectionScaffolding": {
+    "description": "Encabezado de sección de generadores en el menú de ayuda"
+  },
+  "cliSectionPackages": "패키지 및 플러그인:",
+  "@cliSectionPackages": {
+    "description": "Encabezado de sección de paquetes y plugins en el menú de ayuda"
+  },
+  "cliSectionDatabase": "데이터베이스 및 스토리지:",
+  "@cliSectionDatabase": {
+    "description": "Encabezado de sección de base de datos y almacenamiento en el menú de ayuda"
+  },
+  "cliSectionSystem": "시스템 및 유틸리티:",
+  "@cliSectionSystem": {
+    "description": "Encabezado de sección de sistema y utilidades en el menú de ayuda"
+  },
+  "cliCmdCheck": "종합 검증(형식, 구문, 유형 및 Lint)",
+  "@cliCmdCheck": {
+    "description": "Descripción breve del comando check en el menú de ayuda"
+  },
+  "cliCmdFix": "안전한 자동 수정 및 서식 적용",
+  "@cliCmdFix": {
+    "description": "Descripción breve del comando fix en el menú de ayuda"
+  },
+  "cliCmdMakeController": "웹 컨트롤러 생성",
+  "@cliCmdMakeController": {
+    "description": "Descripción breve del comando make:controller en el menú de ayuda"
+  },
+  "cliCmdMakeModel": "데이터 모델 생성",
+  "@cliCmdMakeModel": {
+    "description": "Descripción breve del comando make:model en el menú de ayuda"
+  },
+  "cliCmdMakeView": "뷰 템플릿 생성",
+  "@cliCmdMakeView": {
+    "description": "Descripción breve del comando make:view en el menú de ayuda"
+  },
+  "cliCmdMakeMiddleware": "HTTP 미들웨어 생성",
+  "@cliCmdMakeMiddleware": {
+    "description": "Descripción breve del comando make:middleware en el menú de ayuda"
+  },
+  "cliCmdMakeMvc": "한 단계로 모델, 뷰 및 컨트롤러 생성",
+  "@cliCmdMakeMvc": {
+    "description": "Descripción breve del comando make:mvc en el menú de ayuda"
+  },
+  "cliCmdMakeCrud": "경로와 보기로 완전한 CRUD 생성",
+  "@cliCmdMakeCrud": {
+    "description": "Descripción breve del comando make:crud en el menú de ayuda"
+  },
+  "cliCmdDbSeed": "앱/데이터베이스/시더에서 시더 실행",
+  "@cliCmdDbSeed": {
+    "description": "Descripción breve del comando db:seed en el menú de ayuda"
+  },
+  "cliCmdPluginCompile": "코드를 .jp 바이너리 패키지로 컴파일",
+  "@cliCmdPluginCompile": {
+    "description": "Descripción breve del comando plugin compile en el menú de ayuda"
+  },
+  "cliCmdChangeDbMigrate": "현재 연결을 새 MySQL로 마이그레이션",
+  "@cliCmdChangeDbMigrate": {
+    "description": "Descripción breve del subcomando change db migrate en el menú de ayuda"
+  },
+  "cliCmdStorageSync": "Oracle Cloud와 파일 동기화",
+  "@cliCmdStorageSync": {
+    "description": "Descripción breve del subcomando userstorage sync en el menú de ayuda"
+  },
+  "cliCmdPluginInspect": "플러그인의 바이트코드 및 기호 검사",
+  "@cliCmdPluginInspect": {
+    "description": "Descripción breve del comando plugin inspect en el menú de ayuda"
+  },
+  "cliCmdPackageInspect": "패키지의 메타데이터 및 서명을 검사합니다.",
+  "@cliCmdPackageInspect": {
+    "description": "Descripción breve del comando package inspect en el menú de ayuda"
+  },
+  "cliCmdHelpPlugins": "플러그인에서 제공하는 명령 및 옵션 나열",
+  "@cliCmdHelpPlugins": {
+    "description": "Descripción breve del comando help plugins en el menú de ayuda"
+  },
+  "cliCmdPluginVerify": "Ed25519 서명 및 플러그인 무결성 확인",
+  "@cliCmdPluginVerify": {
+    "description": "Descripción breve del comando plugin verify en el menú de ayuda"
+  },
+  "cliCmdUpdate": "Joss, SDK 및 플러그인 버전 업데이트",
+  "@cliCmdUpdate": {
+    "description": "Descripción breve del comando update en el menú de ayuda"
+  },
+  "cliCmdAiActivate": "공급자 및 인공 지능 모델 구성",
+  "@cliCmdAiActivate": {
+    "description": "Descripción breve del comando ai:activate en el menú de ayuda"
+  },
+  "cliHelpFooter": "옵션과 예시를 보려면 'joss help <command>' 또는 'joss help 플러그인'을 사용하세요.",
+  "@cliHelpFooter": {
+    "description": "Mensaje de pie de página en el menú de ayuda general"
+  },
+  "migrateFreshStarting": "모든 테이블을 삭제하고 처음부터 마이그레이션을 실행하는 중...",
+  "@migrateFreshStarting": {
+    "description": "Mensaje inicial del comando migrate:fresh"
+  },
+  "dbConnSuccess": "DB 연결에 성공했습니다.",
+  "@dbConnSuccess": {
+    "description": "Mensaje cuando la conexión a la base de datos es exitosa"
+  },
+  "migrateFreshDroppingTables": "모든 테이블을 삭제하는 중...",
+  "@migrateFreshDroppingTables": {
+    "description": "Mensaje al eliminar tablas en migrate:fresh"
+  },
+  "migrateFreshSuccess": "마이그레이션이 성공적으로 실행되었습니다!",
+  "@migrateFreshSuccess": {
+    "description": "Mensaje de éxito al completar migrate:fresh"
+  },
+  "dbConnError": "오류: 데이터베이스에 연결할 수 없습니다.",
+  "@dbConnError": {
+    "description": "Mensaje de error cuando falla la conexión a la base de datos"
+  },
+  "seedersRunning": "시더를 실행 중입니다...",
+  "@seedersRunning": {
+    "description": "Mensaje inicial al ejecutar seeders"
+  },
+  "seedersNotFound": "앱/데이터베이스/seeders/에 시더가 없습니다.",
+  "@seedersNotFound": {
+    "description": "Mensaje cuando el directorio de seeders está vacío"
   }
 }

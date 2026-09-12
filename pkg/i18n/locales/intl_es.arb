@@ -240,10 +240,6 @@
   "@cliAppTitle": {
     "description": "Título principal mostrado en la ayuda de la CLI"
   },
-  "cliUsage": "Uso: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
   "cliCmdRepl": "Inicia la consola interactiva (REPL)",
   "@cliCmdRepl": {
     "description": "Descripción del comando joss repl"
@@ -296,10 +292,6 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliUsageRun": "Uso: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
   "cliErrRequireMain": "Todos los proyectos deben tener un punto de entrada 'main.joss' que inicie el servidor.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
@@ -311,50 +303,6 @@
   "cliErrNoMain": "Error: No se encontró 'main.joss'.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
-  },
-  "cliUsageServer": "Uso: joss server start",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
-  "cliUsageMakeController": "Uso: joss make:controller [Nombre]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageBuildPkg": "Uso: joss build package [ruta_del_paquete]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageProgram": "Uso: joss program start",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageMakeModel": "Uso: joss make:model [Nombre]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "Uso: joss make:mvc [Nombre]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "Uso: joss make:view [Nombre]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageMakeMiddleware": "Uso: joss make:middleware [Nombre]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeCrud": "Uso: joss make:crud [Tabla]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageRemoveCrud": "Uso: joss remove:crud [Tabla]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageMakeMigration": "Uso: joss make:migration [Nombre]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
   },
   "checkVerifying": "[CHECK] Verificando proyecto en '{path}' (parse, semantic analysis, types, lint, format)...",
   "@checkVerifying": {
@@ -573,5 +521,388 @@
   "pkgInspectJpV1Deprecated": "Error: El formato de paquete JP v1 fue eliminado. Joss requiere el formato estructurado y firmado JP v2.",
   "@pkgInspectJpV1Deprecated": {
     "description": "Aviso de versión obsoleta JP v1"
+  },
+  "helpTopicReplExitHint": "Sale del REPL interactivo",
+  "@helpTopicReplExitHint": {
+    "description": "Descripción del atajo exit/quit en el REPL"
+  },
+  "helpTopicReplCtrlCHint": "Interrumpe la línea actual o sale del REPL",
+  "@helpTopicReplCtrlCHint": {
+    "description": "Descripción del atajo Ctrl+C en el REPL"
+  },
+  "helpTopicProgram": "Inicia la aplicación en modo escritorio.",
+  "@helpTopicProgram": {
+    "description": "Descripción del comando joss program"
+  },
+  "helpTopicRun": "Ejecuta un script Joss directamente tras validar sintaxis y análisis semántico. Los errores de tipos bloquean la ejecución; los warnings se reportan sin detenerla.",
+  "@helpTopicRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "helpTopicBuild": "Compila o empaqueta el proyecto para producción y distribución.",
+  "@helpTopicBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "helpTopicServer": "Inicia el servidor web HTTP de alto rendimiento ejecutando el punto de entrada 'main.joss'. Carga automáticamente todos los controladores, modelos y rutas en app/. Presiona 'q' o Ctrl+C en la consola para detener el servidor de forma segura.",
+  "@helpTopicServer": {
+    "description": "Descripción del comando joss server"
+  },
+  "helpTopicRepl": "Inicia la consola interactiva (Read-Eval-Print Loop) de Joss. Permite evaluar expresiones, probar funciones, declarar variables y experimentar en tiempo real.",
+  "@helpTopicRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "helpTopicBuildModeProgram": "Prepara la versión de escritorio",
+  "@helpTopicBuildModeProgram": {
+    "description": "Descripción del modo program de joss build"
+  },
+  "helpTopicBuildModeNative": "Compila un ejecutable nativo autocontenido",
+  "@helpTopicBuildModeNative": {
+    "description": "Descripción del modo native de joss build"
+  },
+  "helpTopicBuildModePackage": "Empaqueta una biblioteca Joss en formato .jp",
+  "@helpTopicBuildModePackage": {
+    "description": "Descripción del modo package de joss build"
+  },
+  "helpTopicBuildModeWeb": "Prepara los assets y archivos para despliegue web",
+  "@helpTopicBuildModeWeb": {
+    "description": "Descripción del modo web de joss build"
+  },
+  "helpTopicAnalyze": "Realiza un análisis semántico estricto del proyecto sin ejecutarlo. Verifica coherencia de tipos, variables no declaradas, firmas y flujo de control.",
+  "@helpTopicAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "helpTopicFormat": "Formatea archivos .joss según el estándar canónico del lenguaje.",
+  "@helpTopicFormat": {
+    "description": "Descripción del comando joss format"
+  },
+  "helpTopicLint": "Ejecuta análisis estático y detecta problemas de estilo, tipos y seguridad.",
+  "@helpTopicLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "helpTopicFix": "Aplica correcciones automáticas seguras y formateo canónico.",
+  "@helpTopicFix": {
+    "description": "Descripción del comando joss fix"
+  },
+  "helpTopicFormatOptWrite": "Escribe los cambios en el archivo (por defecto al pasar un archivo)",
+  "@helpTopicFormatOptWrite": {
+    "description": "Descripción de la opción --write de joss format"
+  },
+  "helpTopicFormatOptCheck": "Verifica si los archivos están formateados sin modificarlos (útil en CI)",
+  "@helpTopicFormatOptCheck": {
+    "description": "Descripción de la opción --check de joss format"
+  },
+  "helpTopicLintOptJson": "Emite el reporte de diagnósticos en formato JSON estructurado",
+  "@helpTopicLintOptJson": {
+    "description": "Descripción de la opción --json de joss lint"
+  },
+  "helpTopicTest": "Ejecuta la suite oficial de pruebas unitarias y aserciones (*_test.joss).",
+  "@helpTopicTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "helpTopicNew": "Genera una nueva estructura de proyecto.",
+  "@helpTopicNew": {
+    "description": "Descripción del comando joss new"
+  },
+  "helpTopicFixOptDryRun": "Muestra qué cambios se aplicarían sin modificar los archivos",
+  "@helpTopicFixOptDryRun": {
+    "description": "Descripción de la opción --dry-run de joss fix"
+  },
+  "helpTopicCheck": "Ejecuta una verificación integral de calidad: formato canónico, sintaxis, análisis semántico estricto y reglas de linter.",
+  "@helpTopicCheck": {
+    "description": "Descripción del comando joss check"
+  },
+  "helpTopicTestOptFilter": "Filtra y ejecuta solo las pruebas cuyo nombre contenga el texto",
+  "@helpTopicTestOptFilter": {
+    "description": "Descripción de la opción --filter de joss test"
+  },
+  "helpTopicNewTypeWeb": "Proyecto web MVC completo (por defecto)",
+  "@helpTopicNewTypeWeb": {
+    "description": "Tipo web de joss new"
+  },
+  "helpTopicMakeController": "Genera un nuevo controlador web en app/controllers/.",
+  "@helpTopicMakeController": {
+    "description": "Descripción del comando make:controller"
+  },
+  "helpTopicNewTypeConsole": "Proyecto de consola CLI",
+  "@helpTopicNewTypeConsole": {
+    "description": "Tipo console de joss new"
+  },
+  "helpTopicMakeModel": "Genera un nuevo modelo ORM en app/models/.",
+  "@helpTopicMakeModel": {
+    "description": "Descripción del comando make:model"
+  },
+  "helpTopicMakeView": "Genera una nueva plantilla de vista en app/views/.",
+  "@helpTopicMakeView": {
+    "description": "Descripción del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "Genera un nuevo middleware HTTP en app/middleware/.",
+  "@helpTopicMakeMiddleware": {
+    "description": "Descripción del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "Genera simultáneamente Modelo, Vista y Controlador para la entidad.",
+  "@helpTopicMakeMvc": {
+    "description": "Descripción del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "Genera automáticamente Modelo, Vistas, Controlador y Rutas para una tabla de base de datos. Detecta claves foráneas, columnas visibles e inyecta enlaces de navegación.",
+  "@helpTopicMakeCrud": {
+    "description": "Descripción del comando make:crud"
+  },
+  "helpTopicMakeMigration": "Genera un nuevo archivo de migración con timestamp en app/database/migrations/.",
+  "@helpTopicMakeMigration": {
+    "description": "Descripción del comando make:migration"
+  },
+  "helpTopicNewTypePackage": "Paquete distribuible para el ecosistema Joss",
+  "@helpTopicNewTypePackage": {
+    "description": "Tipo package de joss new"
+  },
+  "helpTopicNewTypePlugin": "Plugin nativo con compilación a bytecode .jp",
+  "@helpTopicNewTypePlugin": {
+    "description": "Tipo plugin de joss new"
+  },
+  "helpTopicMigrate": "Aplica las migraciones pendientes en app/database/migrations.",
+  "@helpTopicMigrate": {
+    "description": "Descripción del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "Elimina todas las tablas de la base de datos y vuelve a ejecutar todas las migraciones. Útil durante el desarrollo para reiniciar el esquema.",
+  "@helpTopicMigrateFresh": {
+    "description": "Descripción del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "Ejecuta los seeders pobladores definidos en app/database/seeders.",
+  "@helpTopicDbSeed": {
+    "description": "Descripción del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "Configura o modifica la conexión de base de datos del proyecto.",
+  "@helpTopicChangeDb": {
+    "description": "Descripción del comando joss change db"
+  },
+  "helpTopicRemoveCrud": "Elimina limpiamente un módulo CRUD generado: borra el controlador, modelo, vistas y retira las rutas y enlaces del navbar.",
+  "@helpTopicRemoveCrud": {
+    "description": "Descripción del comando remove:crud"
+  },
+  "helpTopicUserStorage": "Configura y sincroniza el almacenamiento de archivos del proyecto.",
+  "@helpTopicUserStorage": {
+    "description": "Descripción del comando joss userstorage"
+  },
+  "helpTopicChangeDbMotor": "Cambia el motor de base de datos (sqlite, mysql)",
+  "@helpTopicChangeDbMotor": {
+    "description": "Subcomando change db <motor>"
+  },
+  "helpTopicChangeDbMigrate": "Migra los datos y esquema a un nuevo MySQL",
+  "@helpTopicChangeDbMigrate": {
+    "description": "Subcomando change db migrate"
+  },
+  "helpTopicChangeDbPrefix": "Establece el prefijo global de tablas",
+  "@helpTopicChangeDbPrefix": {
+    "description": "Subcomando change db prefix"
+  },
+  "helpTopicUserStorageLocal": "Configura almacenamiento en el disco local",
+  "@helpTopicUserStorageLocal": {
+    "description": "Opción local de joss userstorage"
+  },
+  "helpTopicUserStorageOci": "Configura almacenamiento en Oracle Cloud Infrastructure",
+  "@helpTopicUserStorageOci": {
+    "description": "Opción oci de joss userstorage"
+  },
+  "helpTopicUserStorageSyncLocal": "Descarga los archivos de OCI al disco local",
+  "@helpTopicUserStorageSyncLocal": {
+    "description": "Opción sync-local de joss userstorage"
+  },
+  "helpTopicUserStorageSyncOci": "Sube los archivos locales al bucket OCI",
+  "@helpTopicUserStorageSyncOci": {
+    "description": "Opción sync-oci de joss userstorage"
+  },
+  "helpTopicPub": "Gestor de dependencias y paquetes de Joss.",
+  "@helpTopicPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "helpTopicPubAdd": "Añade una dependencia a joss.yaml e instálala",
+  "@helpTopicPubAdd": {
+    "description": "Subcomando pub add"
+  },
+  "helpTopicPubRemove": "Elimina una dependencia de joss.yaml",
+  "@helpTopicPubRemove": {
+    "description": "Subcomando pub remove"
+  },
+  "helpTopicPubInstall": "Descarga e instala las dependencias de joss.yaml",
+  "@helpTopicPubInstall": {
+    "description": "Subcomando pub install"
+  },
+  "helpTopicPubUpdate": "Actualiza las dependencias instaladas",
+  "@helpTopicPubUpdate": {
+    "description": "Subcomando pub update"
+  },
+  "helpTopicUpdate": "Actualiza el binario de Joss, SDK y herramientas oficiales.",
+  "@helpTopicUpdate": {
+    "description": "Descripción del comando joss update"
+  },
+  "helpTopicPackage": "Inspecciona metadatos, símbolos y dependencias de un paquete Joss compilado.",
+  "@helpTopicPackage": {
+    "description": "Descripción del comando joss package inspect"
+  },
+  "helpTopicPlugin": "Para ver plugins instalados y sus comandos, usa 'joss help plugins'.",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPubPublish": "Publica tu paquete en el registro oficial",
+  "@helpTopicPubPublish": {
+    "description": "Subcomando pub publish"
+  },
+  "helpTopicVersion": "Muestra la versión de Joss instalada y su nombre en clave.",
+  "@helpTopicVersion": {
+    "description": "Descripción del comando joss version"
+  },
+  "helpTopicAiActivate": "Configura proveedores y modelos de Inteligencia Artificial (Groq, OpenAI, Gemini).",
+  "@helpTopicAiActivate": {
+    "description": "Descripción del comando joss ai:activate"
+  },
+  "helpTopicUpdateOptForce": "Fuerza la reinstalación",
+  "@helpTopicUpdateOptForce": {
+    "description": "Opción --force de joss update"
+  },
+  "helpTopicNotFound": "No hay ayuda específica para el comando '{cmd}'.",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  },
+  "helpTopicUpdateOptCanary": "Actualiza a la versión de desarrollo más reciente",
+  "@helpTopicUpdateOptCanary": {
+    "description": "Opción --canary de joss update"
+  },
+  "helpTopicUpdateOptStable": "Actualiza a la última versión estable (por defecto)",
+  "@helpTopicUpdateOptStable": {
+    "description": "Opción --stable de joss update"
+  },
+  "cliSectionExec": "EJECUCIÓN Y REPL:",
+  "@cliSectionExec": {
+    "description": "Encabezado de sección de comandos de ejecución en el menú de ayuda"
+  },
+  "cliUsageLabel": "Uso:",
+  "@cliUsageLabel": {
+    "description": "Etiqueta para indicar el uso de un comando CLI"
+  },
+  "cliSectionQuality": "CALIDAD DE CÓDIGO Y TOOLING:",
+  "@cliSectionQuality": {
+    "description": "Encabezado de sección de calidad de código en el menú de ayuda"
+  },
+  "cliSectionScaffolding": "GENERADORES Y ESTRUCTURA (SCAFFOLDING):",
+  "@cliSectionScaffolding": {
+    "description": "Encabezado de sección de generadores en el menú de ayuda"
+  },
+  "cliSectionPackages": "PAQUETES Y PLUGINS:",
+  "@cliSectionPackages": {
+    "description": "Encabezado de sección de paquetes y plugins en el menú de ayuda"
+  },
+  "cliSectionDatabase": "BASE DE DATOS Y STORAGE:",
+  "@cliSectionDatabase": {
+    "description": "Encabezado de sección de base de datos y almacenamiento en el menú de ayuda"
+  },
+  "cliSectionSystem": "SISTEMA Y UTILIDADES:",
+  "@cliSectionSystem": {
+    "description": "Encabezado de sección de sistema y utilidades en el menú de ayuda"
+  },
+  "cliCmdCheck": "Verificación integral (formato, sintaxis, tipos y lint)",
+  "@cliCmdCheck": {
+    "description": "Descripción breve del comando check en el menú de ayuda"
+  },
+  "cliCmdFix": "Aplica correcciones automáticas seguras y formato",
+  "@cliCmdFix": {
+    "description": "Descripción breve del comando fix en el menú de ayuda"
+  },
+  "cliCmdMakeController": "Genera un controlador web",
+  "@cliCmdMakeController": {
+    "description": "Descripción breve del comando make:controller en el menú de ayuda"
+  },
+  "cliCmdMakeModel": "Genera un modelo de datos",
+  "@cliCmdMakeModel": {
+    "description": "Descripción breve del comando make:model en el menú de ayuda"
+  },
+  "cliCmdMakeView": "Genera una plantilla de vista",
+  "@cliCmdMakeView": {
+    "description": "Descripción breve del comando make:view en el menú de ayuda"
+  },
+  "cliCmdMakeMiddleware": "Genera un middleware HTTP",
+  "@cliCmdMakeMiddleware": {
+    "description": "Descripción breve del comando make:middleware en el menú de ayuda"
+  },
+  "cliCmdMakeMvc": "Genera Modelo, Vista y Controlador en un paso",
+  "@cliCmdMakeMvc": {
+    "description": "Descripción breve del comando make:mvc en el menú de ayuda"
+  },
+  "cliCmdMakeCrud": "Genera CRUD completo con rutas y vistas",
+  "@cliCmdMakeCrud": {
+    "description": "Descripción breve del comando make:crud en el menú de ayuda"
+  },
+  "cliCmdDbSeed": "Ejecuta seeders de app/database/seeders",
+  "@cliCmdDbSeed": {
+    "description": "Descripción breve del comando db:seed en el menú de ayuda"
+  },
+  "cliCmdPluginCompile": "Compila código a paquete binario .jp",
+  "@cliCmdPluginCompile": {
+    "description": "Descripción breve del comando plugin compile en el menú de ayuda"
+  },
+  "cliCmdChangeDbMigrate": "Migra la conexión actual a un nuevo MySQL",
+  "@cliCmdChangeDbMigrate": {
+    "description": "Descripción breve del subcomando change db migrate en el menú de ayuda"
+  },
+  "cliCmdStorageSync": "Sincroniza archivos con Oracle Cloud",
+  "@cliCmdStorageSync": {
+    "description": "Descripción breve del subcomando userstorage sync en el menú de ayuda"
+  },
+  "cliCmdPluginInspect": "Inspecciona bytecode y símbolos de un plugin",
+  "@cliCmdPluginInspect": {
+    "description": "Descripción breve del comando plugin inspect en el menú de ayuda"
+  },
+  "cliCmdPackageInspect": "Inspecciona metadatos y firmas de un paquete",
+  "@cliCmdPackageInspect": {
+    "description": "Descripción breve del comando package inspect en el menú de ayuda"
+  },
+  "cliCmdHelpPlugins": "Lista comandos y opciones provistos por plugins",
+  "@cliCmdHelpPlugins": {
+    "description": "Descripción breve del comando help plugins en el menú de ayuda"
+  },
+  "cliCmdPluginVerify": "Verifica firmas Ed25519 e integridad de un plugin",
+  "@cliCmdPluginVerify": {
+    "description": "Descripción breve del comando plugin verify en el menú de ayuda"
+  },
+  "cliCmdUpdate": "Actualiza la versión de Joss, SDK y plugins",
+  "@cliCmdUpdate": {
+    "description": "Descripción breve del comando update en el menú de ayuda"
+  },
+  "cliCmdAiActivate": "Configura proveedores y modelos de Inteligencia Artificial",
+  "@cliCmdAiActivate": {
+    "description": "Descripción breve del comando ai:activate en el menú de ayuda"
+  },
+  "cliHelpFooter": "Usa 'joss help <comando>' o 'joss help plugins' para ver opciones y ejemplos.",
+  "@cliHelpFooter": {
+    "description": "Mensaje de pie de página en el menú de ayuda general"
+  },
+  "migrateFreshStarting": "Eliminando todas las tablas y ejecutando migraciones desde cero...",
+  "@migrateFreshStarting": {
+    "description": "Mensaje inicial del comando migrate:fresh"
+  },
+  "dbConnSuccess": "Conexión a DB exitosa.",
+  "@dbConnSuccess": {
+    "description": "Mensaje cuando la conexión a la base de datos es exitosa"
+  },
+  "migrateFreshDroppingTables": "Eliminando todas las tablas...",
+  "@migrateFreshDroppingTables": {
+    "description": "Mensaje al eliminar tablas en migrate:fresh"
+  },
+  "migrateFreshSuccess": "¡Migraciones ejecutadas exitosamente!",
+  "@migrateFreshSuccess": {
+    "description": "Mensaje de éxito al completar migrate:fresh"
+  },
+  "dbConnError": "Error: No se pudo conectar a la base de datos.",
+  "@dbConnError": {
+    "description": "Mensaje de error cuando falla la conexión a la base de datos"
+  },
+  "seedersRunning": "Ejecutando seeders...",
+  "@seedersRunning": {
+    "description": "Mensaje inicial al ejecutar seeders"
+  },
+  "seedersNotFound": "No se encontraron seeders en app/database/seeders/",
+  "@seedersNotFound": {
+    "description": "Mensaje cuando el directorio de seeders está vacío"
   }
 }

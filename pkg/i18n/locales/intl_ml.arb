@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "ഇപ്പോൾ ഇതുപയോഗിച്ച് ശ്രമിക്കുക: joss run your_script.joss",
+  "aiTryScript": "ഇപ്പോൾ ഇതുപയോഗിച്ച് ശ്രമിക്കുക: joss run tu_script.joss",
   "@aiTryScript": {},
   "aiWizardConfig": "ഈ വിസാർഡ് നിങ്ങളുടെ പ്രോജക്റ്റിൽ നേറ്റീവ് AI കോൺഫിഗർ ചെയ്യും.",
   "@aiWizardConfig": {},
@@ -335,58 +335,6 @@
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliUsage": "ഉപയോഗം: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
-  "cliUsageBuildPkg": "ഉപയോഗം: ജോസ് ബിൽഡ് പാക്കേജ് [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageMakeController": "ഉപയോഗം: ജോസ് മേക്ക്:കൺട്രോളർ [പേര്]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageMakeCrud": "ഉപയോഗം: ജോസ് മേക്ക്:ക്രഡ് [പട്ടിക]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageMakeMiddleware": "ഉപയോഗം: ജോസ് മേക്ക്:മിഡിൽവെയർ [പേര്]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeMigration": "ഉപയോഗം: ജോസ് മേക്ക്: മൈഗ്രേഷൻ [പേര്]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
-  },
-  "cliUsageMakeModel": "ഉപയോഗം: ജോസ് മേക്ക്: മോഡൽ [പേര്]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "ഉപയോഗം: joss make:mvc [പേര്]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "ഉപയോഗം: ജോസ് മേക്ക്:വ്യൂ [പേര്]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageProgram": "ഉപയോഗം: ജോസ് പ്രോഗ്രാം ആരംഭം",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageRemoveCrud": "ഉപയോഗം: ജോസ് നീക്കം: ക്രൂഡ് [പട്ടിക]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageRun": "ഉപയോഗം: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
-  "cliUsageServer": "ഉപയോഗം: ജോസ് സെർവർ ആരംഭം",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
   "compileProjectDist": "വിതരണത്തിനായി പദ്ധതി നിർമ്മിക്കുക",
   "@compileProjectDist": {
     "description": ""
@@ -573,5 +521,388 @@
   "version": "നിലവിലെ പതിപ്പ് കാണിക്കുന്നു",
   "@version": {
     "description": ""
+  },
+  "helpTopicReplExitHint": "ഇന്ററാക്ടീവ് REPL-ൽ നിന്ന് പുറത്ത് പോകുക",
+  "@helpTopicReplExitHint": {
+    "description": "Descripción del atajo exit/quit en el REPL"
+  },
+  "helpTopicReplCtrlCHint": "നിലവിലെ വരി തടയുക അല്ലെങ്കിൽ REPL-ൽ നിന്ന് പുറത്ത് പോകുക",
+  "@helpTopicReplCtrlCHint": {
+    "description": "Descripción del atajo Ctrl+C en el REPL"
+  },
+  "helpTopicProgram": "ഡെസ്ക്ടോപ്പ് മോഡിൽ ആപ്ലിക്കേഷൻ ആരംഭിക്കുക.",
+  "@helpTopicProgram": {
+    "description": "Descripción del comando joss program"
+  },
+  "helpTopicRun": "വാക്യഘടനയും സെമാൻ്റിക് വിശകലനവും സാധൂകരിച്ചതിന് ശേഷം നേരിട്ട് ഒരു ജോസ് സ്ക്രിപ്റ്റ് പ്രവർത്തിപ്പിക്കുന്നു. തരം പിശകുകൾ നിർവ്വഹണത്തെ തടയുന്നു; ഇത് നിർത്താതെയാണ് മുന്നറിയിപ്പുകൾ റിപ്പോർട്ട് ചെയ്യുന്നത്.",
+  "@helpTopicRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "helpTopicBuild": "ഉൽപ്പാദനത്തിനും വിതരണത്തിനുമായി പ്രോജക്റ്റ് സമാഹരിക്കുകയോ പാക്കേജുചെയ്യുകയോ ചെയ്യുന്നു.",
+  "@helpTopicBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "helpTopicServer": "'main.joss' എൻട്രി പോയിൻ്റ് പ്രവർത്തിപ്പിച്ച് ഉയർന്ന പ്രവർത്തനക്ഷമതയുള്ള HTTP വെബ് സെർവർ ആരംഭിക്കുക. എല്ലാ ഡ്രൈവറുകളും മോഡലുകളും റൂട്ടുകളും ആപ്പിൽ സ്വയമേവ ലോഡ് ചെയ്യുക/. സെർവർ സുരക്ഷിതമായി നിർത്താൻ കൺസോളിൽ 'q' അല്ലെങ്കിൽ Ctrl+C അമർത്തുക.",
+  "@helpTopicServer": {
+    "description": "Descripción del comando joss server"
+  },
+  "helpTopicRepl": "ജോസിൻ്റെ ഇൻ്ററാക്ടീവ് കൺസോൾ (റീഡ്-ഇവൽ-പ്രിൻ്റ് ലൂപ്പ്) ആരംഭിക്കുന്നു. എക്‌സ്‌പ്രഷനുകൾ വിലയിരുത്താനും ഫംഗ്‌ഷനുകൾ പരിശോധിക്കാനും വേരിയബിളുകൾ പ്രഖ്യാപിക്കാനും തത്സമയം പരീക്ഷണം നടത്താനും ഇത് നിങ്ങളെ അനുവദിക്കുന്നു.",
+  "@helpTopicRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "helpTopicBuildModeProgram": "ഡെസ്ക്ടോപ്പ് പതിപ്പ് തയ്യാറാക്കുക",
+  "@helpTopicBuildModeProgram": {
+    "description": "Descripción del modo program de joss build"
+  },
+  "helpTopicBuildModeNative": "സ്വയം ഉൾക്കൊള്ളുന്ന നേറ്റീവ് എക്സിക്യൂട്ടബിൾ സമാഹരിക്കുക",
+  "@helpTopicBuildModeNative": {
+    "description": "Descripción del modo native de joss build"
+  },
+  "helpTopicBuildModePackage": ".jp ഫോർമാറ്റിൽ ഒരു ജോസ് ലൈബ്രറി പാക്കേജ് ചെയ്യുക",
+  "@helpTopicBuildModePackage": {
+    "description": "Descripción del modo package de joss build"
+  },
+  "helpTopicBuildModeWeb": "വെബ് വിന്യാസത്തിനായി അസറ്റുകളും ഫയലുകളും തയ്യാറാക്കുക",
+  "@helpTopicBuildModeWeb": {
+    "description": "Descripción del modo web de joss build"
+  },
+  "helpTopicAnalyze": "പ്രൊജക്റ്റ് എക്സിക്യൂട്ട് ചെയ്യാതെ തന്നെ കർശനമായ സെമാൻ്റിക് വിശകലനം നടത്തുക. തരങ്ങളുടെ സ്ഥിരത, പ്രഖ്യാപിക്കാത്ത വേരിയബിളുകൾ, ഒപ്പുകൾ, നിയന്ത്രണ ഫ്ലോ എന്നിവ പരിശോധിക്കുന്നു.",
+  "@helpTopicAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "helpTopicFormat": "കാനോനിക്കൽ ഭാഷാ നിലവാരം അനുസരിച്ച് .joss ഫയലുകൾ ഫോർമാറ്റ് ചെയ്യുന്നു.",
+  "@helpTopicFormat": {
+    "description": "Descripción del comando joss format"
+  },
+  "helpTopicLint": "സ്റ്റാറ്റിക് വിശകലനം നടത്തുകയും ശൈലി, തരം, സുരക്ഷാ പ്രശ്നങ്ങൾ എന്നിവ കണ്ടെത്തുകയും ചെയ്യുന്നു.",
+  "@helpTopicLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "helpTopicFix": "സുരക്ഷിതമായ യാന്ത്രിക പരിഹാരങ്ങളും കാനോനിക്കൽ ഫോർമാറ്റിംഗും പ്രയോഗിക്കുന്നു.",
+  "@helpTopicFix": {
+    "description": "Descripción del comando joss fix"
+  },
+  "helpTopicFormatOptWrite": "ഫയലിൽ മാറ്റങ്ങൾ എഴുതുക (ഒരു ഫയൽ കൈമാറുമ്പോൾ സ്ഥിരസ്ഥിതി)",
+  "@helpTopicFormatOptWrite": {
+    "description": "Descripción de la opción --write de joss format"
+  },
+  "helpTopicFormatOptCheck": "ഫയലുകൾ പരിഷ്‌ക്കരിക്കാതെ ഫോർമാറ്റ് ചെയ്‌തിട്ടുണ്ടോയെന്ന് പരിശോധിക്കുക (സിഐയിൽ ഉപയോഗപ്രദമാണ്)",
+  "@helpTopicFormatOptCheck": {
+    "description": "Descripción de la opción --check de joss format"
+  },
+  "helpTopicLintOptJson": "ഘടനാപരമായ JSON ഫോർമാറ്റിൽ ഡയഗ്നോസ്റ്റിക് റിപ്പോർട്ട് നൽകുന്നു",
+  "@helpTopicLintOptJson": {
+    "description": "Descripción de la opción --json de joss lint"
+  },
+  "helpTopicTest": "ഔദ്യോഗിക യൂണിറ്റ് ടെസ്റ്റിംഗും അസെർഷൻ സ്യൂട്ടും പ്രവർത്തിപ്പിക്കുക (*_test.joss).",
+  "@helpTopicTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "helpTopicNew": "ഒരു പുതിയ പ്രോജക്റ്റ് ഘടന സൃഷ്ടിക്കുന്നു.",
+  "@helpTopicNew": {
+    "description": "Descripción del comando joss new"
+  },
+  "helpTopicFixOptDryRun": "ഫയലുകൾ പരിഷ്‌ക്കരിക്കാതെ ഏതൊക്കെ മാറ്റങ്ങളാണ് പ്രയോഗിക്കേണ്ടതെന്ന് കാണിക്കുന്നു",
+  "@helpTopicFixOptDryRun": {
+    "description": "Descripción de la opción --dry-run de joss fix"
+  },
+  "helpTopicCheck": "സമഗ്രമായ ഗുണനിലവാര പരിശോധന നടത്തുന്നു: കാനോനിക്കൽ ഫോർമാറ്റ്, വാക്യഘടന, കർശനമായ സെമാൻ്റിക് വിശകലനം, ലിൻ്റർ നിയമങ്ങൾ.",
+  "@helpTopicCheck": {
+    "description": "Descripción del comando joss check"
+  },
+  "helpTopicTestOptFilter": "വാചകം ഉൾക്കൊള്ളുന്ന ടെസ്റ്റുകൾ മാത്രം ഫിൽട്ടർ ചെയ്ത് പ്രവർത്തിപ്പിക്കുക",
+  "@helpTopicTestOptFilter": {
+    "description": "Descripción de la opción --filter de joss test"
+  },
+  "helpTopicNewTypeWeb": "MVC വെബ് പ്രോജക്റ്റ് പൂർത്തിയാക്കുക (സ്ഥിരസ്ഥിതി)",
+  "@helpTopicNewTypeWeb": {
+    "description": "Tipo web de joss new"
+  },
+  "helpTopicMakeController": "ആപ്പ്/കൺട്രോളറുകൾ/ എന്നതിൽ ഒരു പുതിയ വെബ് കൺട്രോളർ സൃഷ്ടിക്കുക.",
+  "@helpTopicMakeController": {
+    "description": "Descripción del comando make:controller"
+  },
+  "helpTopicNewTypeConsole": "CLI കൺസോൾ പദ്ധതി",
+  "@helpTopicNewTypeConsole": {
+    "description": "Tipo console de joss new"
+  },
+  "helpTopicMakeModel": "ആപ്പ്/മോഡലുകൾ/ എന്നതിൽ ഒരു പുതിയ ORM മോഡൽ സൃഷ്ടിക്കുക.",
+  "@helpTopicMakeModel": {
+    "description": "Descripción del comando make:model"
+  },
+  "helpTopicMakeView": "ആപ്പ്/കാഴ്‌ചകൾ/ എന്നതിൽ ഒരു പുതിയ കാഴ്‌ച ടെംപ്ലേറ്റ് സൃഷ്‌ടിക്കുക.",
+  "@helpTopicMakeView": {
+    "description": "Descripción del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "ആപ്പ്/മിഡിൽവെയർ/ എന്നതിൽ ഒരു പുതിയ HTTP മിഡിൽവെയർ സൃഷ്ടിക്കുക.",
+  "@helpTopicMakeMiddleware": {
+    "description": "Descripción del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "എൻ്റിറ്റിക്കായി ഒരേസമയം മോഡൽ, വ്യൂ, കൺട്രോളർ എന്നിവ സൃഷ്ടിക്കുന്നു.",
+  "@helpTopicMakeMvc": {
+    "description": "Descripción del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "ഒരു ഡാറ്റാബേസ് പട്ടികയ്ക്കായി മോഡൽ, കാഴ്ചകൾ, കൺട്രോളർ, റൂട്ടുകൾ എന്നിവ സ്വയമേവ സൃഷ്ടിക്കുന്നു. വിദേശ കീകൾ, ദൃശ്യമായ കോളങ്ങൾ എന്നിവ കണ്ടെത്തുകയും നാവിഗേഷൻ ലിങ്കുകൾ കുത്തിവയ്ക്കുകയും ചെയ്യുന്നു.",
+  "@helpTopicMakeCrud": {
+    "description": "Descripción del comando make:crud"
+  },
+  "helpTopicMakeMigration": "ആപ്പ്/ഡാറ്റാബേസ്/മൈഗ്രേഷൻ/ എന്നതിൽ ടൈംസ്റ്റാമ്പ് ഉപയോഗിച്ച് ഒരു പുതിയ മൈഗ്രേഷൻ ഫയൽ സൃഷ്ടിക്കുക.",
+  "@helpTopicMakeMigration": {
+    "description": "Descripción del comando make:migration"
+  },
+  "helpTopicNewTypePackage": "ജോസ് ഇക്കോസിസ്റ്റത്തിന് വിതരണം ചെയ്യാവുന്ന പാക്കേജ്",
+  "@helpTopicNewTypePackage": {
+    "description": "Tipo package de joss new"
+  },
+  "helpTopicNewTypePlugin": ".jp ബൈറ്റ്കോഡിലേക്കുള്ള സമാഹാരത്തോടുകൂടിയ നേറ്റീവ് പ്ലഗിൻ",
+  "@helpTopicNewTypePlugin": {
+    "description": "Tipo plugin de joss new"
+  },
+  "helpTopicMigrate": "ആപ്പ്/ഡാറ്റാബേസ്/മൈഗ്രേഷൻ എന്നിവയിൽ തീർച്ചപ്പെടുത്താത്ത മൈഗ്രേഷനുകൾ പ്രയോഗിക്കുക.",
+  "@helpTopicMigrate": {
+    "description": "Descripción del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "എല്ലാ ഡാറ്റാബേസ് പട്ടികകളും ഇല്ലാതാക്കി എല്ലാ മൈഗ്രേഷനുകളും വീണ്ടും പ്രവർത്തിപ്പിക്കുക. സ്കീമാറ്റിക് പുനഃസജ്ജമാക്കാൻ വികസന സമയത്ത് ഉപയോഗപ്രദമാണ്.",
+  "@helpTopicMigrateFresh": {
+    "description": "Descripción del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "ആപ്പ്/ഡാറ്റാബേസ്/സീഡറുകൾ എന്നിവയിൽ നിർവചിച്ചിരിക്കുന്ന സെറ്റിൽലർ സീഡറുകൾ പ്രവർത്തിപ്പിക്കുന്നു.",
+  "@helpTopicDbSeed": {
+    "description": "Descripción del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "പ്രോജക്റ്റിൻ്റെ ഡാറ്റാബേസ് കണക്ഷൻ കോൺഫിഗർ ചെയ്യുക അല്ലെങ്കിൽ പരിഷ്ക്കരിക്കുക.",
+  "@helpTopicChangeDb": {
+    "description": "Descripción del comando joss change db"
+  },
+  "helpTopicRemoveCrud": "ജനറേറ്റുചെയ്‌ത CRUD മൊഡ്യൂൾ വൃത്തിയായി നീക്കംചെയ്യുന്നു: കൺട്രോളർ, മോഡൽ, കാഴ്ചകൾ എന്നിവ ഇല്ലാതാക്കുന്നു, നവബാറിൽ നിന്ന് റൂട്ടുകളും ലിങ്കുകളും നീക്കംചെയ്യുന്നു.",
+  "@helpTopicRemoveCrud": {
+    "description": "Descripción del comando remove:crud"
+  },
+  "helpTopicUserStorage": "പ്രോജക്റ്റ് ഫയൽ സംഭരണം കോൺഫിഗർ ചെയ്യുകയും സമന്വയിപ്പിക്കുകയും ചെയ്യുക.",
+  "@helpTopicUserStorage": {
+    "description": "Descripción del comando joss userstorage"
+  },
+  "helpTopicChangeDbMotor": "ഡാറ്റാബേസ് എഞ്ചിൻ മാറ്റുക (sqlite, mysql)",
+  "@helpTopicChangeDbMotor": {
+    "description": "Subcomando change db <motor>"
+  },
+  "helpTopicChangeDbMigrate": "ഒരു പുതിയ MySQL-ലേക്ക് ഡാറ്റയും സ്കീമയും മൈഗ്രേറ്റ് ചെയ്യുക",
+  "@helpTopicChangeDbMigrate": {
+    "description": "Subcomando change db migrate"
+  },
+  "helpTopicChangeDbPrefix": "ആഗോള പട്ടിക പ്രിഫിക്‌സ് സജ്ജമാക്കുക",
+  "@helpTopicChangeDbPrefix": {
+    "description": "Subcomando change db prefix"
+  },
+  "helpTopicUserStorageLocal": "പ്രാദേശിക ഡിസ്ക് സംഭരണം ക്രമീകരിക്കുക",
+  "@helpTopicUserStorageLocal": {
+    "description": "Opción local de joss userstorage"
+  },
+  "helpTopicUserStorageOci": "Oracle Cloud Infrastructure-ൽ സ്റ്റോറേജ് കോൺഫിഗർ ചെയ്യുക",
+  "@helpTopicUserStorageOci": {
+    "description": "Opción oci de joss userstorage"
+  },
+  "helpTopicUserStorageSyncLocal": "OCI ഫയലുകൾ ലോക്കൽ ഡിസ്കിലേക്ക് ഡൗൺലോഡ് ചെയ്യുക",
+  "@helpTopicUserStorageSyncLocal": {
+    "description": "Opción sync-local de joss userstorage"
+  },
+  "helpTopicUserStorageSyncOci": "OCI ബക്കറ്റിലേക്ക് പ്രാദേശിക ഫയലുകൾ അപ്‌ലോഡ് ചെയ്യുക",
+  "@helpTopicUserStorageSyncOci": {
+    "description": "Opción sync-oci de joss userstorage"
+  },
+  "helpTopicPub": "ജോസ് പാക്കേജും ഡിപൻഡൻസി മാനേജരും.",
+  "@helpTopicPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "helpTopicPubAdd": "joss.yaml-ലേക്ക് ഒരു ഡിപൻഡൻസി ചേർത്ത് അത് ഇൻസ്റ്റാൾ ചെയ്യുക",
+  "@helpTopicPubAdd": {
+    "description": "Subcomando pub add"
+  },
+  "helpTopicPubRemove": "joss.yaml-ൽ നിന്ന് ഒരു ആശ്രിതത്വം നീക്കം ചെയ്യുക",
+  "@helpTopicPubRemove": {
+    "description": "Subcomando pub remove"
+  },
+  "helpTopicPubInstall": "joss.yaml ഡിപൻഡൻസികൾ ഡൗൺലോഡ് ചെയ്ത് ഇൻസ്റ്റാൾ ചെയ്യുക",
+  "@helpTopicPubInstall": {
+    "description": "Subcomando pub install"
+  },
+  "helpTopicPubUpdate": "ഇൻസ്റ്റാൾ ചെയ്ത ഡിപൻഡൻസികൾ അപ്ഡേറ്റ് ചെയ്യുക",
+  "@helpTopicPubUpdate": {
+    "description": "Subcomando pub update"
+  },
+  "helpTopicUpdate": "ജോസ് ബൈനറി, SDK, ഔദ്യോഗിക ടൂളുകൾ എന്നിവ അപ്ഡേറ്റ് ചെയ്യുക.",
+  "@helpTopicUpdate": {
+    "description": "Descripción del comando joss update"
+  },
+  "helpTopicPackage": "സമാഹരിച്ച ജോസ് പാക്കേജിൻ്റെ മെറ്റാഡാറ്റ, ചിഹ്നങ്ങൾ, ഡിപൻഡൻസികൾ എന്നിവ പരിശോധിക്കുന്നു.",
+  "@helpTopicPackage": {
+    "description": "Descripción del comando joss package inspect"
+  },
+  "helpTopicPlugin": "ഇൻസ്റ്റാൾ ചെയ്ത പ്ലഗിന്നുകളും അവയുടെ കമാൻഡുകളും കാണുന്നതിന്, 'joss help plugins' ഉപയോഗിക്കുക.",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPubPublish": "ഔദ്യോഗിക രജിസ്ട്രിയിൽ നിങ്ങളുടെ പാക്കേജ് പ്രസിദ്ധീകരിക്കുക",
+  "@helpTopicPubPublish": {
+    "description": "Subcomando pub publish"
+  },
+  "helpTopicVersion": "ജോസ് ഇൻസ്റ്റാൾ ചെയ്ത പതിപ്പും അതിൻ്റെ കോഡ്നാമവും കാണിക്കുന്നു.",
+  "@helpTopicVersion": {
+    "description": "Descripción del comando joss version"
+  },
+  "helpTopicAiActivate": "ആർട്ടിഫിഷ്യൽ ഇൻ്റലിജൻസ് ദാതാക്കളും മോഡലുകളും കോൺഫിഗർ ചെയ്യുക (Groq, OpenAI, Gemini).",
+  "@helpTopicAiActivate": {
+    "description": "Descripción del comando joss ai:activate"
+  },
+  "helpTopicUpdateOptForce": "വീണ്ടും ഇൻസ്റ്റാൾ ചെയ്യാൻ നിർബന്ധിക്കുക",
+  "@helpTopicUpdateOptForce": {
+    "description": "Opción --force de joss update"
+  },
+  "helpTopicNotFound": "'{cmd}' കമാൻഡിന് പ്രത്യേക സഹായമൊന്നുമില്ല.",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  },
+  "helpTopicUpdateOptCanary": "ഏറ്റവും പുതിയ വികസന പതിപ്പിലേക്ക് അപ്ഡേറ്റ് ചെയ്യുക",
+  "@helpTopicUpdateOptCanary": {
+    "description": "Opción --canary de joss update"
+  },
+  "helpTopicUpdateOptStable": "ഏറ്റവും പുതിയ സ്ഥിരതയുള്ള പതിപ്പിലേക്ക് അപ്ഡേറ്റ് ചെയ്യുക (സ്ഥിരസ്ഥിതി)",
+  "@helpTopicUpdateOptStable": {
+    "description": "Opción --stable de joss update"
+  },
+  "cliSectionExec": "എക്സിക്യൂഷനും REPL:",
+  "@cliSectionExec": {
+    "description": "Encabezado de sección de comandos de ejecución en el menú de ayuda"
+  },
+  "cliUsageLabel": "ഉപയോഗം:",
+  "@cliUsageLabel": {
+    "description": "Etiqueta para indicar el uso de un comando CLI"
+  },
+  "cliSectionQuality": "കോഡ് ഗുണമേന്മയും ടൂളിംഗും:",
+  "@cliSectionQuality": {
+    "description": "Encabezado de sección de calidad de código en el menú de ayuda"
+  },
+  "cliSectionScaffolding": "ജനറേറ്ററുകളും ഘടനയും (SCAFFOLDING):",
+  "@cliSectionScaffolding": {
+    "description": "Encabezado de sección de generadores en el menú de ayuda"
+  },
+  "cliSectionPackages": "പാക്കേജുകളും പ്ലഗിനുകളും:",
+  "@cliSectionPackages": {
+    "description": "Encabezado de sección de paquetes y plugins en el menú de ayuda"
+  },
+  "cliSectionDatabase": "ഡാറ്റാബേസും സംഭരണവും:",
+  "@cliSectionDatabase": {
+    "description": "Encabezado de sección de base de datos y almacenamiento en el menú de ayuda"
+  },
+  "cliSectionSystem": "സിസ്റ്റവും യൂട്ടിലിറ്റികളും:",
+  "@cliSectionSystem": {
+    "description": "Encabezado de sección de sistema y utilidades en el menú de ayuda"
+  },
+  "cliCmdCheck": "സമഗ്ര പരിശോധന (ഫോർമാറ്റ്, വാക്യഘടന, തരങ്ങൾ, ലിൻ്റ്)",
+  "@cliCmdCheck": {
+    "description": "Descripción breve del comando check en el menú de ayuda"
+  },
+  "cliCmdFix": "സുരക്ഷിതമായ സ്വയമേവയുള്ള തിരുത്തലുകളും ഫോർമാറ്റിംഗും പ്രയോഗിക്കുക",
+  "@cliCmdFix": {
+    "description": "Descripción breve del comando fix en el menú de ayuda"
+  },
+  "cliCmdMakeController": "ഒരു വെബ് കൺട്രോളർ സൃഷ്ടിക്കുക",
+  "@cliCmdMakeController": {
+    "description": "Descripción breve del comando make:controller en el menú de ayuda"
+  },
+  "cliCmdMakeModel": "ഒരു ഡാറ്റ മോഡൽ സൃഷ്ടിക്കുക",
+  "@cliCmdMakeModel": {
+    "description": "Descripción breve del comando make:model en el menú de ayuda"
+  },
+  "cliCmdMakeView": "ഒരു കാഴ്ച ടെംപ്ലേറ്റ് സൃഷ്ടിക്കുക",
+  "@cliCmdMakeView": {
+    "description": "Descripción breve del comando make:view en el menú de ayuda"
+  },
+  "cliCmdMakeMiddleware": "HTTP മിഡിൽവെയർ സൃഷ്ടിക്കുക",
+  "@cliCmdMakeMiddleware": {
+    "description": "Descripción breve del comando make:middleware en el menú de ayuda"
+  },
+  "cliCmdMakeMvc": "ഒരു ഘട്ടത്തിൽ മോഡൽ, വ്യൂ, കൺട്രോളർ എന്നിവ സൃഷ്ടിക്കുക",
+  "@cliCmdMakeMvc": {
+    "description": "Descripción breve del comando make:mvc en el menú de ayuda"
+  },
+  "cliCmdMakeCrud": "റൂട്ടുകളും കാഴ്ചകളും ഉപയോഗിച്ച് പൂർണ്ണമായ CRUD സൃഷ്ടിക്കുക",
+  "@cliCmdMakeCrud": {
+    "description": "Descripción breve del comando make:crud en el menú de ayuda"
+  },
+  "cliCmdDbSeed": "ആപ്പ്/ഡാറ്റാബേസ്/സീഡറുകൾ എന്നിവയിൽ നിന്ന് സീഡറുകൾ പ്രവർത്തിപ്പിക്കുക",
+  "@cliCmdDbSeed": {
+    "description": "Descripción breve del comando db:seed en el menú de ayuda"
+  },
+  "cliCmdPluginCompile": ".jp ബൈനറി പാക്കേജിലേക്ക് കോഡ് കംപൈൽ ചെയ്യുക",
+  "@cliCmdPluginCompile": {
+    "description": "Descripción breve del comando plugin compile en el menú de ayuda"
+  },
+  "cliCmdChangeDbMigrate": "ഒരു പുതിയ MySQL-ലേക്ക് നിലവിലെ കണക്ഷൻ മൈഗ്രേറ്റ് ചെയ്യുക",
+  "@cliCmdChangeDbMigrate": {
+    "description": "Descripción breve del subcomando change db migrate en el menú de ayuda"
+  },
+  "cliCmdStorageSync": "ഒറാക്കിൾ ക്ലൗഡുമായി ഫയലുകൾ സമന്വയിപ്പിക്കുക",
+  "@cliCmdStorageSync": {
+    "description": "Descripción breve del subcomando userstorage sync en el menú de ayuda"
+  },
+  "cliCmdPluginInspect": "ഒരു പ്ലഗിൻ്റെ ബൈറ്റ്കോഡും ചിഹ്നങ്ങളും പരിശോധിക്കുക",
+  "@cliCmdPluginInspect": {
+    "description": "Descripción breve del comando plugin inspect en el menú de ayuda"
+  },
+  "cliCmdPackageInspect": "ഒരു പാക്കേജിൻ്റെ മെറ്റാഡാറ്റയും ഒപ്പുകളും പരിശോധിക്കുന്നു",
+  "@cliCmdPackageInspect": {
+    "description": "Descripción breve del comando package inspect en el menú de ayuda"
+  },
+  "cliCmdHelpPlugins": "പ്ലഗിനുകൾ നൽകുന്ന കമാൻഡുകളും ഓപ്ഷനുകളും ലിസ്റ്റ് ചെയ്യുക",
+  "@cliCmdHelpPlugins": {
+    "description": "Descripción breve del comando help plugins en el menú de ayuda"
+  },
+  "cliCmdPluginVerify": "Ed25519 ഒപ്പുകളും ഒരു പ്ലഗിൻ്റെ സമഗ്രതയും പരിശോധിക്കുക",
+  "@cliCmdPluginVerify": {
+    "description": "Descripción breve del comando plugin verify en el menú de ayuda"
+  },
+  "cliCmdUpdate": "Joss, SDK, പ്ലഗിന്നുകൾ എന്നിവയുടെ പതിപ്പ് അപ്ഡേറ്റ് ചെയ്യുക",
+  "@cliCmdUpdate": {
+    "description": "Descripción breve del comando update en el menú de ayuda"
+  },
+  "cliCmdAiActivate": "ദാതാക്കളും ആർട്ടിഫിഷ്യൽ ഇൻ്റലിജൻസ് മോഡലുകളും കോൺഫിഗർ ചെയ്യുക",
+  "@cliCmdAiActivate": {
+    "description": "Descripción breve del comando ai:activate en el menú de ayuda"
+  },
+  "cliHelpFooter": "ഓപ്ഷനുകൾക്കും ഉദാഹരണങ്ങൾക്കും 'joss help <command>' അല്ലെങ്കിൽ 'joss help plugins' ഉപയോഗിക്കുക.",
+  "@cliHelpFooter": {
+    "description": "Mensaje de pie de página en el menú de ayuda general"
+  },
+  "migrateFreshStarting": "എല്ലാ പട്ടികകളും ഇല്ലാതാക്കുകയും ആദ്യം മുതൽ മൈഗ്രേഷനുകൾ പ്രവർത്തിപ്പിക്കുകയും ചെയ്യുന്നു...",
+  "@migrateFreshStarting": {
+    "description": "Mensaje inicial del comando migrate:fresh"
+  },
+  "dbConnSuccess": "ഡിബിയിലേക്കുള്ള കണക്ഷൻ വിജയിച്ചു.",
+  "@dbConnSuccess": {
+    "description": "Mensaje cuando la conexión a la base de datos es exitosa"
+  },
+  "migrateFreshDroppingTables": "എല്ലാ പട്ടികകളും ഇല്ലാതാക്കുന്നു...",
+  "@migrateFreshDroppingTables": {
+    "description": "Mensaje al eliminar tablas en migrate:fresh"
+  },
+  "migrateFreshSuccess": "മൈഗ്രേഷനുകൾ വിജയകരമായി നടത്തി!",
+  "@migrateFreshSuccess": {
+    "description": "Mensaje de éxito al completar migrate:fresh"
+  },
+  "dbConnError": "പിശക്: ഡാറ്റാബേസിലേക്ക് ബന്ധിപ്പിക്കാൻ കഴിഞ്ഞില്ല.",
+  "@dbConnError": {
+    "description": "Mensaje de error cuando falla la conexión a la base de datos"
+  },
+  "seedersRunning": "സീഡറുകൾ പ്രവർത്തിപ്പിക്കുന്നു...",
+  "@seedersRunning": {
+    "description": "Mensaje inicial al ejecutar seeders"
+  },
+  "seedersNotFound": "ആപ്പ്/ഡാറ്റാബേസ്/സീഡറുകൾ/ എന്നിവയിൽ സീഡറുകളൊന്നും കണ്ടെത്തിയില്ല.",
+  "@seedersNotFound": {
+    "description": "Mensaje cuando el directorio de seeders está vacío"
   }
 }

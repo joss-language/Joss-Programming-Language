@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "এখনই চেষ্টা করুন: joss run your_script.joss",
+  "aiTryScript": "এখনই চেষ্টা করুন: joss run tu_script.joss",
   "@aiTryScript": {},
   "aiWizardConfig": "এই উইজার্ড আপনার প্রকল্পে নেটিভ এআই কনফিগার করবে।",
   "@aiWizardConfig": {},
@@ -240,10 +240,6 @@
   "@cliAppTitle": {
     "description": "Título principal mostrado en la ayuda de la CLI"
   },
-  "cliUsage": "ব্যবহার: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
   "cliCmdRepl": "ইন্টারেক্টিভ কনসোল (REPL) চালু করুন",
   "@cliCmdRepl": {
     "description": "Descripción del comando joss repl"
@@ -296,10 +292,6 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliUsageRun": "ব্যবহার: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
   "cliErrRequireMain": "সব প্রকল্পের একটি এন্ট্রি পয়েন্ট 'main.joss' থাকতে হবে যা সার্ভার চালু করে।",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
@@ -311,50 +303,6 @@
   "cliErrNoMain": "ত্রুটি: 'main.joss' পাওয়া যায়নি।",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
-  },
-  "cliUsageServer": "ব্যবহার: জস সার্ভার শুরু",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
-  "cliUsageMakeController": "ব্যবহার: জস মেক: কন্ট্রোলার [নাম]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageBuildPkg": "ব্যবহার: জস বিল্ড প্যাকেজ [প্যাকেজ_পথ]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageProgram": "ব্যবহার: জস প্রোগ্রাম শুরু",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageMakeModel": "ব্যবহার: জস মেক: মডেল [নাম]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "ব্যবহার: joss make:mvc [নাম]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "ব্যবহার: joss make:view [নাম]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageMakeMiddleware": "ব্যবহার: জস মেক: মিডলওয়্যার [নাম]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeCrud": "ব্যবহার: জস মেক: ক্রুড [টেবিল]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageRemoveCrud": "ব্যবহার: জস রিমুভ: ক্রুড [টেবিল]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageMakeMigration": "ব্যবহার: জস মেক: মাইগ্রেশন [নাম]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
   },
   "checkVerifying": "[চেক] '{path}'-এ প্রকল্প যাচাই করা হচ্ছে (পার্স, শব্দার্থিক বিশ্লেষণ, প্রকার, লিন্ট, বিন্যাস)...",
   "@checkVerifying": {
@@ -573,5 +521,388 @@
   "pkgInspectJpV1Deprecated": "ত্রুটি: JP v1 প্যাকেজ বিন্যাস সরানো হয়েছে। Joss-এর জন্য JP v2 কাঠামোবদ্ধ এবং স্বাক্ষরিত বিন্যাস প্রয়োজন।",
   "@pkgInspectJpV1Deprecated": {
     "description": "Aviso de versión obsoleta JP v1"
+  },
+  "helpTopicReplExitHint": "ইন্টারেক্টিভ REPL থেকে বের হন",
+  "@helpTopicReplExitHint": {
+    "description": "Descripción del atajo exit/quit en el REPL"
+  },
+  "helpTopicReplCtrlCHint": "বর্তমান লাইনটি বাধা দিন অথবা REPL থেকে বেরিয়ে যান",
+  "@helpTopicReplCtrlCHint": {
+    "description": "Descripción del atajo Ctrl+C en el REPL"
+  },
+  "helpTopicProgram": "ডেস্কটপ মোডে অ্যাপ্লিকেশন শুরু করুন।",
+  "@helpTopicProgram": {
+    "description": "Descripción del comando joss program"
+  },
+  "helpTopicRun": "সিনট্যাক্স এবং শব্দার্থিক বিশ্লেষণ যাচাই করার পরে সরাসরি একটি জস স্ক্রিপ্ট চালায়। টাইপ ত্রুটি কার্যকরী ব্লক; সতর্কতা এটি বন্ধ না করে রিপোর্ট করা হয়.",
+  "@helpTopicRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "helpTopicBuild": "উত্পাদন এবং বিতরণের জন্য প্রকল্পটি কম্পাইল বা প্যাকেজ করে।",
+  "@helpTopicBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "helpTopicServer": "'main.joss' এন্ট্রি পয়েন্ট চালিয়ে উচ্চ-কর্মক্ষমতা সম্পন্ন HTTP ওয়েব সার্ভার শুরু করুন। অ্যাপ/ এ সমস্ত ড্রাইভার, মডেল এবং রুট স্বয়ংক্রিয়ভাবে লোড করুন। সার্ভারটিকে নিরাপদে বন্ধ করতে কনসোলে 'q' বা Ctrl+C টিপুন।",
+  "@helpTopicServer": {
+    "description": "Descripción del comando joss server"
+  },
+  "helpTopicRepl": "Joss-এর ইন্টারেক্টিভ কনসোল (রিড-ইভাল-প্রিন্ট লুপ) শুরু করে। এটি আপনাকে এক্সপ্রেশন মূল্যায়ন করতে, ফাংশন পরীক্ষা করতে, ভেরিয়েবল ঘোষণা করতে এবং রিয়েল টাইমে পরীক্ষা করতে দেয়।",
+  "@helpTopicRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "helpTopicBuildModeProgram": "ডেস্কটপ সংস্করণ প্রস্তুত করুন",
+  "@helpTopicBuildModeProgram": {
+    "description": "Descripción del modo program de joss build"
+  },
+  "helpTopicBuildModeNative": "একটি স্বয়ংসম্পূর্ণ নেটিভ এক্সিকিউটেবল কম্পাইল করুন",
+  "@helpTopicBuildModeNative": {
+    "description": "Descripción del modo native de joss build"
+  },
+  "helpTopicBuildModePackage": ".jp ফরম্যাটে একটি জস লাইব্রেরি প্যাকেজ করুন",
+  "@helpTopicBuildModePackage": {
+    "description": "Descripción del modo package de joss build"
+  },
+  "helpTopicBuildModeWeb": "ওয়েব স্থাপনার জন্য সম্পদ এবং ফাইল প্রস্তুত করুন",
+  "@helpTopicBuildModeWeb": {
+    "description": "Descripción del modo web de joss build"
+  },
+  "helpTopicAnalyze": "এটি কার্যকর না করে প্রকল্পটির একটি কঠোর শব্দার্থগত বিশ্লেষণ করুন। প্রকার, অঘোষিত ভেরিয়েবল, স্বাক্ষর এবং নিয়ন্ত্রণ প্রবাহের ধারাবাহিকতা পরীক্ষা করে।",
+  "@helpTopicAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "helpTopicFormat": "ক্যানোনিকাল ল্যাঙ্গুয়েজ স্ট্যান্ডার্ড অনুযায়ী .joss ফাইল ফরম্যাট করে।",
+  "@helpTopicFormat": {
+    "description": "Descripción del comando joss format"
+  },
+  "helpTopicLint": "স্ট্যাটিক বিশ্লেষণ চালায় এবং শৈলী, প্রকার এবং নিরাপত্তা সমস্যা সনাক্ত করে।",
+  "@helpTopicLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "helpTopicFix": "নিরাপদ স্বয়ংক্রিয় সমাধান এবং ক্যানোনিকাল বিন্যাস প্রয়োগ করে।",
+  "@helpTopicFix": {
+    "description": "Descripción del comando joss fix"
+  },
+  "helpTopicFormatOptWrite": "ফাইলে পরিবর্তন লিখুন (ফাইল পাস করার সময় ডিফল্ট)",
+  "@helpTopicFormatOptWrite": {
+    "description": "Descripción de la opción --write de joss format"
+  },
+  "helpTopicFormatOptCheck": "ফাইলগুলি পরিবর্তন না করেই ফর্ম্যাট করা হয়েছে কিনা তা পরীক্ষা করুন (সিআই-তে দরকারী)",
+  "@helpTopicFormatOptCheck": {
+    "description": "Descripción de la opción --check de joss format"
+  },
+  "helpTopicLintOptJson": "স্ট্রাকচার্ড JSON ফর্ম্যাটে ডায়াগনস্টিক রিপোর্ট ইস্যু করে",
+  "@helpTopicLintOptJson": {
+    "description": "Descripción de la opción --json de joss lint"
+  },
+  "helpTopicTest": "অফিসিয়াল ইউনিট টেস্টিং এবং অ্যাসারশন স্যুট (*_test.joss) চালান।",
+  "@helpTopicTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "helpTopicNew": "একটি নতুন প্রকল্প কাঠামো তৈরি করে।",
+  "@helpTopicNew": {
+    "description": "Descripción del comando joss new"
+  },
+  "helpTopicFixOptDryRun": "ফাইলগুলি পরিবর্তন না করে কোন পরিবর্তনগুলি প্রয়োগ করা হবে তা দেখায়৷",
+  "@helpTopicFixOptDryRun": {
+    "description": "Descripción de la opción --dry-run de joss fix"
+  },
+  "helpTopicCheck": "একটি ব্যাপক গুণমান পরীক্ষা চালায়: ক্যানোনিকাল বিন্যাস, বাক্য গঠন, কঠোর শব্দার্থগত বিশ্লেষণ এবং লিন্টার নিয়ম।",
+  "@helpTopicCheck": {
+    "description": "Descripción del comando joss check"
+  },
+  "helpTopicTestOptFilter": "ফিল্টার করুন এবং শুধুমাত্র সেই পরীক্ষাগুলি চালান যার নামে পাঠ্য রয়েছে",
+  "@helpTopicTestOptFilter": {
+    "description": "Descripción de la opción --filter de joss test"
+  },
+  "helpTopicNewTypeWeb": "সম্পূর্ণ MVC ওয়েব প্রকল্প (ডিফল্ট)",
+  "@helpTopicNewTypeWeb": {
+    "description": "Tipo web de joss new"
+  },
+  "helpTopicMakeController": "অ্যাপ/কন্ট্রোলার/-এ একটি নতুন ওয়েব কন্ট্রোলার তৈরি করুন।",
+  "@helpTopicMakeController": {
+    "description": "Descripción del comando make:controller"
+  },
+  "helpTopicNewTypeConsole": "CLI কনসোল প্রকল্প",
+  "@helpTopicNewTypeConsole": {
+    "description": "Tipo console de joss new"
+  },
+  "helpTopicMakeModel": "অ্যাপ/মডেল/-এ একটি নতুন ORM মডেল তৈরি করুন।",
+  "@helpTopicMakeModel": {
+    "description": "Descripción del comando make:model"
+  },
+  "helpTopicMakeView": "অ্যাপ/ভিউ/-এ একটি নতুন ভিউ টেমপ্লেট তৈরি করুন।",
+  "@helpTopicMakeView": {
+    "description": "Descripción del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "অ্যাপ/মিডলওয়্যারে একটি নতুন HTTP মিডলওয়্যার তৈরি করুন।",
+  "@helpTopicMakeMiddleware": {
+    "description": "Descripción del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "একই সাথে সত্তার জন্য মডেল, ভিউ এবং কন্ট্রোলার তৈরি করে।",
+  "@helpTopicMakeMvc": {
+    "description": "Descripción del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "একটি ডাটাবেস টেবিলের জন্য স্বয়ংক্রিয়ভাবে মডেল, ভিউ, কন্ট্রোলার এবং রুট তৈরি করে। বিদেশী কী, দৃশ্যমান কলাম সনাক্ত করে এবং নেভিগেশন লিঙ্কগুলি ইনজেক্ট করে।",
+  "@helpTopicMakeCrud": {
+    "description": "Descripción del comando make:crud"
+  },
+  "helpTopicMakeMigration": "অ্যাপ/ডাটাবেস/মাইগ্রেশন/-এ টাইমস্ট্যাম্প সহ একটি নতুন মাইগ্রেশন ফাইল তৈরি করুন।",
+  "@helpTopicMakeMigration": {
+    "description": "Descripción del comando make:migration"
+  },
+  "helpTopicNewTypePackage": "জস ইকোসিস্টেমের জন্য বিতরণযোগ্য প্যাকেজ",
+  "@helpTopicNewTypePackage": {
+    "description": "Tipo package de joss new"
+  },
+  "helpTopicNewTypePlugin": ".jp বাইটকোডে সংকলন সহ নেটিভ প্লাগইন",
+  "@helpTopicNewTypePlugin": {
+    "description": "Tipo plugin de joss new"
+  },
+  "helpTopicMigrate": "অ্যাপ/ডাটাবেস/মাইগ্রেশনে মুলতুবি মাইগ্রেশন প্রয়োগ করুন।",
+  "@helpTopicMigrate": {
+    "description": "Descripción del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "সমস্ত ডাটাবেস টেবিল মুছুন এবং সমস্ত মাইগ্রেশন পুনরায় চালান। স্কিম্যাটিক রিসেট করার জন্য বিকাশের সময় দরকারী।",
+  "@helpTopicMigrateFresh": {
+    "description": "Descripción del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "অ্যাপ/ডাটাবেস/সিডারে সংজ্ঞায়িত সেটলার সিডার চালায়।",
+  "@helpTopicDbSeed": {
+    "description": "Descripción del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "প্রকল্পের ডাটাবেস সংযোগ কনফিগার বা সংশোধন করুন।",
+  "@helpTopicChangeDb": {
+    "description": "Descripción del comando joss change db"
+  },
+  "helpTopicRemoveCrud": "পরিষ্কারভাবে একটি তৈরি করা CRUD মডিউল সরিয়ে দেয়: নিয়ামক, মডেল, ভিউ মুছে দেয় এবং নেভিবার থেকে রুট এবং লিঙ্কগুলি সরিয়ে দেয়।",
+  "@helpTopicRemoveCrud": {
+    "description": "Descripción del comando remove:crud"
+  },
+  "helpTopicUserStorage": "প্রোজেক্ট ফাইল স্টোরেজ কনফিগার এবং সিঙ্ক্রোনাইজ করুন।",
+  "@helpTopicUserStorage": {
+    "description": "Descripción del comando joss userstorage"
+  },
+  "helpTopicChangeDbMotor": "ডাটাবেস ইঞ্জিন পরিবর্তন করুন (sqlite, mysql)",
+  "@helpTopicChangeDbMotor": {
+    "description": "Subcomando change db <motor>"
+  },
+  "helpTopicChangeDbMigrate": "একটি নতুন MySQL-এ ডেটা এবং স্কিমা স্থানান্তর করুন৷",
+  "@helpTopicChangeDbMigrate": {
+    "description": "Subcomando change db migrate"
+  },
+  "helpTopicChangeDbPrefix": "গ্লোবাল টেবিল উপসর্গ সেট করুন",
+  "@helpTopicChangeDbPrefix": {
+    "description": "Subcomando change db prefix"
+  },
+  "helpTopicUserStorageLocal": "স্থানীয় ডিস্ক স্টোরেজ কনফিগার করুন",
+  "@helpTopicUserStorageLocal": {
+    "description": "Opción local de joss userstorage"
+  },
+  "helpTopicUserStorageOci": "ওরাকল ক্লাউড ইনফ্রাস্ট্রাকচারে স্টোরেজ কনফিগার করুন",
+  "@helpTopicUserStorageOci": {
+    "description": "Opción oci de joss userstorage"
+  },
+  "helpTopicUserStorageSyncLocal": "স্থানীয় ডিস্কে OCI ফাইল ডাউনলোড করুন",
+  "@helpTopicUserStorageSyncLocal": {
+    "description": "Opción sync-local de joss userstorage"
+  },
+  "helpTopicUserStorageSyncOci": "OCI বালতিতে স্থানীয় ফাইল আপলোড করুন",
+  "@helpTopicUserStorageSyncOci": {
+    "description": "Opción sync-oci de joss userstorage"
+  },
+  "helpTopicPub": "জস প্যাকেজ এবং নির্ভরতা ম্যানেজার।",
+  "@helpTopicPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "helpTopicPubAdd": "joss.yaml-এ একটি নির্ভরতা যোগ করুন এবং এটি ইনস্টল করুন",
+  "@helpTopicPubAdd": {
+    "description": "Subcomando pub add"
+  },
+  "helpTopicPubRemove": "joss.yaml থেকে একটি নির্ভরতা সরান",
+  "@helpTopicPubRemove": {
+    "description": "Subcomando pub remove"
+  },
+  "helpTopicPubInstall": "joss.yaml নির্ভরতা ডাউনলোড এবং ইনস্টল করুন",
+  "@helpTopicPubInstall": {
+    "description": "Subcomando pub install"
+  },
+  "helpTopicPubUpdate": "ইনস্টল করা নির্ভরতা আপডেট করুন",
+  "@helpTopicPubUpdate": {
+    "description": "Subcomando pub update"
+  },
+  "helpTopicUpdate": "Joss বাইনারি, SDK এবং অফিসিয়াল টুল আপডেট করুন।",
+  "@helpTopicUpdate": {
+    "description": "Descripción del comando joss update"
+  },
+  "helpTopicPackage": "একটি কম্পাইল করা জস প্যাকেজের মেটাডেটা, চিহ্ন এবং নির্ভরতা পরিদর্শন করে।",
+  "@helpTopicPackage": {
+    "description": "Descripción del comando joss package inspect"
+  },
+  "helpTopicPlugin": "ইনস্টল করা প্লাগইন এবং তাদের কমান্ড দেখতে, 'joss help plugins' ব্যবহার করুন।",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPubPublish": "অফিসিয়াল রেজিস্ট্রিতে আপনার প্যাকেজ প্রকাশ করুন",
+  "@helpTopicPubPublish": {
+    "description": "Subcomando pub publish"
+  },
+  "helpTopicVersion": "Joss ইনস্টল করা সংস্করণ এবং এর কোডনেম দেখায়।",
+  "@helpTopicVersion": {
+    "description": "Descripción del comando joss version"
+  },
+  "helpTopicAiActivate": "কৃত্রিম বুদ্ধিমত্তা প্রদানকারী এবং মডেল (Groq, OpenAI, Gemini) কনফিগার করুন।",
+  "@helpTopicAiActivate": {
+    "description": "Descripción del comando joss ai:activate"
+  },
+  "helpTopicUpdateOptForce": "জোর করে পুনরায় ইনস্টল করুন",
+  "@helpTopicUpdateOptForce": {
+    "description": "Opción --force de joss update"
+  },
+  "helpTopicNotFound": "'{cmd}' কমান্ডের জন্য কোনো নির্দিষ্ট সাহায্য নেই।",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  },
+  "helpTopicUpdateOptCanary": "সর্বশেষ উন্নয়ন সংস্করণ আপডেট করুন",
+  "@helpTopicUpdateOptCanary": {
+    "description": "Opción --canary de joss update"
+  },
+  "helpTopicUpdateOptStable": "সর্বশেষ স্থিতিশীল সংস্করণে আপডেট করুন (ডিফল্ট)",
+  "@helpTopicUpdateOptStable": {
+    "description": "Opción --stable de joss update"
+  },
+  "cliSectionExec": "এক্সিকিউশন এবং REPL:",
+  "@cliSectionExec": {
+    "description": "Encabezado de sección de comandos de ejecución en el menú de ayuda"
+  },
+  "cliUsageLabel": "ব্যবহার:",
+  "@cliUsageLabel": {
+    "description": "Etiqueta para indicar el uso de un comando CLI"
+  },
+  "cliSectionQuality": "কোডের গুণমান এবং টুলিং:",
+  "@cliSectionQuality": {
+    "description": "Encabezado de sección de calidad de código en el menú de ayuda"
+  },
+  "cliSectionScaffolding": "জেনারেটর এবং কাঠামো (SCAFFOLDING):",
+  "@cliSectionScaffolding": {
+    "description": "Encabezado de sección de generadores en el menú de ayuda"
+  },
+  "cliSectionPackages": "প্যাকেজ এবং প্লাগইন:",
+  "@cliSectionPackages": {
+    "description": "Encabezado de sección de paquetes y plugins en el menú de ayuda"
+  },
+  "cliSectionDatabase": "ডেটাবেস এবং স্টোরেজ:",
+  "@cliSectionDatabase": {
+    "description": "Encabezado de sección de base de datos y almacenamiento en el menú de ayuda"
+  },
+  "cliSectionSystem": "সিস্টেম এবং ইউটিলিটিস:",
+  "@cliSectionSystem": {
+    "description": "Encabezado de sección de sistema y utilidades en el menú de ayuda"
+  },
+  "cliCmdCheck": "ব্যাপক যাচাইকরণ (ফরম্যাট, সিনট্যাক্স, প্রকার এবং লিন্ট)",
+  "@cliCmdCheck": {
+    "description": "Descripción breve del comando check en el menú de ayuda"
+  },
+  "cliCmdFix": "নিরাপদ স্বয়ংক্রিয় সংশোধন এবং বিন্যাস প্রয়োগ করুন",
+  "@cliCmdFix": {
+    "description": "Descripción breve del comando fix en el menú de ayuda"
+  },
+  "cliCmdMakeController": "একটি ওয়েব কন্ট্রোলার তৈরি করুন",
+  "@cliCmdMakeController": {
+    "description": "Descripción breve del comando make:controller en el menú de ayuda"
+  },
+  "cliCmdMakeModel": "একটি ডেটা মডেল তৈরি করুন",
+  "@cliCmdMakeModel": {
+    "description": "Descripción breve del comando make:model en el menú de ayuda"
+  },
+  "cliCmdMakeView": "একটি ভিউ টেমপ্লেট তৈরি করুন",
+  "@cliCmdMakeView": {
+    "description": "Descripción breve del comando make:view en el menú de ayuda"
+  },
+  "cliCmdMakeMiddleware": "HTTP মিডলওয়্যার তৈরি করুন",
+  "@cliCmdMakeMiddleware": {
+    "description": "Descripción breve del comando make:middleware en el menú de ayuda"
+  },
+  "cliCmdMakeMvc": "এক ধাপে মডেল, ভিউ এবং কন্ট্রোলার তৈরি করুন",
+  "@cliCmdMakeMvc": {
+    "description": "Descripción breve del comando make:mvc en el menú de ayuda"
+  },
+  "cliCmdMakeCrud": "রুট এবং ভিউ সহ সম্পূর্ণ CRUD তৈরি করুন",
+  "@cliCmdMakeCrud": {
+    "description": "Descripción breve del comando make:crud en el menú de ayuda"
+  },
+  "cliCmdDbSeed": "অ্যাপ/ডাটাবেস/সিডার থেকে সিডার চালান",
+  "@cliCmdDbSeed": {
+    "description": "Descripción breve del comando db:seed en el menú de ayuda"
+  },
+  "cliCmdPluginCompile": ".jp বাইনারি প্যাকেজে কোড কম্পাইল করুন",
+  "@cliCmdPluginCompile": {
+    "description": "Descripción breve del comando plugin compile en el menú de ayuda"
+  },
+  "cliCmdChangeDbMigrate": "একটি নতুন MySQL-এ বর্তমান সংযোগ স্থানান্তর করুন৷",
+  "@cliCmdChangeDbMigrate": {
+    "description": "Descripción breve del subcomando change db migrate en el menú de ayuda"
+  },
+  "cliCmdStorageSync": "ওরাকল ক্লাউডের সাথে ফাইলগুলি সিঙ্ক করুন",
+  "@cliCmdStorageSync": {
+    "description": "Descripción breve del subcomando userstorage sync en el menú de ayuda"
+  },
+  "cliCmdPluginInspect": "একটি প্লাগইন এর বাইটকোড এবং প্রতীক পরিদর্শন করুন",
+  "@cliCmdPluginInspect": {
+    "description": "Descripción breve del comando plugin inspect en el menú de ayuda"
+  },
+  "cliCmdPackageInspect": "একটি প্যাকেজের মেটাডেটা এবং স্বাক্ষর পরিদর্শন করে",
+  "@cliCmdPackageInspect": {
+    "description": "Descripción breve del comando package inspect en el menú de ayuda"
+  },
+  "cliCmdHelpPlugins": "প্লাগইন দ্বারা প্রদত্ত কমান্ড এবং বিকল্পের তালিকা করুন",
+  "@cliCmdHelpPlugins": {
+    "description": "Descripción breve del comando help plugins en el menú de ayuda"
+  },
+  "cliCmdPluginVerify": "Ed25519 স্বাক্ষর এবং একটি প্লাগইনের অখণ্ডতা যাচাই করুন",
+  "@cliCmdPluginVerify": {
+    "description": "Descripción breve del comando plugin verify en el menú de ayuda"
+  },
+  "cliCmdUpdate": "Joss, SDK এবং প্লাগইনগুলির সংস্করণ আপডেট করুন",
+  "@cliCmdUpdate": {
+    "description": "Descripción breve del comando update en el menú de ayuda"
+  },
+  "cliCmdAiActivate": "প্রদানকারী এবং কৃত্রিম বুদ্ধিমত্তা মডেল কনফিগার করুন",
+  "@cliCmdAiActivate": {
+    "description": "Descripción breve del comando ai:activate en el menú de ayuda"
+  },
+  "cliHelpFooter": "বিকল্প এবং উদাহরণের জন্য 'joss help <command>' বা 'joss help plugins' ব্যবহার করুন।",
+  "@cliHelpFooter": {
+    "description": "Mensaje de pie de página en el menú de ayuda general"
+  },
+  "migrateFreshStarting": "সমস্ত টেবিল মুছে ফেলা হচ্ছে এবং স্ক্র্যাচ থেকে মাইগ্রেশন চলছে...",
+  "@migrateFreshStarting": {
+    "description": "Mensaje inicial del comando migrate:fresh"
+  },
+  "dbConnSuccess": "DB এর সাথে সংযোগ সফল হয়েছে৷",
+  "@dbConnSuccess": {
+    "description": "Mensaje cuando la conexión a la base de datos es exitosa"
+  },
+  "migrateFreshDroppingTables": "সমস্ত টেবিল মুছে ফেলা হচ্ছে...",
+  "@migrateFreshDroppingTables": {
+    "description": "Mensaje al eliminar tablas en migrate:fresh"
+  },
+  "migrateFreshSuccess": "মাইগ্রেশন সফলভাবে সম্পাদিত হয়েছে!",
+  "@migrateFreshSuccess": {
+    "description": "Mensaje de éxito al completar migrate:fresh"
+  },
+  "dbConnError": "ত্রুটি: ডাটাবেসের সাথে সংযোগ করা যায়নি।",
+  "@dbConnError": {
+    "description": "Mensaje de error cuando falla la conexión a la base de datos"
+  },
+  "seedersRunning": "চলমান সিডার...",
+  "@seedersRunning": {
+    "description": "Mensaje inicial al ejecutar seeders"
+  },
+  "seedersNotFound": "অ্যাপ/ডাটাবেস/সিডার/-এ কোনো বীজ পাওয়া যায়নি",
+  "@seedersNotFound": {
+    "description": "Mensaje cuando el directorio de seeders está vacío"
   }
 }

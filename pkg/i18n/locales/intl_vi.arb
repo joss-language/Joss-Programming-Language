@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Hãy thử ngay với: joss run your_script.joss",
+  "aiTryScript": "Hãy thử ngay với: joss run tu_script.joss",
   "@aiTryScript": {},
   "aiWizardConfig": "Trình hướng dẫn này sẽ định cấu hình AI gốc trong dự án của bạn.",
   "@aiWizardConfig": {},
@@ -240,10 +240,6 @@
   "@cliAppTitle": {
     "description": "Título principal mostrado en la ayuda de la CLI"
   },
-  "cliUsage": "Cách dùng: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
   "cliCmdRepl": "Khởi động console tương tác (REPL)",
   "@cliCmdRepl": {
     "description": "Descripción del comando joss repl"
@@ -296,10 +292,6 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliUsageRun": "Cách dùng: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
   "cliErrRequireMain": "Tất cả các dự án phải có điểm vào 'main.joss' khởi động máy chủ.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
@@ -311,50 +303,6 @@
   "cliErrNoMain": "Lỗi: không tìm thấy 'main.joss'.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
-  },
-  "cliUsageServer": "Cách sử dụng: khởi động máy chủ joss",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
-  "cliUsageMakeController": "Cách sử dụng: joss make:controller [Tên]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageBuildPkg": "Cách sử dụng: gói xây dựng joss [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageProgram": "Cách sử dụng: bắt đầu chương trình joss",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageMakeModel": "Cách sử dụng: joss make:model [Tên]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "Cách sử dụng: joss make:mvc [Tên]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "Cách sử dụng: joss make:view [Tên]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageMakeMiddleware": "Cách sử dụng: joss make:middleware [Tên]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeCrud": "Cách sử dụng: joss make:crud [Bảng]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageRemoveCrud": "Cách sử dụng: joss Remove:crud [Bảng]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageMakeMigration": "Cách sử dụng: joss make:migration [Tên]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
   },
   "checkVerifying": "[KIỂM TRA] Đang xác minh dự án trong '{path}' (phân tích cú pháp, phân tích ngữ nghĩa, loại, tìm lỗi mã nguồn, định dạng)...",
   "@checkVerifying": {
@@ -573,5 +521,388 @@
   "pkgInspectJpV1Deprecated": "Lỗi: Định dạng gói JP v1 đã bị xóa. Joss yêu cầu định dạng có cấu trúc và có chữ ký JP v2.",
   "@pkgInspectJpV1Deprecated": {
     "description": "Aviso de versión obsoleta JP v1"
+  },
+  "helpTopicReplExitHint": "Thoát REPL tương tác",
+  "@helpTopicReplExitHint": {
+    "description": "Descripción del atajo exit/quit en el REPL"
+  },
+  "helpTopicReplCtrlCHint": "Ngắt dòng hiện tại hoặc thoát khỏi REPL",
+  "@helpTopicReplCtrlCHint": {
+    "description": "Descripción del atajo Ctrl+C en el REPL"
+  },
+  "helpTopicProgram": "Khởi động ứng dụng ở chế độ máy tính để bàn.",
+  "@helpTopicProgram": {
+    "description": "Descripción del comando joss program"
+  },
+  "helpTopicRun": "Chạy tập lệnh Joss trực tiếp sau khi xác thực cú pháp và phân tích ngữ nghĩa. Lỗi gõ khối thực thi; Các cảnh báo được báo cáo mà không dừng lại.",
+  "@helpTopicRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "helpTopicBuild": "Biên dịch hoặc đóng gói dự án để sản xuất và phân phối.",
+  "@helpTopicBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "helpTopicServer": "Khởi động máy chủ web HTTP hiệu suất cao bằng cách chạy điểm vào 'main.joss'. Tự động tải tất cả trình điều khiển, kiểu máy và tuyến đường trong app/. Nhấn 'q' hoặc Ctrl+C trong bảng điều khiển để dừng máy chủ một cách an toàn.",
+  "@helpTopicServer": {
+    "description": "Descripción del comando joss server"
+  },
+  "helpTopicRepl": "Khởi động bảng điều khiển tương tác (Vòng đọc-Đánh giá-In) của Joss. Nó cho phép bạn đánh giá các biểu thức, kiểm tra hàm, khai báo các biến và thử nghiệm trong thời gian thực.",
+  "@helpTopicRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "helpTopicBuildModeProgram": "Chuẩn bị phiên bản máy tính để bàn",
+  "@helpTopicBuildModeProgram": {
+    "description": "Descripción del modo program de joss build"
+  },
+  "helpTopicBuildModeNative": "Biên dịch một tệp thực thi gốc độc lập",
+  "@helpTopicBuildModeNative": {
+    "description": "Descripción del modo native de joss build"
+  },
+  "helpTopicBuildModePackage": "Đóng gói thư viện Joss ở định dạng .jp",
+  "@helpTopicBuildModePackage": {
+    "description": "Descripción del modo package de joss build"
+  },
+  "helpTopicBuildModeWeb": "Chuẩn bị nội dung và tệp để triển khai web",
+  "@helpTopicBuildModeWeb": {
+    "description": "Descripción del modo web de joss build"
+  },
+  "helpTopicAnalyze": "Thực hiện phân tích ngữ nghĩa nghiêm ngặt của dự án mà không cần thực hiện nó. Kiểm tra tính nhất quán của các loại, biến không được khai báo, chữ ký và luồng điều khiển.",
+  "@helpTopicAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "helpTopicFormat": "Định dạng tệp .joss theo tiêu chuẩn ngôn ngữ chuẩn.",
+  "@helpTopicFormat": {
+    "description": "Descripción del comando joss format"
+  },
+  "helpTopicLint": "Chạy phân tích tĩnh và phát hiện các vấn đề về kiểu, loại và bảo mật.",
+  "@helpTopicLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "helpTopicFix": "Áp dụng các bản sửa lỗi tự động an toàn và định dạng chuẩn.",
+  "@helpTopicFix": {
+    "description": "Descripción del comando joss fix"
+  },
+  "helpTopicFormatOptWrite": "Viết các thay đổi vào tệp (mặc định khi truyền tệp)",
+  "@helpTopicFormatOptWrite": {
+    "description": "Descripción de la opción --write de joss format"
+  },
+  "helpTopicFormatOptCheck": "Kiểm tra xem tệp có được định dạng mà không sửa đổi chúng hay không (hữu ích trong CI)",
+  "@helpTopicFormatOptCheck": {
+    "description": "Descripción de la opción --check de joss format"
+  },
+  "helpTopicLintOptJson": "Đưa ra báo cáo chẩn đoán ở định dạng JSON có cấu trúc",
+  "@helpTopicLintOptJson": {
+    "description": "Descripción de la opción --json de joss lint"
+  },
+  "helpTopicTest": "Chạy bộ xác nhận và kiểm tra đơn vị chính thức (*_test.joss).",
+  "@helpTopicTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "helpTopicNew": "Tạo ra một cấu trúc dự án mới.",
+  "@helpTopicNew": {
+    "description": "Descripción del comando joss new"
+  },
+  "helpTopicFixOptDryRun": "Hiển thị những thay đổi nào sẽ được áp dụng mà không sửa đổi tệp",
+  "@helpTopicFixOptDryRun": {
+    "description": "Descripción de la opción --dry-run de joss fix"
+  },
+  "helpTopicCheck": "Tiến hành kiểm tra chất lượng toàn diện: định dạng chuẩn, cú pháp, phân tích ngữ nghĩa nghiêm ngặt và các quy tắc nói dối.",
+  "@helpTopicCheck": {
+    "description": "Descripción del comando joss check"
+  },
+  "helpTopicTestOptFilter": "Lọc và chỉ chạy các bài kiểm tra có tên chứa văn bản",
+  "@helpTopicTestOptFilter": {
+    "description": "Descripción de la opción --filter de joss test"
+  },
+  "helpTopicNewTypeWeb": "Hoàn thành dự án web MVC (mặc định)",
+  "@helpTopicNewTypeWeb": {
+    "description": "Tipo web de joss new"
+  },
+  "helpTopicMakeController": "Tạo bộ điều khiển web mới trong app/controllers/.",
+  "@helpTopicMakeController": {
+    "description": "Descripción del comando make:controller"
+  },
+  "helpTopicNewTypeConsole": "Dự án bảng điều khiển CLI",
+  "@helpTopicNewTypeConsole": {
+    "description": "Tipo console de joss new"
+  },
+  "helpTopicMakeModel": "Tạo mô hình ORM mới trong app/models/.",
+  "@helpTopicMakeModel": {
+    "description": "Descripción del comando make:model"
+  },
+  "helpTopicMakeView": "Tạo mẫu chế độ xem mới trong app/views/.",
+  "@helpTopicMakeView": {
+    "description": "Descripción del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "Tạo phần mềm trung gian HTTP mới trong app/middleware/.",
+  "@helpTopicMakeMiddleware": {
+    "description": "Descripción del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "Đồng thời tạo Model, View và Controller cho thực thể.",
+  "@helpTopicMakeMvc": {
+    "description": "Descripción del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "Tự động tạo Mô hình, Chế độ xem, Bộ điều khiển và Tuyến đường cho bảng cơ sở dữ liệu. Phát hiện các khóa ngoại, các cột hiển thị và chèn các liên kết điều hướng.",
+  "@helpTopicMakeCrud": {
+    "description": "Descripción del comando make:crud"
+  },
+  "helpTopicMakeMigration": "Tạo tệp di chuyển mới có dấu thời gian trong app/database/migrations/.",
+  "@helpTopicMakeMigration": {
+    "description": "Descripción del comando make:migration"
+  },
+  "helpTopicNewTypePackage": "Gói phân phối cho hệ sinh thái Joss",
+  "@helpTopicNewTypePackage": {
+    "description": "Tipo package de joss new"
+  },
+  "helpTopicNewTypePlugin": "Plugin gốc có tính năng biên dịch sang mã byte .jp",
+  "@helpTopicNewTypePlugin": {
+    "description": "Tipo plugin de joss new"
+  },
+  "helpTopicMigrate": "Áp dụng các quá trình di chuyển đang chờ xử lý trong ứng dụng/cơ sở dữ liệu/di chuyển.",
+  "@helpTopicMigrate": {
+    "description": "Descripción del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "Xóa tất cả các bảng cơ sở dữ liệu và chạy lại tất cả quá trình di chuyển. Hữu ích trong quá trình phát triển để thiết lập lại sơ đồ.",
+  "@helpTopicMigrateFresh": {
+    "description": "Descripción del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "Chạy các seeder định cư được xác định trong ứng dụng/cơ sở dữ liệu/seeders.",
+  "@helpTopicDbSeed": {
+    "description": "Descripción del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "Định cấu hình hoặc sửa đổi kết nối cơ sở dữ liệu của dự án.",
+  "@helpTopicChangeDb": {
+    "description": "Descripción del comando joss change db"
+  },
+  "helpTopicRemoveCrud": "Xóa sạch mô-đun CRUD đã tạo: xóa bộ điều khiển, mô hình, chế độ xem và xóa các tuyến đường và liên kết khỏi thanh điều hướng.",
+  "@helpTopicRemoveCrud": {
+    "description": "Descripción del comando remove:crud"
+  },
+  "helpTopicUserStorage": "Cấu hình và đồng bộ hóa việc lưu trữ tệp dự án.",
+  "@helpTopicUserStorage": {
+    "description": "Descripción del comando joss userstorage"
+  },
+  "helpTopicChangeDbMotor": "Thay đổi công cụ cơ sở dữ liệu (sqlite, mysql)",
+  "@helpTopicChangeDbMotor": {
+    "description": "Subcomando change db <motor>"
+  },
+  "helpTopicChangeDbMigrate": "Di chuyển dữ liệu và lược đồ sang MySQL mới",
+  "@helpTopicChangeDbMigrate": {
+    "description": "Subcomando change db migrate"
+  },
+  "helpTopicChangeDbPrefix": "Đặt tiền tố bảng toàn cầu",
+  "@helpTopicChangeDbPrefix": {
+    "description": "Subcomando change db prefix"
+  },
+  "helpTopicUserStorageLocal": "Định cấu hình lưu trữ đĩa cục bộ",
+  "@helpTopicUserStorageLocal": {
+    "description": "Opción local de joss userstorage"
+  },
+  "helpTopicUserStorageOci": "Định cấu hình lưu trữ trong Cơ sở hạ tầng đám mây của Oracle",
+  "@helpTopicUserStorageOci": {
+    "description": "Opción oci de joss userstorage"
+  },
+  "helpTopicUserStorageSyncLocal": "Tải tệp OCI xuống đĩa cục bộ",
+  "@helpTopicUserStorageSyncLocal": {
+    "description": "Opción sync-local de joss userstorage"
+  },
+  "helpTopicUserStorageSyncOci": "Tải các tệp cục bộ lên nhóm OCI",
+  "@helpTopicUserStorageSyncOci": {
+    "description": "Opción sync-oci de joss userstorage"
+  },
+  "helpTopicPub": "Gói Joss và trình quản lý phụ thuộc.",
+  "@helpTopicPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "helpTopicPubAdd": "Thêm phần phụ thuộc vào joss.yaml và cài đặt nó",
+  "@helpTopicPubAdd": {
+    "description": "Subcomando pub add"
+  },
+  "helpTopicPubRemove": "Xóa phần phụ thuộc khỏi joss.yaml",
+  "@helpTopicPubRemove": {
+    "description": "Subcomando pub remove"
+  },
+  "helpTopicPubInstall": "Tải xuống và cài đặt phần phụ thuộc joss.yaml",
+  "@helpTopicPubInstall": {
+    "description": "Subcomando pub install"
+  },
+  "helpTopicPubUpdate": "Cập nhật các phần phụ thuộc đã cài đặt",
+  "@helpTopicPubUpdate": {
+    "description": "Subcomando pub update"
+  },
+  "helpTopicUpdate": "Cập nhật nhị phân Joss, SDK và các công cụ chính thức.",
+  "@helpTopicUpdate": {
+    "description": "Descripción del comando joss update"
+  },
+  "helpTopicPackage": "Kiểm tra siêu dữ liệu, ký hiệu và phần phụ thuộc của gói Joss đã biên dịch.",
+  "@helpTopicPackage": {
+    "description": "Descripción del comando joss package inspect"
+  },
+  "helpTopicPlugin": "Để xem các plugin đã cài đặt và các lệnh của chúng, hãy sử dụng 'plugin trợ giúp joss'.",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPubPublish": "Xuất bản gói của bạn trong sổ đăng ký chính thức",
+  "@helpTopicPubPublish": {
+    "description": "Subcomando pub publish"
+  },
+  "helpTopicVersion": "Hiển thị phiên bản Joss được cài đặt và tên mã của nó.",
+  "@helpTopicVersion": {
+    "description": "Descripción del comando joss version"
+  },
+  "helpTopicAiActivate": "Định cấu hình các nhà cung cấp và mô hình Trí tuệ nhân tạo (Groq, OpenAI, Gemini).",
+  "@helpTopicAiActivate": {
+    "description": "Descripción del comando joss ai:activate"
+  },
+  "helpTopicUpdateOptForce": "Buộc cài đặt lại",
+  "@helpTopicUpdateOptForce": {
+    "description": "Opción --force de joss update"
+  },
+  "helpTopicNotFound": "Không có trợ giúp cụ thể cho lệnh '{cmd}'.",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  },
+  "helpTopicUpdateOptCanary": "Cập nhật lên phiên bản phát triển mới nhất",
+  "@helpTopicUpdateOptCanary": {
+    "description": "Opción --canary de joss update"
+  },
+  "helpTopicUpdateOptStable": "Cập nhật lên phiên bản ổn định mới nhất (mặc định)",
+  "@helpTopicUpdateOptStable": {
+    "description": "Opción --stable de joss update"
+  },
+  "cliSectionExec": "THỰC THI VÀ REPL:",
+  "@cliSectionExec": {
+    "description": "Encabezado de sección de comandos de ejecución en el menú de ayuda"
+  },
+  "cliUsageLabel": "Sử dụng:",
+  "@cliUsageLabel": {
+    "description": "Etiqueta para indicar el uso de un comando CLI"
+  },
+  "cliSectionQuality": "CHẤT LƯỢNG MÃ VÀ CÔNG CỤ:",
+  "@cliSectionQuality": {
+    "description": "Encabezado de sección de calidad de código en el menú de ayuda"
+  },
+  "cliSectionScaffolding": "BỘ PHÁT SINH VÀ CẤU TRÚC (SCAFFOLDING):",
+  "@cliSectionScaffolding": {
+    "description": "Encabezado de sección de generadores en el menú de ayuda"
+  },
+  "cliSectionPackages": "GÓI VÀ PLUGIN:",
+  "@cliSectionPackages": {
+    "description": "Encabezado de sección de paquetes y plugins en el menú de ayuda"
+  },
+  "cliSectionDatabase": "CƠ SỞ DỮ LIỆU VÀ LƯU TRỮ:",
+  "@cliSectionDatabase": {
+    "description": "Encabezado de sección de base de datos y almacenamiento en el menú de ayuda"
+  },
+  "cliSectionSystem": "HỆ THỐNG VÀ TIỆN ÍCH:",
+  "@cliSectionSystem": {
+    "description": "Encabezado de sección de sistema y utilidades en el menú de ayuda"
+  },
+  "cliCmdCheck": "Xác minh toàn diện (định dạng, cú pháp, loại và lint)",
+  "@cliCmdCheck": {
+    "description": "Descripción breve del comando check en el menú de ayuda"
+  },
+  "cliCmdFix": "Áp dụng các chỉnh sửa và định dạng tự động an toàn",
+  "@cliCmdFix": {
+    "description": "Descripción breve del comando fix en el menú de ayuda"
+  },
+  "cliCmdMakeController": "Tạo bộ điều khiển web",
+  "@cliCmdMakeController": {
+    "description": "Descripción breve del comando make:controller en el menú de ayuda"
+  },
+  "cliCmdMakeModel": "Tạo mô hình dữ liệu",
+  "@cliCmdMakeModel": {
+    "description": "Descripción breve del comando make:model en el menú de ayuda"
+  },
+  "cliCmdMakeView": "Tạo mẫu xem",
+  "@cliCmdMakeView": {
+    "description": "Descripción breve del comando make:view en el menú de ayuda"
+  },
+  "cliCmdMakeMiddleware": "Tạo phần mềm trung gian HTTP",
+  "@cliCmdMakeMiddleware": {
+    "description": "Descripción breve del comando make:middleware en el menú de ayuda"
+  },
+  "cliCmdMakeMvc": "Tạo Model, View và Controller trong một bước",
+  "@cliCmdMakeMvc": {
+    "description": "Descripción breve del comando make:mvc en el menú de ayuda"
+  },
+  "cliCmdMakeCrud": "Tạo CRUD hoàn chỉnh với các tuyến đường và chế độ xem",
+  "@cliCmdMakeCrud": {
+    "description": "Descripción breve del comando make:crud en el menú de ayuda"
+  },
+  "cliCmdDbSeed": "Chạy seeder từ ứng dụng/cơ sở dữ liệu/seeder",
+  "@cliCmdDbSeed": {
+    "description": "Descripción breve del comando db:seed en el menú de ayuda"
+  },
+  "cliCmdPluginCompile": "Biên dịch mã thành gói nhị phân .jp",
+  "@cliCmdPluginCompile": {
+    "description": "Descripción breve del comando plugin compile en el menú de ayuda"
+  },
+  "cliCmdChangeDbMigrate": "Di chuyển kết nối hiện tại sang MySQL mới",
+  "@cliCmdChangeDbMigrate": {
+    "description": "Descripción breve del subcomando change db migrate en el menú de ayuda"
+  },
+  "cliCmdStorageSync": "Đồng bộ hóa tệp với Đám mây Oracle",
+  "@cliCmdStorageSync": {
+    "description": "Descripción breve del subcomando userstorage sync en el menú de ayuda"
+  },
+  "cliCmdPluginInspect": "Kiểm tra mã byte và ký hiệu của plugin",
+  "@cliCmdPluginInspect": {
+    "description": "Descripción breve del comando plugin inspect en el menú de ayuda"
+  },
+  "cliCmdPackageInspect": "Kiểm tra siêu dữ liệu và chữ ký của gói",
+  "@cliCmdPackageInspect": {
+    "description": "Descripción breve del comando package inspect en el menú de ayuda"
+  },
+  "cliCmdHelpPlugins": "Liệt kê các lệnh và tùy chọn được cung cấp bởi plugin",
+  "@cliCmdHelpPlugins": {
+    "description": "Descripción breve del comando help plugins en el menú de ayuda"
+  },
+  "cliCmdPluginVerify": "Xác minh chữ ký Ed25519 và tính toàn vẹn của plugin",
+  "@cliCmdPluginVerify": {
+    "description": "Descripción breve del comando plugin verify en el menú de ayuda"
+  },
+  "cliCmdUpdate": "Cập nhật phiên bản Joss, SDK và plugin",
+  "@cliCmdUpdate": {
+    "description": "Descripción breve del comando update en el menú de ayuda"
+  },
+  "cliCmdAiActivate": "Định cấu hình nhà cung cấp và mô hình Trí tuệ nhân tạo",
+  "@cliCmdAiActivate": {
+    "description": "Descripción breve del comando ai:activate en el menú de ayuda"
+  },
+  "cliHelpFooter": "Sử dụng 'joss help <command>' hoặc 'joss help plugin' để biết các tùy chọn và ví dụ.",
+  "@cliHelpFooter": {
+    "description": "Mensaje de pie de página en el menú de ayuda general"
+  },
+  "migrateFreshStarting": "Đang xóa tất cả các bảng và chạy di chuyển từ đầu...",
+  "@migrateFreshStarting": {
+    "description": "Mensaje inicial del comando migrate:fresh"
+  },
+  "dbConnSuccess": "Kết nối với DB thành công.",
+  "@dbConnSuccess": {
+    "description": "Mensaje cuando la conexión a la base de datos es exitosa"
+  },
+  "migrateFreshDroppingTables": "Đang xóa tất cả các bảng...",
+  "@migrateFreshDroppingTables": {
+    "description": "Mensaje al eliminar tablas en migrate:fresh"
+  },
+  "migrateFreshSuccess": "Quá trình di chuyển đã được thực hiện thành công!",
+  "@migrateFreshSuccess": {
+    "description": "Mensaje de éxito al completar migrate:fresh"
+  },
+  "dbConnError": "Lỗi: Không thể kết nối với cơ sở dữ liệu.",
+  "@dbConnError": {
+    "description": "Mensaje de error cuando falla la conexión a la base de datos"
+  },
+  "seedersRunning": "Chạy máy gieo hạt...",
+  "@seedersRunning": {
+    "description": "Mensaje inicial al ejecutar seeders"
+  },
+  "seedersNotFound": "Không tìm thấy seeder trong ứng dụng/cơ sở dữ liệu/seeders/",
+  "@seedersNotFound": {
+    "description": "Mensaje cuando el directorio de seeders está vacío"
   }
 }

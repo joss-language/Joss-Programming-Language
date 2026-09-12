@@ -5,10 +5,11 @@ import (
 	"os"
 
 	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/i18n"
 )
 
 func runMigrateFresh() {
-	fmt.Println("Eliminando todas las tablas y ejecutando migraciones desde cero...")
+	fmt.Println(i18n.Tr("migrateFreshStarting"))
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -22,13 +23,13 @@ func runMigrateFresh() {
 	rt.LoadEnv(nil)
 
 	if rt.GetDB() == nil {
-		fmt.Println("Error: No se pudo conectar a la base de datos.")
+		fmt.Println(i18n.Tr("dbConnError"))
 		return
 	}
-	fmt.Println("Conexión a DB exitosa.")
+	fmt.Println(i18n.Tr("dbConnSuccess"))
 
 	// 2. Drop all tables
-	fmt.Println("Eliminando todas las tablas...")
+	fmt.Println(i18n.Tr("migrateFreshDroppingTables"))
 	rt.DropAllTables()
 
 	// 3. Recreate migration table
@@ -44,5 +45,5 @@ func runMigrateFresh() {
 		os.Exit(1)
 	}
 
-	fmt.Println("¡Migraciones ejecutadas exitosamente!")
+	fmt.Println(i18n.Tr("migrateFreshSuccess"))
 }

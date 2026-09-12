@@ -96,13 +96,13 @@ func main() {
 				os.Exit(1)
 			}
 		} else {
-			fmt.Println(i18n.Tr("cliUsageServer"))
+			fmt.Printf("%s joss server start\n", i18n.Tr("cliUsageLabel"))
 		}
 	case "program":
 		if len(os.Args) >= 3 && os.Args[2] == "start" {
 			startProgram()
 		} else {
-			fmt.Println(i18n.Tr("cliUsageProgram"))
+			fmt.Printf("%s joss program start\n", i18n.Tr("cliUsageLabel"))
 		}
 	case "format":
 		handleFormatCommand(os.Args[2:])
@@ -122,7 +122,7 @@ func main() {
 		analyzeScript(filename)
 	case "run":
 		if len(os.Args) < 3 {
-			fmt.Println(i18n.Tr("cliUsageRun"))
+			fmt.Printf("%s joss run [archivo.joss]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		filename := os.Args[2]
@@ -168,7 +168,7 @@ func main() {
 			}
 		case "package":
 			if len(os.Args) < 4 {
-				fmt.Println(i18n.Tr("cliUsageBuildPkg"))
+				fmt.Printf("%s joss build package [ruta_del_paquete]\n", i18n.Tr("cliUsageLabel"))
 				return
 			}
 			buildPackage(os.Args[3])
@@ -177,37 +177,37 @@ func main() {
 		}
 	case "make:controller":
 		if len(os.Args) < 3 {
-			fmt.Println(i18n.Tr("cliUsageMakeController"))
+			fmt.Printf("%s joss make:controller [Nombre]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		createController(os.Args[2])
 	case "make:middleware":
 		if len(os.Args) < 3 {
-			fmt.Println(i18n.Tr("cliUsageMakeMiddleware"))
+			fmt.Printf("%s joss make:middleware [Nombre]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		createMiddleware(os.Args[2])
 	case "make:model":
 		if len(os.Args) < 3 {
-			fmt.Println(i18n.Tr("cliUsageMakeModel"))
+			fmt.Printf("%s joss make:model [Nombre]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		createModel(os.Args[2])
 	case "make:view":
 		if len(os.Args) < 3 {
-			fmt.Println(i18n.Tr("cliUsageMakeView"))
+			fmt.Printf("%s joss make:view [Nombre]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		createView(os.Args[2])
 	case "make:mvc":
 		if len(os.Args) < 3 {
-			fmt.Println(i18n.Tr("cliUsageMakeMvc"))
+			fmt.Printf("%s joss make:mvc [Nombre]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		createMVC(os.Args[2])
 	case "make:crud":
 		if len(os.Args) < 3 {
-			fmt.Println(i18n.Tr("cliUsageMakeCrud"))
+			fmt.Printf("%s joss make:crud [Tabla]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		if err := createCRUD(os.Args[2]); err != nil {
@@ -216,13 +216,13 @@ func main() {
 		}
 	case "remove:crud":
 		if len(os.Args) < 3 {
-			fmt.Println(i18n.Tr("cliUsageRemoveCrud"))
+			fmt.Printf("%s joss remove:crud [Tabla]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		removeCRUD(os.Args[2])
 	case "make:migration":
 		if len(os.Args) < 3 {
-			fmt.Println(i18n.Tr("cliUsageMakeMigration"))
+			fmt.Printf("%s joss make:migration [Nombre]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		if err := createMigration(os.Args[2]); err != nil {

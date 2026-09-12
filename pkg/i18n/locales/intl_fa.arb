@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "اکنون با: joss run your_script.joss را امتحان کنید",
+  "aiTryScript": "اکنون با: joss run tu_script.joss را امتحان کنید",
   "@aiTryScript": {},
   "aiWizardConfig": "این جادوگر هوش مصنوعی بومی را در پروژه شما پیکربندی می کند.",
   "@aiWizardConfig": {},
@@ -240,10 +240,6 @@
   "@cliAppTitle": {
     "description": "Título principal mostrado en la ayuda de la CLI"
   },
-  "cliUsage": "استفاده: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
   "cliCmdRepl": "کنسول تعاملی (REPL) را شروع کنید",
   "@cliCmdRepl": {
     "description": "Descripción del comando joss repl"
@@ -296,10 +292,6 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliUsageRun": "استفاده: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
   "cliErrRequireMain": "تمام پروژه‌ها باید یک نقطه ورودی 'main.joss' داشته باشند که سرور را راه‌اندازی می‌کند.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
@@ -311,50 +303,6 @@
   "cliErrNoMain": "خطا: \"main.joss\" یافت نشد.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
-  },
-  "cliUsageServer": "استفاده: راه اندازی سرور joss",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
-  "cliUsageMakeController": "استفاده: joss make:controller [Name]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageBuildPkg": "استفاده: بسته ساخت joss [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageProgram": "استفاده: شروع برنامه joss",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageMakeModel": "استفاده: joss make:model [Name]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "استفاده: joss make:mvc [نام]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "استفاده: joss make:view [Name]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageMakeMiddleware": "استفاده: joss make:middleware [Name]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeCrud": "استفاده: joss make:crud [جدول]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageRemoveCrud": "استفاده: joss remove:crud [جدول]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageMakeMigration": "استفاده: joss make:migration [نام]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
   },
   "checkVerifying": "[بررسی] تأیید پروژه در \"{path}\" (تجزیه، تحلیل معنایی، انواع، پرز، قالب)...",
   "@checkVerifying": {
@@ -573,5 +521,388 @@
   "pkgInspectJpV1Deprecated": "خطا: قالب بسته JP v1 حذف شد. Joss به فرمت JP v2 ساختار یافته و امضا شده نیاز دارد.",
   "@pkgInspectJpV1Deprecated": {
     "description": "Aviso de versión obsoleta JP v1"
+  },
+  "helpTopicReplExitHint": "خروج از REPL تعاملی",
+  "@helpTopicReplExitHint": {
+    "description": "Descripción del atajo exit/quit en el REPL"
+  },
+  "helpTopicReplCtrlCHint": "خط فعلی را قطع کنید یا از REPL خارج شوید",
+  "@helpTopicReplCtrlCHint": {
+    "description": "Descripción del atajo Ctrl+C en el REPL"
+  },
+  "helpTopicProgram": "برنامه را در حالت دسکتاپ راه اندازی کنید.",
+  "@helpTopicProgram": {
+    "description": "Descripción del comando joss program"
+  },
+  "helpTopicRun": "یک اسکریپت Joss را مستقیماً پس از تأیید نحو و تحلیل معنایی اجرا می کند. خطاهای نوع اجرای بلوک. هشدارها بدون توقف آن گزارش می شود.",
+  "@helpTopicRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "helpTopicBuild": "پروژه را برای تولید و توزیع تدوین یا بسته بندی می کند.",
+  "@helpTopicBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "helpTopicServer": "سرور وب HTTP با کارایی بالا را با اجرای نقطه ورودی \"main.joss\" راه اندازی کنید. بارگیری خودکار همه درایورها، مدل‌ها و مسیرها در برنامه/. برای متوقف کردن ایمن سرور، 'q' یا Ctrl+C را در کنسول فشار دهید.",
+  "@helpTopicServer": {
+    "description": "Descripción del comando joss server"
+  },
+  "helpTopicRepl": "کنسول تعاملی (Read-Eval-Print Loop) Joss را راه اندازی می کند. این به شما امکان می دهد عبارات را ارزیابی کنید، توابع آزمایش کنید، متغیرها را اعلام کنید و در زمان واقعی آزمایش کنید.",
+  "@helpTopicRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "helpTopicBuildModeProgram": "نسخه دسکتاپ را آماده کنید",
+  "@helpTopicBuildModeProgram": {
+    "description": "Descripción del modo program de joss build"
+  },
+  "helpTopicBuildModeNative": "یک فایل اجرایی بومی مستقل را کامپایل کنید",
+  "@helpTopicBuildModeNative": {
+    "description": "Descripción del modo native de joss build"
+  },
+  "helpTopicBuildModePackage": "یک کتابخانه Joss را در قالب jp. بسته بندی کنید",
+  "@helpTopicBuildModePackage": {
+    "description": "Descripción del modo package de joss build"
+  },
+  "helpTopicBuildModeWeb": "دارایی ها و فایل ها را برای استقرار وب آماده کنید",
+  "@helpTopicBuildModeWeb": {
+    "description": "Descripción del modo web de joss build"
+  },
+  "helpTopicAnalyze": "تحلیل معنایی دقیق پروژه را بدون اجرای آن انجام دهید. سازگاری انواع، متغیرهای اعلام نشده، امضاها و جریان کنترل را بررسی می کند.",
+  "@helpTopicAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "helpTopicFormat": "فایل های .joss را بر اساس استاندارد زبان متعارف قالب بندی می کند.",
+  "@helpTopicFormat": {
+    "description": "Descripción del comando joss format"
+  },
+  "helpTopicLint": "تجزیه و تحلیل استاتیک را اجرا می کند و مسائل مربوط به سبک، نوع و امنیت را شناسایی می کند.",
+  "@helpTopicLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "helpTopicFix": "رفع خودکار ایمن و قالب بندی متعارف را اعمال می کند.",
+  "@helpTopicFix": {
+    "description": "Descripción del comando joss fix"
+  },
+  "helpTopicFormatOptWrite": "نوشتن تغییرات در فایل (پیش‌فرض هنگام ارسال فایل)",
+  "@helpTopicFormatOptWrite": {
+    "description": "Descripción de la opción --write de joss format"
+  },
+  "helpTopicFormatOptCheck": "بررسی کنید که آیا فایل‌ها بدون تغییر فرمت شده‌اند (مفید در CI)",
+  "@helpTopicFormatOptCheck": {
+    "description": "Descripción de la opción --check de joss format"
+  },
+  "helpTopicLintOptJson": "گزارش تشخیصی را در قالب JSON ساختاریافته صادر می کند",
+  "@helpTopicLintOptJson": {
+    "description": "Descripción de la opción --json de joss lint"
+  },
+  "helpTopicTest": "مجموعه رسمی تست و ادعای واحد (*_test.joss) را اجرا کنید.",
+  "@helpTopicTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "helpTopicNew": "یک ساختار پروژه جدید ایجاد می کند.",
+  "@helpTopicNew": {
+    "description": "Descripción del comando joss new"
+  },
+  "helpTopicFixOptDryRun": "نشان می دهد که کدام تغییرات بدون تغییر فایل ها اعمال می شوند",
+  "@helpTopicFixOptDryRun": {
+    "description": "Descripción de la opción --dry-run de joss fix"
+  },
+  "helpTopicCheck": "یک بررسی جامع کیفیت را اجرا می کند: قالب متعارف، نحو، تجزیه و تحلیل معنایی دقیق و قوانین خط.",
+  "@helpTopicCheck": {
+    "description": "Descripción del comando joss check"
+  },
+  "helpTopicTestOptFilter": "فقط تست هایی را فیلتر کرده و اجرا کنید که نام آنها حاوی متن باشد",
+  "@helpTopicTestOptFilter": {
+    "description": "Descripción de la opción --filter de joss test"
+  },
+  "helpTopicNewTypeWeb": "پروژه وب MVC کامل (پیش‌فرض)",
+  "@helpTopicNewTypeWeb": {
+    "description": "Tipo web de joss new"
+  },
+  "helpTopicMakeController": "یک کنترلر وب جدید در app/controllers/ ایجاد کنید.",
+  "@helpTopicMakeController": {
+    "description": "Descripción del comando make:controller"
+  },
+  "helpTopicNewTypeConsole": "پروژه کنسول CLI",
+  "@helpTopicNewTypeConsole": {
+    "description": "Tipo console de joss new"
+  },
+  "helpTopicMakeModel": "یک مدل ORM جدید در app/models/ ایجاد کنید.",
+  "@helpTopicMakeModel": {
+    "description": "Descripción del comando make:model"
+  },
+  "helpTopicMakeView": "یک قالب نمای جدید در app/views/ ایجاد کنید.",
+  "@helpTopicMakeView": {
+    "description": "Descripción del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "یک میان افزار HTTP جدید در app/middleware/ ایجاد کنید.",
+  "@helpTopicMakeMiddleware": {
+    "description": "Descripción del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "به طور همزمان Model، View و Controller را برای موجودیت تولید می کند.",
+  "@helpTopicMakeMvc": {
+    "description": "Descripción del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "به طور خودکار Model، Views، Controller و Routes را برای جدول پایگاه داده تولید می کند. کلیدهای خارجی، ستون های قابل مشاهده را شناسایی می کند و پیوندهای ناوبری را تزریق می کند.",
+  "@helpTopicMakeCrud": {
+    "description": "Descripción del comando make:crud"
+  },
+  "helpTopicMakeMigration": "یک فایل مهاجرت جدید با مهر زمانی در app/base/migrations/ ایجاد کنید.",
+  "@helpTopicMakeMigration": {
+    "description": "Descripción del comando make:migration"
+  },
+  "helpTopicNewTypePackage": "بسته قابل توزیع برای اکوسیستم Joss",
+  "@helpTopicNewTypePackage": {
+    "description": "Tipo package de joss new"
+  },
+  "helpTopicNewTypePlugin": "افزونه بومی با کامپایل به بایت کد Jp",
+  "@helpTopicNewTypePlugin": {
+    "description": "Tipo plugin de joss new"
+  },
+  "helpTopicMigrate": "مهاجرت های معلق را در برنامه/پایگاه داده/مهاجرت ها اعمال کنید.",
+  "@helpTopicMigrate": {
+    "description": "Descripción del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "تمام جداول پایگاه داده را حذف کنید و همه مهاجرت ها را دوباره اجرا کنید. در طول توسعه برای تنظیم مجدد طرحواره مفید است.",
+  "@helpTopicMigrateFresh": {
+    "description": "Descripción del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "Settler seders تعریف شده در app/base/seeders را اجرا می کند.",
+  "@helpTopicDbSeed": {
+    "description": "Descripción del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "اتصال پایگاه داده پروژه را پیکربندی یا تغییر دهید.",
+  "@helpTopicChangeDb": {
+    "description": "Descripción del comando joss change db"
+  },
+  "helpTopicRemoveCrud": "یک ماژول CRUD تولید شده را به طور پاک حذف می کند: کنترل کننده، مدل، مشاهده و حذف مسیرها و پیوندها از نوار ناوبری.",
+  "@helpTopicRemoveCrud": {
+    "description": "Descripción del comando remove:crud"
+  },
+  "helpTopicUserStorage": "ذخیره سازی فایل پروژه را پیکربندی و همگام سازی کنید.",
+  "@helpTopicUserStorage": {
+    "description": "Descripción del comando joss userstorage"
+  },
+  "helpTopicChangeDbMotor": "تغییر موتور پایگاه داده (sqlite، mysql)",
+  "@helpTopicChangeDbMotor": {
+    "description": "Subcomando change db <motor>"
+  },
+  "helpTopicChangeDbMigrate": "انتقال داده ها و طرحواره به MySQL جدید",
+  "@helpTopicChangeDbMigrate": {
+    "description": "Subcomando change db migrate"
+  },
+  "helpTopicChangeDbPrefix": "پیشوند جدول جهانی را تنظیم کنید",
+  "@helpTopicChangeDbPrefix": {
+    "description": "Subcomando change db prefix"
+  },
+  "helpTopicUserStorageLocal": "ذخیره سازی دیسک محلی را پیکربندی کنید",
+  "@helpTopicUserStorageLocal": {
+    "description": "Opción local de joss userstorage"
+  },
+  "helpTopicUserStorageOci": "ذخیره سازی را در Oracle Cloud Infrastructure پیکربندی کنید",
+  "@helpTopicUserStorageOci": {
+    "description": "Opción oci de joss userstorage"
+  },
+  "helpTopicUserStorageSyncLocal": "فایل های OCI را روی دیسک محلی دانلود کنید",
+  "@helpTopicUserStorageSyncLocal": {
+    "description": "Opción sync-local de joss userstorage"
+  },
+  "helpTopicUserStorageSyncOci": "فایل های محلی را در سطل OCI آپلود کنید",
+  "@helpTopicUserStorageSyncOci": {
+    "description": "Opción sync-oci de joss userstorage"
+  },
+  "helpTopicPub": "مدیر بسته و وابستگی Joss.",
+  "@helpTopicPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "helpTopicPubAdd": "یک وابستگی به joss.yaml اضافه کنید و آن را نصب کنید",
+  "@helpTopicPubAdd": {
+    "description": "Subcomando pub add"
+  },
+  "helpTopicPubRemove": "یک وابستگی را از joss.yaml حذف کنید",
+  "@helpTopicPubRemove": {
+    "description": "Subcomando pub remove"
+  },
+  "helpTopicPubInstall": "وابستگی های joss.yaml را دانلود و نصب کنید",
+  "@helpTopicPubInstall": {
+    "description": "Subcomando pub install"
+  },
+  "helpTopicPubUpdate": "به روز رسانی وابستگی های نصب شده",
+  "@helpTopicPubUpdate": {
+    "description": "Subcomando pub update"
+  },
+  "helpTopicUpdate": "باینری، SDK و ابزارهای رسمی Joss را به روز کنید.",
+  "@helpTopicUpdate": {
+    "description": "Descripción del comando joss update"
+  },
+  "helpTopicPackage": "ابرداده ها، نمادها و وابستگی های یک بسته Joss را بررسی می کند.",
+  "@helpTopicPackage": {
+    "description": "Descripción del comando joss package inspect"
+  },
+  "helpTopicPlugin": "برای مشاهده پلاگین های نصب شده و دستورات آنها، از 'joss help plugins' استفاده کنید.",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPubPublish": "بسته خود را در رجیستری رسمی منتشر کنید",
+  "@helpTopicPubPublish": {
+    "description": "Subcomando pub publish"
+  },
+  "helpTopicVersion": "نسخه نصب شده Joss و نام رمز آن را نشان می دهد.",
+  "@helpTopicVersion": {
+    "description": "Descripción del comando joss version"
+  },
+  "helpTopicAiActivate": "ارائه دهندگان و مدل های هوش مصنوعی (Groq، OpenAI، Gemini) را پیکربندی کنید.",
+  "@helpTopicAiActivate": {
+    "description": "Descripción del comando joss ai:activate"
+  },
+  "helpTopicUpdateOptForce": "نصب مجدد اجباری",
+  "@helpTopicUpdateOptForce": {
+    "description": "Opción --force de joss update"
+  },
+  "helpTopicNotFound": "هیچ کمک خاصی برای دستور '{cmd}' وجود ندارد.",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  },
+  "helpTopicUpdateOptCanary": "به آخرین نسخه توسعه به روز رسانی کنید",
+  "@helpTopicUpdateOptCanary": {
+    "description": "Opción --canary de joss update"
+  },
+  "helpTopicUpdateOptStable": "به‌روزرسانی به آخرین نسخه پایدار (پیش‌فرض)",
+  "@helpTopicUpdateOptStable": {
+    "description": "Opción --stable de joss update"
+  },
+  "cliSectionExec": "اجرا و REPL:",
+  "@cliSectionExec": {
+    "description": "Encabezado de sección de comandos de ejecución en el menú de ayuda"
+  },
+  "cliUsageLabel": "استفاده:",
+  "@cliUsageLabel": {
+    "description": "Etiqueta para indicar el uso de un comando CLI"
+  },
+  "cliSectionQuality": "کیفیت کد و ابزارها:",
+  "@cliSectionQuality": {
+    "description": "Encabezado de sección de calidad de código en el menú de ayuda"
+  },
+  "cliSectionScaffolding": "ژنراتورها و ساختار (SCAFFOLDING):",
+  "@cliSectionScaffolding": {
+    "description": "Encabezado de sección de generadores en el menú de ayuda"
+  },
+  "cliSectionPackages": "بسته ها و پلاگین ها:",
+  "@cliSectionPackages": {
+    "description": "Encabezado de sección de paquetes y plugins en el menú de ayuda"
+  },
+  "cliSectionDatabase": "پایگاه داده و ذخیره سازی:",
+  "@cliSectionDatabase": {
+    "description": "Encabezado de sección de base de datos y almacenamiento en el menú de ayuda"
+  },
+  "cliSectionSystem": "سیستم و امکانات:",
+  "@cliSectionSystem": {
+    "description": "Encabezado de sección de sistema y utilidades en el menú de ayuda"
+  },
+  "cliCmdCheck": "تأیید جامع (قالب، نحو، انواع و پرز)",
+  "@cliCmdCheck": {
+    "description": "Descripción breve del comando check en el menú de ayuda"
+  },
+  "cliCmdFix": "اصلاحات و قالب بندی خودکار ایمن را اعمال کنید",
+  "@cliCmdFix": {
+    "description": "Descripción breve del comando fix en el menú de ayuda"
+  },
+  "cliCmdMakeController": "یک کنترلر وب ایجاد کنید",
+  "@cliCmdMakeController": {
+    "description": "Descripción breve del comando make:controller en el menú de ayuda"
+  },
+  "cliCmdMakeModel": "یک مدل داده تولید کنید",
+  "@cliCmdMakeModel": {
+    "description": "Descripción breve del comando make:model en el menú de ayuda"
+  },
+  "cliCmdMakeView": "یک قالب نمایش ایجاد کنید",
+  "@cliCmdMakeView": {
+    "description": "Descripción breve del comando make:view en el menú de ayuda"
+  },
+  "cliCmdMakeMiddleware": "میان افزار HTTP ایجاد کنید",
+  "@cliCmdMakeMiddleware": {
+    "description": "Descripción breve del comando make:middleware en el menú de ayuda"
+  },
+  "cliCmdMakeMvc": "مدل، نمایش و کنترلر را در یک مرحله تولید کنید",
+  "@cliCmdMakeMvc": {
+    "description": "Descripción breve del comando make:mvc en el menú de ayuda"
+  },
+  "cliCmdMakeCrud": "CRUD کامل با مسیرها و نماها ایجاد کنید",
+  "@cliCmdMakeCrud": {
+    "description": "Descripción breve del comando make:crud en el menú de ayuda"
+  },
+  "cliCmdDbSeed": "برنامه seders را از برنامه / پایگاه داده / seeders اجرا کنید",
+  "@cliCmdDbSeed": {
+    "description": "Descripción breve del comando db:seed en el menú de ayuda"
+  },
+  "cliCmdPluginCompile": "کامپایل کد به بسته باینری .jp",
+  "@cliCmdPluginCompile": {
+    "description": "Descripción breve del comando plugin compile en el menú de ayuda"
+  },
+  "cliCmdChangeDbMigrate": "انتقال اتصال فعلی به MySQL جدید",
+  "@cliCmdChangeDbMigrate": {
+    "description": "Descripción breve del subcomando change db migrate en el menú de ayuda"
+  },
+  "cliCmdStorageSync": "همگام سازی فایل ها با Oracle Cloud",
+  "@cliCmdStorageSync": {
+    "description": "Descripción breve del subcomando userstorage sync en el menú de ayuda"
+  },
+  "cliCmdPluginInspect": "بایت کد و نمادهای یک افزونه را بررسی کنید",
+  "@cliCmdPluginInspect": {
+    "description": "Descripción breve del comando plugin inspect en el menú de ayuda"
+  },
+  "cliCmdPackageInspect": "ابرداده ها و امضاهای یک بسته را بررسی می کند",
+  "@cliCmdPackageInspect": {
+    "description": "Descripción breve del comando package inspect en el menú de ayuda"
+  },
+  "cliCmdHelpPlugins": "دستورات و گزینه های ارائه شده توسط افزونه ها را فهرست کنید",
+  "@cliCmdHelpPlugins": {
+    "description": "Descripción breve del comando help plugins en el menú de ayuda"
+  },
+  "cliCmdPluginVerify": "امضاهای Ed25519 و یکپارچگی یک افزونه را تأیید کنید",
+  "@cliCmdPluginVerify": {
+    "description": "Descripción breve del comando plugin verify en el menú de ayuda"
+  },
+  "cliCmdUpdate": "نسخه Joss، SDK و افزونه ها را به روز کنید",
+  "@cliCmdUpdate": {
+    "description": "Descripción breve del comando update en el menú de ayuda"
+  },
+  "cliCmdAiActivate": "ارائه دهندگان و مدل های هوش مصنوعی را پیکربندی کنید",
+  "@cliCmdAiActivate": {
+    "description": "Descripción breve del comando ai:activate en el menú de ayuda"
+  },
+  "cliHelpFooter": "برای گزینه‌ها و مثال‌ها از «joss help <command>» یا «joss help plugins» استفاده کنید.",
+  "@cliHelpFooter": {
+    "description": "Mensaje de pie de página en el menú de ayuda general"
+  },
+  "migrateFreshStarting": "حذف همه جداول و اجرای مهاجرت از ابتدا...",
+  "@migrateFreshStarting": {
+    "description": "Mensaje inicial del comando migrate:fresh"
+  },
+  "dbConnSuccess": "اتصال به DB با موفقیت انجام شد.",
+  "@dbConnSuccess": {
+    "description": "Mensaje cuando la conexión a la base de datos es exitosa"
+  },
+  "migrateFreshDroppingTables": "در حال حذف همه جداول...",
+  "@migrateFreshDroppingTables": {
+    "description": "Mensaje al eliminar tablas en migrate:fresh"
+  },
+  "migrateFreshSuccess": "مهاجرت ها با موفقیت انجام شد!",
+  "@migrateFreshSuccess": {
+    "description": "Mensaje de éxito al completar migrate:fresh"
+  },
+  "dbConnError": "خطا: به پایگاه داده متصل نشد.",
+  "@dbConnError": {
+    "description": "Mensaje de error cuando falla la conexión a la base de datos"
+  },
+  "seedersRunning": "دویدن بذرپاش...",
+  "@seedersRunning": {
+    "description": "Mensaje inicial al ejecutar seeders"
+  },
+  "seedersNotFound": "هیچ بذری در app/پایگاه داده/seeders/ یافت نشد",
+  "@seedersNotFound": {
+    "description": "Mensaje cuando el directorio de seeders está vacío"
   }
 }

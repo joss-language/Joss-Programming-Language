@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 
 	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
 )
 
 func runSeeders() {
-	fmt.Println("Ejecutando seeders...")
+	fmt.Println(i18n.Tr("seedersRunning"))
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -23,7 +24,7 @@ func runSeeders() {
 	rt.LoadEnv(nil)
 
 	if rt.GetDB() == nil {
-		fmt.Println("Error: No se pudo conectar a la base de datos.")
+		fmt.Println(i18n.Tr("dbConnError"))
 		return
 	}
 
@@ -33,7 +34,7 @@ func runSeeders() {
 		return
 	}
 	if len(files) == 0 {
-		fmt.Println("No se encontraron seeders en app/database/seeders/")
+		fmt.Println(i18n.Tr("seedersNotFound"))
 		return
 	}
 

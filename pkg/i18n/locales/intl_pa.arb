@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "ਹੁਣ ਇਸ ਨਾਲ ਕੋਸ਼ਿਸ਼ ਕਰੋ: joss run your_script.joss",
+  "aiTryScript": "ਹੁਣ ਇਸ ਨਾਲ ਕੋਸ਼ਿਸ਼ ਕਰੋ: joss run tu_script.joss",
   "@aiTryScript": {},
   "aiWizardConfig": "ਇਹ ਵਿਜ਼ਾਰਡ ਤੁਹਾਡੇ ਪ੍ਰੋਜੈਕਟ ਵਿੱਚ ਮੂਲ AI ਨੂੰ ਕੌਂਫਿਗਰ ਕਰੇਗਾ।",
   "@aiWizardConfig": {},
@@ -335,58 +335,6 @@
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliUsage": "ਵਰਤੋਂ: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
-  "cliUsageBuildPkg": "ਵਰਤੋਂ: joss ਬਿਲਡ ਪੈਕੇਜ [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageMakeController": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਕੰਟਰੋਲਰ [ਨਾਮ]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageMakeCrud": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਕਰੂਡ [ਟੇਬਲ]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageMakeMiddleware": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਮਿਡਲਵੇਅਰ [ਨਾਮ]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeMigration": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਮਾਈਗ੍ਰੇਸ਼ਨ [ਨਾਮ]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
-  },
-  "cliUsageMakeModel": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਮਾਡਲ [ਨਾਮ]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "ਉਪਯੋਗਤਾ: joss make:mvc [ਨਾਮ]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "ਵਰਤੋਂ: ਜੌਸ ਮੇਕ: ਵੇਖੋ [ਨਾਮ]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageProgram": "ਵਰਤੋਂ: ਜੌਸ ਪ੍ਰੋਗਰਾਮ ਸ਼ੁਰੂ",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageRemoveCrud": "ਉਪਯੋਗਤਾ: joss ਹਟਾਓ: crud [ਸਾਰਣੀ]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageRun": "ਵਰਤੋਂ: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
-  "cliUsageServer": "ਵਰਤੋਂ: ਜੌਸ ਸਰਵਰ ਸ਼ੁਰੂ",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
   "compileProjectDist": "ਵੰਡਣ ਲਈ ਪ੍ਰੋਜੈਕਟ ਬਣਾਓ",
   "@compileProjectDist": {
     "description": ""
@@ -573,5 +521,388 @@
   "version": "ਮੌਜੂਦਾ ਸੰਸਕਰਣ ਦਿਖਾਉਂਦਾ ਹੈ",
   "@version": {
     "description": ""
+  },
+  "helpTopicReplExitHint": "ਇੰਟਰੈਕਟਿਵ REPL ਤੋਂ ਬਾਹਰ ਜਾਓ",
+  "@helpTopicReplExitHint": {
+    "description": "Descripción del atajo exit/quit en el REPL"
+  },
+  "helpTopicReplCtrlCHint": "ਮੌਜੂਦਾ ਲਾਈਨ ਨੂੰ ਰੋਕੋ ਜਾਂ REPL ਤੋਂ ਬਾਹਰ ਜਾਓ",
+  "@helpTopicReplCtrlCHint": {
+    "description": "Descripción del atajo Ctrl+C en el REPL"
+  },
+  "helpTopicProgram": "ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ ਡੈਸਕਟਾਪ ਮੋਡ ਵਿੱਚ ਸ਼ੁਰੂ ਕਰੋ।",
+  "@helpTopicProgram": {
+    "description": "Descripción del comando joss program"
+  },
+  "helpTopicRun": "ਸੰਟੈਕਸ ਅਤੇ ਸਿਮੈਂਟਿਕ ਵਿਸ਼ਲੇਸ਼ਣ ਨੂੰ ਪ੍ਰਮਾਣਿਤ ਕਰਨ ਤੋਂ ਬਾਅਦ ਸਿੱਧਾ ਇੱਕ ਜੋਸ ਸਕ੍ਰਿਪਟ ਚਲਾਉਂਦਾ ਹੈ। ਕਿਸਮ ਦੀਆਂ ਗਲਤੀਆਂ ਬਲੌਕ ਐਗਜ਼ੀਕਿਊਸ਼ਨ; ਇਸ ਨੂੰ ਰੋਕੇ ਬਿਨਾਂ ਚੇਤਾਵਨੀਆਂ ਦਿੱਤੀਆਂ ਜਾਂਦੀਆਂ ਹਨ।",
+  "@helpTopicRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "helpTopicBuild": "ਉਤਪਾਦਨ ਅਤੇ ਵੰਡ ਲਈ ਪ੍ਰੋਜੈਕਟ ਨੂੰ ਕੰਪਾਇਲ ਜਾਂ ਪੈਕੇਜ ਕਰਦਾ ਹੈ।",
+  "@helpTopicBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "helpTopicServer": "'main.joss' ਐਂਟਰੀ ਪੁਆਇੰਟ ਚਲਾ ਕੇ ਉੱਚ-ਪ੍ਰਦਰਸ਼ਨ ਵਾਲੇ HTTP ਵੈੱਬ ਸਰਵਰ ਨੂੰ ਸ਼ੁਰੂ ਕਰੋ। ਐਪ/ ਵਿੱਚ ਸਾਰੇ ਡਰਾਈਵਰਾਂ, ਮਾਡਲਾਂ ਅਤੇ ਰੂਟਾਂ ਨੂੰ ਆਟੋਮੈਟਿਕਲੀ ਲੋਡ ਕਰੋ। ਸਰਵਰ ਨੂੰ ਸੁਰੱਖਿਅਤ ਢੰਗ ਨਾਲ ਰੋਕਣ ਲਈ ਕੰਸੋਲ ਵਿੱਚ 'q' ਜਾਂ Ctrl+C ਦਬਾਓ।",
+  "@helpTopicServer": {
+    "description": "Descripción del comando joss server"
+  },
+  "helpTopicRepl": "ਜੌਸ ਦੇ ਇੰਟਰਐਕਟਿਵ ਕੰਸੋਲ (ਰੀਡ-ਈਵਲ-ਪ੍ਰਿੰਟ ਲੂਪ) ਨੂੰ ਸ਼ੁਰੂ ਕਰਦਾ ਹੈ। ਇਹ ਤੁਹਾਨੂੰ ਸਮੀਕਰਨਾਂ ਦਾ ਮੁਲਾਂਕਣ ਕਰਨ, ਫੰਕਸ਼ਨਾਂ ਦੀ ਜਾਂਚ ਕਰਨ, ਵੇਰੀਏਬਲ ਘੋਸ਼ਿਤ ਕਰਨ ਅਤੇ ਅਸਲ ਸਮੇਂ ਵਿੱਚ ਪ੍ਰਯੋਗ ਕਰਨ ਦੀ ਇਜਾਜ਼ਤ ਦਿੰਦਾ ਹੈ।",
+  "@helpTopicRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "helpTopicBuildModeProgram": "ਡੈਸਕਟਾਪ ਸੰਸਕਰਣ ਤਿਆਰ ਕਰੋ",
+  "@helpTopicBuildModeProgram": {
+    "description": "Descripción del modo program de joss build"
+  },
+  "helpTopicBuildModeNative": "ਇੱਕ ਸਵੈ-ਨਿਰਮਿਤ ਮੂਲ ਐਗਜ਼ੀਕਿਊਟੇਬਲ ਕੰਪਾਇਲ ਕਰੋ",
+  "@helpTopicBuildModeNative": {
+    "description": "Descripción del modo native de joss build"
+  },
+  "helpTopicBuildModePackage": "Joss ਲਾਇਬ੍ਰੇਰੀ ਨੂੰ .jp ਫਾਰਮੈਟ ਵਿੱਚ ਪੈਕੇਜ ਕਰੋ",
+  "@helpTopicBuildModePackage": {
+    "description": "Descripción del modo package de joss build"
+  },
+  "helpTopicBuildModeWeb": "ਵੈੱਬ ਤੈਨਾਤੀ ਲਈ ਸੰਪਤੀਆਂ ਅਤੇ ਫਾਈਲਾਂ ਨੂੰ ਤਿਆਰ ਕਰੋ",
+  "@helpTopicBuildModeWeb": {
+    "description": "Descripción del modo web de joss build"
+  },
+  "helpTopicAnalyze": "ਇਸ ਨੂੰ ਲਾਗੂ ਕੀਤੇ ਬਿਨਾਂ ਪ੍ਰੋਜੈਕਟ ਦਾ ਸਖਤ ਅਰਥਗਤ ਵਿਸ਼ਲੇਸ਼ਣ ਕਰੋ। ਕਿਸਮਾਂ, ਅਣਐਲਾਨੀ ਵੇਰੀਏਬਲਾਂ, ਦਸਤਖਤਾਂ ਅਤੇ ਨਿਯੰਤਰਣ ਪ੍ਰਵਾਹ ਦੀ ਇਕਸਾਰਤਾ ਦੀ ਜਾਂਚ ਕਰਦਾ ਹੈ।",
+  "@helpTopicAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "helpTopicFormat": "ਕੈਨੋਨੀਕਲ ਭਾਸ਼ਾ ਦੇ ਮਿਆਰ ਅਨੁਸਾਰ .joss ਫਾਈਲਾਂ ਨੂੰ ਫਾਰਮੈਟ ਕਰਦਾ ਹੈ।",
+  "@helpTopicFormat": {
+    "description": "Descripción del comando joss format"
+  },
+  "helpTopicLint": "ਸਥਿਰ ਵਿਸ਼ਲੇਸ਼ਣ ਚਲਾਉਂਦਾ ਹੈ ਅਤੇ ਸ਼ੈਲੀ, ਕਿਸਮ ਅਤੇ ਸੁਰੱਖਿਆ ਮੁੱਦਿਆਂ ਦਾ ਪਤਾ ਲਗਾਉਂਦਾ ਹੈ।",
+  "@helpTopicLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "helpTopicFix": "ਸੁਰੱਖਿਅਤ ਆਟੋਮੈਟਿਕ ਫਿਕਸ ਅਤੇ ਕੈਨੋਨੀਕਲ ਫਾਰਮੈਟਿੰਗ ਲਾਗੂ ਕਰਦਾ ਹੈ।",
+  "@helpTopicFix": {
+    "description": "Descripción del comando joss fix"
+  },
+  "helpTopicFormatOptWrite": "ਫਾਈਲ ਵਿੱਚ ਤਬਦੀਲੀਆਂ ਲਿਖੋ (ਇੱਕ ਫਾਈਲ ਪਾਸ ਕਰਨ ਵੇਲੇ ਡਿਫੌਲਟ)",
+  "@helpTopicFormatOptWrite": {
+    "description": "Descripción de la opción --write de joss format"
+  },
+  "helpTopicFormatOptCheck": "ਜਾਂਚ ਕਰੋ ਕਿ ਕੀ ਫਾਈਲਾਂ ਨੂੰ ਸੋਧੇ ਬਿਨਾਂ ਫਾਰਮੈਟ ਕੀਤਾ ਗਿਆ ਹੈ (CI ਵਿੱਚ ਉਪਯੋਗੀ)",
+  "@helpTopicFormatOptCheck": {
+    "description": "Descripción de la opción --check de joss format"
+  },
+  "helpTopicLintOptJson": "ਸਟ੍ਰਕਚਰਡ JSON ਫਾਰਮੈਟ ਵਿੱਚ ਡਾਇਗਨੌਸਟਿਕ ਰਿਪੋਰਟ ਜਾਰੀ ਕਰਦਾ ਹੈ",
+  "@helpTopicLintOptJson": {
+    "description": "Descripción de la opción --json de joss lint"
+  },
+  "helpTopicTest": "ਅਧਿਕਾਰਤ ਯੂਨਿਟ ਟੈਸਟਿੰਗ ਅਤੇ ਅਸੈਸਸ਼ਨ ਸੂਟ (*_test.joss) ਚਲਾਓ।",
+  "@helpTopicTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "helpTopicNew": "ਇੱਕ ਨਵਾਂ ਪ੍ਰੋਜੈਕਟ ਢਾਂਚਾ ਤਿਆਰ ਕਰਦਾ ਹੈ।",
+  "@helpTopicNew": {
+    "description": "Descripción del comando joss new"
+  },
+  "helpTopicFixOptDryRun": "ਇਹ ਦਿਖਾਉਂਦਾ ਹੈ ਕਿ ਫਾਈਲਾਂ ਨੂੰ ਸੋਧੇ ਬਿਨਾਂ ਕਿਹੜੀਆਂ ਤਬਦੀਲੀਆਂ ਲਾਗੂ ਕੀਤੀਆਂ ਜਾਣਗੀਆਂ",
+  "@helpTopicFixOptDryRun": {
+    "description": "Descripción de la opción --dry-run de joss fix"
+  },
+  "helpTopicCheck": "ਇੱਕ ਵਿਆਪਕ ਗੁਣਵੱਤਾ ਜਾਂਚ ਚਲਾਉਂਦਾ ਹੈ: ਕੈਨੋਨੀਕਲ ਫਾਰਮੈਟ, ਸੰਟੈਕਸ, ਸਖਤ ਅਰਥ ਵਿਸ਼ਲੇਸ਼ਣ ਅਤੇ ਲਿੰਟਰ ਨਿਯਮ।",
+  "@helpTopicCheck": {
+    "description": "Descripción del comando joss check"
+  },
+  "helpTopicTestOptFilter": "ਫਿਲਟਰ ਕਰੋ ਅਤੇ ਸਿਰਫ਼ ਉਹਨਾਂ ਟੈਸਟਾਂ ਨੂੰ ਚਲਾਓ ਜਿਨ੍ਹਾਂ ਦੇ ਨਾਮ ਵਿੱਚ ਟੈਕਸਟ ਹੈ",
+  "@helpTopicTestOptFilter": {
+    "description": "Descripción de la opción --filter de joss test"
+  },
+  "helpTopicNewTypeWeb": "MVC ਵੈੱਬ ਪ੍ਰੋਜੈਕਟ ਪੂਰਾ ਕਰੋ (ਪੂਰਵ-ਨਿਰਧਾਰਤ)",
+  "@helpTopicNewTypeWeb": {
+    "description": "Tipo web de joss new"
+  },
+  "helpTopicMakeController": "ਐਪ/ਕੰਟਰੋਲਰਸ/ ਵਿੱਚ ਇੱਕ ਨਵਾਂ ਵੈੱਬ ਕੰਟਰੋਲਰ ਤਿਆਰ ਕਰੋ।",
+  "@helpTopicMakeController": {
+    "description": "Descripción del comando make:controller"
+  },
+  "helpTopicNewTypeConsole": "CLI ਕੰਸੋਲ ਪ੍ਰੋਜੈਕਟ",
+  "@helpTopicNewTypeConsole": {
+    "description": "Tipo console de joss new"
+  },
+  "helpTopicMakeModel": "ਐਪ/ਮਾਡਲ/ ਵਿੱਚ ਇੱਕ ਨਵਾਂ ORM ਮਾਡਲ ਤਿਆਰ ਕਰੋ।",
+  "@helpTopicMakeModel": {
+    "description": "Descripción del comando make:model"
+  },
+  "helpTopicMakeView": "ਐਪ/ਵਿਯੂਜ਼/ ਵਿੱਚ ਇੱਕ ਨਵਾਂ ਦ੍ਰਿਸ਼ ਟੈਮਪਲੇਟ ਤਿਆਰ ਕਰੋ।",
+  "@helpTopicMakeView": {
+    "description": "Descripción del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "ਐਪ/ਮਿਡਲਵੇਅਰ/ ਵਿੱਚ ਇੱਕ ਨਵਾਂ HTTP ਮਿਡਲਵੇਅਰ ਤਿਆਰ ਕਰੋ।",
+  "@helpTopicMakeMiddleware": {
+    "description": "Descripción del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "ਇਸਦੇ ਨਾਲ ਹੀ ਇਕਾਈ ਲਈ ਮਾਡਲ, ਵਿਊ ਅਤੇ ਕੰਟਰੋਲਰ ਤਿਆਰ ਕਰਦਾ ਹੈ।",
+  "@helpTopicMakeMvc": {
+    "description": "Descripción del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "ਇੱਕ ਡੇਟਾਬੇਸ ਟੇਬਲ ਲਈ ਆਟੋਮੈਟਿਕਲੀ ਮਾਡਲ, ਵਿਯੂਜ਼, ਕੰਟਰੋਲਰ ਅਤੇ ਰੂਟਸ ਤਿਆਰ ਕਰਦਾ ਹੈ। ਵਿਦੇਸ਼ੀ ਕੁੰਜੀਆਂ, ਦਿਖਾਈ ਦੇਣ ਵਾਲੇ ਕਾਲਮਾਂ ਦੀ ਖੋਜ ਕਰਦਾ ਹੈ ਅਤੇ ਨੈਵੀਗੇਸ਼ਨ ਲਿੰਕਾਂ ਨੂੰ ਇੰਜੈਕਟ ਕਰਦਾ ਹੈ।",
+  "@helpTopicMakeCrud": {
+    "description": "Descripción del comando make:crud"
+  },
+  "helpTopicMakeMigration": "ਐਪ/ਡਾਟਾਬੇਸ/ਮਾਈਗ੍ਰੇਸ਼ਨ/ ਵਿੱਚ ਟਾਈਮਸਟੈਂਪ ਨਾਲ ਇੱਕ ਨਵੀਂ ਮਾਈਗ੍ਰੇਸ਼ਨ ਫਾਈਲ ਤਿਆਰ ਕਰੋ।",
+  "@helpTopicMakeMigration": {
+    "description": "Descripción del comando make:migration"
+  },
+  "helpTopicNewTypePackage": "ਜੋਸ ਈਕੋਸਿਸਟਮ ਲਈ ਵੰਡਣਯੋਗ ਪੈਕੇਜ",
+  "@helpTopicNewTypePackage": {
+    "description": "Tipo package de joss new"
+  },
+  "helpTopicNewTypePlugin": ".jp ਬਾਈਟਕੋਡ ਦੇ ਸੰਕਲਨ ਦੇ ਨਾਲ ਮੂਲ ਪਲੱਗਇਨ",
+  "@helpTopicNewTypePlugin": {
+    "description": "Tipo plugin de joss new"
+  },
+  "helpTopicMigrate": "ਐਪ/ਡਾਟਾਬੇਸ/ਮਾਈਗ੍ਰੇਸ਼ਨ ਵਿੱਚ ਬਕਾਇਆ ਮਾਈਗ੍ਰੇਸ਼ਨ ਲਾਗੂ ਕਰੋ।",
+  "@helpTopicMigrate": {
+    "description": "Descripción del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "ਸਾਰੀਆਂ ਡਾਟਾਬੇਸ ਟੇਬਲਾਂ ਨੂੰ ਮਿਟਾਓ ਅਤੇ ਸਾਰੇ ਮਾਈਗਰੇਸ਼ਨਾਂ ਨੂੰ ਮੁੜ ਚਲਾਓ। ਯੋਜਨਾਬੱਧ ਰੀਸੈਟ ਕਰਨ ਲਈ ਵਿਕਾਸ ਦੌਰਾਨ ਲਾਭਦਾਇਕ.",
+  "@helpTopicMigrateFresh": {
+    "description": "Descripción del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "ਐਪ/ਡਾਟਾਬੇਸ/ਸੀਡਰਾਂ ਵਿੱਚ ਪਰਿਭਾਸ਼ਿਤ ਸੈਟਲਰ ਸੀਡਰਾਂ ਨੂੰ ਚਲਾਉਂਦਾ ਹੈ।",
+  "@helpTopicDbSeed": {
+    "description": "Descripción del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "ਪ੍ਰੋਜੈਕਟ ਦੇ ਡੇਟਾਬੇਸ ਕਨੈਕਸ਼ਨ ਨੂੰ ਕੌਂਫਿਗਰ ਜਾਂ ਸੋਧੋ।",
+  "@helpTopicChangeDb": {
+    "description": "Descripción del comando joss change db"
+  },
+  "helpTopicRemoveCrud": "ਸਾਫ਼ ਤੌਰ 'ਤੇ ਤਿਆਰ ਕੀਤੇ CRUD ਮੋਡੀਊਲ ਨੂੰ ਹਟਾ ਦਿੰਦਾ ਹੈ: ਕੰਟਰੋਲਰ, ਮਾਡਲ, ਦ੍ਰਿਸ਼ਾਂ ਨੂੰ ਮਿਟਾਉਂਦਾ ਹੈ ਅਤੇ ਨੇਵਬਾਰ ਤੋਂ ਰੂਟਾਂ ਅਤੇ ਲਿੰਕਾਂ ਨੂੰ ਹਟਾ ਦਿੰਦਾ ਹੈ।",
+  "@helpTopicRemoveCrud": {
+    "description": "Descripción del comando remove:crud"
+  },
+  "helpTopicUserStorage": "ਪ੍ਰੋਜੈਕਟ ਫਾਈਲ ਸਟੋਰੇਜ ਨੂੰ ਕੌਂਫਿਗਰ ਅਤੇ ਸਿੰਕ੍ਰੋਨਾਈਜ਼ ਕਰੋ।",
+  "@helpTopicUserStorage": {
+    "description": "Descripción del comando joss userstorage"
+  },
+  "helpTopicChangeDbMotor": "ਡਾਟਾਬੇਸ ਇੰਜਣ ਨੂੰ ਬਦਲੋ (sqlite, mysql)",
+  "@helpTopicChangeDbMotor": {
+    "description": "Subcomando change db <motor>"
+  },
+  "helpTopicChangeDbMigrate": "ਡੇਟਾ ਅਤੇ ਸਕੀਮਾ ਨੂੰ ਇੱਕ ਨਵੇਂ MySQL ਵਿੱਚ ਮਾਈਗਰੇਟ ਕਰੋ",
+  "@helpTopicChangeDbMigrate": {
+    "description": "Subcomando change db migrate"
+  },
+  "helpTopicChangeDbPrefix": "ਗਲੋਬਲ ਟੇਬਲ ਪ੍ਰੀਫਿਕਸ ਸੈੱਟ ਕਰੋ",
+  "@helpTopicChangeDbPrefix": {
+    "description": "Subcomando change db prefix"
+  },
+  "helpTopicUserStorageLocal": "ਸਥਾਨਕ ਡਿਸਕ ਸਟੋਰੇਜ ਨੂੰ ਕੌਂਫਿਗਰ ਕਰੋ",
+  "@helpTopicUserStorageLocal": {
+    "description": "Opción local de joss userstorage"
+  },
+  "helpTopicUserStorageOci": "Oracle Cloud Infrastructure ਵਿੱਚ ਸਟੋਰੇਜ ਨੂੰ ਕੌਂਫਿਗਰ ਕਰੋ",
+  "@helpTopicUserStorageOci": {
+    "description": "Opción oci de joss userstorage"
+  },
+  "helpTopicUserStorageSyncLocal": "OCI ਫਾਈਲਾਂ ਨੂੰ ਲੋਕਲ ਡਿਸਕ ਤੇ ਡਾਊਨਲੋਡ ਕਰੋ",
+  "@helpTopicUserStorageSyncLocal": {
+    "description": "Opción sync-local de joss userstorage"
+  },
+  "helpTopicUserStorageSyncOci": "ਸਥਾਨਕ ਫ਼ਾਈਲਾਂ ਨੂੰ OCI ਬਾਲਟੀ ਵਿੱਚ ਅੱਪਲੋਡ ਕਰੋ",
+  "@helpTopicUserStorageSyncOci": {
+    "description": "Opción sync-oci de joss userstorage"
+  },
+  "helpTopicPub": "ਜੌਸ ਪੈਕੇਜ ਅਤੇ ਨਿਰਭਰਤਾ ਪ੍ਰਬੰਧਕ।",
+  "@helpTopicPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "helpTopicPubAdd": "joss.yaml ਵਿੱਚ ਇੱਕ ਨਿਰਭਰਤਾ ਜੋੜੋ ਅਤੇ ਇਸਨੂੰ ਸਥਾਪਿਤ ਕਰੋ",
+  "@helpTopicPubAdd": {
+    "description": "Subcomando pub add"
+  },
+  "helpTopicPubRemove": "joss.yaml ਤੋਂ ਨਿਰਭਰਤਾ ਹਟਾਓ",
+  "@helpTopicPubRemove": {
+    "description": "Subcomando pub remove"
+  },
+  "helpTopicPubInstall": "joss.yaml ਨਿਰਭਰਤਾਵਾਂ ਨੂੰ ਡਾਊਨਲੋਡ ਅਤੇ ਸਥਾਪਿਤ ਕਰੋ",
+  "@helpTopicPubInstall": {
+    "description": "Subcomando pub install"
+  },
+  "helpTopicPubUpdate": "ਸਥਾਪਤ ਨਿਰਭਰਤਾਵਾਂ ਨੂੰ ਅੱਪਡੇਟ ਕਰੋ",
+  "@helpTopicPubUpdate": {
+    "description": "Subcomando pub update"
+  },
+  "helpTopicUpdate": "ਜੌਸ ਬਾਈਨਰੀ, SDK ਅਤੇ ਅਧਿਕਾਰਤ ਟੂਲਸ ਨੂੰ ਅੱਪਡੇਟ ਕਰੋ।",
+  "@helpTopicUpdate": {
+    "description": "Descripción del comando joss update"
+  },
+  "helpTopicPackage": "ਇੱਕ ਕੰਪਾਇਲ ਕੀਤੇ ਜੌਸ ਪੈਕੇਜ ਦੇ ਮੈਟਾਡੇਟਾ, ਚਿੰਨ੍ਹ ਅਤੇ ਨਿਰਭਰਤਾ ਦੀ ਜਾਂਚ ਕਰਦਾ ਹੈ।",
+  "@helpTopicPackage": {
+    "description": "Descripción del comando joss package inspect"
+  },
+  "helpTopicPlugin": "ਇੰਸਟਾਲ ਕੀਤੇ ਪਲੱਗਇਨ ਅਤੇ ਉਹਨਾਂ ਦੇ ਹੁਕਮਾਂ ਨੂੰ ਦੇਖਣ ਲਈ, 'joss help plugins' ਦੀ ਵਰਤੋਂ ਕਰੋ।",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPubPublish": "ਆਪਣੇ ਪੈਕੇਜ ਨੂੰ ਅਧਿਕਾਰਤ ਰਜਿਸਟਰੀ ਵਿੱਚ ਪ੍ਰਕਾਸ਼ਿਤ ਕਰੋ",
+  "@helpTopicPubPublish": {
+    "description": "Subcomando pub publish"
+  },
+  "helpTopicVersion": "Joss ਦਾ ਸਥਾਪਿਤ ਸੰਸਕਰਣ ਅਤੇ ਇਸਦਾ ਕੋਡਨਾਮ ਦਿਖਾਉਂਦਾ ਹੈ।",
+  "@helpTopicVersion": {
+    "description": "Descripción del comando joss version"
+  },
+  "helpTopicAiActivate": "ਆਰਟੀਫੀਸ਼ੀਅਲ ਇੰਟੈਲੀਜੈਂਸ ਪ੍ਰਦਾਤਾਵਾਂ ਅਤੇ ਮਾਡਲਾਂ (Groq, OpenAI, Gemini) ਨੂੰ ਕੌਂਫਿਗਰ ਕਰੋ।",
+  "@helpTopicAiActivate": {
+    "description": "Descripción del comando joss ai:activate"
+  },
+  "helpTopicUpdateOptForce": "ਜ਼ਬਰਦਸਤੀ ਮੁੜ ਸਥਾਪਿਤ ਕਰੋ",
+  "@helpTopicUpdateOptForce": {
+    "description": "Opción --force de joss update"
+  },
+  "helpTopicNotFound": "'{cmd}' ਕਮਾਂਡ ਲਈ ਕੋਈ ਖਾਸ ਮਦਦ ਨਹੀਂ ਹੈ।",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  },
+  "helpTopicUpdateOptCanary": "ਨਵੀਨਤਮ ਵਿਕਾਸ ਸੰਸਕਰਣ ਲਈ ਅੱਪਡੇਟ ਕਰੋ",
+  "@helpTopicUpdateOptCanary": {
+    "description": "Opción --canary de joss update"
+  },
+  "helpTopicUpdateOptStable": "ਨਵੀਨਤਮ ਸਥਿਰ ਸੰਸਕਰਣ (ਪੂਰਵ-ਨਿਰਧਾਰਤ) ਲਈ ਅੱਪਡੇਟ ਕਰੋ",
+  "@helpTopicUpdateOptStable": {
+    "description": "Opción --stable de joss update"
+  },
+  "cliSectionExec": "ਐਕਜ਼ੀਕਿਊਸ਼ਨ ਅਤੇ REPL:",
+  "@cliSectionExec": {
+    "description": "Encabezado de sección de comandos de ejecución en el menú de ayuda"
+  },
+  "cliUsageLabel": "ਵਰਤੋਂ:",
+  "@cliUsageLabel": {
+    "description": "Etiqueta para indicar el uso de un comando CLI"
+  },
+  "cliSectionQuality": "ਕੋਡ ਗੁਣਵੱਤਾ ਅਤੇ ਟੂਲਿੰਗ:",
+  "@cliSectionQuality": {
+    "description": "Encabezado de sección de calidad de código en el menú de ayuda"
+  },
+  "cliSectionScaffolding": "ਜਨਰੇਟਰ ਅਤੇ ਢਾਂਚਾ (SCAFFOLDING):",
+  "@cliSectionScaffolding": {
+    "description": "Encabezado de sección de generadores en el menú de ayuda"
+  },
+  "cliSectionPackages": "ਪੈਕੇਜ ਅਤੇ ਪਲੱਗਇਨ:",
+  "@cliSectionPackages": {
+    "description": "Encabezado de sección de paquetes y plugins en el menú de ayuda"
+  },
+  "cliSectionDatabase": "ਡਾਟਾਬੇਸ ਅਤੇ ਸਟੋਰੇਜ:",
+  "@cliSectionDatabase": {
+    "description": "Encabezado de sección de base de datos y almacenamiento en el menú de ayuda"
+  },
+  "cliSectionSystem": "ਸਿਸਟਮ ਅਤੇ ਉਪਯੋਗਤਾਵਾਂ:",
+  "@cliSectionSystem": {
+    "description": "Encabezado de sección de sistema y utilidades en el menú de ayuda"
+  },
+  "cliCmdCheck": "ਵਿਆਪਕ ਤਸਦੀਕ (ਫਾਰਮੈਟ, ਸੰਟੈਕਸ, ਕਿਸਮਾਂ ਅਤੇ ਲਿੰਟ)",
+  "@cliCmdCheck": {
+    "description": "Descripción breve del comando check en el menú de ayuda"
+  },
+  "cliCmdFix": "ਸੁਰੱਖਿਅਤ ਆਟੋਮੈਟਿਕ ਸੁਧਾਰ ਅਤੇ ਫਾਰਮੈਟਿੰਗ ਲਾਗੂ ਕਰੋ",
+  "@cliCmdFix": {
+    "description": "Descripción breve del comando fix en el menú de ayuda"
+  },
+  "cliCmdMakeController": "ਇੱਕ ਵੈੱਬ ਕੰਟਰੋਲਰ ਬਣਾਓ",
+  "@cliCmdMakeController": {
+    "description": "Descripción breve del comando make:controller en el menú de ayuda"
+  },
+  "cliCmdMakeModel": "ਇੱਕ ਡਾਟਾ ਮਾਡਲ ਤਿਆਰ ਕਰੋ",
+  "@cliCmdMakeModel": {
+    "description": "Descripción breve del comando make:model en el menú de ayuda"
+  },
+  "cliCmdMakeView": "ਇੱਕ ਦ੍ਰਿਸ਼ ਟੈਮਪਲੇਟ ਤਿਆਰ ਕਰੋ",
+  "@cliCmdMakeView": {
+    "description": "Descripción breve del comando make:view en el menú de ayuda"
+  },
+  "cliCmdMakeMiddleware": "HTTP ਮਿਡਲਵੇਅਰ ਤਿਆਰ ਕਰੋ",
+  "@cliCmdMakeMiddleware": {
+    "description": "Descripción breve del comando make:middleware en el menú de ayuda"
+  },
+  "cliCmdMakeMvc": "ਇੱਕ ਕਦਮ ਵਿੱਚ ਮਾਡਲ, ਵਿਊ ਅਤੇ ਕੰਟਰੋਲਰ ਤਿਆਰ ਕਰੋ",
+  "@cliCmdMakeMvc": {
+    "description": "Descripción breve del comando make:mvc en el menú de ayuda"
+  },
+  "cliCmdMakeCrud": "ਰੂਟਾਂ ਅਤੇ ਦ੍ਰਿਸ਼ਾਂ ਨਾਲ ਪੂਰਾ CRUD ਤਿਆਰ ਕਰੋ",
+  "@cliCmdMakeCrud": {
+    "description": "Descripción breve del comando make:crud en el menú de ayuda"
+  },
+  "cliCmdDbSeed": "ਐਪ/ਡਾਟਾਬੇਸ/ਸੀਡਰਾਂ ਤੋਂ ਸੀਡਰ ਚਲਾਓ",
+  "@cliCmdDbSeed": {
+    "description": "Descripción breve del comando db:seed en el menú de ayuda"
+  },
+  "cliCmdPluginCompile": "ਕੋਡ ਨੂੰ .jp ਬਾਈਨਰੀ ਪੈਕੇਜ ਵਿੱਚ ਕੰਪਾਇਲ ਕਰੋ",
+  "@cliCmdPluginCompile": {
+    "description": "Descripción breve del comando plugin compile en el menú de ayuda"
+  },
+  "cliCmdChangeDbMigrate": "ਮੌਜੂਦਾ ਕਨੈਕਸ਼ਨ ਨੂੰ ਇੱਕ ਨਵੇਂ MySQL ਨਾਲ ਮਾਈਗਰੇਟ ਕਰੋ",
+  "@cliCmdChangeDbMigrate": {
+    "description": "Descripción breve del subcomando change db migrate en el menú de ayuda"
+  },
+  "cliCmdStorageSync": "Oracle Cloud ਨਾਲ ਫਾਈਲਾਂ ਨੂੰ ਸਿੰਕ ਕਰੋ",
+  "@cliCmdStorageSync": {
+    "description": "Descripción breve del subcomando userstorage sync en el menú de ayuda"
+  },
+  "cliCmdPluginInspect": "ਇੱਕ ਪਲੱਗਇਨ ਦੇ ਬਾਈਟਕੋਡ ਅਤੇ ਪ੍ਰਤੀਕਾਂ ਦੀ ਜਾਂਚ ਕਰੋ",
+  "@cliCmdPluginInspect": {
+    "description": "Descripción breve del comando plugin inspect en el menú de ayuda"
+  },
+  "cliCmdPackageInspect": "ਇੱਕ ਪੈਕੇਜ ਦੇ ਮੈਟਾਡੇਟਾ ਅਤੇ ਦਸਤਖਤਾਂ ਦੀ ਜਾਂਚ ਕਰਦਾ ਹੈ",
+  "@cliCmdPackageInspect": {
+    "description": "Descripción breve del comando package inspect en el menú de ayuda"
+  },
+  "cliCmdHelpPlugins": "ਪਲੱਗਇਨ ਦੁਆਰਾ ਪ੍ਰਦਾਨ ਕੀਤੀਆਂ ਕਮਾਂਡਾਂ ਅਤੇ ਵਿਕਲਪਾਂ ਦੀ ਸੂਚੀ ਬਣਾਓ",
+  "@cliCmdHelpPlugins": {
+    "description": "Descripción breve del comando help plugins en el menú de ayuda"
+  },
+  "cliCmdPluginVerify": "Ed25519 ਦਸਤਖਤਾਂ ਅਤੇ ਪਲੱਗਇਨ ਦੀ ਇਕਸਾਰਤਾ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ",
+  "@cliCmdPluginVerify": {
+    "description": "Descripción breve del comando plugin verify en el menú de ayuda"
+  },
+  "cliCmdUpdate": "Joss, SDK ਅਤੇ ਪਲੱਗਇਨ ਦਾ ਸੰਸਕਰਣ ਅੱਪਡੇਟ ਕਰੋ",
+  "@cliCmdUpdate": {
+    "description": "Descripción breve del comando update en el menú de ayuda"
+  },
+  "cliCmdAiActivate": "ਪ੍ਰਦਾਤਾਵਾਂ ਅਤੇ ਨਕਲੀ ਖੁਫੀਆ ਮਾਡਲਾਂ ਨੂੰ ਕੌਂਫਿਗਰ ਕਰੋ",
+  "@cliCmdAiActivate": {
+    "description": "Descripción breve del comando ai:activate en el menú de ayuda"
+  },
+  "cliHelpFooter": "ਵਿਕਲਪਾਂ ਅਤੇ ਉਦਾਹਰਨਾਂ ਲਈ 'joss help <command>' ਜਾਂ 'joss help plugins' ਦੀ ਵਰਤੋਂ ਕਰੋ।",
+  "@cliHelpFooter": {
+    "description": "Mensaje de pie de página en el menú de ayuda general"
+  },
+  "migrateFreshStarting": "ਸਾਰੀਆਂ ਟੇਬਲਾਂ ਨੂੰ ਮਿਟਾਉਣਾ ਅਤੇ ਸਕ੍ਰੈਚ ਤੋਂ ਮਾਈਗ੍ਰੇਸ਼ਨ ਚੱਲ ਰਿਹਾ ਹੈ...",
+  "@migrateFreshStarting": {
+    "description": "Mensaje inicial del comando migrate:fresh"
+  },
+  "dbConnSuccess": "DB ਨਾਲ ਕਨੈਕਸ਼ਨ ਸਫਲ ਰਿਹਾ।",
+  "@dbConnSuccess": {
+    "description": "Mensaje cuando la conexión a la base de datos es exitosa"
+  },
+  "migrateFreshDroppingTables": "ਸਾਰੀਆਂ ਸਾਰਣੀਆਂ ਨੂੰ ਮਿਟਾਇਆ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@migrateFreshDroppingTables": {
+    "description": "Mensaje al eliminar tablas en migrate:fresh"
+  },
+  "migrateFreshSuccess": "ਮਾਈਗ੍ਰੇਸ਼ਨ ਸਫਲਤਾਪੂਰਵਕ ਚਲਾਇਆ ਗਿਆ!",
+  "@migrateFreshSuccess": {
+    "description": "Mensaje de éxito al completar migrate:fresh"
+  },
+  "dbConnError": "ਗਲਤੀ: ਡਾਟਾਬੇਸ ਨਾਲ ਕਨੈਕਟ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ।",
+  "@dbConnError": {
+    "description": "Mensaje de error cuando falla la conexión a la base de datos"
+  },
+  "seedersRunning": "ਚੱਲ ਰਹੇ ਸੀਡਰ...",
+  "@seedersRunning": {
+    "description": "Mensaje inicial al ejecutar seeders"
+  },
+  "seedersNotFound": "ਐਪ/ਡਾਟਾਬੇਸ/ਸੀਡਰ/ ਵਿੱਚ ਕੋਈ ਸੀਡਰ ਨਹੀਂ ਮਿਲੇ",
+  "@seedersNotFound": {
+    "description": "Mensaje cuando el directorio de seeders está vacío"
   }
 }

@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Δοκιμάστε τώρα με: joss run your_script.joss",
+  "aiTryScript": "Δοκιμάστε τώρα με: joss run tu_script.joss",
   "@aiTryScript": {},
   "aiWizardConfig": "Αυτός ο οδηγός θα διαμορφώσει το εγγενές AI στο έργο σας.",
   "@aiWizardConfig": {},
@@ -240,10 +240,6 @@
   "@cliAppTitle": {
     "description": "Título principal mostrado en la ayuda de la CLI"
   },
-  "cliUsage": "Χρήση: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
   "cliCmdRepl": "Ξεκινήστε την διαδραστική κονσόλα (REPL)",
   "@cliCmdRepl": {
     "description": "Descripción del comando joss repl"
@@ -296,10 +292,6 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliUsageRun": "Χρήση: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
   "cliErrRequireMain": "Όλα τα έργα πρέπει να έχουν ένα σημείο εισόδου 'main.joss' που ξεκινά τον διακομιστή.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
@@ -311,50 +303,6 @@
   "cliErrNoMain": "Σφάλμα: το 'main.joss' δεν βρέθηκε.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
-  },
-  "cliUsageServer": "Χρήση: έναρξη διακομιστή joss",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
-  "cliUsageMakeController": "Χρήση: joss make:controller [Όνομα]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageBuildPkg": "Χρήση: Joss build πακέτο [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageProgram": "Χρήση: Έναρξη προγράμματος joss",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageMakeModel": "Χρήση: joss make:model [Όνομα]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "Χρήση: joss make:mvc [Όνομα]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "Χρήση: joss make:view [Όνομα]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageMakeMiddleware": "Χρήση: joss make:middleware [Όνομα]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeCrud": "Χρήση: joss make:crud [Πίνακας]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageRemoveCrud": "Χρήση: joss remove:crud [Πίνακας]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageMakeMigration": "Χρήση: joss make:migration [Όνομα]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
   },
   "checkVerifying": "[ΕΛΕΓΧΟΣ] Επαλήθευση έργου σε '{path}' (ανάλυση, σημασιολογική ανάλυση, τύποι, χείλος, μορφή)...",
   "@checkVerifying": {
@@ -573,5 +521,388 @@
   "pkgInspectJpV1Deprecated": "Σφάλμα: Η μορφή πακέτου JP v1 καταργήθηκε. Ο Joss απαιτεί τη δομημένη και υπογεγραμμένη μορφή JP v2.",
   "@pkgInspectJpV1Deprecated": {
     "description": "Aviso de versión obsoleta JP v1"
+  },
+  "helpTopicReplExitHint": "Έξοδος από το διαδραστικό REPL",
+  "@helpTopicReplExitHint": {
+    "description": "Descripción del atajo exit/quit en el REPL"
+  },
+  "helpTopicReplCtrlCHint": "Διακόψτε την τρέχουσα γραμμή ή βγείτε από το REPL",
+  "@helpTopicReplCtrlCHint": {
+    "description": "Descripción del atajo Ctrl+C en el REPL"
+  },
+  "helpTopicProgram": "Εκκινήστε την εφαρμογή σε λειτουργία επιφάνειας εργασίας.",
+  "@helpTopicProgram": {
+    "description": "Descripción del comando joss program"
+  },
+  "helpTopicRun": "Εκτελεί ένα σενάριο Joss απευθείας μετά την επικύρωση της σύνταξης και της σημασιολογικής ανάλυσης. Εκτέλεση μπλοκ σφαλμάτων τύπου. Οι προειδοποιήσεις αναφέρονται χωρίς διακοπή.",
+  "@helpTopicRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "helpTopicBuild": "Καταρτίζει ή συσκευάζει το έργο για παραγωγή και διανομή.",
+  "@helpTopicBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "helpTopicServer": "Ξεκινήστε τον διακομιστή web HTTP υψηλής απόδοσης εκτελώντας το σημείο εισόδου «main.joss». Αυτόματη φόρτωση όλων των προγραμμάτων οδήγησης, μοντέλων και διαδρομών στην εφαρμογή/. Πατήστε 'q' ή Ctrl+C στην κονσόλα για να σταματήσετε με ασφάλεια τον διακομιστή.",
+  "@helpTopicServer": {
+    "description": "Descripción del comando joss server"
+  },
+  "helpTopicRepl": "Ξεκινά τη διαδραστική κονσόλα (Read-Eval-Print Loop) του Joss. Σας επιτρέπει να αξιολογείτε εκφράσεις, να δοκιμάζετε συναρτήσεις, να δηλώνετε μεταβλητές και να πειραματίζεστε σε πραγματικό χρόνο.",
+  "@helpTopicRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "helpTopicBuildModeProgram": "Προετοιμάστε την έκδοση για υπολογιστές",
+  "@helpTopicBuildModeProgram": {
+    "description": "Descripción del modo program de joss build"
+  },
+  "helpTopicBuildModeNative": "Μεταγλωττίστε ένα αυτόνομο εγγενές εκτελέσιμο αρχείο",
+  "@helpTopicBuildModeNative": {
+    "description": "Descripción del modo native de joss build"
+  },
+  "helpTopicBuildModePackage": "Συσκευάστε μια βιβλιοθήκη Joss σε μορφή .jp",
+  "@helpTopicBuildModePackage": {
+    "description": "Descripción del modo package de joss build"
+  },
+  "helpTopicBuildModeWeb": "Προετοιμάστε στοιχεία και αρχεία για ανάπτυξη ιστού",
+  "@helpTopicBuildModeWeb": {
+    "description": "Descripción del modo web de joss build"
+  },
+  "helpTopicAnalyze": "Εκτελέστε μια αυστηρή σημασιολογική ανάλυση του έργου χωρίς να το εκτελέσετε. Ελέγχει τη συνέπεια των τύπων, των μη δηλωμένων μεταβλητών, των υπογραφών και της ροής ελέγχου.",
+  "@helpTopicAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "helpTopicFormat": "Μορφοποιεί αρχεία .joss σύμφωνα με το κανονικό πρότυπο γλώσσας.",
+  "@helpTopicFormat": {
+    "description": "Descripción del comando joss format"
+  },
+  "helpTopicLint": "Εκτελεί στατική ανάλυση και εντοπίζει ζητήματα στυλ, τύπου και ασφάλειας.",
+  "@helpTopicLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "helpTopicFix": "Εφαρμόζει ασφαλείς αυτόματες διορθώσεις και κανονική μορφοποίηση.",
+  "@helpTopicFix": {
+    "description": "Descripción del comando joss fix"
+  },
+  "helpTopicFormatOptWrite": "Γράψτε αλλαγές στο αρχείο (προεπιλογή όταν μεταβιβάζετε ένα αρχείο)",
+  "@helpTopicFormatOptWrite": {
+    "description": "Descripción de la opción --write de joss format"
+  },
+  "helpTopicFormatOptCheck": "Ελέγξτε εάν τα αρχεία είναι μορφοποιημένα χωρίς να τα τροποποιήσετε (χρήσιμο σε CI)",
+  "@helpTopicFormatOptCheck": {
+    "description": "Descripción de la opción --check de joss format"
+  },
+  "helpTopicLintOptJson": "Εκδίδει τη διαγνωστική αναφορά σε δομημένη μορφή JSON",
+  "@helpTopicLintOptJson": {
+    "description": "Descripción de la opción --json de joss lint"
+  },
+  "helpTopicTest": "Εκτελέστε την επίσημη σουίτα δοκιμών και διεκδίκησης μονάδων (*_test.joss).",
+  "@helpTopicTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "helpTopicNew": "Δημιουργεί μια νέα δομή έργου.",
+  "@helpTopicNew": {
+    "description": "Descripción del comando joss new"
+  },
+  "helpTopicFixOptDryRun": "Δείχνει ποιες αλλαγές θα εφαρμοστούν χωρίς να τροποποιηθούν τα αρχεία",
+  "@helpTopicFixOptDryRun": {
+    "description": "Descripción de la opción --dry-run de joss fix"
+  },
+  "helpTopicCheck": "Εκτελεί έναν ολοκληρωμένο έλεγχο ποιότητας: κανονική μορφή, σύνταξη, αυστηρή σημασιολογική ανάλυση και κανόνες γραμμών.",
+  "@helpTopicCheck": {
+    "description": "Descripción del comando joss check"
+  },
+  "helpTopicTestOptFilter": "Φιλτράρετε και εκτελέστε μόνο δοκιμές των οποίων το όνομα περιέχει το κείμενο",
+  "@helpTopicTestOptFilter": {
+    "description": "Descripción de la opción --filter de joss test"
+  },
+  "helpTopicNewTypeWeb": "Ολοκληρώστε το έργο ιστού MVC (προεπιλογή)",
+  "@helpTopicNewTypeWeb": {
+    "description": "Tipo web de joss new"
+  },
+  "helpTopicMakeController": "Δημιουργήστε έναν νέο ελεγκτή ιστού στο app/controllers/.",
+  "@helpTopicMakeController": {
+    "description": "Descripción del comando make:controller"
+  },
+  "helpTopicNewTypeConsole": "Έργο κονσόλας CLI",
+  "@helpTopicNewTypeConsole": {
+    "description": "Tipo console de joss new"
+  },
+  "helpTopicMakeModel": "Δημιουργήστε ένα νέο μοντέλο ORM σε app/models/.",
+  "@helpTopicMakeModel": {
+    "description": "Descripción del comando make:model"
+  },
+  "helpTopicMakeView": "Δημιουργήστε ένα νέο πρότυπο προβολής στην εφαρμογή/προβολές/.",
+  "@helpTopicMakeView": {
+    "description": "Descripción del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "Δημιουργήστε ένα νέο ενδιάμεσο λογισμικό HTTP στο app/middleware/.",
+  "@helpTopicMakeMiddleware": {
+    "description": "Descripción del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "Ταυτόχρονα δημιουργεί Model, View και Controller για την οντότητα.",
+  "@helpTopicMakeMvc": {
+    "description": "Descripción del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "Δημιουργεί αυτόματα Model, Views, Controller και Routes για έναν πίνακα βάσης δεδομένων. Ανιχνεύει ξένα κλειδιά, ορατές στήλες και εισάγει συνδέσμους πλοήγησης.",
+  "@helpTopicMakeCrud": {
+    "description": "Descripción del comando make:crud"
+  },
+  "helpTopicMakeMigration": "Δημιουργήστε ένα νέο αρχείο μετεγκατάστασης με χρονική σήμανση στην εφαρμογή/βάση δεδομένων/μεταναστεύσεις/.",
+  "@helpTopicMakeMigration": {
+    "description": "Descripción del comando make:migration"
+  },
+  "helpTopicNewTypePackage": "Πακέτο διανομής για το οικοσύστημα Joss",
+  "@helpTopicNewTypePackage": {
+    "description": "Tipo package de joss new"
+  },
+  "helpTopicNewTypePlugin": "Εγγενές πρόσθετο με μεταγλώττιση σε bytecode .jp",
+  "@helpTopicNewTypePlugin": {
+    "description": "Tipo plugin de joss new"
+  },
+  "helpTopicMigrate": "Εφαρμόστε εκκρεμείς μετεγκαταστάσεις σε εφαρμογή/βάση δεδομένων/μεταναστεύσεις.",
+  "@helpTopicMigrate": {
+    "description": "Descripción del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "Διαγράψτε όλους τους πίνακες βάσης δεδομένων και εκτελέστε ξανά όλες τις μετεγκαταστάσεις. Χρήσιμο κατά την ανάπτυξη για επαναφορά του σχηματικού.",
+  "@helpTopicMigrateFresh": {
+    "description": "Descripción del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "Εκτελεί τα settler seeders που ορίζονται στην εφαρμογή/βάση δεδομένων/seeders.",
+  "@helpTopicDbSeed": {
+    "description": "Descripción del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "Διαμορφώστε ή τροποποιήστε τη σύνδεση βάσης δεδομένων του έργου.",
+  "@helpTopicChangeDb": {
+    "description": "Descripción del comando joss change db"
+  },
+  "helpTopicRemoveCrud": "Καταργεί καθαρά μια μονάδα CRUD που δημιουργήθηκε: διαγράφει τον ελεγκτή, το μοντέλο, προβάλλει και αφαιρεί διαδρομές και συνδέσμους από τη γραμμή πλοήγησης.",
+  "@helpTopicRemoveCrud": {
+    "description": "Descripción del comando remove:crud"
+  },
+  "helpTopicUserStorage": "Διαμόρφωση και συγχρονισμός αποθήκευσης αρχείων έργου.",
+  "@helpTopicUserStorage": {
+    "description": "Descripción del comando joss userstorage"
+  },
+  "helpTopicChangeDbMotor": "Αλλαγή της μηχανής βάσης δεδομένων (sqlite, mysql)",
+  "@helpTopicChangeDbMotor": {
+    "description": "Subcomando change db <motor>"
+  },
+  "helpTopicChangeDbMigrate": "Μετεγκατάσταση δεδομένων και σχήματος σε μια νέα MySQL",
+  "@helpTopicChangeDbMigrate": {
+    "description": "Subcomando change db migrate"
+  },
+  "helpTopicChangeDbPrefix": "Ορίστε το πρόθεμα καθολικού πίνακα",
+  "@helpTopicChangeDbPrefix": {
+    "description": "Subcomando change db prefix"
+  },
+  "helpTopicUserStorageLocal": "Διαμόρφωση τοπικής αποθήκευσης δίσκου",
+  "@helpTopicUserStorageLocal": {
+    "description": "Opción local de joss userstorage"
+  },
+  "helpTopicUserStorageOci": "Διαμόρφωση αποθήκευσης στο Oracle Cloud Infrastructure",
+  "@helpTopicUserStorageOci": {
+    "description": "Opción oci de joss userstorage"
+  },
+  "helpTopicUserStorageSyncLocal": "Λήψη αρχείων OCI στον τοπικό δίσκο",
+  "@helpTopicUserStorageSyncLocal": {
+    "description": "Opción sync-local de joss userstorage"
+  },
+  "helpTopicUserStorageSyncOci": "Ανεβάστε τοπικά αρχεία στον κάδο OCI",
+  "@helpTopicUserStorageSyncOci": {
+    "description": "Opción sync-oci de joss userstorage"
+  },
+  "helpTopicPub": "Διαχειριστής πακέτων και εξαρτήσεων Joss.",
+  "@helpTopicPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "helpTopicPubAdd": "Προσθέστε μια εξάρτηση στο joss.yaml και εγκαταστήστε την",
+  "@helpTopicPubAdd": {
+    "description": "Subcomando pub add"
+  },
+  "helpTopicPubRemove": "Καταργήστε μια εξάρτηση από το joss.yaml",
+  "@helpTopicPubRemove": {
+    "description": "Subcomando pub remove"
+  },
+  "helpTopicPubInstall": "Λήψη και εγκατάσταση των εξαρτήσεων joss.yaml",
+  "@helpTopicPubInstall": {
+    "description": "Subcomando pub install"
+  },
+  "helpTopicPubUpdate": "Ενημερώστε τις εγκατεστημένες εξαρτήσεις",
+  "@helpTopicPubUpdate": {
+    "description": "Subcomando pub update"
+  },
+  "helpTopicUpdate": "Ενημερώστε το δυαδικό, το SDK και τα επίσημα εργαλεία Joss.",
+  "@helpTopicUpdate": {
+    "description": "Descripción del comando joss update"
+  },
+  "helpTopicPackage": "Επιθεωρεί μεταδεδομένα, σύμβολα και εξαρτήσεις ενός μεταγλωττισμένου πακέτου Joss.",
+  "@helpTopicPackage": {
+    "description": "Descripción del comando joss package inspect"
+  },
+  "helpTopicPlugin": "Για να προβάλετε τα εγκατεστημένα πρόσθετα και τις εντολές τους, χρησιμοποιήστε «joss help plugins».",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPubPublish": "Δημοσιεύστε το πακέτο σας στο επίσημο μητρώο",
+  "@helpTopicPubPublish": {
+    "description": "Subcomando pub publish"
+  },
+  "helpTopicVersion": "Εμφανίζει την εγκατεστημένη έκδοση του Joss και την κωδική ονομασία του.",
+  "@helpTopicVersion": {
+    "description": "Descripción del comando joss version"
+  },
+  "helpTopicAiActivate": "Διαμόρφωση παρόχων και μοντέλων τεχνητής νοημοσύνης (Groq, OpenAI, Gemini).",
+  "@helpTopicAiActivate": {
+    "description": "Descripción del comando joss ai:activate"
+  },
+  "helpTopicUpdateOptForce": "Αναγκαστική επανεγκατάσταση",
+  "@helpTopicUpdateOptForce": {
+    "description": "Opción --force de joss update"
+  },
+  "helpTopicNotFound": "Δεν υπάρχει συγκεκριμένη βοήθεια για την εντολή \"{cmd}\".",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  },
+  "helpTopicUpdateOptCanary": "Ενημέρωση στην πιο πρόσφατη έκδοση ανάπτυξης",
+  "@helpTopicUpdateOptCanary": {
+    "description": "Opción --canary de joss update"
+  },
+  "helpTopicUpdateOptStable": "Ενημέρωση στην πιο πρόσφατη σταθερή έκδοση (προεπιλογή)",
+  "@helpTopicUpdateOptStable": {
+    "description": "Opción --stable de joss update"
+  },
+  "cliSectionExec": "ΕΚΤΕΛΕΣΗ ΚΑΙ REPL:",
+  "@cliSectionExec": {
+    "description": "Encabezado de sección de comandos de ejecución en el menú de ayuda"
+  },
+  "cliUsageLabel": "Χρήση:",
+  "@cliUsageLabel": {
+    "description": "Etiqueta para indicar el uso de un comando CLI"
+  },
+  "cliSectionQuality": "ΠΟΙΟΤΗΤΑ ΚΩΔΙΚΑ ΚΑΙ ΕΡΓΑΛΕΙΑ:",
+  "@cliSectionQuality": {
+    "description": "Encabezado de sección de calidad de código en el menú de ayuda"
+  },
+  "cliSectionScaffolding": "ΓΕΝΝΗΤΡΙΕΣ ΚΑΙ ΔΟΜΗ (SCAFFOLDING):",
+  "@cliSectionScaffolding": {
+    "description": "Encabezado de sección de generadores en el menú de ayuda"
+  },
+  "cliSectionPackages": "ΠΑΚΕΤΑ ΚΑΙ ΠΡΟΣΘΕΤΑ:",
+  "@cliSectionPackages": {
+    "description": "Encabezado de sección de paquetes y plugins en el menú de ayuda"
+  },
+  "cliSectionDatabase": "ΒΑΣΗ ΔΕΔΟΜΕΝΩΝ ΚΑΙ ΑΠΟΘΗΚΕΥΣΗ:",
+  "@cliSectionDatabase": {
+    "description": "Encabezado de sección de base de datos y almacenamiento en el menú de ayuda"
+  },
+  "cliSectionSystem": "ΣΥΣΤΗΜΑ ΚΑΙ ΒΟΗΘΗΤΙΚΑ:",
+  "@cliSectionSystem": {
+    "description": "Encabezado de sección de sistema y utilidades en el menú de ayuda"
+  },
+  "cliCmdCheck": "Ολοκληρωμένη επαλήθευση (μορφή, σύνταξη, τύποι και χνούδι)",
+  "@cliCmdCheck": {
+    "description": "Descripción breve del comando check en el menú de ayuda"
+  },
+  "cliCmdFix": "Εφαρμόστε ασφαλείς αυτόματες διορθώσεις και μορφοποίηση",
+  "@cliCmdFix": {
+    "description": "Descripción breve del comando fix en el menú de ayuda"
+  },
+  "cliCmdMakeController": "Δημιουργήστε έναν ελεγκτή ιστού",
+  "@cliCmdMakeController": {
+    "description": "Descripción breve del comando make:controller en el menú de ayuda"
+  },
+  "cliCmdMakeModel": "Δημιουργήστε ένα μοντέλο δεδομένων",
+  "@cliCmdMakeModel": {
+    "description": "Descripción breve del comando make:model en el menú de ayuda"
+  },
+  "cliCmdMakeView": "Δημιουργήστε ένα πρότυπο προβολής",
+  "@cliCmdMakeView": {
+    "description": "Descripción breve del comando make:view en el menú de ayuda"
+  },
+  "cliCmdMakeMiddleware": "Δημιουργήστε ενδιάμεσο λογισμικό HTTP",
+  "@cliCmdMakeMiddleware": {
+    "description": "Descripción breve del comando make:middleware en el menú de ayuda"
+  },
+  "cliCmdMakeMvc": "Δημιουργήστε μοντέλο, προβολή και ελεγκτή σε ένα βήμα",
+  "@cliCmdMakeMvc": {
+    "description": "Descripción breve del comando make:mvc en el menú de ayuda"
+  },
+  "cliCmdMakeCrud": "Δημιουργήστε πλήρες CRUD με διαδρομές και απόψεις",
+  "@cliCmdMakeCrud": {
+    "description": "Descripción breve del comando make:crud en el menú de ayuda"
+  },
+  "cliCmdDbSeed": "Εκτελέστε προγράμματα αναπαραγωγής από app/βάση δεδομένων/seeders",
+  "@cliCmdDbSeed": {
+    "description": "Descripción breve del comando db:seed en el menú de ayuda"
+  },
+  "cliCmdPluginCompile": "Μεταγλώττιση κώδικα σε δυαδικό πακέτο .jp",
+  "@cliCmdPluginCompile": {
+    "description": "Descripción breve del comando plugin compile en el menú de ayuda"
+  },
+  "cliCmdChangeDbMigrate": "Μετεγκατάσταση της τρέχουσας σύνδεσης σε μια νέα MySQL",
+  "@cliCmdChangeDbMigrate": {
+    "description": "Descripción breve del subcomando change db migrate en el menú de ayuda"
+  },
+  "cliCmdStorageSync": "Συγχρονισμός αρχείων με το Oracle Cloud",
+  "@cliCmdStorageSync": {
+    "description": "Descripción breve del subcomando userstorage sync en el menú de ayuda"
+  },
+  "cliCmdPluginInspect": "Επιθεωρήστε τον bytecode και τα σύμβολα μιας προσθήκης",
+  "@cliCmdPluginInspect": {
+    "description": "Descripción breve del comando plugin inspect en el menú de ayuda"
+  },
+  "cliCmdPackageInspect": "Επιθεωρεί τα μεταδεδομένα και τις υπογραφές ενός πακέτου",
+  "@cliCmdPackageInspect": {
+    "description": "Descripción breve del comando package inspect en el menú de ayuda"
+  },
+  "cliCmdHelpPlugins": "Λίστα εντολών και επιλογών που παρέχονται από πρόσθετα",
+  "@cliCmdHelpPlugins": {
+    "description": "Descripción breve del comando help plugins en el menú de ayuda"
+  },
+  "cliCmdPluginVerify": "Επαληθεύστε τις υπογραφές Ed25519 και την ακεραιότητα μιας προσθήκης",
+  "@cliCmdPluginVerify": {
+    "description": "Descripción breve del comando plugin verify en el menú de ayuda"
+  },
+  "cliCmdUpdate": "Ενημερώστε την έκδοση του Joss, του SDK και των προσθηκών",
+  "@cliCmdUpdate": {
+    "description": "Descripción breve del comando update en el menú de ayuda"
+  },
+  "cliCmdAiActivate": "Διαμόρφωση παρόχων και μοντέλων τεχνητής νοημοσύνης",
+  "@cliCmdAiActivate": {
+    "description": "Descripción breve del comando ai:activate en el menú de ayuda"
+  },
+  "cliHelpFooter": "Χρησιμοποιήστε \"joss help <command>\" ή \"joss help plugins\" για επιλογές και παραδείγματα.",
+  "@cliHelpFooter": {
+    "description": "Mensaje de pie de página en el menú de ayuda general"
+  },
+  "migrateFreshStarting": "Διαγραφή όλων των πινάκων και εκτέλεση μετεγκατάστασης από την αρχή...",
+  "@migrateFreshStarting": {
+    "description": "Mensaje inicial del comando migrate:fresh"
+  },
+  "dbConnSuccess": "Επιτυχής σύνδεση στο DB.",
+  "@dbConnSuccess": {
+    "description": "Mensaje cuando la conexión a la base de datos es exitosa"
+  },
+  "migrateFreshDroppingTables": "Διαγραφή όλων των πινάκων...",
+  "@migrateFreshDroppingTables": {
+    "description": "Mensaje al eliminar tablas en migrate:fresh"
+  },
+  "migrateFreshSuccess": "Οι μετεγκαταστάσεις εκτελέστηκαν με επιτυχία!",
+  "@migrateFreshSuccess": {
+    "description": "Mensaje de éxito al completar migrate:fresh"
+  },
+  "dbConnError": "Σφάλμα: Δεν ήταν δυνατή η σύνδεση στη βάση δεδομένων.",
+  "@dbConnError": {
+    "description": "Mensaje de error cuando falla la conexión a la base de datos"
+  },
+  "seedersRunning": "Τρέξιμο σπαρτικών...",
+  "@seedersRunning": {
+    "description": "Mensaje inicial al ejecutar seeders"
+  },
+  "seedersNotFound": "Δεν βρέθηκαν προγράμματα σποράς στην εφαρμογή/βάση δεδομένων/σελίδες/",
+  "@seedersNotFound": {
+    "description": "Mensaje cuando el directorio de seeders está vacío"
   }
 }

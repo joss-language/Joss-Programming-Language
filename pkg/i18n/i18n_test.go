@@ -64,7 +64,8 @@ func TestI18nConsistencyAcrossAllLocales(t *testing.T) {
 	phRegex := regexp.MustCompile(`\{[a-zA-Z0-9_]+\}`)
 
 	testKeys := []string{
-		"version", "cliAppTitle", "cliUsage", "cliCmdRun", "cliCmdRepl",
+		// cliUsage*, cliUsageRun, cliUsageServer eliminadas (→ Lote 5: cliUsageLabel)
+		"version", "cliAppTitle", "cliCmdRun", "cliCmdRepl",
 		"cliCmdServer", "cliCmdAnalyze", "cliCmdLint", "cliCmdFormat",
 		"cliCmdTest", "cliCmdBuild", "cliCmdPub", "aiWizardTitle",
 		"aiWizardConfig", "aiSelectProvider", "aiProviderGroq", "aiProviderOpenai",
@@ -72,13 +73,15 @@ func TestI18nConsistencyAcrossAllLocales(t *testing.T) {
 		"aiModelToUse", "aiEnterApiKey", "aiNoApiKeyWarning", "aiSavingConfig",
 		"aiActivatedSuccess", "aiTryScript", "createMigration", "removeCRUD",
 		"serverStarting", "serverStopped", "lintSuccess", "analyzeSuccess",
-		"cliErrNoMain", "cliErrRequireMain", "cliUsageRun", "cliUsageServer",
+		"cliErrNoMain", "cliErrRequireMain",
 		"checkVerifying", "checkFormatOk", "checkResultOk", "formatAllOk",
 		"fixAllClean", "testNoFilesFound", "testRunning", "migrateStarting",
 		"migrateDbSuccess", "migrateCompleted",
 		"buildWebStart", "buildMissingRequired", "buildStrictStructure", "buildCreatingDir",
 		"buildCopyingFiles", "buildDbCopied", "buildNginxPortCreated", "buildWebSuccess",
 		"buildProgramStart", "pkgBuildStarting", "pkgBuildSuccess",
+		"cliUsageLabel", "cliSectionExec", "cliCmdMakeController",
+		"migrateFreshStarting", "migrateFreshSuccess", "seedersRunning",
 	}
 
 	esKeys := make(map[string]string)
