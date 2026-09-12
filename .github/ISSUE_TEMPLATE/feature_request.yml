@@ -1,0 +1,61 @@
+name: 💡 Propuesta de Mejora (Feature Request)
+description: Propón una nueva funcionalidad, operador, método nativo o mejora para Joss.
+title: "[Feature]: "
+labels: ["enhancement", "proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ¡Gracias por contribuir a la evolución de Joss! Las propuestas de lenguaje deben ser claras, coherentes con la filosofía del lenguaje (Zero-Imports, tipado seguro, baterías incluidas) y justificar su impacto técnico.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área de la propuesta
+      description: Selecciona el subsistema donde impacta esta mejora.
+      options:
+        - "Sintaxis del lenguaje / Nuevos operadores"
+        - "Sistema de Tipos y Verificación Estática"
+        - "Biblioteca Estándar / Clases y Métodos Nativos"
+        - "Runtime y Rendimiento (Evaluador, Memoria, Bytecode)"
+        - "Servidor Web, GranDB o Servicios Nativos"
+        - "Herramientas CLI (joss pub, lint, fmt, analyze, test)"
+        - "Extensión para Visual Studio Code (LSP)"
+        - "Documentación y Recursos de Aprendizaje"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Qué problema resuelve esta propuesta?
+      description: Describe la motivación, casos de uso actuales que son difíciles o dolorosos, y por qué es necesaria esta mejora.
+      placeholder: "Actualmente, al transformar colecciones complejas con claves anidadas..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Solución propuesta y ejemplos de sintaxis
+      description: Muestra cómo se escribiría el código en Joss si esta característica fuera aprobada e implementada.
+      placeholder: |
+        ```joss
+        // Ejemplo de uso propuesto:
+        $resultado = $coleccion->transform()
+        ```
+      render: joss
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: ¿Qué otras soluciones oワークarounds existen hoy en Joss o en otros lenguajes para resolver esto?
+    validations:
+      required: false
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Impacto en compatibilidad hacia atrás (Breaking Changes)
+      description: ¿Esta propuesta rompe código existente, altera semántica previa o introduce palabras reservadas nuevas?
+      placeholder: "Es 100% retrocompatible / Requiere reservar la keyword..."
+    validations:
+      required: true

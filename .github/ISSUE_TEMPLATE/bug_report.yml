@@ -1,0 +1,108 @@
+name: 🐛 Reporte de Error (Bug Report)
+description: Reporta un error o comportamiento inesperado en el compilador, runtime, CLI o herramientas de Joss.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por tomarte el tiempo de reportar este problema. Completa todos los campos obligatorios para facilitar la reproducción y resolución.
+  - type: input
+    id: version
+    attributes:
+      label: Versión de Joss
+      description: Ejecuta `joss version` en tu terminal y escribe la salida aquí.
+      placeholder: "Ejemplo: Joss v3.7.0 (amd64/windows)"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Sistema Operativo y Arquitectura
+      description: Selecciona tu sistema operativo y arquitectura.
+      options:
+        - "Windows (x86_64 / amd64)"
+        - "Windows (ARM64)"
+        - "Linux (x86_64 / amd64)"
+        - "Linux (ARM64 / aarch64)"
+        - "macOS (Apple Silicon - M1/M2/M3/M4)"
+        - "macOS (Intel - x86_64)"
+        - "Otro"
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Componente afectado
+      description: ¿En qué parte del lenguaje o ecosistema ocurre el problema?
+      options:
+        - "Parser / Sintaxis (Lexer, Pratt parser, AST)"
+        - "Sistema de Tipos / Analizador Semántico (joss analyze, inferencia, scopes)"
+        - "Linter / Formateador (joss lint, joss fmt)"
+        - "Intérprete / Runtime (Evaluator, Frames, Memoria, Concurrencia)"
+        - "Servidor Web / HTTP / WebSockets (joss serve, MVC, GranDB)"
+        - "CLI / Gestor de Paquetes (joss pub, build, init, run)"
+        - "Plugins / JP Binarios"
+        - "Extensión VS Code / Servidor LSP"
+        - "Documentación / Ejemplos"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción del problema
+      description: Explica de forma concisa y clara qué está fallando.
+      placeholder: "Al declarar una función con retorno tipado y múltiples rutas de salida..."
+    validations:
+      required: true
+  - type: textarea
+    id: code_repro
+    attributes:
+      label: Código mínimo reproducible (.joss)
+      description: Proporciona el fragmento de código más pequeño posible que reproduzca el error de forma aislada.
+      placeholder: |
+        ```joss
+        $x = 10
+        // Código mínimo aislado que causa el error
+        ```
+      render: joss
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      description: Comandos exactos ejecutados en la terminal.
+      placeholder: |
+        1. Guardar el código anterior en `repro.joss`.
+        2. Ejecutar `joss analyze repro.joss` o `joss run repro.joss`.
+        3. Observar la salida en la consola.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamiento esperado
+      description: ¿Qué debería haber ocurrido según la especificación del lenguaje?
+      placeholder: "El análisis semántico debería aceptar la asignación o emitir el diagnóstico JOSS-TYPE-001..."
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamiento observado y salida de la terminal
+      description: Salida textual completa, trazas de error (`panic: ...`), códigos de diagnóstico (`JOSS-...`) o logs relevantes.
+      render: shell
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Verificación previa
+      options:
+        - label: He verificado que este error no ha sido reportado previamente en los Issues existentes.
+          required: true
+        - label: He probado con la versión más reciente de Joss disponible.
+          required: true
+        - label: He proporcionado un ejemplo mínimo reproducible sin dependencias innecesarias.
+          required: true

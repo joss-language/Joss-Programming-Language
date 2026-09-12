@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentación Oficial de Joss
+    url: https://joss.red/docs
+    about: Consulta la documentación oficial, guías y tutoriales.
+  - name: 💬 Discusiones de la Comunidad
+    url: https://github.com/jossecurity/joss/discussions
+    about: Comparte ideas, haz preguntas o discute mejores prácticas.
+  - name: 🛡️ Reporte de Vulnerabilidades de Seguridad
+    url: https://github.com/jossecurity/joss/security/policy
+    about: Para reportar vulnerabilidades de seguridad de forma privada y responsable.
