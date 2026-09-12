@@ -26,10 +26,10 @@ func handleCheckCommand(args []string) {
 	// 1. Format check
 	unformatted, err := formatter.FormatDirectory(targetPath, false, true)
 	if err != nil {
-		fmt.Printf("[CHECK] Error escaneando formato: %v\n", err)
+		fmt.Println(i18n.Tr("checkFormatScanError", i18n.M{"error": err.Error()}))
 		hasErrors = true
 	} else if len(unformatted) > 0 {
-		fmt.Printf("[CHECK WARNING] %d archivo(s) no cumplen con el formato canónico (ejecuta 'joss format --write'):\n", len(unformatted))
+		fmt.Println(i18n.Tr("checkFormatWarning", i18n.M{"count": len(unformatted)}))
 		for _, f := range unformatted {
 			fmt.Printf("  - %s\n", f)
 		}
@@ -42,7 +42,7 @@ func handleCheckCommand(args []string) {
 	l := linter.NewLinter()
 	issues, err := l.LintPath(targetPath)
 	if err != nil {
-		fmt.Printf("[CHECK ERROR] Falló el análisis de lint: %v\n", err)
+		fmt.Println(i18n.Tr("checkLintAnalysisError", i18n.M{"error": err.Error()}))
 		hasErrors = true
 	} else {
 		errCount := 0
@@ -57,11 +57,11 @@ func handleCheckCommand(args []string) {
 		}
 
 		if len(issues) > 0 {
-			fmt.Printf("\n[CHECK DIAGNÓSTICOS] %d error(es), %d advertencia(s):\n", errCount, warnCount)
+			fmt.Printf("\n%s\n", i18n.Tr("checkDiagnosticsSummary", i18n.M{"errors": errCount, "warnings": warnCount}))
 			for _, issue := range issues {
 				fmt.Printf("  %s\n", issue.String())
 				if issue.Suggestion != "" {
-					fmt.Printf("    sugerencia: %s\n", issue.Suggestion)
+					fmt.Printf("    %s\n", i18n.Tr("checkSuggestionLabel", i18n.M{"suggestion": issue.Suggestion}))
 				}
 			}
 		} else {

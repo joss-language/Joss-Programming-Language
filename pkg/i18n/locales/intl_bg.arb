@@ -1947,5 +1947,553 @@
     "placeholders": {
       "error": {}
     }
+  },
+  "updaterPrepareRequestError": "Грешка при подготовка на заявка: {error}",
+  "@updaterPrepareRequestError": {
+    "description": "Error al preparar la solicitud HTTP de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterGitHubConnectError": "Грешка при свързване с GitHub: {error} (Проверете вашата интернет връзка)",
+  "@updaterGitHubConnectError": {
+    "description": "Error de conexión al consultar releases en GitHub",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterSelectedRelease": "Избрано издание: {name} ({tag})",
+  "@updaterSelectedRelease": {
+    "description": "Mensaje informativo con el release seleccionado",
+    "placeholders": {
+      "name": {},
+      "tag": {}
+    }
+  },
+  "updaterGitHubStatusError": "Грешка при получаване на версии от GitHub (Състояние {status})",
+  "@updaterGitHubStatusError": {
+    "description": "Error de código HTTP devuelto por GitHub Releases",
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "updaterDownloadingGeneral": "Изтегля се актуализация от общото хранилище...",
+  "@updaterDownloadingGeneral": {
+    "description": "Mensaje de descarga de binario general de respaldo"
+  },
+  "updaterNoSpecificBinary": "Предупреждение: Не е намерен конкретен компилиран пакет за {os}/{arch} във версия {tag}.",
+  "@updaterNoSpecificBinary": {
+    "description": "Advertencia cuando no hay binario exacto para la arquitectura actual",
+    "placeholders": {
+      "os": {},
+      "arch": {},
+      "tag": {}
+    }
+  },
+  "updaterDownloadError": "Грешка при изтегляне на актуализация: {error}",
+  "@updaterDownloadError": {
+    "description": "Error al descargar el archivo de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterTempDirError": "Грешка при създаването на временна директория: {error}",
+  "@updaterTempDirError": {
+    "description": "Error al crear carpeta temporal de descarga",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterApplyError": "Грешка при прилагане на двоична актуализация: {error}",
+  "@updaterApplyError": {
+    "description": "Error al reemplazar el ejecutable del sistema",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterCurrentExeError": "Грешка при получаване на пътя на текущия изпълним файл: {error}",
+  "@updaterCurrentExeError": {
+    "description": "Error al determinar la ruta del binario en ejecución",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildAssetsError": "Грешка при обработката на активите на проекта: {error}",
+  "@nativeBuildAssetsError": {
+    "description": "Error al empaquetar y cifrar assets del proyecto nativo",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildDirError": "Грешка при създаване на директория за компилация: {error}",
+  "@nativeBuildDirError": {
+    "description": "Error al crear el directorio de compilación nativa",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildCreateDirError": "Грешка при създаване на директория за компилация: {error}",
+  "@buildCreateDirError": {
+    "description": "Error al inicializar directorio de salida build",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildRunnerError": "Грешка при компилиране на родния бегач: {error}",
+  "@nativeBuildRunnerError": {
+    "description": "Error al compilar el ejecutable runner de Go",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildPrecompiledFiles": "Предварително компилирани {count} Joss файлове в собствен байт код.",
+  "@nativeBuildPrecompiledFiles": {
+    "description": "Conteo de archivos .joss convertidos a bytecode",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "nativeBuildDbCopied": "Базата данни е копирана в компилация/Съхранение/",
+  "@nativeBuildDbCopied": {
+    "description": "Confirmación de copia de base de datos SQLite en build nativo"
+  },
+  "nativeBuildAssembleError": "Грешка при сглобяване на окончателния изпълним файл: {error}",
+  "@nativeBuildAssembleError": {
+    "description": "Error al ensamblar el binario nativo final con assets incrustados",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildNginxPortError": "Грешка при създаването на nginx_port.conf: {error}",
+  "@buildNginxPortError": {
+    "description": "Error al generar archivo de configuración de puerto Nginx",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildSaltError": "Грешка при генериране на сол: {error}",
+  "@buildSaltError": {
+    "description": "Error al generar la sal criptográfica para cifrar el entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildReadEnvError": "Грешка при четене {path}: {error}",
+  "@buildReadEnvError": {
+    "description": "Error al leer el archivo de entorno antes de cifrarlo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "buildEnvNotFound": "Грешка: Не е намерен файл за среда („env.joss“ или „.env“) за шифроване.",
+  "@buildEnvNotFound": {
+    "description": "Error cuando falta el archivo de entorno en el proyecto a compilar"
+  },
+  "buildEncryptEnvError": "Грешка при шифроване на средата: {error}",
+  "@buildEncryptEnvError": {
+    "description": "Error durante el cifrado AES del entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildWriteEnvError": "Грешка при писане на {path}: {error}",
+  "@buildWriteEnvError": {
+    "description": "Error al guardar el archivo de entorno cifrado",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pkgBuildReadYamlError": "Грешка: Не може да се прочете joss.yaml: {error}",
+  "@pkgBuildReadYamlError": {
+    "description": "Error al leer el archivo de manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildGoExtensionError": "Грешка: type=go_extension не създава динамичен плъгин за различни платформи.",
+  "@pkgBuildGoExtensionError": {
+    "description": "Error al intentar compilar una extensión Go obsoleta como plugin dinámico"
+  },
+  "pkgBuildGoExtensionHint": "Използвайте тип: joss и декларирайте entry.main (по подразбиране src/plugin.joss).",
+  "@pkgBuildGoExtensionHint": {
+    "description": "Sugerencia para corregir la directiva entry de plugins Joss"
+  },
+  "pkgBuildEntryEscapes": "Грешка: entry.main излиза пакет: {entry}",
+  "@pkgBuildEntryEscapes": {
+    "description": "Error de seguridad cuando la ruta de entrada apunta fuera del paquete",
+    "placeholders": {
+      "entry": {}
+    }
+  },
+  "pkgBuildBytecodeError": "Грешка при генериране на байт код: {error}",
+  "@pkgBuildBytecodeError": {
+    "description": "Error al serializar el AST compilado a bytecode JPBC",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCompileEntryError": "Грешка при компилирането на entry.main '{entry}': {error}",
+  "@pkgBuildCompileEntryError": {
+    "description": "Error al compilar el punto de entrada del plugin a AST",
+    "placeholders": {
+      "entry": {},
+      "error": {}
+    }
+  },
+  "pkgBuildSymbolsError": "Грешка при генериране на индекс на символ: {error}",
+  "@pkgBuildSymbolsError": {
+    "description": "Error al construir el índice de símbolos para IntelliSense",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCreateArchiveError": "Грешка при създаване на JP v2: {error}",
+  "@pkgBuildCreateArchiveError": {
+    "description": "Error al comprimir y estructurar el paquete JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildReadFilesError": "Грешка при четене на пакетни файлове: {error}",
+  "@pkgBuildReadFilesError": {
+    "description": "Error al escanear los archivos que conformarán el paquete JP",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildPrepareSignatureError": "Грешка при подготовката на подписа на приставката: {error}",
+  "@pkgBuildPrepareSignatureError": {
+    "description": "Error al cargar o generar la clave de firma Ed25519 del plugin",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildWriteArchiveError": "Грешка при записване на компилиран пакетен файл: {error}",
+  "@pkgBuildWriteArchiveError": {
+    "description": "Error de E/S al guardar el archivo compilado .jp en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildAuthorKey": "[Изграждане на пакет] Ключ на автора: {path} (не е включен в JP)",
+  "@pkgBuildAuthorKey": {
+    "description": "Información sobre la ubicación de la clave privada de firma del autor",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectHeader": "JP v2 {name} {version}",
+  "@pkgInspectHeader": {
+    "description": "Encabezado con nombre y versión del paquete inspeccionado",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pkgInspectReadError": "Грешка при четене на JP файл: {error}",
+  "@pkgInspectReadError": {
+    "description": "Error al abrir o leer el archivo .jp para inspección",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectInvalidError": "Невалиден JP v2: {error}",
+  "@pkgInspectInvalidError": {
+    "description": "Error cuando el archivo .jp no tiene una estructura válida JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectSignatureVerified": "Подпис: {algorithm} ({key}) проверен",
+  "@pkgInspectSignatureVerified": {
+    "description": "Detalle de firma criptográfica válida en el paquete",
+    "placeholders": {
+      "algorithm": {},
+      "key": {}
+    }
+  },
+  "pkgInspectBytecodeInfo": "Байткод: {path} ({bytes} байта)",
+  "@pkgInspectBytecodeInfo": {
+    "description": "Detalle del archivo de bytecode principal incrustado",
+    "placeholders": {
+      "path": {},
+      "bytes": {}
+    }
+  },
+  "pkgInspectPayloadsNone": "Родни полезни натоварвания: няма",
+  "@pkgInspectPayloadsNone": {
+    "description": "Indicador de que el paquete es puro bytecode sin binarios nativos externos"
+  },
+  "pkgInspectSignatureAbsent": "Подпис: отсъства; времето за изпълнение ще отхвърли този пакет",
+  "@pkgInspectSignatureAbsent": {
+    "description": "Advertencia de seguridad cuando un paquete no contiene firma digital"
+  },
+  "pkgInspectIntelliSenseInfo": "IntelliSense: {path} ({classes} класове, {methods} методи, {functions} функции)",
+  "@pkgInspectIntelliSenseInfo": {
+    "description": "Detalle del índice de símbolos de autocompletado y análisis",
+    "placeholders": {
+      "path": {},
+      "classes": {},
+      "methods": {},
+      "functions": {}
+    }
+  },
+  "pkgInspectAbiHeader": "ABI C v1 библиотеки:",
+  "@pkgInspectAbiHeader": {
+    "description": "Encabezado de sección de bibliotecas dinámicas C ABI"
+  },
+  "pkgInspectProtocol": "Протокол: {protocol}",
+  "@pkgInspectProtocol": {
+    "description": "Protocolo de comunicación nativo declarado en el manifiesto",
+    "placeholders": {
+      "protocol": {}
+    }
+  },
+  "pkgInspectPayloadsHeader": "Родни полезни натоварвания:",
+  "@pkgInspectPayloadsHeader": {
+    "description": "Encabezado de sección de binarios nativos por arquitectura"
+  },
+  "pkgInspectInternalFiles": "Вътрешни файлове: {count}",
+  "@pkgInspectInternalFiles": {
+    "description": "Total de archivos contenidos dentro del paquete .jp",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatNotCanonical": "[ГРЕШКА НА ФОРМАТА] {path} не отговаря на каноничния формат на Joss.",
+  "@formatNotCanonical": {
+    "description": "Aviso cuando un archivo difiere del formato canónico en modo check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "formatAccessError": "Грешка: Няма достъп до „{path}“: {error}",
+  "@formatAccessError": {
+    "description": "Error de acceso al archivo o directorio a formatear",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixAccessError": "Грешка: Няма достъп до „{path}“: {error}",
+  "@fixAccessError": {
+    "description": "Error al acceder a la ruta a corregir",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatStdinError": "Грешка при четене на stdin: {error}",
+  "@formatStdinError": {
+    "description": "Error al leer código fuente desde la entrada estándar",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "formatFileError": "Грешка при форматирането {path}: {error}",
+  "@formatFileError": {
+    "description": "Error durante el análisis y formateo del archivo fuente",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatDirError": "Грешка при обработката на директорията {path}: {error}",
+  "@formatDirError": {
+    "description": "Error al recorrer el directorio durante el formateo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixDirError": "Грешка при обработката на директорията {path}: {error}",
+  "@fixDirError": {
+    "description": "Error al escanear directorio en el comando fix",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatUnformattedFound": "[ГРЕШКА НА ФОРМАТА] Намерени са {count} неформатиран файл(а):",
+  "@formatUnformattedFound": {
+    "description": "Resumen de archivos que requieren formateo en modo check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatRequireFormat": "[ФОРМАТ] {count} файл(ове) изискват форматиране (използвайте --write за прилагане):",
+  "@formatRequireFormat": {
+    "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatModifiedCount": "[ФОРМАТ] {count} модифицирани и форматирани файл(ове).",
+  "@formatModifiedCount": {
+    "description": "Conteo de archivos guardados exitosamente con nuevo formato",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "fixDryRunFile": "[КОРИГИРАНЕ НА ПРОБА] {path}: {count} предложена(и) корекция(и).",
+  "@fixDryRunFile": {
+    "description": "Resumen en modo simulación para un archivo específico",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "formatAllFilesClean": "[ФОРМАТ] Всички .joss файлове са правилно форматирани.",
+  "@formatAllFilesClean": {
+    "description": "Confirmación de que todo el proyecto cumple el formato canónico"
+  },
+  "fixFileError": "Грешка при прилагане на корекции в {path}: {error}",
+  "@fixFileError": {
+    "description": "Error al aplicar arreglos automáticos a un archivo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixAppliedFile": "[КОРЕКЦИЯ ОК] {path}: {count} корекции(и) са приложени успешно.",
+  "@fixAppliedFile": {
+    "description": "Confirmación de correcciones aplicadas a un archivo",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "fixAppliedItem": "[ПРИЛОЖЕНА КОРЕКЦИЯ] {file} ({count} корекции)",
+  "@fixAppliedItem": {
+    "description": "Línea de resumen de correcciones guardadas para un archivo",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixDryRunItem": "[КОРИГИРАНЕ НА ПРОБА] {file} ({count} корекции)",
+  "@fixDryRunItem": {
+    "description": "Línea de resumen de simulación para un archivo dentro del directorio",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixDryRunTotal": "[FIX DRY-RUN] Общо: {files} файл(а) с {fixes} корекция(и), готови за прилагане.",
+  "@fixDryRunTotal": {
+    "description": "Totales generales de simulación del comando fix",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "fixAppliedTotal": "[FIX OK] Общо: {files} файл(а), актуализиран(и) с {fixes} корекция(и).",
+  "@fixAppliedTotal": {
+    "description": "Totales generales de correcciones aplicadas con éxito",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "checkLintAnalysisError": "[ГРЕШКА ПРИ ПРОВЕРКА] Анализът на Lint не бе успешен: {error}",
+  "@checkLintAnalysisError": {
+    "description": "Error crítico al ejecutar el linter en check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatScanError": "[ПРОВЕРКА] Формат на сканиране на грешка: {error}",
+  "@checkFormatScanError": {
+    "description": "Error al verificar formato de código en comando check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatWarning": "[ПРОВЕРЕТЕ ПРЕДУПРЕЖДЕНИЕТО] {count} файл(ове) не отговарят на каноничния формат (изпълнете „joss format --write“):",
+  "@checkFormatWarning": {
+    "description": "Aviso de archivos mal formateados durante check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "checkDiagnosticsSummary": "[ДИАГНОСТИЧНА ПРОВЕРКА] {errors} грешки, {warnings} предупреждения:",
+  "@checkDiagnosticsSummary": {
+    "description": "Conteo consolidado de diagnósticos semánticos encontrados",
+    "placeholders": {
+      "errors": {},
+      "warnings": {}
+    }
+  },
+  "programRunningMain": "[Програма] Изпълнява се main.joss...",
+  "@programRunningMain": {
+    "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
+  },
+  "checkSuggestionLabel": "предложение: {suggestion}",
+  "@checkSuggestionLabel": {
+    "description": "Etiqueta para recomendaciones de reparación semántica",
+    "placeholders": {
+      "suggestion": {}
+    }
+  },
+  "programNoMainStarting": "[Програма] main.joss не е намерен, стартира директно сървър...",
+  "@programNoMainStarting": {
+    "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
+  },
+  "programErrorsInMain": "[Програма] Грешки в main.joss: {errors}",
+  "@programErrorsInMain": {
+    "description": "Errores de sintaxis detectados al iniciar modo GUI",
+    "placeholders": {
+      "errors": {}
+    }
+  },
+  "cliUnknownCommand": "Неизвестна команда: {command}",
+  "@cliUnknownCommand": {
+    "description": "Error cuando se ingresa un comando no reconocido en la CLI",
+    "placeholders": {
+      "command": {}
+    }
+  },
+  "cliDidYouMean": "Имахте предвид „joss make:migration [Име]“?",
+  "@cliDidYouMean": {
+    "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
+  },
+  "programWebViewError": "WebView2 не можа да бъде зареден. Microsoft Edge инсталиран ли е?",
+  "@programWebViewError": {
+    "description": "Error cuando el componente WebView2 de Windows no está disponible"
+  },
+  "cliTerminateByKey": "[Joss] Прекратяване на изпълнението чрез потребителска заявка (клавиш 'q')...",
+  "@cliTerminateByKey": {
+    "description": "Mensaje al presionar la tecla rápida de salida en consola"
+  },
+  "cliAnalyzingProject": "Анализиране на проекта Joss ({file})...",
+  "@cliAnalyzingProject": {
+    "description": "Mensaje de inicio de análisis semántico del proyecto",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliReadFileError": "Грешка при четене на файл: {error}",
+  "@cliReadFileError": {
+    "description": "Error genérico de lectura de script en CLI",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "cliScriptNotFound": "Грешка: Файлът „{file}“ не беше намерен.",
+  "@cliScriptNotFound": {
+    "description": "Error cuando un script Joss solicitado no existe en disco",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliRequireMainOrScript": "Всички проекти трябва да имат входна точка „main.joss“ или да посочат файл: joss анализ [file.joss]",
+  "@cliRequireMainOrScript": {
+    "description": "Instrucciones de entrada para análisis semántico"
+  },
+  "cliParseErrorsTitle": "Грешки при синтактичния анализ:",
+  "@cliParseErrorsTitle": {
+    "description": "Encabezado para lista de errores sintácticos de parseo"
   }
 }

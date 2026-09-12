@@ -1946,5 +1946,554 @@
     "placeholders": {
       "count": {}
     }
+  },
+  "updaterPrepareRequestError": "Error preparando solicitud: {error}",
+  "@updaterPrepareRequestError": {
+    "description": "Error al preparar la solicitud HTTP de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterGitHubConnectError": "Error de conexión a GitHub: {error} (Comprueba tu conexión a Internet)",
+  "@updaterGitHubConnectError": {
+    "description": "Error de conexión al consultar releases en GitHub",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterGitHubStatusError": "Error obteniendo releases de GitHub (Status {status})",
+  "@updaterGitHubStatusError": {
+    "description": "Error de código HTTP devuelto por GitHub Releases",
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "updaterSelectedRelease": "Release seleccionado: {name} ({tag})",
+  "@updaterSelectedRelease": {
+    "description": "Mensaje informativo con el release seleccionado",
+    "placeholders": {
+      "name": {},
+      "tag": {}
+    }
+  },
+  "updaterNoSpecificBinary": "Advertencia: No se encontró paquete compilado específico para {os}/{arch} en la release {tag}.",
+  "@updaterNoSpecificBinary": {
+    "description": "Advertencia cuando no hay binario exacto para la arquitectura actual",
+    "placeholders": {
+      "os": {},
+      "arch": {},
+      "tag": {}
+    }
+  },
+  "updaterDownloadingGeneral": "Descargando actualización del repositorio general...",
+  "@updaterDownloadingGeneral": {
+    "description": "Mensaje de descarga de binario general de respaldo"
+  },
+  "updaterTempDirError": "Error creando directorio temporal: {error}",
+  "@updaterTempDirError": {
+    "description": "Error al crear carpeta temporal de descarga",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterDownloadError": "Error descargando la actualización: {error}",
+  "@updaterDownloadError": {
+    "description": "Error al descargar el archivo de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterCurrentExeError": "Error obteniendo ruta del ejecutable actual: {error}",
+  "@updaterCurrentExeError": {
+    "description": "Error al determinar la ruta del binario en ejecución",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterApplyError": "Error aplicando actualización del binario: {error}",
+  "@updaterApplyError": {
+    "description": "Error al reemplazar el ejecutable del sistema",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildDirError": "Error creando directorio build: {error}",
+  "@nativeBuildDirError": {
+    "description": "Error al crear el directorio de compilación nativa",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildAssetsError": "Error procesando assets del proyecto: {error}",
+  "@nativeBuildAssetsError": {
+    "description": "Error al empaquetar y cifrar assets del proyecto nativo",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildRunnerError": "Error compilando runner nativo: {error}",
+  "@nativeBuildRunnerError": {
+    "description": "Error al compilar el ejecutable runner de Go",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildAssembleError": "Error ensamblando ejecutable final: {error}",
+  "@nativeBuildAssembleError": {
+    "description": "Error al ensamblar el binario nativo final con assets incrustados",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildPrecompiledFiles": "Pre-compilados {count} archivos Joss a bytecode nativo.",
+  "@nativeBuildPrecompiledFiles": {
+    "description": "Conteo de archivos .joss convertidos a bytecode",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "nativeBuildDbCopied": "Base de datos copiada a build/Storage/",
+  "@nativeBuildDbCopied": {
+    "description": "Confirmación de copia de base de datos SQLite en build nativo"
+  },
+  "buildCreateDirError": "Error creando directorio build: {error}",
+  "@buildCreateDirError": {
+    "description": "Error al inicializar directorio de salida build",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildNginxPortError": "Error creando nginx_port.conf: {error}",
+  "@buildNginxPortError": {
+    "description": "Error al generar archivo de configuración de puerto Nginx",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildEnvNotFound": "Error: No se encontró archivo de entorno ('env.joss' o '.env') para encriptar.",
+  "@buildEnvNotFound": {
+    "description": "Error cuando falta el archivo de entorno en el proyecto a compilar"
+  },
+  "buildReadEnvError": "Error leyendo {path}: {error}",
+  "@buildReadEnvError": {
+    "description": "Error al leer el archivo de entorno antes de cifrarlo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "buildSaltError": "Error generando salt: {error}",
+  "@buildSaltError": {
+    "description": "Error al generar la sal criptográfica para cifrar el entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildEncryptEnvError": "Error encriptando entorno: {error}",
+  "@buildEncryptEnvError": {
+    "description": "Error durante el cifrado AES del entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildWriteEnvError": "Error escribiendo {path}: {error}",
+  "@buildWriteEnvError": {
+    "description": "Error al guardar el archivo de entorno cifrado",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pkgBuildReadYamlError": "Error: No se pudo leer joss.yaml: {error}",
+  "@pkgBuildReadYamlError": {
+    "description": "Error al leer el archivo de manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildGoExtensionError": "Error: type=go_extension no produce un plugin dinámico multiplataforma.",
+  "@pkgBuildGoExtensionError": {
+    "description": "Error al intentar compilar una extensión Go obsoleta como plugin dinámico"
+  },
+  "pkgBuildGoExtensionHint": "Use type: joss y declare entry.main (por defecto src/plugin.joss).",
+  "@pkgBuildGoExtensionHint": {
+    "description": "Sugerencia para corregir la directiva entry de plugins Joss"
+  },
+  "pkgBuildEntryEscapes": "Error: entry.main sale del paquete: {entry}",
+  "@pkgBuildEntryEscapes": {
+    "description": "Error de seguridad cuando la ruta de entrada apunta fuera del paquete",
+    "placeholders": {
+      "entry": {}
+    }
+  },
+  "pkgBuildCompileEntryError": "Error compilando entry.main '{entry}': {error}",
+  "@pkgBuildCompileEntryError": {
+    "description": "Error al compilar el punto de entrada del plugin a AST",
+    "placeholders": {
+      "entry": {},
+      "error": {}
+    }
+  },
+  "pkgBuildBytecodeError": "Error generando bytecode: {error}",
+  "@pkgBuildBytecodeError": {
+    "description": "Error al serializar el AST compilado a bytecode JPBC",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildSymbolsError": "Error generando índice de símbolos: {error}",
+  "@pkgBuildSymbolsError": {
+    "description": "Error al construir el índice de símbolos para IntelliSense",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildReadFilesError": "Error leyendo archivos del paquete: {error}",
+  "@pkgBuildReadFilesError": {
+    "description": "Error al escanear los archivos que conformarán el paquete JP",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildPrepareSignatureError": "Error preparando firma del plugin: {error}",
+  "@pkgBuildPrepareSignatureError": {
+    "description": "Error al cargar o generar la clave de firma Ed25519 del plugin",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCreateArchiveError": "Error creando JP v2: {error}",
+  "@pkgBuildCreateArchiveError": {
+    "description": "Error al comprimir y estructurar el paquete JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildWriteArchiveError": "Error al escribir el archivo compilado del paquete: {error}",
+  "@pkgBuildWriteArchiveError": {
+    "description": "Error de E/S al guardar el archivo compilado .jp en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildAuthorKey": "[Package Build] Llave de autor: {path} (no se incluye en el JP)",
+  "@pkgBuildAuthorKey": {
+    "description": "Información sobre la ubicación de la clave privada de firma del autor",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectReadError": "Error leyendo archivo JP: {error}",
+  "@pkgInspectReadError": {
+    "description": "Error al abrir o leer el archivo .jp para inspección",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectInvalidError": "JP v2 inválido: {error}",
+  "@pkgInspectInvalidError": {
+    "description": "Error cuando el archivo .jp no tiene una estructura válida JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectHeader": "JP v2 {name} {version}",
+  "@pkgInspectHeader": {
+    "description": "Encabezado con nombre y versión del paquete inspeccionado",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pkgInspectSignatureVerified": "Firma: {algorithm} ({key}) verificada",
+  "@pkgInspectSignatureVerified": {
+    "description": "Detalle de firma criptográfica válida en el paquete",
+    "placeholders": {
+      "algorithm": {},
+      "key": {}
+    }
+  },
+  "pkgInspectSignatureAbsent": "Firma: ausente; el runtime rechazará este paquete",
+  "@pkgInspectSignatureAbsent": {
+    "description": "Advertencia de seguridad cuando un paquete no contiene firma digital"
+  },
+  "pkgInspectBytecodeInfo": "Bytecode: {path} ({bytes} bytes)",
+  "@pkgInspectBytecodeInfo": {
+    "description": "Detalle del archivo de bytecode principal incrustado",
+    "placeholders": {
+      "path": {},
+      "bytes": {}
+    }
+  },
+  "pkgInspectIntelliSenseInfo": "IntelliSense: {path} ({classes} clases, {methods} métodos, {functions} funciones)",
+  "@pkgInspectIntelliSenseInfo": {
+    "description": "Detalle del índice de símbolos de autocompletado y análisis",
+    "placeholders": {
+      "path": {},
+      "classes": {},
+      "methods": {},
+      "functions": {}
+    }
+  },
+  "pkgInspectPayloadsNone": "Payloads nativos: ninguno",
+  "@pkgInspectPayloadsNone": {
+    "description": "Indicador de que el paquete es puro bytecode sin binarios nativos externos"
+  },
+  "pkgInspectProtocol": "Protocolo: {protocol}",
+  "@pkgInspectProtocol": {
+    "description": "Protocolo de comunicación nativo declarado en el manifiesto",
+    "placeholders": {
+      "protocol": {}
+    }
+  },
+  "pkgInspectPayloadsHeader": "Payloads nativos:",
+  "@pkgInspectPayloadsHeader": {
+    "description": "Encabezado de sección de binarios nativos por arquitectura"
+  },
+  "pkgInspectAbiHeader": "Bibliotecas ABI C v1:",
+  "@pkgInspectAbiHeader": {
+    "description": "Encabezado de sección de bibliotecas dinámicas C ABI"
+  },
+  "pkgInspectInternalFiles": "Archivos internos: {count}",
+  "@pkgInspectInternalFiles": {
+    "description": "Total de archivos contenidos dentro del paquete .jp",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatStdinError": "Error leyendo stdin: {error}",
+  "@formatStdinError": {
+    "description": "Error al leer código fuente desde la entrada estándar",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "formatAccessError": "Error: No se pudo acceder a '{path}': {error}",
+  "@formatAccessError": {
+    "description": "Error de acceso al archivo o directorio a formatear",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatFileError": "Error formateando {path}: {error}",
+  "@formatFileError": {
+    "description": "Error durante el análisis y formateo del archivo fuente",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatNotCanonical": "[FORMAT ERROR] {path} no cumple con el formato canónico de Joss.",
+  "@formatNotCanonical": {
+    "description": "Aviso cuando un archivo difiere del formato canónico en modo check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "formatDirError": "Error procesando directorio {path}: {error}",
+  "@formatDirError": {
+    "description": "Error al recorrer el directorio durante el formateo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatUnformattedFound": "[FORMAT ERROR] Se encontraron {count} archivo(s) sin formatear:",
+  "@formatUnformattedFound": {
+    "description": "Resumen de archivos que requieren formateo en modo check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatModifiedCount": "[FORMAT] {count} archivo(s) modificados y formateados.",
+  "@formatModifiedCount": {
+    "description": "Conteo de archivos guardados exitosamente con nuevo formato",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatRequireFormat": "[FORMAT] {count} archivo(s) requieren formato (usa --write para aplicar):",
+  "@formatRequireFormat": {
+    "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatAllFilesClean": "[FORMAT] Todos los archivos .joss están correctamente formateados.",
+  "@formatAllFilesClean": {
+    "description": "Confirmación de que todo el proyecto cumple el formato canónico"
+  },
+  "fixAccessError": "Error: No se pudo acceder a '{path}': {error}",
+  "@fixAccessError": {
+    "description": "Error al acceder a la ruta a corregir",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixFileError": "Error aplicando correcciones en {path}: {error}",
+  "@fixFileError": {
+    "description": "Error al aplicar arreglos automáticos a un archivo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixDryRunFile": "[FIX DRY-RUN] {path}: {count} corrección(es) propuestas.",
+  "@fixDryRunFile": {
+    "description": "Resumen en modo simulación para un archivo específico",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "fixAppliedFile": "[FIX OK] {path}: {count} corrección(es) aplicadas con éxito.",
+  "@fixAppliedFile": {
+    "description": "Confirmación de correcciones aplicadas a un archivo",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "fixDirError": "Error procesando directorio {path}: {error}",
+  "@fixDirError": {
+    "description": "Error al escanear directorio en el comando fix",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixDryRunItem": "[FIX DRY-RUN] {file} ({count} correcciones)",
+  "@fixDryRunItem": {
+    "description": "Línea de resumen de simulación para un archivo dentro del directorio",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixAppliedItem": "[FIX APPLIED] {file} ({count} correcciones)",
+  "@fixAppliedItem": {
+    "description": "Línea de resumen de correcciones guardadas para un archivo",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixDryRunTotal": "[FIX DRY-RUN] Total: {files} archivo(s) con {fixes} corrección(es) listas para aplicar.",
+  "@fixDryRunTotal": {
+    "description": "Totales generales de simulación del comando fix",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "fixAppliedTotal": "[FIX OK] Total: {files} archivo(s) actualizados con {fixes} corrección(es).",
+  "@fixAppliedTotal": {
+    "description": "Totales generales de correcciones aplicadas con éxito",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "checkFormatScanError": "[CHECK] Error escaneando formato: {error}",
+  "@checkFormatScanError": {
+    "description": "Error al verificar formato de código en comando check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatWarning": "[CHECK WARNING] {count} archivo(s) no cumplen con el formato canónico (ejecuta 'joss format --write'):",
+  "@checkFormatWarning": {
+    "description": "Aviso de archivos mal formateados durante check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "checkLintAnalysisError": "[CHECK ERROR] Falló el análisis de lint: {error}",
+  "@checkLintAnalysisError": {
+    "description": "Error crítico al ejecutar el linter en check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkDiagnosticsSummary": "[CHECK DIAGNÓSTICOS] {errors} error(es), {warnings} advertencia(s):",
+  "@checkDiagnosticsSummary": {
+    "description": "Conteo consolidado de diagnósticos semánticos encontrados",
+    "placeholders": {
+      "errors": {},
+      "warnings": {}
+    }
+  },
+  "checkSuggestionLabel": "sugerencia: {suggestion}",
+  "@checkSuggestionLabel": {
+    "description": "Etiqueta para recomendaciones de reparación semántica",
+    "placeholders": {
+      "suggestion": {}
+    }
+  },
+  "programNoMainStarting": "[Program] main.joss no encontrado, iniciando servidor directamente...",
+  "@programNoMainStarting": {
+    "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada",
+    "placeholders": {}
+  },
+  "programRunningMain": "[Program] Ejecutando main.joss...",
+  "@programRunningMain": {
+    "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
+  },
+  "programErrorsInMain": "[Program] Errores en main.joss: {errors}",
+  "@programErrorsInMain": {
+    "description": "Errores de sintaxis detectados al iniciar modo GUI",
+    "placeholders": {
+      "errors": {}
+    }
+  },
+  "programWebViewError": "No se pudo cargar WebView2. ¿Está Microsoft Edge instalado?",
+  "@programWebViewError": {
+    "description": "Error cuando el componente WebView2 de Windows no está disponible"
+  },
+  "cliTerminateByKey": "[Joss] Terminando ejecución por petición del usuario (tecla 'q')...",
+  "@cliTerminateByKey": {
+    "description": "Mensaje al presionar la tecla rápida de salida en consola"
+  },
+  "cliUnknownCommand": "Comando desconocido: {command}",
+  "@cliUnknownCommand": {
+    "description": "Error cuando se ingresa un comando no reconocido en la CLI",
+    "placeholders": {
+      "command": {}
+    }
+  },
+  "cliDidYouMean": "¿Quisiste decir 'joss make:migration [Nombre]'?",
+  "@cliDidYouMean": {
+    "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
+  },
+  "cliScriptNotFound": "Error: No se encontró el archivo '{file}'.",
+  "@cliScriptNotFound": {
+    "description": "Error cuando un script Joss solicitado no existe en disco",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliRequireMainOrScript": "Todos los proyectos deben tener un punto de entrada 'main.joss' o especificar un archivo: joss analyze [archivo.joss]",
+  "@cliRequireMainOrScript": {
+    "description": "Instrucciones de entrada para análisis semántico"
+  },
+  "cliAnalyzingProject": "Analizando proyecto Joss ({file})...",
+  "@cliAnalyzingProject": {
+    "description": "Mensaje de inicio de análisis semántico del proyecto",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliReadFileError": "Error leyendo archivo: {error}",
+  "@cliReadFileError": {
+    "description": "Error genérico de lectura de script en CLI",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "cliParseErrorsTitle": "Errores de parseo:",
+  "@cliParseErrorsTitle": {
+    "description": "Encabezado para lista de errores sintácticos de parseo"
   }
 }

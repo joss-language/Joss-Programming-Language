@@ -1947,5 +1947,553 @@
     "placeholders": {
       "error": {}
     }
+  },
+  "updaterPrepareRequestError": "خطأ في إعداد الطلب: {error}",
+  "@updaterPrepareRequestError": {
+    "description": "Error al preparar la solicitud HTTP de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterGitHubConnectError": "خطأ في الاتصال بـ GitHub: {error} (تحقق من اتصال الإنترنت الخاص بك)",
+  "@updaterGitHubConnectError": {
+    "description": "Error de conexión al consultar releases en GitHub",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterDownloadingGeneral": "جارٍ تنزيل التحديث من المستودع العام...",
+  "@updaterDownloadingGeneral": {
+    "description": "Mensaje de descarga de binario general de respaldo"
+  },
+  "nativeBuildDbCopied": "تم نسخ قاعدة البيانات لبناء/التخزين/",
+  "@nativeBuildDbCopied": {
+    "description": "Confirmación de copia de base de datos SQLite en build nativo"
+  },
+  "buildEnvNotFound": "خطأ: لم يتم العثور على ملف بيئة ('env.joss' أو '.env') للتشفير.",
+  "@buildEnvNotFound": {
+    "description": "Error cuando falta el archivo de entorno en el proyecto a compilar"
+  },
+  "pkgBuildGoExtensionError": "خطأ: type=go_extension لا ينتج مكونًا إضافيًا ديناميكيًا عبر الأنظمة الأساسية.",
+  "@pkgBuildGoExtensionError": {
+    "description": "Error al intentar compilar una extensión Go obsoleta como plugin dinámico"
+  },
+  "pkgBuildGoExtensionHint": "استخدم النوع: joss واعلن عن input.main (الافتراضي هو src/plugin.joss).",
+  "@pkgBuildGoExtensionHint": {
+    "description": "Sugerencia para corregir la directiva entry de plugins Joss"
+  },
+  "buildCreateDirError": "خطأ أثناء إنشاء مجلد البناء (build): {error}",
+  "@buildCreateDirError": {
+    "description": "Error al inicializar directorio de salida build",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildEncryptEnvError": "خطأ أثناء تشفير ملف البيئة: {error}",
+  "@buildEncryptEnvError": {
+    "description": "Error durante el cifrado AES del entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildNginxPortError": "خطأ أثناء إنشاء ملف nginx_port.conf: {error}",
+  "@buildNginxPortError": {
+    "description": "Error al generar archivo de configuración de puerto Nginx",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildReadEnvError": "خطأ أثناء قراءة {path}: {error}",
+  "@buildReadEnvError": {
+    "description": "Error al leer el archivo de entorno antes de cifrarlo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "buildSaltError": "خطأ أثناء توليد ملح التشفير (salt): {error}",
+  "@buildSaltError": {
+    "description": "Error al generar la sal criptográfica para cifrar el entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildWriteEnvError": "خطأ أثناء كتابة {path}: {error}",
+  "@buildWriteEnvError": {
+    "description": "Error al guardar el archivo de entorno cifrado",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "nativeBuildAssembleError": "خطأ أثناء تجميع الملف التنفيذي النهائي: {error}",
+  "@nativeBuildAssembleError": {
+    "description": "Error al ensamblar el binario nativo final con assets incrustados",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildAssetsError": "خطأ أثناء معالجة أصول المشروع (assets): {error}",
+  "@nativeBuildAssetsError": {
+    "description": "Error al empaquetar y cifrar assets del proyecto nativo",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildDirError": "خطأ أثناء إنشاء مجلد البناء (build): {error}",
+  "@nativeBuildDirError": {
+    "description": "Error al crear el directorio de compilación nativa",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildPrecompiledFiles": "تم تجميع {count} ملف Joss مسبقًا إلى كود بايت أصلي.",
+  "@nativeBuildPrecompiledFiles": {
+    "description": "Conteo de archivos .joss convertidos a bytecode",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "nativeBuildRunnerError": "خطأ أثناء تجميع المشغّل الأصلي (runner): {error}",
+  "@nativeBuildRunnerError": {
+    "description": "Error al compilar el ejecutable runner de Go",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildBytecodeError": "خطأ أثناء توليد كود البايت (bytecode): {error}",
+  "@pkgBuildBytecodeError": {
+    "description": "Error al serializar el AST compilado a bytecode JPBC",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCompileEntryError": "خطأ أثناء تجميع entry.main '{entry}': {error}",
+  "@pkgBuildCompileEntryError": {
+    "description": "Error al compilar el punto de entrada del plugin a AST",
+    "placeholders": {
+      "entry": {},
+      "error": {}
+    }
+  },
+  "pkgBuildEntryEscapes": "خطأ: مسار entry.main يخرج عن نطاق الحزمة: {entry}",
+  "@pkgBuildEntryEscapes": {
+    "description": "Error de seguridad cuando la ruta de entrada apunta fuera del paquete",
+    "placeholders": {
+      "entry": {}
+    }
+  },
+  "pkgBuildReadYamlError": "خطأ: تعذر قراءة joss.yaml: {error}",
+  "@pkgBuildReadYamlError": {
+    "description": "Error al leer el archivo de manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildSymbolsError": "خطأ أثناء إنشاء فهرس الرموز: {error}",
+  "@pkgBuildSymbolsError": {
+    "description": "Error al construir el índice de símbolos para IntelliSense",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterApplyError": "خطأ أثناء تطبيق تحديث الملف الثنائي: {error}",
+  "@updaterApplyError": {
+    "description": "Error al reemplazar el ejecutable del sistema",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterCurrentExeError": "خطأ أثناء الحصول على مسار الملف التنفيذي الحالي: {error}",
+  "@updaterCurrentExeError": {
+    "description": "Error al determinar la ruta del binario en ejecución",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterDownloadError": "خطأ أثناء تنزيل التحديث: {error}",
+  "@updaterDownloadError": {
+    "description": "Error al descargar el archivo de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterGitHubStatusError": "خطأ أثناء جلب إصدارات GitHub (الحالة {status})",
+  "@updaterGitHubStatusError": {
+    "description": "Error de código HTTP devuelto por GitHub Releases",
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "updaterNoSpecificBinary": "تحذير: لم يتم العثور على حزمة مجمعة مخصصة لـ {os}/{arch} في الإصدار {tag}.",
+  "@updaterNoSpecificBinary": {
+    "description": "Advertencia cuando no hay binario exacto para la arquitectura actual",
+    "placeholders": {
+      "os": {},
+      "arch": {},
+      "tag": {}
+    }
+  },
+  "updaterSelectedRelease": "الإصدار المحدد: {name} ({tag})",
+  "@updaterSelectedRelease": {
+    "description": "Mensaje informativo con el release seleccionado",
+    "placeholders": {
+      "name": {},
+      "tag": {}
+    }
+  },
+  "updaterTempDirError": "خطأ أثناء إنشاء المجلد المؤقت: {error}",
+  "@updaterTempDirError": {
+    "description": "Error al crear carpeta temporal de descarga",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCreateArchiveError": "خطأ في إنشاء JP v2: {error}",
+  "@pkgBuildCreateArchiveError": {
+    "description": "Error al comprimir y estructurar el paquete JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectPayloadsNone": "الحمولات الأصلية: لا شيء",
+  "@pkgInspectPayloadsNone": {
+    "description": "Indicador de que el paquete es puro bytecode sin binarios nativos externos"
+  },
+  "pkgInspectSignatureAbsent": "التوقيع: غائب؛ سوف يرفض وقت التشغيل هذه الحزمة",
+  "@pkgInspectSignatureAbsent": {
+    "description": "Advertencia de seguridad cuando un paquete no contiene firma digital"
+  },
+  "pkgInspectAbiHeader": "مكتبات ABI C v1:",
+  "@pkgInspectAbiHeader": {
+    "description": "Encabezado de sección de bibliotecas dinámicas C ABI"
+  },
+  "pkgInspectPayloadsHeader": "الحمولات الأصلية:",
+  "@pkgInspectPayloadsHeader": {
+    "description": "Encabezado de sección de binarios nativos por arquitectura"
+  },
+  "formatNotCanonical": "[خطأ في التنسيق] {path} لا يتوافق مع تنسيق Joss الأساسي.",
+  "@formatNotCanonical": {
+    "description": "Aviso cuando un archivo difiere del formato canónico en modo check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "formatUnformattedFound": "[خطأ في التنسيق] تم العثور على {count} ملف (ملفات) غير منسقة:",
+  "@formatUnformattedFound": {
+    "description": "Resumen de archivos que requieren formateo en modo check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "fixDryRunFile": "[إصلاح التشغيل الجاف] {path}: {count} التصحيح (التصحيحات) المقترحة.",
+  "@fixDryRunFile": {
+    "description": "Resumen en modo simulación para un archivo específico",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "formatAllFilesClean": "[التنسيق] تم تنسيق جميع ملفات .joss بشكل صحيح.",
+  "@formatAllFilesClean": {
+    "description": "Confirmación de que todo el proyecto cumple el formato canónico"
+  },
+  "fixDryRunItem": "[إصلاح التشغيل الجاف] {file}_ (_{count} التصحيحات)",
+  "@fixDryRunItem": {
+    "description": "Línea de resumen de simulación para un archivo dentro del directorio",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixDryRunTotal": "[إصلاح التشغيل الجاف] الإجمالي: {files}_ ملف (ملفات) مع {fixes} إصلاح (إصلاحات) جاهزة للتطبيق.",
+  "@fixDryRunTotal": {
+    "description": "Totales generales de simulación del comando fix",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "checkLintAnalysisError": "[التحقق من الخطأ] فشل تحليل الوبر: {error}",
+  "@checkLintAnalysisError": {
+    "description": "Error crítico al ejecutar el linter en check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatWarning": "[تحقق التحذير] {count}_ الملف (الملفات) لا تتوافق مع التنسيق الأساسي (نفذ \"تنسيق joss --write\"):",
+  "@checkFormatWarning": {
+    "description": "Aviso de archivos mal formateados durante check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "programRunningMain": "[البرنامج] تشغيل main.joss...",
+  "@programRunningMain": {
+    "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
+  },
+  "programNoMainStarting": "[البرنامج] لم يتم العثور على main.joss، بدء تشغيل الخادم مباشرة...",
+  "@programNoMainStarting": {
+    "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
+  },
+  "cliDidYouMean": "هل تقصد 'jos make:migration [Name]'؟",
+  "@cliDidYouMean": {
+    "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
+  },
+  "programWebViewError": "تعذر تحميل WebView2. هل تم تثبيت Microsoft Edge؟",
+  "@programWebViewError": {
+    "description": "Error cuando el componente WebView2 de Windows no está disponible"
+  },
+  "cliTerminateByKey": "[جوس] إنهاء التنفيذ بناءً على طلب المستخدم (مفتاح 'q')...",
+  "@cliTerminateByKey": {
+    "description": "Mensaje al presionar la tecla rápida de salida en consola"
+  },
+  "cliAnalyzingProject": "تحليل مشروع جوس (_{file})...",
+  "@cliAnalyzingProject": {
+    "description": "Mensaje de inicio de análisis semántico del proyecto",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliScriptNotFound": "خطأ: لم يتم العثور على الملف '_{file}_'.",
+  "@cliScriptNotFound": {
+    "description": "Error cuando un script Joss solicitado no existe en disco",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliRequireMainOrScript": "يجب أن تحتوي جميع المشاريع على نقطة إدخال \"main.joss\" أو تحديد ملف: joss Analysis [file.joss]",
+  "@cliRequireMainOrScript": {
+    "description": "Instrucciones de entrada para análisis semántico"
+  },
+  "cliParseErrorsTitle": "أخطاء التحليل:",
+  "@cliParseErrorsTitle": {
+    "description": "Encabezado para lista de errores sintácticos de parseo"
+  },
+  "checkDiagnosticsSummary": "[CHECK التشخيصات] {errors} خطأ (أخطاء)، {warnings} تحذير (تحذيرات):",
+  "@checkDiagnosticsSummary": {
+    "description": "Conteo consolidado de diagnósticos semánticos encontrados",
+    "placeholders": {
+      "errors": {},
+      "warnings": {}
+    }
+  },
+  "checkFormatScanError": "[CHECK] خطأ أثناء فحص التنسيق: {error}",
+  "@checkFormatScanError": {
+    "description": "Error al verificar formato de código en comando check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkSuggestionLabel": "اقتراح: {suggestion}",
+  "@checkSuggestionLabel": {
+    "description": "Etiqueta para recomendaciones de reparación semántica",
+    "placeholders": {
+      "suggestion": {}
+    }
+  },
+  "cliReadFileError": "خطأ في قراءة الملف: {error}",
+  "@cliReadFileError": {
+    "description": "Error genérico de lectura de script en CLI",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "cliUnknownCommand": "أمر غير معروف: {command}",
+  "@cliUnknownCommand": {
+    "description": "Error cuando se ingresa un comando no reconocido en la CLI",
+    "placeholders": {
+      "command": {}
+    }
+  },
+  "fixAccessError": "خطأ: تعذر الوصول إلى '{path}': {error}",
+  "@fixAccessError": {
+    "description": "Error al acceder a la ruta a corregir",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixAppliedFile": "[FIX OK] {path}: تم تطبيق {count} تصحيح (تصحيحات) بنجاح.",
+  "@fixAppliedFile": {
+    "description": "Confirmación de correcciones aplicadas a un archivo",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "fixAppliedItem": "[FIX APPLIED] {file} ({count} تصحيحات)",
+  "@fixAppliedItem": {
+    "description": "Línea de resumen de correcciones guardadas para un archivo",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixAppliedTotal": "[FIX OK] الإجمالي: تم تحديث {files} ملف (ملفات) بـ {fixes} تصحيح (تصحيحات).",
+  "@fixAppliedTotal": {
+    "description": "Totales generales de correcciones aplicadas con éxito",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "fixDirError": "خطأ في معالجة الدليل {path}: {error}",
+  "@fixDirError": {
+    "description": "Error al escanear directorio en el comando fix",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixFileError": "خطأ في تطبيق التصحيحات على {path}: {error}",
+  "@fixFileError": {
+    "description": "Error al aplicar arreglos automáticos a un archivo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatAccessError": "خطأ: تعذر الوصول إلى '{path}': {error}",
+  "@formatAccessError": {
+    "description": "Error de acceso al archivo o directorio a formatear",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatDirError": "خطأ في معالجة الدليل {path}: {error}",
+  "@formatDirError": {
+    "description": "Error al recorrer el directorio durante el formateo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatFileError": "خطأ في تنسيق {path}: {error}",
+  "@formatFileError": {
+    "description": "Error durante el análisis y formateo del archivo fuente",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatModifiedCount": "[FORMAT] تم تعديل وتنسيق {count} ملف (ملفات).",
+  "@formatModifiedCount": {
+    "description": "Conteo de archivos guardados exitosamente con nuevo formato",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatRequireFormat": "[FORMAT] {count} ملف (ملفات) تتطلب تنسيقًا (استخدم --write للتطبيق):",
+  "@formatRequireFormat": {
+    "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatStdinError": "خطأ في قراءة stdin: {error}",
+  "@formatStdinError": {
+    "description": "Error al leer código fuente desde la entrada estándar",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildAuthorKey": "[Package Build] مفتاح المؤلف: {path} (لا يتم تضمينه في JP)",
+  "@pkgBuildAuthorKey": {
+    "description": "Información sobre la ubicación de la clave privada de firma del autor",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildPrepareSignatureError": "خطأ في إعداد توقيع الملحق: {error}",
+  "@pkgBuildPrepareSignatureError": {
+    "description": "Error al cargar o generar la clave de firma Ed25519 del plugin",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildReadFilesError": "خطأ في قراءة ملفات الحزمة: {error}",
+  "@pkgBuildReadFilesError": {
+    "description": "Error al escanear los archivos que conformarán el paquete JP",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildWriteArchiveError": "خطأ في كتابة ملف الحزمة المترجم: {error}",
+  "@pkgBuildWriteArchiveError": {
+    "description": "Error de E/S al guardar el archivo compilado .jp en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectBytecodeInfo": "Bytecode: {path} ({bytes} بايت)",
+  "@pkgInspectBytecodeInfo": {
+    "description": "Detalle del archivo de bytecode principal incrustado",
+    "placeholders": {
+      "path": {},
+      "bytes": {}
+    }
+  },
+  "pkgInspectHeader": "JP v2 {name} {version}",
+  "@pkgInspectHeader": {
+    "description": "Encabezado con nombre y versión del paquete inspeccionado",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pkgInspectIntelliSenseInfo": "IntelliSense: {path} ({classes} فئات، {methods} طرق، {functions} دوال)",
+  "@pkgInspectIntelliSenseInfo": {
+    "description": "Detalle del índice de símbolos de autocompletado y análisis",
+    "placeholders": {
+      "path": {},
+      "classes": {},
+      "methods": {},
+      "functions": {}
+    }
+  },
+  "pkgInspectInternalFiles": "الملفات الداخلية: {count}",
+  "@pkgInspectInternalFiles": {
+    "description": "Total de archivos contenidos dentro del paquete .jp",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "pkgInspectInvalidError": "JP v2 غير صالح: {error}",
+  "@pkgInspectInvalidError": {
+    "description": "Error cuando el archivo .jp no tiene una estructura válida JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectProtocol": "البروتوكول: {protocol}",
+  "@pkgInspectProtocol": {
+    "description": "Protocolo de comunicación nativo declarado en el manifiesto",
+    "placeholders": {
+      "protocol": {}
+    }
+  },
+  "pkgInspectReadError": "خطأ في قراءة ملف JP: {error}",
+  "@pkgInspectReadError": {
+    "description": "Error al abrir o leer el archivo .jp para inspección",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectSignatureVerified": "التوقيع: تم التحقق من {algorithm} ({key})",
+  "@pkgInspectSignatureVerified": {
+    "description": "Detalle de firma criptográfica válida en el paquete",
+    "placeholders": {
+      "algorithm": {},
+      "key": {}
+    }
+  },
+  "programErrorsInMain": "[Program] أخطاء في main.joss: {errors}",
+  "@programErrorsInMain": {
+    "description": "Errores de sintaxis detectados al iniciar modo GUI",
+    "placeholders": {
+      "errors": {}
+    }
   }
 }

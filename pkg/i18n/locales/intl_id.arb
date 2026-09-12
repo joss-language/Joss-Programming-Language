@@ -1947,5 +1947,553 @@
     "placeholders": {
       "error": {}
     }
+  },
+  "updaterPrepareRequestError": "Kesalahan saat menyiapkan permintaan: {error}",
+  "@updaterPrepareRequestError": {
+    "description": "Error al preparar la solicitud HTTP de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterGitHubConnectError": "Kesalahan koneksi ke GitHub: {error} (Periksa koneksi internet Anda)",
+  "@updaterGitHubConnectError": {
+    "description": "Error de conexión al consultar releases en GitHub",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterSelectedRelease": "Rilis yang dipilih: {name} ({tag})",
+  "@updaterSelectedRelease": {
+    "description": "Mensaje informativo con el release seleccionado",
+    "placeholders": {
+      "name": {},
+      "tag": {}
+    }
+  },
+  "updaterGitHubStatusError": "Kesalahan saat mendapatkan rilis dari GitHub (Status {status})",
+  "@updaterGitHubStatusError": {
+    "description": "Error de código HTTP devuelto por GitHub Releases",
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "updaterDownloadingGeneral": "Mengunduh pembaruan dari repositori umum...",
+  "@updaterDownloadingGeneral": {
+    "description": "Mensaje de descarga de binario general de respaldo"
+  },
+  "updaterNoSpecificBinary": "Peringatan: Tidak ada paket kompilasi khusus untuk {os}/{arch} yang ditemukan di rilis {tag}.",
+  "@updaterNoSpecificBinary": {
+    "description": "Advertencia cuando no hay binario exacto para la arquitectura actual",
+    "placeholders": {
+      "os": {},
+      "arch": {},
+      "tag": {}
+    }
+  },
+  "updaterDownloadError": "Kesalahan saat mengunduh pembaruan: {error}",
+  "@updaterDownloadError": {
+    "description": "Error al descargar el archivo de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterTempDirError": "Kesalahan saat membuat direktori sementara: {error}",
+  "@updaterTempDirError": {
+    "description": "Error al crear carpeta temporal de descarga",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterApplyError": "Kesalahan saat menerapkan pembaruan biner: {error}",
+  "@updaterApplyError": {
+    "description": "Error al reemplazar el ejecutable del sistema",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterCurrentExeError": "Kesalahan saat mendapatkan jalur eksekusi saat ini: {error}",
+  "@updaterCurrentExeError": {
+    "description": "Error al determinar la ruta del binario en ejecución",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildAssetsError": "Kesalahan saat memproses aset proyek: {error}",
+  "@nativeBuildAssetsError": {
+    "description": "Error al empaquetar y cifrar assets del proyecto nativo",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildDirError": "Kesalahan saat membuat direktori build: {error}",
+  "@nativeBuildDirError": {
+    "description": "Error al crear el directorio de compilación nativa",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildCreateDirError": "Kesalahan saat membuat direktori build: {error}",
+  "@buildCreateDirError": {
+    "description": "Error al inicializar directorio de salida build",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildRunnerError": "Kesalahan saat mengkompilasi pelari asli: {error}",
+  "@nativeBuildRunnerError": {
+    "description": "Error al compilar el ejecutable runner de Go",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildPrecompiledFiles": "File {count} Joss yang telah dikompilasi sebelumnya ke bytecode asli.",
+  "@nativeBuildPrecompiledFiles": {
+    "description": "Conteo de archivos .joss convertidos a bytecode",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "nativeBuildDbCopied": "Basis data disalin ke build/Penyimpanan/",
+  "@nativeBuildDbCopied": {
+    "description": "Confirmación de copia de base de datos SQLite en build nativo"
+  },
+  "nativeBuildAssembleError": "Kesalahan saat merakit eksekusi akhir: {error}",
+  "@nativeBuildAssembleError": {
+    "description": "Error al ensamblar el binario nativo final con assets incrustados",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildNginxPortError": "Kesalahan saat membuat nginx_port.conf: {error}",
+  "@buildNginxPortError": {
+    "description": "Error al generar archivo de configuración de puerto Nginx",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildSaltError": "Kesalahan saat menghasilkan garam: {error}",
+  "@buildSaltError": {
+    "description": "Error al generar la sal criptográfica para cifrar el entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildReadEnvError": "Kesalahan membaca {path}: {error}",
+  "@buildReadEnvError": {
+    "description": "Error al leer el archivo de entorno antes de cifrarlo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "buildEnvNotFound": "Kesalahan: Tidak ditemukan file lingkungan ('env.joss' atau '.env') untuk dienkripsi.",
+  "@buildEnvNotFound": {
+    "description": "Error cuando falta el archivo de entorno en el proyecto a compilar"
+  },
+  "buildEncryptEnvError": "Kesalahan saat mengenkripsi lingkungan: {error}",
+  "@buildEncryptEnvError": {
+    "description": "Error durante el cifrado AES del entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildWriteEnvError": "Kesalahan penulisan {path}: {error}",
+  "@buildWriteEnvError": {
+    "description": "Error al guardar el archivo de entorno cifrado",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pkgBuildReadYamlError": "Kesalahan: Tidak dapat membaca joss.yaml: {error}",
+  "@pkgBuildReadYamlError": {
+    "description": "Error al leer el archivo de manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildGoExtensionError": "Kesalahan: type=go_extension tidak menghasilkan plugin lintas platform yang dinamis.",
+  "@pkgBuildGoExtensionError": {
+    "description": "Error al intentar compilar una extensión Go obsoleta como plugin dinámico"
+  },
+  "pkgBuildGoExtensionHint": "Gunakan tipe: joss dan deklarasikan entry.main (defaultnya adalah src/plugin.joss).",
+  "@pkgBuildGoExtensionHint": {
+    "description": "Sugerencia para corregir la directiva entry de plugins Joss"
+  },
+  "pkgBuildEntryEscapes": "Kesalahan: paket keluar masuk.utama: {entry}",
+  "@pkgBuildEntryEscapes": {
+    "description": "Error de seguridad cuando la ruta de entrada apunta fuera del paquete",
+    "placeholders": {
+      "entry": {}
+    }
+  },
+  "pkgBuildBytecodeError": "Kesalahan saat menghasilkan bytecode: {error}",
+  "@pkgBuildBytecodeError": {
+    "description": "Error al serializar el AST compilado a bytecode JPBC",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCompileEntryError": "Kesalahan saat mengkompilasi entry.main '{entry}': {error}",
+  "@pkgBuildCompileEntryError": {
+    "description": "Error al compilar el punto de entrada del plugin a AST",
+    "placeholders": {
+      "entry": {},
+      "error": {}
+    }
+  },
+  "pkgBuildSymbolsError": "Kesalahan saat menghasilkan indeks simbol: {error}",
+  "@pkgBuildSymbolsError": {
+    "description": "Error al construir el índice de símbolos para IntelliSense",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCreateArchiveError": "Kesalahan saat membuat JP v2: {error}",
+  "@pkgBuildCreateArchiveError": {
+    "description": "Error al comprimir y estructurar el paquete JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildReadFilesError": "Kesalahan membaca file paket: {error}",
+  "@pkgBuildReadFilesError": {
+    "description": "Error al escanear los archivos que conformarán el paquete JP",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildPrepareSignatureError": "Kesalahan saat menyiapkan tanda tangan plugin: {error}",
+  "@pkgBuildPrepareSignatureError": {
+    "description": "Error al cargar o generar la clave de firma Ed25519 del plugin",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildWriteArchiveError": "Kesalahan menulis file kompilasi paket: {error}",
+  "@pkgBuildWriteArchiveError": {
+    "description": "Error de E/S al guardar el archivo compilado .jp en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildAuthorKey": "[Pembuatan Paket] Kunci penulis: {path} (tidak termasuk dalam JP)",
+  "@pkgBuildAuthorKey": {
+    "description": "Información sobre la ubicación de la clave privada de firma del autor",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectHeader": "JP v2 {name} {version}",
+  "@pkgInspectHeader": {
+    "description": "Encabezado con nombre y versión del paquete inspeccionado",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pkgInspectReadError": "Kesalahan membaca file JP: {error}",
+  "@pkgInspectReadError": {
+    "description": "Error al abrir o leer el archivo .jp para inspección",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectInvalidError": "JP v2 tidak valid: {error}",
+  "@pkgInspectInvalidError": {
+    "description": "Error cuando el archivo .jp no tiene una estructura válida JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectSignatureVerified": "Tanda tangan: {algorithm} ({key}) terverifikasi",
+  "@pkgInspectSignatureVerified": {
+    "description": "Detalle de firma criptográfica válida en el paquete",
+    "placeholders": {
+      "algorithm": {},
+      "key": {}
+    }
+  },
+  "pkgInspectBytecodeInfo": "Kode byte: {path} ({bytes} byte)",
+  "@pkgInspectBytecodeInfo": {
+    "description": "Detalle del archivo de bytecode principal incrustado",
+    "placeholders": {
+      "path": {},
+      "bytes": {}
+    }
+  },
+  "pkgInspectPayloadsNone": "Muatan asli: tidak ada",
+  "@pkgInspectPayloadsNone": {
+    "description": "Indicador de que el paquete es puro bytecode sin binarios nativos externos"
+  },
+  "pkgInspectSignatureAbsent": "Tanda tangan: tidak hadir; runtime akan menolak paket ini",
+  "@pkgInspectSignatureAbsent": {
+    "description": "Advertencia de seguridad cuando un paquete no contiene firma digital"
+  },
+  "pkgInspectIntelliSenseInfo": "IntelliSense: {path} (kelas {classes}, metode {methods}, fungsi {functions})",
+  "@pkgInspectIntelliSenseInfo": {
+    "description": "Detalle del índice de símbolos de autocompletado y análisis",
+    "placeholders": {
+      "path": {},
+      "classes": {},
+      "methods": {},
+      "functions": {}
+    }
+  },
+  "pkgInspectAbiHeader": "Perpustakaan ABI C v1:",
+  "@pkgInspectAbiHeader": {
+    "description": "Encabezado de sección de bibliotecas dinámicas C ABI"
+  },
+  "pkgInspectProtocol": "Protokol: _{protocol}",
+  "@pkgInspectProtocol": {
+    "description": "Protocolo de comunicación nativo declarado en el manifiesto",
+    "placeholders": {
+      "protocol": {}
+    }
+  },
+  "pkgInspectPayloadsHeader": "Muatan asli:",
+  "@pkgInspectPayloadsHeader": {
+    "description": "Encabezado de sección de binarios nativos por arquitectura"
+  },
+  "pkgInspectInternalFiles": "File internal: {count}",
+  "@pkgInspectInternalFiles": {
+    "description": "Total de archivos contenidos dentro del paquete .jp",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatNotCanonical": "[FORMAT ERROR] {path} tidak sesuai dengan format kanonik Joss.",
+  "@formatNotCanonical": {
+    "description": "Aviso cuando un archivo difiere del formato canónico en modo check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "formatAccessError": "Kesalahan: Tidak dapat mengakses '{path}': {error}",
+  "@formatAccessError": {
+    "description": "Error de acceso al archivo o directorio a formatear",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixAccessError": "Kesalahan: Tidak dapat mengakses '{path}': {error}",
+  "@fixAccessError": {
+    "description": "Error al acceder a la ruta a corregir",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatStdinError": "Kesalahan membaca stdin: {error}",
+  "@formatStdinError": {
+    "description": "Error al leer código fuente desde la entrada estándar",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "formatFileError": "Kesalahan saat memformat {path}: {error}",
+  "@formatFileError": {
+    "description": "Error durante el análisis y formateo del archivo fuente",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatDirError": "Direktori pemrosesan kesalahan {path}: {error}",
+  "@formatDirError": {
+    "description": "Error al recorrer el directorio durante el formateo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixDirError": "Direktori pemrosesan kesalahan {path}: {error}",
+  "@fixDirError": {
+    "description": "Error al escanear directorio en el comando fix",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatUnformattedFound": "[FORMAT ERROR] {count} file yang belum diformat ditemukan:",
+  "@formatUnformattedFound": {
+    "description": "Resumen de archivos que requieren formateo en modo check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatRequireFormat": "[FORMAT] {count} file memerlukan pemformatan (gunakan --write untuk menerapkan):",
+  "@formatRequireFormat": {
+    "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatModifiedCount": "[FORMAT] {count} file yang dimodifikasi dan diformat.",
+  "@formatModifiedCount": {
+    "description": "Conteo de archivos guardados exitosamente con nuevo formato",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "fixDryRunFile": "[FIX DRY-RUN] {path}: {count} usulan koreksi.",
+  "@fixDryRunFile": {
+    "description": "Resumen en modo simulación para un archivo específico",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "formatAllFilesClean": "[FORMAT] Semua file .joss diformat dengan benar.",
+  "@formatAllFilesClean": {
+    "description": "Confirmación de que todo el proyecto cumple el formato canónico"
+  },
+  "fixFileError": "Kesalahan saat menerapkan perbaikan di {path}: {error}",
+  "@fixFileError": {
+    "description": "Error al aplicar arreglos automáticos a un archivo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixAppliedFile": "[FIX OK] {path}: {count} perbaikan berhasil diterapkan.",
+  "@fixAppliedFile": {
+    "description": "Confirmación de correcciones aplicadas a un archivo",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "fixAppliedItem": "[PERBAIKAN DITERAPKAN] {file} ({count} koreksi)",
+  "@fixAppliedItem": {
+    "description": "Línea de resumen de correcciones guardadas para un archivo",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixDryRunItem": "[FIX DRY-RUN] {file} ({count} koreksi)",
+  "@fixDryRunItem": {
+    "description": "Línea de resumen de simulación para un archivo dentro del directorio",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixDryRunTotal": "[FIX DRY-RUN] Total: {files} file dengan {fixes} perbaikan siap diterapkan.",
+  "@fixDryRunTotal": {
+    "description": "Totales generales de simulación del comando fix",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "fixAppliedTotal": "[FIX OK] Total: {files} file diperbarui dengan {fixes} perbaikan.",
+  "@fixAppliedTotal": {
+    "description": "Totales generales de correcciones aplicadas con éxito",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "checkLintAnalysisError": "[PERIKSA KESALAHAN] Penguraian lint gagal: {error}",
+  "@checkLintAnalysisError": {
+    "description": "Error crítico al ejecutar el linter en check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatScanError": "[PERIKSA] Format pemindaian kesalahan: {error}",
+  "@checkFormatScanError": {
+    "description": "Error al verificar formato de código en comando check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatWarning": "[PERIKSA PERINGATAN] {count} file tidak sesuai dengan format kanonik (jalankan 'format joss --write'):",
+  "@checkFormatWarning": {
+    "description": "Aviso de archivos mal formateados durante check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "checkDiagnosticsSummary": "[PEMERIKSAAN DIAGNOSTIK] {errors} kesalahan, _{warnings} peringatan:",
+  "@checkDiagnosticsSummary": {
+    "description": "Conteo consolidado de diagnósticos semánticos encontrados",
+    "placeholders": {
+      "errors": {},
+      "warnings": {}
+    }
+  },
+  "programRunningMain": "[Program] Menjalankan main.joss...",
+  "@programRunningMain": {
+    "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
+  },
+  "checkSuggestionLabel": "saran: {suggestion}",
+  "@checkSuggestionLabel": {
+    "description": "Etiqueta para recomendaciones de reparación semántica",
+    "placeholders": {
+      "suggestion": {}
+    }
+  },
+  "programNoMainStarting": "[Program] main.joss tidak ditemukan, langsung memulai server...",
+  "@programNoMainStarting": {
+    "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
+  },
+  "programErrorsInMain": "[Program] Kesalahan di main.joss: {errors}",
+  "@programErrorsInMain": {
+    "description": "Errores de sintaxis detectados al iniciar modo GUI",
+    "placeholders": {
+      "errors": {}
+    }
+  },
+  "cliUnknownCommand": "Perintah tidak diketahui: {command}",
+  "@cliUnknownCommand": {
+    "description": "Error cuando se ingresa un comando no reconocido en la CLI",
+    "placeholders": {
+      "command": {}
+    }
+  },
+  "cliDidYouMean": "Apakah maksud Anda 'joss make:migration [Nama]'?",
+  "@cliDidYouMean": {
+    "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
+  },
+  "programWebViewError": "WebView2 tidak dapat dimuat. Apakah Microsoft Edge sudah terinstal?",
+  "@programWebViewError": {
+    "description": "Error cuando el componente WebView2 de Windows no está disponible"
+  },
+  "cliTerminateByKey": "[Joss] Menghentikan eksekusi berdasarkan permintaan pengguna (tombol 'q')...",
+  "@cliTerminateByKey": {
+    "description": "Mensaje al presionar la tecla rápida de salida en consola"
+  },
+  "cliAnalyzingProject": "Menganalisis proyek Joss ({file})...",
+  "@cliAnalyzingProject": {
+    "description": "Mensaje de inicio de análisis semántico del proyecto",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliReadFileError": "Kesalahan saat membaca file: {error}",
+  "@cliReadFileError": {
+    "description": "Error genérico de lectura de script en CLI",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "cliScriptNotFound": "Kesalahan: File '{file}' tidak ditemukan.",
+  "@cliScriptNotFound": {
+    "description": "Error cuando un script Joss solicitado no existe en disco",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliRequireMainOrScript": "Semua proyek harus memiliki titik masuk 'main.joss' atau menentukan file: joss analysis [file.joss]",
+  "@cliRequireMainOrScript": {
+    "description": "Instrucciones de entrada para análisis semántico"
+  },
+  "cliParseErrorsTitle": "Kesalahan penguraian:",
+  "@cliParseErrorsTitle": {
+    "description": "Encabezado para lista de errores sintácticos de parseo"
   }
 }

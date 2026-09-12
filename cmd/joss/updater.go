@@ -170,20 +170,20 @@ func handleUpdateCommand(args []string) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", githubReleasesURL, nil)
 	if err != nil {
-		fmt.Printf("Error preparando solicitud: %v\n", err)
+		fmt.Println(i18n.Tr("updaterPrepareRequestError", i18n.M{"error": err.Error()}))
 		return
 	}
 	req.Header.Set("User-Agent", "Joss-CLI-Updater/"+version.Version)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error de conexión a GitHub: %v (Comprueba tu conexión a Internet)\n", err)
+		fmt.Println(i18n.Tr("updaterGitHubConnectError", i18n.M{"error": err.Error()}))
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		fmt.Printf("Error obteniendo releases de GitHub (Status %d)\n", resp.StatusCode)
+		fmt.Println(i18n.Tr("updaterGitHubStatusError", i18n.M{"status": resp.StatusCode}))
 		return
 	}
 
@@ -200,7 +200,7 @@ func handleUpdateCommand(args []string) {
 	}
 
 	remoteVer := cleanVersionTag(targetRelease.TagName)
-	fmt.Printf("📦 Release seleccionado : %s (%s)\n", targetRelease.Name, targetRelease.TagName)
+	fmt.Printf("📦 %s\n", i18n.Tr("updaterSelectedRelease", i18n.M{"name": targetRelease.Name, "tag": targetRelease.TagName}))
 
 	if !force && compareVersions(remoteVer, version.Version) == 0 {
 		fmt.Println(i18n.Tr("updaterAlreadyUpdated", map[string]interface{}{"version": version.Version, "channel": strings.ToUpper(cfg.Channel)}))
@@ -215,8 +215,8 @@ func handleUpdateCommand(args []string) {
 
 	assetURL := findMatchingAsset(targetRelease.Assets, runtime.GOOS, runtime.GOARCH)
 	if assetURL == "" {
-		fmt.Printf("⚠️ No se encontró paquete compilado específico para %s/%s en la release %s.\n", runtime.GOOS, runtime.GOARCH, targetRelease.TagName)
-		fmt.Println("Descargando actualización del repositorio general...")
+		fmt.Printf("⚠️ %s\n", i18n.Tr("updaterNoSpecificBinary", i18n.M{"os": runtime.GOOS, "arch": runtime.GOARCH, "tag": targetRelease.TagName}))
+		fmt.Println(i18n.Tr("updaterDownloadingGeneral"))
 		if len(targetRelease.Assets) > 0 {
 			assetURL = targetRelease.Assets[0].BrowserDownloadURL
 		}
@@ -231,14 +231,14 @@ func handleUpdateCommand(args []string) {
 
 	tempDir, err := os.MkdirTemp("", "joss-update-*")
 	if err != nil {
-		fmt.Printf("Error creando directorio temporal: %v\n", err)
+		fmt.Println(i18n.Tr("updaterTempDirError", i18n.M{"error": err.Error()}))
 		return
 	}
 	defer os.RemoveAll(tempDir)
 
 	downloadPath := filepath.Join(tempDir, "update_download.bin")
 	if err := downloadFile(downloadPath, assetURL); err != nil {
-		fmt.Printf("Error descargando la actualización: %v\n", err)
+		fmt.Println(i18n.Tr("updaterDownloadError", i18n.M{"error": err.Error()}))
 		return
 	}
 
@@ -293,13 +293,13 @@ func handleUpdateCommand(args []string) {
 
 	currentExe, err := os.Executable()
 	if err != nil {
-		fmt.Printf("Error obteniendo ruta del ejecutable actual: %v\n", err)
+		fmt.Println(i18n.Tr("updaterCurrentExeError", i18n.M{"error": err.Error()}))
 		return
 	}
 
 	// Apply self-update binary replacement safely
 	if err := replaceExecutable(currentExe, binaryToApply); err != nil {
-		fmt.Printf("Error aplicando actualización del binario: %v\n", err)
+		fmt.Println(i18n.Tr("updaterApplyError", i18n.M{"error": err.Error()}))
 		return
 	}
 

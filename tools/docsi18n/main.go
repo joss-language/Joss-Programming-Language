@@ -42,8 +42,9 @@ type manifest struct {
 }
 
 type protectedSyntax struct {
-	links  []string
-	inline []string
+	links      []string
+	inline     []string
+	lineBreaks []string
 }
 
 type translateFunc func(string, string) (string, error)
@@ -372,7 +373,7 @@ func newBingTranslator() (*bingTranslator, error) {
 }
 
 func (translator *bingTranslator) translate(text, locale string) (string, error) {
-	endpoint := "https://www.bing.com/ttranslatev3?isVertical=1&IG=" + url.QueryEscape(translator.ig) + "&IID=" + url.QueryEscape(translator.iid+".1")
+	endpoint := "https://www.bing.com/ttranslatev3?isVertical=1&IG=" + url.QueryEscape(translator.ig) + "&IID=" + url.QueryEscape(translator.iid) + "&SFX=0"
 	form := url.Values{"text": {text}, "fromLang": {"es"}, "to": {locale}, "token": {translator.token}, "key": {translator.key}}
 	request, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -430,6 +431,12 @@ func maskTranslationSyntax(text string) (string, protectedSyntax) {
 		return start + " " + link[1:separator] + " " + end
 	})
 	masked = translationSyntax.ReplaceAllStringFunc(masked, protectInline)
+	lineBreak := regexp.MustCompile(`\r\n|\n`)
+	masked = lineBreak.ReplaceAllStringFunc(masked, func(value string) string {
+		placeholder := fmt.Sprintf("https://joss.invalid/line-break/%06d", len(protected.lineBreaks))
+		protected.lineBreaks = append(protected.lineBreaks, value)
+		return " " + placeholder + " "
+	})
 	return masked, protected
 }
 
@@ -451,6 +458,14 @@ func unmaskTranslationSyntax(text string, protected protectedSyntax) (string, er
 			return "", fmt.Errorf("translation provider changed protected Markdown syntax %q", value)
 		}
 		text = strings.ReplaceAll(text, placeholder, value)
+	}
+	for index, value := range protected.lineBreaks {
+		placeholder := fmt.Sprintf("https://joss.invalid/line-break/%06d", index)
+		if !strings.Contains(text, placeholder) {
+			return "", fmt.Errorf("translation provider changed a protected line break")
+		}
+		pattern := regexp.MustCompile(`[ \t]*` + regexp.QuoteMeta(placeholder) + `[ \t]*`)
+		text = pattern.ReplaceAllString(text, value)
 	}
 	return text, nil
 }

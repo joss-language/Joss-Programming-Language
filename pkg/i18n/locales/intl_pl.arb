@@ -1947,5 +1947,553 @@
     "placeholders": {
       "error": {}
     }
+  },
+  "updaterPrepareRequestError": "Błąd podczas przygotowywania żądania: {error}",
+  "@updaterPrepareRequestError": {
+    "description": "Error al preparar la solicitud HTTP de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterGitHubConnectError": "Błąd połączenia z GitHub: {error} (Sprawdź połączenie internetowe)",
+  "@updaterGitHubConnectError": {
+    "description": "Error de conexión al consultar releases en GitHub",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterSelectedRelease": "Wybrana wersja: {name} ({tag})",
+  "@updaterSelectedRelease": {
+    "description": "Mensaje informativo con el release seleccionado",
+    "placeholders": {
+      "name": {},
+      "tag": {}
+    }
+  },
+  "updaterGitHubStatusError": "Błąd podczas pobierania wydań z GitHub (stan {status})",
+  "@updaterGitHubStatusError": {
+    "description": "Error de código HTTP devuelto por GitHub Releases",
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "updaterDownloadingGeneral": "Pobieram aktualizację z repozytorium ogólnego...",
+  "@updaterDownloadingGeneral": {
+    "description": "Mensaje de descarga de binario general de respaldo"
+  },
+  "updaterNoSpecificBinary": "Ostrzeżenie: w wersji {tag} nie znaleziono żadnego konkretnego skompilowanego pakietu dla {os}/{arch}.",
+  "@updaterNoSpecificBinary": {
+    "description": "Advertencia cuando no hay binario exacto para la arquitectura actual",
+    "placeholders": {
+      "os": {},
+      "arch": {},
+      "tag": {}
+    }
+  },
+  "updaterDownloadError": "Błąd podczas pobierania aktualizacji: {error}",
+  "@updaterDownloadError": {
+    "description": "Error al descargar el archivo de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterTempDirError": "Błąd podczas tworzenia katalogu tymczasowego: {error}",
+  "@updaterTempDirError": {
+    "description": "Error al crear carpeta temporal de descarga",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterApplyError": "Błąd podczas stosowania aktualizacji binarnej: {error}",
+  "@updaterApplyError": {
+    "description": "Error al reemplazar el ejecutable del sistema",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterCurrentExeError": "Błąd podczas uzyskiwania ścieżki bieżącego pliku wykonywalnego: {error}",
+  "@updaterCurrentExeError": {
+    "description": "Error al determinar la ruta del binario en ejecución",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildAssetsError": "Błąd podczas przetwarzania zasobów projektu: {error}",
+  "@nativeBuildAssetsError": {
+    "description": "Error al empaquetar y cifrar assets del proyecto nativo",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildDirError": "Błąd podczas tworzenia katalogu kompilacji: {error}",
+  "@nativeBuildDirError": {
+    "description": "Error al crear el directorio de compilación nativa",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildCreateDirError": "Błąd podczas tworzenia katalogu kompilacji: {error}",
+  "@buildCreateDirError": {
+    "description": "Error al inicializar directorio de salida build",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildRunnerError": "Błąd podczas kompilacji natywnego biegacza: {error}",
+  "@nativeBuildRunnerError": {
+    "description": "Error al compilar el ejecutable runner de Go",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildPrecompiledFiles": "Wstępnie skompilowane pliki {count} Joss do natywnego kodu bajtowego.",
+  "@nativeBuildPrecompiledFiles": {
+    "description": "Conteo de archivos .joss convertidos a bytecode",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "nativeBuildDbCopied": "Baza danych skopiowana do build/Storage/",
+  "@nativeBuildDbCopied": {
+    "description": "Confirmación de copia de base de datos SQLite en build nativo"
+  },
+  "nativeBuildAssembleError": "Błąd podczas składania ostatecznego pliku wykonywalnego: {error}",
+  "@nativeBuildAssembleError": {
+    "description": "Error al ensamblar el binario nativo final con assets incrustados",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildNginxPortError": "Błąd podczas tworzenia nginx_port.conf: {error}",
+  "@buildNginxPortError": {
+    "description": "Error al generar archivo de configuración de puerto Nginx",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildSaltError": "Błąd podczas generowania soli: _{error}",
+  "@buildSaltError": {
+    "description": "Error al generar la sal criptográfica para cifrar el entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildReadEnvError": "Błąd odczytu {path}: {error}",
+  "@buildReadEnvError": {
+    "description": "Error al leer el archivo de entorno antes de cifrarlo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "buildEnvNotFound": "Błąd: nie znaleziono pliku środowiska („env.joss” lub „.env”) do zaszyfrowania.",
+  "@buildEnvNotFound": {
+    "description": "Error cuando falta el archivo de entorno en el proyecto a compilar"
+  },
+  "buildEncryptEnvError": "Błąd szyfrowania środowiska: {error}",
+  "@buildEncryptEnvError": {
+    "description": "Error durante el cifrado AES del entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildWriteEnvError": "Błąd podczas zapisywania {path}: {error}",
+  "@buildWriteEnvError": {
+    "description": "Error al guardar el archivo de entorno cifrado",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pkgBuildReadYamlError": "Błąd: Nie można odczytać pliku joss.yaml: {error}",
+  "@pkgBuildReadYamlError": {
+    "description": "Error al leer el archivo de manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildGoExtensionError": "Błąd: type=go_extension nie tworzy dynamicznej wtyczki wieloplatformowej.",
+  "@pkgBuildGoExtensionError": {
+    "description": "Error al intentar compilar una extensión Go obsoleta como plugin dinámico"
+  },
+  "pkgBuildGoExtensionHint": "Użyj typu: joss i zadeklaruj wpis.main (domyślnie jest to src/plugin.joss).",
+  "@pkgBuildGoExtensionHint": {
+    "description": "Sugerencia para corregir la directiva entry de plugins Joss"
+  },
+  "pkgBuildEntryEscapes": "Błąd: wpis.main opuszcza pakiet: {entry}",
+  "@pkgBuildEntryEscapes": {
+    "description": "Error de seguridad cuando la ruta de entrada apunta fuera del paquete",
+    "placeholders": {
+      "entry": {}
+    }
+  },
+  "pkgBuildBytecodeError": "Błąd podczas generowania kodu bajtowego: {error}",
+  "@pkgBuildBytecodeError": {
+    "description": "Error al serializar el AST compilado a bytecode JPBC",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCompileEntryError": "Błąd podczas kompilacji wpisu.main „{entry}”: {error}",
+  "@pkgBuildCompileEntryError": {
+    "description": "Error al compilar el punto de entrada del plugin a AST",
+    "placeholders": {
+      "entry": {},
+      "error": {}
+    }
+  },
+  "pkgBuildSymbolsError": "Błąd podczas generowania indeksu symboli: {error}",
+  "@pkgBuildSymbolsError": {
+    "description": "Error al construir el índice de símbolos para IntelliSense",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCreateArchiveError": "Błąd podczas tworzenia JP v2: {error}",
+  "@pkgBuildCreateArchiveError": {
+    "description": "Error al comprimir y estructurar el paquete JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildReadFilesError": "Błąd odczytu plików pakietu: {error}",
+  "@pkgBuildReadFilesError": {
+    "description": "Error al escanear los archivos que conformarán el paquete JP",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildPrepareSignatureError": "Błąd podczas przygotowywania podpisu wtyczki: {error}",
+  "@pkgBuildPrepareSignatureError": {
+    "description": "Error al cargar o generar la clave de firma Ed25519 del plugin",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildWriteArchiveError": "Błąd podczas zapisywania skompilowanego pliku pakietu: {error}",
+  "@pkgBuildWriteArchiveError": {
+    "description": "Error de E/S al guardar el archivo compilado .jp en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildAuthorKey": "[Kompilacja pakietu] Klucz autora: {path} (nieuwzględniony w JP)",
+  "@pkgBuildAuthorKey": {
+    "description": "Información sobre la ubicación de la clave privada de firma del autor",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectHeader": "JP v2 {name} {version}",
+  "@pkgInspectHeader": {
+    "description": "Encabezado con nombre y versión del paquete inspeccionado",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pkgInspectReadError": "Błąd odczytu pliku JP: {error}",
+  "@pkgInspectReadError": {
+    "description": "Error al abrir o leer el archivo .jp para inspección",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectInvalidError": "Nieprawidłowy JP v2: {error}",
+  "@pkgInspectInvalidError": {
+    "description": "Error cuando el archivo .jp no tiene una estructura válida JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectSignatureVerified": "Podpis: {algorithm} ({key}) zweryfikowany",
+  "@pkgInspectSignatureVerified": {
+    "description": "Detalle de firma criptográfica válida en el paquete",
+    "placeholders": {
+      "algorithm": {},
+      "key": {}
+    }
+  },
+  "pkgInspectBytecodeInfo": "Kod bajtowy: {path} ({bytes} bajtów)",
+  "@pkgInspectBytecodeInfo": {
+    "description": "Detalle del archivo de bytecode principal incrustado",
+    "placeholders": {
+      "path": {},
+      "bytes": {}
+    }
+  },
+  "pkgInspectPayloadsNone": "Ładunki natywne: brak",
+  "@pkgInspectPayloadsNone": {
+    "description": "Indicador de que el paquete es puro bytecode sin binarios nativos externos"
+  },
+  "pkgInspectSignatureAbsent": "Podpis: nieobecny; środowisko wykonawcze odrzuci ten pakiet",
+  "@pkgInspectSignatureAbsent": {
+    "description": "Advertencia de seguridad cuando un paquete no contiene firma digital"
+  },
+  "pkgInspectIntelliSenseInfo": "IntelliSense: {path} (klasy {classes}, metody {methods}, funkcje {functions})",
+  "@pkgInspectIntelliSenseInfo": {
+    "description": "Detalle del índice de símbolos de autocompletado y análisis",
+    "placeholders": {
+      "path": {},
+      "classes": {},
+      "methods": {},
+      "functions": {}
+    }
+  },
+  "pkgInspectAbiHeader": "Biblioteki ABI C v1:",
+  "@pkgInspectAbiHeader": {
+    "description": "Encabezado de sección de bibliotecas dinámicas C ABI"
+  },
+  "pkgInspectProtocol": "Protokół: _{protocol}",
+  "@pkgInspectProtocol": {
+    "description": "Protocolo de comunicación nativo declarado en el manifiesto",
+    "placeholders": {
+      "protocol": {}
+    }
+  },
+  "pkgInspectPayloadsHeader": "Natywne ładunki:",
+  "@pkgInspectPayloadsHeader": {
+    "description": "Encabezado de sección de binarios nativos por arquitectura"
+  },
+  "pkgInspectInternalFiles": "Pliki wewnętrzne: _{count}",
+  "@pkgInspectInternalFiles": {
+    "description": "Total de archivos contenidos dentro del paquete .jp",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatNotCanonical": "[BŁĄD FORMATU] {path} nie jest zgodny z formatem kanonicznym Jossa.",
+  "@formatNotCanonical": {
+    "description": "Aviso cuando un archivo difiere del formato canónico en modo check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "formatAccessError": "Błąd: Nie można uzyskać dostępu do „{path}”: {error}",
+  "@formatAccessError": {
+    "description": "Error de acceso al archivo o directorio a formatear",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixAccessError": "Błąd: Nie można uzyskać dostępu do „{path}”: {error}",
+  "@fixAccessError": {
+    "description": "Error al acceder a la ruta a corregir",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatStdinError": "Błąd odczytu stdin: {error}",
+  "@formatStdinError": {
+    "description": "Error al leer código fuente desde la entrada estándar",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "formatFileError": "Błąd formatowania {path}: {error}",
+  "@formatFileError": {
+    "description": "Error durante el análisis y formateo del archivo fuente",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatDirError": "Błąd przetwarzania katalogu {path}: {error}",
+  "@formatDirError": {
+    "description": "Error al recorrer el directorio durante el formateo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixDirError": "Błąd przetwarzania katalogu {path}: {error}",
+  "@fixDirError": {
+    "description": "Error al escanear directorio en el comando fix",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatUnformattedFound": "[BŁĄD FORMATU] Znaleziono {count} niesformatowany plik(i):",
+  "@formatUnformattedFound": {
+    "description": "Resumen de archivos que requieren formateo en modo check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatRequireFormat": "[FORMAT] {count} plików wymaga sformatowania (użyj --write, aby zastosować):",
+  "@formatRequireFormat": {
+    "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatModifiedCount": "[FORMAT] {count} zmodyfikowane i sformatowane pliki.",
+  "@formatModifiedCount": {
+    "description": "Conteo de archivos guardados exitosamente con nuevo formato",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "fixDryRunFile": "[NAPRAWIENIE PRACY NA SUCHE] {path}: {count} proponowane poprawki.",
+  "@fixDryRunFile": {
+    "description": "Resumen en modo simulación para un archivo específico",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "formatAllFilesClean": "[FORMAT] Wszystkie pliki .joss są poprawnie sformatowane.",
+  "@formatAllFilesClean": {
+    "description": "Confirmación de que todo el proyecto cumple el formato canónico"
+  },
+  "fixFileError": "Błąd podczas stosowania poprawek w {path}: {error}",
+  "@fixFileError": {
+    "description": "Error al aplicar arreglos automáticos a un archivo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixAppliedFile": "[POPRAW OK] {path}: {count} poprawki zostały zastosowane pomyślnie.",
+  "@fixAppliedFile": {
+    "description": "Confirmación de correcciones aplicadas a un archivo",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "fixAppliedItem": "[Zastosowano POPRAWKĘ] {file} ({count} poprawki)",
+  "@fixAppliedItem": {
+    "description": "Línea de resumen de correcciones guardadas para un archivo",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixDryRunItem": "[NAPRAWIENIE PRACY NA SUCHE] {file} ({count} poprawki)",
+  "@fixDryRunItem": {
+    "description": "Línea de resumen de simulación para un archivo dentro del directorio",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixDryRunTotal": "[FIX DRY-RUN] Łącznie: {files} plików z {fixes} poprawkami gotowymi do zastosowania.",
+  "@fixDryRunTotal": {
+    "description": "Totales generales de simulación del comando fix",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "fixAppliedTotal": "[FIX OK] Łącznie: {files} plików zaktualizowanych za pomocą {fixes} poprawek.",
+  "@fixAppliedTotal": {
+    "description": "Totales generales de correcciones aplicadas con éxito",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "checkLintAnalysisError": "[SPRAWDŹ BŁĄD] Analiza Lint nie powiodła się: {error}",
+  "@checkLintAnalysisError": {
+    "description": "Error crítico al ejecutar el linter en check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatScanError": "[SPRAWDŹ] Błąd formatu skanowania: {error}",
+  "@checkFormatScanError": {
+    "description": "Error al verificar formato de código en comando check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatWarning": "[SPRAWDŹ OSTRZEŻENIE] {count} plik(i) nie jest zgodny z formatem kanonicznym (wykonaj „joss format --write”):",
+  "@checkFormatWarning": {
+    "description": "Aviso de archivos mal formateados durante check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "checkDiagnosticsSummary": "[KONTROLA DIAGNOSTYCZNA] {errors} błędy, {warnings} ostrzeżenia:",
+  "@checkDiagnosticsSummary": {
+    "description": "Conteo consolidado de diagnósticos semánticos encontrados",
+    "placeholders": {
+      "errors": {},
+      "warnings": {}
+    }
+  },
+  "programRunningMain": "[Program] Uruchamianie pliku main.joss...",
+  "@programRunningMain": {
+    "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
+  },
+  "checkSuggestionLabel": "sugestia: {suggestion}",
+  "@checkSuggestionLabel": {
+    "description": "Etiqueta para recomendaciones de reparación semántica",
+    "placeholders": {
+      "suggestion": {}
+    }
+  },
+  "programNoMainStarting": "[Program] main.joss nie został znaleziony, uruchamiam bezpośrednio serwer...",
+  "@programNoMainStarting": {
+    "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
+  },
+  "programErrorsInMain": "[Program] Błędy w pliku main.joss: {errors}",
+  "@programErrorsInMain": {
+    "description": "Errores de sintaxis detectados al iniciar modo GUI",
+    "placeholders": {
+      "errors": {}
+    }
+  },
+  "cliUnknownCommand": "Nieznane polecenie: {command}",
+  "@cliUnknownCommand": {
+    "description": "Error cuando se ingresa un comando no reconocido en la CLI",
+    "placeholders": {
+      "command": {}
+    }
+  },
+  "cliDidYouMean": "Miałeś na myśli „joss make:migration [Nazwa]”?",
+  "@cliDidYouMean": {
+    "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
+  },
+  "programWebViewError": "Nie można załadować WebView2. Czy Microsoft Edge jest zainstalowany?",
+  "@programWebViewError": {
+    "description": "Error cuando el componente WebView2 de Windows no está disponible"
+  },
+  "cliTerminateByKey": "[Joss] Zakończenie wykonywania na żądanie użytkownika (klawisz „q”)...",
+  "@cliTerminateByKey": {
+    "description": "Mensaje al presionar la tecla rápida de salida en consola"
+  },
+  "cliAnalyzingProject": "Analizowanie projektu Jossa ({file})...",
+  "@cliAnalyzingProject": {
+    "description": "Mensaje de inicio de análisis semántico del proyecto",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliReadFileError": "Błąd odczytu pliku: {error}",
+  "@cliReadFileError": {
+    "description": "Error genérico de lectura de script en CLI",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "cliScriptNotFound": "Błąd: Nie znaleziono pliku „{file}”.",
+  "@cliScriptNotFound": {
+    "description": "Error cuando un script Joss solicitado no existe en disco",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliRequireMainOrScript": "Wszystkie projekty muszą mieć punkt wejścia „main.joss” lub określić plik: joss analiz [file.joss]",
+  "@cliRequireMainOrScript": {
+    "description": "Instrucciones de entrada para análisis semántico"
+  },
+  "cliParseErrorsTitle": "Błędy analizy:",
+  "@cliParseErrorsTitle": {
+    "description": "Encabezado para lista de errores sintácticos de parseo"
   }
 }

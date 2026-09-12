@@ -1947,5 +1947,553 @@
     "placeholders": {
       "error": {}
     }
+  },
+  "updaterPrepareRequestError": "ଅନୁରୋଧ ପ୍ରସ୍ତୁତିରେ ତ୍ରୁଟି: {error}",
+  "@updaterPrepareRequestError": {
+    "description": "Error al preparar la solicitud HTTP de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterGitHubConnectError": "GitHub ସଂଯୋଗ ତ୍ରୁଟି: {error} (ଆପଣଙ୍କର ଇଣ୍ଟରନେଟ୍ ସଂଯୋଗ ଯାଞ୍ଚ କରନ୍ତୁ)",
+  "@updaterGitHubConnectError": {
+    "description": "Error de conexión al consultar releases en GitHub",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterSelectedRelease": "ମନୋନୀତ ପ୍ରକାଶନ: {name} ({tag})",
+  "@updaterSelectedRelease": {
+    "description": "Mensaje informativo con el release seleccionado",
+    "placeholders": {
+      "name": {},
+      "tag": {}
+    }
+  },
+  "updaterGitHubStatusError": "GitHub ରୁ ପ୍ରକାଶନ ପାଇବାରେ ତ୍ରୁଟି (ସ୍ଥିତି {status})",
+  "@updaterGitHubStatusError": {
+    "description": "Error de código HTTP devuelto por GitHub Releases",
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "updaterDownloadingGeneral": "ସାଧାରଣ ସଂଗ୍ରହାଳୟରୁ ଅଦ୍ୟତନ ଡାଉନଲୋଡ୍ ...",
+  "@updaterDownloadingGeneral": {
+    "description": "Mensaje de descarga de binario general de respaldo"
+  },
+  "updaterNoSpecificBinary": "ଚେତାବନୀ: {os} / {arch} ରିଲିଜ୍ {tag} ପାଇଁ କ specific ଣସି ନିର୍ଦ୍ଦିଷ୍ଟ ସଂକଳିତ ପ୍ୟାକେଜ୍ ନାହିଁ |",
+  "@updaterNoSpecificBinary": {
+    "description": "Advertencia cuando no hay binario exacto para la arquitectura actual",
+    "placeholders": {
+      "os": {},
+      "arch": {},
+      "tag": {}
+    }
+  },
+  "updaterDownloadError": "ଅଦ୍ୟତନ ଡାଉନଲୋଡ୍ କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@updaterDownloadError": {
+    "description": "Error al descargar el archivo de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterTempDirError": "ଅସ୍ଥାୟୀ ଡିରେକ୍ଟୋରୀ ସୃଷ୍ଟି କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@updaterTempDirError": {
+    "description": "Error al crear carpeta temporal de descarga",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterApplyError": "ବାଇନାରୀ ଅପଡେଟ୍ ପ୍ରୟୋଗ କରିବାରେ ତ୍ରୁଟି: {error} |",
+  "@updaterApplyError": {
+    "description": "Error al reemplazar el ejecutable del sistema",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterCurrentExeError": "ସାମ୍ପ୍ରତିକ ଏକଜେକ୍ୟୁଟେବଲ୍ ର ପଥ ପାଇବାରେ ତ୍ରୁଟି: {error} |",
+  "@updaterCurrentExeError": {
+    "description": "Error al determinar la ruta del binario en ejecución",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildAssetsError": "ପ୍ରକଳ୍ପ ସମ୍ପତ୍ତିକୁ ପ୍ରକ୍ରିୟାକରଣରେ ତ୍ରୁଟି: {error}",
+  "@nativeBuildAssetsError": {
+    "description": "Error al empaquetar y cifrar assets del proyecto nativo",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildDirError": "ବିଲ୍ଡ ଡିରେକ୍ଟୋରୀ ତିଆରି କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@nativeBuildDirError": {
+    "description": "Error al crear el directorio de compilación nativa",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildCreateDirError": "ବିଲ୍ଡ ଡିରେକ୍ଟୋରୀ ତିଆରି କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@buildCreateDirError": {
+    "description": "Error al inicializar directorio de salida build",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildRunnerError": "ଦେଶୀ ରନର୍ ସଙ୍କଳନ କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@nativeBuildRunnerError": {
+    "description": "Error al compilar el ejecutable runner de Go",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildPrecompiledFiles": "ପୂର୍ବ-ସଙ୍କଳିତ {count} ଦେଶୀ ବାଇଟେକୋଡ୍ କୁ ଜସ୍ ଫାଇଲ୍ |",
+  "@nativeBuildPrecompiledFiles": {
+    "description": "Conteo de archivos .joss convertidos a bytecode",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "nativeBuildDbCopied": "ନିର୍ମାଣ / ସଂରକ୍ଷଣ / ପାଇଁ ଡାଟାବେସ୍ କପି ହୋଇଛି |",
+  "@nativeBuildDbCopied": {
+    "description": "Confirmación de copia de base de datos SQLite en build nativo"
+  },
+  "nativeBuildAssembleError": "ଅନ୍ତିମ ଏକଜେକ୍ୟୁଟେବଲ୍ ଏକତ୍ର କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@nativeBuildAssembleError": {
+    "description": "Error al ensamblar el binario nativo final con assets incrustados",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildNginxPortError": "Nginx_port.conf ସୃଷ୍ଟି କରିବାରେ ତ୍ରୁଟି: {error} |",
+  "@buildNginxPortError": {
+    "description": "Error al generar archivo de configuración de puerto Nginx",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildSaltError": "ଲୁଣ ସୃଷ୍ଟି କରିବାରେ ତ୍ରୁଟି: {error} |",
+  "@buildSaltError": {
+    "description": "Error al generar la sal criptográfica para cifrar el entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildReadEnvError": "{path}: {error} ପ reading ିବାରେ ତ୍ରୁଟି |",
+  "@buildReadEnvError": {
+    "description": "Error al leer el archivo de entorno antes de cifrarlo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "buildEnvNotFound": "ତ୍ରୁଟି: ଏନକ୍ରିପ୍ଟ କରିବାକୁ କ environment ଣସି ପରିବେଶ ଫାଇଲ ('env.joss' କିମ୍ବା '.env') ମିଳିଲା ନାହିଁ |",
+  "@buildEnvNotFound": {
+    "description": "Error cuando falta el archivo de entorno en el proyecto a compilar"
+  },
+  "buildEncryptEnvError": "ଏନକ୍ରିପ୍ଟ ପରିବେଶରେ ତ୍ରୁଟି: {error}",
+  "@buildEncryptEnvError": {
+    "description": "Error durante el cifrado AES del entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildWriteEnvError": "ଲେଖିବାରେ ତ୍ରୁଟି {path}: {error}",
+  "@buildWriteEnvError": {
+    "description": "Error al guardar el archivo de entorno cifrado",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pkgBuildReadYamlError": "ତ୍ରୁଟି: joss.yaml ପ read ିପାରିଲା ନାହିଁ: {error}",
+  "@pkgBuildReadYamlError": {
+    "description": "Error al leer el archivo de manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildGoExtensionError": "ତ୍ରୁଟି: ପ୍ରକାର = go_extension ଏକ ଗତିଶୀଳ କ୍ରସ୍ ପ୍ଲାଟଫର୍ମ ପ୍ଲଗଇନ୍ ଉତ୍ପାଦନ କରେ ନାହିଁ |",
+  "@pkgBuildGoExtensionError": {
+    "description": "Error al intentar compilar una extensión Go obsoleta como plugin dinámico"
+  },
+  "pkgBuildGoExtensionHint": "ପ୍ରକାର ବ୍ୟବହାର କରନ୍ତୁ: joss ଏବଂ entry.main ଘୋଷଣା କରନ୍ତୁ (src / plugin.joss କୁ ଡିଫଲ୍ଟ) |",
+  "@pkgBuildGoExtensionHint": {
+    "description": "Sugerencia para corregir la directiva entry de plugins Joss"
+  },
+  "pkgBuildEntryEscapes": "ତ୍ରୁଟି: entry.main ପ୍ୟାକେଜରୁ ବାହାରିଥାଏ: {entry}",
+  "@pkgBuildEntryEscapes": {
+    "description": "Error de seguridad cuando la ruta de entrada apunta fuera del paquete",
+    "placeholders": {
+      "entry": {}
+    }
+  },
+  "pkgBuildBytecodeError": "ବାଇଟ୍ କୋଡ୍ ସୃଷ୍ଟି କରିବାରେ ତ୍ରୁଟି: {error} |",
+  "@pkgBuildBytecodeError": {
+    "description": "Error al serializar el AST compilado a bytecode JPBC",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCompileEntryError": "ଏଣ୍ଟ୍ରି ସଙ୍କଳନ କରିବାରେ ତ୍ରୁଟି '{entry}': {error}",
+  "@pkgBuildCompileEntryError": {
+    "description": "Error al compilar el punto de entrada del plugin a AST",
+    "placeholders": {
+      "entry": {},
+      "error": {}
+    }
+  },
+  "pkgBuildSymbolsError": "ପ୍ରତୀକ ସୂଚକାଙ୍କ ସୃଷ୍ଟି କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@pkgBuildSymbolsError": {
+    "description": "Error al construir el índice de símbolos para IntelliSense",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCreateArchiveError": "JP v2 ସୃଷ୍ଟି କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@pkgBuildCreateArchiveError": {
+    "description": "Error al comprimir y estructurar el paquete JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildReadFilesError": "ପ୍ୟାକେଜ ଫାଇଲଗୁଡ଼ିକୁ ପ reading ଼ିବାରେ ତ୍ରୁଟି: {error}",
+  "@pkgBuildReadFilesError": {
+    "description": "Error al escanear los archivos que conformarán el paquete JP",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildPrepareSignatureError": "ପ୍ଲଗଇନ ଦସ୍ତଖତ ପ୍ରସ୍ତୁତ କରିବାରେ ତ୍ରୁଟି: {error}",
+  "@pkgBuildPrepareSignatureError": {
+    "description": "Error al cargar o generar la clave de firma Ed25519 del plugin",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildWriteArchiveError": "ସଂକଳିତ ଫାଇଲ ପ୍ୟାକେଜ୍ ଲେଖିବାରେ ତ୍ରୁଟି: {error}",
+  "@pkgBuildWriteArchiveError": {
+    "description": "Error de E/S al guardar el archivo compilado .jp en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildAuthorKey": "[ପ୍ୟାକେଜ୍ ନିର୍ମାଣ] ଲେଖକ ଚାବି: {path} (JP ରେ ଅନ୍ତର୍ଭୂକ୍ତ ନୁହେଁ)",
+  "@pkgBuildAuthorKey": {
+    "description": "Información sobre la ubicación de la clave privada de firma del autor",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectHeader": "JP v2 {name} {version}",
+  "@pkgInspectHeader": {
+    "description": "Encabezado con nombre y versión del paquete inspeccionado",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pkgInspectReadError": "JP ଫାଇଲ ପ reading ିବାରେ ତ୍ରୁଟି: {error}",
+  "@pkgInspectReadError": {
+    "description": "Error al abrir o leer el archivo .jp para inspección",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectInvalidError": "ଅବ val ଧ JP v2: {error} |",
+  "@pkgInspectInvalidError": {
+    "description": "Error cuando el archivo .jp no tiene una estructura válida JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectSignatureVerified": "ଦସ୍ତଖତ: {algorithm} ({key}) ଯାଞ୍ଚ ହୋଇଛି |",
+  "@pkgInspectSignatureVerified": {
+    "description": "Detalle de firma criptográfica válida en el paquete",
+    "placeholders": {
+      "algorithm": {},
+      "key": {}
+    }
+  },
+  "pkgInspectBytecodeInfo": "ବାଇଟେକୋଡ୍: {path} ({bytes} ବାଇଟ୍)",
+  "@pkgInspectBytecodeInfo": {
+    "description": "Detalle del archivo de bytecode principal incrustado",
+    "placeholders": {
+      "path": {},
+      "bytes": {}
+    }
+  },
+  "pkgInspectPayloadsNone": "ଦେଶୀ ପେଲୋଡ୍: କିଛି ନୁହେଁ |",
+  "@pkgInspectPayloadsNone": {
+    "description": "Indicador de que el paquete es puro bytecode sin binarios nativos externos"
+  },
+  "pkgInspectSignatureAbsent": "ଦସ୍ତଖତ: ଅନୁପସ୍ଥିତ; ଚାଲିବା ସମୟ ଏହି ପ୍ୟାକେଟକୁ ପ୍ରତ୍ୟାଖ୍ୟାନ କରିବ |",
+  "@pkgInspectSignatureAbsent": {
+    "description": "Advertencia de seguridad cuando un paquete no contiene firma digital"
+  },
+  "pkgInspectIntelliSenseInfo": "ଇଣ୍ଟେଲିସେନ୍ସ: {path} ({classes} ଶ୍ରେଣୀ, {methods} ପଦ୍ଧତି, {functions} କାର୍ଯ୍ୟ)",
+  "@pkgInspectIntelliSenseInfo": {
+    "description": "Detalle del índice de símbolos de autocompletado y análisis",
+    "placeholders": {
+      "path": {},
+      "classes": {},
+      "methods": {},
+      "functions": {}
+    }
+  },
+  "pkgInspectAbiHeader": "ABI C v1 ଲାଇବ୍ରେରୀଗୁଡିକ:",
+  "@pkgInspectAbiHeader": {
+    "description": "Encabezado de sección de bibliotecas dinámicas C ABI"
+  },
+  "pkgInspectProtocol": "ପ୍ରୋଟୋକଲ୍: {protocol}",
+  "@pkgInspectProtocol": {
+    "description": "Protocolo de comunicación nativo declarado en el manifiesto",
+    "placeholders": {
+      "protocol": {}
+    }
+  },
+  "pkgInspectPayloadsHeader": "ଦେଶୀ ଦେୟ:",
+  "@pkgInspectPayloadsHeader": {
+    "description": "Encabezado de sección de binarios nativos por arquitectura"
+  },
+  "pkgInspectInternalFiles": "ଆଭ୍ୟନ୍ତରୀଣ ଫାଇଲଗୁଡିକ: {count} |",
+  "@pkgInspectInternalFiles": {
+    "description": "Total de archivos contenidos dentro del paquete .jp",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatNotCanonical": "[FORMAT ତ୍ରୁଟି] {path} ଜୋସ୍ କାନୋନିକାଲ୍ ଫର୍ମାଟ୍ ସହିତ ଅନୁପଯୁକ୍ତ |",
+  "@formatNotCanonical": {
+    "description": "Aviso cuando un archivo difiere del formato canónico en modo check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "formatAccessError": "ତ୍ରୁଟି: '{path}' ପ୍ରବେଶ କରିପାରିଲା ନାହିଁ: {error}",
+  "@formatAccessError": {
+    "description": "Error de acceso al archivo o directorio a formatear",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixAccessError": "ତ୍ରୁଟି: '{path}' ପ୍ରବେଶ କରିପାରିଲା ନାହିଁ: {error}",
+  "@fixAccessError": {
+    "description": "Error al acceder a la ruta a corregir",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatStdinError": "Stdin ପ reading ିବାରେ ତ୍ରୁଟି: {error} |",
+  "@formatStdinError": {
+    "description": "Error al leer código fuente desde la entrada estándar",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "formatFileError": "{path}: {error} ଫର୍ମାଟିଂରେ ତ୍ରୁଟି |",
+  "@formatFileError": {
+    "description": "Error durante el análisis y formateo del archivo fuente",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatDirError": "ତ୍ରୁଟି ପ୍ରକ୍ରିୟାକରଣ ଡିରେକ୍ଟୋରୀ {path}: {error}",
+  "@formatDirError": {
+    "description": "Error al recorrer el directorio durante el formateo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixDirError": "ତ୍ରୁଟି ପ୍ରକ୍ରିୟାକରଣ ଡିରେକ୍ଟୋରୀ {path}: {error}",
+  "@fixDirError": {
+    "description": "Error al escanear directorio en el comando fix",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatUnformattedFound": "[FORMAT ତ୍ରୁଟି] {count} ଅସଂଗଠିତ ଫାଇଲ୍ (ଗୁଡିକ) ମିଳିଲା:",
+  "@formatUnformattedFound": {
+    "description": "Resumen de archivos que requieren formateo en modo check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatRequireFormat": "[FORMAT] {count} ଫାଇଲ୍ (ଗୁଡିକ) ଫର୍ମାଟିଂ ଆବଶ୍ୟକ କରେ (ପ୍ରୟୋଗ କରିବାକୁ - ଲେଖନ୍ତୁ ବ୍ୟବହାର କରନ୍ତୁ):",
+  "@formatRequireFormat": {
+    "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatModifiedCount": "[FORMAT] {count} ସଂଶୋଧିତ ଏବଂ ଫର୍ମାଟ୍ ହୋଇଥିବା ଫାଇଲ୍ (ଗୁଡିକ) |",
+  "@formatModifiedCount": {
+    "description": "Conteo de archivos guardados exitosamente con nuevo formato",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "fixDryRunFile": "[FIX DRY-RUN] {path}: {count} ପ୍ରସ୍ତାବିତ ସଂଶୋଧନ (ଗୁଡିକ) |",
+  "@fixDryRunFile": {
+    "description": "Resumen en modo simulación para un archivo específico",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "formatAllFilesClean": "[FORMAT] ସମସ୍ତ .joss ଫାଇଲଗୁଡିକ ସଠିକ୍ ଭାବରେ ଫର୍ମାଟ୍ ହୋଇଛି |",
+  "@formatAllFilesClean": {
+    "description": "Confirmación de que todo el proyecto cumple el formato canónico"
+  },
+  "fixFileError": "{path}: {error} ରେ ଫିକ୍ସ ପ୍ରୟୋଗ କରିବାରେ ତ୍ରୁଟି |",
+  "@fixFileError": {
+    "description": "Error al aplicar arreglos automáticos a un archivo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixAppliedFile": "[FIX ଠିକ ଅଛି] {path}: {count} ଫିକ୍ସ (ଗୁଡିକ) ସଫଳତାର ସହିତ ପ୍ରୟୋଗ ହେଲା |",
+  "@fixAppliedFile": {
+    "description": "Confirmación de correcciones aplicadas a un archivo",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "fixAppliedItem": "[FIX ପ୍ରୟୋଗ] {file} ({count} ସଂଶୋଧନ)",
+  "@fixAppliedItem": {
+    "description": "Línea de resumen de correcciones guardadas para un archivo",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixDryRunItem": "[FIX DRY-RUN] {file} ({count} ସଂଶୋଧନ)",
+  "@fixDryRunItem": {
+    "description": "Línea de resumen de simulación para un archivo dentro del directorio",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixDryRunTotal": "[FIX DRY-RUN] ସମୁଦାୟ: {files} ଫାଇଲ୍ (ଗୁଡିକ) {fixes} ଫିକ୍ସ (ଏସ୍) ସହିତ ଆବେଦନ କରିବାକୁ ପ୍ରସ୍ତୁତ |",
+  "@fixDryRunTotal": {
+    "description": "Totales generales de simulación del comando fix",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "fixAppliedTotal": "[FIX ଠିକ ଅଛି] ସମୁଦାୟ: {files} ଫାଇଲ୍ (ଗୁଡିକ) {fixes} ଫିକ୍ସ (ଏସ୍) ସହିତ ଅଦ୍ୟତନ ହୋଇଛି |",
+  "@fixAppliedTotal": {
+    "description": "Totales generales de correcciones aplicadas con éxito",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "checkLintAnalysisError": "[ତ୍ରୁଟି ଯାଞ୍ଚ କରନ୍ତୁ] ଲିନଟ ​​ପାର୍ସିଂ ବିଫଳ ହେଲା: {error}",
+  "@checkLintAnalysisError": {
+    "description": "Error crítico al ejecutar el linter en check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatScanError": "[CHECK] ତ୍ରୁଟି ସ୍କାନିଂ ଫର୍ମାଟ୍: {error}",
+  "@checkFormatScanError": {
+    "description": "Error al verificar formato de código en comando check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatWarning": "[ଚେତାବନୀ ଯାଞ୍ଚ କରନ୍ତୁ] {count} ଫାଇଲ (ଗୁଡିକ) କାନୋନିକାଲ୍ ଫର୍ମାଟ୍ ('joss ଫର୍ମାଟ୍ - ରାଇଟ୍' ଏକଜେକ୍ୟୁଟ୍ କରନ୍ତୁ):",
+  "@checkFormatWarning": {
+    "description": "Aviso de archivos mal formateados durante check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "checkDiagnosticsSummary": "[DIAGNOSTIC ଯାଞ୍ଚ] {errors} ତ୍ରୁଟି (ଗୁଡିକ), {warnings} ଚେତାବନୀ (ଗୁଡିକ):",
+  "@checkDiagnosticsSummary": {
+    "description": "Conteo consolidado de diagnósticos semánticos encontrados",
+    "placeholders": {
+      "errors": {},
+      "warnings": {}
+    }
+  },
+  "programRunningMain": "[ପ୍ରୋଗ୍ରାମ୍] main.joss ଚାଲୁଛି ...",
+  "@programRunningMain": {
+    "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
+  },
+  "checkSuggestionLabel": "ପରାମର୍ଶ: {suggestion} |",
+  "@checkSuggestionLabel": {
+    "description": "Etiqueta para recomendaciones de reparación semántica",
+    "placeholders": {
+      "suggestion": {}
+    }
+  },
+  "programNoMainStarting": "[ପ୍ରୋଗ୍ରାମ୍] main.joss ମିଳିଲା ନାହିଁ, ସିଧାସଳଖ ସର୍ଭର ଆରମ୍ଭ ...",
+  "@programNoMainStarting": {
+    "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
+  },
+  "programErrorsInMain": "[ପ୍ରୋଗ୍ରାମ୍] main.joss ରେ ତ୍ରୁଟି: {errors}",
+  "@programErrorsInMain": {
+    "description": "Errores de sintaxis detectados al iniciar modo GUI",
+    "placeholders": {
+      "errors": {}
+    }
+  },
+  "cliUnknownCommand": "ଅଜ୍ଞାତ ନିର୍ଦ୍ଦେଶ: {command} |",
+  "@cliUnknownCommand": {
+    "description": "Error cuando se ingresa un comando no reconocido en la CLI",
+    "placeholders": {
+      "command": {}
+    }
+  },
+  "cliDidYouMean": "ତୁମର ଅର୍ଥ ହେଲା 'joss make: ସ୍ଥାନାନ୍ତରଣ [ନାମ]'?",
+  "@cliDidYouMean": {
+    "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
+  },
+  "programWebViewError": "ୱେବ୍ ଭିଭ୍ 2 ଲୋଡ୍ ହୋଇପାରିଲା ନାହିଁ | ମାଇକ୍ରୋସଫ୍ଟ ଏଜ୍ ସଂସ୍ଥାପିତ ହୋଇଛି କି?",
+  "@programWebViewError": {
+    "description": "Error cuando el componente WebView2 de Windows no está disponible"
+  },
+  "cliTerminateByKey": "[ଜୋସ୍] ବ୍ୟବହାରକାରୀ ଅନୁରୋଧ ('q' କି) ଦ୍ୱାରା ନିଷ୍ପାଦନ ବନ୍ଦ କରିବା ...",
+  "@cliTerminateByKey": {
+    "description": "Mensaje al presionar la tecla rápida de salida en consola"
+  },
+  "cliAnalyzingProject": "ଜସ୍ ପ୍ରକଳ୍ପର ବିଶ୍ଳେଷଣ ({file}) ...",
+  "@cliAnalyzingProject": {
+    "description": "Mensaje de inicio de análisis semántico del proyecto",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliReadFileError": "ଫାଇଲ ପ reading ିବାରେ ତ୍ରୁଟି: {error}",
+  "@cliReadFileError": {
+    "description": "Error genérico de lectura de script en CLI",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "cliScriptNotFound": "ତ୍ରୁଟି: ଫାଇଲ '{file}' ମିଳିଲା ନାହିଁ |",
+  "@cliScriptNotFound": {
+    "description": "Error cuando un script Joss solicitado no existe en disco",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliRequireMainOrScript": "ସମସ୍ତ ପ୍ରୋଜେକ୍ଟରେ ନିଶ୍ଚିତ ଭାବରେ ଏକ 'main.joss' ପ୍ରବେଶ ପଏଣ୍ଟ ରହିବା କିମ୍ବା ଏକ ଫାଇଲ୍ ନିର୍ଦ୍ଦିଷ୍ଟ କରିବା ଆବଶ୍ୟକ: joss ବିଶ୍ଳେଷଣ [file.joss]",
+  "@cliRequireMainOrScript": {
+    "description": "Instrucciones de entrada para análisis semántico"
+  },
+  "cliParseErrorsTitle": "ପାର୍ସିଂ ତ୍ରୁଟି:",
+  "@cliParseErrorsTitle": {
+    "description": "Encabezado para lista de errores sintácticos de parseo"
   }
 }

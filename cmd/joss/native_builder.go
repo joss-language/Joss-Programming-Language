@@ -57,27 +57,27 @@ func buildNative(targetOS, targetArch string, enableGUI bool) {
 	buildDir := "build"
 	os.RemoveAll(buildDir)
 	if err := os.MkdirAll(filepath.Join(buildDir, "Storage"), 0755); err != nil {
-		fmt.Printf("Error creando directorio build: %v\n", err)
+		fmt.Println(i18n.Tr("nativeBuildDirError", i18n.M{"error": err.Error()}))
 		os.Exit(1)
 	}
 
 	fmt.Println(i18n.Tr("nativeBuildPackagingAssets"))
 	encryptedAssets, buildKey, err := collectAndEncryptAssets(enableGUI)
 	if err != nil {
-		fmt.Printf("Error procesando assets del proyecto: %v\n", err)
+		fmt.Println(i18n.Tr("nativeBuildAssetsError", i18n.M{"error": err.Error()}))
 		os.Exit(1)
 	}
 
 	fmt.Println(i18n.Tr("nativeBuildCompilingRunner"))
 	runnerBytes, err := compileRunnerBinary(tOS, tArch, enableGUI)
 	if err != nil {
-		fmt.Printf("Error compilando runner nativo: %v\n", err)
+		fmt.Println(i18n.Tr("nativeBuildRunnerError", i18n.M{"error": err.Error()}))
 		os.Exit(1)
 	}
 
 	outPath, err := assembleFinalExecutable(buildDir, tOS, runnerBytes, encryptedAssets, buildKey)
 	if err != nil {
-		fmt.Printf("Error ensamblando ejecutable final: %v\n", err)
+		fmt.Println(i18n.Tr("nativeBuildAssembleError", i18n.M{"error": err.Error()}))
 		os.Exit(1)
 	}
 
@@ -142,7 +142,7 @@ func collectAndEncryptAssets(enableGUI bool) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	fmt.Printf("⚡ Pre-compilados %d archivos Joss a bytecode nativo.\n", compiledCount)
+	fmt.Printf("⚡ %s\n", i18n.Tr("nativeBuildPrecompiledFiles", i18n.M{"count": compiledCount}))
 	encryptProjectEnvironment(files, enableGUI)
 
 	var buf bytes.Buffer
@@ -336,7 +336,7 @@ func copyDatabaseFiles(buildDir string) {
 		if _, err := os.Stat(sqliteWalFile); err == nil {
 			copyFile(sqliteWalFile, filepath.Join(buildDir, "Storage", sqliteWalFile))
 		}
-		fmt.Println("🗄️  Base de datos copiada a build/Storage/")
+		fmt.Printf("🗄️  %s\n", i18n.Tr("nativeBuildDbCopied"))
 	}
 }
 

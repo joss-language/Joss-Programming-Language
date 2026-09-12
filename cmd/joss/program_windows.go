@@ -11,6 +11,7 @@ import (
 
 	"github.com/jchv/go-webview2"
 	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/server"
 )
@@ -37,19 +38,19 @@ func launchProgramRuntime() {
 
 	data, err := readMainJossData()
 	if err != nil {
-		fmt.Println("[Program] main.joss no encontrado, iniciando servidor directamente...")
+		fmt.Println(i18n.Tr("programNoMainStarting"))
 		server.Start(nil)
 		return
 	}
 
-	fmt.Println("[Program] Ejecutando main.joss...")
+	fmt.Println(i18n.Tr("programRunningMain"))
 	l := parser.NewLexer(string(data))
 	p := parser.NewParser(l)
 	program := p.ParseProgram()
 	if len(p.Errors()) == 0 {
 		r.Execute(program)
 	} else {
-		fmt.Println("[Program] Errores en main.joss:", p.Errors())
+		fmt.Println(i18n.Tr("programErrorsInMain", i18n.M{"errors": fmt.Sprintf("%v", p.Errors())}))
 	}
 }
 
@@ -71,7 +72,7 @@ func readMainJossData() ([]byte, error) {
 func launchGUIWindow(host string) {
 	w := webview2.New(true)
 	if w == nil {
-		log.Println("No se pudo cargar WebView2. ¿Está Microsoft Edge instalado?")
+		log.Println(i18n.Tr("programWebViewError"))
 		return
 	}
 	defer w.Destroy()

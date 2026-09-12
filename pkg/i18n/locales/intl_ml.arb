@@ -1947,5 +1947,553 @@
     "placeholders": {
       "error": {}
     }
+  },
+  "updaterPrepareRequestError": "അഭ്യർത്ഥന തയ്യാറാക്കുന്നതിൽ പിശക്: {error}",
+  "@updaterPrepareRequestError": {
+    "description": "Error al preparar la solicitud HTTP de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterGitHubConnectError": "GitHub കണക്ഷൻ പിശക്: {error} (നിങ്ങളുടെ ഇന്റർനെറ്റ് കണക്ഷൻ പരിശോധിക്കുക)",
+  "@updaterGitHubConnectError": {
+    "description": "Error de conexión al consultar releases en GitHub",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterSelectedRelease": "തിരഞ്ഞെടുത്ത റിലീസ്: {name} ({tag})",
+  "@updaterSelectedRelease": {
+    "description": "Mensaje informativo con el release seleccionado",
+    "placeholders": {
+      "name": {},
+      "tag": {}
+    }
+  },
+  "updaterGitHubStatusError": "GitHub-ൽ നിന്ന് റിലീസുകൾ ലഭിക്കുന്നതിൽ പിശക് (സ്റ്റാറ്റസ് {status})",
+  "@updaterGitHubStatusError": {
+    "description": "Error de código HTTP devuelto por GitHub Releases",
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "updaterDownloadingGeneral": "പൊതു സംഭരണിയിൽ നിന്ന് അപ്ഡേറ്റ് ഡൗൺലോഡ് ചെയ്യുന്നു...",
+  "@updaterDownloadingGeneral": {
+    "description": "Mensaje de descarga de binario general de respaldo"
+  },
+  "updaterNoSpecificBinary": "മുന്നറിയിപ്പ്: {os}/{arch} എന്നതിനായി പ്രത്യേക സമാഹരിച്ച പാക്കേജുകളൊന്നും {tag} പതിപ്പിൽ കണ്ടെത്തിയില്ല.",
+  "@updaterNoSpecificBinary": {
+    "description": "Advertencia cuando no hay binario exacto para la arquitectura actual",
+    "placeholders": {
+      "os": {},
+      "arch": {},
+      "tag": {}
+    }
+  },
+  "updaterDownloadError": "അപ്‌ഡേറ്റ് ഡൗൺലോഡ് ചെയ്യുന്നതിൽ പിശക്: {error}",
+  "@updaterDownloadError": {
+    "description": "Error al descargar el archivo de actualización",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterTempDirError": "താൽക്കാലിക ഡയറക്ടറി സൃഷ്ടിക്കുന്നതിൽ പിശക്: {error}",
+  "@updaterTempDirError": {
+    "description": "Error al crear carpeta temporal de descarga",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterApplyError": "ബൈനറി അപ്ഡേറ്റ് പ്രയോഗിക്കുന്നതിൽ പിശക്: {error}",
+  "@updaterApplyError": {
+    "description": "Error al reemplazar el ejecutable del sistema",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "updaterCurrentExeError": "നിലവിലുള്ള എക്സിക്യൂട്ടബിളിൻ്റെ പാത നേടുന്നതിൽ പിശക്: {error}",
+  "@updaterCurrentExeError": {
+    "description": "Error al determinar la ruta del binario en ejecución",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildAssetsError": "പ്രോജക്റ്റ് അസറ്റുകൾ പ്രോസസ്സ് ചെയ്യുന്നതിൽ പിശക്: {error}",
+  "@nativeBuildAssetsError": {
+    "description": "Error al empaquetar y cifrar assets del proyecto nativo",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildDirError": "ബിൽഡ് ഡയറക്‌ടറി സൃഷ്‌ടിക്കുന്നതിൽ പിശക്: {error}",
+  "@nativeBuildDirError": {
+    "description": "Error al crear el directorio de compilación nativa",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildCreateDirError": "ബിൽഡ് ഡയറക്‌ടറി സൃഷ്‌ടിക്കുന്നതിൽ പിശക്: {error}",
+  "@buildCreateDirError": {
+    "description": "Error al inicializar directorio de salida build",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildRunnerError": "നേറ്റീവ് റണ്ണർ കംപൈൽ ചെയ്യുന്നതിൽ പിശക്: {error}",
+  "@nativeBuildRunnerError": {
+    "description": "Error al compilar el ejecutable runner de Go",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "nativeBuildPrecompiledFiles": "നേറ്റീവ് ബൈറ്റ്കോഡിലേക്ക് {count} ജോസ് ഫയലുകൾ മുൻകൂട്ടി സമാഹരിച്ചു.",
+  "@nativeBuildPrecompiledFiles": {
+    "description": "Conteo de archivos .joss convertidos a bytecode",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "nativeBuildDbCopied": "ബിൽഡ്/സ്റ്റോറേജ്/ എന്നതിലേക്ക് ഡാറ്റാബേസ് പകർത്തി",
+  "@nativeBuildDbCopied": {
+    "description": "Confirmación de copia de base de datos SQLite en build nativo"
+  },
+  "nativeBuildAssembleError": "ഫൈനൽ എക്സിക്യൂട്ടബിൾ കൂട്ടിച്ചേർക്കുന്നതിൽ പിശക്: {error}",
+  "@nativeBuildAssembleError": {
+    "description": "Error al ensamblar el binario nativo final con assets incrustados",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildNginxPortError": "nginx_port.conf സൃഷ്ടിക്കുന്നതിൽ പിശക്: {error}",
+  "@buildNginxPortError": {
+    "description": "Error al generar archivo de configuración de puerto Nginx",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildSaltError": "ഉപ്പ് ഉണ്ടാക്കുന്നതിൽ പിശക്: {error}",
+  "@buildSaltError": {
+    "description": "Error al generar la sal criptográfica para cifrar el entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildReadEnvError": "വായിക്കുന്നതിൽ പിശക് {path}: {error}",
+  "@buildReadEnvError": {
+    "description": "Error al leer el archivo de entorno antes de cifrarlo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "buildEnvNotFound": "പിശക്: എൻക്രിപ്റ്റ് ചെയ്യാൻ എൻവയോൺമെൻ്റ് ഫയലൊന്നും ('env.joss' അല്ലെങ്കിൽ '.env') കണ്ടെത്തിയില്ല.",
+  "@buildEnvNotFound": {
+    "description": "Error cuando falta el archivo de entorno en el proyecto a compilar"
+  },
+  "buildEncryptEnvError": "പരിസ്ഥിതി എൻക്രിപ്റ്റ് ചെയ്യുന്നതിൽ പിശക്: {error}",
+  "@buildEncryptEnvError": {
+    "description": "Error durante el cifrado AES del entorno",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "buildWriteEnvError": "എഴുതുന്നതിൽ പിശക് {path}: {error}",
+  "@buildWriteEnvError": {
+    "description": "Error al guardar el archivo de entorno cifrado",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "pkgBuildReadYamlError": "പിശക്: joss.yaml വായിക്കാൻ കഴിഞ്ഞില്ല: {error}",
+  "@pkgBuildReadYamlError": {
+    "description": "Error al leer el archivo de manifiesto joss.yaml",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildGoExtensionError": "പിശക്: type=go_extension ഒരു ഡൈനാമിക് ക്രോസ്-പ്ലാറ്റ്ഫോം പ്ലഗിൻ നിർമ്മിക്കുന്നില്ല.",
+  "@pkgBuildGoExtensionError": {
+    "description": "Error al intentar compilar una extensión Go obsoleta como plugin dinámico"
+  },
+  "pkgBuildGoExtensionHint": "തരം ഉപയോഗിക്കുക: joss, declare entry.main (src/plugin.joss-ലേക്കുള്ള ഡിഫോൾട്ടുകൾ).",
+  "@pkgBuildGoExtensionHint": {
+    "description": "Sugerencia para corregir la directiva entry de plugins Joss"
+  },
+  "pkgBuildEntryEscapes": "പിശക്: entry.main exits പാക്കേജ്: {entry}",
+  "@pkgBuildEntryEscapes": {
+    "description": "Error de seguridad cuando la ruta de entrada apunta fuera del paquete",
+    "placeholders": {
+      "entry": {}
+    }
+  },
+  "pkgBuildBytecodeError": "ബൈറ്റ്കോഡ് സൃഷ്ടിക്കുന്നതിൽ പിശക്: {error}",
+  "@pkgBuildBytecodeError": {
+    "description": "Error al serializar el AST compilado a bytecode JPBC",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCompileEntryError": "എൻട്രി കംപൈൽ ചെയ്യുന്നതിൽ പിശക്. പ്രധാന '{entry}': {error}",
+  "@pkgBuildCompileEntryError": {
+    "description": "Error al compilar el punto de entrada del plugin a AST",
+    "placeholders": {
+      "entry": {},
+      "error": {}
+    }
+  },
+  "pkgBuildSymbolsError": "ചിഹ്ന സൂചിക സൃഷ്ടിക്കുന്നതിൽ പിശക്: {error}",
+  "@pkgBuildSymbolsError": {
+    "description": "Error al construir el índice de símbolos para IntelliSense",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildCreateArchiveError": "JP v2 സൃഷ്ടിക്കുന്നതിൽ പിശക്: {error}",
+  "@pkgBuildCreateArchiveError": {
+    "description": "Error al comprimir y estructurar el paquete JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildReadFilesError": "പാക്കേജ് ഫയലുകൾ വായിക്കുന്നതിൽ പിശക്: {error}",
+  "@pkgBuildReadFilesError": {
+    "description": "Error al escanear los archivos que conformarán el paquete JP",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildPrepareSignatureError": "പ്ലഗിൻ ഒപ്പ് തയ്യാറാക്കുന്നതിൽ പിശക്: {error}",
+  "@pkgBuildPrepareSignatureError": {
+    "description": "Error al cargar o generar la clave de firma Ed25519 del plugin",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildWriteArchiveError": "സമാഹരിച്ച പാക്കേജ് ഫയൽ എഴുതുന്നതിൽ പിശക്: {error}",
+  "@pkgBuildWriteArchiveError": {
+    "description": "Error de E/S al guardar el archivo compilado .jp en disco",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgBuildAuthorKey": "[പാക്കേജ് ബിൽഡ്] രചയിതാവിൻ്റെ കീ: {path} (JP-യിൽ ഉൾപ്പെടുത്തിയിട്ടില്ല)",
+  "@pkgBuildAuthorKey": {
+    "description": "Información sobre la ubicación de la clave privada de firma del autor",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectHeader": "JP v2 {name} {version}",
+  "@pkgInspectHeader": {
+    "description": "Encabezado con nombre y versión del paquete inspeccionado",
+    "placeholders": {
+      "name": {},
+      "version": {}
+    }
+  },
+  "pkgInspectReadError": "JP ഫയൽ വായിക്കുന്നതിൽ പിശക്: {error}",
+  "@pkgInspectReadError": {
+    "description": "Error al abrir o leer el archivo .jp para inspección",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectInvalidError": "അസാധുവായ JP v2: {error}",
+  "@pkgInspectInvalidError": {
+    "description": "Error cuando el archivo .jp no tiene una estructura válida JP v2",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pkgInspectSignatureVerified": "ഒപ്പ്: {algorithm} ({key}) പരിശോധിച്ചു",
+  "@pkgInspectSignatureVerified": {
+    "description": "Detalle de firma criptográfica válida en el paquete",
+    "placeholders": {
+      "algorithm": {},
+      "key": {}
+    }
+  },
+  "pkgInspectBytecodeInfo": "ബൈറ്റ്കോഡ്: {path} ({bytes} ബൈറ്റുകൾ)",
+  "@pkgInspectBytecodeInfo": {
+    "description": "Detalle del archivo de bytecode principal incrustado",
+    "placeholders": {
+      "path": {},
+      "bytes": {}
+    }
+  },
+  "pkgInspectPayloadsNone": "പ്രാദേശിക പേലോഡുകൾ: ഒന്നുമില്ല",
+  "@pkgInspectPayloadsNone": {
+    "description": "Indicador de que el paquete es puro bytecode sin binarios nativos externos"
+  },
+  "pkgInspectSignatureAbsent": "ഒപ്പ്: ഇല്ല; റൺടൈം ഈ പാക്കറ്റ് നിരസിക്കും",
+  "@pkgInspectSignatureAbsent": {
+    "description": "Advertencia de seguridad cuando un paquete no contiene firma digital"
+  },
+  "pkgInspectIntelliSenseInfo": "ഇൻ്റലിസെൻസ്: {path} ({classes} ക്ലാസുകൾ, {methods} രീതികൾ, {functions} പ്രവർത്തനങ്ങൾ)",
+  "@pkgInspectIntelliSenseInfo": {
+    "description": "Detalle del índice de símbolos de autocompletado y análisis",
+    "placeholders": {
+      "path": {},
+      "classes": {},
+      "methods": {},
+      "functions": {}
+    }
+  },
+  "pkgInspectAbiHeader": "ABI C v1 ലൈബ്രറികൾ:",
+  "@pkgInspectAbiHeader": {
+    "description": "Encabezado de sección de bibliotecas dinámicas C ABI"
+  },
+  "pkgInspectProtocol": "പ്രോട്ടോക്കോൾ: {protocol}",
+  "@pkgInspectProtocol": {
+    "description": "Protocolo de comunicación nativo declarado en el manifiesto",
+    "placeholders": {
+      "protocol": {}
+    }
+  },
+  "pkgInspectPayloadsHeader": "പ്രാദേശിക പേലോഡുകൾ:",
+  "@pkgInspectPayloadsHeader": {
+    "description": "Encabezado de sección de binarios nativos por arquitectura"
+  },
+  "pkgInspectInternalFiles": "ആന്തരിക ഫയലുകൾ: {count}",
+  "@pkgInspectInternalFiles": {
+    "description": "Total de archivos contenidos dentro del paquete .jp",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatNotCanonical": "[ഫോർമാറ്റ് പിശക്] {path} ജോസ് കാനോനിക്കൽ ഫോർമാറ്റുമായി പൊരുത്തപ്പെടുന്നില്ല.",
+  "@formatNotCanonical": {
+    "description": "Aviso cuando un archivo difiere del formato canónico en modo check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "formatAccessError": "പിശക്: '{path}' ആക്സസ് ചെയ്യാൻ കഴിഞ്ഞില്ല: {error}",
+  "@formatAccessError": {
+    "description": "Error de acceso al archivo o directorio a formatear",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixAccessError": "പിശക്: '{path}' ആക്സസ് ചെയ്യാൻ കഴിഞ്ഞില്ല: {error}",
+  "@fixAccessError": {
+    "description": "Error al acceder a la ruta a corregir",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatStdinError": "സ്റ്റഡിൻ വായിക്കുന്നതിൽ പിശക്: {error}",
+  "@formatStdinError": {
+    "description": "Error al leer código fuente desde la entrada estándar",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "formatFileError": "ഫോർമാറ്റ് ചെയ്യുന്നതിൽ പിശക് {path}: {error}",
+  "@formatFileError": {
+    "description": "Error durante el análisis y formateo del archivo fuente",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatDirError": "ഡയറക്‌ടറി പ്രോസസ്സ് ചെയ്യുന്നതിൽ പിശക് {path}: {error}",
+  "@formatDirError": {
+    "description": "Error al recorrer el directorio durante el formateo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixDirError": "ഡയറക്‌ടറി പ്രോസസ്സ് ചെയ്യുന്നതിൽ പിശക് {path}: {error}",
+  "@fixDirError": {
+    "description": "Error al escanear directorio en el comando fix",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "formatUnformattedFound": "[ഫോർമാറ്റ് പിശക്] {count} ഫോർമാറ്റ് ചെയ്യാത്ത ഫയൽ(കൾ) കണ്ടെത്തി:",
+  "@formatUnformattedFound": {
+    "description": "Resumen de archivos que requieren formateo en modo check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatRequireFormat": "[ഫോർമാറ്റ്] {count} ഫയൽ(കൾ) ഫോർമാറ്റിംഗ് ആവശ്യമാണ് (പ്രയോഗിക്കാൻ --എഴുതുക ഉപയോഗിക്കുക):",
+  "@formatRequireFormat": {
+    "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "formatModifiedCount": "[ഫോർമാറ്റ്] {count} പരിഷ്കരിച്ചതും ഫോർമാറ്റ് ചെയ്തതുമായ ഫയൽ(കൾ).",
+  "@formatModifiedCount": {
+    "description": "Conteo de archivos guardados exitosamente con nuevo formato",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "fixDryRunFile": "[ഫിക്സ് ഡ്രൈ-റൺ] {path}: {count} നിർദ്ദേശിച്ച തിരുത്തൽ(കൾ).",
+  "@fixDryRunFile": {
+    "description": "Resumen en modo simulación para un archivo específico",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "formatAllFilesClean": "[ഫോർമാറ്റ്] എല്ലാ .joss ഫയലുകളും ശരിയായി ഫോർമാറ്റ് ചെയ്തിരിക്കുന്നു.",
+  "@formatAllFilesClean": {
+    "description": "Confirmación de que todo el proyecto cumple el formato canónico"
+  },
+  "fixFileError": "{path}: {error} എന്നതിൽ പരിഹാരങ്ങൾ പ്രയോഗിക്കുന്നതിൽ പിശക്",
+  "@fixFileError": {
+    "description": "Error al aplicar arreglos automáticos a un archivo",
+    "placeholders": {
+      "path": {},
+      "error": {}
+    }
+  },
+  "fixAppliedFile": "[ശരി ശരി] {path}: {count} പരിഹരിക്കൽ(കൾ) വിജയകരമായി പ്രയോഗിച്ചു.",
+  "@fixAppliedFile": {
+    "description": "Confirmación de correcciones aplicadas a un archivo",
+    "placeholders": {
+      "path": {},
+      "count": {}
+    }
+  },
+  "fixDryRunTotal": "[FIX DRY-RUN] ആകെ: {files} ഫയൽ(കൾ) {fixes} ഫിക്സ്(കൾ) പ്രയോഗിക്കാൻ തയ്യാറാണ്.",
+  "@fixDryRunTotal": {
+    "description": "Totales generales de simulación del comando fix",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "fixAppliedTotal": "[പരിഹരിക്കുക ശരി] ആകെ: {files} ഫയൽ(കൾ) {fixes} ഫിക്സ്(കൾ) ഉപയോഗിച്ച് അപ്ഡേറ്റ് ചെയ്തു.",
+  "@fixAppliedTotal": {
+    "description": "Totales generales de correcciones aplicadas con éxito",
+    "placeholders": {
+      "files": {},
+      "fixes": {}
+    }
+  },
+  "checkLintAnalysisError": "[പിശക് പരിശോധിക്കുക] ലിൻ്റ് പാഴ്‌സിംഗ് പരാജയപ്പെട്ടു: {error}",
+  "@checkLintAnalysisError": {
+    "description": "Error crítico al ejecutar el linter en check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatScanError": "[പരിശോധിക്കുക] ഫോർമാറ്റ് സ്കാൻ ചെയ്യുന്നതിൽ പിശക്: {error}",
+  "@checkFormatScanError": {
+    "description": "Error al verificar formato de código en comando check",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "checkFormatWarning": "[മുന്നറിയിപ്പ് പരിശോധിക്കുക] {count} ഫയൽ(കൾ) കാനോനിക്കൽ ഫോർമാറ്റുമായി പൊരുത്തപ്പെടുന്നില്ല ('ജോസ് ഫോർമാറ്റ് --റൈറ്റ്' എക്സിക്യൂട്ട് ചെയ്യുക):",
+  "@checkFormatWarning": {
+    "description": "Aviso de archivos mal formateados durante check",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "checkDiagnosticsSummary": "[ഡയഗ്നോസ്റ്റിക് പരിശോധന] {errors} പിശക്(കൾ), {warnings} മുന്നറിയിപ്പ്(കൾ):",
+  "@checkDiagnosticsSummary": {
+    "description": "Conteo consolidado de diagnósticos semánticos encontrados",
+    "placeholders": {
+      "errors": {},
+      "warnings": {}
+    }
+  },
+  "programRunningMain": "[പ്രോഗ്രാം] റൺ ചെയ്യുന്നു main.joss...",
+  "@programRunningMain": {
+    "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
+  },
+  "checkSuggestionLabel": "നിർദ്ദേശം: {suggestion}",
+  "@checkSuggestionLabel": {
+    "description": "Etiqueta para recomendaciones de reparación semántica",
+    "placeholders": {
+      "suggestion": {}
+    }
+  },
+  "programNoMainStarting": "[പ്രോഗ്രാം] main.joss കണ്ടെത്തിയില്ല, സെർവർ നേരിട്ട് ആരംഭിക്കുന്നു...",
+  "@programNoMainStarting": {
+    "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
+  },
+  "programErrorsInMain": "[പ്രോഗ്രാം] main.joss-ലെ പിശകുകൾ: {errors}",
+  "@programErrorsInMain": {
+    "description": "Errores de sintaxis detectados al iniciar modo GUI",
+    "placeholders": {
+      "errors": {}
+    }
+  },
+  "cliUnknownCommand": "അജ്ഞാത കമാൻഡ്: {command}",
+  "@cliUnknownCommand": {
+    "description": "Error cuando se ingresa un comando no reconocido en la CLI",
+    "placeholders": {
+      "command": {}
+    }
+  },
+  "cliDidYouMean": "'ജോസ് മേക്ക്: മൈഗ്രേഷൻ [പേര്]' എന്നാണോ നിങ്ങൾ ഉദ്ദേശിച്ചത്?",
+  "@cliDidYouMean": {
+    "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
+  },
+  "programWebViewError": "WebView2 ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല. Microsoft Edge ഇൻസ്റ്റാൾ ചെയ്തിട്ടുണ്ടോ?",
+  "@programWebViewError": {
+    "description": "Error cuando el componente WebView2 de Windows no está disponible"
+  },
+  "cliTerminateByKey": "[ജോസ്] ഉപയോക്തൃ അഭ്യർത്ഥന പ്രകാരം നിർവ്വഹണം അവസാനിപ്പിക്കുന്നു ('q' കീ)...",
+  "@cliTerminateByKey": {
+    "description": "Mensaje al presionar la tecla rápida de salida en consola"
+  },
+  "cliAnalyzingProject": "ജോസ് പ്രോജക്റ്റ് ({file}) വിശകലനം ചെയ്യുന്നു...",
+  "@cliAnalyzingProject": {
+    "description": "Mensaje de inicio de análisis semántico del proyecto",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliReadFileError": "ഫയൽ വായിക്കുന്നതിൽ പിശക്: {error}",
+  "@cliReadFileError": {
+    "description": "Error genérico de lectura de script en CLI",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "cliScriptNotFound": "പിശക്: '{file}' ഫയൽ കണ്ടെത്തിയില്ല.",
+  "@cliScriptNotFound": {
+    "description": "Error cuando un script Joss solicitado no existe en disco",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "cliRequireMainOrScript": "എല്ലാ പ്രോജക്റ്റുകൾക്കും ഒരു 'main.joss' എൻട്രി പോയിൻ്റ് ഉണ്ടായിരിക്കണം അല്ലെങ്കിൽ ഒരു ഫയൽ വ്യക്തമാക്കണം: ജോസ് വിശകലനം [file.joss]",
+  "@cliRequireMainOrScript": {
+    "description": "Instrucciones de entrada para análisis semántico"
+  },
+  "cliParseErrorsTitle": "പാഴ്സിംഗ് പിശകുകൾ:",
+  "@cliParseErrorsTitle": {
+    "description": "Encabezado para lista de errores sintácticos de parseo"
+  },
+  "fixAppliedItem": "[FIX APPLIED] {file} ({count} തിരുത്തലുകൾ)",
+  "@fixAppliedItem": {
+    "description": "Línea de resumen de correcciones guardadas para un archivo",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
+  },
+  "fixDryRunItem": "[FIX DRY-RUN] {file} ({count} തിരുത്തലുകൾ)",
+  "@fixDryRunItem": {
+    "description": "Línea de resumen de simulación para un archivo dentro del directorio",
+    "placeholders": {
+      "file": {},
+      "count": {}
+    }
   }
 }

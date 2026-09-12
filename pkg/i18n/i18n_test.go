@@ -94,6 +94,10 @@ func TestI18nConsistencyAcrossAllLocales(t *testing.T) {
 		"pluginTreeShaking", "pluginInspectTitle", "pluginSignatureValid",
 		"seedersExecError", "seederItem", "migrateExecError", "dbMigrationError",
 		"dbPrefixTablesRenamed", "storageOciInitError", "storageUploadError",
+		"updaterPrepareRequestError", "updaterSelectedRelease", "nativeBuildDirError",
+		"nativeBuildPrecompiledFiles", "buildCreateDirError", "pkgBuildEntryEscapes",
+		"pkgBuildAuthorKey", "pkgInspectHeader", "formatNotCanonical", "fixAppliedFile",
+		"checkDiagnosticsSummary", "programRunningMain", "cliUnknownCommand", "cliScriptNotFound",
 	}
 
 	esKeys := make(map[string]string)

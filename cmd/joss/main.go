@@ -41,7 +41,7 @@ func main() {
 							// Si se presiona 'q' o 'Q', salimos
 							if char == 'q' || char == 'Q' {
 								term.Restore(fd, state)
-								fmt.Println("\n[Joss] Terminando ejecución por petición del usuario (tecla 'q')...")
+								fmt.Println("\n" + i18n.Tr("cliTerminateByKey"))
 								os.Exit(0)
 							}
 							// Soportar Ctrl+C (ASCII 3) para interrupción estándar
@@ -61,7 +61,7 @@ func main() {
 						return
 					}
 					if strings.TrimSpace(text) == "q" {
-						fmt.Println("\n[Joss] Terminando ejecución por petición del usuario (tecla 'q')...")
+						fmt.Println("\n" + i18n.Tr("cliTerminateByKey"))
 						os.Exit(0)
 					}
 				}
@@ -319,9 +319,9 @@ func main() {
 		if tryDispatchPluginCommand(command, os.Args[2:]) {
 			return
 		}
-		fmt.Printf("Comando desconocido: %s\n", command)
+		fmt.Println(i18n.Tr("cliUnknownCommand", i18n.M{"command": command}))
 		if command == "make:miggrate" {
-			fmt.Println("¿Quisiste decir 'joss make:migration [Nombre]'?")
+			fmt.Println(i18n.Tr("cliDidYouMean"))
 		}
 		printHelp()
 		os.Exit(1)
@@ -330,14 +330,14 @@ func main() {
 
 func analyzeScript(filename string) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		fmt.Printf("Error: No se encontró el archivo '%s'.\n", filename)
+		fmt.Println(i18n.Tr("cliScriptNotFound", i18n.M{"file": filename}))
 		if filename == "main.joss" {
-			fmt.Println("Todos los proyectos deben tener un punto de entrada 'main.joss' o especificar un archivo: joss analyze [archivo.joss]")
+			fmt.Println(i18n.Tr("cliRequireMainOrScript"))
 		}
 		os.Exit(1)
 	}
 
-	fmt.Printf("🔍 Analizando proyecto Joss (%s)...\n", filename)
+	fmt.Printf("🔍 %s\n", i18n.Tr("cliAnalyzingProject", i18n.M{"file": filename}))
 
 	units, parseDiagnostics := semanticanalyzer.LoadProject(filename, "app")
 	if len(parseDiagnostics) > 0 {
@@ -357,7 +357,7 @@ func analyzeScript(filename string) {
 func executeScript(filename string) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		fmt.Printf("Error leyendo archivo: %v\n", err)
+		fmt.Println(i18n.Tr("cliReadFileError", i18n.M{"error": err.Error()}))
 		return
 	}
 
@@ -366,7 +366,7 @@ func executeScript(filename string) {
 	program := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {
-		fmt.Println("Errores de parseo:")
+		fmt.Println(i18n.Tr("cliParseErrorsTitle"))
 		for _, msg := range p.Errors() {
 			fmt.Printf("\t%s\n", msg)
 		}

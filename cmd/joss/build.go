@@ -52,7 +52,7 @@ func buildWeb() {
 	fmt.Println(i18n.T("buildCreatingDir", map[string]any{"dir": buildDir}))
 	os.RemoveAll(buildDir)
 	if err := os.MkdirAll(buildDir, 0755); err != nil {
-		fmt.Printf("Error creando directorio build: %v\n", err)
+		fmt.Println(i18n.Tr("buildCreateDirError", i18n.M{"error": err.Error()}))
 		return
 	}
 
@@ -141,7 +141,7 @@ func buildWeb() {
 
 	nginxContent := fmt.Sprintf("set $joss_port %s;", port)
 	if err := os.WriteFile(filepath.Join(buildDir, "nginx_port.conf"), []byte(nginxContent), 0644); err != nil {
-		fmt.Printf("Error creando nginx_port.conf: %v\n", err)
+		fmt.Println(i18n.Tr("buildNginxPortError", i18n.M{"error": err.Error()}))
 	} else {
 		fmt.Println(i18n.T("buildNginxPortCreated", map[string]any{"port": port}))
 	}
@@ -221,20 +221,20 @@ func copyDir(src string, dst string) error {
 func encryptEnvTo(destPath string) {
 	envPath := GetEnvFile()
 	if _, err := os.Stat(envPath); os.IsNotExist(err) {
-		fmt.Printf("Error: No se encontró archivo de entorno ('env.joss' o '.env') para encriptar.\n")
+		fmt.Println(i18n.Tr("buildEnvNotFound"))
 		return
 	}
 
 	data, err := os.ReadFile(envPath)
 	if err != nil {
-		fmt.Printf("Error leyendo %s: %v\n", envPath, err)
+		fmt.Println(i18n.Tr("buildReadEnvError", i18n.M{"path": envPath, "error": err.Error()}))
 		return
 	}
 
 	// Generate a random salt
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
-		fmt.Printf("Error generando salt: %v\n", err)
+		fmt.Println(i18n.Tr("buildSaltError", i18n.M{"error": err.Error()}))
 		return
 	}
 
@@ -258,7 +258,7 @@ func encryptEnvTo(destPath string) {
 
 	encrypted, err := crypto.EncryptAES(data, key)
 	if err != nil {
-		fmt.Printf("Error encriptando env: %v\n", err)
+		fmt.Println(i18n.Tr("buildEncryptEnvError", i18n.M{"error": err.Error()}))
 		return
 	}
 
@@ -267,7 +267,7 @@ func encryptEnvTo(destPath string) {
 
 	err = os.WriteFile(destPath, finalData, 0644)
 	if err != nil {
-		fmt.Printf("Error escribiendo %s: %v\n", destPath, err)
+		fmt.Println(i18n.Tr("buildWriteEnvError", i18n.M{"path": destPath, "error": err.Error()}))
 		return
 	}
 	fmt.Println(i18n.T("buildEnvEncryptedSaved", map[string]any{"path": destPath}))
@@ -323,13 +323,13 @@ func buildPackage(pkgPath string) {
 	}
 	manifestData, err := os.ReadFile(manifestPath)
 	if err != nil {
-		fmt.Printf("Error: No se pudo leer joss.yaml: %v\n", err)
+		fmt.Println(i18n.Tr("pkgBuildReadYamlError", i18n.M{"error": err.Error()}))
 		return
 	}
 	pluginType := packageManifestValue(string(manifestData), "type", "")
 	if strings.EqualFold(pluginType, "go_extension") {
-		fmt.Println("Error: type=go_extension no produce un plugin dinámico multiplataforma.")
-		fmt.Println("Use type: joss y declare entry.main (por defecto src/plugin.joss).")
+		fmt.Println(i18n.Tr("pkgBuildGoExtensionError"))
+		fmt.Println(i18n.Tr("pkgBuildGoExtensionHint"))
 		return
 	}
 	entry := packageManifestValue(string(manifestData), "entry", "main")
@@ -338,17 +338,17 @@ func buildPackage(pkgPath string) {
 	}
 	cleanEntry := filepath.Clean(filepath.FromSlash(entry))
 	if cleanEntry == ".." || filepath.IsAbs(cleanEntry) || strings.HasPrefix(cleanEntry, ".."+string(filepath.Separator)) {
-		fmt.Printf("Error: entry.main sale del paquete: %s\n", entry)
+		fmt.Println(i18n.Tr("pkgBuildEntryEscapes", i18n.M{"entry": entry}))
 		return
 	}
 	program, err := compilePluginProgram(pkgPath, filepath.Join(pkgPath, cleanEntry))
 	if err != nil {
-		fmt.Printf("Error compilando entry.main '%s': %v\n", entry, err)
+		fmt.Println(i18n.Tr("pkgBuildCompileEntryError", i18n.M{"entry": entry, "error": err.Error()}))
 		return
 	}
 	compiled, err := bytecode.Encode(program)
 	if err != nil {
-		fmt.Printf("Error generando bytecode: %v\n", err)
+		fmt.Println(i18n.Tr("pkgBuildBytecodeError", i18n.M{"error": err.Error()}))
 		return
 	}
 
@@ -356,7 +356,7 @@ func buildPackage(pkgPath string) {
 	versionValue := packageManifestValue(string(manifestData), "version", "")
 	symbolData, err := json.MarshalIndent(pluginpkg.BuildSymbolIndex(program, name, versionValue), "", "  ")
 	if err != nil {
-		fmt.Printf("Error generando indice de simbolos: %v\n", err)
+		fmt.Println(i18n.Tr("pkgBuildSymbolsError", i18n.M{"error": err.Error()}))
 		return
 	}
 
@@ -433,7 +433,7 @@ func buildPackage(pkgPath string) {
 	})
 
 	if err != nil {
-		fmt.Printf("Error leyendo archivos del paquete: %v\n", err)
+		fmt.Println(i18n.Tr("pkgBuildReadFilesError", i18n.M{"error": err.Error()}))
 		return
 	}
 
@@ -449,12 +449,12 @@ func buildPackage(pkgPath string) {
 	}
 	signingKey, signingKeyPath, err := pluginpkg.LoadOrCreateSigningKey(name)
 	if err != nil {
-		fmt.Printf("Error preparando firma del plugin: %v\n", err)
+		fmt.Println(i18n.Tr("pkgBuildPrepareSignatureError", i18n.M{"error": err.Error()}))
 		return
 	}
 	archive, err := pluginpkg.BuildSigned(metadata, files, signingKey)
 	if err != nil {
-		fmt.Printf("Error creando JP v2: %v\n", err)
+		fmt.Println(i18n.Tr("pkgBuildCreateArchiveError", i18n.M{"error": err.Error()}))
 		return
 	}
 
@@ -465,12 +465,12 @@ func buildPackage(pkgPath string) {
 	outPath := filepath.Join(pkgPath, pkgName+".jp")
 
 	if err := os.WriteFile(outPath, archive, 0644); err != nil {
-		fmt.Printf("Error al escribir el archivo compilado del paquete: %v\n", err)
+		fmt.Println(i18n.Tr("pkgBuildWriteArchiveError", i18n.M{"error": err.Error()}))
 		return
 	}
 
 	fmt.Println(i18n.T("pkgBuildSuccess", map[string]any{"path": outPath}))
-	fmt.Printf("[Package Build] Llave de autor: %s (no se incluye en el JP)\n", signingKeyPath)
+	fmt.Println(i18n.Tr("pkgBuildAuthorKey", i18n.M{"path": signingKeyPath}))
 }
 
 func isPluginSourceExtension(ext string) bool {
@@ -514,7 +514,7 @@ func packageManifestValue(content, section, key string) string {
 func inspectPackage(filename string) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		fmt.Printf("Error leyendo JP: %v\n", err)
+		fmt.Println(i18n.Tr("pkgInspectReadError", i18n.M{"error": err.Error()}))
 		return
 	}
 	if !pluginpkg.IsV2(data) {
@@ -523,16 +523,16 @@ func inspectPackage(filename string) {
 	}
 	archive, err := pluginpkg.Read(data)
 	if err != nil {
-		fmt.Printf("JP v2 inválido: %v\n", err)
+		fmt.Println(i18n.Tr("pkgInspectInvalidError", i18n.M{"error": err.Error()}))
 		return
 	}
-	fmt.Printf("JP v2 %s %s\n", archive.Metadata.Name, archive.Metadata.Version)
+	fmt.Println(i18n.Tr("pkgInspectHeader", i18n.M{"name": archive.Metadata.Name, "version": archive.Metadata.Version}))
 	if archive.Metadata.Signature != "" {
-		fmt.Printf("Firma: %s (%s) verificada\n", archive.Metadata.SignatureAlgorithm, archive.Metadata.KeyID)
+		fmt.Println(i18n.Tr("pkgInspectSignatureVerified", i18n.M{"algorithm": archive.Metadata.SignatureAlgorithm, "key": archive.Metadata.KeyID}))
 	} else {
-		fmt.Println("Firma: ausente; el runtime rechazará este paquete")
+		fmt.Println(i18n.Tr("pkgInspectSignatureAbsent"))
 	}
-	fmt.Printf("Bytecode: %s (%d bytes)\n", archive.Metadata.Bytecode, len(archive.Files[archive.Metadata.Bytecode]))
+	fmt.Println(i18n.Tr("pkgInspectBytecodeInfo", i18n.M{"path": archive.Metadata.Bytecode, "bytes": len(archive.Files[archive.Metadata.Bytecode])}))
 	if archive.Metadata.Symbols != "" {
 		var symbols pluginpkg.SymbolIndex
 		if err := json.Unmarshal(archive.Files[archive.Metadata.Symbols], &symbols); err == nil {
@@ -540,27 +540,32 @@ func inspectPackage(filename string) {
 			for _, class := range symbols.Classes {
 				methodCount += len(class.Methods)
 			}
-			fmt.Printf("IntelliSense: %s (%d clases, %d metodos, %d funciones)\n", archive.Metadata.Symbols, len(symbols.Classes), methodCount, len(symbols.Functions))
+			fmt.Println(i18n.Tr("pkgInspectIntelliSenseInfo", i18n.M{
+				"path":      archive.Metadata.Symbols,
+				"classes":   len(symbols.Classes),
+				"methods":   methodCount,
+				"functions": len(symbols.Functions),
+			}))
 		}
 	}
 	if len(archive.Metadata.Native) == 0 && len(archive.Metadata.ABI) == 0 {
-		fmt.Println("Payloads nativos: ninguno")
+		fmt.Println(i18n.Tr("pkgInspectPayloadsNone"))
 	} else if len(archive.Metadata.Native) > 0 {
-		fmt.Printf("Protocolo: %s\n", archive.Metadata.Protocol)
-		fmt.Println("Payloads nativos:")
+		fmt.Println(i18n.Tr("pkgInspectProtocol", i18n.M{"protocol": archive.Metadata.Protocol}))
+		fmt.Println(i18n.Tr("pkgInspectPayloadsHeader"))
 		for _, target := range sortedManifestKeys(archive.Metadata.Native) {
 			asset := archive.Metadata.Native[target]
 			fmt.Printf("  %s -> %s (%d bytes)\n", target, asset, len(archive.Files[asset]))
 		}
 	}
 	if len(archive.Metadata.ABI) > 0 {
-		fmt.Println("Bibliotecas ABI C v1:")
+		fmt.Println(i18n.Tr("pkgInspectAbiHeader"))
 		for _, target := range sortedManifestKeys(archive.Metadata.ABI) {
 			asset := archive.Metadata.ABI[target]
 			fmt.Printf("  %s -> %s (%d bytes)\n", target, asset, len(archive.Files[asset]))
 		}
 	}
-	fmt.Printf("Archivos internos: %d\n", len(archive.Files))
+	fmt.Println(i18n.Tr("pkgInspectInternalFiles", i18n.M{"count": len(archive.Files)}))
 }
 
 func sortedManifestKeys(values map[string]string) []string {

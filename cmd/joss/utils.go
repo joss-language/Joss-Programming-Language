@@ -101,29 +101,29 @@ func printHelp(topics ...string) {
 func printTopicHelp(cmd string) {
 	switch strings.ToLower(cmd) {
 	case "run":
-		fmt.Println("Uso: joss run <archivo.joss>")
+		fmt.Printf("%s joss run <archivo.joss>\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicRun"))
 		fmt.Println("\nEjemplos:")
 		fmt.Println("  joss run main.joss")
 		fmt.Println("  joss run script.joss")
 
 	case "repl":
-		fmt.Println("Uso: joss repl")
+		fmt.Printf("%s joss repl\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicRepl"))
 		fmt.Println("\nComandos interactivos:")
 		fmt.Printf("  exit, quit     %s\n", i18n.Tr("helpTopicReplExitHint"))
 		fmt.Printf("  Ctrl+C         %s\n", i18n.Tr("helpTopicReplCtrlCHint"))
 
 	case "server":
-		fmt.Println("Uso: joss server start")
+		fmt.Printf("%s joss server start\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicServer"))
 
 	case "program":
-		fmt.Println("Uso: joss program start")
+		fmt.Printf("%s joss program start\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicProgram"))
 
 	case "build":
-		fmt.Println("Uso: joss build [web|program|native|package] [opciones]")
+		fmt.Printf("%s joss build [web|program|native|package] [opciones]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicBuild"))
 		fmt.Println("\nModos:")
 		fmt.Printf("  web                            %s\n", i18n.Tr("helpTopicBuildModeWeb"))
@@ -136,14 +136,14 @@ func printTopicHelp(cmd string) {
 		fmt.Println("  joss build native linux arm64")
 
 	case "analyze":
-		fmt.Println("Uso: joss analyze [archivo.joss]")
+		fmt.Printf("%s joss analyze [archivo.joss]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicAnalyze"))
 		fmt.Println("\nEjemplos:")
 		fmt.Println("  joss analyze")
 		fmt.Println("  joss analyze main.joss")
 
 	case "format":
-		fmt.Println("Uso: joss format [ruta] [opciones]")
+		fmt.Printf("%s joss format [ruta] [opciones]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicFormat"))
 		fmt.Println("\nOpciones:")
 		fmt.Printf("  --write, -w    %s\n", i18n.Tr("helpTopicFormatOptWrite"))
@@ -154,7 +154,7 @@ func printTopicHelp(cmd string) {
 		fmt.Println("  joss format --check .")
 
 	case "lint":
-		fmt.Println("Uso: joss lint [ruta] [opciones]")
+		fmt.Printf("%s joss lint [ruta] [opciones]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicLint"))
 		fmt.Println("\nOpciones:")
 		fmt.Printf("  --json         %s\n", i18n.Tr("helpTopicLintOptJson"))
@@ -164,7 +164,7 @@ func printTopicHelp(cmd string) {
 		fmt.Println("  joss lint --json .")
 
 	case "fix":
-		fmt.Println("Uso: joss fix [ruta] [opciones]")
+		fmt.Printf("%s joss fix [ruta] [opciones]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicFix"))
 		fmt.Println("\nOpciones:")
 		fmt.Printf("  --dry-run, -d  %s\n", i18n.Tr("helpTopicFixOptDryRun"))
@@ -173,13 +173,13 @@ func printTopicHelp(cmd string) {
 		fmt.Println("  joss fix --dry-run .")
 
 	case "check":
-		fmt.Println("Uso: joss check [ruta]")
+		fmt.Printf("%s joss check [ruta]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicCheck"))
 		fmt.Println("\nEjemplos:")
 		fmt.Println("  joss check .")
 
 	case "test":
-		fmt.Println("Uso: joss test [ruta] [opciones]")
+		fmt.Printf("%s joss test [ruta] [opciones]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicTest"))
 		fmt.Println("\nOpciones:")
 		fmt.Printf("  --filter, -f   %s\n", i18n.Tr("helpTopicTestOptFilter"))
@@ -189,7 +189,7 @@ func printTopicHelp(cmd string) {
 		fmt.Println("  joss test --filter=login")
 
 	case "new":
-		fmt.Println("Uso: joss new [web|console|package|plugin] <ruta/nombre>")
+		fmt.Printf("%s joss new [web|console|package|plugin] <ruta/nombre>\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicNew"))
 		fmt.Println("\nTipos:")
 		fmt.Printf("  web       %s\n", i18n.Tr("helpTopicNewTypeWeb"))
@@ -198,66 +198,66 @@ func printTopicHelp(cmd string) {
 		fmt.Printf("  plugin    %s\n", i18n.Tr("helpTopicNewTypePlugin"))
 
 	case "make:controller", "controller":
-		fmt.Println("Uso: joss make:controller <Nombre>")
+		fmt.Printf("%s joss make:controller <Nombre>\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicMakeController"))
 		fmt.Println("\nEjemplo:")
 		fmt.Println("  joss make:controller UserController")
 
 	case "make:model", "model":
-		fmt.Println("Uso: joss make:model <Nombre>")
+		fmt.Printf("%s joss make:model <Nombre>\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicMakeModel"))
 		fmt.Println("\nEjemplo:")
 		fmt.Println("  joss make:model User")
 
 	case "make:view", "view":
-		fmt.Println("Uso: joss make:view <Ruta/Nombre>")
+		fmt.Printf("%s joss make:view <Ruta/Nombre>\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicMakeView"))
 		fmt.Println("\nEjemplo:")
 		fmt.Println("  joss make:view users/profile")
 
 	case "make:middleware", "middleware":
-		fmt.Println("Uso: joss make:middleware <Nombre>")
+		fmt.Printf("%s joss make:middleware <Nombre>\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicMakeMiddleware"))
 		fmt.Println("\nEjemplo:")
 		fmt.Println("  joss make:middleware AuthGuard")
 
 	case "make:mvc", "mvc":
-		fmt.Println("Uso: joss make:mvc <Nombre>")
+		fmt.Printf("%s joss make:mvc <Nombre>\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicMakeMvc"))
 		fmt.Println("\nEjemplo:")
 		fmt.Println("  joss make:mvc Product")
 
 	case "make:crud", "crud":
-		fmt.Println("Uso: joss make:crud <Tabla>")
+		fmt.Printf("%s joss make:crud <Tabla>\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicMakeCrud"))
 
 	case "remove:crud":
-		fmt.Println("Uso: joss remove:crud <Tabla>")
+		fmt.Printf("%s joss remove:crud <Tabla>\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicRemoveCrud"))
 		fmt.Println("\nEjemplo:")
 		fmt.Println("  joss remove:crud products")
 
 	case "make:migration", "migration":
-		fmt.Println("Uso: joss make:migration <Nombre>")
+		fmt.Printf("%s joss make:migration <Nombre>\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicMakeMigration"))
 		fmt.Println("\nEjemplos:")
 		fmt.Println("  joss make:migration create_users_table")
 		fmt.Println("  joss make:migration add_avatar_to_users")
 
 	case "migrate":
-		fmt.Println("Uso: joss migrate")
+		fmt.Printf("%s joss migrate\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicMigrate"))
 
 	case "migrate:fresh":
-		fmt.Println("Uso: joss migrate:fresh")
+		fmt.Printf("%s joss migrate:fresh\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicMigrateFresh"))
 
 	case "db:seed", "seed":
-		fmt.Println("Uso: joss db:seed")
+		fmt.Printf("%s joss db:seed\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicDbSeed"))
 
 	case "change", "db":
-		fmt.Println("Uso: joss change db [motor|migrate|prefix]")
+		fmt.Printf("%s joss change db [motor|migrate|prefix]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicChangeDb"))
 		fmt.Println("\nSubcomandos:")
 		fmt.Printf("  change db <motor>           %s\n", i18n.Tr("helpTopicChangeDbMotor"))
@@ -265,7 +265,7 @@ func printTopicHelp(cmd string) {
 		fmt.Printf("  change db migrate           %s\n", i18n.Tr("helpTopicChangeDbMigrate"))
 
 	case "userstorage", "storage":
-		fmt.Println("Uso: joss userstorage [local|oci|sync-oci|sync-local]")
+		fmt.Printf("%s joss userstorage [local|oci|sync-oci|sync-local]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicUserStorage"))
 		fmt.Println("\nOpciones:")
 		fmt.Printf("  local        %s\n", i18n.Tr("helpTopicUserStorageLocal"))
@@ -274,7 +274,7 @@ func printTopicHelp(cmd string) {
 		fmt.Printf("  sync-local   %s\n", i18n.Tr("helpTopicUserStorageSyncLocal"))
 
 	case "pub":
-		fmt.Println("Uso: joss pub <subcomando> [paquete]")
+		fmt.Printf("%s joss pub <subcomando> [paquete]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicPub"))
 		fmt.Println("\nSubcomandos:")
 		fmt.Printf("  add <paquete>      %s\n", i18n.Tr("helpTopicPubAdd"))
@@ -288,11 +288,11 @@ func printTopicHelp(cmd string) {
 		fmt.Printf("\n%s\n", i18n.Tr("helpTopicPlugin"))
 
 	case "package":
-		fmt.Println("Uso: joss package inspect <archivo.jp>")
+		fmt.Printf("%s joss package inspect <archivo.jp>\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicPackage"))
 
 	case "update":
-		fmt.Println("Uso: joss update [opciones]")
+		fmt.Printf("%s joss update [opciones]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicUpdate"))
 		fmt.Println("\nOpciones:")
 		fmt.Printf("  -f, --force    %s\n", i18n.Tr("helpTopicUpdateOptForce"))
@@ -300,11 +300,11 @@ func printTopicHelp(cmd string) {
 		fmt.Printf("  --stable       %s\n", i18n.Tr("helpTopicUpdateOptStable"))
 
 	case "version":
-		fmt.Println("Uso: joss version")
+		fmt.Printf("%s joss version\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicVersion"))
 
 	case "ai:activate", "ai":
-		fmt.Println("Uso: joss ai:activate")
+		fmt.Printf("%s joss ai:activate\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicAiActivate"))
 
 	default:

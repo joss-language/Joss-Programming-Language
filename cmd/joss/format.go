@@ -30,7 +30,7 @@ func handleFormatCommand(args []string) {
 	if targetPath == "-" {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error leyendo stdin: %v\n", err)
+			fmt.Fprintln(os.Stderr, i18n.Tr("formatStdinError", i18n.M{"error": err.Error()}))
 			os.Exit(1)
 		}
 		formatted, err := formatter.FormatSource(string(data))
@@ -49,19 +49,19 @@ func handleFormatCommand(args []string) {
 
 	info, err := os.Stat(targetPath)
 	if err != nil {
-		fmt.Printf("Error: No se pudo acceder a '%s': %v\n", targetPath, err)
+		fmt.Println(i18n.Tr("formatAccessError", i18n.M{"path": targetPath, "error": err.Error()}))
 		os.Exit(1)
 	}
 
 	if !info.IsDir() {
 		changed, err := formatter.FormatFile(targetPath, write || !check)
 		if err != nil {
-			fmt.Printf("Error formateando %s: %v\n", targetPath, err)
+			fmt.Println(i18n.Tr("formatFileError", i18n.M{"path": targetPath, "error": err.Error()}))
 			os.Exit(1)
 		}
 		if check {
 			if changed {
-				fmt.Printf("[FORMAT ERROR] %s no cumple con el formato canónico de Joss.\n", targetPath)
+				fmt.Println(i18n.Tr("formatNotCanonical", i18n.M{"path": targetPath}))
 				os.Exit(1)
 			}
 			fmt.Println(i18n.Tr("formatFileOk", map[string]interface{}{"file": targetPath}))
@@ -77,13 +77,13 @@ func handleFormatCommand(args []string) {
 
 	unformatted, err := formatter.FormatDirectory(targetPath, write, check)
 	if err != nil {
-		fmt.Printf("Error procesando directorio %s: %v\n", targetPath, err)
+		fmt.Println(i18n.Tr("formatDirError", i18n.M{"path": targetPath, "error": err.Error()}))
 		os.Exit(1)
 	}
 
 	if check {
 		if len(unformatted) > 0 {
-			fmt.Printf("[FORMAT ERROR] Se encontraron %d archivo(s) sin formatear:\n", len(unformatted))
+			fmt.Println(i18n.Tr("formatUnformattedFound", i18n.M{"count": len(unformatted)}))
 			for _, file := range unformatted {
 				fmt.Printf("  - %s\n", file)
 			}
@@ -94,15 +94,15 @@ func handleFormatCommand(args []string) {
 	}
 
 	if write {
-		fmt.Printf("[FORMAT] %d archivo(s) modificados y formateados.\n", len(unformatted))
+		fmt.Println(i18n.Tr("formatModifiedCount", i18n.M{"count": len(unformatted)}))
 	} else {
 		if len(unformatted) > 0 {
-			fmt.Printf("[FORMAT] %d archivo(s) requieren formato (usa --write para aplicar):\n", len(unformatted))
+			fmt.Println(i18n.Tr("formatRequireFormat", i18n.M{"count": len(unformatted)}))
 			for _, file := range unformatted {
 				fmt.Printf("  - %s\n", file)
 			}
 		} else {
-			fmt.Println("[FORMAT] Todos los archivos .joss están correctamente formateados.")
+			fmt.Println(i18n.Tr("formatAllFilesClean"))
 		}
 	}
 }
