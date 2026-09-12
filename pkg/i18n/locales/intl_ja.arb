@@ -1,154 +1,235 @@
 {
   "@@locale": "ja",
+  "CreateCRUD": "テーブルに基づいて完全な CRUD を作成する",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "新しいコントローラーを作成する",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "MVCの作成",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "新しいミドルウェアを作成する",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "新しいモデルを作成する",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "新しいビューを作成する",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "インタラクティブなネイティブ AI をセットアップする",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ ネイティブ AI が正常に起動しました",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "オプションを選択してください (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "{provider} の API キーを入力してください ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "無効なオプションです。",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "使用するモデル [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ 警告: API キーが入力されていません。 ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (推奨 - 超高速な Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "{file} に設定を保存しています...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "AI プロバイダーを選択してください:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ 選択されたプロバイダー: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "今すぐ試してください: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "このウィザードは、プロジェクト内のネイティブ AI を構成します。",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Joss AI アクティベーション ウィザード 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API が有効化され、正常に設定されました。",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API が無効になっています。",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "エラー: API キーを空にすることはできません。",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "BREVO_API を有効にしますか？ (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Brevo の API キーを入力してください: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "エラー: env.joss も .env ファイルも現在のディレクトリに見つかりませんでした。",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "{file} の読み込みエラー: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Brevo API 構成 ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "プロジェクト ファイルをコピーしています...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "データベースが build/ にコピーされました",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "データベースが build/Storage/ にコピーされました",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "本番環境の暗号化...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "環境は暗号化され、env.enc として埋め込まれます",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "アーキテクチャ エラー: 環境ファイル ('env.joss' または '.env') がありません",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "DB_PATH=\"Storage/database.sqlite\" 構成を埋め込み env.joss に挿入しています...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules がインクルードされます。",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "→node_modulesは省略されます。",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "このプリコンパイル済みバージョンでは Windows のみがサポートされています。",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "アセットを暗号化してパッケージ化しています...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (今のところ空)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "  build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Joss プログラムのビルド (SECURE MODE) を開始しています...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "構造：",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "プログラムのビルドは「build/」フォルダー内で正常に完了しました。",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "ジョス聖書には厳密な構造が必要です。",
+  "@buildSchemaError": {},
+  "buildSelectOs": "ターゲットのオペレーティング システムを選択します。",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "デプロイするには、「build/」フォルダーの内容をサーバーにアップロードします。",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "サーバー上でその中で「joss run main.joss」を実行するだけです。",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Joss WEB 構築を開始しています...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB ビルドは「build/」フォルダー内で正常に完了しました。",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Windows 用にコンパイルしています...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "データベースエンジン（mysql/sqlite）を変更する",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "テーブルの接頭辞を変更する",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "配布用のプロジェクトをビルドする",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "新しい移行を作成する",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "新しいプロジェクトを作成する",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "ソースと宛先に接続されています。",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "データベースエンジンはすでに",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "データ移行を開始しています...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "プレフィックスはすでに",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "宛先データベースでスキーマを準備しています...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "認証エラー: パスワードの暗号化に失敗しました",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "認証エラー: データベース接続が設定されていません",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "エラー: 関数 '%s' が見つかりません",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "エラー: レイアウト「%s」が見つかりません",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "エラー: プロパティまたはメソッド '%s' がクラス '%s' に見つかりません",
+  "@errPropertyNotFound": {},
+  "errTypeError": "型エラー: 引数 %d (%s) は %s 型である必要があります...",
+  "@errTypeError": {},
+  "errViewNotFound": "エラー: ビュー「%s」が見つかりません",
+  "@errViewNotFound": {},
+  "exeMigrate": "保留中の移行を実行する",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "すべてのテーブルを削除し、移行を再実行します",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "このヘルプを表示する",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "テーブルに対して生成された CRUD を削除する",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "joss スクリプトを実行する",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "ストレージの構成 (ローカル|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "アプリケーションをデスクトップモードで起動する",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "Webサーバーを起動します",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "現在のバージョンを表示します",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "テーブルに基づいて完全な CRUD を作成する",
-  "CreateController": "新しいコントローラーを作成する",
-  "CreateMVC": "MVCの作成",
-  "CreateMiddleware": "新しいミドルウェアを作成する",
-  "CreateModel": "新しいモデルを作成する",
-  "CreateView": "新しいビューを作成する",
-  "IaActivate": "インタラクティブなネイティブ AI をセットアップする",
-  "aiActivatedSuccess": "✅ ネイティブ AI が正常に起動しました",
-  "aiChooseOption": "オプションを選択してください (1-3): ",
-  "aiEnterApiKey": "{provider} の API キーを入力してください ({key}): ",
-  "aiInvalidOption": "無効なオプションです。",
-  "aiModelToUse": "使用するモデル [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ 警告: API キーが入力されていません。 ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (推奨 - 超高速な Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "{file} に設定を保存しています...",
-  "aiSelectProvider": "AI プロバイダーを選択してください:",
-  "aiSelectedProvider": "✅ 選択されたプロバイダー: {provider}",
-  "aiTryScript": "今すぐ試してください: joss run your_script.joss",
-  "aiWizardConfig": "このウィザードは、プロジェクト内のネイティブ AI を構成します。",
-  "aiWizardTitle": "🚀 Joss AI アクティベーション ウィザード 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API が有効化され、正常に設定されました。",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API が無効になっています。",
-  "brevoEmptyKeyError": "エラー: API キーを空にすることはできません。",
-  "brevoEnablePrompt": "BREVO_API を有効にしますか？ (y/n): ",
-  "brevoEnterKey": "Brevo の API キーを入力してください: ",
-  "brevoNoEnvError": "エラー: env.joss も .env ファイルも現在のディレクトリに見つかりませんでした。",
-  "brevoReadError": "{file} の読み込みエラー: {error}",
-  "brevoTitle": "--- Brevo API 構成 ---",
-  "buildCopyFiles": "プロジェクト ファイルをコピーしています...",
-  "buildDbCopied": "データベースが build/ にコピーされました",
-  "buildDbCopiedProgram": "データベースが build/Storage/ にコピーされました",
-  "buildEncryptEnv": "本番環境の暗号化...",
-  "buildEnvEncryptedSuccess": "環境は暗号化され、env.enc として埋め込まれます",
-  "buildEnvMissingError": "アーキテクチャ エラー: 環境ファイル ('env.joss' または '.env') がありません",
-  "buildInjectDbPath": "DB_PATH=\"Storage/database.sqlite\" 構成を埋め込み env.joss に挿入しています...",
-  "buildNodeModulesInclude": "-\u003e node_modules がインクルードされます。",
-  "buildNodeModulesOmit": "→node_modulesは省略されます。",
-  "buildOsNotSupported": "このプリコンパイル済みバージョンでは Windows のみがサポートされています。",
-  "buildPackAssets": "アセットを暗号化してパッケージ化しています...",
-  "buildProgramDataDir": "build/data/ (今のところ空)",
-  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
-  "buildProgramErrorLog": "  build/error.log",
-  "buildProgramStart": "Joss プログラムのビルド (SECURE MODE) を開始しています...",
-  "buildProgramStructure": "構造：",
-  "buildProgramSuccess": "プログラムのビルドは「build/」フォルダー内で正常に完了しました。",
-  "buildSchemaError": "ジョス聖書には厳密な構造が必要です。",
-  "buildSelectOs": "ターゲットのオペレーティング システムを選択します。",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "デプロイするには、「build/」フォルダーの内容をサーバーにアップロードします。",
-  "buildWebRunTip": "サーバー上でその中で「joss run main.joss」を実行するだけです。",
-  "buildWebStart": "Joss WEB 構築を開始しています...",
-  "buildWebSuccess": "WEB ビルドは「build/」フォルダー内で正常に完了しました。",
-  "buildWindowsCompile": "Windows 用にコンパイルしています...",
-  "changeDBMotor": "データベースエンジン（mysql/sqlite）を変更する",
-  "changeDBPrefix": "テーブルの接頭辞を変更する",
-  "compileProjectDist": "配布用のプロジェクトをビルドする",
-  "createMigration": "新しい移行を作成する",
-  "createProject": "新しいプロジェクトを作成する",
-  "dbConnectedSourceDest": "ソースと宛先に接続されています。",
-  "dbEngineAlready": "データベースエンジンはすでに",
-  "dbMigrateStart": "データ移行を開始しています...",
-  "dbPrefixAlready": "プレフィックスはすでに",
-  "dbPrepareDestSchema": "宛先データベースでスキーマを準備しています...",
-  "errAuthEncryptFailed": "認証エラー: パスワードの暗号化に失敗しました",
-  "errAuthNoDbConnection": "認証エラー: データベース接続が設定されていません",
-  "errFunctionNotFound": "エラー: 関数 '%s' が見つかりません",
-  "errLayoutNotFound": "エラー: レイアウト「%s」が見つかりません",
-  "errPropertyNotFound": "エラー: プロパティまたはメソッド '%s' がクラス '%s' に見つかりません",
-  "errTypeError": "型エラー: 引数 %d (%s) は %s 型である必要があります...",
-  "errViewNotFound": "エラー: ビュー「%s」が見つかりません",
-  "exeMigrate": "保留中の移行を実行する",
-  "exeMigrateFresh": "すべてのテーブルを削除し、移行を再実行します",
-  "helpPrint": "このヘルプを表示する",
-  "removeCRUD": "テーブルに対して生成された CRUD を削除する",
-  "runJossScript": "joss スクリプトを実行する",
-  "settingsUserStorage": "ストレージの構成 (ローカル|OCI|AWS|Azure)",
-  "startProgramDesktop": "アプリケーションをデスクトップモードで起動する",
-  "startServerWeb": "Webサーバーを起動します",
-  "version": "現在のバージョンを表示します"
+  }
 }

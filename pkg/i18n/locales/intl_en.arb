@@ -1,23 +1,15 @@
 {
   "@@locale": "en",
-  "startServerWeb": "Start the web server",
-  "@startServerWeb": {
-    "description": ""
-  },
-  "startProgramDesktop": "Start the application in desktop mode",
-  "@startProgramDesktop": {
-    "description": ""
-  },
-  "runJossScript": "Run a joss script",
-  "@runJossScript": {
-    "description": ""
-  },
-  "compileProjectDist": "Build the project for distribution",
-  "@compileProjectDist": {
+  "CreateCRUD": "Create complete CRUD based on a table",
+  "@CreateCRUD": {
     "description": ""
   },
   "CreateController": "Create a new controller",
   "@CreateController": {
+    "description": ""
+  },
+  "CreateMVC": "Create MVC",
+  "@CreateMVC": {
     "description": ""
   },
   "CreateMiddleware": "Create new middleware",
@@ -32,34 +24,134 @@
   "@CreateView": {
     "description": ""
   },
-  "CreateMVC": "Create MVC",
-  "@CreateMVC": {
+  "IaActivate": "Set up interactive Native AI",
+  "@IaActivate": {
     "description": ""
   },
-  "CreateCRUD": "Create complete CRUD based on a table",
-  "@CreateCRUD": {
+  "aiActivatedSuccess": "✅  NATIVE AI ACTIVATED SUCCESSFULLY",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "Choose an option (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "Enter your API KEY for {provider} ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "Invalid option. Using Groq by default.",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "Model to use [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️  Warning: No API Key entered. You must set it manually in .env",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (Recommended - Llama 3 super fast)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "Saving configuration in {file}...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "Select your AI provider:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ Selected provider: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "Try now with: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "This wizard will configure the native AI in your project.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀  Joss AI Activation Wizard  🚀",
+  "@aiWizardTitle": {
     "description": ""
   },
-  "removeCRUD": "Remove CRUD generated for a table",
-  "@removeCRUD": {
+  "brevoActivatedSuccess": "✅ BREVO_API activated and configured successfully.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
+  "@brevoConfig": {
     "description": ""
   },
-  "createMigration": "Create a new migration",
-  "@createMigration": {
-    "description": ""
+  "brevoDisabledSuccess": "✅ BREVO_API disabled.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "Error: The API Key cannot be empty.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "Do you want to activate BREVO_API? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Enter your Brevo API Key: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "Error: Neither env.joss nor .env file was found in the current directory.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "Error reading {file}: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
   },
-  "exeMigrate": "Run pending migrations",
-  "@exeMigrate": {
-    "description": ""
-  },
-  "exeMigrateFresh": "Delete all tables and re-run migrations",
-  "@exeMigrateFresh": {
-    "description": ""
-  },
-  "createProject": "Create a new project",
-  "@createProject": {
-    "description": ""
-  },
+  "brevoTitle": "--- Brevo API Configuration ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "Copying project files...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "Database copied to build/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "Database copied to build/Storage/",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "Encrypting environment for production...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "Environment encrypted and embedded as env.enc",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "Architecture Error: Missing environment file ('env.joss' or '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "Injecting DB_PATH=\"Storage/database.sqlite\" config into embedded env.joss...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules will be included.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules will be omitted.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "Only Windows is supported in this pre-compiled version.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "Encrypting and packaging assets...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (empty for now)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Starting Joss PROGRAM build (SECURE MODE)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "Structure:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "PROGRAM Build completed successfully in 'build/' folder.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "The Joss Bible requires a strict structure.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "Select the target operating system:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "To deploy, upload the contents of the 'build/' folder to your server.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "You only need to run 'joss run main.joss' inside it on the server.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Starting Joss WEB build...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB Build completed successfully in 'build/' folder.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Compiling for Windows...",
+  "@buildWindowsCompile": {},
   "changeDBMotor": "Change the database engine (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
@@ -68,87 +160,76 @@
   "@changeDBPrefix": {
     "description": ""
   },
-  "settingsUserStorage": "Configure storage (local|OCI|AWS|Azure)",
-  "@settingsUserStorage": {
+  "compileProjectDist": "Build the project for distribution",
+  "@compileProjectDist": {
     "description": ""
   },
-  "IaActivate": "Set up interactive Native AI",
-  "@IaActivate": {
+  "createMigration": "Create a new migration",
+  "@createMigration": {
     "description": ""
   },
-  "version": "Shows the current version",
-  "@version": {
+  "createProject": "Create a new project",
+  "@createProject": {
+    "description": ""
+  },
+  "dbConnectedSourceDest": "Connected to source and destination.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "The database engine is already",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "Starting data migration...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "The prefix is already",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "Preparing schema in destination database...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Auth Error: Failed to encrypt password",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Auth Error: No database connection configured",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "Error: Function '%s' not found",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "Error: Layout '%s' not found",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "Error: Property or method '%s' not found in class '%s'",
+  "@errPropertyNotFound": {},
+  "errTypeError": "Type Error: Argument %d (%s) must be of type %s...",
+  "@errTypeError": {},
+  "errViewNotFound": "Error: View '%s' not found",
+  "@errViewNotFound": {},
+  "exeMigrate": "Run pending migrations",
+  "@exeMigrate": {
+    "description": ""
+  },
+  "exeMigrateFresh": "Delete all tables and re-run migrations",
+  "@exeMigrateFresh": {
     "description": ""
   },
   "helpPrint": "Show this help",
   "@helpPrint": {
     "description": ""
   },
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "@brevoConfig": {
+  "removeCRUD": "Remove CRUD generated for a table",
+  "@removeCRUD": {
     "description": ""
   },
-  "aiWizardTitle": "🚀  Joss AI Activation Wizard  🚀",
-  "@aiWizardTitle": {
+  "runJossScript": "Run a joss script",
+  "@runJossScript": {
     "description": ""
   },
-  "aiWizardConfig": "This wizard will configure the native AI in your project.",
-  "aiSelectProvider": "Select your AI provider:",
-  "aiInvalidOption": "Invalid option. Using Groq by default.",
-  "aiNoApiKeyWarning": "⚠️  Warning: No API Key entered. You must set it manually in .env",
-  "aiActivatedSuccess": "✅  NATIVE AI ACTIVATED SUCCESSFULLY",
-  "aiTryScript": "Try now with: joss run your_script.joss",
-  "brevoTitle": "--- Brevo API Configuration ---",
-  "brevoNoEnvError": "Error: Neither env.joss nor .env file was found in the current directory.",
-  "brevoEmptyKeyError": "Error: The API Key cannot be empty.",
-  "brevoActivatedSuccess": "✅ BREVO_API activated and configured successfully.",
-  "brevoDisabledSuccess": "✅ BREVO_API disabled.",
-  "buildWebStart": "Starting Joss WEB build...",
-  "buildSchemaError": "The Joss Bible requires a strict structure.",
-  "buildEnvMissingError": "Architecture Error: Missing environment file ('env.joss' or '.env')",
-  "buildCopyFiles": "Copying project files...",
-  "buildNodeModulesInclude": "-> node_modules will be included.",
-  "buildNodeModulesOmit": "-> node_modules will be omitted.",
-  "buildDbCopied": "Database copied to build/",
-  "buildEncryptEnv": "Encrypting environment for production...",
-  "buildWebSuccess": "WEB Build completed successfully in 'build/' folder.",
-  "buildWebDeployTip": "To deploy, upload the contents of the 'build/' folder to your server.",
-  "buildWebRunTip": "You only need to run 'joss run main.joss' inside it on the server.",
-  "buildProgramStart": "Starting Joss PROGRAM build (SECURE MODE)...",
-  "buildSelectOs": "Select the target operating system:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildOsNotSupported": "Only Windows is supported in this pre-compiled version.",
-  "buildWindowsCompile": "Compiling for Windows...",
-  "buildPackAssets": "Encrypting and packaging assets...",
-  "buildInjectDbPath": "Injecting DB_PATH=\"Storage/database.sqlite\" config into embedded env.joss...",
-  "buildEnvEncryptedSuccess": "Environment encrypted and embedded as env.enc",
-  "buildDbCopiedProgram": "Database copied to build/Storage/",
-  "buildProgramSuccess": "PROGRAM Build completed successfully in 'build/' folder.",
-  "buildProgramStructure": "Structure:",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramDbSqlite": "build/Storage/database.sqlite",
-  "buildProgramDataDir": "build/data/ (empty for now)",
-  "dbEngineAlready": "The database engine is already",
-  "dbConnectedSourceDest": "Connected to source and destination.",
-  "dbPrepareDestSchema": "Preparing schema in destination database...",
-  "dbMigrateStart": "Starting data migration...",
-  "dbPrefixAlready": "The prefix is already",
-  "errFunctionNotFound": "Error: Function '%s' not found",
-  "errViewNotFound": "Error: View '%s' not found",
-  "errLayoutNotFound": "Error: Layout '%s' not found",
-  "errTypeError": "Type Error: Argument %d (%s) must be of type %s...",
-  "errPropertyNotFound": "Error: Property or method '%s' not found in class '%s'",
-  "errAuthEncryptFailed": "Auth Error: Failed to encrypt password",
-  "errAuthNoDbConnection": "Auth Error: No database connection configured",
-  "aiProviderGroq": "1) Groq (Recommended - Llama 3 super fast)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiChooseOption": "Choose an option (1-3): ",
-  "aiSelectedProvider": "✅ Selected provider: {provider}",
-  "aiModelToUse": "Model to use [{model}]: ",
-  "aiEnterApiKey": "Enter your API KEY for {provider} ({key}): ",
-  "aiSavingConfig": "Saving configuration in {file}...",
-  "brevoEnablePrompt": "Do you want to activate BREVO_API? (y/n): ",
-  "brevoEnterKey": "Enter your Brevo API Key: ",
-  "brevoReadError": "Error reading {file}: {error}"
+  "settingsUserStorage": "Configure storage (local|OCI|AWS|Azure)",
+  "@settingsUserStorage": {
+    "description": ""
+  },
+  "startProgramDesktop": "Start the application in desktop mode",
+  "@startProgramDesktop": {
+    "description": ""
+  },
+  "startServerWeb": "Start the web server",
+  "@startServerWeb": {
+    "description": ""
+  },
+  "version": "Shows the current version",
+  "@version": {
+    "description": ""
+  }
 }

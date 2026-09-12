@@ -1,154 +1,235 @@
 {
   "@@locale": "vi",
+  "CreateCRUD": "Tạo CRUD hoàn chỉnh dựa trên bảng",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "Tạo bộ điều khiển mới",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "Tạo MVC",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "Tạo phần mềm trung gian mới",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "Tạo một mô hình mới",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "Tạo chế độ xem mới",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "Thiết lập AI gốc tương tác",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ AI BẢNG KÍCH HOẠT THÀNH CÔNG",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "Chọn một tùy chọn (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "Nhập khóa API cho {provider} ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "Tùy chọn không hợp lệ. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "Mô hình cần sử dụng [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ Cảnh báo: Chưa nhập API Key. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (Khuyên dùng - Llama 3 siêu nhanh)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "Đang lưu cấu hình vào {file}...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "Chọn nhà cung cấp AI của bạn:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ Nhà cung cấp đã chọn: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "Hãy thử ngay với: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "Trình hướng dẫn này sẽ định cấu hình AI gốc trong dự án của bạn.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Thuật sĩ kích hoạt Joss AI 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API đã được kích hoạt và cấu hình thành công.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API bị vô hiệu hóa.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "Lỗi: Khóa API không được để trống.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "Bạn có muốn kích hoạt BREVO_API không? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Nhập khóa API Brevo của bạn: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "Lỗi: Không tìm thấy tệp env.joss và .env trong thư mục hiện tại.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "Lỗi đọc {file}: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Cấu hình API Brevo ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "Đang sao chép các tập tin dự án...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "Cơ sở dữ liệu được sao chép để xây dựng/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "Cơ sở dữ liệu được sao chép vào build/Storage/",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "Mã hóa môi trường sản xuất...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "Môi trường được mã hóa và nhúng dưới dạng env.enc",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "Lỗi kiến ​​trúc: Thiếu tệp môi trường ('env.joss' hoặc '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "Đưa cấu hình DB_PATH=\"Storage/database.sqlite\" vào env.joss được nhúng...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules sẽ được bao gồm.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules sẽ bị bỏ qua.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "Chỉ Windows được hỗ trợ trong phiên bản biên dịch trước này.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "Mã hóa và đóng gói tài sản...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (hiện tại trống)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "  build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Đang bắt đầu xây dựng CHƯƠNG TRÌNH Joss (CHẾ ĐỘ AN TOÀN)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "Kết cấu:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "CHƯƠNG TRÌNH Quá trình xây dựng đã hoàn tất thành công trong thư mục 'build/'.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "Kinh thánh Joss đòi hỏi một cấu trúc chặt chẽ.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "Chọn hệ điều hành mục tiêu:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "Để triển khai, hãy tải nội dung của thư mục 'build/' lên máy chủ của bạn.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "Bạn chỉ cần chạy 'joss run main.joss' bên trong nó trên máy chủ.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Đang bắt đầu xây dựng Joss WEB...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB Build hoàn tất thành công trong thư mục 'build/'.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Biên dịch cho Windows...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "Thay đổi công cụ cơ sở dữ liệu (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "Thay đổi tiền tố bảng",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "Xây dựng dự án phân phối",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "Tạo một di chuyển mới",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "Tạo một dự án mới",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "Được kết nối với nguồn và đích.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "Công cụ cơ sở dữ liệu đã sẵn sàng",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "Đang bắt đầu di chuyển dữ liệu...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "Tiền tố đã có rồi",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "Đang chuẩn bị lược đồ trong cơ sở dữ liệu đích...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Lỗi xác thực: Không mã hóa được mật khẩu",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Lỗi xác thực: Không có kết nối cơ sở dữ liệu nào được định cấu hình",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "Lỗi: Không tìm thấy hàm '%s'",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "Lỗi: Không tìm thấy bố cục '%s'",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "Lỗi: Không tìm thấy thuộc tính hoặc phương thức '%s' trong lớp '%s'",
+  "@errPropertyNotFound": {},
+  "errTypeError": "Lỗi loại: Đối số %d (%s) phải thuộc loại %s...",
+  "@errTypeError": {},
+  "errViewNotFound": "Lỗi: Không tìm thấy '%s' xem",
+  "@errViewNotFound": {},
+  "exeMigrate": "Chạy di chuyển đang chờ xử lý",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "Xóa tất cả các bảng và chạy lại quá trình di chuyển",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "Hiển thị trợ giúp này",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "Xóa CRUD được tạo cho bảng",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "Chạy một tập lệnh joss",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "Định cấu hình bộ nhớ (cục bộ|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "Khởi động ứng dụng ở chế độ máy tính để bàn",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "Khởi động máy chủ web",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "Hiển thị phiên bản hiện tại",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "Tạo CRUD hoàn chỉnh dựa trên bảng",
-  "CreateController": "Tạo bộ điều khiển mới",
-  "CreateMVC": "Tạo MVC",
-  "CreateMiddleware": "Tạo phần mềm trung gian mới",
-  "CreateModel": "Tạo một mô hình mới",
-  "CreateView": "Tạo chế độ xem mới",
-  "IaActivate": "Thiết lập AI gốc tương tác",
-  "aiActivatedSuccess": "✅ AI BẢNG KÍCH HOẠT THÀNH CÔNG",
-  "aiChooseOption": "Chọn một tùy chọn (1-3): ",
-  "aiEnterApiKey": "Nhập khóa API cho {provider} ({key}): ",
-  "aiInvalidOption": "Tùy chọn không hợp lệ. ",
-  "aiModelToUse": "Mô hình cần sử dụng [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ Cảnh báo: Chưa nhập API Key. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (Khuyên dùng - Llama 3 siêu nhanh)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "Đang lưu cấu hình vào {file}...",
-  "aiSelectProvider": "Chọn nhà cung cấp AI của bạn:",
-  "aiSelectedProvider": "✅ Nhà cung cấp đã chọn: {provider}",
-  "aiTryScript": "Hãy thử ngay với: joss run your_script.joss",
-  "aiWizardConfig": "Trình hướng dẫn này sẽ định cấu hình AI gốc trong dự án của bạn.",
-  "aiWizardTitle": "🚀 Thuật sĩ kích hoạt Joss AI 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API đã được kích hoạt và cấu hình thành công.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API bị vô hiệu hóa.",
-  "brevoEmptyKeyError": "Lỗi: Khóa API không được để trống.",
-  "brevoEnablePrompt": "Bạn có muốn kích hoạt BREVO_API không? (y/n): ",
-  "brevoEnterKey": "Nhập khóa API Brevo của bạn: ",
-  "brevoNoEnvError": "Lỗi: Không tìm thấy tệp env.joss và .env trong thư mục hiện tại.",
-  "brevoReadError": "Lỗi đọc {file}: {error}",
-  "brevoTitle": "--- Cấu hình API Brevo ---",
-  "buildCopyFiles": "Đang sao chép các tập tin dự án...",
-  "buildDbCopied": "Cơ sở dữ liệu được sao chép để xây dựng/",
-  "buildDbCopiedProgram": "Cơ sở dữ liệu được sao chép vào build/Storage/",
-  "buildEncryptEnv": "Mã hóa môi trường sản xuất...",
-  "buildEnvEncryptedSuccess": "Môi trường được mã hóa và nhúng dưới dạng env.enc",
-  "buildEnvMissingError": "Lỗi kiến ​​trúc: Thiếu tệp môi trường ('env.joss' hoặc '.env')",
-  "buildInjectDbPath": "Đưa cấu hình DB_PATH=\"Storage/database.sqlite\" vào env.joss được nhúng...",
-  "buildNodeModulesInclude": "-\u003e node_modules sẽ được bao gồm.",
-  "buildNodeModulesOmit": "-\u003e node_modules sẽ bị bỏ qua.",
-  "buildOsNotSupported": "Chỉ Windows được hỗ trợ trong phiên bản biên dịch trước này.",
-  "buildPackAssets": "Mã hóa và đóng gói tài sản...",
-  "buildProgramDataDir": "build/data/ (hiện tại trống)",
-  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
-  "buildProgramErrorLog": "  build/error.log",
-  "buildProgramStart": "Đang bắt đầu xây dựng CHƯƠNG TRÌNH Joss (CHẾ ĐỘ AN TOÀN)...",
-  "buildProgramStructure": "Kết cấu:",
-  "buildProgramSuccess": "CHƯƠNG TRÌNH Quá trình xây dựng đã hoàn tất thành công trong thư mục 'build/'.",
-  "buildSchemaError": "Kinh thánh Joss đòi hỏi một cấu trúc chặt chẽ.",
-  "buildSelectOs": "Chọn hệ điều hành mục tiêu:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "Để triển khai, hãy tải nội dung của thư mục 'build/' lên máy chủ của bạn.",
-  "buildWebRunTip": "Bạn chỉ cần chạy 'joss run main.joss' bên trong nó trên máy chủ.",
-  "buildWebStart": "Đang bắt đầu xây dựng Joss WEB...",
-  "buildWebSuccess": "WEB Build hoàn tất thành công trong thư mục 'build/'.",
-  "buildWindowsCompile": "Biên dịch cho Windows...",
-  "changeDBMotor": "Thay đổi công cụ cơ sở dữ liệu (mysql/sqlite)",
-  "changeDBPrefix": "Thay đổi tiền tố bảng",
-  "compileProjectDist": "Xây dựng dự án phân phối",
-  "createMigration": "Tạo một di chuyển mới",
-  "createProject": "Tạo một dự án mới",
-  "dbConnectedSourceDest": "Được kết nối với nguồn và đích.",
-  "dbEngineAlready": "Công cụ cơ sở dữ liệu đã sẵn sàng",
-  "dbMigrateStart": "Đang bắt đầu di chuyển dữ liệu...",
-  "dbPrefixAlready": "Tiền tố đã có rồi",
-  "dbPrepareDestSchema": "Đang chuẩn bị lược đồ trong cơ sở dữ liệu đích...",
-  "errAuthEncryptFailed": "Lỗi xác thực: Không mã hóa được mật khẩu",
-  "errAuthNoDbConnection": "Lỗi xác thực: Không có kết nối cơ sở dữ liệu nào được định cấu hình",
-  "errFunctionNotFound": "Lỗi: Không tìm thấy hàm '%s'",
-  "errLayoutNotFound": "Lỗi: Không tìm thấy bố cục '%s'",
-  "errPropertyNotFound": "Lỗi: Không tìm thấy thuộc tính hoặc phương thức '%s' trong lớp '%s'",
-  "errTypeError": "Lỗi loại: Đối số %d (%s) phải thuộc loại %s...",
-  "errViewNotFound": "Lỗi: Không tìm thấy '%s' xem",
-  "exeMigrate": "Chạy di chuyển đang chờ xử lý",
-  "exeMigrateFresh": "Xóa tất cả các bảng và chạy lại quá trình di chuyển",
-  "helpPrint": "Hiển thị trợ giúp này",
-  "removeCRUD": "Xóa CRUD được tạo cho bảng",
-  "runJossScript": "Chạy một tập lệnh joss",
-  "settingsUserStorage": "Định cấu hình bộ nhớ (cục bộ|OCI|AWS|Azure)",
-  "startProgramDesktop": "Khởi động ứng dụng ở chế độ máy tính để bàn",
-  "startServerWeb": "Khởi động máy chủ web",
-  "version": "Hiển thị phiên bản hiện tại"
+  }
 }

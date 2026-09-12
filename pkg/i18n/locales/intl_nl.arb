@@ -1,154 +1,235 @@
 {
   "@@locale": "nl",
+  "CreateCRUD": "Creëer volledige CRUD op basis van een tabel",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "Maak een nieuwe controller",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "MVC maken",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "Maak nieuwe middleware",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "Maak een nieuw model",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "Maak een nieuwe weergave",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "Zet interactieve Native AI op",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ NATIVE AI SUCCESVOL GEACTIVEERD",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "Kies een optie (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "Voer uw API-sleutel in voor {provider} ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "Ongeldige optie. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "Te gebruiken model [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ Waarschuwing: geen API-sleutel ingevoerd. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (Aanbevolen - supersnelle Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "Configuratie opslaan in {file}...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "Selecteer uw AI-provider:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ Geselecteerde provider: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "Probeer het nu met: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "Deze wizard configureert de native AI in uw project.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Joss AI-activeringswizard 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API succesvol geactiveerd en geconfigureerd.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API uitgeschakeld.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "Fout: de API-sleutel mag niet leeg zijn.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "Wilt u BREVO_API activeren? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Voer uw Brevo API-sleutel in: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "Fout: Er is geen env.joss- noch .env-bestand gevonden in de huidige map.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "Fout bij lezen van {file}: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Brevo API-configuratie ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "Projectbestanden kopiëren...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "Database gekopieerd om te bouwen/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "Database gekopieerd naar build/Opslag/",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "Omgeving versleutelen voor productie...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "Omgeving gecodeerd en ingebed als env.enc",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "Architectuurfout: ontbrekend omgevingsbestand ('env.joss' of '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "DB_PATH=\"Storage/database.sqlite\" configuratie in ingebedde env.joss injecteren...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules worden opgenomen.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules worden weggelaten.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "Alleen Windows wordt ondersteund in deze vooraf gecompileerde versie.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "Assets versleutelen en verpakken...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (voorlopig leeg)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Joss PROGRAM-build starten (VEILIGE MODUS)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "Structuur:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "PROGRAMMA Build is succesvol voltooid in de map 'build/'.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "De Joss-bijbel vereist een strikte structuur.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "Selecteer het doelbesturingssysteem:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "Om te implementeren uploadt u de inhoud van de map 'build/' naar uw server.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "U hoeft alleen 'joss run main.joss' erin op de server uit te voeren.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Joss WEB-build starten...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB Build is succesvol voltooid in de map 'build/'.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Compileren voor Windows...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "Wijzig de database-engine (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "Wijzig het tabelvoorvoegsel",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "Bouw het project voor distributie",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "Maak een nieuwe migratie",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "Maak een nieuw project",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "Verbonden met bron en bestemming.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "De database-engine is er al",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "Gegevensmigratie starten...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "Het voorvoegsel is al",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "Schema voorbereiden in doeldatabase...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Auth-fout: kan het wachtwoord niet coderen",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Verificatiefout: geen databaseverbinding geconfigureerd",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "Fout: Functie '%s' niet gevonden",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "Fout: Layout '%s' niet gevonden",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "Fout: eigenschap of methode '%s' niet gevonden in klasse '%s'",
+  "@errPropertyNotFound": {},
+  "errTypeError": "Typefout: Argument %d (%s) moet van het type %s zijn",
+  "@errTypeError": {},
+  "errViewNotFound": "Fout: Weergave '%s' niet gevonden",
+  "@errViewNotFound": {},
+  "exeMigrate": "Voer lopende migraties uit",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "Verwijder alle tabellen en voer de migraties opnieuw uit",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "Laat deze hulp zien",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "Verwijder CRUD gegenereerd voor een tabel",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "Voer een joss-script uit",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "Opslag configureren (lokaal|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "Start de applicatie in desktopmodus",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "Start de webserver",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "Toont de huidige versie",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "Creëer volledige CRUD op basis van een tabel",
-  "CreateController": "Maak een nieuwe controller",
-  "CreateMVC": "MVC maken",
-  "CreateMiddleware": "Maak nieuwe middleware",
-  "CreateModel": "Maak een nieuw model",
-  "CreateView": "Maak een nieuwe weergave",
-  "IaActivate": "Zet interactieve Native AI op",
-  "aiActivatedSuccess": "✅ NATIVE AI SUCCESVOL GEACTIVEERD",
-  "aiChooseOption": "Kies een optie (1-3): ",
-  "aiEnterApiKey": "Voer uw API-sleutel in voor {provider} ({key}): ",
-  "aiInvalidOption": "Ongeldige optie. ",
-  "aiModelToUse": "Te gebruiken model [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ Waarschuwing: geen API-sleutel ingevoerd. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (Aanbevolen - supersnelle Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "Configuratie opslaan in {file}...",
-  "aiSelectProvider": "Selecteer uw AI-provider:",
-  "aiSelectedProvider": "✅ Geselecteerde provider: {provider}",
-  "aiTryScript": "Probeer het nu met: joss run your_script.joss",
-  "aiWizardConfig": "Deze wizard configureert de native AI in uw project.",
-  "aiWizardTitle": "🚀 Joss AI-activeringswizard 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API succesvol geactiveerd en geconfigureerd.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API uitgeschakeld.",
-  "brevoEmptyKeyError": "Fout: de API-sleutel mag niet leeg zijn.",
-  "brevoEnablePrompt": "Wilt u BREVO_API activeren? (y/n): ",
-  "brevoEnterKey": "Voer uw Brevo API-sleutel in: ",
-  "brevoNoEnvError": "Fout: Er is geen env.joss- noch .env-bestand gevonden in de huidige map.",
-  "brevoReadError": "Fout bij lezen van {file}: {error}",
-  "brevoTitle": "--- Brevo API-configuratie ---",
-  "buildCopyFiles": "Projectbestanden kopiëren...",
-  "buildDbCopied": "Database gekopieerd om te bouwen/",
-  "buildDbCopiedProgram": "Database gekopieerd naar build/Opslag/",
-  "buildEncryptEnv": "Omgeving versleutelen voor productie...",
-  "buildEnvEncryptedSuccess": "Omgeving gecodeerd en ingebed als env.enc",
-  "buildEnvMissingError": "Architectuurfout: ontbrekend omgevingsbestand ('env.joss' of '.env')",
-  "buildInjectDbPath": "DB_PATH=\"Storage/database.sqlite\" configuratie in ingebedde env.joss injecteren...",
-  "buildNodeModulesInclude": "-\u003e node_modules worden opgenomen.",
-  "buildNodeModulesOmit": "-\u003e node_modules worden weggelaten.",
-  "buildOsNotSupported": "Alleen Windows wordt ondersteund in deze vooraf gecompileerde versie.",
-  "buildPackAssets": "Assets versleutelen en verpakken...",
-  "buildProgramDataDir": "build/data/ (voorlopig leeg)",
-  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramStart": "Joss PROGRAM-build starten (VEILIGE MODUS)...",
-  "buildProgramStructure": "Structuur:",
-  "buildProgramSuccess": "PROGRAMMA Build is succesvol voltooid in de map 'build/'.",
-  "buildSchemaError": "De Joss-bijbel vereist een strikte structuur.",
-  "buildSelectOs": "Selecteer het doelbesturingssysteem:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "Om te implementeren uploadt u de inhoud van de map 'build/' naar uw server.",
-  "buildWebRunTip": "U hoeft alleen 'joss run main.joss' erin op de server uit te voeren.",
-  "buildWebStart": "Joss WEB-build starten...",
-  "buildWebSuccess": "WEB Build is succesvol voltooid in de map 'build/'.",
-  "buildWindowsCompile": "Compileren voor Windows...",
-  "changeDBMotor": "Wijzig de database-engine (mysql/sqlite)",
-  "changeDBPrefix": "Wijzig het tabelvoorvoegsel",
-  "compileProjectDist": "Bouw het project voor distributie",
-  "createMigration": "Maak een nieuwe migratie",
-  "createProject": "Maak een nieuw project",
-  "dbConnectedSourceDest": "Verbonden met bron en bestemming.",
-  "dbEngineAlready": "De database-engine is er al",
-  "dbMigrateStart": "Gegevensmigratie starten...",
-  "dbPrefixAlready": "Het voorvoegsel is al",
-  "dbPrepareDestSchema": "Schema voorbereiden in doeldatabase...",
-  "errAuthEncryptFailed": "Auth-fout: kan het wachtwoord niet coderen",
-  "errAuthNoDbConnection": "Verificatiefout: geen databaseverbinding geconfigureerd",
-  "errFunctionNotFound": "Fout: Functie '%s' niet gevonden",
-  "errLayoutNotFound": "Fout: Layout '%s' niet gevonden",
-  "errPropertyNotFound": "Fout: eigenschap of methode '%s' niet gevonden in klasse '%s'",
-  "errTypeError": "Typefout: Argument %d (%s) moet van het type %s zijn",
-  "errViewNotFound": "Fout: Weergave '%s' niet gevonden",
-  "exeMigrate": "Voer lopende migraties uit",
-  "exeMigrateFresh": "Verwijder alle tabellen en voer de migraties opnieuw uit",
-  "helpPrint": "Laat deze hulp zien",
-  "removeCRUD": "Verwijder CRUD gegenereerd voor een tabel",
-  "runJossScript": "Voer een joss-script uit",
-  "settingsUserStorage": "Opslag configureren (lokaal|OCI|AWS|Azure)",
-  "startProgramDesktop": "Start de applicatie in desktopmodus",
-  "startServerWeb": "Start de webserver",
-  "version": "Toont de huidige versie"
+  }
 }

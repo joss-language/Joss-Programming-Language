@@ -1,154 +1,235 @@
 {
   "@@locale": "de",
+  "CreateCRUD": "Erstellen Sie ein vollständiges CRUD basierend auf einer Tabelle",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "Erstellen Sie einen neuen Controller",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "Erstellen Sie MVC",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "Erstellen Sie neue Middleware",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "Erstellen Sie ein neues Modell",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "Erstellen Sie eine neue Ansicht",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "Richten Sie interaktive native KI ein",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ NATIVE KI ERFOLGREICH AKTIVIERT",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "Wählen Sie eine Option (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "Geben Sie Ihren API-Schlüssel für {provider} ({key}) ein: ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "Ungültige Option. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "Zu verwendendes Modell [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ Warnung: Kein API-Schlüssel eingegeben. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (Empfohlen - Llama 3 superschnell)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "Konfiguration in {file} wird gespeichert...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "Wählen Sie Ihren KI-Anbieter:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ Ausgewählter Anbieter: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "Versuchen Sie es jetzt mit: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "Dieser Assistent konfiguriert die native KI in Ihrem Projekt.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Joss AI-Aktivierungsassistent 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API erfolgreich aktiviert und konfiguriert.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API deaktiviert.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "Fehler: Der API-Schlüssel darf nicht leer sein.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "Möchten Sie BREVO_API aktivieren? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Geben Sie Ihren Brevo-API-Schlüssel ein: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "Fehler: Im aktuellen Verzeichnis wurde weder die Datei env.joss noch die Datei .env gefunden.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "Fehler beim Lesen von {file}: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Brevo API-Konfiguration ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "Projektdateien werden kopiert...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "Datenbank nach build/ kopiert",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "Datenbank nach build/Storage/ kopiert",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "Verschlüsselungsumgebung für die Produktion...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "Umgebung verschlüsselt und eingebettet als env.enc",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "Architekturfehler: Fehlende Umgebungsdatei („env.joss“ oder „.env“)",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "Einfügen der DB_PATH=\"Storage/database.sqlite\"-Konfiguration in eingebettete env.joss ...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules werden eingebunden.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules wird weggelassen.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "In dieser vorkompilierten Version wird nur Windows unterstützt.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "Assets verschlüsseln und verpacken...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (vorerst leer)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Joss PROGRAM Build wird gestartet (SICHERER MODUS) ...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "Struktur:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "PROGRAM Build im Ordner „build/“ erfolgreich abgeschlossen.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "Die Joss-Bibel erfordert eine strenge Struktur.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "Wählen Sie das Zielbetriebssystem aus:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "Laden Sie zum Bereitstellen den Inhalt des Ordners „build/“ auf Ihren Server hoch.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "Sie müssen nur „joss run main.joss“ darin auf dem Server ausführen.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Joss WEB-Build wird gestartet...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB-Build im Ordner „build/“ erfolgreich abgeschlossen.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Kompilieren für Windows...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "Ändern Sie die Datenbank-Engine (MySQL/SQLite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "Ändern Sie das Tabellenpräfix",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "Erstellen Sie das Projekt zur Verteilung",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "Erstellen Sie eine neue Migration",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "Erstellen Sie ein neues Projekt",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "Verbunden mit Quelle und Ziel.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "Die Datenbank-Engine ist bereits vorhanden",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "Datenmigration wird gestartet...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "Das Präfix ist bereits vorhanden",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "Schema wird in der Zieldatenbank vorbereitet...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Authentifizierungsfehler: Passwort konnte nicht verschlüsselt werden",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Authentifizierungsfehler: Keine Datenbankverbindung konfiguriert",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "Fehler: Funktion „%s“ nicht gefunden",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "Fehler: Layout „%s“ nicht gefunden",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "Fehler: Eigenschaft oder Methode „%s“ nicht in Klasse „%s“ gefunden",
+  "@errPropertyNotFound": {},
+  "errTypeError": "Typfehler: Argument %d (%s) muss vom Typ %s sein...",
+  "@errTypeError": {},
+  "errViewNotFound": "Fehler: Ansicht „%s“ nicht gefunden",
+  "@errViewNotFound": {},
+  "exeMigrate": "Führen Sie ausstehende Migrationen aus",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "Löschen Sie alle Tabellen und führen Sie die Migrationen erneut aus",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "Diese Hilfe anzeigen",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "Entfernen Sie das für eine Tabelle generierte CRUD",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "Führen Sie ein Joss-Skript aus",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "Speicher konfigurieren (lokal|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "Starten Sie die Anwendung im Desktop-Modus",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "Starten Sie den Webserver",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "Zeigt die aktuelle Version an",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "Erstellen Sie ein vollständiges CRUD basierend auf einer Tabelle",
-  "CreateController": "Erstellen Sie einen neuen Controller",
-  "CreateMVC": "Erstellen Sie MVC",
-  "CreateMiddleware": "Erstellen Sie neue Middleware",
-  "CreateModel": "Erstellen Sie ein neues Modell",
-  "CreateView": "Erstellen Sie eine neue Ansicht",
-  "IaActivate": "Richten Sie interaktive native KI ein",
-  "aiActivatedSuccess": "✅ NATIVE KI ERFOLGREICH AKTIVIERT",
-  "aiChooseOption": "Wählen Sie eine Option (1-3): ",
-  "aiEnterApiKey": "Geben Sie Ihren API-Schlüssel für {provider} ({key}) ein: ",
-  "aiInvalidOption": "Ungültige Option. ",
-  "aiModelToUse": "Zu verwendendes Modell [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ Warnung: Kein API-Schlüssel eingegeben. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (Empfohlen - Llama 3 superschnell)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "Konfiguration in {file} wird gespeichert...",
-  "aiSelectProvider": "Wählen Sie Ihren KI-Anbieter:",
-  "aiSelectedProvider": "✅ Ausgewählter Anbieter: {provider}",
-  "aiTryScript": "Versuchen Sie es jetzt mit: joss run your_script.joss",
-  "aiWizardConfig": "Dieser Assistent konfiguriert die native KI in Ihrem Projekt.",
-  "aiWizardTitle": "🚀 Joss AI-Aktivierungsassistent 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API erfolgreich aktiviert und konfiguriert.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API deaktiviert.",
-  "brevoEmptyKeyError": "Fehler: Der API-Schlüssel darf nicht leer sein.",
-  "brevoEnablePrompt": "Möchten Sie BREVO_API aktivieren? (y/n): ",
-  "brevoEnterKey": "Geben Sie Ihren Brevo-API-Schlüssel ein: ",
-  "brevoNoEnvError": "Fehler: Im aktuellen Verzeichnis wurde weder die Datei env.joss noch die Datei .env gefunden.",
-  "brevoReadError": "Fehler beim Lesen von {file}: {error}",
-  "brevoTitle": "--- Brevo API-Konfiguration ---",
-  "buildCopyFiles": "Projektdateien werden kopiert...",
-  "buildDbCopied": "Datenbank nach build/ kopiert",
-  "buildDbCopiedProgram": "Datenbank nach build/Storage/ kopiert",
-  "buildEncryptEnv": "Verschlüsselungsumgebung für die Produktion...",
-  "buildEnvEncryptedSuccess": "Umgebung verschlüsselt und eingebettet als env.enc",
-  "buildEnvMissingError": "Architekturfehler: Fehlende Umgebungsdatei („env.joss“ oder „.env“)",
-  "buildInjectDbPath": "Einfügen der DB_PATH=\"Storage/database.sqlite\"-Konfiguration in eingebettete env.joss ...",
-  "buildNodeModulesInclude": "-\u003e node_modules werden eingebunden.",
-  "buildNodeModulesOmit": "-\u003e node_modules wird weggelassen.",
-  "buildOsNotSupported": "In dieser vorkompilierten Version wird nur Windows unterstützt.",
-  "buildPackAssets": "Assets verschlüsseln und verpacken...",
-  "buildProgramDataDir": "build/data/ (vorerst leer)",
-  "buildProgramDbSqlite": "build/Storage/database.sqlite",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramStart": "Joss PROGRAM Build wird gestartet (SICHERER MODUS) ...",
-  "buildProgramStructure": "Struktur:",
-  "buildProgramSuccess": "PROGRAM Build im Ordner „build/“ erfolgreich abgeschlossen.",
-  "buildSchemaError": "Die Joss-Bibel erfordert eine strenge Struktur.",
-  "buildSelectOs": "Wählen Sie das Zielbetriebssystem aus:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "Laden Sie zum Bereitstellen den Inhalt des Ordners „build/“ auf Ihren Server hoch.",
-  "buildWebRunTip": "Sie müssen nur „joss run main.joss“ darin auf dem Server ausführen.",
-  "buildWebStart": "Joss WEB-Build wird gestartet...",
-  "buildWebSuccess": "WEB-Build im Ordner „build/“ erfolgreich abgeschlossen.",
-  "buildWindowsCompile": "Kompilieren für Windows...",
-  "changeDBMotor": "Ändern Sie die Datenbank-Engine (MySQL/SQLite)",
-  "changeDBPrefix": "Ändern Sie das Tabellenpräfix",
-  "compileProjectDist": "Erstellen Sie das Projekt zur Verteilung",
-  "createMigration": "Erstellen Sie eine neue Migration",
-  "createProject": "Erstellen Sie ein neues Projekt",
-  "dbConnectedSourceDest": "Verbunden mit Quelle und Ziel.",
-  "dbEngineAlready": "Die Datenbank-Engine ist bereits vorhanden",
-  "dbMigrateStart": "Datenmigration wird gestartet...",
-  "dbPrefixAlready": "Das Präfix ist bereits vorhanden",
-  "dbPrepareDestSchema": "Schema wird in der Zieldatenbank vorbereitet...",
-  "errAuthEncryptFailed": "Authentifizierungsfehler: Passwort konnte nicht verschlüsselt werden",
-  "errAuthNoDbConnection": "Authentifizierungsfehler: Keine Datenbankverbindung konfiguriert",
-  "errFunctionNotFound": "Fehler: Funktion „%s“ nicht gefunden",
-  "errLayoutNotFound": "Fehler: Layout „%s“ nicht gefunden",
-  "errPropertyNotFound": "Fehler: Eigenschaft oder Methode „%s“ nicht in Klasse „%s“ gefunden",
-  "errTypeError": "Typfehler: Argument %d (%s) muss vom Typ %s sein...",
-  "errViewNotFound": "Fehler: Ansicht „%s“ nicht gefunden",
-  "exeMigrate": "Führen Sie ausstehende Migrationen aus",
-  "exeMigrateFresh": "Löschen Sie alle Tabellen und führen Sie die Migrationen erneut aus",
-  "helpPrint": "Diese Hilfe anzeigen",
-  "removeCRUD": "Entfernen Sie das für eine Tabelle generierte CRUD",
-  "runJossScript": "Führen Sie ein Joss-Skript aus",
-  "settingsUserStorage": "Speicher konfigurieren (lokal|OCI|AWS|Azure)",
-  "startProgramDesktop": "Starten Sie die Anwendung im Desktop-Modus",
-  "startServerWeb": "Starten Sie den Webserver",
-  "version": "Zeigt die aktuelle Version an"
+  }
 }

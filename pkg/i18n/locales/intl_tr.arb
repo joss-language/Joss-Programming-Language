@@ -1,154 +1,235 @@
 {
   "@@locale": "tr",
+  "CreateCRUD": "Bir tabloya dayalı tam CRUD oluşturun",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "Yeni bir denetleyici oluştur",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "MVC oluştur",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "Yeni ara katman yazılımı oluşturun",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "Yeni bir model oluştur",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "Yeni bir görünüm oluştur",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "Etkileşimli Yerel Yapay Zekayı ayarlayın",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ NATIVE AI BAŞARIYLA ETKİNLEŞTİRİLDİ",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "Bir seçenek seçin (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "{provider} için API anahtarını girin ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "Geçersiz seçenek. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "Kullanılacak model [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ Uyarı: API Anahtarı girilmedi. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (Önerilen - süper hızlı Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "Yapılandırma {file} dosyasına kaydediliyor...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "Yapay zeka sağlayıcınızı seçin:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ Seçilen sağlayıcı: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "Şimdi şunu deneyin: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "Bu sihirbaz projenizdeki yerel yapay zekayı yapılandıracaktır.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Joss AI Etkinleştirme Sihirbazı 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API başarıyla etkinleştirildi ve yapılandırıldı.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API devre dışı bırakıldı.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "Hata: API Anahtarı boş olamaz.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "BREVO_API'yi etkinleştirmek istiyor musunuz? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Brevo API Anahtarınızı girin: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "Hata: Geçerli dizinde ne env.joss ne de .env dosyası bulunamadı.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "{file} okunurken hata oluştu: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Brevo API Yapılandırması ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "Proje dosyaları kopyalanıyor...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "Veritabanı derlemeye kopyalandı/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "Veritabanı build/Storage/'a kopyalandı",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "Üretim için şifreleme ortamı...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "Ortam env.enc olarak şifrelendi ve gömüldü",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "Mimari Hatası: Eksik ortam dosyası ('env.joss' veya '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "DB_PATH=\"Storage/database.sqlite\" yapılandırması gömülü env.joss'a enjekte ediliyor...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules dahil edilecektir.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules atlanacak.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "Bu önceden derlenmiş sürümde yalnızca Windows desteklenir.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "Varlıkları şifrelemek ve paketlemek...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "  build/data/ (şimdilik boş)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Joss PROGRAM derlemesi başlatılıyor (GÜVENLİ MOD)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "Yapı:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "PROGRAM Oluşturma 'build/' klasöründe başarıyla tamamlandı.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "Joss İncili katı bir yapıya ihtiyaç duyar.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "Hedef işletim sistemini seçin:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "Dağıtmak için 'build/' klasörünün içeriğini sunucunuza yükleyin.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "Sunucuda sadece 'joss run main.joss' komutunu çalıştırmanız yeterli.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Joss WEB derlemesi başlatılıyor...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB Derlemesi 'build/' klasöründe başarıyla tamamlandı.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Windows için derleniyor...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "Veritabanı motorunu değiştirin (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "Tablo önekini değiştirme",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "Dağıtım için projeyi oluşturun",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "Yeni bir taşıma oluştur",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "Yeni bir proje oluştur",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "Kaynağa ve hedefe bağlı.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "Veritabanı motoru zaten",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "Veri taşıma işlemi başlatılıyor...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "Ön ek zaten",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "Hedef veritabanında şema hazırlanıyor...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Kimlik Doğrulama Hatası: Şifre şifrelenemedi",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Kimlik Doğrulama Hatası: Veritabanı bağlantısı yapılandırılmadı",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "Hata: '%s' işlevi bulunamadı",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "Hata: '%s_' Düzeni bulunamadı",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "Hata: '%s_' özelliği veya yöntemi '%s_' sınıfında bulunamadı",
+  "@errPropertyNotFound": {},
+  "errTypeError": "Tür Hatası: %d (%s) bağımsız değişkeni %s türünde olmalıdır...",
+  "@errTypeError": {},
+  "errViewNotFound": "Hata: '%s_' görünümü bulunamadı",
+  "@errViewNotFound": {},
+  "exeMigrate": "Bekleyen taşıma işlemlerini çalıştır",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "Tüm tabloları silin ve taşıma işlemlerini yeniden çalıştırın",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "Bu yardımı göster",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "Bir tablo için oluşturulan CRUD'u kaldırın",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "Bir joss betiği çalıştır",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "Depolamayı yapılandırın (yerel|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "Uygulamayı masaüstü modunda başlatın",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "Web sunucusunu başlat",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "Geçerli sürümü gösterir",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "Bir tabloya dayalı tam CRUD oluşturun",
-  "CreateController": "Yeni bir denetleyici oluştur",
-  "CreateMVC": "MVC oluştur",
-  "CreateMiddleware": "Yeni ara katman yazılımı oluşturun",
-  "CreateModel": "Yeni bir model oluştur",
-  "CreateView": "Yeni bir görünüm oluştur",
-  "IaActivate": "Etkileşimli Yerel Yapay Zekayı ayarlayın",
-  "aiActivatedSuccess": "✅ NATIVE AI BAŞARIYLA ETKİNLEŞTİRİLDİ",
-  "aiChooseOption": "Bir seçenek seçin (1-3): ",
-  "aiEnterApiKey": "{provider} için API anahtarını girin ({key}): ",
-  "aiInvalidOption": "Geçersiz seçenek. ",
-  "aiModelToUse": "Kullanılacak model [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ Uyarı: API Anahtarı girilmedi. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (Önerilen - süper hızlı Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "Yapılandırma {file} dosyasına kaydediliyor...",
-  "aiSelectProvider": "Yapay zeka sağlayıcınızı seçin:",
-  "aiSelectedProvider": "✅ Seçilen sağlayıcı: {provider}",
-  "aiTryScript": "Şimdi şunu deneyin: joss run your_script.joss",
-  "aiWizardConfig": "Bu sihirbaz projenizdeki yerel yapay zekayı yapılandıracaktır.",
-  "aiWizardTitle": "🚀 Joss AI Etkinleştirme Sihirbazı 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API başarıyla etkinleştirildi ve yapılandırıldı.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API devre dışı bırakıldı.",
-  "brevoEmptyKeyError": "Hata: API Anahtarı boş olamaz.",
-  "brevoEnablePrompt": "BREVO_API'yi etkinleştirmek istiyor musunuz? (y/n): ",
-  "brevoEnterKey": "Brevo API Anahtarınızı girin: ",
-  "brevoNoEnvError": "Hata: Geçerli dizinde ne env.joss ne de .env dosyası bulunamadı.",
-  "brevoReadError": "{file} okunurken hata oluştu: {error}",
-  "brevoTitle": "--- Brevo API Yapılandırması ---",
-  "buildCopyFiles": "Proje dosyaları kopyalanıyor...",
-  "buildDbCopied": "Veritabanı derlemeye kopyalandı/",
-  "buildDbCopiedProgram": "Veritabanı build/Storage/'a kopyalandı",
-  "buildEncryptEnv": "Üretim için şifreleme ortamı...",
-  "buildEnvEncryptedSuccess": "Ortam env.enc olarak şifrelendi ve gömüldü",
-  "buildEnvMissingError": "Mimari Hatası: Eksik ortam dosyası ('env.joss' veya '.env')",
-  "buildInjectDbPath": "DB_PATH=\"Storage/database.sqlite\" yapılandırması gömülü env.joss'a enjekte ediliyor...",
-  "buildNodeModulesInclude": "-\u003e node_modules dahil edilecektir.",
-  "buildNodeModulesOmit": "-\u003e node_modules atlanacak.",
-  "buildOsNotSupported": "Bu önceden derlenmiş sürümde yalnızca Windows desteklenir.",
-  "buildPackAssets": "Varlıkları şifrelemek ve paketlemek...",
-  "buildProgramDataDir": "  build/data/ (şimdilik boş)",
-  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramStart": "Joss PROGRAM derlemesi başlatılıyor (GÜVENLİ MOD)...",
-  "buildProgramStructure": "Yapı:",
-  "buildProgramSuccess": "PROGRAM Oluşturma 'build/' klasöründe başarıyla tamamlandı.",
-  "buildSchemaError": "Joss İncili katı bir yapıya ihtiyaç duyar.",
-  "buildSelectOs": "Hedef işletim sistemini seçin:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "Dağıtmak için 'build/' klasörünün içeriğini sunucunuza yükleyin.",
-  "buildWebRunTip": "Sunucuda sadece 'joss run main.joss' komutunu çalıştırmanız yeterli.",
-  "buildWebStart": "Joss WEB derlemesi başlatılıyor...",
-  "buildWebSuccess": "WEB Derlemesi 'build/' klasöründe başarıyla tamamlandı.",
-  "buildWindowsCompile": "Windows için derleniyor...",
-  "changeDBMotor": "Veritabanı motorunu değiştirin (mysql/sqlite)",
-  "changeDBPrefix": "Tablo önekini değiştirme",
-  "compileProjectDist": "Dağıtım için projeyi oluşturun",
-  "createMigration": "Yeni bir taşıma oluştur",
-  "createProject": "Yeni bir proje oluştur",
-  "dbConnectedSourceDest": "Kaynağa ve hedefe bağlı.",
-  "dbEngineAlready": "Veritabanı motoru zaten",
-  "dbMigrateStart": "Veri taşıma işlemi başlatılıyor...",
-  "dbPrefixAlready": "Ön ek zaten",
-  "dbPrepareDestSchema": "Hedef veritabanında şema hazırlanıyor...",
-  "errAuthEncryptFailed": "Kimlik Doğrulama Hatası: Şifre şifrelenemedi",
-  "errAuthNoDbConnection": "Kimlik Doğrulama Hatası: Veritabanı bağlantısı yapılandırılmadı",
-  "errFunctionNotFound": "Hata: '%s' işlevi bulunamadı",
-  "errLayoutNotFound": "Hata: '%s_' Düzeni bulunamadı",
-  "errPropertyNotFound": "Hata: '%s_' özelliği veya yöntemi '%s_' sınıfında bulunamadı",
-  "errTypeError": "Tür Hatası: %d (%s) bağımsız değişkeni %s türünde olmalıdır...",
-  "errViewNotFound": "Hata: '%s_' görünümü bulunamadı",
-  "exeMigrate": "Bekleyen taşıma işlemlerini çalıştır",
-  "exeMigrateFresh": "Tüm tabloları silin ve taşıma işlemlerini yeniden çalıştırın",
-  "helpPrint": "Bu yardımı göster",
-  "removeCRUD": "Bir tablo için oluşturulan CRUD'u kaldırın",
-  "runJossScript": "Bir joss betiği çalıştır",
-  "settingsUserStorage": "Depolamayı yapılandırın (yerel|OCI|AWS|Azure)",
-  "startProgramDesktop": "Uygulamayı masaüstü modunda başlatın",
-  "startServerWeb": "Web sunucusunu başlat",
-  "version": "Geçerli sürümü gösterir"
+  }
 }

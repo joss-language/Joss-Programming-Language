@@ -1,154 +1,235 @@
 {
   "@@locale": "sv",
+  "CreateCRUD": "Skapa komplett CRUD baserat på en tabell",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "Skapa en ny styrenhet",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "Skapa MVC",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "Skapa ny mellanprogram",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "Skapa en ny modell",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "Skapa en ny vy",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "Konfigurera interaktiv Native AI",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ NATIVE AI AKTIVERADE MED FRAMGÅNG",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "Välj ett alternativ (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "Ange API-nyckel för {provider} ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "Ogiltigt alternativ. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "Modell att använda [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ Varning: Ingen API-nyckel har angetts. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (Rekommenderas - supertyst Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "Sparar konfiguration i {file}...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "Välj din AI-leverantör:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ Vald leverantör: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "Försök nu med: joss run ditt_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "Den här guiden kommer att konfigurera den inbyggda AI i ditt projekt.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Joss AI Activation Wizard 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API har aktiverats och konfigurerats framgångsrikt.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API inaktiverad.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "Fel: API-nyckeln kan inte vara tom.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "Vill du aktivera BREVO_API? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Ange din Brevo API-nyckel: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "Fel: Varken env.joss eller .env-fil hittades i den aktuella katalogen.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "Fel vid läsning av {file}: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Brevo API-konfiguration ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "Kopierar projektfiler...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "Databas kopierad till build/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "Databas kopierad till build/Storage/",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "Krypterande miljö för produktion...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "Miljö krypterad och inbäddad som env.enc",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "Arkitekturfel: Miljöfil saknas ('env.joss' eller '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "Injicerar DB_PATH=\"Storage/database.sqlite\"-konfigurationen i inbäddad env.joss...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules kommer att inkluderas.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules kommer att utelämnas.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "Endast Windows stöds i denna förkompilerade version.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "Krypterar och paketerar tillgångar...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (tom för tillfället)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Startar Joss PROGRAM build (SÄKERT LÄGE)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "Strukturera:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "PROGRAM Bygget har slutförts framgångsrikt i mappen 'build/'.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "Joss-bibeln kräver en strikt struktur.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "Välj måloperativsystem:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "För att distribuera, ladda upp innehållet i mappen 'build/' till din server.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "Du behöver bara köra 'joss run main.joss' inuti den på servern.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Startar Joss WEB-bygge...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB Build slutfördes framgångsrikt i mappen 'build/'.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Kompilerar för Windows...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "Ändra databasmotorn (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "Ändra tabellprefixet",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "Bygg projektet för distribution",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "Skapa en ny migrering",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "Skapa ett nytt projekt",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "Ansluten till källa och destination.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "Databasmotorn finns redan",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "Startar datamigrering...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "Prefixet finns redan",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "Förbereder schema i måldatabasen...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Auth Error: Det gick inte att kryptera lösenordet",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Auth Error: Ingen databasanslutning konfigurerad",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "Fel: Funktionen '%s' hittades inte",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "Fel: Layouten '%s' hittades inte",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "Fel: Egenskapen eller metoden '%s' hittades inte i klassen '%s'",
+  "@errPropertyNotFound": {},
+  "errTypeError": "Typfel: Argument %d (%s) måste vara av typen %s...",
+  "@errTypeError": {},
+  "errViewNotFound": "Fel: Vyn '__PH_0___' hittades inte",
+  "@errViewNotFound": {},
+  "exeMigrate": "Kör väntande migrering",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "Ta bort alla tabeller och kör om migreringarna",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "Visa denna hjälp",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "Ta bort CRUD som genererats för en tabell",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "Kör ett joss-script",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "Konfigurera lagring (lokal|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "Starta programmet i skrivbordsläge",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "Starta webbservern",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "Visar den aktuella versionen",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "Skapa komplett CRUD baserat på en tabell",
-  "CreateController": "Skapa en ny styrenhet",
-  "CreateMVC": "Skapa MVC",
-  "CreateMiddleware": "Skapa ny mellanprogram",
-  "CreateModel": "Skapa en ny modell",
-  "CreateView": "Skapa en ny vy",
-  "IaActivate": "Konfigurera interaktiv Native AI",
-  "aiActivatedSuccess": "✅ NATIVE AI AKTIVERADE MED FRAMGÅNG",
-  "aiChooseOption": "Välj ett alternativ (1-3): ",
-  "aiEnterApiKey": "Ange API-nyckel för {provider} ({key}): ",
-  "aiInvalidOption": "Ogiltigt alternativ. ",
-  "aiModelToUse": "Modell att använda [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ Varning: Ingen API-nyckel har angetts. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (Rekommenderas - supertyst Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "Sparar konfiguration i {file}...",
-  "aiSelectProvider": "Välj din AI-leverantör:",
-  "aiSelectedProvider": "✅ Vald leverantör: {provider}",
-  "aiTryScript": "Försök nu med: joss run ditt_script.joss",
-  "aiWizardConfig": "Den här guiden kommer att konfigurera den inbyggda AI i ditt projekt.",
-  "aiWizardTitle": "🚀 Joss AI Activation Wizard 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API har aktiverats och konfigurerats framgångsrikt.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API inaktiverad.",
-  "brevoEmptyKeyError": "Fel: API-nyckeln kan inte vara tom.",
-  "brevoEnablePrompt": "Vill du aktivera BREVO_API? (y/n): ",
-  "brevoEnterKey": "Ange din Brevo API-nyckel: ",
-  "brevoNoEnvError": "Fel: Varken env.joss eller .env-fil hittades i den aktuella katalogen.",
-  "brevoReadError": "Fel vid läsning av {file}: {error}",
-  "brevoTitle": "--- Brevo API-konfiguration ---",
-  "buildCopyFiles": "Kopierar projektfiler...",
-  "buildDbCopied": "Databas kopierad till build/",
-  "buildDbCopiedProgram": "Databas kopierad till build/Storage/",
-  "buildEncryptEnv": "Krypterande miljö för produktion...",
-  "buildEnvEncryptedSuccess": "Miljö krypterad och inbäddad som env.enc",
-  "buildEnvMissingError": "Arkitekturfel: Miljöfil saknas ('env.joss' eller '.env')",
-  "buildInjectDbPath": "Injicerar DB_PATH=\"Storage/database.sqlite\"-konfigurationen i inbäddad env.joss...",
-  "buildNodeModulesInclude": "-\u003e node_modules kommer att inkluderas.",
-  "buildNodeModulesOmit": "-\u003e node_modules kommer att utelämnas.",
-  "buildOsNotSupported": "Endast Windows stöds i denna förkompilerade version.",
-  "buildPackAssets": "Krypterar och paketerar tillgångar...",
-  "buildProgramDataDir": "build/data/ (tom för tillfället)",
-  "buildProgramDbSqlite": "build/Storage/database.sqlite",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramStart": "Startar Joss PROGRAM build (SÄKERT LÄGE)...",
-  "buildProgramStructure": "Strukturera:",
-  "buildProgramSuccess": "PROGRAM Bygget har slutförts framgångsrikt i mappen 'build/'.",
-  "buildSchemaError": "Joss-bibeln kräver en strikt struktur.",
-  "buildSelectOs": "Välj måloperativsystem:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "För att distribuera, ladda upp innehållet i mappen 'build/' till din server.",
-  "buildWebRunTip": "Du behöver bara köra 'joss run main.joss' inuti den på servern.",
-  "buildWebStart": "Startar Joss WEB-bygge...",
-  "buildWebSuccess": "WEB Build slutfördes framgångsrikt i mappen 'build/'.",
-  "buildWindowsCompile": "Kompilerar för Windows...",
-  "changeDBMotor": "Ändra databasmotorn (mysql/sqlite)",
-  "changeDBPrefix": "Ändra tabellprefixet",
-  "compileProjectDist": "Bygg projektet för distribution",
-  "createMigration": "Skapa en ny migrering",
-  "createProject": "Skapa ett nytt projekt",
-  "dbConnectedSourceDest": "Ansluten till källa och destination.",
-  "dbEngineAlready": "Databasmotorn finns redan",
-  "dbMigrateStart": "Startar datamigrering...",
-  "dbPrefixAlready": "Prefixet finns redan",
-  "dbPrepareDestSchema": "Förbereder schema i måldatabasen...",
-  "errAuthEncryptFailed": "Auth Error: Det gick inte att kryptera lösenordet",
-  "errAuthNoDbConnection": "Auth Error: Ingen databasanslutning konfigurerad",
-  "errFunctionNotFound": "Fel: Funktionen '%s' hittades inte",
-  "errLayoutNotFound": "Fel: Layouten '%s' hittades inte",
-  "errPropertyNotFound": "Fel: Egenskapen eller metoden '%s' hittades inte i klassen '%s'",
-  "errTypeError": "Typfel: Argument %d (%s) måste vara av typen %s...",
-  "errViewNotFound": "Fel: Vyn '__PH_0___' hittades inte",
-  "exeMigrate": "Kör väntande migrering",
-  "exeMigrateFresh": "Ta bort alla tabeller och kör om migreringarna",
-  "helpPrint": "Visa denna hjälp",
-  "removeCRUD": "Ta bort CRUD som genererats för en tabell",
-  "runJossScript": "Kör ett joss-script",
-  "settingsUserStorage": "Konfigurera lagring (lokal|OCI|AWS|Azure)",
-  "startProgramDesktop": "Starta programmet i skrivbordsläge",
-  "startServerWeb": "Starta webbservern",
-  "version": "Visar den aktuella versionen"
+  }
 }

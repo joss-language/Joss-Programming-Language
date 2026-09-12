@@ -1,154 +1,235 @@
 {
   "@@locale": "zh",
+  "CreateCRUD": "基于表创建完整的CRUD",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "创建一个新的控制器",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "创建MVC",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "创建新的中间件",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "创建一个新模型",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "创建一个新视图",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "设置交互式原生 AI",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ 原生AI已成功激活",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "选择一个选项 (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "输入 {provider} 的 API 密钥 ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "无效选项。",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "使用的模型 [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️警告：未输入 API 密钥。",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (推荐 - 超快速 Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "正在将配置保存到 {file}...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "选择您的人工智能提供商：",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ 已选择的提供商: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "现在尝试： joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "该向导将在您的项目中配置本机 AI。",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Joss AI 激活向导🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API 激活并配置成功。",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API 已禁用。",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "错误：API 密钥不能为空。",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "是否激活 BREVO_API？ (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "输入您的 Brevo API 密钥: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "错误：在当前目录中找不到 env.joss 和 .env 文件。",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "读取 {file} 错误: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Brevo API 配置 ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "正在复制项目文件...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "数据库复制到 build/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "数据库复制到 build/Storage/",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "生产环境加密...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "环境加密并嵌入为 env.enc",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "架构错误：缺少环境文件（“env.joss”或“.env”）",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "正在将 DB_PATH=\"Storage/database.sqlite\" 配置注入嵌入式 env.joss...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> 将包含node_modules。",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules 将被省略。",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "此预编译版本仅支持 Windows。",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "加密和打包资产...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/（暂时为空）",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "  build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "开始 Joss PROGRAM 构建（安全模式）...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "结构：",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "程序构建在“build/”文件夹中成功完成。",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "乔斯圣经要求有严格的结构。",
+  "@buildSchemaError": {},
+  "buildSelectOs": "选择目标操作系统：",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "要进行部署，请将“build/”文件夹的内容上传到您的服务器。",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "您只需要在服务器上运行“joss run main.joss”即可。",
+  "@buildWebRunTip": {},
+  "buildWebStart": "开始乔斯WEB构建...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB 构建在“build/”文件夹中成功完成。",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "为 Windows 编译...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "更改数据库引擎（mysql/sqlite）",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "更改表前缀",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "构建用于分发的项目",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "创建新的迁移",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "创建一个新项目",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "连接到源和目的地。",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "数据库引擎已经",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "开始数据迁移...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "前缀已经是",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "正在目标数据库中准备架构...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "身份验证错误：无法加密密码",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "身份验证错误：未配置数据库连接",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "错误：找不到函数“%s”",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "错误：找不到布局“%s”",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "错误：在类“%s”中找不到属性或方法“%s”",
+  "@errPropertyNotFound": {},
+  "errTypeError": "类型错误：参数 %d (%s) 必须属于类型 %s...",
+  "@errTypeError": {},
+  "errViewNotFound": "错误：未找到视图“%s”",
+  "@errViewNotFound": {},
+  "exeMigrate": "运行待处理的迁移",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "删除所有表并重新运行迁移",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "显示此帮助",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "删除为表生成的 CRUD",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "运行 joss 脚本",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "配置存储（本地|OCI|AWS|Azure）",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "以桌面模式启动应用程序",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "启动网络服务器",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "显示当前版本",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "基于表创建完整的CRUD",
-  "CreateController": "创建一个新的控制器",
-  "CreateMVC": "创建MVC",
-  "CreateMiddleware": "创建新的中间件",
-  "CreateModel": "创建一个新模型",
-  "CreateView": "创建一个新视图",
-  "IaActivate": "设置交互式原生 AI",
-  "aiActivatedSuccess": "✅ 原生AI已成功激活",
-  "aiChooseOption": "选择一个选项 (1-3): ",
-  "aiEnterApiKey": "输入 {provider} 的 API 密钥 ({key}): ",
-  "aiInvalidOption": "无效选项。",
-  "aiModelToUse": "使用的模型 [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️警告：未输入 API 密钥。",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (推荐 - 超快速 Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "正在将配置保存到 {file}...",
-  "aiSelectProvider": "选择您的人工智能提供商：",
-  "aiSelectedProvider": "✅ 已选择的提供商: {provider}",
-  "aiTryScript": "现在尝试： joss run your_script.joss",
-  "aiWizardConfig": "该向导将在您的项目中配置本机 AI。",
-  "aiWizardTitle": "🚀 Joss AI 激活向导🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API 激活并配置成功。",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API 已禁用。",
-  "brevoEmptyKeyError": "错误：API 密钥不能为空。",
-  "brevoEnablePrompt": "是否激活 BREVO_API？ (y/n): ",
-  "brevoEnterKey": "输入您的 Brevo API 密钥: ",
-  "brevoNoEnvError": "错误：在当前目录中找不到 env.joss 和 .env 文件。",
-  "brevoReadError": "读取 {file} 错误: {error}",
-  "brevoTitle": "--- Brevo API 配置 ---",
-  "buildCopyFiles": "正在复制项目文件...",
-  "buildDbCopied": "数据库复制到 build/",
-  "buildDbCopiedProgram": "数据库复制到 build/Storage/",
-  "buildEncryptEnv": "生产环境加密...",
-  "buildEnvEncryptedSuccess": "环境加密并嵌入为 env.enc",
-  "buildEnvMissingError": "架构错误：缺少环境文件（“env.joss”或“.env”）",
-  "buildInjectDbPath": "正在将 DB_PATH=\"Storage/database.sqlite\" 配置注入嵌入式 env.joss...",
-  "buildNodeModulesInclude": "-\u003e 将包含node_modules。",
-  "buildNodeModulesOmit": "-\u003e node_modules 将被省略。",
-  "buildOsNotSupported": "此预编译版本仅支持 Windows。",
-  "buildPackAssets": "加密和打包资产...",
-  "buildProgramDataDir": "build/data/（暂时为空）",
-  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
-  "buildProgramErrorLog": "  build/error.log",
-  "buildProgramStart": "开始 Joss PROGRAM 构建（安全模式）...",
-  "buildProgramStructure": "结构：",
-  "buildProgramSuccess": "程序构建在“build/”文件夹中成功完成。",
-  "buildSchemaError": "乔斯圣经要求有严格的结构。",
-  "buildSelectOs": "选择目标操作系统：",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "要进行部署，请将“build/”文件夹的内容上传到您的服务器。",
-  "buildWebRunTip": "您只需要在服务器上运行“joss run main.joss”即可。",
-  "buildWebStart": "开始乔斯WEB构建...",
-  "buildWebSuccess": "WEB 构建在“build/”文件夹中成功完成。",
-  "buildWindowsCompile": "为 Windows 编译...",
-  "changeDBMotor": "更改数据库引擎（mysql/sqlite）",
-  "changeDBPrefix": "更改表前缀",
-  "compileProjectDist": "构建用于分发的项目",
-  "createMigration": "创建新的迁移",
-  "createProject": "创建一个新项目",
-  "dbConnectedSourceDest": "连接到源和目的地。",
-  "dbEngineAlready": "数据库引擎已经",
-  "dbMigrateStart": "开始数据迁移...",
-  "dbPrefixAlready": "前缀已经是",
-  "dbPrepareDestSchema": "正在目标数据库中准备架构...",
-  "errAuthEncryptFailed": "身份验证错误：无法加密密码",
-  "errAuthNoDbConnection": "身份验证错误：未配置数据库连接",
-  "errFunctionNotFound": "错误：找不到函数“%s”",
-  "errLayoutNotFound": "错误：找不到布局“%s”",
-  "errPropertyNotFound": "错误：在类“%s”中找不到属性或方法“%s”",
-  "errTypeError": "类型错误：参数 %d (%s) 必须属于类型 %s...",
-  "errViewNotFound": "错误：未找到视图“%s”",
-  "exeMigrate": "运行待处理的迁移",
-  "exeMigrateFresh": "删除所有表并重新运行迁移",
-  "helpPrint": "显示此帮助",
-  "removeCRUD": "删除为表生成的 CRUD",
-  "runJossScript": "运行 joss 脚本",
-  "settingsUserStorage": "配置存储（本地|OCI|AWS|Azure）",
-  "startProgramDesktop": "以桌面模式启动应用程序",
-  "startServerWeb": "启动网络服务器",
-  "version": "显示当前版本"
+  }
 }

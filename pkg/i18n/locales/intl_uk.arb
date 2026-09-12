@@ -1,154 +1,235 @@
 {
   "@@locale": "uk",
+  "CreateCRUD": "Створіть повний CRUD на основі таблиці",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "Створіть новий контролер",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "Створіть MVC",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "Створення нового проміжного ПЗ",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "Створіть нову модель",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "Створіть новий перегляд",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "Налаштуйте інтерактивний рідний AI",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ НАТИВНИЙ ШІ УСПІШНО АКТИВОВАНО",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "Виберіть варіант (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "Введіть API KEY для {provider} ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "Недійсний варіант. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "Модель для використання [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ Попередження: ключ API не введено. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (Рекомендовано - супершвидкий Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "Збереження конфігурації в {file}...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "Виберіть постачальника AI:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ Вибраний провайдер: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "Спробуйте зараз: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "Цей майстер налаштує власний ШІ у вашому проекті.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Майстер активації AI Joss 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API успішно активовано та налаштовано.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API вимкнено.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "Помилка: ключ API не може бути порожнім.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "Бажаєте активувати BREVO_API? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Введіть ваш Brevo API Key: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "Помилка: ані файл env.joss, ані .env не знайдено в поточному каталозі.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "Помилка читання {file}: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Конфігурація Brevo API ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "Копіювання файлів проекту...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "Базу даних скопійовано для збірки/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "Базу даних скопійовано до збірки/сховища/",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "Середовище шифрування для виробництва...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "Середовище зашифроване та вбудоване як env.enc",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "Помилка архітектури: відсутній файл середовища (\"env.joss\" або \".env\")",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "Впровадження конфігурації DB_PATH=\"Storage/database.sqlite\" у вбудований env.joss...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules будуть включені.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules буде опущено.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "У цій попередньо скомпільованій версії підтримується лише Windows.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "Шифрування та пакування активів...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (наразі пусто)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Запуск збірки Joss PROGRAM (БЕЗПЕЧНИЙ РЕЖИМ)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "Структура:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "PROGRAM Збірка успішно завершена в папці «build/».",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "Біблія Джосса вимагає суворої структури.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "Виберіть цільову операційну систему:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "Щоб розгорнути, завантажте вміст папки «build/» на свій сервер.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "Вам потрібно лише запустити 'joss run main.joss' всередині нього на сервері.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Початок створення Joss WEB...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB-збірка успішно завершена в папці «build/».",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Компіляція для Windows...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "Змінити механізм бази даних (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "Змініть префікс таблиці",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "Створіть проект для розповсюдження",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "Створіть нову міграцію",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "Створіть новий проект",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "Підключено до джерела та призначення.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "Механізм бази даних уже є",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "Початок міграції даних...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "Приставка вже є",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "Підготовка схеми в цільовій базі даних...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Помилка авторизації: не вдалося зашифрувати пароль",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Помилка авторизації: підключення до бази даних не налаштовано",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "Помилка: функція '%s' не знайдена",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "Помилка: макет \"%s\" не знайдено",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "Помилка: властивість або метод \"%s\" не знайдено в класі \"%s\"",
+  "@errPropertyNotFound": {},
+  "errTypeError": "Помилка типу: аргумент %d (%s) має мати тип %s...",
+  "@errTypeError": {},
+  "errViewNotFound": "Помилка: перегляд \"%s\" не знайдено",
+  "@errViewNotFound": {},
+  "exeMigrate": "Виконати незавершені міграції",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "Видаліть усі таблиці та повторно запустіть міграції",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "Покажіть цю довідку",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "Видаліть CRUD, згенерований для таблиці",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "Запустіть сценарій joss",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "Налаштувати сховище (локальний|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "Запустіть програму в режимі робочого столу",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "Запустіть веб-сервер",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "Показує поточну версію",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "Створіть повний CRUD на основі таблиці",
-  "CreateController": "Створіть новий контролер",
-  "CreateMVC": "Створіть MVC",
-  "CreateMiddleware": "Створення нового проміжного ПЗ",
-  "CreateModel": "Створіть нову модель",
-  "CreateView": "Створіть новий перегляд",
-  "IaActivate": "Налаштуйте інтерактивний рідний AI",
-  "aiActivatedSuccess": "✅ НАТИВНИЙ ШІ УСПІШНО АКТИВОВАНО",
-  "aiChooseOption": "Виберіть варіант (1-3): ",
-  "aiEnterApiKey": "Введіть API KEY для {provider} ({key}): ",
-  "aiInvalidOption": "Недійсний варіант. ",
-  "aiModelToUse": "Модель для використання [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ Попередження: ключ API не введено. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (Рекомендовано - супершвидкий Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "Збереження конфігурації в {file}...",
-  "aiSelectProvider": "Виберіть постачальника AI:",
-  "aiSelectedProvider": "✅ Вибраний провайдер: {provider}",
-  "aiTryScript": "Спробуйте зараз: joss run your_script.joss",
-  "aiWizardConfig": "Цей майстер налаштує власний ШІ у вашому проекті.",
-  "aiWizardTitle": "🚀 Майстер активації AI Joss 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API успішно активовано та налаштовано.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API вимкнено.",
-  "brevoEmptyKeyError": "Помилка: ключ API не може бути порожнім.",
-  "brevoEnablePrompt": "Бажаєте активувати BREVO_API? (y/n): ",
-  "brevoEnterKey": "Введіть ваш Brevo API Key: ",
-  "brevoNoEnvError": "Помилка: ані файл env.joss, ані .env не знайдено в поточному каталозі.",
-  "brevoReadError": "Помилка читання {file}: {error}",
-  "brevoTitle": "--- Конфігурація Brevo API ---",
-  "buildCopyFiles": "Копіювання файлів проекту...",
-  "buildDbCopied": "Базу даних скопійовано для збірки/",
-  "buildDbCopiedProgram": "Базу даних скопійовано до збірки/сховища/",
-  "buildEncryptEnv": "Середовище шифрування для виробництва...",
-  "buildEnvEncryptedSuccess": "Середовище зашифроване та вбудоване як env.enc",
-  "buildEnvMissingError": "Помилка архітектури: відсутній файл середовища (\"env.joss\" або \".env\")",
-  "buildInjectDbPath": "Впровадження конфігурації DB_PATH=\"Storage/database.sqlite\" у вбудований env.joss...",
-  "buildNodeModulesInclude": "-\u003e node_modules будуть включені.",
-  "buildNodeModulesOmit": "-\u003e node_modules буде опущено.",
-  "buildOsNotSupported": "У цій попередньо скомпільованій версії підтримується лише Windows.",
-  "buildPackAssets": "Шифрування та пакування активів...",
-  "buildProgramDataDir": "build/data/ (наразі пусто)",
-  "buildProgramDbSqlite": "build/Storage/database.sqlite",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramStart": "Запуск збірки Joss PROGRAM (БЕЗПЕЧНИЙ РЕЖИМ)...",
-  "buildProgramStructure": "Структура:",
-  "buildProgramSuccess": "PROGRAM Збірка успішно завершена в папці «build/».",
-  "buildSchemaError": "Біблія Джосса вимагає суворої структури.",
-  "buildSelectOs": "Виберіть цільову операційну систему:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "Щоб розгорнути, завантажте вміст папки «build/» на свій сервер.",
-  "buildWebRunTip": "Вам потрібно лише запустити 'joss run main.joss' всередині нього на сервері.",
-  "buildWebStart": "Початок створення Joss WEB...",
-  "buildWebSuccess": "WEB-збірка успішно завершена в папці «build/».",
-  "buildWindowsCompile": "Компіляція для Windows...",
-  "changeDBMotor": "Змінити механізм бази даних (mysql/sqlite)",
-  "changeDBPrefix": "Змініть префікс таблиці",
-  "compileProjectDist": "Створіть проект для розповсюдження",
-  "createMigration": "Створіть нову міграцію",
-  "createProject": "Створіть новий проект",
-  "dbConnectedSourceDest": "Підключено до джерела та призначення.",
-  "dbEngineAlready": "Механізм бази даних уже є",
-  "dbMigrateStart": "Початок міграції даних...",
-  "dbPrefixAlready": "Приставка вже є",
-  "dbPrepareDestSchema": "Підготовка схеми в цільовій базі даних...",
-  "errAuthEncryptFailed": "Помилка авторизації: не вдалося зашифрувати пароль",
-  "errAuthNoDbConnection": "Помилка авторизації: підключення до бази даних не налаштовано",
-  "errFunctionNotFound": "Помилка: функція '%s' не знайдена",
-  "errLayoutNotFound": "Помилка: макет \"%s\" не знайдено",
-  "errPropertyNotFound": "Помилка: властивість або метод \"%s\" не знайдено в класі \"%s\"",
-  "errTypeError": "Помилка типу: аргумент %d (%s) має мати тип %s...",
-  "errViewNotFound": "Помилка: перегляд \"%s\" не знайдено",
-  "exeMigrate": "Виконати незавершені міграції",
-  "exeMigrateFresh": "Видаліть усі таблиці та повторно запустіть міграції",
-  "helpPrint": "Покажіть цю довідку",
-  "removeCRUD": "Видаліть CRUD, згенерований для таблиці",
-  "runJossScript": "Запустіть сценарій joss",
-  "settingsUserStorage": "Налаштувати сховище (локальний|OCI|AWS|Azure)",
-  "startProgramDesktop": "Запустіть програму в режимі робочого столу",
-  "startServerWeb": "Запустіть веб-сервер",
-  "version": "Показує поточну версію"
+  }
 }

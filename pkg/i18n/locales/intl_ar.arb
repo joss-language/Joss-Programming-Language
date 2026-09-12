@@ -1,154 +1,235 @@
 {
   "@@locale": "ar",
+  "CreateCRUD": "إنشاء CRUD كاملة بناءً على جدول",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "إنشاء وحدة تحكم جديدة",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "إنشاء MVC",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "إنشاء وسيطة جديدة",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "إنشاء نموذج جديد",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "إنشاء طريقة عرض جديدة",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "قم بإعداد الذكاء الاصطناعي الأصلي التفاعلي",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ تم تنشيط الذكاء الاصطناعي الأصلي بنجاح",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "اختر خيارًا (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "أدخل مفتاح API لـ {provider} ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "خيار غير صالح. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "النموذج المراد استخدامه [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ تحذير: لم يتم إدخال مفتاح API. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (موصى به - Llama 3 فائق السرعة)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "حفظ التكوين في {file}...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "حدد مزود الذكاء الاصطناعي الخاص بك:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ المزود المحدد: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "حاول الآن باستخدام: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "سيقوم هذا المعالج بتكوين الذكاء الاصطناعي الأصلي في مشروعك.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 معالج تنشيط Joss AI 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ تم تفعيل BREVO_API وتكوينه بنجاح.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ تم تعطيل BREVO_API.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "خطأ: لا يمكن أن يكون مفتاح API فارغًا.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "هل تريد تفعيل BREVO_API؟ (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "أدخل مفتاح Brevo API الخاص بك: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "خطأ: لم يتم العثور على ملف env.joss أو .env في الدليل الحالي.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "خطأ في قراءة {file}: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- تكوين Brevo API ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "نسخ ملفات المشروع...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "تم نسخ قاعدة البيانات للبناء/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "تم نسخ قاعدة البيانات لبناء/التخزين/",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "بيئة التشفير للإنتاج...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "البيئة مشفرة ومضمنة كـ env.enc",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "خطأ في البنية: ملف البيئة مفقود ('env.joss' أو '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "إدخال تكوين DB_PATH=\"Storage/database.sqlite\" في env.joss المضمن...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> سيتم تضمين وحدات العقدة.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> سيتم حذف وحدات العقدة.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "يتم دعم Windows فقط في هذا الإصدار المترجم مسبقًا.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "تشفير وتغليف الأصول...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "  build/data/ (فارغة في الوقت الراهن)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "  build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "بدء إنشاء برنامج Joss (الوضع الآمن)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "بناء:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "تم إكمال إنشاء البرنامج بنجاح في المجلد \"build/\".",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "يتطلب الكتاب المقدس جوس بنية صارمة.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "حدد نظام التشغيل المستهدف:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "للنشر، قم بتحميل محتويات المجلد \"build/\" إلى الخادم الخاص بك.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "ما عليك سوى تشغيل 'joss run main.joss' بداخله على الخادم.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "بدء إنشاء Joss WEB...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "تم إكمال WEB Build بنجاح في المجلد \"build/\".",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "تجميع لنظام التشغيل Windows...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "تغيير محرك قاعدة البيانات (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "تغيير بادئة الجدول",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "بناء المشروع للتوزيع",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "إنشاء هجرة جديدة",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "إنشاء مشروع جديد",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "متصل بالمصدر والوجهة.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "محرك قاعدة البيانات موجود بالفعل",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "جارٍ بدء ترحيل البيانات...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "البادئة موجودة بالفعل",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "يتم الآن تحضير المخطط في قاعدة البيانات الوجهة...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "خطأ في المصادقة: فشل تشفير كلمة المرور",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "خطأ في المصادقة: لم يتم تكوين اتصال بقاعدة البيانات",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "خطأ: لم يتم العثور على الدالة '_%s_'",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "خطأ: لم يتم العثور على التخطيط '_%s_'",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "خطأ: الخاصية أو الطريقة '_%s_' غير موجودة في الفئة '_%s'",
+  "@errPropertyNotFound": {},
+  "errTypeError": "خطأ في النوع: الوسيطة __PH_0____ (_%s_) يجب أن تكون من النوع __PH_2___...",
+  "@errTypeError": {},
+  "errViewNotFound": "خطأ: لم يتم العثور على العرض '_%s_'",
+  "@errViewNotFound": {},
+  "exeMigrate": "تشغيل عمليات الترحيل المعلقة",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "احذف كافة الجداول وأعد تشغيل عمليات الترحيل",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "أظهر هذه المساعدة",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "قم بإزالة CRUD الذي تم إنشاؤه لجدول",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "تشغيل البرنامج النصي جوس",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "تكوين التخزين (محلي|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "ابدأ تشغيل التطبيق في وضع سطح المكتب",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "ابدأ تشغيل خادم الويب",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "يظهر الإصدار الحالي",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "إنشاء CRUD كاملة بناءً على جدول",
-  "CreateController": "إنشاء وحدة تحكم جديدة",
-  "CreateMVC": "إنشاء MVC",
-  "CreateMiddleware": "إنشاء وسيطة جديدة",
-  "CreateModel": "إنشاء نموذج جديد",
-  "CreateView": "إنشاء طريقة عرض جديدة",
-  "IaActivate": "قم بإعداد الذكاء الاصطناعي الأصلي التفاعلي",
-  "aiActivatedSuccess": "✅ تم تنشيط الذكاء الاصطناعي الأصلي بنجاح",
-  "aiChooseOption": "اختر خيارًا (1-3): ",
-  "aiEnterApiKey": "أدخل مفتاح API لـ {provider} ({key}): ",
-  "aiInvalidOption": "خيار غير صالح. ",
-  "aiModelToUse": "النموذج المراد استخدامه [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ تحذير: لم يتم إدخال مفتاح API. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (موصى به - Llama 3 فائق السرعة)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "حفظ التكوين في {file}...",
-  "aiSelectProvider": "حدد مزود الذكاء الاصطناعي الخاص بك:",
-  "aiSelectedProvider": "✅ المزود المحدد: {provider}",
-  "aiTryScript": "حاول الآن باستخدام: joss run your_script.joss",
-  "aiWizardConfig": "سيقوم هذا المعالج بتكوين الذكاء الاصطناعي الأصلي في مشروعك.",
-  "aiWizardTitle": "🚀 معالج تنشيط Joss AI 🚀",
-  "brevoActivatedSuccess": "✅ تم تفعيل BREVO_API وتكوينه بنجاح.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ تم تعطيل BREVO_API.",
-  "brevoEmptyKeyError": "خطأ: لا يمكن أن يكون مفتاح API فارغًا.",
-  "brevoEnablePrompt": "هل تريد تفعيل BREVO_API؟ (y/n): ",
-  "brevoEnterKey": "أدخل مفتاح Brevo API الخاص بك: ",
-  "brevoNoEnvError": "خطأ: لم يتم العثور على ملف env.joss أو .env في الدليل الحالي.",
-  "brevoReadError": "خطأ في قراءة {file}: {error}",
-  "brevoTitle": "--- تكوين Brevo API ---",
-  "buildCopyFiles": "نسخ ملفات المشروع...",
-  "buildDbCopied": "تم نسخ قاعدة البيانات للبناء/",
-  "buildDbCopiedProgram": "تم نسخ قاعدة البيانات لبناء/التخزين/",
-  "buildEncryptEnv": "بيئة التشفير للإنتاج...",
-  "buildEnvEncryptedSuccess": "البيئة مشفرة ومضمنة كـ env.enc",
-  "buildEnvMissingError": "خطأ في البنية: ملف البيئة مفقود ('env.joss' أو '.env')",
-  "buildInjectDbPath": "إدخال تكوين DB_PATH=\"Storage/database.sqlite\" في env.joss المضمن...",
-  "buildNodeModulesInclude": "-\u003e سيتم تضمين وحدات العقدة.",
-  "buildNodeModulesOmit": "-\u003e سيتم حذف وحدات العقدة.",
-  "buildOsNotSupported": "يتم دعم Windows فقط في هذا الإصدار المترجم مسبقًا.",
-  "buildPackAssets": "تشفير وتغليف الأصول...",
-  "buildProgramDataDir": "  build/data/ (فارغة في الوقت الراهن)",
-  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
-  "buildProgramErrorLog": "  build/error.log",
-  "buildProgramStart": "بدء إنشاء برنامج Joss (الوضع الآمن)...",
-  "buildProgramStructure": "بناء:",
-  "buildProgramSuccess": "تم إكمال إنشاء البرنامج بنجاح في المجلد \"build/\".",
-  "buildSchemaError": "يتطلب الكتاب المقدس جوس بنية صارمة.",
-  "buildSelectOs": "حدد نظام التشغيل المستهدف:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "للنشر، قم بتحميل محتويات المجلد \"build/\" إلى الخادم الخاص بك.",
-  "buildWebRunTip": "ما عليك سوى تشغيل 'joss run main.joss' بداخله على الخادم.",
-  "buildWebStart": "بدء إنشاء Joss WEB...",
-  "buildWebSuccess": "تم إكمال WEB Build بنجاح في المجلد \"build/\".",
-  "buildWindowsCompile": "تجميع لنظام التشغيل Windows...",
-  "changeDBMotor": "تغيير محرك قاعدة البيانات (mysql/sqlite)",
-  "changeDBPrefix": "تغيير بادئة الجدول",
-  "compileProjectDist": "بناء المشروع للتوزيع",
-  "createMigration": "إنشاء هجرة جديدة",
-  "createProject": "إنشاء مشروع جديد",
-  "dbConnectedSourceDest": "متصل بالمصدر والوجهة.",
-  "dbEngineAlready": "محرك قاعدة البيانات موجود بالفعل",
-  "dbMigrateStart": "جارٍ بدء ترحيل البيانات...",
-  "dbPrefixAlready": "البادئة موجودة بالفعل",
-  "dbPrepareDestSchema": "يتم الآن تحضير المخطط في قاعدة البيانات الوجهة...",
-  "errAuthEncryptFailed": "خطأ في المصادقة: فشل تشفير كلمة المرور",
-  "errAuthNoDbConnection": "خطأ في المصادقة: لم يتم تكوين اتصال بقاعدة البيانات",
-  "errFunctionNotFound": "خطأ: لم يتم العثور على الدالة '_%s_'",
-  "errLayoutNotFound": "خطأ: لم يتم العثور على التخطيط '_%s_'",
-  "errPropertyNotFound": "خطأ: الخاصية أو الطريقة '_%s_' غير موجودة في الفئة '_%s'",
-  "errTypeError": "خطأ في النوع: الوسيطة __PH_0____ (_%s_) يجب أن تكون من النوع __PH_2___...",
-  "errViewNotFound": "خطأ: لم يتم العثور على العرض '_%s_'",
-  "exeMigrate": "تشغيل عمليات الترحيل المعلقة",
-  "exeMigrateFresh": "احذف كافة الجداول وأعد تشغيل عمليات الترحيل",
-  "helpPrint": "أظهر هذه المساعدة",
-  "removeCRUD": "قم بإزالة CRUD الذي تم إنشاؤه لجدول",
-  "runJossScript": "تشغيل البرنامج النصي جوس",
-  "settingsUserStorage": "تكوين التخزين (محلي|OCI|AWS|Azure)",
-  "startProgramDesktop": "ابدأ تشغيل التطبيق في وضع سطح المكتب",
-  "startServerWeb": "ابدأ تشغيل خادم الويب",
-  "version": "يظهر الإصدار الحالي"
+  }
 }

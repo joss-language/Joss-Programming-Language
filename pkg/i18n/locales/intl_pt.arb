@@ -1,154 +1,235 @@
 {
   "@@locale": "pt",
+  "CreateCRUD": "Crie CRUD completo com base em uma tabela",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "Crie um novo controlador",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "Criar MVC",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "Crie um novo middleware",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "Crie um novo modelo",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "Crie uma nova visualização",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "Configure IA nativa interativa",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ IA NATIVA ATIVADA COM SUCESSO",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "Escolha uma opção (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "Insira sua API KEY para {provider} ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "Opção inválida. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "Modelo a usar [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ Aviso: nenhuma chave API inserida. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (Recomendado - Llama 3 super rápido)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "Salvando configuração em {file}...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "Selecione seu provedor de IA:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ Provedor selecionado: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "Experimente agora com: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "Este assistente configurará a IA nativa em seu projeto.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Assistente de ativação Joss AI 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API ativado e configurado com sucesso.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API desativado.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "Erro: a chave API não pode estar vazia.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "Deseja ativar BREVO_API? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Insira sua API Key do Brevo: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "Erro: Nem o arquivo env.joss nem .env foi encontrado no diretório atual.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "Erro ao ler {file}: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Configuração da API Brevo ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "Copiando arquivos do projeto...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "Banco de dados copiado para build/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "Banco de dados copiado para build/Storage/",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "Criptografando ambiente para produção...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "Ambiente criptografado e incorporado como env.enc",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "Erro de arquitetura: arquivo de ambiente ausente ('env.joss' ou '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "Injetando configuração DB_PATH = \"Storage/database.sqlite\" no env.joss incorporado ...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules serão incluídos.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules será omitido.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "Somente Windows é compatível com esta versão pré-compilada.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "Criptografando e empacotando ativos...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (vazio por enquanto)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "  build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Iniciando a construção do Joss PROGRAM (MODO SEGURO)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "Estrutura:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "PROGRAMA Build concluído com sucesso na pasta 'build/'.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "A Bíblia Joss requer uma estrutura rígida.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "Selecione o sistema operacional de destino:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "Para implantar, carregue o conteúdo da pasta 'build/' em seu servidor.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "Você só precisa executar 'joss run main.joss' dentro dele no servidor.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Iniciando a construção do Joss WEB...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB Build concluído com sucesso na pasta 'build/'.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Compilando para Windows...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "Alterar o mecanismo de banco de dados (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "Alterar o prefixo da tabela",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "Construa o projeto para distribuição",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "Crie uma nova migração",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "Crie um novo projeto",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "Conectado à origem e ao destino.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "O mecanismo de banco de dados já está",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "Iniciando migração de dados...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "O prefixo já está",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "Preparando esquema no banco de dados de destino...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Erro de autenticação: falha ao criptografar a senha",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Erro de autenticação: nenhuma conexão de banco de dados configurada",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "Erro: Função '%s' não encontrada",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "Erro: Layout '%s' não encontrado",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "Erro: Propriedade ou método '%s' não encontrado na classe '%s'",
+  "@errPropertyNotFound": {},
+  "errTypeError": "Erro de tipo: o argumento %d (%s) deve ser do tipo %s...",
+  "@errTypeError": {},
+  "errViewNotFound": "Erro: Visualização '%s' não encontrada",
+  "@errViewNotFound": {},
+  "exeMigrate": "Execute migrações pendentes",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "Exclua todas as tabelas e execute novamente as migrações",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "Mostrar esta ajuda",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "Remover CRUD gerado para uma tabela",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "Execute um script joss",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "Configurar armazenamento (local|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "Inicie o aplicativo no modo desktop",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "Inicie o servidor web",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "Mostra a versão atual",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "Crie CRUD completo com base em uma tabela",
-  "CreateController": "Crie um novo controlador",
-  "CreateMVC": "Criar MVC",
-  "CreateMiddleware": "Crie um novo middleware",
-  "CreateModel": "Crie um novo modelo",
-  "CreateView": "Crie uma nova visualização",
-  "IaActivate": "Configure IA nativa interativa",
-  "aiActivatedSuccess": "✅ IA NATIVA ATIVADA COM SUCESSO",
-  "aiChooseOption": "Escolha uma opção (1-3): ",
-  "aiEnterApiKey": "Insira sua API KEY para {provider} ({key}): ",
-  "aiInvalidOption": "Opção inválida. ",
-  "aiModelToUse": "Modelo a usar [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ Aviso: nenhuma chave API inserida. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (Recomendado - Llama 3 super rápido)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "Salvando configuração em {file}...",
-  "aiSelectProvider": "Selecione seu provedor de IA:",
-  "aiSelectedProvider": "✅ Provedor selecionado: {provider}",
-  "aiTryScript": "Experimente agora com: joss run your_script.joss",
-  "aiWizardConfig": "Este assistente configurará a IA nativa em seu projeto.",
-  "aiWizardTitle": "🚀 Assistente de ativação Joss AI 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API ativado e configurado com sucesso.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API desativado.",
-  "brevoEmptyKeyError": "Erro: a chave API não pode estar vazia.",
-  "brevoEnablePrompt": "Deseja ativar BREVO_API? (y/n): ",
-  "brevoEnterKey": "Insira sua API Key do Brevo: ",
-  "brevoNoEnvError": "Erro: Nem o arquivo env.joss nem .env foi encontrado no diretório atual.",
-  "brevoReadError": "Erro ao ler {file}: {error}",
-  "brevoTitle": "--- Configuração da API Brevo ---",
-  "buildCopyFiles": "Copiando arquivos do projeto...",
-  "buildDbCopied": "Banco de dados copiado para build/",
-  "buildDbCopiedProgram": "Banco de dados copiado para build/Storage/",
-  "buildEncryptEnv": "Criptografando ambiente para produção...",
-  "buildEnvEncryptedSuccess": "Ambiente criptografado e incorporado como env.enc",
-  "buildEnvMissingError": "Erro de arquitetura: arquivo de ambiente ausente ('env.joss' ou '.env')",
-  "buildInjectDbPath": "Injetando configuração DB_PATH = \"Storage/database.sqlite\" no env.joss incorporado ...",
-  "buildNodeModulesInclude": "-\u003e node_modules serão incluídos.",
-  "buildNodeModulesOmit": "-\u003e node_modules será omitido.",
-  "buildOsNotSupported": "Somente Windows é compatível com esta versão pré-compilada.",
-  "buildPackAssets": "Criptografando e empacotando ativos...",
-  "buildProgramDataDir": "build/data/ (vazio por enquanto)",
-  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
-  "buildProgramErrorLog": "  build/error.log",
-  "buildProgramStart": "Iniciando a construção do Joss PROGRAM (MODO SEGURO)...",
-  "buildProgramStructure": "Estrutura:",
-  "buildProgramSuccess": "PROGRAMA Build concluído com sucesso na pasta 'build/'.",
-  "buildSchemaError": "A Bíblia Joss requer uma estrutura rígida.",
-  "buildSelectOs": "Selecione o sistema operacional de destino:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "Para implantar, carregue o conteúdo da pasta 'build/' em seu servidor.",
-  "buildWebRunTip": "Você só precisa executar 'joss run main.joss' dentro dele no servidor.",
-  "buildWebStart": "Iniciando a construção do Joss WEB...",
-  "buildWebSuccess": "WEB Build concluído com sucesso na pasta 'build/'.",
-  "buildWindowsCompile": "Compilando para Windows...",
-  "changeDBMotor": "Alterar o mecanismo de banco de dados (mysql/sqlite)",
-  "changeDBPrefix": "Alterar o prefixo da tabela",
-  "compileProjectDist": "Construa o projeto para distribuição",
-  "createMigration": "Crie uma nova migração",
-  "createProject": "Crie um novo projeto",
-  "dbConnectedSourceDest": "Conectado à origem e ao destino.",
-  "dbEngineAlready": "O mecanismo de banco de dados já está",
-  "dbMigrateStart": "Iniciando migração de dados...",
-  "dbPrefixAlready": "O prefixo já está",
-  "dbPrepareDestSchema": "Preparando esquema no banco de dados de destino...",
-  "errAuthEncryptFailed": "Erro de autenticação: falha ao criptografar a senha",
-  "errAuthNoDbConnection": "Erro de autenticação: nenhuma conexão de banco de dados configurada",
-  "errFunctionNotFound": "Erro: Função '%s' não encontrada",
-  "errLayoutNotFound": "Erro: Layout '%s' não encontrado",
-  "errPropertyNotFound": "Erro: Propriedade ou método '%s' não encontrado na classe '%s'",
-  "errTypeError": "Erro de tipo: o argumento %d (%s) deve ser do tipo %s...",
-  "errViewNotFound": "Erro: Visualização '%s' não encontrada",
-  "exeMigrate": "Execute migrações pendentes",
-  "exeMigrateFresh": "Exclua todas as tabelas e execute novamente as migrações",
-  "helpPrint": "Mostrar esta ajuda",
-  "removeCRUD": "Remover CRUD gerado para uma tabela",
-  "runJossScript": "Execute um script joss",
-  "settingsUserStorage": "Configurar armazenamento (local|OCI|AWS|Azure)",
-  "startProgramDesktop": "Inicie o aplicativo no modo desktop",
-  "startServerWeb": "Inicie o servidor web",
-  "version": "Mostra a versão atual"
+  }
 }

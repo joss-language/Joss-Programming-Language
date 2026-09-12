@@ -1,154 +1,235 @@
 {
   "@@locale": "hu",
+  "CreateCRUD": "Készítsen teljes CRUD-t egy táblázat alapján",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "Hozzon létre egy új vezérlőt",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "Hozzon létre MVC-t",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "Hozzon létre új köztes szoftvert",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "Hozzon létre egy új modellt",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "Hozzon létre egy új nézetet",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "Állítsa be az interaktív natív AI-t",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ A NATÍV AI SIKERESEN AKTIVÁLT",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "Válasszon egy opciót (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "Adja meg az API-kulcsot ehhez: {provider} ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "Érvénytelen opció. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "Használandó modell [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ Figyelmeztetés: Nincs megadva API-kulcs. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (Ajánlott - szupergyors Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "Konfiguráció mentése a(z) {file} fájlba...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "Válassza ki AI-szolgáltatóját:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ Kiválasztott szolgáltató: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "Próbálja ki most a következővel: joss run a your_script.joss-t",
+  "@aiTryScript": {},
+  "aiWizardConfig": "Ez a varázsló konfigurálja a natív AI-t a projektben.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Joss AI aktiváló varázsló 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ A BREVO_API sikeresen aktiválva és konfigurálva.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API letiltva.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "Hiba: Az API-kulcs nem lehet üres.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "Szeretné aktiválni a BREVO_API-t? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Adja meg a Brevo API-kulcsát: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "Hiba: Sem env.joss, sem .env fájl nem található az aktuális könyvtárban.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "Hiba a(z) {file} olvasásakor: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Brevo API konfiguráció ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "Projektfájlok másolása...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "Adatbázis másolva build/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "Adatbázis másolva build/Storage/",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "Környezet titkosítása a gyártáshoz...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "A környezet titkosítva és env.enc-ként beágyazott",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "Architektúra hiba: Hiányzó környezetfájl (\"env.joss\" vagy \".env\")",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "A DB_PATH=\"Storage/database.sqlite\" konfiguráció beillesztése a beágyazott env.joss fájlba...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules szerepelni fognak.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules kimarad.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "Ebben az előre lefordított verzióban csak a Windows támogatott.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "Eszközök titkosítása és csomagolása...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (egyelőre üres)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Joss PROGRAM build indítása (BIZTONSÁGOS MÓD)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "Szerkezet:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "PROGRAM Az összeépítés sikeresen befejeződött a 'build/' mappában.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "A Joss Biblia szigorú felépítést igényel.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "Válassza ki a cél operációs rendszert:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "A telepítéshez töltse fel a 'build/' mappa tartalmát a szerverére.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "Csak a 'joss run main.joss'-t kell futtatnia benne a szerveren.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Joss WEB build indítása...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "A WEB Build sikeresen befejeződött a 'build/' mappában.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Fordítás Windows rendszerre...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "Az adatbázismotor módosítása (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "Módosítsa a táblázat előtagját",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "Építsd fel a projektet a terjesztéshez",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "Hozzon létre egy új migrációt",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "Hozzon létre egy új projektet",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "Csatlakozva a forráshoz és a célhoz.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "Az adatbázismotor már megvan",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "Adatmigráció indítása...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "Az előtag már megvan",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "Séma előkészítése a céladatbázisban...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Auth Error: Nem sikerült titkosítani a jelszót",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Auth Error: Nincs konfigurálva adatbázis-kapcsolat",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "Hiba: A '%s' függvény nem található",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "Hiba: A '%s' elrendezés nem található",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "Hiba: A '%s' tulajdonság vagy metódus nem található a '%s' osztályban",
+  "@errPropertyNotFound": {},
+  "errTypeError": "Típushiba: A %d (%s) argumentumnak %s típusúnak kell lennie...",
+  "@errTypeError": {},
+  "errViewNotFound": "Hiba: A '%s' nézet nem található",
+  "@errViewNotFound": {},
+  "exeMigrate": "Függőben lévő migrációk futtatása",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "Törölje az összes táblát, és futtassa újra a migrációt",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "Mutasd meg ezt a segítséget",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "Távolítsa el a táblához generált CRUD-t",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "Futtasson egy Joss scriptet",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "Tárhely konfigurálása (helyi|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "Indítsa el az alkalmazást asztali módban",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "Indítsa el a webszervert",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "Az aktuális verziót mutatja",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "Készítsen teljes CRUD-t egy táblázat alapján",
-  "CreateController": "Hozzon létre egy új vezérlőt",
-  "CreateMVC": "Hozzon létre MVC-t",
-  "CreateMiddleware": "Hozzon létre új köztes szoftvert",
-  "CreateModel": "Hozzon létre egy új modellt",
-  "CreateView": "Hozzon létre egy új nézetet",
-  "IaActivate": "Állítsa be az interaktív natív AI-t",
-  "aiActivatedSuccess": "✅ A NATÍV AI SIKERESEN AKTIVÁLT",
-  "aiChooseOption": "Válasszon egy opciót (1-3): ",
-  "aiEnterApiKey": "Adja meg az API-kulcsot ehhez: {provider} ({key}): ",
-  "aiInvalidOption": "Érvénytelen opció. ",
-  "aiModelToUse": "Használandó modell [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ Figyelmeztetés: Nincs megadva API-kulcs. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (Ajánlott - szupergyors Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "Konfiguráció mentése a(z) {file} fájlba...",
-  "aiSelectProvider": "Válassza ki AI-szolgáltatóját:",
-  "aiSelectedProvider": "✅ Kiválasztott szolgáltató: {provider}",
-  "aiTryScript": "Próbálja ki most a következővel: joss run a your_script.joss-t",
-  "aiWizardConfig": "Ez a varázsló konfigurálja a natív AI-t a projektben.",
-  "aiWizardTitle": "🚀 Joss AI aktiváló varázsló 🚀",
-  "brevoActivatedSuccess": "✅ A BREVO_API sikeresen aktiválva és konfigurálva.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API letiltva.",
-  "brevoEmptyKeyError": "Hiba: Az API-kulcs nem lehet üres.",
-  "brevoEnablePrompt": "Szeretné aktiválni a BREVO_API-t? (y/n): ",
-  "brevoEnterKey": "Adja meg a Brevo API-kulcsát: ",
-  "brevoNoEnvError": "Hiba: Sem env.joss, sem .env fájl nem található az aktuális könyvtárban.",
-  "brevoReadError": "Hiba a(z) {file} olvasásakor: {error}",
-  "brevoTitle": "--- Brevo API konfiguráció ---",
-  "buildCopyFiles": "Projektfájlok másolása...",
-  "buildDbCopied": "Adatbázis másolva build/",
-  "buildDbCopiedProgram": "Adatbázis másolva build/Storage/",
-  "buildEncryptEnv": "Környezet titkosítása a gyártáshoz...",
-  "buildEnvEncryptedSuccess": "A környezet titkosítva és env.enc-ként beágyazott",
-  "buildEnvMissingError": "Architektúra hiba: Hiányzó környezetfájl (\"env.joss\" vagy \".env\")",
-  "buildInjectDbPath": "A DB_PATH=\"Storage/database.sqlite\" konfiguráció beillesztése a beágyazott env.joss fájlba...",
-  "buildNodeModulesInclude": "-\u003e node_modules szerepelni fognak.",
-  "buildNodeModulesOmit": "-\u003e node_modules kimarad.",
-  "buildOsNotSupported": "Ebben az előre lefordított verzióban csak a Windows támogatott.",
-  "buildPackAssets": "Eszközök titkosítása és csomagolása...",
-  "buildProgramDataDir": "build/data/ (egyelőre üres)",
-  "buildProgramDbSqlite": "build/Storage/database.sqlite",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramStart": "Joss PROGRAM build indítása (BIZTONSÁGOS MÓD)...",
-  "buildProgramStructure": "Szerkezet:",
-  "buildProgramSuccess": "PROGRAM Az összeépítés sikeresen befejeződött a 'build/' mappában.",
-  "buildSchemaError": "A Joss Biblia szigorú felépítést igényel.",
-  "buildSelectOs": "Válassza ki a cél operációs rendszert:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "A telepítéshez töltse fel a 'build/' mappa tartalmát a szerverére.",
-  "buildWebRunTip": "Csak a 'joss run main.joss'-t kell futtatnia benne a szerveren.",
-  "buildWebStart": "Joss WEB build indítása...",
-  "buildWebSuccess": "A WEB Build sikeresen befejeződött a 'build/' mappában.",
-  "buildWindowsCompile": "Fordítás Windows rendszerre...",
-  "changeDBMotor": "Az adatbázismotor módosítása (mysql/sqlite)",
-  "changeDBPrefix": "Módosítsa a táblázat előtagját",
-  "compileProjectDist": "Építsd fel a projektet a terjesztéshez",
-  "createMigration": "Hozzon létre egy új migrációt",
-  "createProject": "Hozzon létre egy új projektet",
-  "dbConnectedSourceDest": "Csatlakozva a forráshoz és a célhoz.",
-  "dbEngineAlready": "Az adatbázismotor már megvan",
-  "dbMigrateStart": "Adatmigráció indítása...",
-  "dbPrefixAlready": "Az előtag már megvan",
-  "dbPrepareDestSchema": "Séma előkészítése a céladatbázisban...",
-  "errAuthEncryptFailed": "Auth Error: Nem sikerült titkosítani a jelszót",
-  "errAuthNoDbConnection": "Auth Error: Nincs konfigurálva adatbázis-kapcsolat",
-  "errFunctionNotFound": "Hiba: A '%s' függvény nem található",
-  "errLayoutNotFound": "Hiba: A '%s' elrendezés nem található",
-  "errPropertyNotFound": "Hiba: A '%s' tulajdonság vagy metódus nem található a '%s' osztályban",
-  "errTypeError": "Típushiba: A %d (%s) argumentumnak %s típusúnak kell lennie...",
-  "errViewNotFound": "Hiba: A '%s' nézet nem található",
-  "exeMigrate": "Függőben lévő migrációk futtatása",
-  "exeMigrateFresh": "Törölje az összes táblát, és futtassa újra a migrációt",
-  "helpPrint": "Mutasd meg ezt a segítséget",
-  "removeCRUD": "Távolítsa el a táblához generált CRUD-t",
-  "runJossScript": "Futtasson egy Joss scriptet",
-  "settingsUserStorage": "Tárhely konfigurálása (helyi|OCI|AWS|Azure)",
-  "startProgramDesktop": "Indítsa el az alkalmazást asztali módban",
-  "startServerWeb": "Indítsa el a webszervert",
-  "version": "Az aktuális verziót mutatja"
+  }
 }

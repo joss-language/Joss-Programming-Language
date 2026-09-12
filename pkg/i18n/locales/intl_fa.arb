@@ -1,154 +1,235 @@
 {
   "@@locale": "fa",
+  "CreateCRUD": "CRUD کامل را بر اساس جدول ایجاد کنید",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "یک کنترلر جدید ایجاد کنید",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "MVC ایجاد کنید",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "میان افزار جدید ایجاد کنید",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "یک مدل جدید ایجاد کنید",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "یک نمای جدید ایجاد کنید",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "هوش مصنوعی بومی تعاملی را تنظیم کنید",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ هوش مصنوعی بومی با موفقیت فعال شد",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "یک گزینه را انتخاب کنید (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "کلید API را برای {provider} ({key}) وارد کنید: ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "گزینه نامعتبر ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "مدل مورد استفاده [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ هشدار: کلید API وارد نشده است. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (پیشنهادی - Llama 3 فوق‌العاده سریع)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "ذخیره پیکربندی در {file}...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "ارائه دهنده هوش مصنوعی خود را انتخاب کنید:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ ارائه دهنده انتخاب شده: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "اکنون با: joss run your_script.joss را امتحان کنید",
+  "@aiTryScript": {},
+  "aiWizardConfig": "این جادوگر هوش مصنوعی بومی را در پروژه شما پیکربندی می کند.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 جادوگر فعال سازی هوش مصنوعی جاس 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API با موفقیت فعال و پیکربندی شد.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API غیرفعال است.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "خطا: کلید API نمی تواند خالی باشد.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "آیا می‌خواهید BREVO_API را فعال کنید؟ (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "کلید API Brevo خود را وارد کنید: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "خطا: نه فایل env.joss و نه .env در فهرست فعلی یافت نشد.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "خطاในการ خواندن {file}: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- پیکربندی Brevo API ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "در حال کپی کردن فایل های پروژه...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "پایگاه داده برای ساخت/ کپی شد",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "پایگاه داده در build/Storage/ کپی شد",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "محیط رمزگذاری برای تولید ...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "محیط رمزگذاری شده و به عنوان env.enc جاسازی شده است",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "خطای معماری: فایل محیطی موجود نیست (\"env.joss\" یا \".env\")",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "تزریق پیکربندی DB_PATH=\"Storage/database.sqlite\" به env.joss جاسازی شده...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules گنجانده خواهد شد.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules حذف خواهد شد.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "فقط ویندوز در این نسخه از پیش کامپایل شده پشتیبانی می شود.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "رمزگذاری و بسته بندی دارایی ها ...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (فعلا خالی است)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "شروع ساخت برنامه Joss (حالت امن)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "ساختار:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "ساخت برنامه با موفقیت در پوشه 'build/' انجام شد.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "کتاب مقدس جاس به ساختاری دقیق نیاز دارد.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "سیستم عامل مورد نظر را انتخاب کنید:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "برای استقرار، محتویات پوشه 'build/' را در سرور خود آپلود کنید.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "شما فقط باید \"joss run main.joss\" را در داخل آن روی سرور اجرا کنید.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "شروع ساخت Joss WEB...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "ساخت وب در پوشه 'build/' با موفقیت انجام شد.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "کامپایل برای ویندوز...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "موتور پایگاه داده را تغییر دهید (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "پیشوند جدول را تغییر دهید",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "پروژه را برای توزیع بسازید",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "یک مهاجرت جدید ایجاد کنید",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "یک پروژه جدید ایجاد کنید",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "به منبع و مقصد متصل است.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "موتور پایگاه داده در حال حاضر است",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "شروع انتقال داده...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "پیشوند در حال حاضر است",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "در حال آماده سازی طرح واره در پایگاه داده مقصد...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "خطای احراز هویت: رمزگذاری رمز عبور ناموفق بود",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "خطای تأیید اعتبار: اتصال پایگاه داده پیکربندی نشده است",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "خطا: تابع \"%s\" یافت نشد",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "خطا: طرح \"%s\" یافت نشد",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "خطا: ویژگی یا روش \"%s\" در کلاس \"%s\" یافت نشد",
+  "@errPropertyNotFound": {},
+  "errTypeError": "خطای نوع: آرگومان %d (%s) باید از نوع %s باشد...",
+  "@errTypeError": {},
+  "errViewNotFound": "خطا: مشاهده \"%s\" یافت نشد",
+  "@errViewNotFound": {},
+  "exeMigrate": "مهاجرت های معلق را اجرا کنید",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "تمام جداول را حذف کنید و مهاجرت ها را دوباره اجرا کنید",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "این کمک را نشان دهید",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "CRUD ایجاد شده برای جدول را حذف کنید",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "یک اسکریپت joss را اجرا کنید",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "پیکربندی فضای ذخیره سازی (محلی | OCI | AWS | Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "برنامه را در حالت دسکتاپ راه اندازی کنید",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "وب سرور را راه اندازی کنید",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "نسخه فعلی را نشان می دهد",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "CRUD کامل را بر اساس جدول ایجاد کنید",
-  "CreateController": "یک کنترلر جدید ایجاد کنید",
-  "CreateMVC": "MVC ایجاد کنید",
-  "CreateMiddleware": "میان افزار جدید ایجاد کنید",
-  "CreateModel": "یک مدل جدید ایجاد کنید",
-  "CreateView": "یک نمای جدید ایجاد کنید",
-  "IaActivate": "هوش مصنوعی بومی تعاملی را تنظیم کنید",
-  "aiActivatedSuccess": "✅ هوش مصنوعی بومی با موفقیت فعال شد",
-  "aiChooseOption": "یک گزینه را انتخاب کنید (1-3): ",
-  "aiEnterApiKey": "کلید API را برای {provider} ({key}) وارد کنید: ",
-  "aiInvalidOption": "گزینه نامعتبر ",
-  "aiModelToUse": "مدل مورد استفاده [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ هشدار: کلید API وارد نشده است. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (پیشنهادی - Llama 3 فوق‌العاده سریع)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "ذخیره پیکربندی در {file}...",
-  "aiSelectProvider": "ارائه دهنده هوش مصنوعی خود را انتخاب کنید:",
-  "aiSelectedProvider": "✅ ارائه دهنده انتخاب شده: {provider}",
-  "aiTryScript": "اکنون با: joss run your_script.joss را امتحان کنید",
-  "aiWizardConfig": "این جادوگر هوش مصنوعی بومی را در پروژه شما پیکربندی می کند.",
-  "aiWizardTitle": "🚀 جادوگر فعال سازی هوش مصنوعی جاس 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API با موفقیت فعال و پیکربندی شد.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API غیرفعال است.",
-  "brevoEmptyKeyError": "خطا: کلید API نمی تواند خالی باشد.",
-  "brevoEnablePrompt": "آیا می‌خواهید BREVO_API را فعال کنید؟ (y/n): ",
-  "brevoEnterKey": "کلید API Brevo خود را وارد کنید: ",
-  "brevoNoEnvError": "خطا: نه فایل env.joss و نه .env در فهرست فعلی یافت نشد.",
-  "brevoReadError": "خطاในการ خواندن {file}: {error}",
-  "brevoTitle": "--- پیکربندی Brevo API ---",
-  "buildCopyFiles": "در حال کپی کردن فایل های پروژه...",
-  "buildDbCopied": "پایگاه داده برای ساخت/ کپی شد",
-  "buildDbCopiedProgram": "پایگاه داده در build/Storage/ کپی شد",
-  "buildEncryptEnv": "محیط رمزگذاری برای تولید ...",
-  "buildEnvEncryptedSuccess": "محیط رمزگذاری شده و به عنوان env.enc جاسازی شده است",
-  "buildEnvMissingError": "خطای معماری: فایل محیطی موجود نیست (\"env.joss\" یا \".env\")",
-  "buildInjectDbPath": "تزریق پیکربندی DB_PATH=\"Storage/database.sqlite\" به env.joss جاسازی شده...",
-  "buildNodeModulesInclude": "-\u003e node_modules گنجانده خواهد شد.",
-  "buildNodeModulesOmit": "-\u003e node_modules حذف خواهد شد.",
-  "buildOsNotSupported": "فقط ویندوز در این نسخه از پیش کامپایل شده پشتیبانی می شود.",
-  "buildPackAssets": "رمزگذاری و بسته بندی دارایی ها ...",
-  "buildProgramDataDir": "build/data/ (فعلا خالی است)",
-  "buildProgramDbSqlite": "build/Storage/database.sqlite",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramStart": "شروع ساخت برنامه Joss (حالت امن)...",
-  "buildProgramStructure": "ساختار:",
-  "buildProgramSuccess": "ساخت برنامه با موفقیت در پوشه 'build/' انجام شد.",
-  "buildSchemaError": "کتاب مقدس جاس به ساختاری دقیق نیاز دارد.",
-  "buildSelectOs": "سیستم عامل مورد نظر را انتخاب کنید:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "برای استقرار، محتویات پوشه 'build/' را در سرور خود آپلود کنید.",
-  "buildWebRunTip": "شما فقط باید \"joss run main.joss\" را در داخل آن روی سرور اجرا کنید.",
-  "buildWebStart": "شروع ساخت Joss WEB...",
-  "buildWebSuccess": "ساخت وب در پوشه 'build/' با موفقیت انجام شد.",
-  "buildWindowsCompile": "کامپایل برای ویندوز...",
-  "changeDBMotor": "موتور پایگاه داده را تغییر دهید (mysql/sqlite)",
-  "changeDBPrefix": "پیشوند جدول را تغییر دهید",
-  "compileProjectDist": "پروژه را برای توزیع بسازید",
-  "createMigration": "یک مهاجرت جدید ایجاد کنید",
-  "createProject": "یک پروژه جدید ایجاد کنید",
-  "dbConnectedSourceDest": "به منبع و مقصد متصل است.",
-  "dbEngineAlready": "موتور پایگاه داده در حال حاضر است",
-  "dbMigrateStart": "شروع انتقال داده...",
-  "dbPrefixAlready": "پیشوند در حال حاضر است",
-  "dbPrepareDestSchema": "در حال آماده سازی طرح واره در پایگاه داده مقصد...",
-  "errAuthEncryptFailed": "خطای احراز هویت: رمزگذاری رمز عبور ناموفق بود",
-  "errAuthNoDbConnection": "خطای تأیید اعتبار: اتصال پایگاه داده پیکربندی نشده است",
-  "errFunctionNotFound": "خطا: تابع \"%s\" یافت نشد",
-  "errLayoutNotFound": "خطا: طرح \"%s\" یافت نشد",
-  "errPropertyNotFound": "خطا: ویژگی یا روش \"%s\" در کلاس \"%s\" یافت نشد",
-  "errTypeError": "خطای نوع: آرگومان %d (%s) باید از نوع %s باشد...",
-  "errViewNotFound": "خطا: مشاهده \"%s\" یافت نشد",
-  "exeMigrate": "مهاجرت های معلق را اجرا کنید",
-  "exeMigrateFresh": "تمام جداول را حذف کنید و مهاجرت ها را دوباره اجرا کنید",
-  "helpPrint": "این کمک را نشان دهید",
-  "removeCRUD": "CRUD ایجاد شده برای جدول را حذف کنید",
-  "runJossScript": "یک اسکریپت joss را اجرا کنید",
-  "settingsUserStorage": "پیکربندی فضای ذخیره سازی (محلی | OCI | AWS | Azure)",
-  "startProgramDesktop": "برنامه را در حالت دسکتاپ راه اندازی کنید",
-  "startServerWeb": "وب سرور را راه اندازی کنید",
-  "version": "نسخه فعلی را نشان می دهد"
+  }
 }

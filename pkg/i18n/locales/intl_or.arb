@@ -1,154 +1,235 @@
 {
   "@@locale": "or",
+  "CreateCRUD": "ଏକ ସାରଣୀ ଉପରେ ଆଧାର କରି ସମ୍ପୂର୍ଣ୍ଣ CRUD ସୃଷ୍ଟି କରନ୍ତୁ |",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "ଏକ ନୂତନ ନିୟନ୍ତ୍ରକ ସୃଷ୍ଟି କରନ୍ତୁ |",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "MVC ସୃଷ୍ଟି କରନ୍ତୁ |",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "ନୂତନ ମଧ୍ୟମ ସଫ୍ଟୱେର୍ ସୃଷ୍ଟି କରନ୍ତୁ |",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "ଏକ ନୂତନ ମଡେଲ୍ ସୃଷ୍ଟି କରନ୍ତୁ |",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "ଏକ ନୂତନ ଦୃଶ୍ୟ ସୃଷ୍ଟି କରନ୍ତୁ |",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "ଇଣ୍ଟରାକ୍ଟିଭ୍ ଦେଶୀ AI ସେଟ୍ ଅପ୍ କରନ୍ତୁ |",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "AT NATIVE AI ସକ୍ରିୟ ଭାବରେ ସଫଳ ହୋଇଛି |",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "ଏକ ବିକଳ୍ପ ବାଛନ୍ତୁ (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "{provider} ପାଇଁ API KEY ପ୍ରବେଶ କରନ୍ତୁ ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "ଅବ val ଧ ବିକଳ୍ପ | ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "ବ୍ୟବହାର ହେବାକୁ ଥିବା ମଡେଲ୍ [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "ଚେତାବନୀ: କ API ଣସି API ଚାବି ପ୍ରବେଶ କରିନାହିଁ | ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (ପ୍ରସ୍ତାବିତ - ଅତି ଦ୍ରୁତ Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "{file} ରେ ବିନ୍ୟାସ ସଂରକ୍ଷଣ କରାଯାଉଛି...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "ଆପଣଙ୍କର AI ପ୍ରଦାନକାରୀ ଚୟନ କରନ୍ତୁ:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ ମନୋନୀତ ପ୍ରଦାନକାରୀ: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "ବର୍ତ୍ତମାନ ଚେଷ୍ଟା କରନ୍ତୁ: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "ଏହି ୱିଜାର୍ଡ ଆପଣଙ୍କ ପ୍ରୋଜେକ୍ଟରେ ଦେଶୀ AI କୁ ବିନ୍ୟାସ କରିବ |",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 ଜସ୍ ଏଏ ଆକ୍ଟିଭେସନ୍ ୱିଜାର୍ଡ 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "RE BREVO_API ସକ୍ରିୟ ଏବଂ ସଫଳତାର ସହିତ ବିନ୍ୟାସିତ |",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API ଅକ୍ଷମ ହୋଇଛି |",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "ତ୍ରୁଟି: API କି ଖାଲି ହୋଇପାରିବ ନାହିଁ |",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "ଆପଣ BREVO_API ସକ୍ରିୟ କରିବାକୁ ଚାହାଁନ୍ତି କି? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "ଆପଣଙ୍କର Brevo API Key ପ୍ରବେଶ କରନ୍ତୁ: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "ତ୍ରୁଟି: ସାମ୍ପ୍ରତିକ ଡିରେକ୍ଟୋରୀରେ env.joss କିମ୍ବା .env ଫାଇଲ୍ ମିଳିଲା ନାହିଁ |",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "{file} ପଢିବାରେ ତ୍ରୁଟି: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- ବ୍ରେଭୋ API ବିନ୍ୟାସ ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "ପ୍ରୋଜେକ୍ଟ ଫାଇଲଗୁଡିକ କପି କରୁଛି ...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "ନିର୍ମାଣ କରିବାକୁ ଡାଟାବେସ୍ କପି ହୋଇଛି /",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "ନିର୍ମାଣ / ସଂରକ୍ଷଣ / ପାଇଁ ଡାଟାବେସ୍ କପି ହୋଇଛି |",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "ଉତ୍ପାଦନ ପାଇଁ ଏନକ୍ରିପ୍ଟ ପରିବେଶ ...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "Env.enc ଭାବରେ ପରିବେଶ ଏନକ୍ରିପ୍ଟ ଏବଂ ଏମ୍ବେଡ୍ ହୋଇଛି |",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "ସ୍ଥାପତ୍ୟ ତ୍ରୁଟି: ନିଖୋଜ ପରିବେଶ ଫାଇଲ ('env.joss' କିମ୍ବା '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "DB_PATH = \"Storage / database.sqlite\" ବିନ୍ୟାସକୁ ଏମ୍ବେଡ୍ ହୋଇଥିବା env.joss ରେ ଇଞ୍ଜେକ୍ସନ ଦେବା ...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules ଅନ୍ତର୍ଭୂକ୍ତ ହେବ |",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules କୁ ବାଦ ଦିଆଯିବ |",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "ଏହି ପୂର୍ବ-ସଂକଳିତ ସଂସ୍କରଣରେ କେବଳ ୱିଣ୍ଡୋଜ୍ ସମର୍ଥିତ |",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "ଏନକ୍ରିପ୍ଟ ଏବଂ ପ୍ୟାକେଜିଂ ସମ୍ପତ୍ତି ...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "  build/data/ (ବର୍ତ୍ତମାନ ପାଇଁ ଖାଲି)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "  build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "ଜୋସ୍ ପ୍ରୋଗ୍ରାମ୍ ନିର୍ମାଣ (SECURE MODE) ଆରମ୍ଭ କରିବା ...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "ଗଠନ:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "ପ୍ରୋଗ୍ରାମ୍ ବିଲ୍ଡ 'ନିର୍ମାଣ /' ଫୋଲ୍ଡରରେ ସଫଳତାର ସହିତ ସମାପ୍ତ ହେଲା |",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "ଜୋସ୍ ବାଇବଲ ଏକ କଠୋର ଗଠନ ଆବଶ୍ୟକ କରେ |",
+  "@buildSchemaError": {},
+  "buildSelectOs": "ଲକ୍ଷ୍ୟ ଅପରେଟିଂ ସିଷ୍ଟମ୍ ଚୟନ କରନ୍ତୁ:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "ୱିଣ୍ଡୋଜ୍ Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "ନିୟୋଜନ କରିବାକୁ, 'ବିଲ୍ଡ /' ଫୋଲ୍ଡରର ବିଷୟବସ୍ତୁକୁ ଆପଣଙ୍କର ସର୍ଭରରେ ଅପଲୋଡ୍ କରନ୍ତୁ |",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "ଆପଣଙ୍କୁ କେବଳ ସର୍ଭରରେ 'joss run main.joss' ଚଲାଇବାକୁ ପଡିବ |",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Joss WEB ନିର୍ମାଣ ଆରମ୍ଭ ...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB ବିଲ୍ଡ 'ନିର୍ମାଣ /' ଫୋଲ୍ଡରରେ ସଫଳତାର ସହିତ ସମାପ୍ତ ହେଲା |",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "ୱିଣ୍ଡୋଜ୍ ପାଇଁ ସଙ୍କଳନ ...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "ଡାଟାବେସ୍ ଇଞ୍ଜିନ୍ ପରିବର୍ତ୍ତନ କରନ୍ତୁ (mysql / sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "ଟେବୁଲ୍ ଉପସର୍ଗ ପରିବର୍ତ୍ତନ କରନ୍ତୁ |",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "ବଣ୍ଟନ ପାଇଁ ପ୍ରକଳ୍ପ ନିର୍ମାଣ କରନ୍ତୁ |",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "ଏକ ନୂତନ ସ୍ଥାନାନ୍ତରଣ ସୃଷ୍ଟି କରନ୍ତୁ |",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "ଏକ ନୂତନ ପ୍ରୋଜେକ୍ଟ ସୃଷ୍ଟି କରନ୍ତୁ |",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "ଉତ୍ସ ଏବଂ ଗନ୍ତବ୍ୟସ୍ଥଳ ସହିତ ସଂଯୁକ୍ତ |",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "ଡାଟାବେସ୍ ଇଞ୍ଜିନ୍ ପୂର୍ବରୁ ଅଛି |",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "ଡାଟା ସ୍ଥାନାନ୍ତରଣ ଆରମ୍ଭ ...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "ଉପସର୍ଗ ପୂର୍ବରୁ ଅଛି |",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "ଲକ୍ଷ୍ୟସ୍ଥଳ ଡାଟାବେସରେ ସ୍କିମା ପ୍ରସ୍ତୁତ ...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Auth ତ୍ରୁଟି: ପାସୱାର୍ଡ ଏନକ୍ରିପ୍ଟ କରିବାରେ ବିଫଳ |",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Auth ତ୍ରୁଟି: କ database ଣସି ଡାଟାବେସ୍ ସଂଯୋଗ ବିନ୍ୟାସ ହୋଇନାହିଁ |",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "ତ୍ରୁଟି: କାର୍ଯ୍ୟ '%s' ମିଳିଲା ନାହିଁ |",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "ତ୍ରୁଟି: ଲେଆଉଟ୍ '%s' ମିଳିଲା ନାହିଁ |",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "ତ୍ରୁଟି: ସମ୍ପତ୍ତି କିମ୍ବା ପଦ୍ଧତି '%s' ଶ୍ରେଣୀରେ ମିଳିଲା ନାହିଁ '%s' |",
+  "@errPropertyNotFound": {},
+  "errTypeError": "ତ୍ରୁଟି ଟାଇପ୍ କରନ୍ତୁ: ଯୁକ୍ତି %d (%s) ନିଶ୍ଚିତ ଭାବରେ %s...",
+  "@errTypeError": {},
+  "errViewNotFound": "ତ୍ରୁଟି: '%s' ଦେଖିବାକୁ ମିଳିଲା ନାହିଁ |",
+  "@errViewNotFound": {},
+  "exeMigrate": "ବିଚାରାଧୀନ ସ୍ଥାନାନ୍ତରଣ ଚଲାନ୍ତୁ |",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "ସମସ୍ତ ଟେବୁଲ୍ ଡିଲିଟ୍ କରନ୍ତୁ ଏବଂ ସ୍ଥାନାନ୍ତରଣକୁ ପୁନ run ଚଲାନ୍ତୁ |",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "ଏହି ସାହାଯ୍ୟ ଦେଖାନ୍ତୁ |",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "ଏକ ଟେବୁଲ୍ ପାଇଁ ସୃଷ୍ଟି ହୋଇଥିବା CRUD ଅପସାରଣ କରନ୍ତୁ |",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "ଏକ ଜସ୍ ସ୍କ୍ରିପ୍ଟ ଚଲାନ୍ତୁ |",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "ଷ୍ଟୋରେଜ୍ ବିନ୍ୟାସ କରନ୍ତୁ (ସ୍ଥାନୀୟ | OCI | AWS | Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "ଡେସ୍କଟପ୍ ମୋଡ୍ ରେ ପ୍ରୟୋଗ ଆରମ୍ଭ କରନ୍ତୁ |",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "ୱେବ୍ ସର୍ଭର ଆରମ୍ଭ କରନ୍ତୁ |",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "ସାମ୍ପ୍ରତିକ ସଂସ୍କରଣ ଦେଖାଏ |",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "ଏକ ସାରଣୀ ଉପରେ ଆଧାର କରି ସମ୍ପୂର୍ଣ୍ଣ CRUD ସୃଷ୍ଟି କରନ୍ତୁ |",
-  "CreateController": "ଏକ ନୂତନ ନିୟନ୍ତ୍ରକ ସୃଷ୍ଟି କରନ୍ତୁ |",
-  "CreateMVC": "MVC ସୃଷ୍ଟି କରନ୍ତୁ |",
-  "CreateMiddleware": "ନୂତନ ମଧ୍ୟମ ସଫ୍ଟୱେର୍ ସୃଷ୍ଟି କରନ୍ତୁ |",
-  "CreateModel": "ଏକ ନୂତନ ମଡେଲ୍ ସୃଷ୍ଟି କରନ୍ତୁ |",
-  "CreateView": "ଏକ ନୂତନ ଦୃଶ୍ୟ ସୃଷ୍ଟି କରନ୍ତୁ |",
-  "IaActivate": "ଇଣ୍ଟରାକ୍ଟିଭ୍ ଦେଶୀ AI ସେଟ୍ ଅପ୍ କରନ୍ତୁ |",
-  "aiActivatedSuccess": "AT NATIVE AI ସକ୍ରିୟ ଭାବରେ ସଫଳ ହୋଇଛି |",
-  "aiChooseOption": "ଏକ ବିକଳ୍ପ ବାଛନ୍ତୁ (1-3): ",
-  "aiEnterApiKey": "{provider} ପାଇଁ API KEY ପ୍ରବେଶ କରନ୍ତୁ ({key}): ",
-  "aiInvalidOption": "ଅବ val ଧ ବିକଳ୍ପ | ",
-  "aiModelToUse": "ବ୍ୟବହାର ହେବାକୁ ଥିବା ମଡେଲ୍ [{model}]: ",
-  "aiNoApiKeyWarning": "ଚେତାବନୀ: କ API ଣସି API ଚାବି ପ୍ରବେଶ କରିନାହିଁ | ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (ପ୍ରସ୍ତାବିତ - ଅତି ଦ୍ରୁତ Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "{file} ରେ ବିନ୍ୟାସ ସଂରକ୍ଷଣ କରାଯାଉଛି...",
-  "aiSelectProvider": "ଆପଣଙ୍କର AI ପ୍ରଦାନକାରୀ ଚୟନ କରନ୍ତୁ:",
-  "aiSelectedProvider": "✅ ମନୋନୀତ ପ୍ରଦାନକାରୀ: {provider}",
-  "aiTryScript": "ବର୍ତ୍ତମାନ ଚେଷ୍ଟା କରନ୍ତୁ: joss run your_script.joss",
-  "aiWizardConfig": "ଏହି ୱିଜାର୍ଡ ଆପଣଙ୍କ ପ୍ରୋଜେକ୍ଟରେ ଦେଶୀ AI କୁ ବିନ୍ୟାସ କରିବ |",
-  "aiWizardTitle": "🚀 ଜସ୍ ଏଏ ଆକ୍ଟିଭେସନ୍ ୱିଜାର୍ଡ 🚀",
-  "brevoActivatedSuccess": "RE BREVO_API ସକ୍ରିୟ ଏବଂ ସଫଳତାର ସହିତ ବିନ୍ୟାସିତ |",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API ଅକ୍ଷମ ହୋଇଛି |",
-  "brevoEmptyKeyError": "ତ୍ରୁଟି: API କି ଖାଲି ହୋଇପାରିବ ନାହିଁ |",
-  "brevoEnablePrompt": "ଆପଣ BREVO_API ସକ୍ରିୟ କରିବାକୁ ଚାହାଁନ୍ତି କି? (y/n): ",
-  "brevoEnterKey": "ଆପଣଙ୍କର Brevo API Key ପ୍ରବେଶ କରନ୍ତୁ: ",
-  "brevoNoEnvError": "ତ୍ରୁଟି: ସାମ୍ପ୍ରତିକ ଡିରେକ୍ଟୋରୀରେ env.joss କିମ୍ବା .env ଫାଇଲ୍ ମିଳିଲା ନାହିଁ |",
-  "brevoReadError": "{file} ପଢିବାରେ ତ୍ରୁଟି: {error}",
-  "brevoTitle": "--- ବ୍ରେଭୋ API ବିନ୍ୟାସ ---",
-  "buildCopyFiles": "ପ୍ରୋଜେକ୍ଟ ଫାଇଲଗୁଡିକ କପି କରୁଛି ...",
-  "buildDbCopied": "ନିର୍ମାଣ କରିବାକୁ ଡାଟାବେସ୍ କପି ହୋଇଛି /",
-  "buildDbCopiedProgram": "ନିର୍ମାଣ / ସଂରକ୍ଷଣ / ପାଇଁ ଡାଟାବେସ୍ କପି ହୋଇଛି |",
-  "buildEncryptEnv": "ଉତ୍ପାଦନ ପାଇଁ ଏନକ୍ରିପ୍ଟ ପରିବେଶ ...",
-  "buildEnvEncryptedSuccess": "Env.enc ଭାବରେ ପରିବେଶ ଏନକ୍ରିପ୍ଟ ଏବଂ ଏମ୍ବେଡ୍ ହୋଇଛି |",
-  "buildEnvMissingError": "ସ୍ଥାପତ୍ୟ ତ୍ରୁଟି: ନିଖୋଜ ପରିବେଶ ଫାଇଲ ('env.joss' କିମ୍ବା '.env')",
-  "buildInjectDbPath": "DB_PATH = \"Storage / database.sqlite\" ବିନ୍ୟାସକୁ ଏମ୍ବେଡ୍ ହୋଇଥିବା env.joss ରେ ଇଞ୍ଜେକ୍ସନ ଦେବା ...",
-  "buildNodeModulesInclude": "-\u003e node_modules ଅନ୍ତର୍ଭୂକ୍ତ ହେବ |",
-  "buildNodeModulesOmit": "-\u003e node_modules କୁ ବାଦ ଦିଆଯିବ |",
-  "buildOsNotSupported": "ଏହି ପୂର୍ବ-ସଂକଳିତ ସଂସ୍କରଣରେ କେବଳ ୱିଣ୍ଡୋଜ୍ ସମର୍ଥିତ |",
-  "buildPackAssets": "ଏନକ୍ରିପ୍ଟ ଏବଂ ପ୍ୟାକେଜିଂ ସମ୍ପତ୍ତି ...",
-  "buildProgramDataDir": "  build/data/ (ବର୍ତ୍ତମାନ ପାଇଁ ଖାଲି)",
-  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
-  "buildProgramErrorLog": "  build/error.log",
-  "buildProgramStart": "ଜୋସ୍ ପ୍ରୋଗ୍ରାମ୍ ନିର୍ମାଣ (SECURE MODE) ଆରମ୍ଭ କରିବା ...",
-  "buildProgramStructure": "ଗଠନ:",
-  "buildProgramSuccess": "ପ୍ରୋଗ୍ରାମ୍ ବିଲ୍ଡ 'ନିର୍ମାଣ /' ଫୋଲ୍ଡରରେ ସଫଳତାର ସହିତ ସମାପ୍ତ ହେଲା |",
-  "buildSchemaError": "ଜୋସ୍ ବାଇବଲ ଏକ କଠୋର ଗଠନ ଆବଶ୍ୟକ କରେ |",
-  "buildSelectOs": "ଲକ୍ଷ୍ୟ ଅପରେଟିଂ ସିଷ୍ଟମ୍ ଚୟନ କରନ୍ତୁ:",
-  "buildSelectOsWindows": "ୱିଣ୍ଡୋଜ୍ Windows",
-  "buildWebDeployTip": "ନିୟୋଜନ କରିବାକୁ, 'ବିଲ୍ଡ /' ଫୋଲ୍ଡରର ବିଷୟବସ୍ତୁକୁ ଆପଣଙ୍କର ସର୍ଭରରେ ଅପଲୋଡ୍ କରନ୍ତୁ |",
-  "buildWebRunTip": "ଆପଣଙ୍କୁ କେବଳ ସର୍ଭରରେ 'joss run main.joss' ଚଲାଇବାକୁ ପଡିବ |",
-  "buildWebStart": "Joss WEB ନିର୍ମାଣ ଆରମ୍ଭ ...",
-  "buildWebSuccess": "WEB ବିଲ୍ଡ 'ନିର୍ମାଣ /' ଫୋଲ୍ଡରରେ ସଫଳତାର ସହିତ ସମାପ୍ତ ହେଲା |",
-  "buildWindowsCompile": "ୱିଣ୍ଡୋଜ୍ ପାଇଁ ସଙ୍କଳନ ...",
-  "changeDBMotor": "ଡାଟାବେସ୍ ଇଞ୍ଜିନ୍ ପରିବର୍ତ୍ତନ କରନ୍ତୁ (mysql / sqlite)",
-  "changeDBPrefix": "ଟେବୁଲ୍ ଉପସର୍ଗ ପରିବର୍ତ୍ତନ କରନ୍ତୁ |",
-  "compileProjectDist": "ବଣ୍ଟନ ପାଇଁ ପ୍ରକଳ୍ପ ନିର୍ମାଣ କରନ୍ତୁ |",
-  "createMigration": "ଏକ ନୂତନ ସ୍ଥାନାନ୍ତରଣ ସୃଷ୍ଟି କରନ୍ତୁ |",
-  "createProject": "ଏକ ନୂତନ ପ୍ରୋଜେକ୍ଟ ସୃଷ୍ଟି କରନ୍ତୁ |",
-  "dbConnectedSourceDest": "ଉତ୍ସ ଏବଂ ଗନ୍ତବ୍ୟସ୍ଥଳ ସହିତ ସଂଯୁକ୍ତ |",
-  "dbEngineAlready": "ଡାଟାବେସ୍ ଇଞ୍ଜିନ୍ ପୂର୍ବରୁ ଅଛି |",
-  "dbMigrateStart": "ଡାଟା ସ୍ଥାନାନ୍ତରଣ ଆରମ୍ଭ ...",
-  "dbPrefixAlready": "ଉପସର୍ଗ ପୂର୍ବରୁ ଅଛି |",
-  "dbPrepareDestSchema": "ଲକ୍ଷ୍ୟସ୍ଥଳ ଡାଟାବେସରେ ସ୍କିମା ପ୍ରସ୍ତୁତ ...",
-  "errAuthEncryptFailed": "Auth ତ୍ରୁଟି: ପାସୱାର୍ଡ ଏନକ୍ରିପ୍ଟ କରିବାରେ ବିଫଳ |",
-  "errAuthNoDbConnection": "Auth ତ୍ରୁଟି: କ database ଣସି ଡାଟାବେସ୍ ସଂଯୋଗ ବିନ୍ୟାସ ହୋଇନାହିଁ |",
-  "errFunctionNotFound": "ତ୍ରୁଟି: କାର୍ଯ୍ୟ '%s' ମିଳିଲା ନାହିଁ |",
-  "errLayoutNotFound": "ତ୍ରୁଟି: ଲେଆଉଟ୍ '%s' ମିଳିଲା ନାହିଁ |",
-  "errPropertyNotFound": "ତ୍ରୁଟି: ସମ୍ପତ୍ତି କିମ୍ବା ପଦ୍ଧତି '%s' ଶ୍ରେଣୀରେ ମିଳିଲା ନାହିଁ '%s' |",
-  "errTypeError": "ତ୍ରୁଟି ଟାଇପ୍ କରନ୍ତୁ: ଯୁକ୍ତି %d (%s) ନିଶ୍ଚିତ ଭାବରେ %s...",
-  "errViewNotFound": "ତ୍ରୁଟି: '%s' ଦେଖିବାକୁ ମିଳିଲା ନାହିଁ |",
-  "exeMigrate": "ବିଚାରାଧୀନ ସ୍ଥାନାନ୍ତରଣ ଚଲାନ୍ତୁ |",
-  "exeMigrateFresh": "ସମସ୍ତ ଟେବୁଲ୍ ଡିଲିଟ୍ କରନ୍ତୁ ଏବଂ ସ୍ଥାନାନ୍ତରଣକୁ ପୁନ run ଚଲାନ୍ତୁ |",
-  "helpPrint": "ଏହି ସାହାଯ୍ୟ ଦେଖାନ୍ତୁ |",
-  "removeCRUD": "ଏକ ଟେବୁଲ୍ ପାଇଁ ସୃଷ୍ଟି ହୋଇଥିବା CRUD ଅପସାରଣ କରନ୍ତୁ |",
-  "runJossScript": "ଏକ ଜସ୍ ସ୍କ୍ରିପ୍ଟ ଚଲାନ୍ତୁ |",
-  "settingsUserStorage": "ଷ୍ଟୋରେଜ୍ ବିନ୍ୟାସ କରନ୍ତୁ (ସ୍ଥାନୀୟ | OCI | AWS | Azure)",
-  "startProgramDesktop": "ଡେସ୍କଟପ୍ ମୋଡ୍ ରେ ପ୍ରୟୋଗ ଆରମ୍ଭ କରନ୍ତୁ |",
-  "startServerWeb": "ୱେବ୍ ସର୍ଭର ଆରମ୍ଭ କରନ୍ତୁ |",
-  "version": "ସାମ୍ପ୍ରତିକ ସଂସ୍କରଣ ଦେଖାଏ |"
+  }
 }

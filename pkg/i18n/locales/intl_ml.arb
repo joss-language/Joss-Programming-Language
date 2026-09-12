@@ -1,154 +1,235 @@
 {
   "@@locale": "ml",
+  "CreateCRUD": "ഒരു പട്ടികയെ അടിസ്ഥാനമാക്കി പൂർണ്ണമായ CRUD സൃഷ്ടിക്കുക",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "ഒരു പുതിയ കൺട്രോളർ സൃഷ്ടിക്കുക",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "MVC സൃഷ്ടിക്കുക",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "പുതിയ മിഡിൽവെയർ സൃഷ്ടിക്കുക",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "ഒരു പുതിയ മോഡൽ സൃഷ്ടിക്കുക",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "ഒരു പുതിയ കാഴ്ച സൃഷ്ടിക്കുക",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "ഇൻ്ററാക്ടീവ് നേറ്റീവ് AI സജ്ജീകരിക്കുക",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ നേറ്റീവ് AI വിജയകരമായി സജീവമാക്കി",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "ഒരു ഓപ്ഷൻ തിരഞ്ഞെടുക്കുക (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "{provider} ലേക്കുള്ള API കീ നൽകുക ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "അസാധുവായ ഓപ്ഷൻ. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "ഉപയോഗിക്കേണ്ട മോഡൽ [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ മുന്നറിയിപ്പ്: API കീ നൽകിയിട്ടില്ല. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (ശുപാർശ ചെയ്യുന്നത് - അതിവേഗത്തിലുള്ള Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "ക്രമീകരണങ്ങൾ {file} ലേക്ക് സംരക്ഷിക്കുന്നു...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "നിങ്ങളുടെ AI ദാതാവിനെ തിരഞ്ഞെടുക്കുക:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ തിരഞ്ഞെടുത്ത ദാതാവ്: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "ഇപ്പോൾ ഇതുപയോഗിച്ച് ശ്രമിക്കുക: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "ഈ വിസാർഡ് നിങ്ങളുടെ പ്രോജക്റ്റിൽ നേറ്റീവ് AI കോൺഫിഗർ ചെയ്യും.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 ജോസ് AI ആക്ടിവേഷൻ വിസാർഡ് 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API സജീവമാക്കുകയും കോൺഫിഗർ ചെയ്യുകയും ചെയ്തു.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API പ്രവർത്തനരഹിതമാക്കി.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "പിശക്: API കീ ശൂന്യമായിരിക്കരുത്.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "നിങ്ങൾക്ക് BREVO_API സജീവമാക്കണോ? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "നിങ്ങളുടെ Brevo API കീ നൽകുക: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "പിശക്: നിലവിലെ ഡയറക്‌ടറിയിൽ env.joss അല്ലെങ്കിൽ .env ഫയലുകൾ കണ്ടെത്തിയില്ല.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "{file} വായിക്കുന്നതിൽ പിശക്: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Brevo API കോൺഫിഗറേഷൻ ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "പ്രോജക്റ്റ് ഫയലുകൾ പകർത്തുന്നു...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "ഡാറ്റാബേസ് നിർമ്മിക്കാൻ പകർത്തി/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "ബിൽഡ്/സ്റ്റോറേജ്/ എന്നതിലേക്ക് ഡാറ്റാബേസ് പകർത്തി",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "ഉൽപ്പാദനത്തിനുള്ള പരിസ്ഥിതി എൻക്രിപ്റ്റ് ചെയ്യുന്നു...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "പരിസ്ഥിതി എൻക്രിപ്റ്റ് ചെയ്യുകയും env.enc ആയി ഉൾച്ചേർക്കുകയും ചെയ്യുന്നു",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "ആർക്കിടെക്ചർ പിശക്: പരിസ്ഥിതി ഫയൽ കാണുന്നില്ല ('env.joss' അല്ലെങ്കിൽ '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "എംബഡഡ് env.joss-ലേക്ക് DB_PATH=\"Storage/database.sqlite\" കോൺഫിഗറേഷൻ കുത്തിവയ്ക്കുന്നു...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules ഉൾപ്പെടുത്തും.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules ഒഴിവാക്കപ്പെടും.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "ഈ പ്രീ-കംപൈൽ ചെയ്ത പതിപ്പിൽ വിൻഡോസ് മാത്രമേ പിന്തുണയ്ക്കൂ.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "അസറ്റുകൾ എൻക്രിപ്റ്റ് ചെയ്യുകയും പാക്കേജിംഗ് ചെയ്യുകയും ചെയ്യുന്നു...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "  build/data/ (ഇപ്പോൾ ശൂന്യം)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "ജോസ് പ്രോഗ്രാം ബിൽഡ് (സെക്യുർ മോഡ്) ആരംഭിക്കുന്നു...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "ഘടന:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "'ബിൽഡ്/' ഫോൾഡറിൽ പ്രോഗ്രാം ബിൽഡ് വിജയകരമായി പൂർത്തിയാക്കി.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "ജോസ് ബൈബിളിന് കർശനമായ ഘടന ആവശ്യമാണ്.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "ടാർഗെറ്റ് ഓപ്പറേറ്റിംഗ് സിസ്റ്റം തിരഞ്ഞെടുക്കുക:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "വിന്യസിക്കാൻ, 'ബിൽഡ്/' ഫോൾഡറിലെ ഉള്ളടക്കങ്ങൾ നിങ്ങളുടെ സെർവറിലേക്ക് അപ്‌ലോഡ് ചെയ്യുക.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "സെർവറിൽ അതിനുള്ളിൽ 'joss run main.joss' പ്രവർത്തിപ്പിച്ചാൽ മതിയാകും.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "ജോസ് വെബ് ബിൽഡ് ആരംഭിക്കുന്നു...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "'build/' ഫോൾഡറിൽ WEB ബിൽഡ് വിജയകരമായി പൂർത്തിയാക്കി.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "വിൻഡോസിനായി കംപൈൽ ചെയ്യുന്നു...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "ഡാറ്റാബേസ് എഞ്ചിൻ മാറ്റുക (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "പട്ടിക പ്രിഫിക്സ് മാറ്റുക",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "വിതരണത്തിനായി പദ്ധതി നിർമ്മിക്കുക",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "ഒരു പുതിയ മൈഗ്രേഷൻ സൃഷ്ടിക്കുക",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "ഒരു പുതിയ പ്രോജക്റ്റ് സൃഷ്ടിക്കുക",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "ഉറവിടത്തിലേക്കും ലക്ഷ്യസ്ഥാനത്തിലേക്കും ബന്ധിപ്പിച്ചിരിക്കുന്നു.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "ഡാറ്റാബേസ് എഞ്ചിൻ ഇതിനകം തന്നെ",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "ഡാറ്റ മൈഗ്രേഷൻ ആരംഭിക്കുന്നു...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "പ്രിഫിക്സ് ഇതിനകം തന്നെ",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "ലക്ഷ്യസ്ഥാന ഡാറ്റാബേസിൽ സ്കീമ തയ്യാറാക്കുന്നു...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "ഓത്ത് പിശക്: പാസ്‌വേഡ് എൻക്രിപ്റ്റ് ചെയ്യുന്നതിൽ പരാജയപ്പെട്ടു",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "ഓത്ത് പിശക്: ഡാറ്റാബേസ് കണക്ഷൻ കോൺഫിഗർ ചെയ്തിട്ടില്ല",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "പിശക്: '%s' ഫംഗ്‌ഷൻ കണ്ടെത്തിയില്ല",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "പിശക്: ലേഔട്ട് '%s' കണ്ടെത്തിയില്ല",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "പിശക്: പ്രോപ്പർട്ടി അല്ലെങ്കിൽ രീതി '%s' '%s' ക്ലാസിൽ കണ്ടെത്തിയില്ല",
+  "@errPropertyNotFound": {},
+  "errTypeError": "തരം പിശക്: ആർഗ്യുമെൻ്റ് %d (%s) തരം %s ആയിരിക്കണം...",
+  "@errTypeError": {},
+  "errViewNotFound": "പിശക്: '%s' കാണുക കണ്ടെത്തിയില്ല",
+  "@errViewNotFound": {},
+  "exeMigrate": "തീർപ്പാക്കാത്ത മൈഗ്രേഷനുകൾ പ്രവർത്തിപ്പിക്കുക",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "എല്ലാ പട്ടികകളും ഇല്ലാതാക്കി മൈഗ്രേഷനുകൾ വീണ്ടും പ്രവർത്തിപ്പിക്കുക",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "ഈ സഹായം കാണിക്കൂ",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "ഒരു ടേബിളിനായി സൃഷ്ടിച്ച CRUD നീക്കം ചെയ്യുക",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "ഒരു ജോസ് സ്ക്രിപ്റ്റ് പ്രവർത്തിപ്പിക്കുക",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "സംഭരണം കോൺഫിഗർ ചെയ്യുക (പ്രാദേശിക|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "ഡെസ്ക്ടോപ്പ് മോഡിൽ ആപ്ലിക്കേഷൻ ആരംഭിക്കുക",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "വെബ് സെർവർ ആരംഭിക്കുക",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "നിലവിലെ പതിപ്പ് കാണിക്കുന്നു",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "ഒരു പട്ടികയെ അടിസ്ഥാനമാക്കി പൂർണ്ണമായ CRUD സൃഷ്ടിക്കുക",
-  "CreateController": "ഒരു പുതിയ കൺട്രോളർ സൃഷ്ടിക്കുക",
-  "CreateMVC": "MVC സൃഷ്ടിക്കുക",
-  "CreateMiddleware": "പുതിയ മിഡിൽവെയർ സൃഷ്ടിക്കുക",
-  "CreateModel": "ഒരു പുതിയ മോഡൽ സൃഷ്ടിക്കുക",
-  "CreateView": "ഒരു പുതിയ കാഴ്ച സൃഷ്ടിക്കുക",
-  "IaActivate": "ഇൻ്ററാക്ടീവ് നേറ്റീവ് AI സജ്ജീകരിക്കുക",
-  "aiActivatedSuccess": "✅ നേറ്റീവ് AI വിജയകരമായി സജീവമാക്കി",
-  "aiChooseOption": "ഒരു ഓപ്ഷൻ തിരഞ്ഞെടുക്കുക (1-3): ",
-  "aiEnterApiKey": "{provider} ലേക്കുള്ള API കീ നൽകുക ({key}): ",
-  "aiInvalidOption": "അസാധുവായ ഓപ്ഷൻ. ",
-  "aiModelToUse": "ഉപയോഗിക്കേണ്ട മോഡൽ [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ മുന്നറിയിപ്പ്: API കീ നൽകിയിട്ടില്ല. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (ശുപാർശ ചെയ്യുന്നത് - അതിവേഗത്തിലുള്ള Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "ക്രമീകരണങ്ങൾ {file} ലേക്ക് സംരക്ഷിക്കുന്നു...",
-  "aiSelectProvider": "നിങ്ങളുടെ AI ദാതാവിനെ തിരഞ്ഞെടുക്കുക:",
-  "aiSelectedProvider": "✅ തിരഞ്ഞെടുത്ത ദാതാവ്: {provider}",
-  "aiTryScript": "ഇപ്പോൾ ഇതുപയോഗിച്ച് ശ്രമിക്കുക: joss run your_script.joss",
-  "aiWizardConfig": "ഈ വിസാർഡ് നിങ്ങളുടെ പ്രോജക്റ്റിൽ നേറ്റീവ് AI കോൺഫിഗർ ചെയ്യും.",
-  "aiWizardTitle": "🚀 ജോസ് AI ആക്ടിവേഷൻ വിസാർഡ് 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API സജീവമാക്കുകയും കോൺഫിഗർ ചെയ്യുകയും ചെയ്തു.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API പ്രവർത്തനരഹിതമാക്കി.",
-  "brevoEmptyKeyError": "പിശക്: API കീ ശൂന്യമായിരിക്കരുത്.",
-  "brevoEnablePrompt": "നിങ്ങൾക്ക് BREVO_API സജീവമാക്കണോ? (y/n): ",
-  "brevoEnterKey": "നിങ്ങളുടെ Brevo API കീ നൽകുക: ",
-  "brevoNoEnvError": "പിശക്: നിലവിലെ ഡയറക്‌ടറിയിൽ env.joss അല്ലെങ്കിൽ .env ഫയലുകൾ കണ്ടെത്തിയില്ല.",
-  "brevoReadError": "{file} വായിക്കുന്നതിൽ പിശക്: {error}",
-  "brevoTitle": "--- Brevo API കോൺഫിഗറേഷൻ ---",
-  "buildCopyFiles": "പ്രോജക്റ്റ് ഫയലുകൾ പകർത്തുന്നു...",
-  "buildDbCopied": "ഡാറ്റാബേസ് നിർമ്മിക്കാൻ പകർത്തി/",
-  "buildDbCopiedProgram": "ബിൽഡ്/സ്റ്റോറേജ്/ എന്നതിലേക്ക് ഡാറ്റാബേസ് പകർത്തി",
-  "buildEncryptEnv": "ഉൽപ്പാദനത്തിനുള്ള പരിസ്ഥിതി എൻക്രിപ്റ്റ് ചെയ്യുന്നു...",
-  "buildEnvEncryptedSuccess": "പരിസ്ഥിതി എൻക്രിപ്റ്റ് ചെയ്യുകയും env.enc ആയി ഉൾച്ചേർക്കുകയും ചെയ്യുന്നു",
-  "buildEnvMissingError": "ആർക്കിടെക്ചർ പിശക്: പരിസ്ഥിതി ഫയൽ കാണുന്നില്ല ('env.joss' അല്ലെങ്കിൽ '.env')",
-  "buildInjectDbPath": "എംബഡഡ് env.joss-ലേക്ക് DB_PATH=\"Storage/database.sqlite\" കോൺഫിഗറേഷൻ കുത്തിവയ്ക്കുന്നു...",
-  "buildNodeModulesInclude": "-\u003e node_modules ഉൾപ്പെടുത്തും.",
-  "buildNodeModulesOmit": "-\u003e node_modules ഒഴിവാക്കപ്പെടും.",
-  "buildOsNotSupported": "ഈ പ്രീ-കംപൈൽ ചെയ്ത പതിപ്പിൽ വിൻഡോസ് മാത്രമേ പിന്തുണയ്ക്കൂ.",
-  "buildPackAssets": "അസറ്റുകൾ എൻക്രിപ്റ്റ് ചെയ്യുകയും പാക്കേജിംഗ് ചെയ്യുകയും ചെയ്യുന്നു...",
-  "buildProgramDataDir": "  build/data/ (ഇപ്പോൾ ശൂന്യം)",
-  "buildProgramDbSqlite": "build/Storage/database.sqlite",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramStart": "ജോസ് പ്രോഗ്രാം ബിൽഡ് (സെക്യുർ മോഡ്) ആരംഭിക്കുന്നു...",
-  "buildProgramStructure": "ഘടന:",
-  "buildProgramSuccess": "'ബിൽഡ്/' ഫോൾഡറിൽ പ്രോഗ്രാം ബിൽഡ് വിജയകരമായി പൂർത്തിയാക്കി.",
-  "buildSchemaError": "ജോസ് ബൈബിളിന് കർശനമായ ഘടന ആവശ്യമാണ്.",
-  "buildSelectOs": "ടാർഗെറ്റ് ഓപ്പറേറ്റിംഗ് സിസ്റ്റം തിരഞ്ഞെടുക്കുക:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "വിന്യസിക്കാൻ, 'ബിൽഡ്/' ഫോൾഡറിലെ ഉള്ളടക്കങ്ങൾ നിങ്ങളുടെ സെർവറിലേക്ക് അപ്‌ലോഡ് ചെയ്യുക.",
-  "buildWebRunTip": "സെർവറിൽ അതിനുള്ളിൽ 'joss run main.joss' പ്രവർത്തിപ്പിച്ചാൽ മതിയാകും.",
-  "buildWebStart": "ജോസ് വെബ് ബിൽഡ് ആരംഭിക്കുന്നു...",
-  "buildWebSuccess": "'build/' ഫോൾഡറിൽ WEB ബിൽഡ് വിജയകരമായി പൂർത്തിയാക്കി.",
-  "buildWindowsCompile": "വിൻഡോസിനായി കംപൈൽ ചെയ്യുന്നു...",
-  "changeDBMotor": "ഡാറ്റാബേസ് എഞ്ചിൻ മാറ്റുക (mysql/sqlite)",
-  "changeDBPrefix": "പട്ടിക പ്രിഫിക്സ് മാറ്റുക",
-  "compileProjectDist": "വിതരണത്തിനായി പദ്ധതി നിർമ്മിക്കുക",
-  "createMigration": "ഒരു പുതിയ മൈഗ്രേഷൻ സൃഷ്ടിക്കുക",
-  "createProject": "ഒരു പുതിയ പ്രോജക്റ്റ് സൃഷ്ടിക്കുക",
-  "dbConnectedSourceDest": "ഉറവിടത്തിലേക്കും ലക്ഷ്യസ്ഥാനത്തിലേക്കും ബന്ധിപ്പിച്ചിരിക്കുന്നു.",
-  "dbEngineAlready": "ഡാറ്റാബേസ് എഞ്ചിൻ ഇതിനകം തന്നെ",
-  "dbMigrateStart": "ഡാറ്റ മൈഗ്രേഷൻ ആരംഭിക്കുന്നു...",
-  "dbPrefixAlready": "പ്രിഫിക്സ് ഇതിനകം തന്നെ",
-  "dbPrepareDestSchema": "ലക്ഷ്യസ്ഥാന ഡാറ്റാബേസിൽ സ്കീമ തയ്യാറാക്കുന്നു...",
-  "errAuthEncryptFailed": "ഓത്ത് പിശക്: പാസ്‌വേഡ് എൻക്രിപ്റ്റ് ചെയ്യുന്നതിൽ പരാജയപ്പെട്ടു",
-  "errAuthNoDbConnection": "ഓത്ത് പിശക്: ഡാറ്റാബേസ് കണക്ഷൻ കോൺഫിഗർ ചെയ്തിട്ടില്ല",
-  "errFunctionNotFound": "പിശക്: '%s' ഫംഗ്‌ഷൻ കണ്ടെത്തിയില്ല",
-  "errLayoutNotFound": "പിശക്: ലേഔട്ട് '%s' കണ്ടെത്തിയില്ല",
-  "errPropertyNotFound": "പിശക്: പ്രോപ്പർട്ടി അല്ലെങ്കിൽ രീതി '%s' '%s' ക്ലാസിൽ കണ്ടെത്തിയില്ല",
-  "errTypeError": "തരം പിശക്: ആർഗ്യുമെൻ്റ് %d (%s) തരം %s ആയിരിക്കണം...",
-  "errViewNotFound": "പിശക്: '%s' കാണുക കണ്ടെത്തിയില്ല",
-  "exeMigrate": "തീർപ്പാക്കാത്ത മൈഗ്രേഷനുകൾ പ്രവർത്തിപ്പിക്കുക",
-  "exeMigrateFresh": "എല്ലാ പട്ടികകളും ഇല്ലാതാക്കി മൈഗ്രേഷനുകൾ വീണ്ടും പ്രവർത്തിപ്പിക്കുക",
-  "helpPrint": "ഈ സഹായം കാണിക്കൂ",
-  "removeCRUD": "ഒരു ടേബിളിനായി സൃഷ്ടിച്ച CRUD നീക്കം ചെയ്യുക",
-  "runJossScript": "ഒരു ജോസ് സ്ക്രിപ്റ്റ് പ്രവർത്തിപ്പിക്കുക",
-  "settingsUserStorage": "സംഭരണം കോൺഫിഗർ ചെയ്യുക (പ്രാദേശിക|OCI|AWS|Azure)",
-  "startProgramDesktop": "ഡെസ്ക്ടോപ്പ് മോഡിൽ ആപ്ലിക്കേഷൻ ആരംഭിക്കുക",
-  "startServerWeb": "വെബ് സെർവർ ആരംഭിക്കുക",
-  "version": "നിലവിലെ പതിപ്പ് കാണിക്കുന്നു"
+  }
 }

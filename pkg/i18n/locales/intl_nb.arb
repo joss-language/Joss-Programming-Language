@@ -1,154 +1,235 @@
 {
   "@@locale": "nb",
+  "CreateCRUD": "Lag komplett CRUD basert på en tabell",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "Opprett en ny kontroller",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "Opprett MVC",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "Lag ny mellomvare",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "Lag en ny modell",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "Opprett en ny visning",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "Sett opp interaktiv Native AI",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ NATIVE AI AKTIVERET MED VELDIGHET",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "Velg et alternativ (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "Skriv inn API-nøkkel for {provider} ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "Ugyldig alternativ. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "Modell som skal brukes [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ Advarsel: Ingen API-nøkkel er angitt. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (Anbefalt - superrask Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "Lagrer konfigurasjon i {file}...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "Velg AI-leverandøren din:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ Valgt leverandør: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "Prøv nå med: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "Denne veiviseren vil konfigurere den opprinnelige AI i prosjektet ditt.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Joss AI aktiveringsveiviser 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API aktivert og konfigurert vellykket.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API deaktivert.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "Feil: API-nøkkelen kan ikke være tom.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "Vil du aktivere BREVO_API? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Skriv inn din Brevo API-nøkkel: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "Feil: Verken env.joss eller .env-fil ble funnet i gjeldende katalog.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "Feil ved lesing av {file}: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Brevo API-konfigurasjon ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "Kopierer prosjektfiler...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "Database kopiert til bygg/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "Database kopiert til bygg/lagring/",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "Krypterer miljø for produksjon...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "Miljø kryptert og innebygd som env.enc",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "Arkitekturfeil: Manglende miljøfil ('env.joss' eller '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "Injiserer DB_PATH=\"Storage/database.sqlite\"-konfigurasjon i innebygd env.joss...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules vil bli inkludert.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules vil bli utelatt.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "Bare Windows støttes i denne forhåndskompilerte versjonen.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "Krypterer og pakker eiendeler...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (tom for nå)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Starter Joss PROGRAM build (SIKKER MODUS)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "Struktur:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "PROGRAM Bygg fullført i 'build/'-mappen.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "Joss-bibelen krever en streng struktur.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "Velg måloperativsystemet:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "For å distribuere, last opp innholdet i 'build/'-mappen til serveren din.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "Du trenger bare å kjøre 'joss run main.joss' inne i den på serveren.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Starter Joss WEB-bygging...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB Build fullført vellykket i 'build/'-mappen.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Kompilerer for Windows...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "Endre databasemotoren (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "Endre tabellprefikset",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "Bygg prosjektet for distribusjon",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "Opprett en ny migrering",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "Opprett et nytt prosjekt",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "Koblet til kilde og destinasjon.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "Databasemotoren er allerede",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "Starter datamigrering...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "Prefikset er allerede",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "Forbereder skjema i måldatabase...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Auth-feil: Kunne ikke kryptere passord",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Auth-feil: Ingen databasetilkobling er konfigurert",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "Feil: Funksjonen '__PH_0___' ikke funnet",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "Feil: Layout '%s' ble ikke funnet",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "Feil: Egenskapen eller metoden '%s' ikke funnet i klassen '%s'",
+  "@errPropertyNotFound": {},
+  "errTypeError": "Typefeil: Argument %d (%s) må være av typen %s...",
+  "@errTypeError": {},
+  "errViewNotFound": "Feil: Visningen '__PH_0__' ble ikke funnet",
+  "@errViewNotFound": {},
+  "exeMigrate": "Kjør ventende migreringer",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "Slett alle tabeller og kjør migreringer på nytt",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "Vis denne hjelpen",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "Fjern CRUD generert for en tabell",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "Kjør et joss-script",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "Konfigurer lagring (lokal|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "Start programmet i skrivebordsmodus",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "Start webserveren",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "Viser gjeldende versjon",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "Lag komplett CRUD basert på en tabell",
-  "CreateController": "Opprett en ny kontroller",
-  "CreateMVC": "Opprett MVC",
-  "CreateMiddleware": "Lag ny mellomvare",
-  "CreateModel": "Lag en ny modell",
-  "CreateView": "Opprett en ny visning",
-  "IaActivate": "Sett opp interaktiv Native AI",
-  "aiActivatedSuccess": "✅ NATIVE AI AKTIVERET MED VELDIGHET",
-  "aiChooseOption": "Velg et alternativ (1-3): ",
-  "aiEnterApiKey": "Skriv inn API-nøkkel for {provider} ({key}): ",
-  "aiInvalidOption": "Ugyldig alternativ. ",
-  "aiModelToUse": "Modell som skal brukes [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ Advarsel: Ingen API-nøkkel er angitt. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (Anbefalt - superrask Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "Lagrer konfigurasjon i {file}...",
-  "aiSelectProvider": "Velg AI-leverandøren din:",
-  "aiSelectedProvider": "✅ Valgt leverandør: {provider}",
-  "aiTryScript": "Prøv nå med: joss run your_script.joss",
-  "aiWizardConfig": "Denne veiviseren vil konfigurere den opprinnelige AI i prosjektet ditt.",
-  "aiWizardTitle": "🚀 Joss AI aktiveringsveiviser 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API aktivert og konfigurert vellykket.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API deaktivert.",
-  "brevoEmptyKeyError": "Feil: API-nøkkelen kan ikke være tom.",
-  "brevoEnablePrompt": "Vil du aktivere BREVO_API? (y/n): ",
-  "brevoEnterKey": "Skriv inn din Brevo API-nøkkel: ",
-  "brevoNoEnvError": "Feil: Verken env.joss eller .env-fil ble funnet i gjeldende katalog.",
-  "brevoReadError": "Feil ved lesing av {file}: {error}",
-  "brevoTitle": "--- Brevo API-konfigurasjon ---",
-  "buildCopyFiles": "Kopierer prosjektfiler...",
-  "buildDbCopied": "Database kopiert til bygg/",
-  "buildDbCopiedProgram": "Database kopiert til bygg/lagring/",
-  "buildEncryptEnv": "Krypterer miljø for produksjon...",
-  "buildEnvEncryptedSuccess": "Miljø kryptert og innebygd som env.enc",
-  "buildEnvMissingError": "Arkitekturfeil: Manglende miljøfil ('env.joss' eller '.env')",
-  "buildInjectDbPath": "Injiserer DB_PATH=\"Storage/database.sqlite\"-konfigurasjon i innebygd env.joss...",
-  "buildNodeModulesInclude": "-\u003e node_modules vil bli inkludert.",
-  "buildNodeModulesOmit": "-\u003e node_modules vil bli utelatt.",
-  "buildOsNotSupported": "Bare Windows støttes i denne forhåndskompilerte versjonen.",
-  "buildPackAssets": "Krypterer og pakker eiendeler...",
-  "buildProgramDataDir": "build/data/ (tom for nå)",
-  "buildProgramDbSqlite": "build/Storage/database.sqlite",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramStart": "Starter Joss PROGRAM build (SIKKER MODUS)...",
-  "buildProgramStructure": "Struktur:",
-  "buildProgramSuccess": "PROGRAM Bygg fullført i 'build/'-mappen.",
-  "buildSchemaError": "Joss-bibelen krever en streng struktur.",
-  "buildSelectOs": "Velg måloperativsystemet:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "For å distribuere, last opp innholdet i 'build/'-mappen til serveren din.",
-  "buildWebRunTip": "Du trenger bare å kjøre 'joss run main.joss' inne i den på serveren.",
-  "buildWebStart": "Starter Joss WEB-bygging...",
-  "buildWebSuccess": "WEB Build fullført vellykket i 'build/'-mappen.",
-  "buildWindowsCompile": "Kompilerer for Windows...",
-  "changeDBMotor": "Endre databasemotoren (mysql/sqlite)",
-  "changeDBPrefix": "Endre tabellprefikset",
-  "compileProjectDist": "Bygg prosjektet for distribusjon",
-  "createMigration": "Opprett en ny migrering",
-  "createProject": "Opprett et nytt prosjekt",
-  "dbConnectedSourceDest": "Koblet til kilde og destinasjon.",
-  "dbEngineAlready": "Databasemotoren er allerede",
-  "dbMigrateStart": "Starter datamigrering...",
-  "dbPrefixAlready": "Prefikset er allerede",
-  "dbPrepareDestSchema": "Forbereder skjema i måldatabase...",
-  "errAuthEncryptFailed": "Auth-feil: Kunne ikke kryptere passord",
-  "errAuthNoDbConnection": "Auth-feil: Ingen databasetilkobling er konfigurert",
-  "errFunctionNotFound": "Feil: Funksjonen '__PH_0___' ikke funnet",
-  "errLayoutNotFound": "Feil: Layout '%s' ble ikke funnet",
-  "errPropertyNotFound": "Feil: Egenskapen eller metoden '%s' ikke funnet i klassen '%s'",
-  "errTypeError": "Typefeil: Argument %d (%s) må være av typen %s...",
-  "errViewNotFound": "Feil: Visningen '__PH_0__' ble ikke funnet",
-  "exeMigrate": "Kjør ventende migreringer",
-  "exeMigrateFresh": "Slett alle tabeller og kjør migreringer på nytt",
-  "helpPrint": "Vis denne hjelpen",
-  "removeCRUD": "Fjern CRUD generert for en tabell",
-  "runJossScript": "Kjør et joss-script",
-  "settingsUserStorage": "Konfigurer lagring (lokal|OCI|AWS|Azure)",
-  "startProgramDesktop": "Start programmet i skrivebordsmodus",
-  "startServerWeb": "Start webserveren",
-  "version": "Viser gjeldende versjon"
+  }
 }

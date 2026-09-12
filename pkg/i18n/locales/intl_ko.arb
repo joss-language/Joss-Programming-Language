@@ -1,154 +1,235 @@
 {
   "@@locale": "ko",
+  "CreateCRUD": "테이블을 기반으로 완전한 CRUD 생성",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "새 컨트롤러 만들기",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "MVC 만들기",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "새로운 미들웨어 생성",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "새 모델 만들기",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "새 보기 만들기",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "대화형 네이티브 AI 설정",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ 네이티브 AI가 성공적으로 활성화되었습니다",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "옵션을 선택하세요 (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "{provider}의 API 키를 입력하세요 ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "잘못된 옵션입니다. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "사용할 모델 [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ 경고: API 키를 입력하지 않았습니다. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (추천 - 초고속 Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "{file}에 설정 저장 중...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "AI 제공업체를 선택하세요.",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ 선택된 제공업체: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "지금 사용해 보세요: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "이 마법사는 프로젝트의 기본 AI를 구성합니다.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Joss AI 활성화 마법사 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API가 성공적으로 활성화 및 구성되었습니다.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API가 비활성화되었습니다.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "오류: API 키는 비워둘 수 없습니다.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "BREVO_API를 활성화하시겠습니까? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Brevo API 키를 입력하세요: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "오류: 현재 디렉터리에서 env.joss 및 .env 파일을 찾을 수 없습니다.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "{file} 읽기 오류: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Brevo API 구성 ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "프로젝트 파일 복사 중...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "데이터베이스가 빌드에 복사되었습니다/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "데이터베이스가 빌드/스토리지/에 복사되었습니다.",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "프로덕션 환경을 암호화하는 중...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "env.enc로 암호화되어 포함된 환경",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "아키텍처 오류: 환경 파일 누락('env.joss' 또는 '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "DB_PATH=\"Storage/database.sqlite\" 구성을 임베디드 env.joss에 삽입하는 중...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules가 포함됩니다.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules는 생략됩니다.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "이 사전 컴파일된 버전에서는 Windows만 지원됩니다.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "자산 암호화 및 패키징 중...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "  build/data/ (지금은 비어 있음)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "  build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Joss PROGRAM 빌드 시작 중(보안 모드)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "구조:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "PROGRAM 빌드가 'build/' 폴더에서 성공적으로 완료되었습니다.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "조스 성경은 엄격한 구조를 요구합니다.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "대상 운영 체제를 선택하십시오.",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "배포하려면 'build/' 폴더의 콘텐츠를 서버에 업로드하세요.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "서버 내부에서 'joss run main.joss'만 실행하면 됩니다.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Joss WEB 빌드 시작 중...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "'build/' 폴더에서 WEB Build가 성공적으로 완료되었습니다.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Windows용으로 컴파일 중...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "데이터베이스 엔진 변경(mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "테이블 접두사 변경",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "배포용 프로젝트 빌드",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "새 마이그레이션 만들기",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "새 프로젝트 만들기",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "소스와 대상에 연결되었습니다.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "데이터베이스 엔진은 이미",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "데이터 마이그레이션 시작 중...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "접두사는 이미",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "대상 데이터베이스에서 스키마 준비 중...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "인증 오류: 비밀번호를 암호화하지 못했습니다.",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "인증 오류: 데이터베이스 연결이 구성되지 않았습니다.",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "오류: '%s' 기능을 찾을 수 없습니다.",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "오류: '%s' 레이아웃을 찾을 수 없습니다.",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "오류: '%s' 클래스에서 속성 또는 메서드 '%s'을(를) 찾을 수 없습니다.",
+  "@errPropertyNotFound": {},
+  "errTypeError": "유형 오류: 인수 %d(%s)은 %s 유형이어야 합니다...",
+  "@errTypeError": {},
+  "errViewNotFound": "오류: '%s' 보기를 찾을 수 없습니다.",
+  "@errViewNotFound": {},
+  "exeMigrate": "보류 중인 마이그레이션 실행",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "모든 테이블을 삭제하고 마이그레이션을 다시 실행하세요.",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "이 도움말 표시",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "테이블에 대해 생성된 CRUD 제거",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "조스 스크립트 실행",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "스토리지 구성(로컬|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "데스크톱 모드에서 애플리케이션 시작",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "웹 서버 시작",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "현재 버전을 표시합니다",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "테이블을 기반으로 완전한 CRUD 생성",
-  "CreateController": "새 컨트롤러 만들기",
-  "CreateMVC": "MVC 만들기",
-  "CreateMiddleware": "새로운 미들웨어 생성",
-  "CreateModel": "새 모델 만들기",
-  "CreateView": "새 보기 만들기",
-  "IaActivate": "대화형 네이티브 AI 설정",
-  "aiActivatedSuccess": "✅ 네이티브 AI가 성공적으로 활성화되었습니다",
-  "aiChooseOption": "옵션을 선택하세요 (1-3): ",
-  "aiEnterApiKey": "{provider}의 API 키를 입력하세요 ({key}): ",
-  "aiInvalidOption": "잘못된 옵션입니다. ",
-  "aiModelToUse": "사용할 모델 [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ 경고: API 키를 입력하지 않았습니다. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (추천 - 초고속 Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "{file}에 설정 저장 중...",
-  "aiSelectProvider": "AI 제공업체를 선택하세요.",
-  "aiSelectedProvider": "✅ 선택된 제공업체: {provider}",
-  "aiTryScript": "지금 사용해 보세요: joss run your_script.joss",
-  "aiWizardConfig": "이 마법사는 프로젝트의 기본 AI를 구성합니다.",
-  "aiWizardTitle": "🚀 Joss AI 활성화 마법사 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API가 성공적으로 활성화 및 구성되었습니다.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API가 비활성화되었습니다.",
-  "brevoEmptyKeyError": "오류: API 키는 비워둘 수 없습니다.",
-  "brevoEnablePrompt": "BREVO_API를 활성화하시겠습니까? (y/n): ",
-  "brevoEnterKey": "Brevo API 키를 입력하세요: ",
-  "brevoNoEnvError": "오류: 현재 디렉터리에서 env.joss 및 .env 파일을 찾을 수 없습니다.",
-  "brevoReadError": "{file} 읽기 오류: {error}",
-  "brevoTitle": "--- Brevo API 구성 ---",
-  "buildCopyFiles": "프로젝트 파일 복사 중...",
-  "buildDbCopied": "데이터베이스가 빌드에 복사되었습니다/",
-  "buildDbCopiedProgram": "데이터베이스가 빌드/스토리지/에 복사되었습니다.",
-  "buildEncryptEnv": "프로덕션 환경을 암호화하는 중...",
-  "buildEnvEncryptedSuccess": "env.enc로 암호화되어 포함된 환경",
-  "buildEnvMissingError": "아키텍처 오류: 환경 파일 누락('env.joss' 또는 '.env')",
-  "buildInjectDbPath": "DB_PATH=\"Storage/database.sqlite\" 구성을 임베디드 env.joss에 삽입하는 중...",
-  "buildNodeModulesInclude": "-\u003e node_modules가 포함됩니다.",
-  "buildNodeModulesOmit": "-\u003e node_modules는 생략됩니다.",
-  "buildOsNotSupported": "이 사전 컴파일된 버전에서는 Windows만 지원됩니다.",
-  "buildPackAssets": "자산 암호화 및 패키징 중...",
-  "buildProgramDataDir": "  build/data/ (지금은 비어 있음)",
-  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
-  "buildProgramErrorLog": "  build/error.log",
-  "buildProgramStart": "Joss PROGRAM 빌드 시작 중(보안 모드)...",
-  "buildProgramStructure": "구조:",
-  "buildProgramSuccess": "PROGRAM 빌드가 'build/' 폴더에서 성공적으로 완료되었습니다.",
-  "buildSchemaError": "조스 성경은 엄격한 구조를 요구합니다.",
-  "buildSelectOs": "대상 운영 체제를 선택하십시오.",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "배포하려면 'build/' 폴더의 콘텐츠를 서버에 업로드하세요.",
-  "buildWebRunTip": "서버 내부에서 'joss run main.joss'만 실행하면 됩니다.",
-  "buildWebStart": "Joss WEB 빌드 시작 중...",
-  "buildWebSuccess": "'build/' 폴더에서 WEB Build가 성공적으로 완료되었습니다.",
-  "buildWindowsCompile": "Windows용으로 컴파일 중...",
-  "changeDBMotor": "데이터베이스 엔진 변경(mysql/sqlite)",
-  "changeDBPrefix": "테이블 접두사 변경",
-  "compileProjectDist": "배포용 프로젝트 빌드",
-  "createMigration": "새 마이그레이션 만들기",
-  "createProject": "새 프로젝트 만들기",
-  "dbConnectedSourceDest": "소스와 대상에 연결되었습니다.",
-  "dbEngineAlready": "데이터베이스 엔진은 이미",
-  "dbMigrateStart": "데이터 마이그레이션 시작 중...",
-  "dbPrefixAlready": "접두사는 이미",
-  "dbPrepareDestSchema": "대상 데이터베이스에서 스키마 준비 중...",
-  "errAuthEncryptFailed": "인증 오류: 비밀번호를 암호화하지 못했습니다.",
-  "errAuthNoDbConnection": "인증 오류: 데이터베이스 연결이 구성되지 않았습니다.",
-  "errFunctionNotFound": "오류: '%s' 기능을 찾을 수 없습니다.",
-  "errLayoutNotFound": "오류: '%s' 레이아웃을 찾을 수 없습니다.",
-  "errPropertyNotFound": "오류: '%s' 클래스에서 속성 또는 메서드 '%s'을(를) 찾을 수 없습니다.",
-  "errTypeError": "유형 오류: 인수 %d(%s)은 %s 유형이어야 합니다...",
-  "errViewNotFound": "오류: '%s' 보기를 찾을 수 없습니다.",
-  "exeMigrate": "보류 중인 마이그레이션 실행",
-  "exeMigrateFresh": "모든 테이블을 삭제하고 마이그레이션을 다시 실행하세요.",
-  "helpPrint": "이 도움말 표시",
-  "removeCRUD": "테이블에 대해 생성된 CRUD 제거",
-  "runJossScript": "조스 스크립트 실행",
-  "settingsUserStorage": "스토리지 구성(로컬|OCI|AWS|Azure)",
-  "startProgramDesktop": "데스크톱 모드에서 애플리케이션 시작",
-  "startServerWeb": "웹 서버 시작",
-  "version": "현재 버전을 표시합니다"
+  }
 }

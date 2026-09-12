@@ -1,154 +1,235 @@
 {
   "@@locale": "id",
+  "CreateCRUD": "Buat CRUD lengkap berdasarkan tabel",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "Buat pengontrol baru",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "Buat MVC",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "Buat middleware baru",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "Buat model baru",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "Buat tampilan baru",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "Siapkan AI Asli yang interaktif",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ AI ASLI BERHASIL DIAKTIFKAN",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "Pilih opsi (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "Masukkan API KEY untuk {provider} ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "Opsi tidak valid. ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "Model yang digunakan [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ Peringatan: Tidak ada Kunci API yang dimasukkan. ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (Direkomendasikan - Llama 3 super cepat)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "Menyimpan konfigurasi di {file}...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "Pilih penyedia AI Anda:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ Penyedia terpilih: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "Coba sekarang dengan: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "Wizard ini akan mengonfigurasi AI asli di proyek Anda.",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 Penyihir Aktivasi Joss AI 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API berhasil diaktifkan dan dikonfigurasi.",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API dinonaktifkan.",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "Kesalahan: Kunci API tidak boleh kosong.",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "Apakah Anda ingin mengaktifkan BREVO_API? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "Masukkan API Key Brevo Anda: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "Kesalahan: File env.joss atau .env tidak ditemukan di direktori saat ini.",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "Gagal membaca {file}: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- Konfigurasi API Brevo ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "Menyalin file proyek...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "Basis data disalin ke build/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "Basis data disalin ke build/Penyimpanan/",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "Mengenkripsi lingkungan untuk produksi...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "Lingkungan dienkripsi dan disematkan sebagai env.enc",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "Kesalahan Arsitektur: File lingkungan tidak ada ('env.joss' atau '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "Menyuntikkan konfigurasi DB_PATH=\"Storage/database.sqlite\" ke env.joss yang tertanam...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules akan disertakan.",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules akan dihilangkan.",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "Hanya Windows yang didukung dalam versi pra-kompilasi ini.",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "Mengenkripsi dan mengemas aset...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "build/data/ (kosong untuk saat ini)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "Memulai pembuatan PROGRAM Joss (MODE AMAN)...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "Struktur:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "PROGRAM Build berhasil diselesaikan di folder 'build/'.",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "Joss Bible memerlukan struktur yang ketat.",
+  "@buildSchemaError": {},
+  "buildSelectOs": "Pilih sistem operasi target:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1.jendela Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "Untuk menyebarkan, unggah konten folder 'build/' ke server Anda.",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "Anda hanya perlu menjalankan 'joss run main.joss' di dalamnya di server.",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Memulai pembuatan Joss WEB...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "WEB Build berhasil diselesaikan di folder 'build/'.",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "Kompilasi untuk Windows...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "Mengubah mesin database (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "Ubah awalan tabel",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "Bangun proyek untuk distribusi",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "Buat migrasi baru",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "Buat proyek baru",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "Terhubung ke sumber dan tujuan.",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "Mesin database sudah",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "Memulai migrasi data...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "Awalannya sudah",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "Mempersiapkan skema di database tujuan...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "Kesalahan Otentikasi: Gagal mengenkripsi kata sandi",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "Kesalahan Auth: Tidak ada koneksi database yang dikonfigurasi",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "Kesalahan: Fungsi '%s' tidak ditemukan",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "Kesalahan: Tata letak '%s' tidak ditemukan",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "Kesalahan: Properti atau metode '%s' tidak ditemukan di kelas '%s'",
+  "@errPropertyNotFound": {},
+  "errTypeError": "Kesalahan Jenis: Argumen %d (%s) harus bertipe %s...",
+  "@errTypeError": {},
+  "errViewNotFound": "Kesalahan: Tampilan '%s' tidak ditemukan",
+  "@errViewNotFound": {},
+  "exeMigrate": "Jalankan migrasi yang tertunda",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "Hapus semua tabel dan jalankan kembali migrasi",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "Tunjukkan bantuan ini",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "Hapus CRUD yang dihasilkan untuk sebuah tabel",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "Jalankan skrip joss",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "Konfigurasikan penyimpanan (lokal|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "Mulai aplikasi dalam mode desktop",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "Mulai server web",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "Menampilkan versi saat ini",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "Buat CRUD lengkap berdasarkan tabel",
-  "CreateController": "Buat pengontrol baru",
-  "CreateMVC": "Buat MVC",
-  "CreateMiddleware": "Buat middleware baru",
-  "CreateModel": "Buat model baru",
-  "CreateView": "Buat tampilan baru",
-  "IaActivate": "Siapkan AI Asli yang interaktif",
-  "aiActivatedSuccess": "✅ AI ASLI BERHASIL DIAKTIFKAN",
-  "aiChooseOption": "Pilih opsi (1-3): ",
-  "aiEnterApiKey": "Masukkan API KEY untuk {provider} ({key}): ",
-  "aiInvalidOption": "Opsi tidak valid. ",
-  "aiModelToUse": "Model yang digunakan [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ Peringatan: Tidak ada Kunci API yang dimasukkan. ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (Direkomendasikan - Llama 3 super cepat)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "Menyimpan konfigurasi di {file}...",
-  "aiSelectProvider": "Pilih penyedia AI Anda:",
-  "aiSelectedProvider": "✅ Penyedia terpilih: {provider}",
-  "aiTryScript": "Coba sekarang dengan: joss run your_script.joss",
-  "aiWizardConfig": "Wizard ini akan mengonfigurasi AI asli di proyek Anda.",
-  "aiWizardTitle": "🚀 Penyihir Aktivasi Joss AI 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API berhasil diaktifkan dan dikonfigurasi.",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API dinonaktifkan.",
-  "brevoEmptyKeyError": "Kesalahan: Kunci API tidak boleh kosong.",
-  "brevoEnablePrompt": "Apakah Anda ingin mengaktifkan BREVO_API? (y/n): ",
-  "brevoEnterKey": "Masukkan API Key Brevo Anda: ",
-  "brevoNoEnvError": "Kesalahan: File env.joss atau .env tidak ditemukan di direktori saat ini.",
-  "brevoReadError": "Gagal membaca {file}: {error}",
-  "brevoTitle": "--- Konfigurasi API Brevo ---",
-  "buildCopyFiles": "Menyalin file proyek...",
-  "buildDbCopied": "Basis data disalin ke build/",
-  "buildDbCopiedProgram": "Basis data disalin ke build/Penyimpanan/",
-  "buildEncryptEnv": "Mengenkripsi lingkungan untuk produksi...",
-  "buildEnvEncryptedSuccess": "Lingkungan dienkripsi dan disematkan sebagai env.enc",
-  "buildEnvMissingError": "Kesalahan Arsitektur: File lingkungan tidak ada ('env.joss' atau '.env')",
-  "buildInjectDbPath": "Menyuntikkan konfigurasi DB_PATH=\"Storage/database.sqlite\" ke env.joss yang tertanam...",
-  "buildNodeModulesInclude": "-\u003e node_modules akan disertakan.",
-  "buildNodeModulesOmit": "-\u003e node_modules akan dihilangkan.",
-  "buildOsNotSupported": "Hanya Windows yang didukung dalam versi pra-kompilasi ini.",
-  "buildPackAssets": "Mengenkripsi dan mengemas aset...",
-  "buildProgramDataDir": "build/data/ (kosong untuk saat ini)",
-  "buildProgramDbSqlite": "  build/Storage/database.sqlite",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramStart": "Memulai pembuatan PROGRAM Joss (MODE AMAN)...",
-  "buildProgramStructure": "Struktur:",
-  "buildProgramSuccess": "PROGRAM Build berhasil diselesaikan di folder 'build/'.",
-  "buildSchemaError": "Joss Bible memerlukan struktur yang ketat.",
-  "buildSelectOs": "Pilih sistem operasi target:",
-  "buildSelectOsWindows": "1.jendela Windows",
-  "buildWebDeployTip": "Untuk menyebarkan, unggah konten folder 'build/' ke server Anda.",
-  "buildWebRunTip": "Anda hanya perlu menjalankan 'joss run main.joss' di dalamnya di server.",
-  "buildWebStart": "Memulai pembuatan Joss WEB...",
-  "buildWebSuccess": "WEB Build berhasil diselesaikan di folder 'build/'.",
-  "buildWindowsCompile": "Kompilasi untuk Windows...",
-  "changeDBMotor": "Mengubah mesin database (mysql/sqlite)",
-  "changeDBPrefix": "Ubah awalan tabel",
-  "compileProjectDist": "Bangun proyek untuk distribusi",
-  "createMigration": "Buat migrasi baru",
-  "createProject": "Buat proyek baru",
-  "dbConnectedSourceDest": "Terhubung ke sumber dan tujuan.",
-  "dbEngineAlready": "Mesin database sudah",
-  "dbMigrateStart": "Memulai migrasi data...",
-  "dbPrefixAlready": "Awalannya sudah",
-  "dbPrepareDestSchema": "Mempersiapkan skema di database tujuan...",
-  "errAuthEncryptFailed": "Kesalahan Otentikasi: Gagal mengenkripsi kata sandi",
-  "errAuthNoDbConnection": "Kesalahan Auth: Tidak ada koneksi database yang dikonfigurasi",
-  "errFunctionNotFound": "Kesalahan: Fungsi '%s' tidak ditemukan",
-  "errLayoutNotFound": "Kesalahan: Tata letak '%s' tidak ditemukan",
-  "errPropertyNotFound": "Kesalahan: Properti atau metode '%s' tidak ditemukan di kelas '%s'",
-  "errTypeError": "Kesalahan Jenis: Argumen %d (%s) harus bertipe %s...",
-  "errViewNotFound": "Kesalahan: Tampilan '%s' tidak ditemukan",
-  "exeMigrate": "Jalankan migrasi yang tertunda",
-  "exeMigrateFresh": "Hapus semua tabel dan jalankan kembali migrasi",
-  "helpPrint": "Tunjukkan bantuan ini",
-  "removeCRUD": "Hapus CRUD yang dihasilkan untuk sebuah tabel",
-  "runJossScript": "Jalankan skrip joss",
-  "settingsUserStorage": "Konfigurasikan penyimpanan (lokal|OCI|AWS|Azure)",
-  "startProgramDesktop": "Mulai aplikasi dalam mode desktop",
-  "startServerWeb": "Mulai server web",
-  "version": "Menampilkan versi saat ini"
+  }
 }

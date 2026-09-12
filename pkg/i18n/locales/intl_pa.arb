@@ -1,154 +1,235 @@
 {
   "@@locale": "pa",
+  "CreateCRUD": "ਇੱਕ ਸਾਰਣੀ ਦੇ ਅਧਾਰ ਤੇ ਪੂਰਾ CRUD ਬਣਾਓ",
   "@CreateCRUD": {
     "description": ""
   },
+  "CreateController": "ਇੱਕ ਨਵਾਂ ਕੰਟਰੋਲਰ ਬਣਾਓ",
   "@CreateController": {
     "description": ""
   },
+  "CreateMVC": "MVC ਬਣਾਓ",
   "@CreateMVC": {
     "description": ""
   },
+  "CreateMiddleware": "ਨਵਾਂ ਮਿਡਲਵੇਅਰ ਬਣਾਓ",
   "@CreateMiddleware": {
     "description": ""
   },
+  "CreateModel": "ਇੱਕ ਨਵਾਂ ਮਾਡਲ ਬਣਾਓ",
   "@CreateModel": {
     "description": ""
   },
+  "CreateView": "ਇੱਕ ਨਵਾਂ ਦ੍ਰਿਸ਼ ਬਣਾਓ",
   "@CreateView": {
     "description": ""
   },
+  "IaActivate": "ਇੰਟਰਐਕਟਿਵ ਨੇਟਿਵ AI ਸੈਟ ਅਪ ਕਰੋ",
   "@IaActivate": {
     "description": ""
   },
+  "aiActivatedSuccess": "✅ ਨੇਟਿਵ ਏਆਈ ਨੂੰ ਸਫਲਤਾਪੂਰਵਕ ਸਰਗਰਮ ਕੀਤਾ ਗਿਆ",
+  "@aiActivatedSuccess": {},
+  "aiChooseOption": "ਇੱਕ ਵਿਕਲਪ ਚੁਣੋ (1-3): ",
+  "@aiChooseOption": {},
+  "aiEnterApiKey": "{provider} ਲਈ API KEY ਦਰਜ ਕਰੋ ({key}): ",
+  "@aiEnterApiKey": {
+    "placeholders": {
+      "provider": {},
+      "key": {}
+    }
+  },
+  "aiInvalidOption": "ਅਵੈਧ ਵਿਕਲਪ। ",
+  "@aiInvalidOption": {},
+  "aiModelToUse": "ਵਰਤਣ ਲਈ ਮਾਡਲ [{model}]: ",
+  "@aiModelToUse": {
+    "placeholders": {
+      "model": {}
+    }
+  },
+  "aiNoApiKeyWarning": "⚠️ ਚੇਤਾਵਨੀ: ਕੋਈ API ਕੁੰਜੀ ਦਾਖਲ ਨਹੀਂ ਕੀਤੀ ਗਈ। ",
+  "@aiNoApiKeyWarning": {},
+  "aiProviderGemini": "3) Gemini (Google)",
+  "@aiProviderGemini": {},
+  "aiProviderGroq": "1) Groq (ਸਿਫਾਰਸ਼ ਕੀਤੀ - ਬਹੁਤ ਤੇਜ਼ Llama 3)",
+  "@aiProviderGroq": {},
+  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
+  "@aiProviderOpenai": {},
+  "aiSavingConfig": "{file} ਵਿੱਚ ਸੰਰਚਨਾ ਸੁਰੱਖਿਅਤ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ...",
+  "@aiSavingConfig": {
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "aiSelectProvider": "ਆਪਣੇ AI ਪ੍ਰਦਾਤਾ ਨੂੰ ਚੁਣੋ:",
+  "@aiSelectProvider": {},
+  "aiSelectedProvider": "✅ ਚੁਣਿਆ ਗਿਆ ਪ੍ਰਦਾਤਾ: {provider}",
+  "@aiSelectedProvider": {
+    "placeholders": {
+      "provider": {}
+    }
+  },
+  "aiTryScript": "ਹੁਣ ਇਸ ਨਾਲ ਕੋਸ਼ਿਸ਼ ਕਰੋ: joss run your_script.joss",
+  "@aiTryScript": {},
+  "aiWizardConfig": "ਇਹ ਵਿਜ਼ਾਰਡ ਤੁਹਾਡੇ ਪ੍ਰੋਜੈਕਟ ਵਿੱਚ ਮੂਲ AI ਨੂੰ ਕੌਂਫਿਗਰ ਕਰੇਗਾ।",
+  "@aiWizardConfig": {},
+  "aiWizardTitle": "🚀 ਜੋਸ ਏਆਈ ਐਕਟੀਵੇਸ਼ਨ ਵਿਜ਼ਾਰਡ 🚀",
   "@aiWizardTitle": {
     "description": ""
   },
+  "brevoActivatedSuccess": "✅ BREVO_API ਸਰਗਰਮ ਅਤੇ ਸਫਲਤਾਪੂਰਵਕ ਕੌਂਫਿਗਰ ਕੀਤਾ ਗਿਆ।",
+  "@brevoActivatedSuccess": {},
+  "brevoConfig": "Configure interactive Brevo API (Email)",
   "@brevoConfig": {
     "description": ""
   },
+  "brevoDisabledSuccess": "✅ BREVO_API ਅਯੋਗ ਹੈ।",
+  "@brevoDisabledSuccess": {},
+  "brevoEmptyKeyError": "ਗਲਤੀ: API ਕੁੰਜੀ ਖਾਲੀ ਨਹੀਂ ਹੋ ਸਕਦੀ।",
+  "@brevoEmptyKeyError": {},
+  "brevoEnablePrompt": "ਕੀ ਤੁਸੀਂ BREVO_API ਨੂੰ ਸਰਗਰਮ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ? (y/n): ",
+  "@brevoEnablePrompt": {},
+  "brevoEnterKey": "ਆਪਣੀ Brevo API Key ਦਰਜ ਕਰੋ: ",
+  "@brevoEnterKey": {},
+  "brevoNoEnvError": "ਗਲਤੀ: ਮੌਜੂਦਾ ਡਾਇਰੈਕਟਰੀ ਵਿੱਚ ਨਾ ਤਾਂ env.joss ਅਤੇ ਨਾ ਹੀ .env ਫਾਈਲ ਲੱਭੀ ਹੈ।",
+  "@brevoNoEnvError": {},
+  "brevoReadError": "{file} ਪੜ੍ਹਨ ਵਿੱਚ ਤਰੁੱਟੀ: {error}",
+  "@brevoReadError": {
+    "placeholders": {
+      "file": {},
+      "error": {}
+    }
+  },
+  "brevoTitle": "--- ਬ੍ਰੇਵੋ API ਸੰਰਚਨਾ ---",
+  "@brevoTitle": {},
+  "buildCopyFiles": "ਪ੍ਰੋਜੈਕਟ ਫਾਈਲਾਂ ਨੂੰ ਕਾਪੀ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@buildCopyFiles": {},
+  "buildDbCopied": "ਡਾਟਾਬੇਸ ਨੂੰ ਬਣਾਉਣ ਲਈ ਕਾਪੀ ਕੀਤਾ ਗਿਆ/",
+  "@buildDbCopied": {},
+  "buildDbCopiedProgram": "ਡਾਟਾਬੇਸ ਨੂੰ ਬਿਲਡ/ਸਟੋਰੇਜ/ ਲਈ ਕਾਪੀ ਕੀਤਾ ਗਿਆ",
+  "@buildDbCopiedProgram": {},
+  "buildEncryptEnv": "ਉਤਪਾਦਨ ਲਈ ਵਾਤਾਵਰਣ ਨੂੰ ਐਨਕ੍ਰਿਪਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@buildEncryptEnv": {},
+  "buildEnvEncryptedSuccess": "ਵਾਤਾਵਰਣ ਨੂੰ ਐਨਕ੍ਰਿਪਟਡ ਅਤੇ env.enc ਦੇ ਰੂਪ ਵਿੱਚ ਏਮਬੇਡ ਕੀਤਾ ਗਿਆ ਹੈ",
+  "@buildEnvEncryptedSuccess": {},
+  "buildEnvMissingError": "ਆਰਕੀਟੈਕਚਰ ਗਲਤੀ: ਗੁੰਮ ਵਾਤਾਵਰਣ ਫਾਈਲ ('env.joss' ਜਾਂ '.env')",
+  "@buildEnvMissingError": {},
+  "buildInjectDbPath": "ਏਮਬੇਡ ਕੀਤੇ env.joss ਵਿੱਚ DB_PATH=\"Storage/database.sqlite\" ਸੰਰਚਨਾ ਨੂੰ ਇੰਜੈਕਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@buildInjectDbPath": {},
+  "buildNodeModulesInclude": "-> node_modules ਸ਼ਾਮਲ ਕੀਤੇ ਜਾਣਗੇ।",
+  "@buildNodeModulesInclude": {},
+  "buildNodeModulesOmit": "-> node_modules ਨੂੰ ਛੱਡ ਦਿੱਤਾ ਜਾਵੇਗਾ।",
+  "@buildNodeModulesOmit": {},
+  "buildOsNotSupported": "ਇਸ ਪ੍ਰੀ-ਕੰਪਾਈਲ ਕੀਤੇ ਸੰਸਕਰਣ ਵਿੱਚ ਸਿਰਫ਼ ਵਿੰਡੋਜ਼ ਸਮਰਥਿਤ ਹੈ।",
+  "@buildOsNotSupported": {},
+  "buildPackAssets": "ਸੰਪਤੀਆਂ ਨੂੰ ਐਨਕ੍ਰਿਪਟ ਕਰਨਾ ਅਤੇ ਪੈਕੇਜ ਕਰਨਾ...",
+  "@buildPackAssets": {},
+  "buildProgramDataDir": "  build/data/ (ਹੁਣ ਲਈ ਖਾਲੀ)",
+  "@buildProgramDataDir": {},
+  "buildProgramDbSqlite": "build/Storage/database.sqlite",
+  "@buildProgramDbSqlite": {},
+  "buildProgramErrorLog": "build/error.log",
+  "@buildProgramErrorLog": {},
+  "buildProgramStart": "ਜੌਸ ਪ੍ਰੋਗਰਾਮ ਬਿਲਡ (ਸੁਰੱਖਿਅਤ ਮੋਡ) ਸ਼ੁਰੂ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@buildProgramStart": {},
+  "buildProgramStructure": "ਬਣਤਰ:",
+  "@buildProgramStructure": {},
+  "buildProgramSuccess": "'ਬਿਲਡ/' ਫੋਲਡਰ ਵਿੱਚ ਪ੍ਰੋਗਰਾਮ ਬਿਲਡ ਸਫਲਤਾਪੂਰਵਕ ਪੂਰਾ ਹੋਇਆ।",
+  "@buildProgramSuccess": {},
+  "buildSchemaError": "ਜੌਸ ਬਾਈਬਲ ਨੂੰ ਇੱਕ ਸਖ਼ਤ ਢਾਂਚੇ ਦੀ ਲੋੜ ਹੈ।",
+  "@buildSchemaError": {},
+  "buildSelectOs": "ਟੀਚਾ ਓਪਰੇਟਿੰਗ ਸਿਸਟਮ ਚੁਣੋ:",
+  "@buildSelectOs": {},
+  "buildSelectOsWindows": "1. Windows",
+  "@buildSelectOsWindows": {},
+  "buildWebDeployTip": "ਤੈਨਾਤ ਕਰਨ ਲਈ, 'ਬਿਲਡ/' ਫੋਲਡਰ ਦੀਆਂ ਸਮੱਗਰੀਆਂ ਨੂੰ ਆਪਣੇ ਸਰਵਰ 'ਤੇ ਅੱਪਲੋਡ ਕਰੋ।",
+  "@buildWebDeployTip": {},
+  "buildWebRunTip": "ਤੁਹਾਨੂੰ ਸਿਰਫ਼ ਸਰਵਰ 'ਤੇ ਇਸ ਦੇ ਅੰਦਰ 'joss run main.joss' ਚਲਾਉਣ ਦੀ ਲੋੜ ਹੈ।",
+  "@buildWebRunTip": {},
+  "buildWebStart": "Joss WEB ਬਿਲਡ ਸ਼ੁਰੂ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@buildWebStart": {},
+  "buildWebSuccess": "'ਬਿਲਡ/' ਫੋਲਡਰ ਵਿੱਚ WEB ਬਿਲਡ ਸਫਲਤਾਪੂਰਵਕ ਪੂਰਾ ਹੋਇਆ।",
+  "@buildWebSuccess": {},
+  "buildWindowsCompile": "ਵਿੰਡੋਜ਼ ਲਈ ਕੰਪਾਇਲ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@buildWindowsCompile": {},
+  "changeDBMotor": "ਡਾਟਾਬੇਸ ਇੰਜਣ ਨੂੰ ਬਦਲੋ (mysql/sqlite)",
   "@changeDBMotor": {
     "description": ""
   },
+  "changeDBPrefix": "ਟੇਬਲ ਪ੍ਰੀਫਿਕਸ ਨੂੰ ਬਦਲੋ",
   "@changeDBPrefix": {
     "description": ""
   },
+  "compileProjectDist": "ਵੰਡਣ ਲਈ ਪ੍ਰੋਜੈਕਟ ਬਣਾਓ",
   "@compileProjectDist": {
     "description": ""
   },
+  "createMigration": "ਇੱਕ ਨਵਾਂ ਮਾਈਗ੍ਰੇਸ਼ਨ ਬਣਾਓ",
   "@createMigration": {
     "description": ""
   },
+  "createProject": "ਇੱਕ ਨਵਾਂ ਪ੍ਰੋਜੈਕਟ ਬਣਾਓ",
   "@createProject": {
     "description": ""
   },
+  "dbConnectedSourceDest": "ਸਰੋਤ ਅਤੇ ਮੰਜ਼ਿਲ ਨਾਲ ਜੁੜਿਆ ਹੋਇਆ ਹੈ।",
+  "@dbConnectedSourceDest": {},
+  "dbEngineAlready": "ਡਾਟਾਬੇਸ ਇੰਜਣ ਪਹਿਲਾਂ ਹੀ ਹੈ",
+  "@dbEngineAlready": {},
+  "dbMigrateStart": "ਡਾਟਾ ਮਾਈਗ੍ਰੇਸ਼ਨ ਸ਼ੁਰੂ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+  "@dbMigrateStart": {},
+  "dbPrefixAlready": "ਅਗੇਤਰ ਪਹਿਲਾਂ ਹੀ ਹੈ",
+  "@dbPrefixAlready": {},
+  "dbPrepareDestSchema": "ਮੰਜ਼ਿਲ ਡੇਟਾਬੇਸ ਵਿੱਚ ਸਕੀਮਾ ਤਿਆਰ ਕਰ ਰਿਹਾ ਹੈ...",
+  "@dbPrepareDestSchema": {},
+  "errAuthEncryptFailed": "ਪ੍ਰਮਾਣਿਕਤਾ ਗਲਤੀ: ਪਾਸਵਰਡ ਇਨਕ੍ਰਿਪਟ ਕਰਨ ਵਿੱਚ ਅਸਫਲ",
+  "@errAuthEncryptFailed": {},
+  "errAuthNoDbConnection": "ਪ੍ਰਮਾਣਿਕਤਾ ਗਲਤੀ: ਕੋਈ ਡਾਟਾਬੇਸ ਕਨੈਕਸ਼ਨ ਕੌਂਫਿਗਰ ਨਹੀਂ ਕੀਤਾ ਗਿਆ",
+  "@errAuthNoDbConnection": {},
+  "errFunctionNotFound": "ਤਰੁੱਟੀ: ਫੰਕਸ਼ਨ '%s' ਨਹੀਂ ਮਿਲਿਆ",
+  "@errFunctionNotFound": {},
+  "errLayoutNotFound": "ਤਰੁੱਟੀ: ਖਾਕਾ '%s' ਨਹੀਂ ਮਿਲਿਆ",
+  "@errLayoutNotFound": {},
+  "errPropertyNotFound": "ਤਰੁੱਟੀ: ਸੰਪੱਤੀ ਜਾਂ ਵਿਧੀ '%s' ਕਲਾਸ '%s' ਵਿੱਚ ਨਹੀਂ ਮਿਲੀ",
+  "@errPropertyNotFound": {},
+  "errTypeError": "ਟਾਈਪ ਗਲਤੀ: ਆਰਗੂਮੈਂਟ %d (%s) %s ਦੀ ਕਿਸਮ ਦਾ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ...",
+  "@errTypeError": {},
+  "errViewNotFound": "ਤਰੁੱਟੀ: ਵੇਖੋ '%s' ਨਹੀਂ ਮਿਲਿਆ",
+  "@errViewNotFound": {},
+  "exeMigrate": "ਲੰਬਿਤ ਮਾਈਗ੍ਰੇਸ਼ਨ ਚਲਾਓ",
   "@exeMigrate": {
     "description": ""
   },
+  "exeMigrateFresh": "ਸਾਰੀਆਂ ਟੇਬਲਾਂ ਨੂੰ ਮਿਟਾਓ ਅਤੇ ਮਾਈਗ੍ਰੇਸ਼ਨ ਨੂੰ ਮੁੜ-ਚਾਲੂ ਕਰੋ",
   "@exeMigrateFresh": {
     "description": ""
   },
+  "helpPrint": "ਇਹ ਮਦਦ ਦਿਖਾਓ",
   "@helpPrint": {
     "description": ""
   },
+  "removeCRUD": "ਇੱਕ ਟੇਬਲ ਲਈ ਤਿਆਰ ਕੀਤੇ CRUD ਨੂੰ ਹਟਾਓ",
   "@removeCRUD": {
     "description": ""
   },
+  "runJossScript": "ਇੱਕ ਜੌਸ ਸਕ੍ਰਿਪਟ ਚਲਾਓ",
   "@runJossScript": {
     "description": ""
   },
+  "settingsUserStorage": "ਸਟੋਰੇਜ ਕੌਂਫਿਗਰ ਕਰੋ (ਸਥਾਨਕ|OCI|AWS|Azure)",
   "@settingsUserStorage": {
     "description": ""
   },
+  "startProgramDesktop": "ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ ਡੈਸਕਟਾਪ ਮੋਡ ਵਿੱਚ ਸ਼ੁਰੂ ਕਰੋ",
   "@startProgramDesktop": {
     "description": ""
   },
+  "startServerWeb": "ਵੈੱਬ ਸਰਵਰ ਸ਼ੁਰੂ ਕਰੋ",
   "@startServerWeb": {
     "description": ""
   },
+  "version": "ਮੌਜੂਦਾ ਸੰਸਕਰਣ ਦਿਖਾਉਂਦਾ ਹੈ",
   "@version": {
     "description": ""
-  },
-  "CreateCRUD": "ਇੱਕ ਸਾਰਣੀ ਦੇ ਅਧਾਰ ਤੇ ਪੂਰਾ CRUD ਬਣਾਓ",
-  "CreateController": "ਇੱਕ ਨਵਾਂ ਕੰਟਰੋਲਰ ਬਣਾਓ",
-  "CreateMVC": "MVC ਬਣਾਓ",
-  "CreateMiddleware": "ਨਵਾਂ ਮਿਡਲਵੇਅਰ ਬਣਾਓ",
-  "CreateModel": "ਇੱਕ ਨਵਾਂ ਮਾਡਲ ਬਣਾਓ",
-  "CreateView": "ਇੱਕ ਨਵਾਂ ਦ੍ਰਿਸ਼ ਬਣਾਓ",
-  "IaActivate": "ਇੰਟਰਐਕਟਿਵ ਨੇਟਿਵ AI ਸੈਟ ਅਪ ਕਰੋ",
-  "aiActivatedSuccess": "✅ ਨੇਟਿਵ ਏਆਈ ਨੂੰ ਸਫਲਤਾਪੂਰਵਕ ਸਰਗਰਮ ਕੀਤਾ ਗਿਆ",
-  "aiChooseOption": "ਇੱਕ ਵਿਕਲਪ ਚੁਣੋ (1-3): ",
-  "aiEnterApiKey": "{provider} ਲਈ API KEY ਦਰਜ ਕਰੋ ({key}): ",
-  "aiInvalidOption": "ਅਵੈਧ ਵਿਕਲਪ। ",
-  "aiModelToUse": "ਵਰਤਣ ਲਈ ਮਾਡਲ [{model}]: ",
-  "aiNoApiKeyWarning": "⚠️ ਚੇਤਾਵਨੀ: ਕੋਈ API ਕੁੰਜੀ ਦਾਖਲ ਨਹੀਂ ਕੀਤੀ ਗਈ। ",
-  "aiProviderGemini": "3) Gemini (Google)",
-  "aiProviderGroq": "1) Groq (ਸਿਫਾਰਸ਼ ਕੀਤੀ - ਬਹੁਤ ਤੇਜ਼ Llama 3)",
-  "aiProviderOpenai": "2) OpenAI (GPT-4 / GPT-3.5)",
-  "aiSavingConfig": "{file} ਵਿੱਚ ਸੰਰਚਨਾ ਸੁਰੱਖਿਅਤ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ...",
-  "aiSelectProvider": "ਆਪਣੇ AI ਪ੍ਰਦਾਤਾ ਨੂੰ ਚੁਣੋ:",
-  "aiSelectedProvider": "✅ ਚੁਣਿਆ ਗਿਆ ਪ੍ਰਦਾਤਾ: {provider}",
-  "aiTryScript": "ਹੁਣ ਇਸ ਨਾਲ ਕੋਸ਼ਿਸ਼ ਕਰੋ: joss run your_script.joss",
-  "aiWizardConfig": "ਇਹ ਵਿਜ਼ਾਰਡ ਤੁਹਾਡੇ ਪ੍ਰੋਜੈਕਟ ਵਿੱਚ ਮੂਲ AI ਨੂੰ ਕੌਂਫਿਗਰ ਕਰੇਗਾ।",
-  "aiWizardTitle": "🚀 ਜੋਸ ਏਆਈ ਐਕਟੀਵੇਸ਼ਨ ਵਿਜ਼ਾਰਡ 🚀",
-  "brevoActivatedSuccess": "✅ BREVO_API ਸਰਗਰਮ ਅਤੇ ਸਫਲਤਾਪੂਰਵਕ ਕੌਂਫਿਗਰ ਕੀਤਾ ਗਿਆ।",
-  "brevoConfig": "Configure interactive Brevo API (Email)",
-  "brevoDisabledSuccess": "✅ BREVO_API ਅਯੋਗ ਹੈ।",
-  "brevoEmptyKeyError": "ਗਲਤੀ: API ਕੁੰਜੀ ਖਾਲੀ ਨਹੀਂ ਹੋ ਸਕਦੀ।",
-  "brevoEnablePrompt": "ਕੀ ਤੁਸੀਂ BREVO_API ਨੂੰ ਸਰਗਰਮ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ? (y/n): ",
-  "brevoEnterKey": "ਆਪਣੀ Brevo API Key ਦਰਜ ਕਰੋ: ",
-  "brevoNoEnvError": "ਗਲਤੀ: ਮੌਜੂਦਾ ਡਾਇਰੈਕਟਰੀ ਵਿੱਚ ਨਾ ਤਾਂ env.joss ਅਤੇ ਨਾ ਹੀ .env ਫਾਈਲ ਲੱਭੀ ਹੈ।",
-  "brevoReadError": "{file} ਪੜ੍ਹਨ ਵਿੱਚ ਤਰੁੱਟੀ: {error}",
-  "brevoTitle": "--- ਬ੍ਰੇਵੋ API ਸੰਰਚਨਾ ---",
-  "buildCopyFiles": "ਪ੍ਰੋਜੈਕਟ ਫਾਈਲਾਂ ਨੂੰ ਕਾਪੀ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
-  "buildDbCopied": "ਡਾਟਾਬੇਸ ਨੂੰ ਬਣਾਉਣ ਲਈ ਕਾਪੀ ਕੀਤਾ ਗਿਆ/",
-  "buildDbCopiedProgram": "ਡਾਟਾਬੇਸ ਨੂੰ ਬਿਲਡ/ਸਟੋਰੇਜ/ ਲਈ ਕਾਪੀ ਕੀਤਾ ਗਿਆ",
-  "buildEncryptEnv": "ਉਤਪਾਦਨ ਲਈ ਵਾਤਾਵਰਣ ਨੂੰ ਐਨਕ੍ਰਿਪਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
-  "buildEnvEncryptedSuccess": "ਵਾਤਾਵਰਣ ਨੂੰ ਐਨਕ੍ਰਿਪਟਡ ਅਤੇ env.enc ਦੇ ਰੂਪ ਵਿੱਚ ਏਮਬੇਡ ਕੀਤਾ ਗਿਆ ਹੈ",
-  "buildEnvMissingError": "ਆਰਕੀਟੈਕਚਰ ਗਲਤੀ: ਗੁੰਮ ਵਾਤਾਵਰਣ ਫਾਈਲ ('env.joss' ਜਾਂ '.env')",
-  "buildInjectDbPath": "ਏਮਬੇਡ ਕੀਤੇ env.joss ਵਿੱਚ DB_PATH=\"Storage/database.sqlite\" ਸੰਰਚਨਾ ਨੂੰ ਇੰਜੈਕਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
-  "buildNodeModulesInclude": "-\u003e node_modules ਸ਼ਾਮਲ ਕੀਤੇ ਜਾਣਗੇ।",
-  "buildNodeModulesOmit": "-\u003e node_modules ਨੂੰ ਛੱਡ ਦਿੱਤਾ ਜਾਵੇਗਾ।",
-  "buildOsNotSupported": "ਇਸ ਪ੍ਰੀ-ਕੰਪਾਈਲ ਕੀਤੇ ਸੰਸਕਰਣ ਵਿੱਚ ਸਿਰਫ਼ ਵਿੰਡੋਜ਼ ਸਮਰਥਿਤ ਹੈ।",
-  "buildPackAssets": "ਸੰਪਤੀਆਂ ਨੂੰ ਐਨਕ੍ਰਿਪਟ ਕਰਨਾ ਅਤੇ ਪੈਕੇਜ ਕਰਨਾ...",
-  "buildProgramDataDir": "  build/data/ (ਹੁਣ ਲਈ ਖਾਲੀ)",
-  "buildProgramDbSqlite": "build/Storage/database.sqlite",
-  "buildProgramErrorLog": "build/error.log",
-  "buildProgramStart": "ਜੌਸ ਪ੍ਰੋਗਰਾਮ ਬਿਲਡ (ਸੁਰੱਖਿਅਤ ਮੋਡ) ਸ਼ੁਰੂ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
-  "buildProgramStructure": "ਬਣਤਰ:",
-  "buildProgramSuccess": "'ਬਿਲਡ/' ਫੋਲਡਰ ਵਿੱਚ ਪ੍ਰੋਗਰਾਮ ਬਿਲਡ ਸਫਲਤਾਪੂਰਵਕ ਪੂਰਾ ਹੋਇਆ।",
-  "buildSchemaError": "ਜੌਸ ਬਾਈਬਲ ਨੂੰ ਇੱਕ ਸਖ਼ਤ ਢਾਂਚੇ ਦੀ ਲੋੜ ਹੈ।",
-  "buildSelectOs": "ਟੀਚਾ ਓਪਰੇਟਿੰਗ ਸਿਸਟਮ ਚੁਣੋ:",
-  "buildSelectOsWindows": "1. Windows",
-  "buildWebDeployTip": "ਤੈਨਾਤ ਕਰਨ ਲਈ, 'ਬਿਲਡ/' ਫੋਲਡਰ ਦੀਆਂ ਸਮੱਗਰੀਆਂ ਨੂੰ ਆਪਣੇ ਸਰਵਰ 'ਤੇ ਅੱਪਲੋਡ ਕਰੋ।",
-  "buildWebRunTip": "ਤੁਹਾਨੂੰ ਸਿਰਫ਼ ਸਰਵਰ 'ਤੇ ਇਸ ਦੇ ਅੰਦਰ 'joss run main.joss' ਚਲਾਉਣ ਦੀ ਲੋੜ ਹੈ।",
-  "buildWebStart": "Joss WEB ਬਿਲਡ ਸ਼ੁਰੂ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
-  "buildWebSuccess": "'ਬਿਲਡ/' ਫੋਲਡਰ ਵਿੱਚ WEB ਬਿਲਡ ਸਫਲਤਾਪੂਰਵਕ ਪੂਰਾ ਹੋਇਆ।",
-  "buildWindowsCompile": "ਵਿੰਡੋਜ਼ ਲਈ ਕੰਪਾਇਲ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
-  "changeDBMotor": "ਡਾਟਾਬੇਸ ਇੰਜਣ ਨੂੰ ਬਦਲੋ (mysql/sqlite)",
-  "changeDBPrefix": "ਟੇਬਲ ਪ੍ਰੀਫਿਕਸ ਨੂੰ ਬਦਲੋ",
-  "compileProjectDist": "ਵੰਡਣ ਲਈ ਪ੍ਰੋਜੈਕਟ ਬਣਾਓ",
-  "createMigration": "ਇੱਕ ਨਵਾਂ ਮਾਈਗ੍ਰੇਸ਼ਨ ਬਣਾਓ",
-  "createProject": "ਇੱਕ ਨਵਾਂ ਪ੍ਰੋਜੈਕਟ ਬਣਾਓ",
-  "dbConnectedSourceDest": "ਸਰੋਤ ਅਤੇ ਮੰਜ਼ਿਲ ਨਾਲ ਜੁੜਿਆ ਹੋਇਆ ਹੈ।",
-  "dbEngineAlready": "ਡਾਟਾਬੇਸ ਇੰਜਣ ਪਹਿਲਾਂ ਹੀ ਹੈ",
-  "dbMigrateStart": "ਡਾਟਾ ਮਾਈਗ੍ਰੇਸ਼ਨ ਸ਼ੁਰੂ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
-  "dbPrefixAlready": "ਅਗੇਤਰ ਪਹਿਲਾਂ ਹੀ ਹੈ",
-  "dbPrepareDestSchema": "ਮੰਜ਼ਿਲ ਡੇਟਾਬੇਸ ਵਿੱਚ ਸਕੀਮਾ ਤਿਆਰ ਕਰ ਰਿਹਾ ਹੈ...",
-  "errAuthEncryptFailed": "ਪ੍ਰਮਾਣਿਕਤਾ ਗਲਤੀ: ਪਾਸਵਰਡ ਇਨਕ੍ਰਿਪਟ ਕਰਨ ਵਿੱਚ ਅਸਫਲ",
-  "errAuthNoDbConnection": "ਪ੍ਰਮਾਣਿਕਤਾ ਗਲਤੀ: ਕੋਈ ਡਾਟਾਬੇਸ ਕਨੈਕਸ਼ਨ ਕੌਂਫਿਗਰ ਨਹੀਂ ਕੀਤਾ ਗਿਆ",
-  "errFunctionNotFound": "ਤਰੁੱਟੀ: ਫੰਕਸ਼ਨ '%s' ਨਹੀਂ ਮਿਲਿਆ",
-  "errLayoutNotFound": "ਤਰੁੱਟੀ: ਖਾਕਾ '%s' ਨਹੀਂ ਮਿਲਿਆ",
-  "errPropertyNotFound": "ਤਰੁੱਟੀ: ਸੰਪੱਤੀ ਜਾਂ ਵਿਧੀ '%s' ਕਲਾਸ '%s' ਵਿੱਚ ਨਹੀਂ ਮਿਲੀ",
-  "errTypeError": "ਟਾਈਪ ਗਲਤੀ: ਆਰਗੂਮੈਂਟ %d (%s) %s ਦੀ ਕਿਸਮ ਦਾ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ...",
-  "errViewNotFound": "ਤਰੁੱਟੀ: ਵੇਖੋ '%s' ਨਹੀਂ ਮਿਲਿਆ",
-  "exeMigrate": "ਲੰਬਿਤ ਮਾਈਗ੍ਰੇਸ਼ਨ ਚਲਾਓ",
-  "exeMigrateFresh": "ਸਾਰੀਆਂ ਟੇਬਲਾਂ ਨੂੰ ਮਿਟਾਓ ਅਤੇ ਮਾਈਗ੍ਰੇਸ਼ਨ ਨੂੰ ਮੁੜ-ਚਾਲੂ ਕਰੋ",
-  "helpPrint": "ਇਹ ਮਦਦ ਦਿਖਾਓ",
-  "removeCRUD": "ਇੱਕ ਟੇਬਲ ਲਈ ਤਿਆਰ ਕੀਤੇ CRUD ਨੂੰ ਹਟਾਓ",
-  "runJossScript": "ਇੱਕ ਜੌਸ ਸਕ੍ਰਿਪਟ ਚਲਾਓ",
-  "settingsUserStorage": "ਸਟੋਰੇਜ ਕੌਂਫਿਗਰ ਕਰੋ (ਸਥਾਨਕ|OCI|AWS|Azure)",
-  "startProgramDesktop": "ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ ਡੈਸਕਟਾਪ ਮੋਡ ਵਿੱਚ ਸ਼ੁਰੂ ਕਰੋ",
-  "startServerWeb": "ਵੈੱਬ ਸਰਵਰ ਸ਼ੁਰੂ ਕਰੋ",
-  "version": "ਮੌਜੂਦਾ ਸੰਸਕਰਣ ਦਿਖਾਉਂਦਾ ਹੈ"
+  }
 }
