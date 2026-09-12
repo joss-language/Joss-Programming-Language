@@ -333,9 +333,71 @@ Guardas negativas verifican que parser/typesystem/diagnostics/analyzer no import
 
 Windows/amd64 i5-10300H, `-benchtime=100ms`: llamada simple 794 ns/op, nested 2936 ns/op, ref 1496 ns/op, closure 973 ns/op; frame recycling 1213 ns/op, 24 B/op, 2 allocs/op. Analyzer del fixture startup: 10095 ns/op, 7315 B/op, 69 allocs/op. Lifecycle: construct 235536 ns/op, pooled acquire/free 289634 ns/op y fork/free 26039 ns/op. El pool incluye recarga/autoload; no se optimizó sin perfilar esa responsabilidad.
 
-### Deuda reordenada
+### Deuda reordenada (Cuarta fase)
 
 - **P0:** completar aislamiento/ownership de plugin registries y drivers antes de concurrencia mutable; completar callbacks WebSocket y errores de session backend.
 - **P1:** migrar NativeMethodDefinition clase por clase; extraer session/CSRF de MainHandler; separar registry/cache/manifest/publisher de pub CLI; migrar el resto de directivas al scanner.
 - **P2:** ampliar corpus Analyzer↔Interpreter↔VM, catálogo de firmas LSP, fuzz de type parser y lockfile round-trip.
 - **P3:** automatizar fan-in/change surface y establecer benchmarks históricos comparables en CI.
+
+---
+
+## Quinta fase de arquitectura — septiembre de 2026
+
+La quinta fase aborda y resuelve todas las deudas críticas P0 pendientes de la cuarta fase, enfocándose en la consistencia de ownership, concurrencia segura, contratos de sesión y ciclo de vida de plugins y WebSockets, además de avanzar la metadata canónica y el tooling de plantillas.
+
+### 1. Ownership y Concurrencia de Plugins y Drivers Nativos (P0-A)
+
+- **Aislamiento por Runtime (`PluginAwareHost`)**: Se introdujo la interfaz `PluginAwareHost` en `pkg/pluginruntime` para desacoplar el registro global de paquetes de la ejecución concreta. `Runtime` implementa esta interfaz manteniendo sus propios motores de AST (`pluginASTEngines map[string]*PluginASTEngine`) y namespaces (`PluginNamespace`).
+- **Semántica de Fork**: Al ejecutar `Runtime.Fork()`, las fachadas de motor se duplican vinculadas al nuevo runtime hijo, compartiendo de forma segura el AST inmutable del plugin mientras aíslan totalmente el estado evaluado y los frames locales. Dos plugins distintos con funciones idénticas (p. ej. `run()`) ya no colisionan entre sí ni cruzan ámbitos de request.
+- **Descarga atómica de drivers (`NativeDriverDefinition.Unload()`)**: Los drivers nativos dinámicos (`.dll`/`.so`/`.dylib`) incorporan un método `Unload()` seguro y protegido por `driverMu`. A través de `unloadNativeDriverHandle` (`FreeLibrary` en Windows, `dlclose` en Unix), se garantiza la liberación idempotente de recursos y la prevención de fallos de segmentación ante llamadas concurrentes o posteriores a la descarga.
+
+| Componente | Nivel de Compartición | Ciclo de Vida | Política Concurrente |
+|---|---|---|---|
+| AST de Plugin (`*parser.Program`) | Inmutable / Compartido | Proceso | Read-only thread-safe |
+| `PluginASTEngine` | Por `Runtime` / Instancia | Request / Fork | Sin contención entre hilos |
+| `PluginNamespace` | Por `Runtime` / Instancia | Request / Fork | Instancias clonadas en `Fork()` |
+| `NativeDriverDefinition.handle` | Puntero a SO | Carga hasta `Unload()` | Protegido por `driverMu` |
+
+### 2. Ciclo de Vida Completo y Callbacks WebSocket (P0-B)
+
+- **Ejecución aislada de callbacks**: Las conexiones WebSocket ejecutan callbacks definidos en código Joss (`onConnect`, `onMessage`, `onClose`, `onError`) en un runtime forkeado independiente.
+- **Propagación de parámetros**: Los parámetros de ruta (`$params`) extraídos durante el handshake HTTP se inyectan correctamente en el contexto del callback.
+- **Aislamiento multi-conexión**: Conexiones concurrentes operan sobre sockets y runtimes independientes, sin filtración de frames ni de estado léxico entre clientes.
+
+### 3. Contratos de Almacenamiento de Sesión y Redirect Flash (P0-C)
+
+- **Persistencia unificada**: La serialización de flash en redirecciones HTTP (`persistRedirectFlash` en `response_writer.go`) se unificó bajo el contrato canónico `saveSession(sessionID, store)`.
+- **Manejo estricto de errores**: Ante un fallo en el backend de sesiones durante una redirección, la respuesta aborta inmediatamente con HTTP 500 y un mensaje de error explícito, suprimiendo la cabecera `Location` para impedir que el cliente siga una redirección con datos de sesión o flash corruptos o no persistidos.
+
+### 4. Protección contra Doble Liberación (`sync.Pool`)
+
+- **Defensa ante double-free**: Se identificó y resolvió una potencial condición de carrera en pruebas y requests por llamadas duplicadas a `Free()` sobre un mismo `*Runtime`. Un campo booleano `freed` protegido por `poolMu` garantiza que la devolución al pool sea idempotente y que un puntero no reingrese múltiples veces al pool concurrente.
+
+### 5. Expansión de Metadata Nativa (`NativeMethodDefinition`)
+
+Se completó la migración de un lote extendido de 10 clases nativas canónicas a `NativeMethodDefinition`, distinguiendo firmas canónicas, nombres tipados y aridad exacta:
+- `Stack`: `push`, `pop`, `peek`, `isEmpty`, `clear`, `count`, `toArray`
+- `Queue`: `push`, `pop`, `peek`, `isEmpty`, `clear`, `count`, `toArray`
+- `Math`: `abs`, `sqrt`, `pow`, `round`, `floor`, `ceil`, `min`, `max`, `random`, `sin`, `cos`, `tan`, `log`, `exp`
+- `JSON`: `encode`, `decode`, `valid`, `prettify`
+- `Markdown`: `toHtml`, `toHtmlSafe`, `toc`, `meta`
+- `Str`: `length`, `lower`, `upper`, `contains`, `startsWith`, `endsWith`, `replace`, `split`, `trim`, `substr`, `indexOf`, `pad`, `repeat`
+- `UUID`: `v4`, `v7`, `isValid`
+- `Lang`: `type`, `isNumeric`, `isCallable`, `isIterable`, `methods`, `properties`, `clone`
+- `Console`: `log`, `info`, `warn`, `error`, `debug`, `table`, `trace`, `clear`, `time`, `timeEnd`, `assert`
+- `Zip`: `extract`
+
+Las definiciones son consumidas por el analyzer, el generador de catálogos (`tools/cataloggen`), el generador de documentación (`tools/docgen`) y el servidor de lenguaje (LSP).
+
+### 6. View Templates y Conteo de Columnas por Runas UTF-8
+
+- **Rune-aware source positions**: En `pkg/viewtemplate/directives.go`, el cálculo de columnas para diagnósticos se ajustó para iterar por runas UTF-8 (`utf8.RuneCountInString`), corrigiendo el desplazamiento en caracteres acentuados o multibyte y garantizando alineación exacta de rangos con el parser y LSP.
+- **Fuzz testing**: Fuzzing continuo sobre el extractor de ZIP (`FuzzExtractPluginZip`) y el escáner de directivas (`FuzzDirectiveScanner`).
+
+### Deuda reordenada (Quinta fase)
+
+- **P0:** Ninguna. Todas las inconsistencias de ownership, drivers nativos, sesiones y WebSocket han sido resueltas y verificadas bajo characterization tests y race detector.
+- **P1:** Continuar migración progresiva de las clases nativas restantes (`GranDB`, `Crypto`, `File`, `Http`, `Router`, etc.) a `NativeMethodDefinition`; extraer session/CSRF de `MainHandler` a submódulos dedicados; migrar directivas restantes (`@extends`, `@section`, `@yield`, `@include`, `@foreach`) al scanner unificado de `pkg/viewtemplate`.
+- **P2:** Ampliar corpus diferencial Analyzer↔Interpreter↔VM para tipos complejos y closures; ampliar fuzzing de parser de tipos y round-trip de lockfile.
+- **P3:** Automatizar métricas de fan-in/fan-out y change surface en CI; establecer benchmarks comparables de performance.

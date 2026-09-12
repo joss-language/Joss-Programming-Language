@@ -64,7 +64,7 @@ func TestNativeMethodDefinitionsProjectToRuntimeAndAnalyzer(t *testing.T) {
 	runtime := NewRuntime()
 	defer runtime.Free()
 
-	for _, className := range []string{"Stack", "Queue", "Math"} {
+	for _, className := range []string{"Stack", "Queue", "Math", "JSON", "Markdown", "Str", "UUID", "Lang", "Console", "Zip"} {
 		classDefinitions := definitions[className]
 		if len(classDefinitions) == 0 {
 			t.Fatalf("migrated native class %s has no semantic definitions", className)

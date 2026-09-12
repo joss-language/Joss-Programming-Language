@@ -3,7 +3,6 @@ package server
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -320,45 +319,15 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// fmt.Printf("[HANDLER] %s: Acquiring session lock...\n", requestID)
-	sessionMu.Lock()
-	// fmt.Printf("[HANDLER] %s: Session lock acquired.\n", requestID)
-
-	var sessData map[string]interface{}
-	driver := sessionDriver(rt.Env)
-	if driver == "redis" {
-		if core.GlobalRedis == nil {
-			sessionMu.Unlock()
-			http.Error(w, "Redis session storage is not available", http.StatusServiceUnavailable)
-			return
+	sessData, driver, sessionErr := loadSession(rt.Env, sessionID)
+	if sessionErr != nil {
+		status := http.StatusInternalServerError
+		if driver == "redis" {
+			status = http.StatusServiceUnavailable
 		}
-		// Load from Redis
-		val, err := core.GlobalRedis.Get(core.Ctx, "session:"+sessionID).Result()
-		if err == nil {
-			json.Unmarshal([]byte(val), &sessData)
-		}
-		if sessData == nil {
-			sessData = make(map[string]interface{})
-		}
-		sessionMu.Unlock()
-	} else {
-		if driver == "file" {
-			if err := ensureFileSessionsLoaded(rt.Env); err != nil {
-				sessionMu.Unlock()
-				http.Error(w, "Unable to load session storage", http.StatusInternalServerError)
-				fmt.Printf("[Session] %v\n", err)
-				return
-			}
-		}
-		if _, ok := sessionStore[sessionID]; !ok {
-			sessionStore[sessionID] = make(map[string]interface{})
-		}
-		// DEEP COPY Session Data
-		sourceMap := sessionStore[sessionID]
-		sessData = make(map[string]interface{})
-		for k, v := range sourceMap {
-			sessData[k] = v
-		}
-		sessionMu.Unlock()
+		http.Error(w, "Unable to load session storage", status)
+		fmt.Printf("[Session] %v\n", sessionErr)
+		return
 	}
 	// fmt.Printf("[HANDLER] %s: Session lock released (Load).\n", requestID)
 
@@ -396,24 +365,26 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 	// 6. CSRF Protection
 	csrfToken := ""
 	if val, ok := sessData["csrf_token"]; ok {
-		csrfToken = val.(string)
+		var valid bool
+		csrfToken, valid = val.(string)
+		if !valid || csrfToken == "" {
+			http.Error(w, "Unable to load session storage", http.StatusInternalServerError)
+			fmt.Printf("[Session] csrf_token has invalid type %T\n", val)
+			return
+		}
 	} else {
 		b := make([]byte, 32)
-		rand.Read(b)
-		csrfToken = hex.EncodeToString(b)
-		sessionMu.Lock()
-		if driver == "redis" {
-			sessData["csrf_token"] = csrfToken
-		} else {
-			sessionStore[sessionID]["csrf_token"] = csrfToken
-			if driver == "file" {
-				if err := persistFileSessions(rt.Env); err != nil {
-					fmt.Printf("[Session] Error guardando CSRF: %v\n", err)
-				}
-			}
+		if _, err := rand.Read(b); err != nil {
+			http.Error(w, "Unable to initialize session security", http.StatusInternalServerError)
+			return
 		}
-		sessionMu.Unlock()
+		csrfToken = hex.EncodeToString(b)
 		sessData["csrf_token"] = csrfToken
+		if err := saveSession(rt.Env, driver, sessionID, sessData); err != nil {
+			http.Error(w, "Unable to persist session storage", http.StatusInternalServerError)
+			fmt.Printf("[Session] %v\n", err)
+			return
+		}
 	}
 
 	// Exempt API routes from CSRF
@@ -441,20 +412,10 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 	result, err := rt.Dispatch(r.Method, r.URL.Path, reqData, sessData)
 
 	// 8. Save Session
-	if driver == "redis" {
-		data, _ := json.Marshal(sessData)
-		core.GlobalRedis.Set(core.Ctx, "session:"+sessionID, data, 24*time.Hour)
-	} else {
-		// Save In-Memory (Write-Back)
-		sessionMu.Lock()
-		// Overwrite the session data completely
-		sessionStore[sessionID] = sessData
-		if driver == "file" {
-			if err := persistFileSessions(rt.Env); err != nil {
-				fmt.Printf("[Session] Error persistiendo sesion: %v\n", err)
-			}
-		}
-		sessionMu.Unlock()
+	if err := saveSession(rt.Env, driver, sessionID, sessData); err != nil {
+		http.Error(w, "Unable to persist session storage", http.StatusInternalServerError)
+		fmt.Printf("[Session] %v\n", err)
+		return
 	}
 
 	if err == nil {

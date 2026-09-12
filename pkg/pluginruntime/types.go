@@ -21,6 +21,16 @@ type ASTEngine interface {
 	CallMethod(instance interface{}, methodName string, args []interface{}) (interface{}, error)
 }
 
+// PluginAwareHost allows host runtimes to execute AST plugins within their own
+// execution frame and runtime instance, preventing cross-runtime pollution and
+// avoiding ambiguous global symbol resolution when multiple plugins define matching names.
+type PluginAwareHost interface {
+	HostContext
+	CallPluginAST(pluginName, fnName string, args []interface{}) (interface{}, error)
+	InstantiatePluginAST(pluginName, className string, args []interface{}) (interface{}, error)
+	CallPluginASTMethod(pluginName, className, methodName string, instance interface{}, args []interface{}) (interface{}, error)
+}
+
 // Plugin representa un paquete .jp cargado, verificado y preparado para ejecución.
 type Plugin struct {
 	Name        string

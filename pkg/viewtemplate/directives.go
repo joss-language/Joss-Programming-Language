@@ -15,6 +15,8 @@ type Directive struct {
 	Arguments string
 	Start     int
 	End       int
+	Line      int
+	Column    int
 }
 
 // Scan recognizes @name and @name(...) forms, honoring quoted strings and
@@ -37,7 +39,8 @@ func Scan(source string) ([]Directive, error) {
 		if nameEnd == nameStart {
 			continue
 		}
-		directive := Directive{Name: source[nameStart:nameEnd], Start: index, End: nameEnd}
+		line, column := sourcePosition(source, index)
+		directive := Directive{Name: source[nameStart:nameEnd], Start: index, End: nameEnd, Line: line, Column: column}
 		cursor := nameEnd
 		for cursor < len(source) && unicode.IsSpace(rune(source[cursor])) {
 			cursor++
@@ -90,6 +93,23 @@ func Scan(source string) ([]Directive, error) {
 		}
 	}
 	return result, nil
+}
+
+// sourcePosition computes 1-based line and 1-based character column (runes)
+// matching the diagnostics and LSP convention.
+func sourcePosition(source string, offset int) (line, column int) {
+	line, column = 1, 1
+	if offset > len(source) {
+		offset = len(source)
+	}
+	for _, r := range source[:offset] {
+		if r == '\n' {
+			line, column = line+1, 1
+			continue
+		}
+		column++
+	}
+	return line, column
 }
 
 // RewriteJSON projects @json(expr) to the raw-output expression consumed by

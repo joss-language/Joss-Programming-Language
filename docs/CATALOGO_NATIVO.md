@@ -109,8 +109,6 @@ Implementación: [executeCacheMethod](../pkg/core/native_cache.go#L18).
 
 ## Console
 
-Implementación: [executeConsoleMethod](../pkg/core/native.go#L307).
-
 | Método | Retorno publicado al analizador |
 |---|---|
 | `blue` | `string` |
@@ -135,7 +133,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L368).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L367).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -310,8 +308,6 @@ Implementación: [executeHttpMethod](../pkg/core/http_client.go#L14).
 
 ## JSON
 
-Implementación: [executeJSONMethod](../pkg/core/json.go#L8).
-
 | Método | Retorno publicado al analizador |
 |---|---|
 | `decode` | `mixed` |
@@ -320,8 +316,6 @@ Implementación: [executeJSONMethod](../pkg/core/json.go#L8).
 | `stringify` | `string` |
 
 ## Lang
-
-Implementación: [executeLangMethod](../pkg/core/native_lang.go#L12).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -342,8 +336,6 @@ Implementación: [executeMFAMethod](../pkg/core/auth_fluent.go#L99).
 | `verifyTOTP` | `bool` |
 
 ## Markdown
-
-Implementación: [executeMarkdownMethod](../pkg/core/markdown.go#L15).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -582,8 +574,6 @@ Implementación: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 
 ## Str
 
-Implementación: [executeStrMethod](../pkg/core/native_extensions.go#L145).
-
 | Método | Retorno publicado al analizador |
 |---|---|
 | `contains` | `bool` |
@@ -637,8 +627,6 @@ Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L168).
 
 ## UUID
 
-Implementación: [executeUUIDMethod](../pkg/core/lib_uuid.go#L8).
-
 | Método | Retorno publicado al analizador |
 |---|---|
 | `generate` | `string` |
@@ -679,7 +667,7 @@ Implementación: [executeWebResponseMethod](../pkg/core/response.go#L132).
 
 ## WebSocket
 
-Implementación: [executeWebSocketMethod](../pkg/core/websocket.go#L19).
+Implementación: [executeWebSocketMethod](../pkg/core/websocket.go#L60).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -695,11 +683,9 @@ Implementación: [executeWebSocketMethod](../pkg/core/websocket.go#L19).
 
 ## Zip
 
-Implementación: [executeZipMethod](../pkg/core/native_zip.go#L17).
-
 | Método | Retorno publicado al analizador |
 |---|---|
-| `extract` | `mixed` |
+| `extract` | `bool` |
 
 ## Funciones globales
 

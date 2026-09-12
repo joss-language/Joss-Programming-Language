@@ -35,3 +35,7 @@ func loadNativeDriver(name, libraryPath string) (*NativeDriverDefinition, error)
 	}
 	return &NativeDriverDefinition{Name: name, Path: abs, Handle: handle, Call: call, Free: free}, nil
 }
+
+func unloadNativeDriverHandle(handle uintptr) error {
+	return purego.Dlclose(handle)
+}

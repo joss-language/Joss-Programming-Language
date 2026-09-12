@@ -40,8 +40,8 @@ func TestForkCopiesConfigurationAndIsolatesMutableExecutionMaps(t *testing.T) {
 
 	fork := parent.Fork()
 	defer fork.Free()
-	if fork.PluginRegistry != parent.PluginRegistry {
-		t.Fatal("fork must share the configured plugin registry")
+	if fork.PluginRegistry == parent.PluginRegistry || fork.PluginRegistry == nil {
+		t.Fatal("fork must share the plugin catalog through a runtime-bound facade")
 	}
 	if fork.Env["APP_MODE"] != "test" || fork.VarTypes["requestValue"] != "map" {
 		t.Fatal("fork did not copy runtime configuration")

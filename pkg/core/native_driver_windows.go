@@ -36,3 +36,7 @@ func loadNativeDriver(name, libraryPath string) (*NativeDriverDefinition, error)
 	}
 	return &NativeDriverDefinition{Name: name, Path: abs, Handle: uintptr(handle), Call: call, Free: free}, nil
 }
+
+func unloadNativeDriverHandle(handle uintptr) error {
+	return windows.FreeLibrary(windows.Handle(handle))
+}

@@ -386,18 +386,11 @@ func (r *Runtime) DispatchWebSocket(path string, conn interface{}, reader func()
 		Fields: map[string]interface{}{
 			"_conn":   conn,
 			"_sender": sender,
-			"_closer": closer,
 		},
 	}
-	defer func() {
-		if callback, ok := wsInstance.Fields["_on_close"]; ok {
-			r.callWebSocketCallback("onClose", callback, nil)
-		}
-		unsubscribeWebSocketFromAllChannels(wsInstance)
-		if closer != nil {
-			_ = closer()
-		}
-	}()
+	lifecycle := &webSocketLifecycle{runtime: r, instance: wsInstance, reader: reader, closer: closer}
+	wsInstance.Fields["_closer"] = lifecycle.close
+	defer lifecycle.cleanup()
 
 	// Execute Handler (Controller@Method)
 	// This sets up the callbacks (onMessage, etc.)
@@ -438,20 +431,7 @@ func (r *Runtime) DispatchWebSocket(path string, conn interface{}, reader func()
 
 	// Blocking Event Loop
 	fmt.Println("[WS] Starting Event Loop")
-	for {
-		_, msg, err := reader()
-		if err != nil {
-			fmt.Printf("[WS] Connection Error/Closed: %v\n", err)
-			break
-		}
-
-		// Trigger onMessage
-		if cb, ok := wsInstance.Fields["_on_message"]; ok {
-			if !r.callWebSocketCallback("onMessage", cb, []interface{}{string(msg)}) {
-				break
-			}
-		}
-	}
+	lifecycle.readMessages()
 }
 
 func (r *Runtime) callWebSocketCallback(event string, callback interface{}, args []interface{}) (completed bool) {

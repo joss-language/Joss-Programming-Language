@@ -41,6 +41,31 @@ func TestScanRejectsUnterminatedDirective(t *testing.T) {
 	}
 }
 
+func TestScanPreservesDirectiveSourcePositions(t *testing.T) {
+	directives, err := Scan("first\n  @include('nav')\n@yield('body')")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(directives) != 2 {
+		t.Fatalf("directives = %#v", directives)
+	}
+	if directives[0].Line != 2 || directives[0].Column != 3 {
+		t.Fatalf("include position = %d:%d, want 2:3", directives[0].Line, directives[0].Column)
+	}
+	if directives[1].Line != 3 || directives[1].Column != 1 {
+		t.Fatalf("yield position = %d:%d, want 3:1", directives[1].Line, directives[1].Column)
+	}
+
+	unicodeDirectives, err := Scan("diseño: @yield('content')")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// "diseño: " is 8 runes -> @ starts at column 9 (byte index is 9, 1-based byte col would be 10)
+	if unicodeDirectives[0].Column != 9 {
+		t.Fatalf("unicode column = %d, want 9", unicodeDirectives[0].Column)
+	}
+}
+
 func FuzzDirectiveScanner(f *testing.F) {
 	for _, seed := range []string{"@json($x)", "@json(call(1, nested(2)))", "@section('x')", "@foreach($xs as $x)", "plain"} {
 		f.Add(seed)
@@ -58,6 +83,9 @@ func FuzzDirectiveScanner(f *testing.F) {
 			for _, directive := range first {
 				if directive.Start < 0 || directive.End < directive.Start || directive.End > len(source) {
 					t.Fatalf("invalid range: %#v", directive)
+				}
+				if directive.Line < 1 || directive.Column < 1 {
+					t.Fatalf("invalid source position: %#v", directive)
 				}
 			}
 		}

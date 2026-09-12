@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/jossecurity/joss/pkg/core"
 )
@@ -126,7 +125,10 @@ func writeResponseFields(w http.ResponseWriter, request *http.Request, runtime *
 		return true
 	case "REDIRECT":
 		if instance {
-			persistRedirectFlash(runtime, session, fields)
+			if err := persistRedirectFlash(runtime, session, fields); err != nil {
+				http.Error(w, "Failed to persist session", http.StatusInternalServerError)
+				return true
+			}
 		}
 		url := fields["url"].(string)
 		status := http.StatusFound
@@ -171,30 +173,21 @@ func httpStatus(value interface{}, fallback int) int {
 	}
 }
 
-func persistRedirectFlash(runtime *core.Runtime, session responseSession, fields map[string]interface{}) {
+func persistRedirectFlash(runtime *core.Runtime, session responseSession, fields map[string]interface{}) error {
 	flash, ok := fields["flash"].(map[string]interface{})
-	if !ok || session.id == "" {
-		return
+	if !ok || session.id == "" || len(flash) == 0 {
+		return nil
 	}
-	sessionMu.Lock()
-	defer sessionMu.Unlock()
-	if session.driver == "redis" {
-		for key, value := range flash {
-			session.data[key] = value
-		}
-		data, _ := json.Marshal(session.data)
-		core.GlobalRedis.Set(core.Ctx, "session:"+session.id, data, 24*time.Hour)
-		return
-	}
-	if sessionStore[session.id] == nil {
-		sessionStore[session.id] = make(map[string]interface{})
+	merged := cloneSessionData(session.data)
+	if merged == nil {
+		merged = make(map[string]interface{}, len(flash))
 	}
 	for key, value := range flash {
-		sessionStore[session.id][key] = value
+		merged[key] = value
 	}
-	if session.driver == "file" {
-		if err := persistFileSessions(runtime.Env); err != nil {
-			fmt.Printf("[Session] Error persistiendo flash: %v\n", err)
-		}
+	env := map[string]string{}
+	if runtime != nil {
+		env = runtime.Env
 	}
+	return saveSession(env, session.driver, session.id, merged)
 }

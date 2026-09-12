@@ -53,6 +53,8 @@ type Runtime struct {
 	NativeDrivers     map[string]*NativeDriverDefinition
 	PluginRegistry    *pluginruntime.PluginRegistry
 	ProjectRoot       string
+	pluginASTEngines  map[string]*PluginASTEngine
+	freed             bool
 
 	// SEO & Sitemap
 	SEO                *SEOData
@@ -136,12 +138,13 @@ type NativePluginDefinition struct {
 
 // NativeDriverDefinition is a loaded C ABI v1 library.
 type NativeDriverDefinition struct {
-	Name   string
-	Path   string
-	Handle uintptr
-	Call   func(string, string) *byte
-	Free   func(*byte)
-	Mu     sync.Mutex
+	Name     string
+	Path     string
+	Handle   uintptr
+	Call     func(string, string) *byte
+	Free     func(*byte)
+	Mu       sync.Mutex
+	unloaded bool
 }
 
 // Instance represents an instance of a class

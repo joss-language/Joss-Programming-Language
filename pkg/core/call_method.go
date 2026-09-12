@@ -138,14 +138,25 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 			r.callStack = r.callStack[:len(r.callStack)-1]
 		}
 		if compiled.ReturnTypeName != "" {
-			result = r.coerceToParsedType(result, compiled.ReturnType)
-			if !r.checkParsedType(result, compiled.ReturnType) {
-				panic(&JossError{
-					Type:    "ReturnTypeError",
-					Message: fmt.Sprintf("La función '%s' debe retornar %s, recibió %T", method.Name.Value, compiled.ReturnTypeName, result),
-					File:    r.CurrentFile,
-					Line:    method.Token.Line,
-				})
+			if compiled.ReturnTypeName == "void" {
+				if result != nil {
+					panic(&JossError{
+						Type:    "ReturnTypeError",
+						Message: fmt.Sprintf("La función '%s' debe retornar void, recibió %T", method.Name.Value, result),
+						File:    r.CurrentFile,
+						Line:    method.Token.Line,
+					})
+				}
+			} else {
+				result = r.coerceToParsedType(result, compiled.ReturnType)
+				if !r.checkParsedType(result, compiled.ReturnType) {
+					panic(&JossError{
+						Type:    "ReturnTypeError",
+						Message: fmt.Sprintf("La función '%s' debe retornar %s, recibió %T", method.Name.Value, compiled.ReturnTypeName, result),
+						File:    r.CurrentFile,
+						Line:    method.Token.Line,
+					})
+				}
 			}
 		}
 	}()

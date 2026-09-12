@@ -139,3 +139,38 @@ func TestNumericClassificationIsCanonical(t *testing.T) {
 		}
 	}
 }
+
+func TestAssignableLawsForPublishedStructuralTypes(t *testing.T) {
+	for _, name := range []string{
+		"int", "float", "decimal", "string", "bool", "array", "array<int>",
+		"map", "map<string, int>", "object", "channel", "mixed", "null",
+		"User", "int|null", "int|string",
+	} {
+		typ := Parse(name)
+		if !Assignable(typ, typ) {
+			t.Errorf("published type %s is not assignable to itself", name)
+		}
+	}
+
+	tests := []struct {
+		destination string
+		source      string
+		want        bool
+	}{
+		{destination: "int|float", source: "int", want: true},
+		{destination: "int|float", source: "float", want: true},
+		{destination: "int|float", source: "int|string", want: false},
+		{destination: "int|float|string", source: "int|float", want: true},
+		{destination: "int|null", source: "null", want: true},
+		{destination: "int", source: "null", want: false},
+		{destination: "array", source: "array<string>", want: true},
+		// Untyped collections are the explicit dynamic boundary for legacy APIs.
+		{destination: "array<int>", source: "array", want: true},
+		{destination: "object", source: "User", want: true},
+	}
+	for _, test := range tests {
+		if got := Assignable(Parse(test.destination), Parse(test.source)); got != test.want {
+			t.Errorf("Assignable(%s, %s) = %v, want %v", test.destination, test.source, got, test.want)
+		}
+	}
+}

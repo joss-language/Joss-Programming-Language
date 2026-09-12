@@ -57,8 +57,22 @@ func (r *Runtime) Fork() *Runtime {
 		functionPlans:      copyFunctionPlanMap(r.functionPlans),
 		classMetadataCache: make(map[string]*classMetadata),
 		MaxCallDepth:       r.MaxCallDepth,
-		PluginRegistry:     r.PluginRegistry,
+		PluginRegistry:     nil,
 		ProjectRoot:        r.ProjectRoot,
+	}
+	if r.PluginRegistry != nil {
+		newR.PluginRegistry = r.PluginRegistry.WithHost(newR)
+	}
+	if len(r.pluginASTEngines) > 0 {
+		newR.pluginASTEngines = make(map[string]*PluginASTEngine, len(r.pluginASTEngines))
+		for name, parentEngine := range r.pluginASTEngines {
+			newR.pluginASTEngines[name] = &PluginASTEngine{
+				Runtime:    newR,
+				PluginName: name,
+				Classes:    parentEngine.Classes,
+				Functions:  parentEngine.Functions,
+			}
+		}
 	}
 	// fmt.Println("[RUNTIME] Fork: Maps initialized")
 
@@ -92,6 +106,12 @@ func (r *Runtime) Fork() *Runtime {
 	for k, v := range r.Variables {
 		if inst, ok := v.(*Instance); ok {
 			newR.Variables[k] = inst.Clone()
+		} else if ns, ok := v.(*PluginNamespace); ok {
+			newR.Variables[k] = &PluginNamespace{
+				Name:    ns.Name,
+				Plugin:  ns.Plugin,
+				Runtime: newR,
+			}
 		} else if m, ok := v.(map[string]interface{}); ok {
 			// Deep copy maps
 			newMap := make(map[string]interface{})

@@ -190,6 +190,58 @@ func (r *Runtime) CallHostFunction(name string, args []interface{}) (interface{}
 	return nil, fmt.Errorf("funcion de host '%s' no encontrada", name)
 }
 
+func (r *Runtime) ensurePluginASTEngines() {
+	if r.pluginASTEngines == nil {
+		r.pluginASTEngines = make(map[string]*PluginASTEngine)
+	}
+}
+
+func (r *Runtime) getPluginASTEngine(pluginName string) *PluginASTEngine {
+	if r == nil {
+		return nil
+	}
+	r.ensurePluginASTEngines()
+	if engine, ok := r.pluginASTEngines[pluginName]; ok {
+		return engine
+	}
+	if r.PluginRegistry != nil {
+		if plugin := r.PluginRegistry.Get(pluginName); plugin != nil && plugin.Program() != nil {
+			engine := NewPluginASTEngine(r, pluginName)
+			_ = engine.RegisterProgram(plugin.Program())
+			r.pluginASTEngines[pluginName] = engine
+			return engine
+		}
+	}
+	return nil
+}
+
+// CallPluginAST implementa PluginAwareHost para ejecutar funciones AST en el runtime actual.
+func (r *Runtime) CallPluginAST(pluginName, fnName string, args []interface{}) (interface{}, error) {
+	engine := r.getPluginASTEngine(pluginName)
+	if engine == nil {
+		return nil, fmt.Errorf("plugin %s no tiene motor AST disponible en este runtime", pluginName)
+	}
+	return engine.CallFunction(fnName, args)
+}
+
+// InstantiatePluginAST implementa PluginAwareHost para instanciar clases AST en el runtime actual.
+func (r *Runtime) InstantiatePluginAST(pluginName, className string, args []interface{}) (interface{}, error) {
+	engine := r.getPluginASTEngine(pluginName)
+	if engine == nil {
+		return nil, fmt.Errorf("plugin %s no tiene motor AST disponible en este runtime", pluginName)
+	}
+	return engine.Instantiate(className, args)
+}
+
+// CallPluginASTMethod implementa PluginAwareHost para invocar metodos AST en el runtime actual.
+func (r *Runtime) CallPluginASTMethod(pluginName, className, methodName string, instance interface{}, args []interface{}) (interface{}, error) {
+	engine := r.getPluginASTEngine(pluginName)
+	if engine == nil {
+		return nil, fmt.Errorf("plugin %s no tiene motor AST disponible en este runtime", pluginName)
+	}
+	return engine.CallMethod(instance, methodName, args)
+}
+
 // LoadPluginPackage carga, verifica y registra un paquete .jp en el runtime.
 func (r *Runtime) LoadPluginPackage(filePath string) error {
 	data, err := os.ReadFile(filePath)
@@ -225,6 +277,9 @@ func (r *Runtime) LoadPluginBytes(data []byte) error {
 		return err
 	}
 
+	r.ensurePluginASTEngines()
+	r.pluginASTEngines[archive.Metadata.Name] = engine
+
 	r.registerPluginSymbols(plugin)
 	return nil
 }
@@ -249,7 +304,9 @@ func (r *Runtime) registerPluginSymbols(plugin *pluginruntime.Plugin) {
 
 		// Acceso directo si no colisiona
 		if _, exists := r.Functions[fn.Name]; !exists {
-			r.Variables[fn.Name] = callable
+			if _, existsVar := r.Variables[fn.Name]; !existsVar {
+				r.Variables[fn.Name] = callable
+			}
 		}
 	}
 

@@ -30,6 +30,7 @@ func newRuntimeState() interface{} {
 		callablePlans:      make(map[*parser.MethodStatement]*runtimeplan.Callable),
 		functionPlans:      make(map[*parser.FunctionLiteral]*runtimeplan.Callable),
 		classMetadataCache: make(map[string]*classMetadata),
+		pluginASTEngines:   make(map[string]*PluginASTEngine),
 		MaxCallDepth:       DefaultMaxCallDepth,
 	}
 	r.registerCanonicalHostState()
@@ -40,6 +41,7 @@ func newRuntimeState() interface{} {
 func NewRuntime() *Runtime {
 	InitLogger()
 	r := runtimePool.Get().(*Runtime)
+	r.freed = false
 	r.ensureLifecycleMaps()
 	if _, ok := r.Variables["View"]; !ok {
 		r.registerCanonicalHostState()
@@ -125,6 +127,10 @@ func (r *Runtime) registerCanonicalHostState() {
 // Free resets request/execution state and returns the runtime to the pool.
 // External resources such as DB are not owned or closed by this lifecycle.
 func (r *Runtime) Free() {
+	if r == nil || r.freed {
+		return
+	}
+	r.freed = true
 	clear(r.Env)
 	clear(r.Variables)
 	clear(r.VarTypes)
@@ -142,6 +148,7 @@ func (r *Runtime) Free() {
 	clear(r.callablePlans)
 	clear(r.functionPlans)
 	clear(r.classMetadataCache)
+	clear(r.pluginASTEngines)
 
 	// Registry symbol tables are bound to this Runtime. Retaining the registry
 	// while clearing its exposed symbols would skip plugin registration on reuse.

@@ -3,6 +3,8 @@ package server
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,8 +17,12 @@ import (
 func installHandlerRuntime(t *testing.T, env map[string]string, source string) *core.Runtime {
 	t.Helper()
 	runtime := core.NewRuntime()
+	runtime.Env["SESSION_DRIVER"] = "memory"
 	for key, value := range env {
 		runtime.Env[key] = value
+	}
+	if strings.TrimSpace(runtime.Env["SESSION_DRIVER"]) == "" {
+		runtime.Env["SESSION_DRIVER"] = "memory"
 	}
 	if source != "" {
 		p := parser.NewParser(parser.NewLexer(source))
@@ -37,7 +43,9 @@ func installHandlerRuntime(t *testing.T, env map[string]string, source string) *
 	mutex.Unlock()
 	sessionMu.Lock()
 	previousSessions := sessionStore
+	previousSessionPath := loadedSessionPath
 	sessionStore = make(map[string]map[string]interface{})
+	loadedSessionPath = ""
 	sessionMu.Unlock()
 	t.Cleanup(func() {
 		mutex.Lock()
@@ -45,10 +53,74 @@ func installHandlerRuntime(t *testing.T, env map[string]string, source string) *
 		mutex.Unlock()
 		sessionMu.Lock()
 		sessionStore = previousSessions
+		loadedSessionPath = previousSessionPath
 		sessionMu.Unlock()
 		runtime.Free()
 	})
 	return runtime
+}
+
+func TestMainHandlerRejectsUnavailableAndCorruptSessionBackends(t *testing.T) {
+	t.Run("redis unavailable", func(t *testing.T) {
+		previousRedis := core.GlobalRedis
+		core.GlobalRedis = nil
+		t.Cleanup(func() { core.GlobalRedis = previousRedis })
+		installHandlerRuntime(t, map[string]string{"SESSION_DRIVER": "redis"}, "")
+		response := httptest.NewRecorder()
+		MainHandler(response, httptest.NewRequest(http.MethodGet, "http://example.test/account", nil))
+		if response.Code != http.StatusServiceUnavailable {
+			t.Fatalf("status = %d, want 503", response.Code)
+		}
+	})
+
+	t.Run("file corrupt", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "sessions.json")
+		if err := os.WriteFile(path, []byte("{not-json"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		installHandlerRuntime(t, map[string]string{"SESSION_DRIVER": "file", "SESSION_FILE": path}, "")
+		response := httptest.NewRecorder()
+		MainHandler(response, httptest.NewRequest(http.MethodGet, "http://example.test/account", nil))
+		if response.Code != http.StatusInternalServerError {
+			t.Fatalf("status = %d, want 500", response.Code)
+		}
+	})
+}
+
+func TestSessionBackendSnapshotsAreIsolatedAndFailedWritesRollback(t *testing.T) {
+	installHandlerRuntime(t, map[string]string{"SESSION_DRIVER": "memory"}, "")
+	if err := saveSession(map[string]string{"SESSION_DRIVER": "memory"}, "memory", "a", map[string]interface{}{"user": "Ada"}); err != nil {
+		t.Fatal(err)
+	}
+	first, _, err := loadSession(map[string]string{"SESSION_DRIVER": "memory"}, "a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	first["user"] = "Grace"
+	second, _, err := loadSession(map[string]string{"SESSION_DRIVER": "memory"}, "a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second["user"] != "Ada" {
+		t.Fatal("request-local session mutation leaked before save")
+	}
+
+	path := filepath.Join(t.TempDir(), "sessions.json")
+	env := map[string]string{"SESSION_DRIVER": "file", "SESSION_FILE": path}
+	sessionMu.Lock()
+	loadedSessionPath = path
+	sessionStore["rollback"] = map[string]interface{}{"stable": true}
+	sessionMu.Unlock()
+	if err := saveSession(env, "file", "rollback", map[string]interface{}{"bad": make(chan int)}); err == nil {
+		t.Fatal("non-serializable session unexpectedly persisted")
+	}
+	sessionMu.Lock()
+	stable := sessionStore["rollback"]["stable"]
+	_, badExists := sessionStore["rollback"]["bad"]
+	sessionMu.Unlock()
+	if stable != true || badExists {
+		t.Fatal("failed persistence changed the in-memory session")
+	}
 }
 
 func TestMainHandlerWebSocketUpgradeAndCleanup(t *testing.T) {
@@ -194,5 +266,108 @@ public class TestController {
 	}
 	if got := response.Header().Get("Content-Type"); !strings.Contains(got, "text/html") {
 		t.Fatalf("Content-Type = %q, want HTML", got)
+	}
+}
+
+func TestSessionClientIsolationAcrossMultipleRequests(t *testing.T) {
+	installHandlerRuntime(t, map[string]string{"SESSION_DRIVER": "memory"}, "")
+
+	// Client A request 1
+	recA1 := httptest.NewRecorder()
+	reqA1 := httptest.NewRequest(http.MethodGet, "http://example.test/missing", nil)
+	MainHandler(recA1, reqA1)
+	cookieA := recA1.Result().Cookies()
+	if len(cookieA) == 0 {
+		t.Fatal("expected session cookie for Client A")
+	}
+
+	// Client B request 1
+	recB1 := httptest.NewRecorder()
+	reqB1 := httptest.NewRequest(http.MethodGet, "http://example.test/missing", nil)
+	MainHandler(recB1, reqB1)
+	cookieB := recB1.Result().Cookies()
+	if len(cookieB) == 0 {
+		t.Fatal("expected session cookie for Client B")
+	}
+
+	if cookieA[0].Value == cookieB[0].Value {
+		t.Fatalf("clients A and B received identical session ID: %q", cookieA[0].Value)
+	}
+
+	// Client A request 2 using cookieA
+	recA2 := httptest.NewRecorder()
+	reqA2 := httptest.NewRequest(http.MethodGet, "http://example.test/missing", nil)
+	reqA2.AddCookie(cookieA[0])
+	MainHandler(recA2, reqA2)
+
+	// Client B request 2 using cookieB
+	recB2 := httptest.NewRecorder()
+	reqB2 := httptest.NewRequest(http.MethodGet, "http://example.test/missing", nil)
+	reqB2.AddCookie(cookieB[0])
+	MainHandler(recB2, reqB2)
+
+	sessionMu.Lock()
+	dataA := sessionStore[cookieA[0].Value]
+	dataB := sessionStore[cookieB[0].Value]
+	sessionMu.Unlock()
+
+	if dataA == nil || dataB == nil {
+		t.Fatal("sessions not found in store")
+	}
+	if dataA["csrf_token"] == dataB["csrf_token"] {
+		t.Fatal("CSRF tokens must be distinct across clients")
+	}
+}
+
+func TestRedirectFlashPersistenceAndFailureHandling(t *testing.T) {
+	rt := installHandlerRuntime(t, map[string]string{"SESSION_DRIVER": "memory"}, "")
+	sessionID := "flash_test_session"
+	sessionMu.Lock()
+	sessionStore[sessionID] = map[string]interface{}{"csrf_token": "token123"}
+	sessionMu.Unlock()
+
+	session := responseSession{id: sessionID, driver: "memory", data: map[string]interface{}{"csrf_token": "token123"}}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "http://example.test/redir", nil)
+
+	// Successful flash persistence
+	instSuccess := &core.Instance{
+		Fields: map[string]interface{}{
+			"_type": "REDIRECT",
+			"url":   "/login",
+			"flash": map[string]interface{}{"message": "Welcome back"},
+		},
+	}
+	handled := writeExecutionResult(rec, req, rt, instSuccess, session)
+	if !handled || rec.Code != http.StatusFound || rec.Header().Get("Location") != "/login" {
+		t.Fatalf("redirect failed: handled=%v code=%d", handled, rec.Code)
+	}
+
+	sessionMu.Lock()
+	storedFlash := sessionStore[sessionID]["message"]
+	sessionMu.Unlock()
+	if storedFlash != "Welcome back" {
+		t.Fatalf("flash not persisted: got %v", storedFlash)
+	}
+
+	// Failed flash persistence (non-serializable object with file driver)
+	path := filepath.Join(t.TempDir(), "sessions.json")
+	rt.Env["SESSION_DRIVER"] = "file"
+	rt.Env["SESSION_FILE"] = path
+	sessionFile := responseSession{id: sessionID, driver: "file", data: map[string]interface{}{"csrf_token": "token123"}}
+	recFail := httptest.NewRecorder()
+	instFail := &core.Instance{
+		Fields: map[string]interface{}{
+			"_type": "REDIRECT",
+			"url":   "/dashboard",
+			"flash": map[string]interface{}{"channel": make(chan int)},
+		},
+	}
+	handledFail := writeExecutionResult(recFail, req, rt, instFail, sessionFile)
+	if !handledFail || recFail.Code != http.StatusInternalServerError {
+		t.Fatalf("failed flash must return 500: handled=%v code=%d", handledFail, recFail.Code)
+	}
+	if recFail.Header().Get("Location") != "" {
+		t.Fatal("failed flash persistence must not set redirect Location")
 	}
 }

@@ -7,17 +7,33 @@ import (
 
 // PluginRegistry almacena los plugins cargados y resuelve invocaciones.
 type PluginRegistry struct {
+	state *pluginRegistryState
+	host  HostContext
+}
+
+// pluginRegistryState owns the loaded plugin payloads. Runtime forks share
+// this synchronized catalog, while each registry facade has its own host.
+type pluginRegistryState struct {
 	plugins map[string]*Plugin
 	mu      sync.RWMutex
-	host    HostContext
 }
 
 // NewPluginRegistry inicializa un nuevo registro de plugins.
 func NewPluginRegistry(host HostContext) *PluginRegistry {
 	return &PluginRegistry{
-		plugins: make(map[string]*Plugin),
-		host:    host,
+		state: &pluginRegistryState{plugins: make(map[string]*Plugin)},
+		host:  host,
 	}
+}
+
+// WithHost returns a runtime-bound view over the same synchronized catalog.
+// Registration remains visible through every view, but execution uses the
+// host of the runtime that initiated the call.
+func (r *PluginRegistry) WithHost(host HostContext) *PluginRegistry {
+	if r == nil {
+		return nil
+	}
+	return &PluginRegistry{state: r.state, host: host}
 }
 
 // Register registra un plugin validado en el sistema.
@@ -26,31 +42,31 @@ func (r *PluginRegistry) Register(plugin *Plugin) error {
 		return fmt.Errorf("pluginruntime: intento de registrar plugin nil")
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.state.mu.Lock()
+	defer r.state.mu.Unlock()
 
-	if _, exists := r.plugins[plugin.Name]; exists {
+	if _, exists := r.state.plugins[plugin.Name]; exists {
 		return fmt.Errorf("%w: %s v%s", ErrPluginAlreadyLoaded, plugin.Name, plugin.Version)
 	}
 
-	r.plugins[plugin.Name] = plugin
+	r.state.plugins[plugin.Name] = plugin
 	return nil
 }
 
 // Get obtiene un plugin por su nombre.
 func (r *PluginRegistry) Get(pluginName string) *Plugin {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.plugins[pluginName]
+	r.state.mu.RLock()
+	defer r.state.mu.RUnlock()
+	return r.state.plugins[pluginName]
 }
 
 // List retorna todos los plugins registrados.
 func (r *PluginRegistry) List() []*Plugin {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.state.mu.RLock()
+	defer r.state.mu.RUnlock()
 
-	list := make([]*Plugin, 0, len(r.plugins))
-	for _, p := range r.plugins {
+	list := make([]*Plugin, 0, len(r.state.plugins))
+	for _, p := range r.state.plugins {
 		list = append(list, p)
 	}
 	return list
@@ -66,6 +82,12 @@ func (r *PluginRegistry) CallFunction(pluginName, fnName string, args []interfac
 	return SafeCall(pluginName, fnName, func() (interface{}, error) {
 		switch plugin.Format {
 		case FormatJossAST:
+			if aware, ok := r.host.(PluginAwareHost); ok {
+				return aware.CallPluginAST(pluginName, fnName, args)
+			}
+			if engine, ok := r.host.(ASTEngine); ok {
+				return engine.CallFunction(fnName, args)
+			}
 			if plugin.jossExecutor == nil {
 				return nil, fmt.Errorf("plugin %s no tiene ejecutor AST disponible", pluginName)
 			}
@@ -92,6 +114,12 @@ func (r *PluginRegistry) Instantiate(pluginName, className string, args []interf
 	return SafeCall(pluginName, className+".init", func() (interface{}, error) {
 		switch plugin.Format {
 		case FormatJossAST:
+			if aware, ok := r.host.(PluginAwareHost); ok {
+				return aware.InstantiatePluginAST(pluginName, className, args)
+			}
+			if engine, ok := r.host.(ASTEngine); ok {
+				return engine.Instantiate(className, args)
+			}
 			if plugin.jossExecutor == nil {
 				return nil, fmt.Errorf("plugin %s no tiene ejecutor AST disponible", pluginName)
 			}
@@ -133,6 +161,12 @@ func (r *PluginRegistry) CallMethod(pluginName, className, methodName string, in
 	return SafeCall(pluginName, className+"."+methodName, func() (interface{}, error) {
 		switch plugin.Format {
 		case FormatJossAST:
+			if aware, ok := r.host.(PluginAwareHost); ok {
+				return aware.CallPluginASTMethod(pluginName, className, methodName, instance, args)
+			}
+			if engine, ok := r.host.(ASTEngine); ok {
+				return engine.CallMethod(instance, methodName, args)
+			}
 			if plugin.jossExecutor == nil {
 				return nil, fmt.Errorf("plugin %s no tiene ejecutor AST disponible", pluginName)
 			}

@@ -8,6 +8,47 @@ import (
 	"github.com/jossecurity/joss/pkg/parser"
 )
 
+type webSocketLifecycle struct {
+	runtime  *Runtime
+	instance *Instance
+	reader   func() (int, []byte, error)
+	closer   func() error
+	closeMu  sync.Once
+	closeErr error
+}
+
+func (l *webSocketLifecycle) close() error {
+	l.closeMu.Do(func() {
+		if l.closer != nil {
+			l.closeErr = l.closer()
+		}
+	})
+	return l.closeErr
+}
+
+func (l *webSocketLifecycle) cleanup() {
+	if callback, ok := l.instance.Fields["_on_close"]; ok {
+		l.runtime.callWebSocketCallback("onClose", callback, nil)
+	}
+	unsubscribeWebSocketFromAllChannels(l.instance)
+	_ = l.close()
+}
+
+func (l *webSocketLifecycle) readMessages() {
+	for {
+		_, message, err := l.reader()
+		if err != nil {
+			fmt.Printf("[WS] Connection Error/Closed: %v\n", err)
+			return
+		}
+		if callback, ok := l.instance.Fields["_on_message"]; ok {
+			if !l.runtime.callWebSocketCallback("onMessage", callback, []interface{}{string(message)}) {
+				return
+			}
+		}
+	}
+}
+
 var webSocketChannels = struct {
 	sync.RWMutex
 	members map[string]map[*Instance]struct{}

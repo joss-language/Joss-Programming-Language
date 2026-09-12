@@ -234,11 +234,11 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.Variables["Session"] = &Instance{Class: r.Classes["Session"], Fields: make(map[string]interface{})}
 
 	// UUID
-	r.registerNative("UUID", []string{"generate", "v4"}, (*Runtime).executeUUIDMethod)
+	r.registerNativeDefinitions("UUID", migratedNativeMethods["UUID"], (*Runtime).executeUUIDMethod)
 	r.Variables["UUID"] = &Instance{Class: r.Classes["UUID"], Fields: make(map[string]interface{})}
 
 	// Str
-	r.registerNative("Str", []string{"length", "random", "startsWith", "substring", "indexOf", "contains", "trim", "replace"}, (*Runtime).executeStrMethod)
+	r.registerNativeDefinitions("Str", migratedNativeMethods["Str"], (*Runtime).executeStrMethod)
 	r.Variables["Str"] = &Instance{Class: r.Classes["Str"], Fields: make(map[string]interface{})}
 
 	// UserStorage
@@ -250,15 +250,15 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.Variables["SQLite"] = &Instance{Class: r.Classes["SQLite"], Fields: make(map[string]interface{})}
 
 	// Zip (Native)
-	r.registerNative("Zip", []string{"extract"}, (*Runtime).executeZipMethod)
+	r.registerNativeDefinitions("Zip", migratedNativeMethods["Zip"], (*Runtime).executeZipMethod)
 	r.Variables["Zip"] = &Instance{Class: r.Classes["Zip"], Fields: make(map[string]interface{})}
 
 	// JSON
-	r.registerNative("JSON", []string{"parse", "stringify", "decode", "encode"}, (*Runtime).executeJSONMethod)
+	r.registerNativeDefinitions("JSON", migratedNativeMethods["JSON"], (*Runtime).executeJSONMethod)
 	r.Variables["JSON"] = &Instance{Class: r.Classes["JSON"], Fields: make(map[string]interface{})}
 
 	// Markdown
-	r.registerNative("Markdown", []string{"toHtml", "readFile"}, (*Runtime).executeMarkdownMethod)
+	r.registerNativeDefinitions("Markdown", migratedNativeMethods["Markdown"], (*Runtime).executeMarkdownMethod)
 	r.Variables["Markdown"] = &Instance{Class: r.Classes["Markdown"], Fields: make(map[string]interface{})}
 
 	// Cache (Native)
@@ -284,7 +284,7 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.Variables["Server"] = &Instance{Class: r.Classes["Server"], Fields: make(map[string]interface{})}
 
 	// Lang (I18n)
-	r.registerNative("Lang", []string{"get", "set", "locale", "locales"}, (*Runtime).executeLangMethod)
+	r.registerNativeDefinitions("Lang", migratedNativeMethods["Lang"], (*Runtime).executeLangMethod)
 	r.Variables["Lang"] = &Instance{Class: r.Classes["Lang"], Fields: make(map[string]interface{})}
 
 	// SEO
@@ -296,8 +296,7 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.Variables["Sitemap"] = &Instance{Class: r.Classes["Sitemap"], Fields: make(map[string]interface{})}
 
 	// Console (Terminal styling & ANSI colors)
-	consoleMethods := []string{"green", "red", "yellow", "blue", "cyan", "magenta", "gray", "bold", "clear", "color", "log"}
-	r.registerNative("Console", consoleMethods, (*Runtime).executeConsoleMethod)
+	r.registerNativeDefinitions("Console", migratedNativeMethods["Console"], (*Runtime).executeConsoleMethod)
 	r.Variables["Console"] = &Instance{Class: r.Classes["Console"], Fields: make(map[string]interface{})}
 
 	// Exception

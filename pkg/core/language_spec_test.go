@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/jossecurity/joss/pkg/parser"
@@ -56,7 +57,10 @@ func TestLanguageCompatibilitySpecificationSuite(t *testing.T) {
 				}
 			}
 
-			if len(diagCodes) != len(tc.ExpectedDiagnostics) {
+			slices.Sort(diagCodes)
+			expectedDiagnostics := append([]string(nil), tc.ExpectedDiagnostics...)
+			slices.Sort(expectedDiagnostics)
+			if !slices.Equal(diagCodes, expectedDiagnostics) {
 				t.Fatalf("[%s] unexpected diagnostics: got %v, want %v", tc.Name, diagCodes, tc.ExpectedDiagnostics)
 			}
 
