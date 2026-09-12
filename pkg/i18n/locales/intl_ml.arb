@@ -77,6 +77,10 @@
   "@aiWizardTitle": {
     "description": ""
   },
+  "analyzeSuccess": "സെമാൻ്റിക് വിശകലനം പൂർത്തിയായി: പ്രശ്നങ്ങളൊന്നും കണ്ടെത്തിയില്ല.",
+  "@analyzeSuccess": {
+    "description": "Mensaje de éxito del analizador estático"
+  },
   "brevoActivatedSuccess": "✅ BREVO_API സജീവമാക്കുകയും കോൺഫിഗർ ചെയ്യുകയും ചെയ്തു.",
   "@brevoActivatedSuccess": {},
   "brevoConfig": "Configure interactive Brevo API (Email)",
@@ -104,24 +108,100 @@
   "@brevoTitle": {},
   "buildCopyFiles": "പ്രോജക്റ്റ് ഫയലുകൾ പകർത്തുന്നു...",
   "@buildCopyFiles": {},
+  "buildCopyingFiles": "പ്രോജക്റ്റ് ഫയലുകൾ പകർത്തുന്നു...",
+  "@buildCopyingFiles": {
+    "description": "Copia de assets y código"
+  },
+  "buildCreatingDir": "ഔട്ട്പുട്ട് ഡയറക്ടറി '{dir}' സൃഷ്ടിക്കുന്നു...",
+  "@buildCreatingDir": {
+    "description": "Creación del directorio de salida del build",
+    "placeholders": {
+      "dir": {}
+    }
+  },
   "buildDbCopied": "ഡാറ്റാബേസ് നിർമ്മിക്കാൻ പകർത്തി/",
   "@buildDbCopied": {},
   "buildDbCopiedProgram": "ബിൽഡ്/സ്റ്റോറേജ്/ എന്നതിലേക്ക് ഡാറ്റാബേസ് പകർത്തി",
   "@buildDbCopiedProgram": {},
   "buildEncryptEnv": "ഉൽപ്പാദനത്തിനുള്ള പരിസ്ഥിതി എൻക്രിപ്റ്റ് ചെയ്യുന്നു...",
   "@buildEncryptEnv": {},
+  "buildEncryptingEnv": "ഉൽപ്പാദനത്തിനുള്ള പരിസ്ഥിതി എൻക്രിപ്റ്റ് ചെയ്യുന്നു...",
+  "@buildEncryptingEnv": {
+    "description": "Encriptación segura de credenciales"
+  },
+  "buildEnvEncryptedSaved": "എൻക്രിപ്റ്റ് ചെയ്ത പരിസ്ഥിതി {path}-ൽ സംരക്ഷിച്ചു",
+  "@buildEnvEncryptedSaved": {
+    "description": "Confirmación de almacenamiento del env.enc",
+    "placeholders": {
+      "path": {}
+    }
+  },
   "buildEnvEncryptedSuccess": "പരിസ്ഥിതി എൻക്രിപ്റ്റ് ചെയ്യുകയും env.enc ആയി ഉൾച്ചേർക്കുകയും ചെയ്യുന്നു",
   "@buildEnvEncryptedSuccess": {},
   "buildEnvMissingError": "ആർക്കിടെക്ചർ പിശക്: പരിസ്ഥിതി ഫയൽ കാണുന്നില്ല ('env.joss' അല്ലെങ്കിൽ '.env')",
   "@buildEnvMissingError": {},
+  "buildIncludeNodeModules": "-> Node_modules ഉൾപ്പെടുത്തും.",
+  "@buildIncludeNodeModules": {
+    "description": "Confirmación de inclusión de node_modules"
+  },
   "buildInjectDbPath": "എംബഡഡ് env.joss-ലേക്ക് DB_PATH=\"Storage/database.sqlite\" കോൺഫിഗറേഷൻ കുത്തിവയ്ക്കുന്നു...",
   "@buildInjectDbPath": {},
+  "buildInvalidOption": "അസാധുവായ ഓപ്ഷൻ. സമാഹാരം റദ്ദാക്കുന്നു.",
+  "@buildInvalidOption": {
+    "description": "Error al elegir opción no permitida"
+  },
+  "buildMissingEnv": "ആർക്കിടെക്ചർ പിശക്: പരിസ്ഥിതി ഫയൽ കാണാനില്ല ('env.joss' അല്ലെങ്കിൽ '.env')",
+  "@buildMissingEnv": {
+    "description": "Falta el archivo de configuración de entorno"
+  },
+  "buildMissingRequired": "ആർക്കിടെക്ചർ പിശക്: ആവശ്യമായ ഫയൽ/ഡയറക്ടറി '{file}' ലഭ്യമല്ല",
+  "@buildMissingRequired": {
+    "description": "Falta un archivo o directorio indispensable",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "buildNginxPortCreated": "{port} പോർട്ട് ഉപയോഗിച്ച് nginx_port.conf ഫയൽ സൃഷ്‌ടിച്ചു",
+  "@buildNginxPortCreated": {
+    "description": "Generación del archivo de configuración para nginx",
+    "placeholders": {
+      "port": {}
+    }
+  },
   "buildNodeModulesInclude": "-> node_modules ഉൾപ്പെടുത്തും.",
   "@buildNodeModulesInclude": {},
   "buildNodeModulesOmit": "-> node_modules ഒഴിവാക്കപ്പെടും.",
   "@buildNodeModulesOmit": {},
+  "buildOmitNodeModules": "-> node_modules ഒഴിവാക്കപ്പെടും.",
+  "@buildOmitNodeModules": {
+    "description": "Confirmación de exclusión de node_modules"
+  },
+  "buildOsCurrent": "5. നിലവിലെ ഓപ്പറേറ്റിംഗ് സിസ്റ്റം ({os}/{arch})",
+  "@buildOsCurrent": {
+    "description": "Opción SO anfitrión actual",
+    "placeholders": {
+      "os": {},
+      "arch": {}
+    }
+  },
+  "buildOsLinux": "2. Linux (x64)",
+  "@buildOsLinux": {
+    "description": "Opción Linux"
+  },
+  "buildOsMacArm": "3. macOS ആപ്പിൾ സിലിക്കൺ (arm64)",
+  "@buildOsMacArm": {
+    "description": "Opción macOS ARM"
+  },
+  "buildOsMacIntel": "4. macOS ഇൻ്റൽ (amd64)",
+  "@buildOsMacIntel": {
+    "description": "Opción macOS Intel"
+  },
   "buildOsNotSupported": "ഈ പ്രീ-കംപൈൽ ചെയ്ത പതിപ്പിൽ വിൻഡോസ് മാത്രമേ പിന്തുണയ്ക്കൂ.",
   "@buildOsNotSupported": {},
+  "buildOsWindows": "1.വിൻഡോസ് (x64)",
+  "@buildOsWindows": {
+    "description": "Opción Windows"
+  },
   "buildPackAssets": "അസറ്റുകൾ എൻക്രിപ്റ്റ് ചെയ്യുകയും പാക്കേജിംഗ് ചെയ്യുകയും ചെയ്യുന്നു...",
   "@buildPackAssets": {},
   "buildProgramDataDir": "  build/data/ (ഇപ്പോൾ ശൂന്യം)",
@@ -136,12 +216,28 @@
   "@buildProgramStructure": {},
   "buildProgramSuccess": "'ബിൽഡ്/' ഫോൾഡറിൽ പ്രോഗ്രാം ബിൽഡ് വിജയകരമായി പൂർത്തിയാക്കി.",
   "@buildProgramSuccess": {},
+  "buildPromptNodeModules": "ബിൽഡിൽ 'node_modules' ഉൾപ്പെടുത്താൻ നിങ്ങൾ ആഗ്രഹിക്കുന്നുവോ? (y/n):",
+  "@buildPromptNodeModules": {
+    "description": "Pregunta interactiva para incluir dependencias JS"
+  },
+  "buildPromptOption": "ഓപ്‌ഷൻ [1-5]:",
+  "@buildPromptOption": {
+    "description": "Prompt interactivo de selección"
+  },
   "buildSchemaError": "ജോസ് ബൈബിളിന് കർശനമായ ഘടന ആവശ്യമാണ്.",
   "@buildSchemaError": {},
   "buildSelectOs": "ടാർഗെറ്റ് ഓപ്പറേറ്റിംഗ് സിസ്റ്റം തിരഞ്ഞെടുക്കുക:",
   "@buildSelectOs": {},
   "buildSelectOsWindows": "1. Windows",
   "@buildSelectOsWindows": {},
+  "buildSelectTargetOs": "ടാർഗെറ്റ് ഓപ്പറേറ്റിംഗ് സിസ്റ്റം തിരഞ്ഞെടുക്കുക:",
+  "@buildSelectTargetOs": {
+    "description": "Menú selector de SO destino"
+  },
+  "buildStrictStructure": "ജോസ് ബൈബിൾ കർശനമായ ഘടന ആവശ്യപ്പെടുന്നു.",
+  "@buildStrictStructure": {
+    "description": "Recordatorio de estructura arquitectónica"
+  },
   "buildWebDeployTip": "വിന്യസിക്കാൻ, 'ബിൽഡ്/' ഫോൾഡറിലെ ഉള്ളടക്കങ്ങൾ നിങ്ങളുടെ സെർവറിലേക്ക് അപ്‌ലോഡ് ചെയ്യുക.",
   "@buildWebDeployTip": {},
   "buildWebRunTip": "സെർവറിൽ അതിനുള്ളിൽ 'joss run main.joss' പ്രവർത്തിപ്പിച്ചാൽ മതിയാകും.",
@@ -159,6 +255,137 @@
   "changeDBPrefix": "പട്ടിക പ്രിഫിക്സ് മാറ്റുക",
   "@changeDBPrefix": {
     "description": ""
+  },
+  "checkFormatOk": "✓ ഫോർമാറ്റ്: ശരി",
+  "@checkFormatOk": {
+    "description": "Confirmación de formato canónico válido"
+  },
+  "checkLintOk": "✓ ലിൻ്ററും സുരക്ഷാ നിയമങ്ങളും: ശരി",
+  "@checkLintOk": {
+    "description": "Confirmación de reglas de linter superadas"
+  },
+  "checkResultFail": "[ഫലം പരിശോധിക്കുക] പ്രോജക്റ്റിൽ പരിഹരിക്കേണ്ട പ്രശ്നങ്ങൾ അടങ്ങിയിരിക്കുന്നു.",
+  "@checkResultFail": {
+    "description": "Resultado con errores en verificación"
+  },
+  "checkResultOk": "[ഫലം പരിശോധിക്കുക] പ്രോജക്റ്റ് പൂർണ്ണമായും പരിശോധിച്ചുറപ്പിക്കുകയും തയ്യാറാണ്.",
+  "@checkResultOk": {
+    "description": "Resultado positivo de verificación general"
+  },
+  "checkSemanticOk": "✓ സെമാൻ്റിക് വിശകലനവും തരങ്ങളും: ശരി",
+  "@checkSemanticOk": {
+    "description": "Confirmación de análisis semántico correcto"
+  },
+  "checkVerifying": "[പരിശോധിക്കുക] '{path}' (പാഴ്‌സ്, സെമാൻ്റിക് വിശകലനം, തരങ്ങൾ, ലിൻ്റ്, ഫോർമാറ്റ്) എന്നതിൽ പ്രോജക്റ്റ് പരിശോധിക്കുന്നു...",
+  "@checkVerifying": {
+    "description": "Mensaje inicial del comando joss check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "cliAppTitle": "Joss — ആധുനിക ഭാഷയും വികസന പ്ലാറ്റ്ഫോം",
+  "@cliAppTitle": {
+    "description": "Título principal mostrado en la ayuda de la CLI"
+  },
+  "cliCmdAnalyze": "സ്റ്റാറ്റിക് സെമാൻ്റിക് വിശകലനവും സമഗ്രമായ തരം പരിശോധനയും",
+  "@cliCmdAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "cliCmdBuild": "വിതരണത്തിനായി പ്രോജക്റ്റ് കംപൈൽ ചെയ്യുക (വെബ് അല്ലെങ്കിൽ ഒറ്റപ്പെട്ട ബൈനറി)",
+  "@cliCmdBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "cliCmdFormat": "കാനോനിക്കൽ ഭാഷാ നിലവാരം അനുസരിച്ച് .joss ഫയലുകൾ ഫോർമാറ്റ് ചെയ്യുക",
+  "@cliCmdFormat": {
+    "description": "Descripción del comando joss format / joss fmt"
+  },
+  "cliCmdLint": "മുന്നറിയിപ്പുകൾ, വിലക്കലുകൾ, മികച്ച രീതികൾ എന്നിവയ്ക്കായി കോഡ് പരിശോധിക്കുക",
+  "@cliCmdLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "cliCmdPub": "ജോസ് ഇക്കോസിസ്റ്റത്തിൻ്റെ ഔദ്യോഗിക പാക്കേജും പ്ലഗിൻ മാനേജരും",
+  "@cliCmdPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "cliCmdRepl": "ഇന്ററാക്ടീവ് കോൺസോൾ (REPL) ആരംഭിക്കുക",
+  "@cliCmdRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "cliCmdRun": "Joss സ്ക്രിപ്റ്റ് അല്ലെങ്കിൽ ഫയൽ നേരിട്ട് പ്രവർത്തിപ്പിക്കുക",
+  "@cliCmdRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "cliCmdServer": "ഉയർന്ന പ്രവർത്തനക്ഷമതയുള്ള HTTP വെബ് സെർവർ ആരംഭിക്കുക",
+  "@cliCmdServer": {
+    "description": "Descripción del comando joss server start / joss serve"
+  },
+  "cliCmdTest": "യൂണിറ്റും ഇൻ്റഗ്രേഷൻ ടെസ്റ്റ് സ്യൂട്ടും പ്രവർത്തിപ്പിക്കുക (*_test.joss)",
+  "@cliCmdTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "cliErrNoMain": "പിശക്: 'main.joss' കണ്ടെത്തിയില്ല.",
+  "@cliErrNoMain": {
+    "description": "Error cuando falta el archivo de entrada principal"
+  },
+  "cliErrRequireMain": "എല്ലാ പ്രോജക്റ്റുകളും സർവർ ആരംഭിക്കുന്ന 'main.joss' എന്ന എൻട്രി പോയിന്റ് ഉണ്ടായിരിക്കണം.",
+  "@cliErrRequireMain": {
+    "description": "Explicación de la necesidad del archivo main.joss"
+  },
+  "cliExecMain": "[CLI] സ്റ്റാർട്ടപ്പ് സ്ക്രിപ്റ്റ് പ്രവർത്തിപ്പിക്കുന്നു (main.joss)...",
+  "@cliExecMain": {
+    "description": "Mensaje informativo al arrancar el script main.joss"
+  },
+  "cliUsage": "ഉപയോഗം: joss <comando> [argumentos] [opciones]",
+  "@cliUsage": {
+    "description": "Línea de uso general de la CLI"
+  },
+  "cliUsageBuildPkg": "ഉപയോഗം: ജോസ് ബിൽഡ് പാക്കേജ് [package_path]",
+  "@cliUsageBuildPkg": {
+    "description": "Mensaje de uso del comando build package"
+  },
+  "cliUsageMakeController": "ഉപയോഗം: ജോസ് മേക്ക്:കൺട്രോളർ [പേര്]",
+  "@cliUsageMakeController": {
+    "description": "Mensaje de uso del generador de controladores"
+  },
+  "cliUsageMakeCrud": "ഉപയോഗം: ജോസ് മേക്ക്:ക്രഡ് [പട്ടിക]",
+  "@cliUsageMakeCrud": {
+    "description": "Mensaje de uso del generador de CRUD"
+  },
+  "cliUsageMakeMiddleware": "ഉപയോഗം: ജോസ് മേക്ക്:മിഡിൽവെയർ [പേര്]",
+  "@cliUsageMakeMiddleware": {
+    "description": "Mensaje de uso del generador de middleware"
+  },
+  "cliUsageMakeMigration": "ഉപയോഗം: ജോസ് മേക്ക്: മൈഗ്രേഷൻ [പേര്]",
+  "@cliUsageMakeMigration": {
+    "description": "Mensaje de uso del generador de migraciones"
+  },
+  "cliUsageMakeModel": "ഉപയോഗം: ജോസ് മേക്ക്: മോഡൽ [പേര്]",
+  "@cliUsageMakeModel": {
+    "description": "Mensaje de uso del generador de modelos"
+  },
+  "cliUsageMakeMvc": "ഉപയോഗം: joss make:mvc [പേര്]",
+  "@cliUsageMakeMvc": {
+    "description": "Mensaje de uso del generador de MVC"
+  },
+  "cliUsageMakeView": "ഉപയോഗം: ജോസ് മേക്ക്:വ്യൂ [പേര്]",
+  "@cliUsageMakeView": {
+    "description": "Mensaje de uso del generador de vistas"
+  },
+  "cliUsageProgram": "ഉപയോഗം: ജോസ് പ്രോഗ്രാം ആരംഭം",
+  "@cliUsageProgram": {
+    "description": "Mensaje de uso del comando program"
+  },
+  "cliUsageRemoveCrud": "ഉപയോഗം: ജോസ് നീക്കം: ക്രൂഡ് [പട്ടിക]",
+  "@cliUsageRemoveCrud": {
+    "description": "Mensaje de uso para eliminar CRUD"
+  },
+  "cliUsageRun": "ഉപയോഗം: joss run [archivo.joss]",
+  "@cliUsageRun": {
+    "description": "Mensaje de uso del comando run"
+  },
+  "cliUsageServer": "ഉപയോഗം: ജോസ് സെർവർ ആരംഭം",
+  "@cliUsageServer": {
+    "description": "Mensaje de uso del comando server"
   },
   "compileProjectDist": "വിതരണത്തിനായി പദ്ധതി നിർമ്മിക്കുക",
   "@compileProjectDist": {
@@ -204,9 +431,101 @@
   "@exeMigrateFresh": {
     "description": ""
   },
+  "fixAllClean": "[ശരി ശരിയാക്കുക] എല്ലാ .joss ഫയലുകളും ശുദ്ധവും കാനോനിക്കൽ ഫോർമാറ്റിലാണ്.",
+  "@fixAllClean": {
+    "description": "Resultado cuando fix no detectó problemas"
+  },
+  "fixNoChanges": "[ശരി ശരി] {file} ന് മാറ്റങ്ങൾ ആവശ്യമില്ല.",
+  "@fixNoChanges": {
+    "description": "Resultado para un archivo sin modificaciones en fix",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatAllOk": "[ഫോർമാറ്റ് ശരി] എല്ലാ .joss ഫയലുകളും കാനോനിക്കൽ ഫോർമാറ്റിന് അനുസൃതമാണ്.",
+  "@formatAllOk": {
+    "description": "Éxito cuando todos los archivos están formateados"
+  },
+  "formatFileAlready": "[ഫോർമാറ്റ്] {file} ഇപ്പോൾ കാനോനിക്കൽ ഫോർമാറ്റിലാണ്.",
+  "@formatFileAlready": {
+    "description": "Mensaje cuando el archivo no requería cambios de formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileFormatted": "[ഫോർമാറ്റ്] {file} ശരിയായി ഫോർമാറ്റ് ചെയ്തു.",
+  "@formatFileFormatted": {
+    "description": "Mensaje cuando un archivo fue modificado con formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileOk": "[ഫോർമാറ്റ് ശരി] {file} ശരിയായി ഫോർമാറ്റ് ചെയ്‌തു.",
+  "@formatFileOk": {
+    "description": "Éxito de formateo para un archivo individual",
+    "placeholders": {
+      "file": {}
+    }
+  },
   "helpPrint": "ഈ സഹായം കാണിക്കൂ",
   "@helpPrint": {
     "description": ""
+  },
+  "lintSuccess": "സോഴ്സ് കോഡിൽ പ്രശ്നങ്ങളൊന്നും കണ്ടെത്തിയില്ല.",
+  "@lintSuccess": {
+    "description": "Mensaje de éxito del linter"
+  },
+  "migrateCompleted": "മൈഗ്രേഷനുകൾ വിജയകരമായി പൂർത്തിയാക്കി.",
+  "@migrateCompleted": {
+    "description": "Mensaje final de éxito en migraciones"
+  },
+  "migrateDbSuccess": "ഡിബിയിലേക്കുള്ള കണക്ഷൻ വിജയിച്ചു.",
+  "@migrateDbSuccess": {
+    "description": "Mensaje de conexión establecida con la base de datos"
+  },
+  "migrateNoPending": "തീർപ്പാക്കാത്ത മൈഗ്രേഷനുകളൊന്നുമില്ല.",
+  "@migrateNoPending": {
+    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
+  },
+  "migrateNoneFound": "ആപ്പ്/ഡാറ്റാബേസ്/മൈഗ്രേഷൻ/ മൈഗ്രേഷനുകളൊന്നും കണ്ടെത്തിയില്ല",
+  "@migrateNoneFound": {
+    "description": "Aviso cuando la carpeta de migraciones está vacía"
+  },
+  "migrateStarting": "മൈഗ്രേഷനുകൾ പ്രവർത്തിപ്പിക്കുന്നു...",
+  "@migrateStarting": {
+    "description": "Inicio del proceso de migraciones"
+  },
+  "pkgBuildInvalidDir": "പിശക്: പാത '{path}' ഒരു സാധുവായ ഡയറക്‌ടറി അല്ല",
+  "@pkgBuildInvalidDir": {
+    "description": "Directorio de paquete inválido",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildMissingYaml": "പിശക്: '{path}' എന്നതിൽ നിന്ന് മാനിഫെസ്റ്റ് 'joss.yaml' കാണുന്നില്ല",
+  "@pkgBuildMissingYaml": {
+    "description": "Falta manifiesto joss.yaml",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildStarting": "[പാക്കേജ് ബിൽഡ്] '{path}'-ൽ പാക്കേജ് നിർമ്മാണം ആരംഭിക്കുന്നു...",
+  "@pkgBuildStarting": {
+    "description": "Inicio de compilación de plugin o paquete",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildSuccess": "[പാക്കേജ് ബിൽഡ്] JP v2 ഒപ്പിട്ടതും നടപ്പിലാക്കൽ ഉറവിടങ്ങളില്ലാതെ സമാഹരിച്ചതും: {path}",
+  "@pkgBuildSuccess": {
+    "description": "Éxito al empaquetar binario JP v2",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectJpV1Deprecated": "പിശക്: JP v1 പാക്കേജ് ഫോർമാറ്റ് നീക്കംചെയ്‌തു. ജോസിന് JP v2 ഘടനാപരമായതും ഒപ്പിട്ടതുമായ ഫോർമാറ്റ് ആവശ്യമാണ്.",
+  "@pkgInspectJpV1Deprecated": {
+    "description": "Aviso de versión obsoleta JP v1"
   },
   "removeCRUD": "ഒരു ടേബിളിനായി സൃഷ്ടിച്ച CRUD നീക്കം ചെയ്യുക",
   "@removeCRUD": {
@@ -215,6 +534,18 @@
   "runJossScript": "ഒരു ജോസ് സ്ക്രിപ്റ്റ് പ്രവർത്തിപ്പിക്കുക",
   "@runJossScript": {
     "description": ""
+  },
+  "serverStarting": "http://{host}:{port}-ൽ HTTP വെബ് സെർവർ ആരംഭിക്കുന്നു",
+  "@serverStarting": {
+    "description": "Mensaje de inicio del servidor",
+    "placeholders": {
+      "host": {},
+      "port": {}
+    }
+  },
+  "serverStopped": "വെബ് സെർവർ നിർത്തി.",
+  "@serverStopped": {
+    "description": "Mensaje de parada del servidor"
   },
   "settingsUserStorage": "സംഭരണം കോൺഫിഗർ ചെയ്യുക (പ്രാദേശിക|OCI|AWS|Azure)",
   "@settingsUserStorage": {
@@ -228,208 +559,9 @@
   "@startServerWeb": {
     "description": ""
   },
-  "version": "നിലവിലെ പതിപ്പ് കാണിക്കുന്നു",
-  "@version": {
-    "description": ""
-  },
-  "cliCmdRun": "Joss സ്ക്രിപ്റ്റ് അല്ലെങ്കിൽ ഫയൽ നേരിട്ട് പ്രവർത്തിപ്പിക്കുക",
-  "@cliCmdRun": {
-    "description": "Descripción del comando joss run"
-  },
-  "cliAppTitle": "Joss — ആധുനിക ഭാഷയും വികസന പ്ലാറ്റ്ഫോം",
-  "@cliAppTitle": {
-    "description": "Título principal mostrado en la ayuda de la CLI"
-  },
-  "cliUsage": "ഉപയോഗം: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
-  "cliCmdRepl": "ഇന്ററാക്ടീവ് കോൺസോൾ (REPL) ആരംഭിക്കുക",
-  "@cliCmdRepl": {
-    "description": "Descripción del comando joss repl"
-  },
-  "cliCmdAnalyze": "സ്റ്റാറ്റിക് സെമാൻ്റിക് വിശകലനവും സമഗ്രമായ തരം പരിശോധനയും",
-  "@cliCmdAnalyze": {
-    "description": "Descripción del comando joss analyze"
-  },
-  "cliCmdServer": "ഉയർന്ന പ്രവർത്തനക്ഷമതയുള്ള HTTP വെബ് സെർവർ ആരംഭിക്കുക",
-  "@cliCmdServer": {
-    "description": "Descripción del comando joss server start / joss serve"
-  },
-  "cliCmdLint": "മുന്നറിയിപ്പുകൾ, വിലക്കലുകൾ, മികച്ച രീതികൾ എന്നിവയ്ക്കായി കോഡ് പരിശോധിക്കുക",
-  "@cliCmdLint": {
-    "description": "Descripción del comando joss lint"
-  },
-  "cliCmdFormat": "കാനോനിക്കൽ ഭാഷാ നിലവാരം അനുസരിച്ച് .joss ഫയലുകൾ ഫോർമാറ്റ് ചെയ്യുക",
-  "@cliCmdFormat": {
-    "description": "Descripción del comando joss format / joss fmt"
-  },
-  "cliCmdTest": "യൂണിറ്റും ഇൻ്റഗ്രേഷൻ ടെസ്റ്റ് സ്യൂട്ടും പ്രവർത്തിപ്പിക്കുക (*_test.joss)",
-  "@cliCmdTest": {
-    "description": "Descripción del comando joss test"
-  },
-  "cliCmdBuild": "വിതരണത്തിനായി പ്രോജക്റ്റ് കംപൈൽ ചെയ്യുക (വെബ് അല്ലെങ്കിൽ ഒറ്റപ്പെട്ട ബൈനറി)",
-  "@cliCmdBuild": {
-    "description": "Descripción del comando joss build"
-  },
-  "cliCmdPub": "ജോസ് ഇക്കോസിസ്റ്റത്തിൻ്റെ ഔദ്യോഗിക പാക്കേജും പ്ലഗിൻ മാനേജരും",
-  "@cliCmdPub": {
-    "description": "Descripción del comando joss pub"
-  },
-  "serverStopped": "വെബ് സെർവർ നിർത്തി.",
-  "@serverStopped": {
-    "description": "Mensaje de parada del servidor"
-  },
-  "serverStarting": "http://{host}:{port}-ൽ HTTP വെബ് സെർവർ ആരംഭിക്കുന്നു",
-  "@serverStarting": {
-    "description": "Mensaje de inicio del servidor",
-    "placeholders": {
-      "host": {},
-      "port": {}
-    }
-  },
-  "lintSuccess": "സോഴ്സ് കോഡിൽ പ്രശ്നങ്ങളൊന്നും കണ്ടെത്തിയില്ല.",
-  "@lintSuccess": {
-    "description": "Mensaje de éxito del linter"
-  },
-  "analyzeSuccess": "സെമാൻ്റിക് വിശകലനം പൂർത്തിയായി: പ്രശ്നങ്ങളൊന്നും കണ്ടെത്തിയില്ല.",
-  "@analyzeSuccess": {
-    "description": "Mensaje de éxito del analizador estático"
-  },
-  "cliUsageRun": "ഉപയോഗം: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
-  "cliErrRequireMain": "എല്ലാ പ്രോജക്റ്റുകളും സർവർ ആരംഭിക്കുന്ന 'main.joss' എന്ന എൻട്രി പോയിന്റ് ഉണ്ടായിരിക്കണം.",
-  "@cliErrRequireMain": {
-    "description": "Explicación de la necesidad del archivo main.joss"
-  },
-  "cliExecMain": "[CLI] സ്റ്റാർട്ടപ്പ് സ്ക്രിപ്റ്റ് പ്രവർത്തിപ്പിക്കുന്നു (main.joss)...",
-  "@cliExecMain": {
-    "description": "Mensaje informativo al arrancar el script main.joss"
-  },
-  "cliErrNoMain": "പിശക്: 'main.joss' കണ്ടെത്തിയില്ല.",
-  "@cliErrNoMain": {
-    "description": "Error cuando falta el archivo de entrada principal"
-  },
-  "cliUsageServer": "ഉപയോഗം: ജോസ് സെർവർ ആരംഭം",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
-  "cliUsageMakeController": "ഉപയോഗം: ജോസ് മേക്ക്:കൺട്രോളർ [പേര്]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageBuildPkg": "ഉപയോഗം: ജോസ് ബിൽഡ് പാക്കേജ് [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageProgram": "ഉപയോഗം: ജോസ് പ്രോഗ്രാം ആരംഭം",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageMakeModel": "ഉപയോഗം: ജോസ് മേക്ക്: മോഡൽ [പേര്]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "ഉപയോഗം: joss make:mvc [പേര്]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "ഉപയോഗം: ജോസ് മേക്ക്:വ്യൂ [പേര്]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageMakeMiddleware": "ഉപയോഗം: ജോസ് മേക്ക്:മിഡിൽവെയർ [പേര്]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeCrud": "ഉപയോഗം: ജോസ് മേക്ക്:ക്രഡ് [പട്ടിക]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageRemoveCrud": "ഉപയോഗം: ജോസ് നീക്കം: ക്രൂഡ് [പട്ടിക]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageMakeMigration": "ഉപയോഗം: ജോസ് മേക്ക്: മൈഗ്രേഷൻ [പേര്]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
-  },
-  "checkVerifying": "[പരിശോധിക്കുക] '{path}' (പാഴ്‌സ്, സെമാൻ്റിക് വിശകലനം, തരങ്ങൾ, ലിൻ്റ്, ഫോർമാറ്റ്) എന്നതിൽ പ്രോജക്റ്റ് പരിശോധിക്കുന്നു...",
-  "@checkVerifying": {
-    "description": "Mensaje inicial del comando joss check",
-    "placeholders": {
-      "path": {}
-    }
-  },
-  "checkFormatOk": "✓ ഫോർമാറ്റ്: ശരി",
-  "@checkFormatOk": {
-    "description": "Confirmación de formato canónico válido"
-  },
-  "checkSemanticOk": "✓ സെമാൻ്റിക് വിശകലനവും തരങ്ങളും: ശരി",
-  "@checkSemanticOk": {
-    "description": "Confirmación de análisis semántico correcto"
-  },
-  "checkLintOk": "✓ ലിൻ്ററും സുരക്ഷാ നിയമങ്ങളും: ശരി",
-  "@checkLintOk": {
-    "description": "Confirmación de reglas de linter superadas"
-  },
-  "checkResultOk": "[ഫലം പരിശോധിക്കുക] പ്രോജക്റ്റ് പൂർണ്ണമായും പരിശോധിച്ചുറപ്പിക്കുകയും തയ്യാറാണ്.",
-  "@checkResultOk": {
-    "description": "Resultado positivo de verificación general"
-  },
-  "checkResultFail": "[ഫലം പരിശോധിക്കുക] പ്രോജക്റ്റിൽ പരിഹരിക്കേണ്ട പ്രശ്നങ്ങൾ അടങ്ങിയിരിക്കുന്നു.",
-  "@checkResultFail": {
-    "description": "Resultado con errores en verificación"
-  },
-  "formatAllOk": "[ഫോർമാറ്റ് ശരി] എല്ലാ .joss ഫയലുകളും കാനോനിക്കൽ ഫോർമാറ്റിന് അനുസൃതമാണ്.",
-  "@formatAllOk": {
-    "description": "Éxito cuando todos los archivos están formateados"
-  },
-  "formatFileOk": "[ഫോർമാറ്റ് ശരി] {file} ശരിയായി ഫോർമാറ്റ് ചെയ്‌തു.",
-  "@formatFileOk": {
-    "description": "Éxito de formateo para un archivo individual",
-    "placeholders": {
-      "file": {}
-    }
-  },
-  "formatFileFormatted": "[ഫോർമാറ്റ്] {file} ശരിയായി ഫോർമാറ്റ് ചെയ്തു.",
-  "@formatFileFormatted": {
-    "description": "Mensaje cuando un archivo fue modificado con formato",
-    "placeholders": {
-      "file": {}
-    }
-  },
-  "fixNoChanges": "[ശരി ശരി] {file} ന് മാറ്റങ്ങൾ ആവശ്യമില്ല.",
-  "@fixNoChanges": {
-    "description": "Resultado para un archivo sin modificaciones en fix",
-    "placeholders": {
-      "file": {}
-    }
-  },
-  "formatFileAlready": "[ഫോർമാറ്റ്] {file} ഇപ്പോൾ കാനോനിക്കൽ ഫോർമാറ്റിലാണ്.",
-  "@formatFileAlready": {
-    "description": "Mensaje cuando el archivo no requería cambios de formato",
-    "placeholders": {
-      "file": {}
-    }
-  },
-  "fixAllClean": "[ശരി ശരിയാക്കുക] എല്ലാ .joss ഫയലുകളും ശുദ്ധവും കാനോനിക്കൽ ഫോർമാറ്റിലാണ്.",
-  "@fixAllClean": {
-    "description": "Resultado cuando fix no detectó problemas"
-  },
   "testNoFilesFound": "ടെസ്റ്റ് ഫയലുകളൊന്നും (*_test.joss) കണ്ടെത്തിയില്ല.",
   "@testNoFilesFound": {
     "description": "Aviso cuando no hay archivos de prueba"
-  },
-  "migrateStarting": "മൈഗ്രേഷനുകൾ പ്രവർത്തിപ്പിക്കുന്നു...",
-  "@migrateStarting": {
-    "description": "Inicio del proceso de migraciones"
-  },
-  "migrateDbSuccess": "ഡിബിയിലേക്കുള്ള കണക്ഷൻ വിജയിച്ചു.",
-  "@migrateDbSuccess": {
-    "description": "Mensaje de conexión establecida con la base de datos"
   },
   "testRunning": "{path}-ൽ യൂണിറ്റ് ടെസ്റ്റുകൾ നടത്തുന്നു...",
   "@testRunning": {
@@ -438,16 +570,8 @@
       "path": {}
     }
   },
-  "migrateNoPending": "തീർപ്പാക്കാത്ത മൈഗ്രേഷനുകളൊന്നുമില്ല.",
-  "@migrateNoPending": {
-    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
-  },
-  "migrateNoneFound": "ആപ്പ്/ഡാറ്റാബേസ്/മൈഗ്രേഷൻ/ മൈഗ്രേഷനുകളൊന്നും കണ്ടെത്തിയില്ല",
-  "@migrateNoneFound": {
-    "description": "Aviso cuando la carpeta de migraciones está vacía"
-  },
-  "migrateCompleted": "മൈഗ്രേഷനുകൾ വിജയകരമായി പൂർത്തിയാക്കി.",
-  "@migrateCompleted": {
-    "description": "Mensaje final de éxito en migraciones"
+  "version": "നിലവിലെ പതിപ്പ് കാണിക്കുന്നു",
+  "@version": {
+    "description": ""
   }
 }

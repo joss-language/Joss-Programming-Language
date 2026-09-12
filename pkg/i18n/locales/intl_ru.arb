@@ -449,5 +449,129 @@
   "migrateCompleted": "Миграция завершена успешно.",
   "@migrateCompleted": {
     "description": "Mensaje final de éxito en migraciones"
+  },
+  "buildStrictStructure": "Библия Джосса требует строгой структуры.",
+  "@buildStrictStructure": {
+    "description": "Recordatorio de estructura arquitectónica"
+  },
+  "buildMissingEnv": "Ошибка архитектуры: отсутствует файл окружения ('env.joss' или '.env')",
+  "@buildMissingEnv": {
+    "description": "Falta el archivo de configuración de entorno"
+  },
+  "buildMissingRequired": "Ошибка архитектуры: отсутствует требуемый файл/директория '{file}'",
+  "@buildMissingRequired": {
+    "description": "Falta un archivo o directorio indispensable",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "buildCopyingFiles": "Копирование файлов проекта...",
+  "@buildCopyingFiles": {
+    "description": "Copia de assets y código"
+  },
+  "buildCreatingDir": "Создание выходного каталога '{dir}'...",
+  "@buildCreatingDir": {
+    "description": "Creación del directorio de salida del build",
+    "placeholders": {
+      "dir": {}
+    }
+  },
+  "buildPromptNodeModules": "Хотите включить 'node_modules' в сборку? (y/n):",
+  "@buildPromptNodeModules": {
+    "description": "Pregunta interactiva para incluir dependencias JS"
+  },
+  "buildIncludeNodeModules": "-> Node_modules будут включены.",
+  "@buildIncludeNodeModules": {
+    "description": "Confirmación de inclusión de node_modules"
+  },
+  "buildOmitNodeModules": "-> node_modules будут пропущены.",
+  "@buildOmitNodeModules": {
+    "description": "Confirmación de exclusión de node_modules"
+  },
+  "buildNginxPortCreated": "Файл nginx_port.conf, созданный с портом {port}",
+  "@buildNginxPortCreated": {
+    "description": "Generación del archivo de configuración para nginx",
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "buildEncryptingEnv": "Среда шифрования для производства...",
+  "@buildEncryptingEnv": {
+    "description": "Encriptación segura de credenciales"
+  },
+  "buildSelectTargetOs": "Выберите целевую операционную систему:",
+  "@buildSelectTargetOs": {
+    "description": "Menú selector de SO destino"
+  },
+  "buildOsWindows": "1. Windows (x64)",
+  "@buildOsWindows": {
+    "description": "Opción Windows"
+  },
+  "buildOsLinux": "2. Линукс (х64)",
+  "@buildOsLinux": {
+    "description": "Opción Linux"
+  },
+  "buildOsMacArm": "3. macOS Apple Silicon (arm64)",
+  "@buildOsMacArm": {
+    "description": "Opción macOS ARM"
+  },
+  "buildOsMacIntel": "4. macOS Intel (amd64)",
+  "@buildOsMacIntel": {
+    "description": "Opción macOS Intel"
+  },
+  "buildOsCurrent": "5. Текущая операционная система ({os}/{arch})",
+  "@buildOsCurrent": {
+    "description": "Opción SO anfitrión actual",
+    "placeholders": {
+      "os": {},
+      "arch": {}
+    }
+  },
+  "buildPromptOption": "Вариант [1-5]:",
+  "@buildPromptOption": {
+    "description": "Prompt interactivo de selección"
+  },
+  "buildInvalidOption": "Неверный вариант. Отмена компиляции.",
+  "@buildInvalidOption": {
+    "description": "Error al elegir opción no permitida"
+  },
+  "buildEnvEncryptedSaved": "Зашифрованная среда сохранена в {path}.",
+  "@buildEnvEncryptedSaved": {
+    "description": "Confirmación de almacenamiento del env.enc",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildInvalidDir": "Ошибка: путь «{path}» не является допустимым каталогом.",
+  "@pkgBuildInvalidDir": {
+    "description": "Directorio de paquete inválido",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildStarting": "[Сборка пакета] Начинаем сборку пакета с '{path}'...",
+  "@pkgBuildStarting": {
+    "description": "Inicio de compilación de plugin o paquete",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildMissingYaml": "Ошибка: манифест «joss.yaml» отсутствует в «{path}»",
+  "@pkgBuildMissingYaml": {
+    "description": "Falta manifiesto joss.yaml",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildSuccess": "[Сборка пакета] JP v2 подписана и скомпилирована без исходников реализации: {path}",
+  "@pkgBuildSuccess": {
+    "description": "Éxito al empaquetar binario JP v2",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectJpV1Deprecated": "Ошибка: формат пакета JP v1 был удален. Джоссу требуется структурированный и подписанный формат JP v2.",
+  "@pkgInspectJpV1Deprecated": {
+    "description": "Aviso de versión obsoleta JP v1"
   }
 }

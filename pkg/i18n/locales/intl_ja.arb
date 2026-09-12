@@ -449,5 +449,129 @@
   "migrateCompleted": "移行は正常に完了しました。",
   "@migrateCompleted": {
     "description": "Mensaje final de éxito en migraciones"
+  },
+  "buildStrictStructure": "ジョスの聖書は厳格な構造を必要とします。",
+  "@buildStrictStructure": {
+    "description": "Recordatorio de estructura arquitectónica"
+  },
+  "buildMissingEnv": "アーキテクチャエラー: 環境ファイルがありません ('env.joss' または '.env')",
+  "@buildMissingEnv": {
+    "description": "Falta el archivo de configuración de entorno"
+  },
+  "buildMissingRequired": "アーキテクチャエラー: 必要なファイル/ディレクトリ '{file}' が見つかりません",
+  "@buildMissingRequired": {
+    "description": "Falta un archivo o directorio indispensable",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "buildCopyingFiles": "プロジェクトファイルをコピーしています...",
+  "@buildCopyingFiles": {
+    "description": "Copia de assets y código"
+  },
+  "buildCreatingDir": "出力ディレクトリ '{dir}' を作成しています...",
+  "@buildCreatingDir": {
+    "description": "Creación del directorio de salida del build",
+    "placeholders": {
+      "dir": {}
+    }
+  },
+  "buildPromptNodeModules": "ビルドに 'node_modules' を含めますか？ (y/n):",
+  "@buildPromptNodeModules": {
+    "description": "Pregunta interactiva para incluir dependencias JS"
+  },
+  "buildIncludeNodeModules": "-> Node_modules がインクルードされます。",
+  "@buildIncludeNodeModules": {
+    "description": "Confirmación de inclusión de node_modules"
+  },
+  "buildOmitNodeModules": "-> node_modules はスキップされます。",
+  "@buildOmitNodeModules": {
+    "description": "Confirmación de exclusión de node_modules"
+  },
+  "buildNginxPortCreated": "nginx_port.conf ファイルはポート {port} で作成されました",
+  "@buildNginxPortCreated": {
+    "description": "Generación del archivo de configuración para nginx",
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "buildEncryptingEnv": "実稼働環境を暗号化しています...",
+  "@buildEncryptingEnv": {
+    "description": "Encriptación segura de credenciales"
+  },
+  "buildSelectTargetOs": "ターゲットのオペレーティング システムを選択します。",
+  "@buildSelectTargetOs": {
+    "description": "Menú selector de SO destino"
+  },
+  "buildOsWindows": "1.Windows (x64)",
+  "@buildOsWindows": {
+    "description": "Opción Windows"
+  },
+  "buildOsLinux": "2. Linux (x64)",
+  "@buildOsLinux": {
+    "description": "Opción Linux"
+  },
+  "buildOsMacArm": "3. macOS Apple Silicon (arm64)",
+  "@buildOsMacArm": {
+    "description": "Opción macOS ARM"
+  },
+  "buildOsMacIntel": "4. macOS インテル (amd64)",
+  "@buildOsMacIntel": {
+    "description": "Opción macOS Intel"
+  },
+  "buildOsCurrent": "5. 現在のオペレーティング システム ({os}/{arch})",
+  "@buildOsCurrent": {
+    "description": "Opción SO anfitrión actual",
+    "placeholders": {
+      "os": {},
+      "arch": {}
+    }
+  },
+  "buildPromptOption": "オプション [1-5]:",
+  "@buildPromptOption": {
+    "description": "Prompt interactivo de selección"
+  },
+  "buildInvalidOption": "無効なオプションです。コンパイルをキャンセルします。",
+  "@buildInvalidOption": {
+    "description": "Error al elegir opción no permitida"
+  },
+  "buildEnvEncryptedSaved": "暗号化された環境は {path} に保存されました",
+  "@buildEnvEncryptedSaved": {
+    "description": "Confirmación de almacenamiento del env.enc",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildInvalidDir": "エラー: パス「{path}」は有効なディレクトリではありません",
+  "@pkgBuildInvalidDir": {
+    "description": "Directorio de paquete inválido",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildStarting": "[パッケージ ビルド] '{path}' にパッケージのビルドを開始します...",
+  "@pkgBuildStarting": {
+    "description": "Inicio de compilación de plugin o paquete",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildMissingYaml": "エラー: マニフェスト 'joss.yaml' が '{path}' にありません",
+  "@pkgBuildMissingYaml": {
+    "description": "Falta manifiesto joss.yaml",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildSuccess": "[パッケージ ビルド] 実装ソースなしで署名およびコンパイルされた JP v2: {path}",
+  "@pkgBuildSuccess": {
+    "description": "Éxito al empaquetar binario JP v2",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectJpV1Deprecated": "エラー: JP v1 パッケージ形式は削除されました。 Joss には、JP v2 の構造化および署名された形式が必要です。",
+  "@pkgInspectJpV1Deprecated": {
+    "description": "Aviso de versión obsoleta JP v1"
   }
 }

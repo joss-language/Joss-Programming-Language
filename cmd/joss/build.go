@@ -16,12 +16,13 @@ import (
 
 	"github.com/jossecurity/joss/pkg/bytecode"
 	"github.com/jossecurity/joss/pkg/crypto"
+	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/pluginpkg"
 )
 
 func buildWeb() {
-	fmt.Println("Iniciando compilación WEB de Joss...")
+	fmt.Println(i18n.T("buildWebStart"))
 
 	// 1. Validate Structure (Strict Topology)
 	required := []string{
@@ -34,21 +35,21 @@ func buildWeb() {
 	}
 	for _, f := range required {
 		if _, err := os.Stat(f); os.IsNotExist(err) {
-			fmt.Printf("Error de Arquitectura: Falta archivo/directorio requerido '%s'\n", f)
-			fmt.Println("La Biblia de Joss requiere una estructura estricta.")
+			fmt.Println(i18n.T("buildMissingRequired", map[string]any{"file": f}))
+			fmt.Println(i18n.T("buildStrictStructure"))
 			return
 		}
 	}
 
 	// Check for environment file (env.joss OR .env)
 	if _, err := os.Stat(GetEnvFile()); os.IsNotExist(err) {
-		fmt.Println("Error de Arquitectura: Falta archivo de entorno ('env.joss' o '.env')")
+		fmt.Println(i18n.T("buildMissingEnv"))
 		return
 	}
 
 	// 2. Prepare Build Directory
 	buildDir := "build"
-	fmt.Printf("Creando directorio de salida '%s'...\n", buildDir)
+	fmt.Println(i18n.T("buildCreatingDir", map[string]any{"dir": buildDir}))
 	os.RemoveAll(buildDir)
 	if err := os.MkdirAll(buildDir, 0755); err != nil {
 		fmt.Printf("Error creando directorio build: %v\n", err)
@@ -56,7 +57,7 @@ func buildWeb() {
 	}
 
 	// 3. Copy Project Files
-	fmt.Println("Copiando archivos del proyecto...")
+	fmt.Println(i18n.T("buildCopyingFiles"))
 
 	// Default ignore list
 	ignoredDirs := map[string]bool{
@@ -73,16 +74,16 @@ func buildWeb() {
 	// Check for node_modules inclusion
 	includeNodeModules := false
 	if _, err := os.Stat("node_modules"); err == nil {
-		fmt.Print("¿Desea incluir 'node_modules' en el build? (y/n): ")
+		fmt.Print(i18n.T("buildPromptNodeModules"))
 		reader := bufio.NewReader(os.Stdin)
 		response, _ := reader.ReadString('\n')
 		response = strings.ToLower(strings.TrimSpace(response))
 
 		if response == "y" || response == "s" || response == "si" || response == "yes" {
 			includeNodeModules = true
-			fmt.Println("-> Se incluirá node_modules.")
+			fmt.Println(i18n.T("buildIncludeNodeModules"))
 		} else {
-			fmt.Println("-> Se omitirá node_modules.")
+			fmt.Println(i18n.T("buildOmitNodeModules"))
 		}
 	}
 
@@ -120,7 +121,7 @@ func buildWeb() {
 	// 4. Copy Database and WAL files
 	if _, err := os.Stat("database.sqlite"); err == nil {
 		copyFile("database.sqlite", filepath.Join(buildDir, "database.sqlite"))
-		fmt.Println("Base de datos copiada a build/")
+		fmt.Println(i18n.T("buildDbCopied"))
 
 		// Copy WAL files if they exist
 		if _, err := os.Stat("database.sqlite-shm"); err == nil {
@@ -142,28 +143,28 @@ func buildWeb() {
 	if err := os.WriteFile(filepath.Join(buildDir, "nginx_port.conf"), []byte(nginxContent), 0644); err != nil {
 		fmt.Printf("Error creando nginx_port.conf: %v\n", err)
 	} else {
-		fmt.Printf("Archivo nginx_port.conf creado con puerto %s\n", port)
+		fmt.Println(i18n.T("buildNginxPortCreated", map[string]any{"port": port}))
 	}
 
 	// 5. Encrypt env.joss to build/env.enc
-	fmt.Println("Encriptando entorno para producción...")
+	fmt.Println(i18n.T("buildEncryptingEnv"))
 	encryptEnvTo(filepath.Join(buildDir, "env.enc"))
 
-	fmt.Println("Build WEB completado exitosamente en carpeta 'build/'.")
-	fmt.Println("Para desplegar, sube el contenido de la carpeta 'build/' a tu servidor.")
-	fmt.Println("Solo necesitas ejecutar joss run main.joss dentro de ella en el servidor.")
+	fmt.Println(i18n.T("buildWebSuccess"))
+	fmt.Println(i18n.T("buildDeployTip"))
+	fmt.Println(i18n.T("buildRunTip"))
 }
 
 func buildProgram() {
-	fmt.Println("Iniciando compilación PROGRAM de Joss (NATIVE STANDALONE MODE)...")
+	fmt.Println(i18n.T("buildProgramStart"))
 
-	fmt.Println("Seleccione el sistema operativo destino:")
-	fmt.Println("1. Windows (x64)")
-	fmt.Println("2. Linux (x64)")
-	fmt.Println("3. macOS Apple Silicon (arm64)")
-	fmt.Println("4. macOS Intel (amd64)")
-	fmt.Println("5. Sistema Operativo Actual (" + runtime.GOOS + "/" + runtime.GOARCH + ")")
-	fmt.Print("Opción [1-5]: ")
+	fmt.Println(i18n.T("buildSelectOS"))
+	fmt.Println(i18n.T("buildOSWindows"))
+	fmt.Println(i18n.T("buildOSLinux"))
+	fmt.Println(i18n.T("buildOSMacArm"))
+	fmt.Println(i18n.T("buildOSMacIntel"))
+	fmt.Println(i18n.T("buildOSCurrent", map[string]any{"os": runtime.GOOS, "arch": runtime.GOARCH}))
+	fmt.Print(i18n.T("buildPromptOption"))
 
 	reader := bufio.NewReader(os.Stdin)
 	option, _ := reader.ReadString('\n')
@@ -181,7 +182,7 @@ func buildProgram() {
 	case "5", "current", "":
 		buildNative(runtime.GOOS, runtime.GOARCH, false)
 	default:
-		fmt.Println("Opción no válida. Cancelando compilación.")
+		fmt.Println(i18n.T("buildInvalidOption"))
 	}
 }
 
@@ -269,7 +270,7 @@ func encryptEnvTo(destPath string) {
 		fmt.Printf("Error escribiendo %s: %v\n", destPath, err)
 		return
 	}
-	fmt.Printf("Entorno encriptado guardado en %s\n", destPath)
+	fmt.Println(i18n.T("buildEnvEncryptedSaved", map[string]any{"path": destPath}))
 }
 
 func getEnvPort(envPath string) string {
@@ -305,19 +306,19 @@ func getEnvPort(envPath string) string {
 }
 
 func buildPackage(pkgPath string) {
-	fmt.Printf("[Package Build] Iniciando compilación de paquete en '%s'...\n", pkgPath)
+	fmt.Println(i18n.T("pkgBuildStarting", map[string]any{"path": pkgPath}))
 
 	// Validate path exists
 	info, err := os.Stat(pkgPath)
 	if err != nil || !info.IsDir() {
-		fmt.Printf("Error: La ruta '%s' no es un directorio válido\n", pkgPath)
+		fmt.Println(i18n.T("pkgBuildInvalidDir", map[string]any{"path": pkgPath}))
 		return
 	}
 
 	// Read joss.yaml manifest first to check package validity
 	manifestPath := filepath.Join(pkgPath, "joss.yaml")
 	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
-		fmt.Printf("Error: Falta manifiesto 'joss.yaml' en '%s'\n", pkgPath)
+		fmt.Println(i18n.T("pkgBuildMissingYaml", map[string]any{"path": pkgPath}))
 		return
 	}
 	manifestData, err := os.ReadFile(manifestPath)
@@ -468,7 +469,7 @@ func buildPackage(pkgPath string) {
 		return
 	}
 
-	fmt.Printf("[Package Build] JP v2 firmado y compilado sin fuentes de implementación: %s\n", outPath)
+	fmt.Println(i18n.T("pkgBuildSuccess", map[string]any{"path": outPath}))
 	fmt.Printf("[Package Build] Llave de autor: %s (no se incluye en el JP)\n", signingKeyPath)
 }
 
@@ -517,7 +518,7 @@ func inspectPackage(filename string) {
 		return
 	}
 	if !pluginpkg.IsV2(data) {
-		fmt.Println("Error: El formato de paquete JP v1 fue eliminado. Joss requiere el formato estructurado y firmado JP v2.")
+		fmt.Println(i18n.T("pkgInspectJpV1Deprecated"))
 		return
 	}
 	archive, err := pluginpkg.Read(data)

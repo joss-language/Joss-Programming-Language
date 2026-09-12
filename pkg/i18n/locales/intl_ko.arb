@@ -77,6 +77,10 @@
   "@aiWizardTitle": {
     "description": ""
   },
+  "analyzeSuccess": "의미 분석 완료: 문제가 발견되지 않았습니다.",
+  "@analyzeSuccess": {
+    "description": "Mensaje de éxito del analizador estático"
+  },
   "brevoActivatedSuccess": "✅ BREVO_API가 성공적으로 활성화 및 구성되었습니다.",
   "@brevoActivatedSuccess": {},
   "brevoConfig": "Configure interactive Brevo API (Email)",
@@ -104,24 +108,100 @@
   "@brevoTitle": {},
   "buildCopyFiles": "프로젝트 파일 복사 중...",
   "@buildCopyFiles": {},
+  "buildCopyingFiles": "프로젝트 파일 복사 중...",
+  "@buildCopyingFiles": {
+    "description": "Copia de assets y código"
+  },
+  "buildCreatingDir": "출력 디렉터리 '{dir}' 생성 중...",
+  "@buildCreatingDir": {
+    "description": "Creación del directorio de salida del build",
+    "placeholders": {
+      "dir": {}
+    }
+  },
   "buildDbCopied": "데이터베이스가 빌드에 복사되었습니다/",
   "@buildDbCopied": {},
   "buildDbCopiedProgram": "데이터베이스가 빌드/스토리지/에 복사되었습니다.",
   "@buildDbCopiedProgram": {},
   "buildEncryptEnv": "프로덕션 환경을 암호화하는 중...",
   "@buildEncryptEnv": {},
+  "buildEncryptingEnv": "프로덕션 환경을 암호화하는 중...",
+  "@buildEncryptingEnv": {
+    "description": "Encriptación segura de credenciales"
+  },
+  "buildEnvEncryptedSaved": "암호화된 환경이 {path}에 저장되었습니다",
+  "@buildEnvEncryptedSaved": {
+    "description": "Ruta del archivo de entorno encriptado",
+    "placeholders": {
+      "path": {}
+    }
+  },
   "buildEnvEncryptedSuccess": "env.enc로 암호화되어 포함된 환경",
   "@buildEnvEncryptedSuccess": {},
   "buildEnvMissingError": "아키텍처 오류: 환경 파일 누락('env.joss' 또는 '.env')",
   "@buildEnvMissingError": {},
+  "buildIncludeNodeModules": "-> Node_modules가 포함됩니다.",
+  "@buildIncludeNodeModules": {
+    "description": "Confirmación de inclusión de node_modules"
+  },
   "buildInjectDbPath": "DB_PATH=\"Storage/database.sqlite\" 구성을 임베디드 env.joss에 삽입하는 중...",
   "@buildInjectDbPath": {},
+  "buildInvalidOption": "잘못된 옵션입니다. 편집을 취소하는 중입니다.",
+  "@buildInvalidOption": {
+    "description": "Error al elegir opción no permitida"
+  },
+  "buildMissingEnv": "아키텍처 오류: 환경 파일이 없습니다 ('env.joss' 또는 '.env')",
+  "@buildMissingEnv": {
+    "description": "Falta el archivo de configuración de entorno"
+  },
+  "buildMissingRequired": "아키텍처 오류: 필요한 파일/디렉터리 '{file}'이(가) 없습니다",
+  "@buildMissingRequired": {
+    "description": "Falta un archivo o directorio indispensable",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "buildNginxPortCreated": "포트 {port}로 생성된 nginx_port.conf 파일",
+  "@buildNginxPortCreated": {
+    "description": "Generación del archivo de configuración para nginx",
+    "placeholders": {
+      "port": {}
+    }
+  },
   "buildNodeModulesInclude": "-> node_modules가 포함됩니다.",
   "@buildNodeModulesInclude": {},
   "buildNodeModulesOmit": "-> node_modules는 생략됩니다.",
   "@buildNodeModulesOmit": {},
+  "buildOmitNodeModules": "-> node_modules를 건너뜁니다.",
+  "@buildOmitNodeModules": {
+    "description": "Confirmación de exclusión de node_modules"
+  },
+  "buildOsCurrent": "5. 현재 운영 체제({os}/{arch})",
+  "@buildOsCurrent": {
+    "description": "Opción SO anfitrión actual",
+    "placeholders": {
+      "os": {},
+      "arch": {}
+    }
+  },
+  "buildOsLinux": "2. 리눅스(x64)",
+  "@buildOsLinux": {
+    "description": "Opción Linux"
+  },
+  "buildOsMacArm": "3. macOS 애플 실리콘(arm64)",
+  "@buildOsMacArm": {
+    "description": "Opción macOS ARM"
+  },
+  "buildOsMacIntel": "4. 맥OS 인텔(amd64)",
+  "@buildOsMacIntel": {
+    "description": "Opción macOS Intel"
+  },
   "buildOsNotSupported": "이 사전 컴파일된 버전에서는 Windows만 지원됩니다.",
   "@buildOsNotSupported": {},
+  "buildOsWindows": "1.윈도우(x64)",
+  "@buildOsWindows": {
+    "description": "Opción Windows"
+  },
   "buildPackAssets": "자산 암호화 및 패키징 중...",
   "@buildPackAssets": {},
   "buildProgramDataDir": "  build/data/ (지금은 비어 있음)",
@@ -136,12 +216,28 @@
   "@buildProgramStructure": {},
   "buildProgramSuccess": "PROGRAM 빌드가 'build/' 폴더에서 성공적으로 완료되었습니다.",
   "@buildProgramSuccess": {},
+  "buildPromptNodeModules": "빌드에 'node_modules'를 포함하시겠습니까? (y/n):",
+  "@buildPromptNodeModules": {
+    "description": "Pregunta interactiva para incluir dependencias JS"
+  },
+  "buildPromptOption": "옵션 [1-5]:",
+  "@buildPromptOption": {
+    "description": "Prompt interactivo de selección"
+  },
   "buildSchemaError": "조스 성경은 엄격한 구조를 요구합니다.",
   "@buildSchemaError": {},
   "buildSelectOs": "대상 운영 체제를 선택하십시오.",
   "@buildSelectOs": {},
   "buildSelectOsWindows": "1. Windows",
   "@buildSelectOsWindows": {},
+  "buildSelectTargetOs": "대상 운영 체제를 선택하십시오.",
+  "@buildSelectTargetOs": {
+    "description": "Menú selector de SO destino"
+  },
+  "buildStrictStructure": "조스의 성경은 엄격한 구조를 필요로 합니다.",
+  "@buildStrictStructure": {
+    "description": "Recordatorio de estructura arquitectónica"
+  },
   "buildWebDeployTip": "배포하려면 'build/' 폴더의 콘텐츠를 서버에 업로드하세요.",
   "@buildWebDeployTip": {},
   "buildWebRunTip": "서버 내부에서 'joss run main.joss'만 실행하면 됩니다.",
@@ -159,6 +255,137 @@
   "changeDBPrefix": "테이블 접두사 변경",
   "@changeDBPrefix": {
     "description": ""
+  },
+  "checkFormatOk": "✓ 형식: 확인",
+  "@checkFormatOk": {
+    "description": "Confirmación de formato canónico válido"
+  },
+  "checkLintOk": "✓ 린터 및 안전 규칙: OK",
+  "@checkLintOk": {
+    "description": "Confirmación de reglas de linter superadas"
+  },
+  "checkResultFail": "[결과 확인] 프로젝트에 해결해야 할 문제가 있습니다.",
+  "@checkResultFail": {
+    "description": "Resultado con errores en verificación"
+  },
+  "checkResultOk": "[CHECK RESULT] 프로젝트 검증이 완료되어 준비가 완료되었습니다.",
+  "@checkResultOk": {
+    "description": "Resultado positivo de verificación general"
+  },
+  "checkSemanticOk": "✓ 의미 분석 및 유형: OK",
+  "@checkSemanticOk": {
+    "description": "Confirmación de análisis semántico correcto"
+  },
+  "checkVerifying": "[확인] '{path}'(구문 분석, 의미 분석, 유형, 린트, 형식)에서 프로젝트를 확인하는 중...",
+  "@checkVerifying": {
+    "description": "Mensaje inicial del comando joss check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "cliAppTitle": "Joss — 현대적인 언어 및 개발 플랫폼",
+  "@cliAppTitle": {
+    "description": "Título principal mostrado en la ayuda de la CLI"
+  },
+  "cliCmdAnalyze": "정적 의미 분석 및 철저한 유형 검사",
+  "@cliCmdAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "cliCmdBuild": "배포용 프로젝트 컴파일(웹 또는 독립 실행형 바이너리)",
+  "@cliCmdBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "cliCmdFormat": "표준 언어 표준에 따라 .joss 파일 형식을 지정합니다.",
+  "@cliCmdFormat": {
+    "description": "Descripción del comando joss format / joss fmt"
+  },
+  "cliCmdLint": "코드에서 주의 사항, 지원 중단, 모범 사례를 검사하세요.",
+  "@cliCmdLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "cliCmdPub": "Joss 생태계의 공식 패키지 및 플러그인 관리자",
+  "@cliCmdPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "cliCmdRepl": "대화형 콘솔 (REPL) 시작",
+  "@cliCmdRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "cliCmdRun": "Joss 스크립트 또는 파일을 직접 실행합니다",
+  "@cliCmdRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "cliCmdServer": "고성능 HTTP 웹 서버 시작",
+  "@cliCmdServer": {
+    "description": "Descripción del comando joss server start / joss serve"
+  },
+  "cliCmdTest": "단위 및 통합 테스트 모음(*_test.joss) 실행",
+  "@cliCmdTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "cliErrNoMain": "오류: 'main.joss'를 찾을 수 없습니다.",
+  "@cliErrNoMain": {
+    "description": "Error cuando falta el archivo de entrada principal"
+  },
+  "cliErrRequireMain": "모든 프로젝트는 서버를 시작하는 'main.joss' 진입점을 가져야 합니다.",
+  "@cliErrRequireMain": {
+    "description": "Explicación de la necesidad del archivo main.joss"
+  },
+  "cliExecMain": "[CLI] 시작 스크립트(main.joss) 실행 중...",
+  "@cliExecMain": {
+    "description": "Mensaje informativo al arrancar el script main.joss"
+  },
+  "cliUsage": "사용법: joss <comando> [argumentos] [opciones]",
+  "@cliUsage": {
+    "description": "Línea de uso general de la CLI"
+  },
+  "cliUsageBuildPkg": "사용법: joss 빌드 패키지 [package_path]",
+  "@cliUsageBuildPkg": {
+    "description": "Mensaje de uso del comando build package"
+  },
+  "cliUsageMakeController": "사용법: joss make:controller [이름]",
+  "@cliUsageMakeController": {
+    "description": "Mensaje de uso del generador de controladores"
+  },
+  "cliUsageMakeCrud": "사용법: joss make:crud [테이블]",
+  "@cliUsageMakeCrud": {
+    "description": "Mensaje de uso del generador de CRUD"
+  },
+  "cliUsageMakeMiddleware": "사용법: joss make:middleware [이름]",
+  "@cliUsageMakeMiddleware": {
+    "description": "Mensaje de uso del generador de middleware"
+  },
+  "cliUsageMakeMigration": "사용법: joss make:migration [이름]",
+  "@cliUsageMakeMigration": {
+    "description": "Mensaje de uso del generador de migraciones"
+  },
+  "cliUsageMakeModel": "사용법: joss make:model [이름]",
+  "@cliUsageMakeModel": {
+    "description": "Mensaje de uso del generador de modelos"
+  },
+  "cliUsageMakeMvc": "사용법: joss make:mvc [이름]",
+  "@cliUsageMakeMvc": {
+    "description": "Mensaje de uso del generador de MVC"
+  },
+  "cliUsageMakeView": "사용법: joss make:view [이름]",
+  "@cliUsageMakeView": {
+    "description": "Mensaje de uso del generador de vistas"
+  },
+  "cliUsageProgram": "사용법: 조스 프로그램 시작",
+  "@cliUsageProgram": {
+    "description": "Mensaje de uso del comando program"
+  },
+  "cliUsageRemoveCrud": "사용법: joss Remove:crud [테이블]",
+  "@cliUsageRemoveCrud": {
+    "description": "Mensaje de uso para eliminar CRUD"
+  },
+  "cliUsageRun": "사용법: joss run [archivo.joss]",
+  "@cliUsageRun": {
+    "description": "Mensaje de uso del comando run"
+  },
+  "cliUsageServer": "사용법: 조스 서버 시작",
+  "@cliUsageServer": {
+    "description": "Mensaje de uso del comando server"
   },
   "compileProjectDist": "배포용 프로젝트 빌드",
   "@compileProjectDist": {
@@ -204,9 +431,101 @@
   "@exeMigrateFresh": {
     "description": ""
   },
+  "fixAllClean": "[FIX OK] 모든 .joss 파일은 깨끗하고 표준 형식입니다.",
+  "@fixAllClean": {
+    "description": "Resultado cuando fix no detectó problemas"
+  },
+  "fixNoChanges": "[FIX OK] {file}에는 변경이 필요하지 않습니다.",
+  "@fixNoChanges": {
+    "description": "Resultado para un archivo sin modificaciones en fix",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatAllOk": "[FORMAT OK] 모든 .joss 파일은 표준 형식을 준수합니다.",
+  "@formatAllOk": {
+    "description": "Éxito cuando todos los archivos están formateados"
+  },
+  "formatFileAlready": "[형식] {file}은(는) 이제 표준 형식입니다.",
+  "@formatFileAlready": {
+    "description": "Mensaje cuando el archivo no requería cambios de formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileFormatted": "[형식] {file} 형식이 올바르게 지정되었습니다.",
+  "@formatFileFormatted": {
+    "description": "Mensaje cuando un archivo fue modificado con formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileOk": "[FORMAT OK] {file}의 형식이 올바르게 지정되었습니다.",
+  "@formatFileOk": {
+    "description": "Éxito de formateo para un archivo individual",
+    "placeholders": {
+      "file": {}
+    }
+  },
   "helpPrint": "이 도움말 표시",
   "@helpPrint": {
     "description": ""
+  },
+  "lintSuccess": "소스코드에서는 아무런 문제도 발견되지 않았습니다.",
+  "@lintSuccess": {
+    "description": "Mensaje de éxito del linter"
+  },
+  "migrateCompleted": "마이그레이션이 성공적으로 완료되었습니다.",
+  "@migrateCompleted": {
+    "description": "Mensaje final de éxito en migraciones"
+  },
+  "migrateDbSuccess": "DB 연결에 성공했습니다.",
+  "@migrateDbSuccess": {
+    "description": "Mensaje de conexión establecida con la base de datos"
+  },
+  "migrateNoPending": "대기 중인 마이그레이션이 없습니다.",
+  "@migrateNoPending": {
+    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
+  },
+  "migrateNoneFound": "app/database/migrations/에 마이그레이션이 없습니다.",
+  "@migrateNoneFound": {
+    "description": "Aviso cuando la carpeta de migraciones está vacía"
+  },
+  "migrateStarting": "마이그레이션 실행 중...",
+  "@migrateStarting": {
+    "description": "Inicio del proceso de migraciones"
+  },
+  "pkgBuildInvalidDir": "오류: '{path}' 경로는 유효한 디렉터리가 아닙니다.",
+  "@pkgBuildInvalidDir": {
+    "description": "Directorio de paquete inválido",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildMissingYaml": "오류: '{path}'에서 매니페스트 'joss.yaml'이 누락되었습니다.",
+  "@pkgBuildMissingYaml": {
+    "description": "Falta manifiesto joss.yaml",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildStarting": "[패키지 빌드] '{path}'에서 패키지 빌드를 시작합니다...",
+  "@pkgBuildStarting": {
+    "description": "Inicio de compilación de plugin o paquete",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildSuccess": "[패키지 빌드] 구현 소스 없이 JP v2 서명 및 컴파일: {path}",
+  "@pkgBuildSuccess": {
+    "description": "Éxito al empaquetar binario JP v2",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectJpV1Deprecated": "오류: JP v1 패키지 형식이 제거되었습니다. Joss에는 JP v2 구조화되고 서명된 형식이 필요합니다.",
+  "@pkgInspectJpV1Deprecated": {
+    "description": "Aviso de versión obsoleta JP v1"
   },
   "removeCRUD": "테이블에 대해 생성된 CRUD 제거",
   "@removeCRUD": {
@@ -215,6 +534,18 @@
   "runJossScript": "조스 스크립트 실행",
   "@runJossScript": {
     "description": ""
+  },
+  "serverStarting": "http://{host}:{port}에서 HTTP 웹 서버 시작",
+  "@serverStarting": {
+    "description": "Mensaje de inicio del servidor",
+    "placeholders": {
+      "host": {},
+      "port": {}
+    }
+  },
+  "serverStopped": "웹 서버가 중지되었습니다.",
+  "@serverStopped": {
+    "description": "Mensaje de parada del servidor"
   },
   "settingsUserStorage": "스토리지 구성(로컬|OCI|AWS|Azure)",
   "@settingsUserStorage": {
@@ -228,208 +559,9 @@
   "@startServerWeb": {
     "description": ""
   },
-  "version": "현재 버전을 표시합니다",
-  "@version": {
-    "description": ""
-  },
-  "cliCmdRun": "Joss 스크립트 또는 파일을 직접 실행합니다",
-  "@cliCmdRun": {
-    "description": "Descripción del comando joss run"
-  },
-  "cliAppTitle": "Joss — 현대적인 언어 및 개발 플랫폼",
-  "@cliAppTitle": {
-    "description": "Título principal mostrado en la ayuda de la CLI"
-  },
-  "cliUsage": "사용법: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
-  "cliCmdRepl": "대화형 콘솔 (REPL) 시작",
-  "@cliCmdRepl": {
-    "description": "Descripción del comando joss repl"
-  },
-  "cliCmdAnalyze": "정적 의미 분석 및 철저한 유형 검사",
-  "@cliCmdAnalyze": {
-    "description": "Descripción del comando joss analyze"
-  },
-  "cliCmdServer": "고성능 HTTP 웹 서버 시작",
-  "@cliCmdServer": {
-    "description": "Descripción del comando joss server start / joss serve"
-  },
-  "cliCmdLint": "코드에서 주의 사항, 지원 중단, 모범 사례를 검사하세요.",
-  "@cliCmdLint": {
-    "description": "Descripción del comando joss lint"
-  },
-  "cliCmdFormat": "표준 언어 표준에 따라 .joss 파일 형식을 지정합니다.",
-  "@cliCmdFormat": {
-    "description": "Descripción del comando joss format / joss fmt"
-  },
-  "cliCmdTest": "단위 및 통합 테스트 모음(*_test.joss) 실행",
-  "@cliCmdTest": {
-    "description": "Descripción del comando joss test"
-  },
-  "cliCmdBuild": "배포용 프로젝트 컴파일(웹 또는 독립 실행형 바이너리)",
-  "@cliCmdBuild": {
-    "description": "Descripción del comando joss build"
-  },
-  "cliCmdPub": "Joss 생태계의 공식 패키지 및 플러그인 관리자",
-  "@cliCmdPub": {
-    "description": "Descripción del comando joss pub"
-  },
-  "serverStopped": "웹 서버가 중지되었습니다.",
-  "@serverStopped": {
-    "description": "Mensaje de parada del servidor"
-  },
-  "serverStarting": "http://{host}:{port}에서 HTTP 웹 서버 시작",
-  "@serverStarting": {
-    "description": "Mensaje de inicio del servidor",
-    "placeholders": {
-      "host": {},
-      "port": {}
-    }
-  },
-  "lintSuccess": "소스코드에서는 아무런 문제도 발견되지 않았습니다.",
-  "@lintSuccess": {
-    "description": "Mensaje de éxito del linter"
-  },
-  "analyzeSuccess": "의미 분석 완료: 문제가 발견되지 않았습니다.",
-  "@analyzeSuccess": {
-    "description": "Mensaje de éxito del analizador estático"
-  },
-  "cliUsageRun": "사용법: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
-  "cliErrRequireMain": "모든 프로젝트는 서버를 시작하는 'main.joss' 진입점을 가져야 합니다.",
-  "@cliErrRequireMain": {
-    "description": "Explicación de la necesidad del archivo main.joss"
-  },
-  "cliExecMain": "[CLI] 시작 스크립트(main.joss) 실행 중...",
-  "@cliExecMain": {
-    "description": "Mensaje informativo al arrancar el script main.joss"
-  },
-  "cliErrNoMain": "오류: 'main.joss'를 찾을 수 없습니다.",
-  "@cliErrNoMain": {
-    "description": "Error cuando falta el archivo de entrada principal"
-  },
-  "cliUsageServer": "사용법: 조스 서버 시작",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
-  "cliUsageMakeController": "사용법: joss make:controller [이름]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageBuildPkg": "사용법: joss 빌드 패키지 [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageProgram": "사용법: 조스 프로그램 시작",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageMakeModel": "사용법: joss make:model [이름]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "사용법: joss make:mvc [이름]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "사용법: joss make:view [이름]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageMakeMiddleware": "사용법: joss make:middleware [이름]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeCrud": "사용법: joss make:crud [테이블]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageRemoveCrud": "사용법: joss Remove:crud [테이블]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageMakeMigration": "사용법: joss make:migration [이름]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
-  },
-  "checkVerifying": "[확인] '{path}'(구문 분석, 의미 분석, 유형, 린트, 형식)에서 프로젝트를 확인하는 중...",
-  "@checkVerifying": {
-    "description": "Mensaje inicial del comando joss check",
-    "placeholders": {
-      "path": {}
-    }
-  },
-  "checkFormatOk": "✓ 형식: 확인",
-  "@checkFormatOk": {
-    "description": "Confirmación de formato canónico válido"
-  },
-  "checkSemanticOk": "✓ 의미 분석 및 유형: OK",
-  "@checkSemanticOk": {
-    "description": "Confirmación de análisis semántico correcto"
-  },
-  "checkLintOk": "✓ 린터 및 안전 규칙: OK",
-  "@checkLintOk": {
-    "description": "Confirmación de reglas de linter superadas"
-  },
-  "checkResultOk": "[CHECK RESULT] 프로젝트 검증이 완료되어 준비가 완료되었습니다.",
-  "@checkResultOk": {
-    "description": "Resultado positivo de verificación general"
-  },
-  "checkResultFail": "[결과 확인] 프로젝트에 해결해야 할 문제가 있습니다.",
-  "@checkResultFail": {
-    "description": "Resultado con errores en verificación"
-  },
-  "formatAllOk": "[FORMAT OK] 모든 .joss 파일은 표준 형식을 준수합니다.",
-  "@formatAllOk": {
-    "description": "Éxito cuando todos los archivos están formateados"
-  },
-  "formatFileOk": "[FORMAT OK] {file}의 형식이 올바르게 지정되었습니다.",
-  "@formatFileOk": {
-    "description": "Éxito de formateo para un archivo individual",
-    "placeholders": {
-      "file": {}
-    }
-  },
-  "formatFileFormatted": "[형식] {file} 형식이 올바르게 지정되었습니다.",
-  "@formatFileFormatted": {
-    "description": "Mensaje cuando un archivo fue modificado con formato",
-    "placeholders": {
-      "file": {}
-    }
-  },
-  "fixNoChanges": "[FIX OK] {file}에는 변경이 필요하지 않습니다.",
-  "@fixNoChanges": {
-    "description": "Resultado para un archivo sin modificaciones en fix",
-    "placeholders": {
-      "file": {}
-    }
-  },
-  "formatFileAlready": "[형식] {file}은(는) 이제 표준 형식입니다.",
-  "@formatFileAlready": {
-    "description": "Mensaje cuando el archivo no requería cambios de formato",
-    "placeholders": {
-      "file": {}
-    }
-  },
-  "fixAllClean": "[FIX OK] 모든 .joss 파일은 깨끗하고 표준 형식입니다.",
-  "@fixAllClean": {
-    "description": "Resultado cuando fix no detectó problemas"
-  },
   "testNoFilesFound": "테스트 파일(*_test.joss)을 찾을 수 없습니다.",
   "@testNoFilesFound": {
     "description": "Aviso cuando no hay archivos de prueba"
-  },
-  "migrateStarting": "마이그레이션 실행 중...",
-  "@migrateStarting": {
-    "description": "Inicio del proceso de migraciones"
-  },
-  "migrateDbSuccess": "DB 연결에 성공했습니다.",
-  "@migrateDbSuccess": {
-    "description": "Mensaje de conexión establecida con la base de datos"
   },
   "testRunning": "{path}에서 단위 테스트 실행 중...",
   "@testRunning": {
@@ -438,16 +570,8 @@
       "path": {}
     }
   },
-  "migrateNoPending": "대기 중인 마이그레이션이 없습니다.",
-  "@migrateNoPending": {
-    "description": "Mensaje cuando todas las migraciones ya se han ejecutado"
-  },
-  "migrateNoneFound": "app/database/migrations/에 마이그레이션이 없습니다.",
-  "@migrateNoneFound": {
-    "description": "Aviso cuando la carpeta de migraciones está vacía"
-  },
-  "migrateCompleted": "마이그레이션이 성공적으로 완료되었습니다.",
-  "@migrateCompleted": {
-    "description": "Mensaje final de éxito en migraciones"
+  "version": "현재 버전을 표시합니다",
+  "@version": {
+    "description": ""
   }
 }

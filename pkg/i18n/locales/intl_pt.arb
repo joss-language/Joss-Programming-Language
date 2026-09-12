@@ -449,5 +449,129 @@
   "migrateCompleted": "Migrações concluídas com sucesso.",
   "@migrateCompleted": {
     "description": "Mensaje final de éxito en migraciones"
+  },
+  "buildStrictStructure": "A Bíblia de Joss requer uma estrutura rígida.",
+  "@buildStrictStructure": {
+    "description": "Recordatorio de estructura arquitectónica"
+  },
+  "buildMissingEnv": "Erro de arquitetura: Falta o arquivo de ambiente ('env.joss' ou '.env')",
+  "@buildMissingEnv": {
+    "description": "Falta el archivo de configuración de entorno"
+  },
+  "buildMissingRequired": "Erro de arquitetura: Arquivo/diretório requerido '{file}' ausente",
+  "@buildMissingRequired": {
+    "description": "Falta un archivo o directorio indispensable",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "buildCopyingFiles": "Copiando arquivos do projeto...",
+  "@buildCopyingFiles": {
+    "description": "Copia de assets y código"
+  },
+  "buildCreatingDir": "Criando diretório de saída '{dir}'...",
+  "@buildCreatingDir": {
+    "description": "Creación del directorio de salida del build",
+    "placeholders": {
+      "dir": {}
+    }
+  },
+  "buildPromptNodeModules": "Deseja incluir 'node_modules' na compilação? (y/n):",
+  "@buildPromptNodeModules": {
+    "description": "Pregunta interactiva para incluir dependencias JS"
+  },
+  "buildIncludeNodeModules": "-> Node_modules serão incluídos.",
+  "@buildIncludeNodeModules": {
+    "description": "Confirmación de inclusión de node_modules"
+  },
+  "buildOmitNodeModules": "-> node_modules será ignorado.",
+  "@buildOmitNodeModules": {
+    "description": "Confirmación de exclusión de node_modules"
+  },
+  "buildNginxPortCreated": "Arquivo nginx_port.conf criado com a porta {port}",
+  "@buildNginxPortCreated": {
+    "description": "Generación del archivo de configuración para nginx",
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "buildEncryptingEnv": "Criptografando ambiente para produção...",
+  "@buildEncryptingEnv": {
+    "description": "Encriptación segura de credenciales"
+  },
+  "buildSelectTargetOs": "Selecione o sistema operacional de destino:",
+  "@buildSelectTargetOs": {
+    "description": "Menú selector de SO destino"
+  },
+  "buildOsWindows": "1.Windows (x64)",
+  "@buildOsWindows": {
+    "description": "Opción Windows"
+  },
+  "buildOsLinux": "2.Linux (x64)",
+  "@buildOsLinux": {
+    "description": "Opción Linux"
+  },
+  "buildOsMacArm": "3. macOS Apple Silicon (arm64)",
+  "@buildOsMacArm": {
+    "description": "Opción macOS ARM"
+  },
+  "buildOsMacIntel": "4. macOS Intel (amd64)",
+  "@buildOsMacIntel": {
+    "description": "Opción macOS Intel"
+  },
+  "buildOsCurrent": "5. Sistema operacional atual ({os}/{arch})",
+  "@buildOsCurrent": {
+    "description": "Opción SO anfitrión actual",
+    "placeholders": {
+      "os": {},
+      "arch": {}
+    }
+  },
+  "buildPromptOption": "Opção [1-5]:",
+  "@buildPromptOption": {
+    "description": "Prompt interactivo de selección"
+  },
+  "buildInvalidOption": "Opção inválida. Cancelando compilação.",
+  "@buildInvalidOption": {
+    "description": "Error al elegir opción no permitida"
+  },
+  "buildEnvEncryptedSaved": "Ambiente criptografado salvo em {path}",
+  "@buildEnvEncryptedSaved": {
+    "description": "Confirmación de almacenamiento del env.enc",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildInvalidDir": "Erro: o caminho '{path}' não é um diretório válido",
+  "@pkgBuildInvalidDir": {
+    "description": "Directorio de paquete inválido",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildStarting": "[Compilação de pacote] Iniciando a construção do pacote em '{path}'...",
+  "@pkgBuildStarting": {
+    "description": "Inicio de compilación de plugin o paquete",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildMissingYaml": "Erro: Manifesto 'joss.yaml' ausente em '{path}'",
+  "@pkgBuildMissingYaml": {
+    "description": "Falta manifiesto joss.yaml",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildSuccess": "[Construção de pacote] JP v2 assinado e compilado sem fontes de implementação: {path}",
+  "@pkgBuildSuccess": {
+    "description": "Éxito al empaquetar binario JP v2",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectJpV1Deprecated": "Erro: o formato do pacote JP v1 foi removido. Joss requer o formato estruturado e assinado JP v2.",
+  "@pkgInspectJpV1Deprecated": {
+    "description": "Aviso de versión obsoleta JP v1"
   }
 }

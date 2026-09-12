@@ -449,5 +449,129 @@
   "migrateCompleted": "迁移成功完成。",
   "@migrateCompleted": {
     "description": "Mensaje final de éxito en migraciones"
+  },
+  "buildStrictStructure": "约斯的圣经需要严格的结构。",
+  "@buildStrictStructure": {
+    "description": "Recordatorio de estructura arquitectónica"
+  },
+  "buildMissingEnv": "架构错误：缺少环境文件（'env.joss' 或 '.env'）",
+  "@buildMissingEnv": {
+    "description": "Falta el archivo de configuración de entorno"
+  },
+  "buildMissingRequired": "架构错误：缺少必需的文件/目录 '{file}'",
+  "@buildMissingRequired": {
+    "description": "Falta un archivo o directorio indispensable",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "buildCopyingFiles": "正在复制项目文件...",
+  "@buildCopyingFiles": {
+    "description": "Copia de assets y código"
+  },
+  "buildCreatingDir": "正在创建输出目录 '{dir}'...",
+  "@buildCreatingDir": {
+    "description": "Creación del directorio de salida del build",
+    "placeholders": {
+      "dir": {}
+    }
+  },
+  "buildPromptNodeModules": "是否要在构建中包含 'node_modules'？ (y/n):",
+  "@buildPromptNodeModules": {
+    "description": "Pregunta interactiva para incluir dependencias JS"
+  },
+  "buildIncludeNodeModules": "-> Node_modules 将被包含在内。",
+  "@buildIncludeNodeModules": {
+    "description": "Confirmación de inclusión de node_modules"
+  },
+  "buildOmitNodeModules": "-> node_modules 将被跳过。",
+  "@buildOmitNodeModules": {
+    "description": "Confirmación de exclusión de node_modules"
+  },
+  "buildNginxPortCreated": "使用端口 {port} 创建的 nginx_port.conf 文件",
+  "@buildNginxPortCreated": {
+    "description": "Generación del archivo de configuración para nginx",
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "buildEncryptingEnv": "生产环境加密...",
+  "@buildEncryptingEnv": {
+    "description": "Encriptación segura de credenciales"
+  },
+  "buildSelectTargetOs": "选择目标操作系统：",
+  "@buildSelectTargetOs": {
+    "description": "Menú selector de SO destino"
+  },
+  "buildOsWindows": "1.Windows (x64)",
+  "@buildOsWindows": {
+    "description": "Opción Windows"
+  },
+  "buildOsLinux": "2.Linux（x64）",
+  "@buildOsLinux": {
+    "description": "Opción Linux"
+  },
+  "buildOsMacArm": "3.macOS苹果芯片（arm64）",
+  "@buildOsMacArm": {
+    "description": "Opción macOS ARM"
+  },
+  "buildOsMacIntel": "4.macOS英特尔（amd64）",
+  "@buildOsMacIntel": {
+    "description": "Opción macOS Intel"
+  },
+  "buildOsCurrent": "5. 当前操作系统 ({os}/{arch})",
+  "@buildOsCurrent": {
+    "description": "Opción SO anfitrión actual",
+    "placeholders": {
+      "os": {},
+      "arch": {}
+    }
+  },
+  "buildPromptOption": "选项[1-5]：",
+  "@buildPromptOption": {
+    "description": "Prompt interactivo de selección"
+  },
+  "buildInvalidOption": "无效选项。取消编译。",
+  "@buildInvalidOption": {
+    "description": "Error al elegir opción no permitida"
+  },
+  "buildEnvEncryptedSaved": "加密环境保存在 {path}",
+  "@buildEnvEncryptedSaved": {
+    "description": "Confirmación de almacenamiento del env.enc",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildInvalidDir": "错误：路径“{path}”不是有效目录",
+  "@pkgBuildInvalidDir": {
+    "description": "Directorio de paquete inválido",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildStarting": "[包构建] 正在“{path}”开始包构建...",
+  "@pkgBuildStarting": {
+    "description": "Inicio de compilación de plugin o paquete",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildMissingYaml": "错误：“{path}”中缺少清单“joss.yaml”",
+  "@pkgBuildMissingYaml": {
+    "description": "Falta manifiesto joss.yaml",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildSuccess": "[包构建] JP v2 签名并编译，无实现源：{path}",
+  "@pkgBuildSuccess": {
+    "description": "Éxito al empaquetar binario JP v2",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectJpV1Deprecated": "错误：JP v1 包格式已删除。 Joss 需要 JP v2 结构化和签名格式。",
+  "@pkgInspectJpV1Deprecated": {
+    "description": "Aviso de versión obsoleta JP v1"
   }
 }

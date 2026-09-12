@@ -449,5 +449,129 @@
   "migrateCompleted": "ସ୍ଥାନାନ୍ତରଣ ସଫଳତାର ସହିତ ସମାପ୍ତ ହେଲା |",
   "@migrateCompleted": {
     "description": "Mensaje final de éxito en migraciones"
+  },
+  "buildStrictStructure": "ଜସ୍‌ର ବାଇବେଲ୍‌ କଠିନ ଗଠନ ଆବଶ୍ୟକ କରେ।",
+  "@buildStrictStructure": {
+    "description": "Recordatorio de estructura arquitectónica"
+  },
+  "buildMissingEnv": "ଆର୍କିଟେକ୍ଚର ତ୍ରୁଟି: ପରିବେଶ ଫାଇଲ୍ ନାହିଁ ('env.joss' କିମ୍ବା '.env')",
+  "@buildMissingEnv": {
+    "description": "Falta el archivo de configuración de entorno"
+  },
+  "buildMissingRequired": "ଆର୍କିଟେକ୍ଚର ତ୍ରୁଟି: ଆବଶ୍ୟକ ଫାଇଲ୍/ଡିରେକ୍ଟୋରି '{file}' ନାହିଁ",
+  "@buildMissingRequired": {
+    "description": "Falta un archivo o directorio indispensable",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "buildCopyingFiles": "ପ୍ରୋଜେକ୍ଟ ଫାଇଲଗୁଡିକୁ କପି କରୁଛି...",
+  "@buildCopyingFiles": {
+    "description": "Copia de assets y código"
+  },
+  "buildCreatingDir": "ଆଉଟପୁଟ୍ ଡିରେକ୍ଟୋରି '{dir}' ସୃଷ୍ଟି କରୁଛି...",
+  "@buildCreatingDir": {
+    "description": "Creación del directorio de salida del build",
+    "placeholders": {
+      "dir": {}
+    }
+  },
+  "buildPromptNodeModules": "ଆପଣ 'node_modules' କୁ ବିଲ୍ଡରେ ସାମିଲ କରିବାକୁ ଚାହୁଁଛନ୍ତି? (y/n):",
+  "@buildPromptNodeModules": {
+    "description": "Pregunta interactiva para incluir dependencias JS"
+  },
+  "buildIncludeNodeModules": "-> Node_modules ଅନ୍ତର୍ଭୂକ୍ତ ହେବ |",
+  "@buildIncludeNodeModules": {
+    "description": "Confirmación de inclusión de node_modules"
+  },
+  "buildOmitNodeModules": "-> node_modules କୁ ଏଡ଼ାଇ ଦିଆଯିବ |",
+  "@buildOmitNodeModules": {
+    "description": "Confirmación de exclusión de node_modules"
+  },
+  "buildNginxPortCreated": "nginx_port.conf ଫାଇଲ୍ {port} ସହିତ ସୃଷ୍ଟି ହୋଇଛି |",
+  "@buildNginxPortCreated": {
+    "description": "Generación del archivo de configuración para nginx",
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "buildEncryptingEnv": "ଉତ୍ପାଦନ ପାଇଁ ଏନକ୍ରିପ୍ଟ ପରିବେଶ ...",
+  "@buildEncryptingEnv": {
+    "description": "Encriptación segura de credenciales"
+  },
+  "buildSelectTargetOs": "ଲକ୍ଷ୍ୟ ଅପରେଟିଂ ସିଷ୍ଟମ୍ ଚୟନ କରନ୍ତୁ:",
+  "@buildSelectTargetOs": {
+    "description": "Menú selector de SO destino"
+  },
+  "buildOsWindows": "ୱିଣ୍ଡୋ (x64)",
+  "@buildOsWindows": {
+    "description": "Opción Windows"
+  },
+  "buildOsLinux": "ଲିନକ୍ସ (x64)",
+  "@buildOsLinux": {
+    "description": "Opción Linux"
+  },
+  "buildOsMacArm": "3। ମାକୋସ୍ ଆପଲ୍ ସିଲିକନ୍ (ବାହୁ 64)",
+  "@buildOsMacArm": {
+    "description": "Opción macOS ARM"
+  },
+  "buildOsMacIntel": "4। ମାକୋସ୍ ଇଣ୍ଟେଲ୍ (amd64)",
+  "@buildOsMacIntel": {
+    "description": "Opción macOS Intel"
+  },
+  "buildOsCurrent": "5। ସାମ୍ପ୍ରତିକ ଅପରେଟିଂ ସିଷ୍ଟମ୍ ({os} / {arch})",
+  "@buildOsCurrent": {
+    "description": "Opción SO anfitrión actual",
+    "placeholders": {
+      "os": {},
+      "arch": {}
+    }
+  },
+  "buildPromptOption": "ବିକଳ୍ପ [1-5]:",
+  "@buildPromptOption": {
+    "description": "Prompt interactivo de selección"
+  },
+  "buildInvalidOption": "ଅବ val ଧ ବିକଳ୍ପ | ସଂକଳନ ବାତିଲ |",
+  "@buildInvalidOption": {
+    "description": "Error al elegir opción no permitida"
+  },
+  "buildEnvEncryptedSaved": "{path} ରେ ସଂରକ୍ଷିତ ପରିବେଶ |",
+  "@buildEnvEncryptedSaved": {
+    "description": "Confirmación de almacenamiento del env.enc",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildInvalidDir": "ତ୍ରୁଟି: ପଥ '{path}' ଏକ ବ valid ଧ ଡିରେକ୍ଟୋରୀ ନୁହେଁ |",
+  "@pkgBuildInvalidDir": {
+    "description": "Directorio de paquete inválido",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildStarting": "[ପ୍ୟାକେଜ୍ ବିଲ୍ଡ] '{path}'..ରେ ପ୍ୟାକେଜ୍ ନିର୍ମାଣ ଆରମ୍ଭ |",
+  "@pkgBuildStarting": {
+    "description": "Inicio de compilación de plugin o paquete",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildMissingYaml": "ତ୍ରୁଟି: '{path}' ରୁ 'joss.yaml' ନିଖୋଜ |",
+  "@pkgBuildMissingYaml": {
+    "description": "Falta manifiesto joss.yaml",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildSuccess": "[ପ୍ୟାକେଜ୍ ବିଲ୍ଡ] JP v2 ପ୍ରୟୋଗ ଉତ୍ସ ବିନା ସ୍ signed ାକ୍ଷରିତ ଏବଂ ସଂକଳିତ: {path}",
+  "@pkgBuildSuccess": {
+    "description": "Éxito al empaquetar binario JP v2",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectJpV1Deprecated": "ତ୍ରୁଟି: JP v1 ପ୍ୟାକେଜ୍ ଫର୍ମାଟ୍ ଅପସାରିତ ହେଲା | ଜସ୍ JP v2 ସଂରଚନା ଏବଂ ସ୍ signed ାକ୍ଷରିତ ଫର୍ମାଟ୍ ଆବଶ୍ୟକ କରେ |",
+  "@pkgInspectJpV1Deprecated": {
+    "description": "Aviso de versión obsoleta JP v1"
   }
 }

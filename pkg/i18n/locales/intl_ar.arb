@@ -77,6 +77,10 @@
   "@aiWizardTitle": {
     "description": ""
   },
+  "analyzeSuccess": "اكتمل التحليل الدلالي: لم يتم العثور على مشكلات.",
+  "@analyzeSuccess": {
+    "description": "Mensaje de éxito del analizador estático"
+  },
   "brevoActivatedSuccess": "✅ تم تفعيل BREVO_API وتكوينه بنجاح.",
   "@brevoActivatedSuccess": {},
   "brevoConfig": "Configure interactive Brevo API (Email)",
@@ -104,24 +108,100 @@
   "@brevoTitle": {},
   "buildCopyFiles": "نسخ ملفات المشروع...",
   "@buildCopyFiles": {},
+  "buildCopyingFiles": "جارٍ نسخ ملفات المشروع...",
+  "@buildCopyingFiles": {
+    "description": "Copia de assets y código"
+  },
+  "buildCreatingDir": "إنشاء دليل الإخراج '{dir}'...",
+  "@buildCreatingDir": {
+    "description": "Creación del directorio de salida del build",
+    "placeholders": {
+      "dir": {}
+    }
+  },
   "buildDbCopied": "تم نسخ قاعدة البيانات للبناء/",
   "@buildDbCopied": {},
   "buildDbCopiedProgram": "تم نسخ قاعدة البيانات لبناء/التخزين/",
   "@buildDbCopiedProgram": {},
   "buildEncryptEnv": "بيئة التشفير للإنتاج...",
   "@buildEncryptEnv": {},
+  "buildEncryptingEnv": "بيئة التشفير للإنتاج...",
+  "@buildEncryptingEnv": {
+    "description": "Encriptación segura de credenciales"
+  },
+  "buildEnvEncryptedSaved": "تم حفظ البيئة المشفرة في {path}",
+  "@buildEnvEncryptedSaved": {
+    "description": "Ruta del archivo de entorno encriptado",
+    "placeholders": {
+      "path": {}
+    }
+  },
   "buildEnvEncryptedSuccess": "البيئة مشفرة ومضمنة كـ env.enc",
   "@buildEnvEncryptedSuccess": {},
   "buildEnvMissingError": "خطأ في البنية: ملف البيئة مفقود ('env.joss' أو '.env')",
   "@buildEnvMissingError": {},
+  "buildIncludeNodeModules": "-> سيتم تضمين Node_modules.",
+  "@buildIncludeNodeModules": {
+    "description": "Confirmación de inclusión de node_modules"
+  },
   "buildInjectDbPath": "إدخال تكوين DB_PATH=\"Storage/database.sqlite\" في env.joss المضمن...",
   "@buildInjectDbPath": {},
+  "buildInvalidOption": "خيار غير صالح. إلغاء التجميع.",
+  "@buildInvalidOption": {
+    "description": "Error al elegir opción no permitida"
+  },
+  "buildMissingEnv": "خطأ في الهندسة المعمارية: ملف البيئة مفقود ('env.joss' أو '.env')",
+  "@buildMissingEnv": {
+    "description": "Falta el archivo de configuración de entorno"
+  },
+  "buildMissingRequired": "خطأ في الهندسة المعمارية: الملف/الدليل المطلوب '{file}' مفقود",
+  "@buildMissingRequired": {
+    "description": "Falta un archivo o directorio indispensable",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "buildNginxPortCreated": "تم إنشاء ملف nginx_port.conf بالمنفذ {port}",
+  "@buildNginxPortCreated": {
+    "description": "Generación del archivo de configuración para nginx",
+    "placeholders": {
+      "port": {}
+    }
+  },
   "buildNodeModulesInclude": "-> سيتم تضمين وحدات العقدة.",
   "@buildNodeModulesInclude": {},
   "buildNodeModulesOmit": "-> سيتم حذف وحدات العقدة.",
   "@buildNodeModulesOmit": {},
+  "buildOmitNodeModules": "-> سيتم تخطي وحدات العقدة.",
+  "@buildOmitNodeModules": {
+    "description": "Confirmación de exclusión de node_modules"
+  },
+  "buildOsCurrent": "5. نظام التشغيل الحالي (_{os}/_{arch})",
+  "@buildOsCurrent": {
+    "description": "Opción SO anfitrión actual",
+    "placeholders": {
+      "os": {},
+      "arch": {}
+    }
+  },
+  "buildOsLinux": "2. لينكس (x64)",
+  "@buildOsLinux": {
+    "description": "Opción Linux"
+  },
+  "buildOsMacArm": "3. نظام التشغيل MacOS Apple Silicon (arm64)",
+  "@buildOsMacArm": {
+    "description": "Opción macOS ARM"
+  },
+  "buildOsMacIntel": "4. ماك إنتل (amd64)",
+  "@buildOsMacIntel": {
+    "description": "Opción macOS Intel"
+  },
   "buildOsNotSupported": "يتم دعم Windows فقط في هذا الإصدار المترجم مسبقًا.",
   "@buildOsNotSupported": {},
+  "buildOsWindows": "1.ويندوز (x64)",
+  "@buildOsWindows": {
+    "description": "Opción Windows"
+  },
   "buildPackAssets": "تشفير وتغليف الأصول...",
   "@buildPackAssets": {},
   "buildProgramDataDir": "  build/data/ (فارغة في الوقت الراهن)",
@@ -136,12 +216,28 @@
   "@buildProgramStructure": {},
   "buildProgramSuccess": "تم إكمال إنشاء البرنامج بنجاح في المجلد \"build/\".",
   "@buildProgramSuccess": {},
+  "buildPromptNodeModules": "هل تريد تضمين 'node_modules' في عملية البناء؟ (y/n):",
+  "@buildPromptNodeModules": {
+    "description": "Pregunta interactiva para incluir dependencias JS"
+  },
+  "buildPromptOption": "الخيار [1-5]:",
+  "@buildPromptOption": {
+    "description": "Prompt interactivo de selección"
+  },
   "buildSchemaError": "يتطلب الكتاب المقدس جوس بنية صارمة.",
   "@buildSchemaError": {},
   "buildSelectOs": "حدد نظام التشغيل المستهدف:",
   "@buildSelectOs": {},
   "buildSelectOsWindows": "1. Windows",
   "@buildSelectOsWindows": {},
+  "buildSelectTargetOs": "حدد نظام التشغيل المستهدف:",
+  "@buildSelectTargetOs": {
+    "description": "Menú selector de SO destino"
+  },
+  "buildStrictStructure": "يتطلب إنجيل جوس بنية صارمة.",
+  "@buildStrictStructure": {
+    "description": "Recordatorio de estructura arquitectónica"
+  },
   "buildWebDeployTip": "للنشر، قم بتحميل محتويات المجلد \"build/\" إلى الخادم الخاص بك.",
   "@buildWebDeployTip": {},
   "buildWebRunTip": "ما عليك سوى تشغيل 'joss run main.joss' بداخله على الخادم.",
@@ -159,6 +255,137 @@
   "changeDBPrefix": "تغيير بادئة الجدول",
   "@changeDBPrefix": {
     "description": ""
+  },
+  "checkFormatOk": "✓ التنسيق: موافق",
+  "@checkFormatOk": {
+    "description": "Confirmación de formato canónico válido"
+  },
+  "checkLintOk": "✓ قواعد اللنتر والسلامة: موافق",
+  "@checkLintOk": {
+    "description": "Confirmación de reglas de linter superadas"
+  },
+  "checkResultFail": "[التحقق من النتيجة] يحتوي المشروع على مشكلات تحتاج إلى حل.",
+  "@checkResultFail": {
+    "description": "Resultado con errores en verificación"
+  },
+  "checkResultOk": "[التحقق من النتيجة] تم التحقق من المشروع بالكامل وجاهز.",
+  "@checkResultOk": {
+    "description": "Resultado positivo de verificación general"
+  },
+  "checkSemanticOk": "✓ التحليل الدلالي وأنواعه: موافق",
+  "@checkSemanticOk": {
+    "description": "Confirmación de análisis semántico correcto"
+  },
+  "checkVerifying": "[تحقق] التحقق من المشروع في '{path}' (التحليل، التحليل الدلالي، الأنواع، الوبر، التنسيق)...",
+  "@checkVerifying": {
+    "description": "Mensaje inicial del comando joss check",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "cliAppTitle": "جوس — لغة ومنصة تطوير حديثة",
+  "@cliAppTitle": {
+    "description": "Título principal mostrado en la ayuda de la CLI"
+  },
+  "cliCmdAnalyze": "التحليل الدلالي الثابت والتحقق الشامل من النوع",
+  "@cliCmdAnalyze": {
+    "description": "Descripción del comando joss analyze"
+  },
+  "cliCmdBuild": "تجميع المشروع للتوزيع (الويب أو ثنائي مستقل)",
+  "@cliCmdBuild": {
+    "description": "Descripción del comando joss build"
+  },
+  "cliCmdFormat": "قم بتنسيق ملفات .joss وفقًا لمعايير اللغة الأساسية",
+  "@cliCmdFormat": {
+    "description": "Descripción del comando joss format / joss fmt"
+  },
+  "cliCmdLint": "افحص التعليمات البرمجية بحثًا عن التحذيرات والإهمال وأفضل الممارسات",
+  "@cliCmdLint": {
+    "description": "Descripción del comando joss lint"
+  },
+  "cliCmdPub": "مدير الحزمة والمكونات الإضافية الرسمي لنظام Joss البيئي",
+  "@cliCmdPub": {
+    "description": "Descripción del comando joss pub"
+  },
+  "cliCmdRepl": "ابدأ وحدة التحكم التفاعلية (REPL)",
+  "@cliCmdRepl": {
+    "description": "Descripción del comando joss repl"
+  },
+  "cliCmdRun": "تشغيل برنامج نصي أو ملف Joss مباشرةً",
+  "@cliCmdRun": {
+    "description": "Descripción del comando joss run"
+  },
+  "cliCmdServer": "ابدأ تشغيل خادم الويب HTTP عالي الأداء",
+  "@cliCmdServer": {
+    "description": "Descripción del comando joss server start / joss serve"
+  },
+  "cliCmdTest": "تشغيل مجموعة اختبارات الوحدة والتكامل (*_test.joss)",
+  "@cliCmdTest": {
+    "description": "Descripción del comando joss test"
+  },
+  "cliErrNoMain": "خطأ: لم يتم العثور على 'main.joss'.",
+  "@cliErrNoMain": {
+    "description": "Error cuando falta el archivo de entrada principal"
+  },
+  "cliErrRequireMain": "يجب أن تحتوي جميع المشاريع على نقطة دخول 'main.joss' التي تبدأ الخادم.",
+  "@cliErrRequireMain": {
+    "description": "Explicación de la necesidad del archivo main.joss"
+  },
+  "cliExecMain": "[CLI] تشغيل البرنامج النصي لبدء التشغيل (main.joss)...",
+  "@cliExecMain": {
+    "description": "Mensaje informativo al arrancar el script main.joss"
+  },
+  "cliUsage": "الاستخدام: joss <comando> [argumentos] [opciones]",
+  "@cliUsage": {
+    "description": "Línea de uso general de la CLI"
+  },
+  "cliUsageBuildPkg": "الاستخدام: حزمة بناء جوس [package_path]",
+  "@cliUsageBuildPkg": {
+    "description": "Mensaje de uso del comando build package"
+  },
+  "cliUsageMakeController": "الاستخدام: شركة جوس: وحدة تحكم [الاسم]",
+  "@cliUsageMakeController": {
+    "description": "Mensaje de uso del generador de controladores"
+  },
+  "cliUsageMakeCrud": "الاستخدام: جوس ماك: خام [الجدول]",
+  "@cliUsageMakeCrud": {
+    "description": "Mensaje de uso del generador de CRUD"
+  },
+  "cliUsageMakeMiddleware": "الاستخدام: joss make: البرامج الوسيطة [الاسم]",
+  "@cliUsageMakeMiddleware": {
+    "description": "Mensaje de uso del generador de middleware"
+  },
+  "cliUsageMakeMigration": "الاستخدام: صناعة جوس: الهجرة [الاسم]",
+  "@cliUsageMakeMigration": {
+    "description": "Mensaje de uso del generador de migraciones"
+  },
+  "cliUsageMakeModel": "الاستخدام: ماركة جوس: الموديل [الاسم]",
+  "@cliUsageMakeModel": {
+    "description": "Mensaje de uso del generador de modelos"
+  },
+  "cliUsageMakeMvc": "الاستخدام: جوس ماك: MVC [الاسم]",
+  "@cliUsageMakeMvc": {
+    "description": "Mensaje de uso del generador de MVC"
+  },
+  "cliUsageMakeView": "الاستعمال: جوس ميك:عرض [الاسم]",
+  "@cliUsageMakeView": {
+    "description": "Mensaje de uso del generador de vistas"
+  },
+  "cliUsageProgram": "الاستعمال: بدء برنامج جوس",
+  "@cliUsageProgram": {
+    "description": "Mensaje de uso del comando program"
+  },
+  "cliUsageRemoveCrud": "الاستعمال: إزالة جوس: الخام [الجدول]",
+  "@cliUsageRemoveCrud": {
+    "description": "Mensaje de uso para eliminar CRUD"
+  },
+  "cliUsageRun": "الاستخدام: joss run [archivo.joss]",
+  "@cliUsageRun": {
+    "description": "Mensaje de uso del comando run"
+  },
+  "cliUsageServer": "الاستخدام: بدء تشغيل خادم جوس",
+  "@cliUsageServer": {
+    "description": "Mensaje de uso del comando server"
   },
   "compileProjectDist": "بناء المشروع للتوزيع",
   "@compileProjectDist": {
@@ -204,210 +431,6 @@
   "@exeMigrateFresh": {
     "description": ""
   },
-  "helpPrint": "أظهر هذه المساعدة",
-  "@helpPrint": {
-    "description": ""
-  },
-  "removeCRUD": "قم بإزالة CRUD الذي تم إنشاؤه لجدول",
-  "@removeCRUD": {
-    "description": ""
-  },
-  "runJossScript": "تشغيل البرنامج النصي جوس",
-  "@runJossScript": {
-    "description": ""
-  },
-  "settingsUserStorage": "تكوين التخزين (محلي|OCI|AWS|Azure)",
-  "@settingsUserStorage": {
-    "description": ""
-  },
-  "startProgramDesktop": "ابدأ تشغيل التطبيق في وضع سطح المكتب",
-  "@startProgramDesktop": {
-    "description": ""
-  },
-  "startServerWeb": "ابدأ تشغيل خادم الويب",
-  "@startServerWeb": {
-    "description": ""
-  },
-  "version": "يظهر الإصدار الحالي",
-  "@version": {
-    "description": ""
-  },
-  "cliCmdRun": "تشغيل برنامج نصي أو ملف Joss مباشرةً",
-  "@cliCmdRun": {
-    "description": "Descripción del comando joss run"
-  },
-  "cliAppTitle": "جوس — لغة ومنصة تطوير حديثة",
-  "@cliAppTitle": {
-    "description": "Título principal mostrado en la ayuda de la CLI"
-  },
-  "cliUsage": "الاستخدام: joss <comando> [argumentos] [opciones]",
-  "@cliUsage": {
-    "description": "Línea de uso general de la CLI"
-  },
-  "cliCmdRepl": "ابدأ وحدة التحكم التفاعلية (REPL)",
-  "@cliCmdRepl": {
-    "description": "Descripción del comando joss repl"
-  },
-  "cliCmdAnalyze": "التحليل الدلالي الثابت والتحقق الشامل من النوع",
-  "@cliCmdAnalyze": {
-    "description": "Descripción del comando joss analyze"
-  },
-  "cliCmdServer": "ابدأ تشغيل خادم الويب HTTP عالي الأداء",
-  "@cliCmdServer": {
-    "description": "Descripción del comando joss server start / joss serve"
-  },
-  "cliCmdLint": "افحص التعليمات البرمجية بحثًا عن التحذيرات والإهمال وأفضل الممارسات",
-  "@cliCmdLint": {
-    "description": "Descripción del comando joss lint"
-  },
-  "cliCmdFormat": "قم بتنسيق ملفات .joss وفقًا لمعايير اللغة الأساسية",
-  "@cliCmdFormat": {
-    "description": "Descripción del comando joss format / joss fmt"
-  },
-  "cliCmdTest": "تشغيل مجموعة اختبارات الوحدة والتكامل (*_test.joss)",
-  "@cliCmdTest": {
-    "description": "Descripción del comando joss test"
-  },
-  "cliCmdBuild": "تجميع المشروع للتوزيع (الويب أو ثنائي مستقل)",
-  "@cliCmdBuild": {
-    "description": "Descripción del comando joss build"
-  },
-  "cliCmdPub": "مدير الحزمة والمكونات الإضافية الرسمي لنظام Joss البيئي",
-  "@cliCmdPub": {
-    "description": "Descripción del comando joss pub"
-  },
-  "serverStopped": "توقف خادم الويب.",
-  "@serverStopped": {
-    "description": "Mensaje de parada del servidor"
-  },
-  "serverStarting": "بدء تشغيل خادم ويب HTTP على http://_{host}:_{port}",
-  "@serverStarting": {
-    "description": "Mensaje de inicio del servidor",
-    "placeholders": {
-      "host": {},
-      "port": {}
-    }
-  },
-  "lintSuccess": "لم يتم العثور على مشاكل في التعليمات البرمجية المصدر.",
-  "@lintSuccess": {
-    "description": "Mensaje de éxito del linter"
-  },
-  "analyzeSuccess": "اكتمل التحليل الدلالي: لم يتم العثور على مشكلات.",
-  "@analyzeSuccess": {
-    "description": "Mensaje de éxito del analizador estático"
-  },
-  "cliUsageRun": "الاستخدام: joss run [archivo.joss]",
-  "@cliUsageRun": {
-    "description": "Mensaje de uso del comando run"
-  },
-  "cliErrRequireMain": "يجب أن تحتوي جميع المشاريع على نقطة دخول 'main.joss' التي تبدأ الخادم.",
-  "@cliErrRequireMain": {
-    "description": "Explicación de la necesidad del archivo main.joss"
-  },
-  "cliExecMain": "[CLI] تشغيل البرنامج النصي لبدء التشغيل (main.joss)...",
-  "@cliExecMain": {
-    "description": "Mensaje informativo al arrancar el script main.joss"
-  },
-  "cliErrNoMain": "خطأ: لم يتم العثور على 'main.joss'.",
-  "@cliErrNoMain": {
-    "description": "Error cuando falta el archivo de entrada principal"
-  },
-  "cliUsageServer": "الاستخدام: بدء تشغيل خادم جوس",
-  "@cliUsageServer": {
-    "description": "Mensaje de uso del comando server"
-  },
-  "cliUsageMakeController": "الاستخدام: شركة جوس: وحدة تحكم [الاسم]",
-  "@cliUsageMakeController": {
-    "description": "Mensaje de uso del generador de controladores"
-  },
-  "cliUsageBuildPkg": "الاستخدام: حزمة بناء جوس [package_path]",
-  "@cliUsageBuildPkg": {
-    "description": "Mensaje de uso del comando build package"
-  },
-  "cliUsageProgram": "الاستعمال: بدء برنامج جوس",
-  "@cliUsageProgram": {
-    "description": "Mensaje de uso del comando program"
-  },
-  "cliUsageMakeModel": "الاستخدام: ماركة جوس: الموديل [الاسم]",
-  "@cliUsageMakeModel": {
-    "description": "Mensaje de uso del generador de modelos"
-  },
-  "cliUsageMakeMvc": "الاستخدام: جوس ماك: MVC [الاسم]",
-  "@cliUsageMakeMvc": {
-    "description": "Mensaje de uso del generador de MVC"
-  },
-  "cliUsageMakeView": "الاستعمال: جوس ميك:عرض [الاسم]",
-  "@cliUsageMakeView": {
-    "description": "Mensaje de uso del generador de vistas"
-  },
-  "cliUsageMakeMiddleware": "الاستخدام: joss make: البرامج الوسيطة [الاسم]",
-  "@cliUsageMakeMiddleware": {
-    "description": "Mensaje de uso del generador de middleware"
-  },
-  "cliUsageMakeCrud": "الاستخدام: جوس ماك: خام [الجدول]",
-  "@cliUsageMakeCrud": {
-    "description": "Mensaje de uso del generador de CRUD"
-  },
-  "cliUsageRemoveCrud": "الاستعمال: إزالة جوس: الخام [الجدول]",
-  "@cliUsageRemoveCrud": {
-    "description": "Mensaje de uso para eliminar CRUD"
-  },
-  "cliUsageMakeMigration": "الاستخدام: صناعة جوس: الهجرة [الاسم]",
-  "@cliUsageMakeMigration": {
-    "description": "Mensaje de uso del generador de migraciones"
-  },
-  "checkVerifying": "[تحقق] التحقق من المشروع في '{path}' (التحليل، التحليل الدلالي، الأنواع، الوبر، التنسيق)...",
-  "@checkVerifying": {
-    "description": "Mensaje inicial del comando joss check",
-    "placeholders": {
-      "path": {}
-    }
-  },
-  "checkFormatOk": "✓ التنسيق: موافق",
-  "@checkFormatOk": {
-    "description": "Confirmación de formato canónico válido"
-  },
-  "checkSemanticOk": "✓ التحليل الدلالي وأنواعه: موافق",
-  "@checkSemanticOk": {
-    "description": "Confirmación de análisis semántico correcto"
-  },
-  "checkLintOk": "✓ قواعد اللنتر والسلامة: موافق",
-  "@checkLintOk": {
-    "description": "Confirmación de reglas de linter superadas"
-  },
-  "checkResultOk": "[التحقق من النتيجة] تم التحقق من المشروع بالكامل وجاهز.",
-  "@checkResultOk": {
-    "description": "Resultado positivo de verificación general"
-  },
-  "checkResultFail": "[التحقق من النتيجة] يحتوي المشروع على مشكلات تحتاج إلى حل.",
-  "@checkResultFail": {
-    "description": "Resultado con errores en verificación"
-  },
-  "formatAllOk": "[التنسيق موافق] تتوافق جميع ملفات .joss مع التنسيق الأساسي.",
-  "@formatAllOk": {
-    "description": "Éxito cuando todos los archivos están formateados"
-  },
-  "formatFileOk": "[FORMAT OK] تم تنسيق {file} بشكل صحيح.",
-  "@formatFileOk": {
-    "description": "Éxito de formateo para un archivo individual",
-    "placeholders": {
-      "file": {}
-    }
-  },
-  "formatFileFormatted": "[FORMAT] تم تنسيق {file} بنجاح.",
-  "@formatFileFormatted": {
-    "description": "Mensaje cuando un archivo fue modificado con formato",
-    "placeholders": {
-      "file": {}
-    }
-  },
-  "formatFileAlready": "[FORMAT] {file} موجود بالفعل بالتنسيق القياسي.",
-  "@formatFileAlready": {
-    "description": "Mensaje cuando el archivo no requería cambios de formato",
-    "placeholders": {
-      "file": {}
-    }
-  },
   "fixAllClean": "[تم الإصلاح] جميع ملفات .joss نظيفة وبتنسيق أساسي.",
   "@fixAllClean": {
     "description": "Resultado cuando fix no detectó problemas"
@@ -419,20 +442,42 @@
       "file": {}
     }
   },
-  "testNoFilesFound": "لم يتم العثور على ملفات اختبار (*_test.joss).",
-  "@testNoFilesFound": {
-    "description": "Aviso cuando no hay archivos de prueba"
+  "formatAllOk": "[التنسيق موافق] تتوافق جميع ملفات .joss مع التنسيق الأساسي.",
+  "@formatAllOk": {
+    "description": "Éxito cuando todos los archivos están formateados"
   },
-  "testRunning": "تشغيل اختبارات الوحدة في {path}...",
-  "@testRunning": {
-    "description": "Inicio de ejecución de pruebas unitarias",
+  "formatFileAlready": "[FORMAT] {file} موجود بالفعل بالتنسيق القياسي.",
+  "@formatFileAlready": {
+    "description": "Mensaje cuando el archivo no requería cambios de formato",
     "placeholders": {
-      "path": {}
+      "file": {}
     }
   },
-  "migrateStarting": "تشغيل الهجرات...",
-  "@migrateStarting": {
-    "description": "Inicio del proceso de migraciones"
+  "formatFileFormatted": "[FORMAT] تم تنسيق {file} بنجاح.",
+  "@formatFileFormatted": {
+    "description": "Mensaje cuando un archivo fue modificado con formato",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "formatFileOk": "[FORMAT OK] تم تنسيق {file} بشكل صحيح.",
+  "@formatFileOk": {
+    "description": "Éxito de formateo para un archivo individual",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "helpPrint": "أظهر هذه المساعدة",
+  "@helpPrint": {
+    "description": ""
+  },
+  "lintSuccess": "لم يتم العثور على مشاكل في التعليمات البرمجية المصدر.",
+  "@lintSuccess": {
+    "description": "Mensaje de éxito del linter"
+  },
+  "migrateCompleted": "تمت عمليات الترحيل بنجاح.",
+  "@migrateCompleted": {
+    "description": "Mensaje final de éxito en migraciones"
   },
   "migrateDbSuccess": "تم الاتصال بقاعدة البيانات بنجاح.",
   "@migrateDbSuccess": {
@@ -446,8 +491,87 @@
   "@migrateNoneFound": {
     "description": "Aviso cuando la carpeta de migraciones está vacía"
   },
-  "migrateCompleted": "تمت عمليات الترحيل بنجاح.",
-  "@migrateCompleted": {
-    "description": "Mensaje final de éxito en migraciones"
+  "migrateStarting": "تشغيل الهجرات...",
+  "@migrateStarting": {
+    "description": "Inicio del proceso de migraciones"
+  },
+  "pkgBuildInvalidDir": "خطأ: المسار '_{path}_' ليس دليلاً صالحًا",
+  "@pkgBuildInvalidDir": {
+    "description": "Directorio de paquete inválido",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildMissingYaml": "خطأ: البيان \"joss.yaml\" مفقود من \"_{path}_\"",
+  "@pkgBuildMissingYaml": {
+    "description": "Falta manifiesto joss.yaml",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildStarting": "[إنشاء الحزمة] بدء إنشاء الحزمة في '_{path}_'...",
+  "@pkgBuildStarting": {
+    "description": "Inicio de compilación de plugin o paquete",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildSuccess": "[Package Build] تم توقيع JP v2 وتجميعه في '{path}'",
+  "@pkgBuildSuccess": {
+    "description": "Compilación y firma exitosa del paquete JP",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectJpV1Deprecated": "خطأ: تمت إزالة تنسيق حزمة JP v1. يتطلب Joss تنسيق JP v2 المنظم والموقّع.",
+  "@pkgInspectJpV1Deprecated": {
+    "description": "Aviso de versión obsoleta JP v1"
+  },
+  "removeCRUD": "قم بإزالة CRUD الذي تم إنشاؤه لجدول",
+  "@removeCRUD": {
+    "description": ""
+  },
+  "runJossScript": "تشغيل البرنامج النصي جوس",
+  "@runJossScript": {
+    "description": ""
+  },
+  "serverStarting": "بدء تشغيل خادم ويب HTTP على http://_{host}:_{port}",
+  "@serverStarting": {
+    "description": "Mensaje de inicio del servidor",
+    "placeholders": {
+      "host": {},
+      "port": {}
+    }
+  },
+  "serverStopped": "توقف خادم الويب.",
+  "@serverStopped": {
+    "description": "Mensaje de parada del servidor"
+  },
+  "settingsUserStorage": "تكوين التخزين (محلي|OCI|AWS|Azure)",
+  "@settingsUserStorage": {
+    "description": ""
+  },
+  "startProgramDesktop": "ابدأ تشغيل التطبيق في وضع سطح المكتب",
+  "@startProgramDesktop": {
+    "description": ""
+  },
+  "startServerWeb": "ابدأ تشغيل خادم الويب",
+  "@startServerWeb": {
+    "description": ""
+  },
+  "testNoFilesFound": "لم يتم العثور على ملفات اختبار (*_test.joss).",
+  "@testNoFilesFound": {
+    "description": "Aviso cuando no hay archivos de prueba"
+  },
+  "testRunning": "تشغيل اختبارات الوحدة في {path}...",
+  "@testRunning": {
+    "description": "Inicio de ejecución de pruebas unitarias",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "version": "يظهر الإصدار الحالي",
+  "@version": {
+    "description": ""
   }
 }

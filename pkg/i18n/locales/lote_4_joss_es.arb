@@ -1,0 +1,134 @@
+{
+  "@@locale": "es",
+  "helpTopicRun": "Uso: joss run <archivo.joss>\n\nEjecuta un script Joss directamente tras validar sintaxis y análisis semántico.\nLos errores de tipos bloquean la ejecución; los warnings se reportan sin detenerla.\n\nEjemplos:\n  joss run main.joss\n  joss run script.joss",
+  "@helpTopicRun": {
+    "description": "Ayuda detallada del comando joss run"
+  },
+  "helpTopicRepl": "Uso: joss repl\n\nInicia la consola interactiva (Read-Eval-Print Loop) de Joss.\nPermite evaluar expresiones, probar funciones, declarar variables y experimentar en tiempo real.\n\nComandos interactivos:\n  exit, quit     Sale del REPL interactivo\n  Ctrl+C         Interrumpe la línea actual o sale del REPL",
+  "@helpTopicRepl": {
+    "description": "Ayuda detallada del comando joss repl"
+  },
+  "helpTopicServer": "Uso: joss server start\n\nInicia el servidor web HTTP de alto rendimiento ejecutando el punto de entrada 'main.joss'.\nCarga automáticamente todos los controladores, modelos y rutas en app/.\nPresiona 'q' o Ctrl+C en la consola para detener el servidor de forma segura.",
+  "@helpTopicServer": {
+    "description": "Ayuda detallada del comando joss server"
+  },
+  "helpTopicProgram": "Uso: joss program start\n\nInicia la aplicación en modo escritorio.",
+  "@helpTopicProgram": {
+    "description": "Ayuda detallada del comando joss program"
+  },
+  "helpTopicBuild": "Uso: joss build [web|program|native|package] [opciones]\n\nCompila o empaqueta el proyecto para producción y distribución.\n\nModos:\n  web                            Prepara los assets y archivos para despliegue web\n  program                        Prepara la versión de escritorio\n  native [os] [arch] [--gui]     Compila un ejecutable nativo autocontenido\n  package <ruta>                 Empaqueta una biblioteca Joss en formato .jp\n\nEjemplos:\n  joss build web\n  joss build native windows amd64 --gui\n  joss build native linux arm64",
+  "@helpTopicBuild": {
+    "description": "Ayuda detallada del comando joss build"
+  },
+  "helpTopicAnalyze": "Uso: joss analyze [archivo.joss]\n\nRealiza un análisis semántico estricto del proyecto sin ejecutarlo.\nVerifica coherencia de tipos, variables no declaradas, firmas y flujo de control.\n\nEjemplos:\n  joss analyze\n  joss analyze main.joss",
+  "@helpTopicAnalyze": {
+    "description": "Ayuda detallada del comando joss analyze"
+  },
+  "helpTopicFormat": "Uso: joss format [ruta] [opciones]\n\nFormatea archivos .joss según el estándar canónico del lenguaje.\n\nOpciones:\n  --write, -w    Escribe los cambios en el archivo (por defecto al pasar un archivo)\n  --check, -c    Verifica si los archivos están formateados sin modificarlos (útil en CI)\n\nEjemplos:\n  joss format app/controllers/UserController.joss\n  joss format --write .\n  joss format --check .",
+  "@helpTopicFormat": {
+    "description": "Ayuda detallada del comando joss format"
+  },
+  "helpTopicLint": "Uso: joss lint [ruta] [opciones]\n\nEjecuta análisis estático y detecta problemas de estilo, tipos y seguridad.\n\nOpciones:\n  --json         Emite el reporte de diagnósticos en formato JSON estructurado\n\nEjemplos:\n  joss lint .\n  joss lint main.joss\n  joss lint --json .",
+  "@helpTopicLint": {
+    "description": "Ayuda detallada del comando joss lint"
+  },
+  "helpTopicFix": "Uso: joss fix [ruta] [opciones]\n\nAplica correcciones automáticas seguras y formateo canónico.\n\nOpciones:\n  --dry-run, -d  Muestra qué cambios se aplicarían sin modificar los archivos\n\nEjemplos:\n  joss fix .\n  joss fix --dry-run .",
+  "@helpTopicFix": {
+    "description": "Ayuda detallada del comando joss fix"
+  },
+  "helpTopicCheck": "Uso: joss check [ruta]\n\nEjecuta una verificación integral de calidad en 1 paso:\n  1. Comprobación de formato canónico\n  2. Chequeo de sintaxis y parseo\n  3. Análisis semántico estricto y tipos\n  4. Reglas de linter y seguridad\n\nEjemplos:\n  joss check .",
+  "@helpTopicCheck": {
+    "description": "Ayuda detallada del comando joss check"
+  },
+  "helpTopicTest": "Uso: joss test [ruta] [opciones]\n\nEjecuta la suite oficial de pruebas unitarias y aserciones (*_test.joss).\n\nOpciones:\n  --filter, -f   Filtra y ejecuta solo las pruebas cuyo nombre contenga el texto\n\nEjemplos:\n  joss test\n  joss test tests/\n  joss test --filter=login",
+  "@helpTopicTest": {
+    "description": "Ayuda detallada del comando joss test"
+  },
+  "helpTopicNew": "Uso: joss new [web|console|package|plugin] <ruta/nombre>\n\nGenera una nueva estructura de proyecto.\n\nTipos:\n  web       Proyecto web MVC completo (por defecto)\n  console   Proyecto de consola CLI\n  package   Paquete distribuible para el ecosistema Joss\n  plugin    Plugin nativo con compilación a bytecode .jp",
+  "@helpTopicNew": {
+    "description": "Ayuda detallada del comando joss new"
+  },
+  "helpTopicMakeController": "Uso: joss make:controller <Nombre>\n\nGenera un nuevo controlador web en app/controllers/.\n\nEjemplo:\n  joss make:controller UserController",
+  "@helpTopicMakeController": {
+    "description": "Ayuda detallada del comando make:controller"
+  },
+  "helpTopicMakeModel": "Uso: joss make:model <Nombre>\n\nGenera un nuevo modelo ORM en app/models/.\n\nEjemplo:\n  joss make:model User",
+  "@helpTopicMakeModel": {
+    "description": "Ayuda detallada del comando make:model"
+  },
+  "helpTopicMakeView": "Uso: joss make:view <Ruta/Nombre>\n\nGenera una nueva plantilla de vista en app/views/.\n\nEjemplo:\n  joss make:view users/profile",
+  "@helpTopicMakeView": {
+    "description": "Ayuda detallada del comando make:view"
+  },
+  "helpTopicMakeMiddleware": "Uso: joss make:middleware <Nombre>\n\nGenera un nuevo middleware HTTP en app/middleware/.\n\nEjemplo:\n  joss make:middleware AuthGuard",
+  "@helpTopicMakeMiddleware": {
+    "description": "Ayuda detallada del comando make:middleware"
+  },
+  "helpTopicMakeMvc": "Uso: joss make:mvc <Nombre>\n\nGenera simultáneamente Modelo, Vista y Controlador para la entidad.\n\nEjemplo:\n  joss make:mvc Product",
+  "@helpTopicMakeMvc": {
+    "description": "Ayuda detallada del comando make:mvc"
+  },
+  "helpTopicMakeCrud": "Uso: joss make:crud <Tabla>\n\nGenera automáticamente Modelo, Vistas, Controlador y Rutas para una tabla de base de datos.\nDetecta claves foráneas, columnas visibles e inyecta enlaces de navegación.",
+  "@helpTopicMakeCrud": {
+    "description": "Ayuda detallada del comando make:crud"
+  },
+  "helpTopicRemoveCrud": "Uso: joss remove:crud <Tabla>\n\nElimina limpiamente un módulo CRUD generado:\nborra el controlador, modelo, vistas y retira las rutas y enlaces del navbar.\n\nEjemplo:\n  joss remove:crud products",
+  "@helpTopicRemoveCrud": {
+    "description": "Ayuda detallada del comando remove:crud"
+  },
+  "helpTopicMakeMigration": "Uso: joss make:migration <Nombre>\n\nGenera un nuevo archivo de migración con timestamp en app/database/migrations/.\n\nEjemplos:\n  joss make:migration create_users_table\n  joss make:migration add_avatar_to_users",
+  "@helpTopicMakeMigration": {
+    "description": "Ayuda detallada del comando make:migration"
+  },
+  "helpTopicMigrate": "Uso: joss migrate\n\nAplica las migraciones pendientes en app/database/migrations.\nUsa 'joss migrate:fresh' para reiniciar la base de datos y migrar desde cero.",
+  "@helpTopicMigrate": {
+    "description": "Ayuda detallada del comando joss migrate"
+  },
+  "helpTopicMigrateFresh": "Uso: joss migrate:fresh\n\nElimina todas las tablas de la base de datos y vuelve a ejecutar todas las migraciones.\nÚtil durante el desarrollo para reiniciar el esquema.",
+  "@helpTopicMigrateFresh": {
+    "description": "Ayuda detallada del comando joss migrate:fresh"
+  },
+  "helpTopicDbSeed": "Uso: joss db:seed\n\nEjecuta los seeders pobladores definidos en app/database/seeders.",
+  "@helpTopicDbSeed": {
+    "description": "Ayuda detallada del comando joss db:seed"
+  },
+  "helpTopicChangeDb": "Uso: joss change db [motor|migrate|prefix]\n\nConfigura o modifica la conexión de base de datos del proyecto.\n\nSubcomandos:\n  change db <motor>           Cambia el motor (sqlite, mysql)\n  change db prefix <prefijo>  Establece el prefijo global de tablas\n  change db migrate           Migra los datos y esquema a un nuevo MySQL",
+  "@helpTopicChangeDb": {
+    "description": "Ayuda detallada del comando joss change db"
+  },
+  "helpTopicUserStorage": "Uso: joss userstorage [local|oci|sync-oci|sync-local]\n\nConfigura y sincroniza el almacenamiento de archivos del proyecto.\n\nOpciones:\n  local        Configura almacenamiento en el disco local\n  oci          Configura almacenamiento en Oracle Cloud Infrastructure\n  sync-oci     Sube los archivos locales al bucket OCI\n  sync-local   Descarga los archivos de OCI al disco local",
+  "@helpTopicUserStorage": {
+    "description": "Ayuda detallada del comando joss userstorage"
+  },
+  "helpTopicPub": "Uso: joss pub <subcomando> [paquete]\n\nGestor de dependencias y paquetes de Joss.\n\nSubcomandos:\n  add <paquete>      Añade una dependencia a joss.yaml e instálala\n  remove <paquete>   Elimina una dependencia de joss.yaml\n  install            Descarga e instala las dependencias de joss.yaml\n  update             Actualiza las dependencias instaladas\n  publish            Publica tu paquete en el registro oficial",
+  "@helpTopicPub": {
+    "description": "Ayuda detallada del comando joss pub"
+  },
+  "helpTopicPlugin": "Nota: Para ver plugins instalados y sus comandos, usa 'joss help plugins'.",
+  "@helpTopicPlugin": {
+    "description": "Nota para ver plugins instalados en ayuda"
+  },
+  "helpTopicPackage": "Uso: joss package inspect <archivo.jp>\n\nInspecciona metadatos, símbolos y dependencias de un paquete Joss compilado.",
+  "@helpTopicPackage": {
+    "description": "Ayuda detallada del comando joss package inspect"
+  },
+  "helpTopicUpdate": "Uso: joss update [opciones]\n\nActualiza el binario de Joss, SDK y herramientas oficiales.\n\nOpciones:\n  -f, --force    Fuerza la reinstalación\n  --canary       Actualiza a la versión de desarrollo más reciente\n  --stable       Actualiza a la última versión estable (por defecto)",
+  "@helpTopicUpdate": {
+    "description": "Ayuda detallada del comando joss update"
+  },
+  "helpTopicVersion": "Uso: joss version\n\nMuestra la versión de Joss instalada y su nombre en clave.",
+  "@helpTopicVersion": {
+    "description": "Ayuda detallada del comando joss version"
+  },
+  "helpTopicAiActivate": "Uso: joss ai:activate\n\nConfigura proveedores y modelos de Inteligencia Artificial (Groq, OpenAI, Gemini).",
+  "@helpTopicAiActivate": {
+    "description": "Ayuda detallada del comando joss ai:activate"
+  },
+  "helpTopicNotFound": "No hay ayuda específica para el comando '{cmd}'.\n",
+  "@helpTopicNotFound": {
+    "description": "Mensaje cuando no existe ayuda para el comando solicitado",
+    "placeholders": {
+      "cmd": {}
+    }
+  }
+}

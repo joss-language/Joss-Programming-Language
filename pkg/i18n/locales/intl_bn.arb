@@ -449,5 +449,129 @@
   "migrateCompleted": "মাইগ্রেশন সফলভাবে সম্পন্ন হয়েছে।",
   "@migrateCompleted": {
     "description": "Mensaje final de éxito en migraciones"
+  },
+  "buildStrictStructure": "জসের বাইবেল কঠোর কাঠামো প্রয়োজন।",
+  "@buildStrictStructure": {
+    "description": "Recordatorio de estructura arquitectónica"
+  },
+  "buildMissingEnv": "আর্কিটেকচার ত্রুটি: পরিবেশ ফাইল অনুপস্থিত ('env.joss' অথবা '.env')",
+  "@buildMissingEnv": {
+    "description": "Falta el archivo de configuración de entorno"
+  },
+  "buildMissingRequired": "আর্কিটেকচার ত্রুটি: প্রয়োজনীয় ফাইল/ডিরেক্টরি '{file}' অনুপস্থিত",
+  "@buildMissingRequired": {
+    "description": "Falta un archivo o directorio indispensable",
+    "placeholders": {
+      "file": {}
+    }
+  },
+  "buildCopyingFiles": "প্রকল্পের ফাইলগুলি কপি করা হচ্ছে...",
+  "@buildCopyingFiles": {
+    "description": "Copia de assets y código"
+  },
+  "buildCreatingDir": "আউটপুট ডিরেক্টরি তৈরি করা হচ্ছে '{dir}'...",
+  "@buildCreatingDir": {
+    "description": "Creación del directorio de salida del build",
+    "placeholders": {
+      "dir": {}
+    }
+  },
+  "buildPromptNodeModules": "আপনি কি বিল্ডে 'node_modules' অন্তর্ভুক্ত করতে চান? (y/n):",
+  "@buildPromptNodeModules": {
+    "description": "Pregunta interactiva para incluir dependencias JS"
+  },
+  "buildIncludeNodeModules": "-> নোড_মডিউল অন্তর্ভুক্ত করা হবে।",
+  "@buildIncludeNodeModules": {
+    "description": "Confirmación de inclusión de node_modules"
+  },
+  "buildOmitNodeModules": "-> node_modules এড়িয়ে যাবে।",
+  "@buildOmitNodeModules": {
+    "description": "Confirmación de exclusión de node_modules"
+  },
+  "buildNginxPortCreated": "nginx_port.conf ফাইল {port} পোর্ট দিয়ে তৈরি",
+  "@buildNginxPortCreated": {
+    "description": "Generación del archivo de configuración para nginx",
+    "placeholders": {
+      "port": {}
+    }
+  },
+  "buildEncryptingEnv": "উৎপাদনের জন্য পরিবেশ এনক্রিপ্ট করা হচ্ছে...",
+  "@buildEncryptingEnv": {
+    "description": "Encriptación segura de credenciales"
+  },
+  "buildSelectTargetOs": "লক্ষ্য অপারেটিং সিস্টেম নির্বাচন করুন:",
+  "@buildSelectTargetOs": {
+    "description": "Menú selector de SO destino"
+  },
+  "buildOsWindows": "1.উইন্ডোজ (x64)",
+  "@buildOsWindows": {
+    "description": "Opción Windows"
+  },
+  "buildOsLinux": "2. Linux (x64)",
+  "@buildOsLinux": {
+    "description": "Opción Linux"
+  },
+  "buildOsMacArm": "3. macOS Apple সিলিকন (arm64)",
+  "@buildOsMacArm": {
+    "description": "Opción macOS ARM"
+  },
+  "buildOsMacIntel": "4. macOS Intel (amd64)",
+  "@buildOsMacIntel": {
+    "description": "Opción macOS Intel"
+  },
+  "buildOsCurrent": "5. বর্তমান অপারেটিং সিস্টেম ({os}/{arch})",
+  "@buildOsCurrent": {
+    "description": "Opción SO anfitrión actual",
+    "placeholders": {
+      "os": {},
+      "arch": {}
+    }
+  },
+  "buildPromptOption": "বিকল্প [1-5]:",
+  "@buildPromptOption": {
+    "description": "Prompt interactivo de selección"
+  },
+  "buildInvalidOption": "অবৈধ বিকল্প। সংকলন বাতিল করা হচ্ছে।",
+  "@buildInvalidOption": {
+    "description": "Error al elegir opción no permitida"
+  },
+  "buildEnvEncryptedSaved": "এনক্রিপ্ট করা পরিবেশ {path} এ সংরক্ষণ করা হয়েছে",
+  "@buildEnvEncryptedSaved": {
+    "description": "Confirmación de almacenamiento del env.enc",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildInvalidDir": "ত্রুটি: পাথ '{path}' একটি বৈধ ডিরেক্টরি নয়৷",
+  "@pkgBuildInvalidDir": {
+    "description": "Directorio de paquete inválido",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildStarting": "[প্যাকেজ বিল্ড] '{path}' এ প্যাকেজ বিল্ড শুরু হচ্ছে...",
+  "@pkgBuildStarting": {
+    "description": "Inicio de compilación de plugin o paquete",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildMissingYaml": "ত্রুটি: ম্যানিফেস্ট 'joss.yaml' '{path}' থেকে অনুপস্থিত",
+  "@pkgBuildMissingYaml": {
+    "description": "Falta manifiesto joss.yaml",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgBuildSuccess": "[প্যাকেজ বিল্ড] JP v2 স্বাক্ষরিত এবং বাস্তবায়ন সূত্র ছাড়াই সংকলিত: {path}",
+  "@pkgBuildSuccess": {
+    "description": "Éxito al empaquetar binario JP v2",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "pkgInspectJpV1Deprecated": "ত্রুটি: JP v1 প্যাকেজ বিন্যাস সরানো হয়েছে। Joss-এর জন্য JP v2 কাঠামোবদ্ধ এবং স্বাক্ষরিত বিন্যাস প্রয়োজন।",
+  "@pkgInspectJpV1Deprecated": {
+    "description": "Aviso de versión obsoleta JP v1"
   }
 }

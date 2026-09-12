@@ -236,3 +236,11 @@ func Tr(key string, args ...map[string]interface{}) string {
 	}
 	return GlobalManager.Get(CurrentLocale, key, arg)
 }
+
+// T is a concise alias for Tr
+func T(key string, args ...map[string]any) string {
+	if len(args) > 0 {
+		return Tr(key, args[0])
+	}
+	return Tr(key)
+}

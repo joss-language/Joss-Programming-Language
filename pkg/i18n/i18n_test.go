@@ -76,6 +76,9 @@ func TestI18nConsistencyAcrossAllLocales(t *testing.T) {
 		"checkVerifying", "checkFormatOk", "checkResultOk", "formatAllOk",
 		"fixAllClean", "testNoFilesFound", "testRunning", "migrateStarting",
 		"migrateDbSuccess", "migrateCompleted",
+		"buildWebStart", "buildMissingRequired", "buildStrictStructure", "buildCreatingDir",
+		"buildCopyingFiles", "buildDbCopied", "buildNginxPortCreated", "buildWebSuccess",
+		"buildProgramStart", "pkgBuildStarting", "pkgBuildSuccess",
 	}
 
 	esKeys := make(map[string]string)
