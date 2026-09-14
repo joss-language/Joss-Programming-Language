@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Prøv nå med: joss run tu_script.joss",
+  "aiTryScript": "Prøv nå med",
   "@aiTryScript": {},
   "aiWizardConfig": "Denne veiviseren vil konfigurere den opprinnelige AI i prosjektet ditt.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Feil: API-nøkkelen kan ikke være tom.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Vil du aktivere BREVO_API? (y/n): ",
+  "brevoEnablePrompt": "Vil du aktivere BREVO_API?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Skriv inn din Brevo API-nøkkel: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "For å distribuere, last opp innholdet i 'build/'-mappen til serveren din.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "Du trenger bare å kjøre 'joss run main.joss' inne i den på serveren.",
+  "buildWebRunTip": "Du trenger bare å kjøre inne i den på serveren.",
   "@buildWebRunTip": {},
   "buildWebStart": "Starter Joss WEB-bygging...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Alle prosjekter må ha et inngangspunkt 'main.joss' som starter serveren.",
+  "cliErrRequireMain": "Alle prosjekter må ha et inngangspunkt som starter serveren.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Kjører oppstartsskript (main.joss)...",
+  "cliExecMain": "[CLI] Kjører oppstartsskript...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Feil: 'main.joss' ikke funnet.",
+  "cliErrNoMain": "Feil: ikke funnet.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Vil du inkludere 'node_modules' i bygget? (y/n):",
+  "buildPromptNodeModules": "Vil du inkludere 'node_modules' i bygget?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Start HTTP-nettserveren med høy ytelse ved å kjøre 'main.joss'-inngangspunktet. Last inn alle sjåfører, modeller og ruter automatisk i app/. Trykk 'q' eller Ctrl+C i konsollen for å stoppe serveren trygt.",
+  "helpTopicServer": "Start HTTP-nettserveren med høy ytelse ved å kjøre -inngangspunktet. Last inn alle sjåfører, modeller og ruter automatisk i app/. Trykk 'q' eller Ctrl+C i konsollen for å stoppe serveren trygt.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Kjør 'joss update --{channel}' for å automatisk oppdatere kjøretiden, SDK og utvidelse.",
+  "updaterRunHint": "Kjør for å automatisk oppdatere kjøretiden, SDK og utvidelse.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 JOSS-OPPDATERING",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Tips: Bruk 'joss update -f' for å tvinge ned på nytt og installasjon av binærfilen.",
+  "updaterForceTip": "💡 Tips: Bruk for å tvinge ned på nytt og installasjon av binærfilen.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} fil(er) krever formatering (bruk --write for å søke):",
+  "formatRequireFormat": "[FORMAT] {count} fil(er) krever formatering",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[SJEKK ADVARSEL] {count} fil(er) samsvarer ikke med det kanoniske formatet (utfør 'joss format --write'):",
+  "checkFormatWarning": "[SJEKK ADVARSEL] {count} fil(er) samsvarer ikke med det kanoniske formatet",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,15 +2423,15 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Program] Kjører main.joss...",
+  "programRunningMain": "[Program] Kjører...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
-  "programNoMainStarting": "[Program] main.joss ikke funnet, starter serveren direkte...",
+  "programNoMainStarting": "[Program] ikke funnet, starter serveren direkte...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Program] Feil i main.joss: {errors}",
+  "programErrorsInMain": "[Program] Feil i: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2448,7 +2445,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "Mente du 'joss make:migration [navn]'?",
+  "cliDidYouMean": "Mente du",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2474,7 +2471,7 @@
       "error": {}
     }
   },
-  "cliRequireMainOrScript": "Alle prosjekter må ha et 'main.joss' inngangspunkt eller spesifisere en fil: joss analyser [file.joss]",
+  "cliRequireMainOrScript": "Alle prosjekter må ha et inngangspunkt eller spesifisere en fil: joss analyser",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

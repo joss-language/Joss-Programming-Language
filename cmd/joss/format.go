@@ -98,6 +98,7 @@ func handleFormatCommand(args []string) {
 	} else {
 		if len(unformatted) > 0 {
 			fmt.Println(i18n.Tr("formatRequireFormat", i18n.M{"count": len(unformatted)}))
+			fmt.Println("  joss format --write")
 			for _, file := range unformatted {
 				fmt.Printf("  - %s\n", file)
 			}

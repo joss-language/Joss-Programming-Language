@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Паспрабуйце зараз з: joss run tu_script.joss",
+  "aiTryScript": "Паспрабуйце зараз з",
   "@aiTryScript": {},
   "aiWizardConfig": "Гэты майстар наладзіць уласны штучны інтэлект у вашым праекце.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Памылка: ключ API не можа быць пустым.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Хочаце актываваць BREVO_API? (y/n): ",
+  "brevoEnablePrompt": "Хочаце актываваць BREVO_API?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Увядзіце ваш Brevo API Key: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "Для разгортвання загрузіце змесціва папкі «build/» на ваш сервер.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "Вам трэба толькі запусціць «joss run main.joss» у ім на серверы.",
+  "buildWebRunTip": "Вам трэба толькі запусціць у ім на серверы.",
   "@buildWebRunTip": {},
   "buildWebStart": "Пачатак зборкі Joss WEB...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Усе праекты павінны мець пункт уваходу 'main.joss', які запускае сервер.",
+  "cliErrRequireMain": "Усе праекты павінны мець пункт уваходу, які запускае сервер.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Запуск сцэнарыя запуску (main.joss)...",
+  "cliExecMain": "[CLI] Запуск сцэнарыя запуску...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Памылка: 'main.joss' не знойдзены.",
+  "cliErrNoMain": "Памылка: не знойдзены.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Жадаеце ўключыць 'node_modules' у зборку? (y/n):",
+  "buildPromptNodeModules": "Жадаеце ўключыць 'node_modules' у зборку?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Запусціце высокапрадукцыйны вэб-сервер HTTP, запусціўшы кропку ўваходу 'main.joss'. Аўтаматычна загружаць усе драйверы, мадэлі і маршруты ў app/. Націсніце 'q' або Ctrl+C у кансолі, каб бяспечна спыніць сервер.",
+  "helpTopicServer": "Запусціце высокапрадукцыйны вэб-сервер HTTP, запусціўшы кропку ўваходу. Аўтаматычна загружаць усе драйверы, мадэлі і маршруты ў app/. Націсніце 'q' або Ctrl+C у кансолі, каб бяспечна спыніць сервер.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Запусціце «joss update --{channel}», каб аўтаматычна абнавіць асяроддзе выканання, SDK і пашырэнне.",
+  "updaterRunHint": "Запусціце, каб аўтаматычна абнавіць асяроддзе выканання, SDK і пашырэнне.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 АБНАЎЛЕННЕ JOSS",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Парада: выкарыстоўвайце 'joss update -f' для прымусовай паўторнай загрузкі і ўстаноўкі двайковага файла.",
+  "updaterForceTip": "💡 Парада: выкарыстоўвайце для прымусовай паўторнай загрузкі і ўстаноўкі двайковага файла.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[ФАРМАТ] {count} файлаў патрабуе фарматавання (для прымянення выкарыстоўвайце --write):",
+  "formatRequireFormat": "[ФАРМАТ] {count} файлаў патрабуе фарматавання",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[ПРАВЕРЦЕ ПАПЯРЭДЖАННЕ] {count} файлы не адпавядаюць кананічнаму фармату (выканайце 'joss format --write'):",
+  "checkFormatWarning": "[ПРАВЕРЦЕ ПАПЯРЭДЖАННЕ] {count} файлы не адпавядаюць кананічнаму фармату",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Праграма] Запуск main.joss...",
+  "programRunningMain": "[Праграма] Запуск...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[Праграма] main.joss не знойдзены, сервер запускаецца непасрэдна...",
+  "programNoMainStarting": "[Праграма] не знойдзены, сервер запускаецца непасрэдна...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Праграма] Памылкі ў main.joss: {errors}",
+  "programErrorsInMain": "[Праграма] Памылкі ў: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "Вы мелі на ўвазе 'joss make:migration [Name]'?",
+  "cliDidYouMean": "Вы мелі на ўвазе",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "Усе праекты павінны мець кропку ўваходу «main.joss» або ўказаць файл: joss аналіз [file.joss]",
+  "cliRequireMainOrScript": "Усе праекты павінны мець кропку ўваходу або ўказаць файл: joss аналіз",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

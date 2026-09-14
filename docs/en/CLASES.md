@@ -28,7 +28,7 @@ In this guide you will learn:
 ## 1. Classes and Objects: The plan and the house
 
 To understand object orientation, the best analogy is architecture:
-- A **class** is the **architectural plan**: it describes what rooms the house will have, how many doors and what functions it has. The plane does not occupy physical land nor can you live in it.
+- One **class** is the **architectural plan**: it describes what rooms the house will have, how many doors and what functions it has. The plane does not occupy physical land nor can you live in it.
 - An **object** (or **instance**) is the **actual physical house built** on a piece of land from that plan. You can build ten houses from the same plan; Painting one house blue does not change the color of the others.
 
 Let's look at a minimal example with a counter:
@@ -51,9 +51,9 @@ print($contador->incrementar())
 ### What elements make up this code?
 
 1. `public class Contador`: Declare a public class called `Contador`. In Joss, file-level classes require a visibility modifier (`public` or `private`).
-2. `public int $valor = 0`: It is a **property** (a piece of information that each instance of `Contador` will remember).
+2. `public int $valor = 0`: It is a **property** (a piece of information that every instance of `Contador` will remember).
 3. `public func incrementar(): int`: It is a **method** (a function that belongs to the class and that can manipulate its properties).
-4. `$this`: It is a reserved word that means "this particular object." When you run `$this->valor`, you are accessing the `$valor` property of the instance that is running the method.
+4. `$this`: It is a reserved word that means "this particular object". When you run `$this->valor`, you are accessing the `$valor` property of the instance that is running the method.
 5. `new Contador()`: The keyword `new` creates a new real instance in memory.
 6. `$contador->incrementar()`: The arrow operator `->` is used to access properties and methods of an instance.
 
@@ -82,14 +82,14 @@ $persona = new Persona("Ada")
 print($persona->saludar())
 ```
 
-When you type `new Persona("Ada")`, Joss automatically calls the constructor by giving it the argument `"Ada"`, which is stored safely within the private property `$this->nombre`.
+When you type `new Persona("Ada")`, Joss automatically calls the constructor by passing it the argument `"Ada"`, which is stored safely within the private property `$this->nombre`.
 
 > [!NOTE]
 > Joss also supports the `Init(string $nombre) { ... }` block syntax. The `Init` blocks do not carry visibility modifiers (`public` or `private`).
 
-### Builder Property Promotion
+### Constructor Property Promotion
 
-To avoid having to declare the property, receive the parameter and write `$this->prop = $prop` manually, Joss allows you to declare visibility (`public`, `protected` or `private`) and constancy (`const`) directly in the parameters of `Init` or `constructor`. Joss will create and assign the property automatically:
+To avoid having to declare the property, receive the parameter and write `$this->prop = $prop` Manually, Joss allows you to declare visibility (`public`, `protected` or `private`) and constancy (`const`) directly in the parameters of `Init` or `constructor`. Joss will create and assign the property automatically:
 
 <!-- joss-run: ["Ada", "30"] -->
 ```joss
@@ -111,9 +111,9 @@ It is also possible to declare promoted constant properties with `public const T
 
 ## 3. Encapsulation and visibility modifiers
 
-**Encapsulation** is the principle of protecting the internal data of an object to prevent external code from modifying it incorrectly or corrupting it.
+**encapsulation** is the principle of protecting the internal data of an object to prevent external code from incorrectly modifying or corrupting it.
 
-Joss offers three explicit visibility modifiers:
+Joss provides three explicit visibility modifiers:
 
 | Modifier | Where can you access | Recommended use |
 |---|---|---|
@@ -160,13 +160,13 @@ To invoke a static method or read a static property, you do not use `->`, but ra
 $limpio = Utilidades::limpiarTexto("  hola  ")
 ```
 
-In Joss, native system classes (such as `Auth::user()`, `GranDB::table()`, `Route::get()`, `Cache::put()`) are facades that are typically invoked using `::`.
+In Joss, the system's native classes (such as `Auth::user()`, `GranDB::table()`, `Route::get()`, `Cache::put()`) are facades that are commonly invoked by `::`.
 
 ---
 
 ## 5. Inheritance with `extends`
 
-**Inheritance** allows you to create a new class based on an existing class, reusing all its public and protected methods and properties without having to rewrite them:
+**inheritance** allows you to create a new class based on an existing class, reusing all its public and protected methods and properties without having to rewrite them:
 
 <!-- joss-run: ["hola"] -->
 ```joss
@@ -184,16 +184,16 @@ print($aviso->texto())
 
 > [!TIP]
 > **When to use inheritance vs when to use composition**:
-> Use inheritance only when a strict "is a" relationship exists (for example, `Gato extends Animal` or `AdminUser extends User`). If you just want to reuse a utility function, don't use inheritance; use functions or inject a service class.
+> Use inheritance only when there is a strict "is a" relationship (e.g. `Gato extends Animal` or `AdminUser extends User`). If you just want to reuse a utility function, don't use inheritance; use functions or inject a service class.
 
 ---
 
-## 6. Interfaces and Polymorphism (`interface` and `implements`)
+## 6. Interfaces and Polymorphism (`interface` e `implements`)
 
 When you work on modular applications or clean architecture, you often want to define **what** a component should do without being tied to **how** it does it.
 
 An **interface** is a **formal contract**:
-- Only declare the prototypes of the public methods (name, typed parameters and return type) without a body.
+- Only declare the prototypes of public methods (name, typed parameters and return type) without a body.
 - An interface cannot be instantiated directly with `new`.
 - Any class that declares `implements NombreInterfaz` is **forced by the semantic analyzer and runtime** to implement all promised methods with compatible signatures.
 - A class can inherit from a base class and at the same time implement **multiple interfaces** separated by commas: `public class MiClase extends Base implements I1, I2`.
@@ -244,7 +244,7 @@ print(imprimirArea($c))
 ```
 
 ### Advantages of Polymorphism with Interfaces:
-1. **Decoupling**: The `imprimirArea(IFigura $figura)` function does not need to know whether it receives a `Rectangulo`, a `Cuadrado`, or any future figure; just trust that you comply with the contract `IFigura`.
+1. **Decoupling**: The function `imprimirArea(IFigura $figura)` does not need to know if it receives a `Rectangulo`, a `Cuadrado` or any future figure; just trust that you comply with the contract `IFigura`.
 2. **Exhaustive static validation**: If you forget to implement a method in a class or declare a parameter with a different type, the semantic analyzer immediately outputs `JOSS-DECL-005`.
 
 ---
@@ -296,9 +296,9 @@ You can also use `is` with primitive types like `int`, `string`, `bool`, etc. (e
 
 ## 9. Null-safe browsing (`?->`)
 
-If a variable can contain an instance or be `null` (type `Persona?`), attempting to access a method with `->` on a null value could cause an error.
+If a variable can contain an instance or be `null` (type `Persona?`), attempting to access a method with `->` on a null value could cause a error.
 
-Joss includes the **null-safe (`?->`)** operator:
+Joss includes the **null-safe operator (`?->`)**:
 
 ```joss
 Persona? $usuario = obtenerUsuario(123)
@@ -315,7 +315,7 @@ In Joss, classes are written in a standard way without cumbersome syntax. Intern
 
 When an object exhausts its life cycle and is left without references in the program:
 1. **Optional destructor**: If the class defines a method `destructor()`, `destroy()` or `__destruct()`, the engine automatically executes it in isolation and safety.
-2. **Closing of native resources**: If the instance retained system resources (files, communication channels, streams), they are automatically closed, preventing descriptor leaks.
+2. **Closing native resources**: If the instance retained system resources (files, communication channels, streams), they are automatically closed, preventing descriptor leaks.
 3. **Memory purge (*Zeroization*)**: The internal fields of the instance are emptied and sanitized to prevent sensitive data (tokens, passwords) from persisting unnecessarily in RAM memory.
 4. **Protection against zombie access**: The instance is marked as destroyed. If any residual pointer attempts to read or modify its members, the engine throws an `SecurityError` protecting the integrity of the system.
 
@@ -339,7 +339,7 @@ $s->destructor()
 
 ---
 
-## 11. Common mistakes in OOP with Joss
+## 11. Common errors in OOP with Joss
 
 | Error | Cause | Solution |
 |---|---|---|
@@ -354,15 +354,15 @@ $s->destructor()
 
 ## 12. Practical exercise
 
-1. **Vehicle hierarchy**:
-   - Create a class `public class Vehiculo` with a protected property `protected string $marca` and a method `public func obtenerMarca(): string`.
-   - Create a derived class `public class Auto extends Vehiculo` that has a property `public int $puertas = 4`.
-   - Instantiate a `Auto`, assign it a brand and display its brand and number of doors in the console.
+1. **Vehicle Hierarchy**:
+- Create a class `public class Vehiculo` with a protected property `protected string $marca` and a method `public func obtenerMarca(): string`.
+- Create a derived class `public class Auto extends Vehiculo` that has a property `public int $puertas = 4`.
+- Instance a `Auto`, assign it a brand and display its brand and number of doors in the console.
 
 ---
 
 ## Next step
 
-Even in the best object-oriented code, things can break: a file may not exist, a database may be offline, or a user may enter invalid data. We will learn how to intercept and solve these problems elegantly:
+Even in the best object-oriented code, things can break: a file may not exist, a database may be offline, or a user may enter invalid data. We will learn how to intercept and fix these problems gracefully:
 
-Continues with: [Error, exception and try/catch handling](ERRORES.md).
+Continue with: [Error, exception and try/catch handling](ERRORES.md).

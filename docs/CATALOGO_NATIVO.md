@@ -361,7 +361,7 @@ Clase base registrada sin métodos nativos propios.
 
 ## Plugin
 
-Implementación: [executePluginMethod](../pkg/core/native_plugin.go#L47).
+Implementación: [executePluginMethod](../pkg/core/native_plugin.go#L49).
 
 | Método | Retorno publicado al analizador |
 |---|---|

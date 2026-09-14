@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Probeer het nu met: joss run tu_script.joss",
+  "aiTryScript": "Probeer het nu met",
   "@aiTryScript": {},
   "aiWizardConfig": "Deze wizard configureert de native AI in uw project.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Fout: de API-sleutel mag niet leeg zijn.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Wilt u BREVO_API activeren? (y/n): ",
+  "brevoEnablePrompt": "Wilt u BREVO_API activeren?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Voer uw Brevo API-sleutel in: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "Om te implementeren uploadt u de inhoud van de map 'build/' naar uw server.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "U hoeft alleen 'joss run main.joss' erin op de server uit te voeren.",
+  "buildWebRunTip": "U hoeft alleen erin op de server uit te voeren.",
   "@buildWebRunTip": {},
   "buildWebStart": "Joss WEB-build starten...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Alle projecten moeten een ingangspunt 'main.joss' hebben dat de server start.",
+  "cliErrRequireMain": "Alle projecten moeten een ingangspunt hebben dat de server start.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Opstartscript uitvoeren (main.joss)...",
+  "cliExecMain": "[CLI] Opstartscript uitvoeren...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Fout: 'main.joss' niet gevonden.",
+  "cliErrNoMain": "Fout: niet gevonden.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Wilt u 'node_modules' opnemen in de build? (y/n):",
+  "buildPromptNodeModules": "Wilt u 'node_modules' opnemen in de build?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Start de krachtige HTTP-webserver door het toegangspunt 'main.joss' uit te voeren. Laad automatisch alle chauffeurs, modellen en routes in app/. Druk op 'q' of Ctrl+C in de console om de server veilig te stoppen.",
+  "helpTopicServer": "Start de krachtige HTTP-webserver door het toegangspunt uit te voeren. Laad automatisch alle chauffeurs, modellen en routes in app/. Druk op 'q' of Ctrl+C in de console om de server veilig te stoppen.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Voer 'joss update --{channel}' uit om de runtime, SDK en extensie automatisch bij te werken.",
+  "updaterRunHint": "Voer uit om de runtime, SDK en extensie automatisch bij te werken.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 JOSS-UPDATE",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Tip: Gebruik 'joss update -f' om het opnieuw downloaden en installeren van het binaire bestand te forceren.",
+  "updaterForceTip": "💡 Tip: Gebruik om het opnieuw downloaden en installeren van het binaire bestand te forceren.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} bestand(en) vereisen opmaak (gebruik --write om toe te passen):",
+  "formatRequireFormat": "[FORMAT] {count} bestand(en) vereisen opmaak",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[CHECK WAARSCHUWING] {count} bestand(en) voldoen niet aan het canonieke formaat (voer 'joss format --write' uit):",
+  "checkFormatWarning": "[CHECK WAARSCHUWING] {count} bestand(en) voldoen niet aan het canonieke formaat",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Programma] Main.joss uitvoeren...",
+  "programRunningMain": "[Programma] uitvoeren...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[Programma] main.joss niet gevonden, server direct gestart...",
+  "programNoMainStarting": "[Programma] niet gevonden, server direct gestart...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Programma] Fouten in main.joss: {errors}",
+  "programErrorsInMain": "[Programma] Fouten in: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "Bedoelde u 'joss make:migration [Name]'?",
+  "cliDidYouMean": "Bedoelde u",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "Alle projecten moeten een 'main.joss'-invoerpunt hebben of een bestand specificeren: joss analyse [file.joss]",
+  "cliRequireMainOrScript": "Alle projecten moeten een -invoerpunt hebben of een bestand specificeren: joss analyse",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

@@ -1,12 +1,12 @@
 # Joss CLI — Complete Command Reference
 
-[Index](README.md) · Before: [first steps](PRIMEROS_PASOS.md) · After: [parser](ANALIZADOR.md)
+[Index](README.md) · Before: [getting started](PRIMEROS_PASOS.md) · After: [parser](ANALIZADOR.md)
 
 The canonical command source is `cmd/joss/main.go`. `joss help` shows the installed interactive help and `joss version` the current runtime version.
 
-The CLI is the program that receives commands in the terminal. Incorporates a REPL environment
-interactive (`joss repl`), direct script execution (`joss run`), high-performance web server
-performance (`joss server start`) and a complete set of code quality and package management tools (`pub`).
+The CLI is the program that receives commands in the terminal. It incorporates an interactive REPL environment
+(`joss repl`), direct script execution (`joss run`), high-performance web server
+(`joss server start`) and a set comprehensive code quality and package management tools (`pub`).
 
 ---
 
@@ -27,7 +27,7 @@ joss build native [os] [arch] [--gui]
 - `repl`: Launches the interactive console (Read-Eval-Print Loop) to evaluate expressions, test functions, and experiment with code in real time. Type `exit` or press `Ctrl+C` to exit.
 - `server start`: Requires the entry point `main.joss` and starts the high-performance multi-level HTTP server. Press `q` to stop it safely.
 - `program start`: Start the application in desktop mode.
-- `analyze [archivo]`: Parse the entry (by default `main.joss`) and `app/**/*.joss`. Does not automatically include `routes.joss`, `api.joss` or other siblings. Returns non-zero code if errors exist and preserves file/line/column. See [ANALYZER.md](ANALIZADOR.md).
+- `analyze [archivo]`: Parse the input (by default `main.joss`) and `app/**/*.joss`. Does not automatically include `routes.joss`, `api.joss` or other siblings. Returns non-zero code if errors exist and preserves file/line/column. See [ANALYZER.md](ANALIZADOR.md).
 - `build native [os] [arch]`: Generate a standalone binary for `windows`, `linux` or `darwin`; packages the serialized AST and the Go runner. It is not an LLVM/AOT backend of the Joss program. Use `--gui` for applications with a desktop interface.
 - `update`: Uses the updater implemented by the CLI and may require network/system permissions. Check their actual channels and artifacts before promising that a distribution contains an SDK or editor.
 
@@ -44,7 +44,7 @@ joss new plugin mi_plugin
 ```
 
 - `new web` / `new`: Generates the complete MVC structure of a web application with views engine, routes, middleware and ORM.
-- `new console`: Generate a lightweight template for command line tools.
+- `new console`: Generates a lightweight template for command line tools.
 - `new package`: Creates a declarative package structure for the manager `pub`.
 - `new plugin`: Create an official multilanguage plugin project translatable to binary bytecode `.jp`.
 
@@ -64,21 +64,21 @@ joss make:migration create_products
 ```
 
 ### 🛠️ `make:crud [Tabla]` (Intelligent Relational Generator)
-Connect to the database configured at `env.joss`, inspect the table schema, and automatically generate a complete administrative module:
-1. **Foreign Key Inspection (`_id`)**: Detects relationships with other tables, infers names of relational models and auto-detects visible columns (`username`, `name`, `title`).
+Connects to the database configured at `env.joss`, inspects the table schema and automatically generates a complete administrative module:
+1. **Foreign Key Inspection (`_id`)**: Detects relationships with other tables, infers relational model names and auto-detects visible columns (`username`, `name`, `title`).
 2. **Model and Related Models**: Generate `app/models/Model.joss` and any missing relational models.
-3. **Full CRUD Controller**: Generate `app/controllers/ModelController.joss` with methods `index`, `create`, `store`, `edit`, `update` and `delete` including automatic `joins` and `selects`.
-4. **Tailwind CSS views`: Genera `app/views/model/index.joss.html`, `create.joss.html` y `edit.joss.html` con formularios dinámicos y menús desplegables `<select>` for relationships.
+3. **Full CRUD handler**: Generate `app/controllers/ModelController.joss` with methods `index`, `create`, `store`, `edit`, `update` and `delete` including automatic `joins` and `selects`.
+4. **Tailwind CSS Views**: Generate `app/views/model/index.joss.html`, `create.joss.html` and `edit.joss.html` with dynamic forms and dropdown menus `<select>` for relationships.
 5. **Injection in Navbar and Routes**: Inject the option in `app/views/layouts/master.joss.html` and insert the protected routes within the group `Router::middleware("auth")` in `routes.joss`.
 
-The command is only supported in web projects and requires that the table already exist.
+The command is only supported in web projects and requires the table to already exist.
 Table/column names are validated as identifiers before querying
-the scheme. The generated controller accepts only editable columns
-discovered (does not do bulk allocation), deletion uses `POST` with CSRF and returns
-running the generator does not duplicate routes or navigation links.
+the schema. The generated handler accepts only discovered
+editable columns (does not do bulk allocation), deletion uses `POST` with CSRF and returning
+to run the generator does not duplicate paths or navigation links.
 
 ### 🗑️ `remove:crud [Tabla]`
-Cleanly undoes the build: deletes the controller, model, views folder and removes the injected paths at `routes.joss` and the navbar link.
+Cleanly undo the build: remove the controller, model, views folder and remove the paths injected into `routes.joss` and the navbar link.
 
 ---
 
@@ -114,7 +114,7 @@ joss plugin verify mi_plugin.jp
 ```
 
 - `plugin compile`: Produce signed JPBC from partial backends. Python/PHP/Java translate subsets; The Wasm route only validates the header and generates demo stubs. See [Plugins](PLUGINS.md).
-- `plugin inspect`: Shows metadata, declared permissions and symbol table of the package `.jp`.
+- `plugin inspect`: Displays metadata, declared permissions, and symbol table from the package `.jp`.
 - `plugin verify`: Checks the Ed25519 digital signature and the structural integrity of the container `.jp`.
 
 ---
@@ -149,15 +149,15 @@ joss fix [ruta] [--dry-run]
 joss test [--filter=nombre] [ruta]
 ```
 
-- `check`: Runs format, syntax, parsing and linter. Check its output: a formatting problem is reported as a warning in this pipeline.
+- `check`: Runs formatting, syntax, parsing and linter. Check its output: a formatting problem is reported as a warning in this pipeline.
 - `format`: In a file, modify the default unless you use `--check`; in a directory just write with `--write`. Always use `joss format ruta --check` in CI.
-- `lint`: Runs static analysis with type consistency rules, style and detection of secrets or credentials in hard code (`--json` for structured integration).
-- `fix`: Applies secure automatic fixes (visibility required, formatting) with support for `--dry-run`.
+- `lint`: Performs static analysis with type consistency rules, style and detection of secrets or credentials in hard code (`--json` for structured integration).
+- `fix`: Applies safe automatic fixes (visibility required, formatting) with support for `--dry-run`.
 - `test`: Run files `*_test.joss` with `test`/`it`, `assert`, `assertTrue`, `assertFalse`, `assertEqual`, `assertNotEqual`, `assertNull`, `assertNotNull` and `assertThrows`. Place `--filter` before the path: the flags parser stops reading options after the first positional argument.
 
 ---
 
-## 8. Plugins Commands and Dynamic Help
+## 8. Plugin Commands and Dynamic Help
 
 ```bash
 joss help plugins
@@ -170,7 +170,7 @@ joss bg:remove <input.jpg> [output.png]
 joss notify:send <canal> <mensaje>
 ```
 
-- `help plugins`: Shows all installed and available plugins along with their exposed CLI commands and status (`[protegido]`).
+- `help plugins`: Shows all installed and available plugins along with their exposed CLI commands and their status (`[protegido]`).
 - `help plugins [nombre_plugin]`: Shows the technical sheet, repository, options and specific commands of the selected plugin.
 - **Plugin Commands**: Plugins installed at `plugins/` or declared at `joss.yaml` can register and dispatch standalone and protected CLI commands.
 
@@ -185,4 +185,4 @@ joss userstorage sync-oci
 joss userstorage sync-local
 ```
 
-- `userstorage`: Switches the storage provider between local disk and **Oracle Cloud Infrastructure (OCI)**, allowing two-way synchronization through `sync-oci` and `sync-local`.
+- `userstorage`: Switches the storage provider between local disk and **Oracle Cloud Infrastructure (OCI)**, allowing two-way synchronization using `sync-oci` and `sync-local`.

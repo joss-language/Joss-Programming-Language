@@ -135,7 +135,8 @@ func checkUpdateBackground() {
 func printUpdateNotification(remoteVer, channel string) {
 	channelTag := strings.ToUpper(channel)
 	fmt.Printf("\n💡 \033[1;33m[JOSS UPDATE]\033[0m %s \033[1;36mv%s\033[0m -> \033[1;32mv%s\033[0m (%s)\n", i18n.Tr("updaterNewVersionTitle"), version.Version, remoteVer, channelTag)
-	fmt.Printf("   %s\n\n", i18n.Tr("updaterRunHint", map[string]interface{}{"channel": strings.ToLower(channel)}))
+	fmt.Printf("   %s\n", i18n.Tr("updaterRunHint"))
+	fmt.Printf("   joss update --%s\n\n", strings.ToLower(channel))
 }
 
 // handleUpdateCommand executes the 'joss update' CLI command.
@@ -205,6 +206,7 @@ func handleUpdateCommand(args []string) {
 	if !force && compareVersions(remoteVer, version.Version) == 0 {
 		fmt.Println(i18n.Tr("updaterAlreadyUpdated", map[string]interface{}{"version": version.Version, "channel": strings.ToUpper(cfg.Channel)}))
 		fmt.Println(i18n.Tr("updaterForceTip"))
+		fmt.Println("  joss update -f")
 		fmt.Println()
 		return
 	}

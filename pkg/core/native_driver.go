@@ -34,6 +34,76 @@ func callLoadedNativeDriver(driver *NativeDriverDefinition, method, argsJSON str
 	return "", fmt.Errorf("respuesta excede %d MiB o no termina en NUL", maxNativeDriverResponse>>20)
 }
 
+// retainNativeDriver records another Runtime borrowing the same immutable
+// driver definition and dynamic-library handle. Drivers inserted by older host
+// integrations have an implicit initial owner when owners is still zero.
+func retainNativeDriver(driver *NativeDriverDefinition) error {
+	if driver == nil {
+		return nil
+	}
+	driver.Mu.Lock()
+	defer driver.Mu.Unlock()
+	if driver.unloaded {
+		return fmt.Errorf("driver %s descargado", driver.Name)
+	}
+	if driver.owners == 0 {
+		driver.owners = 1
+	}
+	driver.owners++
+	return nil
+}
+
+func adoptNativeDriver(driver *NativeDriverDefinition) error {
+	if driver == nil {
+		return fmt.Errorf("driver no cargado")
+	}
+	driver.Mu.Lock()
+	defer driver.Mu.Unlock()
+	if driver.unloaded {
+		return fmt.Errorf("driver %s descargado", driver.Name)
+	}
+	if driver.owners == 0 {
+		driver.owners = 1
+	}
+	return nil
+}
+
+func (r *Runtime) installNativeDriver(name string, driver *NativeDriverDefinition) error {
+	if err := adoptNativeDriver(driver); err != nil {
+		return err
+	}
+	if previous := r.NativeDrivers[name]; previous != nil && previous != driver {
+		if err := releaseNativeDriver(previous); err != nil {
+			_ = driver.Unload()
+			return fmt.Errorf("reemplazar driver %s: %w", name, err)
+		}
+	}
+	r.NativeDrivers[name] = driver
+	return nil
+}
+
+// releaseNativeDriver releases one Runtime owner. The final owner is
+// responsible for unloading the OS handle; request forks never unload a handle
+// that remains reachable by their parent or sibling runtimes.
+func releaseNativeDriver(driver *NativeDriverDefinition) error {
+	if driver == nil {
+		return nil
+	}
+	driver.Mu.Lock()
+	defer driver.Mu.Unlock()
+	if driver.unloaded {
+		return nil
+	}
+	if driver.owners == 0 {
+		driver.owners = 1
+	}
+	driver.owners--
+	if driver.owners > 0 {
+		return nil
+	}
+	return driver.unloadLocked()
+}
+
 // Unload safely unloads a loaded native dynamic library, clearing its handle and
 // preventing use-after-free by rejecting subsequent invocations.
 func (d *NativeDriverDefinition) Unload() error {
@@ -45,6 +115,14 @@ func (d *NativeDriverDefinition) Unload() error {
 	if d.unloaded {
 		return nil
 	}
+	if d.owners > 1 {
+		return fmt.Errorf("driver %s sigue compartido por %d runtimes", d.Name, d.owners)
+	}
+	d.owners = 0
+	return d.unloadLocked()
+}
+
+func (d *NativeDriverDefinition) unloadLocked() error {
 	d.unloaded = true
 	var err error
 	if d.Handle != 0 {

@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "حاول الآن باستخدام: joss run tu_script.joss",
+  "aiTryScript": "حاول الآن باستخدام",
   "@aiTryScript": {},
   "aiWizardConfig": "سيقوم هذا المعالج بتكوين الذكاء الاصطناعي الأصلي في مشروعك.",
   "@aiWizardConfig": {},
@@ -91,7 +91,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "خطأ: لا يمكن أن يكون مفتاح API فارغًا.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "هل تريد تفعيل BREVO_API؟ (y/n): ",
+  "brevoEnablePrompt": "هل تريد تفعيل BREVO_API؟",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "أدخل مفتاح Brevo API الخاص بك: ",
   "@brevoEnterKey": {},
@@ -216,7 +216,7 @@
   "@buildProgramStructure": {},
   "buildProgramSuccess": "تم إكمال إنشاء البرنامج بنجاح في المجلد \"build/\".",
   "@buildProgramSuccess": {},
-  "buildPromptNodeModules": "هل تريد تضمين 'node_modules' في عملية البناء؟ (y/n):",
+  "buildPromptNodeModules": "هل تريد تضمين 'node_modules' في عملية البناء؟",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -240,7 +240,7 @@
   },
   "buildWebDeployTip": "للنشر، قم بتحميل محتويات المجلد \"build/\" إلى الخادم الخاص بك.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "ما عليك سوى تشغيل 'joss run main.joss' بداخله على الخادم.",
+  "buildWebRunTip": "ما عليك سوى تشغيل بداخله على الخادم.",
   "@buildWebRunTip": {},
   "buildWebStart": "بدء إنشاء Joss WEB...",
   "@buildWebStart": {},
@@ -323,15 +323,15 @@
   "@cliCmdTest": {
     "description": "Descripción del comando joss test"
   },
-  "cliErrNoMain": "خطأ: لم يتم العثور على 'main.joss'.",
+  "cliErrNoMain": "خطأ: لم يتم العثور على.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
-  "cliErrRequireMain": "يجب أن تحتوي جميع المشاريع على نقطة دخول 'main.joss' التي تبدأ الخادم.",
+  "cliErrRequireMain": "يجب أن تحتوي جميع المشاريع على نقطة دخول التي تبدأ الخادم.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] تشغيل البرنامج النصي لبدء التشغيل (main.joss)...",
+  "cliExecMain": "[CLI] تشغيل البرنامج النصي لبدء التشغيل...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "ابدأ تشغيل خادم ويب HTTP عالي الأداء عن طريق تشغيل نقطة الإدخال \"main.joss\". تحميل جميع برامج التشغيل والنماذج والمسارات تلقائيًا في التطبيق/. اضغط على \"q\" أو Ctrl+C في وحدة التحكم لإيقاف الخادم بأمان.",
+  "helpTopicServer": "ابدأ تشغيل خادم ويب HTTP عالي الأداء عن طريق تشغيل نقطة الإدخال. تحميل جميع برامج التشغيل والنماذج والمسارات تلقائيًا في التطبيق/. اضغط على \"q\" أو Ctrl+C في وحدة التحكم لإيقاف الخادم بأمان.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1115,12 +1115,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "قم بتشغيل \"joss update --_{channel}_\" لتحديث وقت التشغيل وSDK والامتداد تلقائيًا.",
+  "updaterRunHint": "قم بتشغيل لتحديث وقت التشغيل وSDK والامتداد تلقائيًا.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 تحديث جوس",
   "@updaterTitle": {
@@ -1157,7 +1154,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 نصيحة: استخدم 'joss update -f' لفرض إعادة تنزيل الملف الثنائي وتثبيته.",
+  "updaterForceTip": "💡 نصيحة: استخدم لفرض إعادة تنزيل الملف الثنائي وتثبيته.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2221,18 +2218,18 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[تحقق التحذير] {count}_ الملف (الملفات) لا تتوافق مع التنسيق الأساسي (نفذ \"تنسيق joss --write\"):",
+  "checkFormatWarning": "[تحقق التحذير] {count}_ الملف (الملفات) لا تتوافق مع التنسيق الأساسي",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
       "count": {}
     }
   },
-  "programRunningMain": "[البرنامج] تشغيل main.joss...",
+  "programRunningMain": "[البرنامج] تشغيل...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
-  "programNoMainStarting": "[البرنامج] لم يتم العثور على main.joss، بدء تشغيل الخادم مباشرة...",
+  "programNoMainStarting": "[البرنامج] لم يتم العثور على ، بدء تشغيل الخادم مباشرة...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
@@ -2262,7 +2259,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "يجب أن تحتوي جميع المشاريع على نقطة إدخال \"main.joss\" أو تحديد ملف: joss Analysis [file.joss]",
+  "cliRequireMainOrScript": "يجب أن تحتوي جميع المشاريع على نقطة إدخال أو تحديد ملف: joss Analysis",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },
@@ -2385,7 +2382,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} ملف (ملفات) تتطلب تنسيقًا (استخدم --write للتطبيق):",
+  "formatRequireFormat": "[FORMAT] {count} ملف (ملفات) تتطلب تنسيقًا",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2489,7 +2486,7 @@
       "key": {}
     }
   },
-  "programErrorsInMain": "[Program] أخطاء في main.joss: {errors}",
+  "programErrorsInMain": "[Program] أخطاء في: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {

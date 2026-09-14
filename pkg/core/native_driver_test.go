@@ -24,3 +24,22 @@ func TestCallLoadedNativeDriverCopiesAndFreesCString(t *testing.T) {
 		t.Fatalf("result=%q freed=%v", got, freed)
 	}
 }
+
+func TestInstallNativeDriverReleasesReplacedOwner(t *testing.T) {
+	runtime := NewRuntime()
+	defer runtime.Free()
+	previous := &NativeDriverDefinition{Name: "demo", Call: func(_, _ string) *byte { return nil }}
+	replacement := &NativeDriverDefinition{Name: "demo", Call: func(_, _ string) *byte { return nil }}
+	if err := runtime.installNativeDriver("demo", previous); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.installNativeDriver("demo", replacement); err != nil {
+		t.Fatal(err)
+	}
+	if !previous.unloaded {
+		t.Fatal("replacing a native driver did not release the previous owner")
+	}
+	if replacement.unloaded {
+		t.Fatal("replacement native driver was unloaded during installation")
+	}
+}

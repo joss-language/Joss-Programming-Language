@@ -17,6 +17,7 @@ type AssetManager struct {
 	ViewCSSCache map[string]string        // ViewName -> OptimizedCSS
 	GlobalCSS    string                   // Content of public/css/app.css
 	CacheMutex   sync.RWMutex
+	initMutex    sync.Mutex
 	Initialized  bool
 }
 
@@ -46,14 +47,16 @@ func GetAssetManager() *AssetManager {
 
 // Initialize scans node_modules and loads global CSS
 func (am *AssetManager) Initialize() {
+	am.initMutex.Lock()
+	defer am.initMutex.Unlock()
 	if am.Initialized {
 		return
 	}
-	am.Initialized = true
 
 	fmt.Println("[AssetManager] Initializing...")
 	am.ScanNodeModules()
 	am.LoadGlobalCSS()
+	am.Initialized = true
 }
 
 // LoadGlobalCSS reads the main compiled CSS file
@@ -62,8 +65,11 @@ func (am *AssetManager) LoadGlobalCSS() {
 	path := filepath.Join("public", "css", "app.css")
 	data, err := os.ReadFile(path)
 	if err == nil {
+		am.CacheMutex.Lock()
 		am.GlobalCSS = string(data)
-		fmt.Printf("[AssetManager] Loaded Global CSS (%d bytes)\n", len(am.GlobalCSS))
+		length := len(am.GlobalCSS)
+		am.CacheMutex.Unlock()
+		fmt.Printf("[AssetManager] Loaded Global CSS (%d bytes)\n", length)
 	} else {
 		fmt.Println("[AssetManager] Warning: public/css/app.css not found. Dynamic optimization might be empty until rebuild.")
 	}
@@ -184,8 +190,14 @@ func (am *AssetManager) OptimizeViewCSS(viewName string, htmlContent string) str
 	am.CacheMutex.RUnlock()
 
 	// Optimization Logic (Similar to strict optimizer but dynamic)
-	if am.GlobalCSS == "" {
+	am.CacheMutex.RLock()
+	globalCSS := am.GlobalCSS
+	am.CacheMutex.RUnlock()
+	if globalCSS == "" {
 		am.LoadGlobalCSS()
+		am.CacheMutex.RLock()
+		globalCSS = am.GlobalCSS
+		am.CacheMutex.RUnlock()
 	}
 
 	// 1. Extract tokens from HTML
@@ -206,7 +218,7 @@ func (am *AssetManager) OptimizeViewCSS(viewName string, htmlContent string) str
 	// This was causing the layout breakage (stripping background/media queries).
 	// For now, we utilize "Safe Mode": Serve valid, compressed CSS without purging.
 	// Future: Implement a proper state-machine CSS parser.
-	optimized := am.GlobalCSS
+	optimized := globalCSS
 
 	/*
 		reBlock := regexp.MustCompile(`(?s)([^{}]+)\{([^{}]+)\}`)

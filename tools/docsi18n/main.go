@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -64,7 +65,8 @@ func main() {
 	syncPublic := flag.Bool("sync", false, "synchronize all three locales to the JosSecurity public mirror")
 	check := flag.Bool("check", false, "verify translation coverage, freshness, links and public mirrors")
 	filesFlag := flag.String("files", "", "optional comma-separated canonical Markdown filenames")
-	provider := flag.String("provider", "bing", "translation provider: bing or google")
+	localesFlag := flag.String("locales", "en,pt", "comma-separated target locales: en,pt")
+	provider := flag.String("provider", "google", "translation provider: google or bing")
 	flag.Parse()
 
 	if !*translate && !*fixLinks && !*syncPublic && !*check {
@@ -80,12 +82,13 @@ func main() {
 	if *translate {
 		translator, err := newTranslator(*provider)
 		must(err)
-		for _, locale := range []string{"en", "pt"} {
+		locales := selectLocales(*localesFlag)
+		for _, locale := range locales {
 			for _, path := range files {
 				translateFile(path, locale, m, *force, translator)
+				writeManifest(m)
 			}
 		}
-		writeManifest(m)
 	}
 	if *fixLinks {
 		fixTranslatedLinks(files)
@@ -99,6 +102,23 @@ func main() {
 			os.Exit(1)
 		}
 	}
+}
+
+func selectLocales(value string) []string {
+	var locales []string
+	seen := map[string]bool{}
+	for _, locale := range strings.Split(value, ",") {
+		locale = strings.TrimSpace(locale)
+		if (locale != "en" && locale != "pt") || seen[locale] {
+			must(fmt.Errorf("invalid or duplicate target locale %q", locale))
+		}
+		seen[locale] = true
+		locales = append(locales, locale)
+	}
+	if len(locales) == 0 {
+		must(fmt.Errorf("at least one target locale is required"))
+	}
+	return locales
 }
 
 func canonicalFiles() []string {
@@ -160,7 +180,7 @@ func translateFile(sourcePath, locale string, m *manifest, force bool, translato
 	hash := digest(source)
 	target := filepath.Join("docs", locale, name)
 	if !force && m.Sources[locale][name] == hash {
-		if _, err := os.Stat(target); err == nil {
+		if targetData, err := os.ReadFile(target); err == nil && bytes.Count(targetData, []byte{'\n'}) == bytes.Count(source, []byte{'\n'}) {
 			fmt.Printf("current %s/%s\n", locale, name)
 			return
 		}
@@ -264,12 +284,12 @@ func translateMarkdown(source, locale string, translator translateFunc) (string,
 			return nil
 		}
 		original := prose.String()
-		masked, protected := maskTranslationSyntax(original)
-		translated, err := translator(masked, locale)
-		if err != nil {
-			return err
+		if strings.TrimSpace(original) == "" {
+			output.WriteString(original)
+			prose.Reset()
+			return nil
 		}
-		translated, err = unmaskTranslationSyntax(translated, protected)
+		translated, err := translateProse(original, locale, translator)
 		if err != nil {
 			return err
 		}
@@ -299,7 +319,10 @@ func translateMarkdown(source, locale string, translator translateFunc) (string,
 			}
 			continue
 		}
-		if prose.Len()+len(line) > 2400 {
+		// Protected UUID markers expand dense Markdown tables considerably. Keep
+		// source batches small enough to stay below the provider's 5,000-character
+		// request limit after links, inline code and line breaks are masked.
+		if prose.Len()+len(line) > 700 {
 			if err := flush(); err != nil {
 				return "", err
 			}
@@ -310,6 +333,104 @@ func translateMarkdown(source, locale string, translator translateFunc) (string,
 		return "", err
 	}
 	return output.String(), nil
+}
+
+func translateProse(original, locale string, translator translateFunc) (string, error) {
+	if strings.TrimSpace(original) == "" {
+		return original, nil
+	}
+	masked, protected := maskTranslationSyntax(original)
+	requestText := encodeTranslationHTML(masked, protected)
+	if len(requestText) > 3500 {
+		splitAt := proseSplitIndex(original)
+		if splitAt <= 0 || splitAt >= len(original) {
+			return "", fmt.Errorf("unable to split oversized translation block")
+		}
+		left, err := translateProse(original[:splitAt], locale, translator)
+		if err != nil {
+			return "", err
+		}
+		right, err := translateProse(original[splitAt:], locale, translator)
+		if err != nil {
+			return "", err
+		}
+		return left + right, nil
+	}
+	translated, err := translator(requestText, locale)
+	if err != nil {
+		return "", err
+	}
+	translated, err = decodeTranslationHTML(translated, protected)
+	if err != nil {
+		return "", err
+	}
+	return unmaskTranslationSyntax(translated, protected)
+}
+
+func proseSplitIndex(text string) int {
+	middle := len(text) / 2
+	if index := strings.LastIndex(text[:middle], "\n"); index >= 0 {
+		return index + 1
+	}
+	if index := strings.LastIndex(text[:middle], " "); index >= 0 {
+		return index + 1
+	}
+	runes := []rune(text)
+	return len(string(runes[:len(runes)/2]))
+}
+
+func encodeTranslationHTML(text string, protected protectedSyntax) string {
+	text = html.EscapeString(text)
+	for index := range protected.links {
+		text = strings.ReplaceAll(text, syntaxMarker('S', index), protectedHTMLMarker("link-start", index))
+		text = strings.ReplaceAll(text, syntaxMarker('E', index), protectedHTMLMarker("link-end", index))
+	}
+	for index := range protected.inline {
+		text = strings.ReplaceAll(text, syntaxMarker('I', index), protectedHTMLMarker("inline", index))
+	}
+	for index := range protected.lineBreaks {
+		text = strings.ReplaceAll(text, syntaxMarker('B', index), protectedHTMLMarker("break", index))
+	}
+	return text
+}
+
+func protectedHTMLMarker(kind string, index int) string {
+	return fmt.Sprintf(`<span translate="no" data-joss-%s="%d">%s</span>`, kind, index, htmlMarkerToken(kind, index))
+}
+
+func htmlMarkerToken(kind string, index int) string {
+	return fmt.Sprintf("JOSSZXQ%sX%dQXZ", strings.ToUpper(strings.ReplaceAll(kind, "-", "")), index)
+}
+
+func decodeTranslationHTML(text string, protected protectedSyntax) (string, error) {
+	restore := func(kind byte, name string, count int) error {
+		for index := 0; index < count; index++ {
+			marker := syntaxMarker(kind, index)
+			token := htmlMarkerToken(name, index)
+			pattern := regexp.MustCompile(fmt.Sprintf(`(?is)<span[^>]*data-joss-%s=["']?%d["']?[^>]*>.*?</span>`, regexp.QuoteMeta(name), index))
+			if pattern.MatchString(text) {
+				text = pattern.ReplaceAllStringFunc(text, func(string) string { return marker })
+			} else if strings.Contains(text, token) {
+				text = strings.ReplaceAll(text, token, marker)
+			} else {
+				return fmt.Errorf("translation provider changed protected HTML marker %s %d in %q", name, index, text)
+			}
+		}
+		return nil
+	}
+	if err := restore('S', "link-start", len(protected.links)); err != nil {
+		return "", err
+	}
+	if err := restore('E', "link-end", len(protected.links)); err != nil {
+		return "", err
+	}
+	if err := restore('I', "inline", len(protected.inline)); err != nil {
+		return "", err
+	}
+	if err := restore('B', "break", len(protected.lineBreaks)); err != nil {
+		return "", err
+	}
+	return html.UnescapeString(text), nil
 }
 
 func newTranslator(provider string) (translateFunc, error) {
@@ -415,7 +536,7 @@ func restoreBoundaryNewlines(source, translated string) string {
 func maskTranslationSyntax(text string) (string, protectedSyntax) {
 	protected := protectedSyntax{}
 	protectInline := func(value string) string {
-		placeholder := fmt.Sprintf("https://joss.invalid/inline/%06d", len(protected.inline))
+		placeholder := syntaxMarker('I', len(protected.inline))
 		protected.inline = append(protected.inline, value)
 		return placeholder
 	}
@@ -426,62 +547,98 @@ func maskTranslationSyntax(text string) (string, protectedSyntax) {
 		}
 		index := len(protected.links)
 		protected.links = append(protected.links, link[separator+2:len(link)-1])
-		start := fmt.Sprintf("https://joss.invalid/link-start/%06d", index)
-		end := fmt.Sprintf("https://joss.invalid/link-end/%06d", index)
+		start := syntaxMarker('S', index)
+		end := syntaxMarker('E', index)
 		return start + " " + link[1:separator] + " " + end
 	})
 	masked = translationSyntax.ReplaceAllStringFunc(masked, protectInline)
-	lineBreak := regexp.MustCompile(`\r\n|\n`)
+	lineBreak := regexp.MustCompile(`(?:\r\n|\n)+`)
 	masked = lineBreak.ReplaceAllStringFunc(masked, func(value string) string {
-		placeholder := fmt.Sprintf("https://joss.invalid/line-break/%06d", len(protected.lineBreaks))
+		placeholder := syntaxMarker('B', len(protected.lineBreaks))
 		protected.lineBreaks = append(protected.lineBreaks, value)
 		return " " + placeholder + " "
 	})
 	return masked, protected
 }
 
+func syntaxMarker(kind byte, index int) string {
+	base := 0xE000
+	switch kind {
+	case 'S':
+		base = 0xE400
+	case 'E':
+		base = 0xE800
+	case 'B':
+		base = 0xEC00
+	}
+	return string(rune(base + index))
+}
+
 func unmaskTranslationSyntax(text string, protected protectedSyntax) (string, error) {
 	for index, value := range protected.links {
-		start := fmt.Sprintf("https://joss.invalid/link-start/%06d", index)
-		end := fmt.Sprintf("https://joss.invalid/link-end/%06d", index)
-		startAt := strings.Index(text, start)
-		endAt := strings.Index(text, end)
+		start := syntaxMarker('S', index)
+		end := syntaxMarker('E', index)
+		upperText := strings.ToUpper(text)
+		startAt := strings.Index(upperText, strings.ToUpper(start))
+		endAt := strings.Index(upperText, strings.ToUpper(end))
 		if startAt < 0 || endAt < startAt {
-			return "", fmt.Errorf("translation provider changed protected Markdown link %q", value)
+			return "", fmt.Errorf("translation provider changed protected Markdown link %q in %q", value, text)
 		}
 		label := strings.TrimSpace(text[startAt+len(start) : endAt])
+		label = strings.NewReplacer("[", "", "]", "").Replace(label)
+		if strings.TrimSpace(label) == "" {
+			label = value
+		}
 		text = text[:startAt] + "[" + label + "](" + value + ")" + text[endAt+len(end):]
 	}
 	for index, value := range protected.inline {
-		placeholder := fmt.Sprintf("https://joss.invalid/inline/%06d", index)
-		if !strings.Contains(text, placeholder) {
+		placeholder := syntaxMarker('I', index)
+		pattern := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(placeholder))
+		if !pattern.MatchString(text) {
 			return "", fmt.Errorf("translation provider changed protected Markdown syntax %q", value)
 		}
-		text = strings.ReplaceAll(text, placeholder, value)
+		text = pattern.ReplaceAllStringFunc(text, func(string) string { return value })
 	}
 	for index, value := range protected.lineBreaks {
-		placeholder := fmt.Sprintf("https://joss.invalid/line-break/%06d", index)
-		if !strings.Contains(text, placeholder) {
-			return "", fmt.Errorf("translation provider changed a protected line break")
+		placeholder := syntaxMarker('B', index)
+		pattern := regexp.MustCompile(`(?i)[ \t]*` + regexp.QuoteMeta(placeholder) + `[ \t]*`)
+		if !pattern.MatchString(text) {
+			return "", fmt.Errorf("translation provider changed protected line break %d in %q", index, text)
 		}
-		pattern := regexp.MustCompile(`[ \t]*` + regexp.QuoteMeta(placeholder) + `[ \t]*`)
 		text = pattern.ReplaceAllString(text, value)
 	}
 	return text, nil
 }
 
 func googleTranslate(text, locale string) (string, error) {
-	endpoint := "https://translate.googleapis.com/translate_a/single?client=gtx&sl=es&tl=" + url.QueryEscape(locale) + "&dt=t&q=" + url.QueryEscape(text)
+	endpoint := "https://translate.googleapis.com/translate_a/single?client=gtx&sl=es&tl=" + url.QueryEscape(locale) + "&dt=t&format=html"
 	client := &http.Client{Timeout: 45 * time.Second}
 	var lastErr error
 	for attempt := 0; attempt < 8; attempt++ {
-		response, err := client.Get(endpoint)
+		request, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(url.Values{"q": {text}}.Encode()))
+		if err != nil {
+			return "", err
+		}
+		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		response, err := client.Do(request)
 		if err == nil && response.StatusCode == http.StatusOK {
-			var payload []any
-			err = json.NewDecoder(response.Body).Decode(&payload)
+			body, readErr := io.ReadAll(response.Body)
 			response.Body.Close()
-			if err == nil {
-				return translatedText(payload)
+			var payload []any
+			if readErr == nil {
+				err = json.Unmarshal(body, &payload)
+				if err == nil {
+					var translated string
+					translated, err = translatedText(payload)
+					if err == nil {
+						return translated, nil
+					}
+				}
+			} else {
+				err = readErr
+			}
+			if err != nil {
+				err = fmt.Errorf("unexpected translation response: %w: %s", err, strings.TrimSpace(string(body[:min(len(body), 512)])))
 			}
 		} else if response != nil {
 			body, _ := io.ReadAll(io.LimitReader(response.Body, 512))
@@ -569,6 +726,9 @@ func checkAll(files []string, m *manifest) error {
 				}
 				if !equalBlocks(inlineCode.FindAll(canonicalData, -1), inlineCode.FindAll(data, -1)) {
 					problems = append(problems, fmt.Sprintf("inline code changed in %s/%s", locale, name))
+				}
+				if bytes.Count(canonicalData, []byte{'\n'}) != bytes.Count(data, []byte{'\n'}) {
+					problems = append(problems, fmt.Sprintf("line structure changed in %s/%s", locale, name))
 				}
 			}
 			checkLinks(source, data, names, &problems)

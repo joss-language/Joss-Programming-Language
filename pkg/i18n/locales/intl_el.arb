@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Δοκιμάστε τώρα με: joss run tu_script.joss",
+  "aiTryScript": "Δοκιμάστε τώρα με",
   "@aiTryScript": {},
   "aiWizardConfig": "Αυτός ο οδηγός θα διαμορφώσει το εγγενές AI στο έργο σας.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Σφάλμα: Το κλειδί API δεν μπορεί να είναι κενό.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Θέλετε να ενεργοποιήσετε το BREVO_API; (y/n): ",
+  "brevoEnablePrompt": "Θέλετε να ενεργοποιήσετε το BREVO_API;",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Εισαγάγετε το Brevo API Key σας: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "Για ανάπτυξη, ανεβάστε τα περιεχόμενα του φακέλου «build/» στον διακομιστή σας.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "Χρειάζεται μόνο να εκτελέσετε το \"joss run main.joss\" μέσα σε αυτό στον διακομιστή.",
+  "buildWebRunTip": "Χρειάζεται μόνο να εκτελέσετε το μέσα σε αυτό στον διακομιστή.",
   "@buildWebRunTip": {},
   "buildWebStart": "Έναρξη δημιουργίας Joss WEB...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Όλα τα έργα πρέπει να έχουν ένα σημείο εισόδου 'main.joss' που ξεκινά τον διακομιστή.",
+  "cliErrRequireMain": "Όλα τα έργα πρέπει να έχουν ένα σημείο εισόδου που ξεκινά τον διακομιστή.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Εκτέλεση σεναρίου εκκίνησης (main.joss)...",
+  "cliExecMain": "[CLI] Εκτέλεση σεναρίου εκκίνησης...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Σφάλμα: το 'main.joss' δεν βρέθηκε.",
+  "cliErrNoMain": "Σφάλμα: το δεν βρέθηκε.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Θέλετε να συμπεριλάβετε το 'node_modules' στο build; (y/n):",
+  "buildPromptNodeModules": "Θέλετε να συμπεριλάβετε το 'node_modules' στο build;",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Ξεκινήστε τον διακομιστή web HTTP υψηλής απόδοσης εκτελώντας το σημείο εισόδου «main.joss». Αυτόματη φόρτωση όλων των προγραμμάτων οδήγησης, μοντέλων και διαδρομών στην εφαρμογή/. Πατήστε 'q' ή Ctrl+C στην κονσόλα για να σταματήσετε με ασφάλεια τον διακομιστή.",
+  "helpTopicServer": "Ξεκινήστε τον διακομιστή web HTTP υψηλής απόδοσης εκτελώντας το σημείο εισόδου. Αυτόματη φόρτωση όλων των προγραμμάτων οδήγησης, μοντέλων και διαδρομών στην εφαρμογή/. Πατήστε 'q' ή Ctrl+C στην κονσόλα για να σταματήσετε με ασφάλεια τον διακομιστή.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Εκτελέστε το 'joss update --{channel}' για αυτόματη ενημέρωση του χρόνου εκτέλεσης, του SDK και της επέκτασης.",
+  "updaterRunHint": "Εκτελέστε το για αυτόματη ενημέρωση του χρόνου εκτέλεσης, του SDK και της επέκτασης.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 JOSS UPDATE",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Συμβουλή: Χρησιμοποιήστε το 'joss update -f' για να αναγκάσετε την εκ νέου λήψη και εγκατάσταση του δυαδικού αρχείου.",
+  "updaterForceTip": "💡 Συμβουλή: Χρησιμοποιήστε το για να αναγκάσετε την εκ νέου λήψη και εγκατάσταση του δυαδικού αρχείου.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} αρχεία απαιτούν μορφοποίηση (χρησιμοποιήστε --write για εφαρμογή):",
+  "formatRequireFormat": "[FORMAT] {count} αρχεία απαιτούν μορφοποίηση",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[ΕΛΕΓΧΟΣ ΠΡΟΕΙΔΟΠΟΙΗΣΗ] Τα αρχεία {count} δεν συμμορφώνονται με την κανονική μορφή (εκτέλεση 'joss format --write'):",
+  "checkFormatWarning": "[ΕΛΕΓΧΟΣ ΠΡΟΕΙΔΟΠΟΙΗΣΗ] Τα αρχεία {count} δεν συμμορφώνονται με την κανονική μορφή",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Πρόγραμμα] Εκτέλεση main.joss...",
+  "programRunningMain": "[Πρόγραμμα] Εκτέλεση...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "Το [Program] main.joss δεν βρέθηκε, ο διακομιστής ξεκινά απευθείας...",
+  "programNoMainStarting": "Το [Program] δεν βρέθηκε, ο διακομιστής ξεκινά απευθείας...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Πρόγραμμα] Σφάλματα στο main.joss: {errors}",
+  "programErrorsInMain": "[Πρόγραμμα] Σφάλματα στο: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "Μήπως εννοούσατε \"joss make:migration [Name]\";",
+  "cliDidYouMean": "Μήπως εννοούσατε",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "Όλα τα έργα πρέπει να έχουν ένα σημείο εισόδου \"main.joss\" ή να καθορίσουν ένα αρχείο: joss analyse [file.joss]",
+  "cliRequireMainOrScript": "Όλα τα έργα πρέπει να έχουν ένα σημείο εισόδου ή να καθορίσουν ένα αρχείο: joss analyse",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

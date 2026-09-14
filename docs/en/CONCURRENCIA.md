@@ -1,4 +1,4 @@
-# Concurrency, asynchronous operations, Future and Channels
+# Concurrency, Asynchronous Operations, Future and Channels
 
 Before: [Error and exception handling](ERRORES.md). After: [Hands-on console project](PROYECTO_CONSOLA.md).
 Technical reference: [Native modules](MODULOS_NATIVOS.md), [Runtime architecture](ARQUITECTURA.md).
@@ -7,12 +7,12 @@ Technical reference: [Native modules](MODULOS_NATIVOS.md), [Runtime architecture
 
 ## What are you going to learn here?
 
-In the physical world, human beings do not do one thing strictly after another. While the washing machine washes clothes, you can prepare food and listen to music; You don't stare at the washing machine for 40 minutes without doing anything else.
+In the physical world, humans do not do one thing strictly after another. While the washing machine washes clothes, you can prepare food and listen to music; You don't stare at the washing machine for 40 minutes without doing anything else.
 
 In traditional synchronous programming, the computer is often "frozen" waiting:
-- Wait for a remote server on the other side of the world to respond to a query (500 milliseconds).
+- Waits for a remote server on the other side of the world to respond to a query (500 milliseconds).
 - Wait for a hard drive to read a large file (200 milliseconds).
-- Waits for a complex database query to complete.
+- Wait for a complex database query to complete.
 
 During this wait, the processor is wasting millions of calculation cycles that could be used to serve other users or process other data.
 
@@ -20,7 +20,7 @@ In this guide you will learn:
 1. The conceptual difference between **synchronous**, **asynchronous** and **concurrent** operations.
 2. What is a **`Future`** (promise of a future result).
 3. How to delegate tasks to the background with the syntax **`async { ... }`**.
-4. What **`await(...)`** conceptually means, what it returns and how it propagates errors.
+4. What **`await(...)`** means conceptually, what it returns and how it propagates errors.
 5. What is a **channel (`channel`)**, how to send and receive data between independent tasks and how to consume it with `foreach`.
 6. How Joss isolates memory between tasks using `Runtime.Fork()`.
 7. When to use concurrency and what classic mistakes to avoid.
@@ -54,23 +54,23 @@ print($resultado)
 ### What happens step by step in this program?
 
 1. `$futuro = async { ... }`:
-   - Joss takes the block of code and runs it concurrently in a lightweight thread managed by the system (a Go goroutine).
-   - Immediately, the call returns a special object called **`Future`**. A `Future` is not the number `42` yet; is a "claim ticket" that represents a result that will be ready later.
+- Joss takes the block of code and launches it to run concurrently in a lightweight thread managed by the system (a *goroutine* of Go).
+- Immediately, the call returns a special object called **`Future`**. A `Future` is not the number `42` yet; is a "claim ticket" that represents a result that will be ready later.
 2. `print("Preparando resultado")`:
-   - This line is executed immediately, **without waiting** for the `async` block to finish calculating its sum.
+- This line is executed immediately, **without waiting** for the `async` block to finish calculating its sum.
 3. `$resultado = await($futuro)`:
-   - Here the function `await` comes into play. Conceptually and practically it means:
-     > **"Pause the execution of this line until the background task finishes, open the ticket and deposit its result at `$resultado`"**.
-   - If the task had already finished, `await` delivers the result instantly without delay.
+- Here the function `await` comes into play. Conceptually and practically it means:
+> **"Pause the execution of this line until the background task finishes, open the ticket and deposit its result in `$resultado`"**.
+- If the task had already finished, `await` delivers the result instantly without delay.
 4. `print($resultado)`:
-   - Shows the final value `42`.
+- Displays the final value `42`.
 
 > [!NOTE]
-> In Joss, `await` is a native function (`await($futuro)`), not a prefix reserved word. It can be used anywhere in the code: at the top level of a file or within any function; it does not require you to declare your functions like `async func`.
+> In Joss, `await` is a native function (`await($futuro)`), not a reserved word prefix. It can be used anywhere in the code: at the top level of a file or within any function; it does not require you to declare your functions like `async func`.
 
 ---
 
-## 3. Real parallel execution: Launch first, wait later
+## 3. Actual parallel execution: Launch first, wait later
 
 One of the most common mistakes when starting with asynchrony is launching a task and waiting for it on the immediately following line:
 
@@ -98,12 +98,12 @@ Now both `$uno` and `$dos` run concurrently on separate processor cores. The tot
 
 ## 4. What happens if an asynchronous task fails
 
-What happens if the code inside the `async` block fails or throws an exception with `throw`?
+What happens if the code inside the block `async` fails or throws an exception with `throw`?
 
-Joss doesn't let your program crash silently:
-1. The `Future` internally captures the exception that occurred.
-2. The moment you invoke `await($futuro)`, the error is **automatically re-thrown** in the main thread.
-3. You can catch and fix that bug by wrapping the `await` inside a `try / catch` block:
+Joss does not allow your program to crash silently:
+1. The `Future` internally catches the exception that occurred.
+2. The moment you invoke `await($futuro)`, the error is **automatically re-threw** in the main thread.
+3. You can catch and fix that failure by wrapping the `await` inside a block `try / catch`:
 
 ```joss
 $tarea = async {
@@ -136,15 +136,15 @@ close($canal)
 ### Essential operations with channels:
 
 1. `make_chan($capacidad)`:
-   - Create a new channel. The argument defines the size of the **buffer** (how many messages can be stored in the pipeline before the sender has to stop and wait for someone to read).
-   - If you create `make_chan(1)`, you can deposit a message without waiting for a receiver to listen at that precise millisecond.
-   - If you create `make_chan()` (without arguments or with `0`), it is an unbuffered channel: the sender will be blocked until the receiver is ready to receive the hand-to-hand data.
+- Create a new channel. The argument defines the size of the **buffer** (how many messages can be stored in the pipeline before the sender has to stop and wait for someone to read).
+- If you create `make_chan(1)`, you can deposit a message without waiting for a receiver to be listening at that precise millisecond.
+- If you create `make_chan()` (without arguments or with `0`), it is an unbuffered channel: the sender will be blocked until the receiver is ready to receive the hand-to-hand data.
 2. `send($canal, $valor)` (or the operator `$canal << $valor`):
-   - Sends a data through the pipe.
+- Sends a piece of data through the pipe.
 3. `recv($canal)`:
-   - Waits for a message to arrive through the channel and extracts it.
+- Waits for a message to arrive on the channel and extracts it.
 4. `close($canal)`:
-   - Closes the channel, notifying all receivers that no more data will be sent.
+- Closes the channel, notifying all receivers that no more data will be sent.
 
 ---
 
@@ -168,16 +168,16 @@ await($productor)
 
 ### Why does this work so cleanly?
 1. The `async` block acts as **producer**: it sends `10`, then `20` and finally warns that it ended up closing the channel with `close($canal)`.
-2. The `foreach` loop acts as a **consumer**: it waits patiently for each number, prints it, and as soon as it detects that the channel has been closed and is empty, the loop ends cleanly and automatically.
+2. The loop `foreach` acts as a **consumer**: it waits patiently for each number, prints it, and as soon as it detects that the channel was closed and is empty, the loop ends cleanly and automatically.
 
 ---
 
 ## 7. Channel multiplexing with `select`
 
-The **`select`** statement allows you to wait and react to multiple channel operations simultaneously, executing the first case that is ready to complete without blocking the thread if a `default:` clause is provided:
+The **`select`** statement allows you to wait and react to multiple channel operations simultaneously, executing the first case that is ready to complete without blocking the thread if an `default:` clause is provided:
 
 - `case send($ch, $valor):` Try to send a value to a channel.
-- `case recv($ch):` Expect to receive from a channel by discarding the value.
+- `case recv($ch):` Expects to receive from a channel by discarding the value.
 - `case $msg = recv($ch):` Receives from a channel and assigns the received value to a variable.
 - `default:` Executes immediately if none of the channels have operations ready (non-blocking).
 
@@ -198,12 +198,12 @@ select {
 
 ## 8. Generating functions and `yield`
 
-A **generator function** allows a sequence of values ​​to be produced lazily (*lazy evaluation*) on demand, suspending its execution after each `yield` and resuming it exactly at that point when the next element is requested.
+A **generator function** allows a sequence of values to be produced lazily (*lazy evaluation*) on demand, suspending its execution after each `yield` and resuming it exactly at that point when the next element is requested.
 
 Joss supports:
-- `yield $valor`: Outputs a value.
+- `yield $valor`: Emits a value.
 - `yield $clave => $valor`: Emits a key-value pair.
-- Direct consumption through a loop `foreach`.
+- Direct consumption using a loop `foreach`.
 - Manual inspection using methods of the returned instance: `->current()`, `->next()`, `->key()`, `->valid()`.
 
 <!-- joss-run: ["0: 10", "1: 20", "2: 30"] -->
@@ -224,7 +224,7 @@ foreach ($gen as $k => $v) {
 
 ## 9. The memory isolation model: `Runtime.Fork()`
 
-Many languages ​​suffer from obscure concurrency bugs when two tasks modify the same variables at the same time.
+Many languages suffer from obscure concurrency bugs when two tasks modify the same variables at the same time.
 
 Joss prevents this in its internal architecture:
 - Every time you run `async { ... }`, the engine performs a controlled branch operation (`Runtime.Fork()`).
@@ -243,7 +243,7 @@ Cron::schedule("limpieza_diaria", "0 0 * * *", {
 })
 ```
 
-`Cron::schedule` accepts standard 5-field cron expressions or common shortcuts such as `hourly`, `daily`, `weekly` or `monthly`.
+`Cron::schedule` accepts standard 5-field cron expressions or common shortcuts like `hourly`, `daily`, `weekly` or `monthly`.
 
 ---
 
@@ -261,18 +261,18 @@ Cron::schedule("limpieza_diaria", "0 0 * * *", {
 ## 12. Practical exercise
 
 1. **Parallel download simulator**:
-   - Create a function that simulates downloading three files:
+- Create a function that simulates downloading three files:
      ```joss
      $f1 = async { return "archivo1.png descargado" }
      $f2 = async { return "archivo2.pdf descargado" }
      $f3 = async { return "archivo3.zip descargado" }
      ```
-   - Wait for the three results with `await` and print each one.
+- Wait for the three results with `await` and print each one.
 2. **Task queue with channel**:
-   - Create a channel with buffer for 3 elements: `$cola = make_chan(3)`.
-   - Submit three tasks: `"enviar_correo"`, `"generar_pdf"`, `"actualizar_stock"`.
-   - Close the channel.
-   - Scan the channel with `foreach` and print `"Procesando: " . $tarea`.
+- Create a channel with buffer for 3 items: `$cola = make_chan(3)`.
+- Submit three tasks: `"enviar_correo"`, `"generar_pdf"`, `"actualizar_stock"`.
+- Close the channel.
+- Loop through the channel with `foreach` and print `"Procesando: " . $tarea`.
 
 ---
 

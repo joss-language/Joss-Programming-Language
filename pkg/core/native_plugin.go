@@ -40,7 +40,9 @@ func (r *Runtime) registerPluginABIPayload(name, version, root string, targets m
 	if err != nil {
 		return fmt.Errorf("plugin %s %s: no se pudo cargar ABI: %w", name, version, err)
 	}
-	r.NativeDrivers[name] = driver
+	if err := r.installNativeDriver(name, driver); err != nil {
+		return fmt.Errorf("plugin %s %s: no se pudo registrar ABI: %w", name, version, err)
+	}
 	return nil
 }
 

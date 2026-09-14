@@ -81,6 +81,15 @@ func sessionDriver(env map[string]string) string {
 	return driver
 }
 
+func validateSessionDriver(driver string) error {
+	switch driver {
+	case "memory", "file", "redis":
+		return nil
+	default:
+		return fmt.Errorf("session driver %q is not supported", driver)
+	}
+}
+
 func sessionFilePath(env map[string]string) string {
 	path := strings.TrimSpace(env["SESSION_FILE"])
 	if path == "" {
@@ -92,15 +101,35 @@ func sessionFilePath(env map[string]string) string {
 func cloneSessionData(source map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{}, len(source))
 	for key, value := range source {
-		result[key] = value
+		result[key] = cloneSessionValue(value)
 	}
 	return result
+}
+
+func cloneSessionValue(value interface{}) interface{} {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		return cloneSessionData(typed)
+	case []interface{}:
+		result := make([]interface{}, len(typed))
+		for index := range typed {
+			result[index] = cloneSessionValue(typed[index])
+		}
+		return result
+	case []string:
+		return append([]string(nil), typed...)
+	default:
+		return value
+	}
 }
 
 // loadSession is the single backend-neutral read contract. A missing session is
 // an empty map; backend unavailability and corrupt serialized data are errors.
 func loadSession(env map[string]string, sessionID string) (map[string]interface{}, string, error) {
 	driver := sessionDriver(env)
+	if err := validateSessionDriver(driver); err != nil {
+		return nil, driver, err
+	}
 	if driver == "redis" {
 		if core.GlobalRedis == nil {
 			return nil, driver, fmt.Errorf("redis session storage is not available")
@@ -135,6 +164,9 @@ func loadSession(env map[string]string, sessionID string) (map[string]interface{
 // saveSession persists a complete session snapshot. Callers must surface its
 // error; silently dropping authentication/session mutations is not permitted.
 func saveSession(env map[string]string, driver, sessionID string, data map[string]interface{}) error {
+	if err := validateSessionDriver(driver); err != nil {
+		return err
+	}
 	if driver == "redis" {
 		if core.GlobalRedis == nil {
 			return fmt.Errorf("redis session storage is not available")

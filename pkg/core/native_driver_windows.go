@@ -34,7 +34,7 @@ func loadNativeDriver(name, libraryPath string) (*NativeDriverDefinition, error)
 	if freeSymbol, symbolErr := windows.GetProcAddress(handle, "joss_driver_free"); symbolErr == nil {
 		purego.RegisterFunc(&free, freeSymbol)
 	}
-	return &NativeDriverDefinition{Name: name, Path: abs, Handle: uintptr(handle), Call: call, Free: free}, nil
+	return &NativeDriverDefinition{Name: name, Path: abs, Handle: uintptr(handle), Call: call, Free: free, owners: 1}, nil
 }
 
 func unloadNativeDriverHandle(handle uintptr) error {

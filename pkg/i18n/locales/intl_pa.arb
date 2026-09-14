@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "ਹੁਣ ਇਸ ਨਾਲ ਕੋਸ਼ਿਸ਼ ਕਰੋ: joss run tu_script.joss",
+  "aiTryScript": "ਹੁਣ ਇਸ ਨਾਲ ਕੋਸ਼ਿਸ਼ ਕਰੋ",
   "@aiTryScript": {},
   "aiWizardConfig": "ਇਹ ਵਿਜ਼ਾਰਡ ਤੁਹਾਡੇ ਪ੍ਰੋਜੈਕਟ ਵਿੱਚ ਮੂਲ AI ਨੂੰ ਕੌਂਫਿਗਰ ਕਰੇਗਾ।",
   "@aiWizardConfig": {},
@@ -91,7 +91,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "ਗਲਤੀ: API ਕੁੰਜੀ ਖਾਲੀ ਨਹੀਂ ਹੋ ਸਕਦੀ।",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "ਕੀ ਤੁਸੀਂ BREVO_API ਨੂੰ ਸਰਗਰਮ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ? (y/n): ",
+  "brevoEnablePrompt": "ਕੀ ਤੁਸੀਂ BREVO_API ਨੂੰ ਸਰਗਰਮ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "ਆਪਣੀ Brevo API Key ਦਰਜ ਕਰੋ: ",
   "@brevoEnterKey": {},
@@ -216,7 +216,7 @@
   "@buildProgramStructure": {},
   "buildProgramSuccess": "'ਬਿਲਡ/' ਫੋਲਡਰ ਵਿੱਚ ਪ੍ਰੋਗਰਾਮ ਬਿਲਡ ਸਫਲਤਾਪੂਰਵਕ ਪੂਰਾ ਹੋਇਆ।",
   "@buildProgramSuccess": {},
-  "buildPromptNodeModules": "ਕੀ ਤੁਸੀਂ 'node_modules' ਨੂੰ ਬਿਲਡ ਵਿੱਚ ਸ਼ਾਮਲ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ? (y/n):",
+  "buildPromptNodeModules": "ਕੀ ਤੁਸੀਂ 'node_modules' ਨੂੰ ਬਿਲਡ ਵਿੱਚ ਸ਼ਾਮਲ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -240,7 +240,7 @@
   },
   "buildWebDeployTip": "ਤੈਨਾਤ ਕਰਨ ਲਈ, 'ਬਿਲਡ/' ਫੋਲਡਰ ਦੀਆਂ ਸਮੱਗਰੀਆਂ ਨੂੰ ਆਪਣੇ ਸਰਵਰ 'ਤੇ ਅੱਪਲੋਡ ਕਰੋ।",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "ਤੁਹਾਨੂੰ ਸਿਰਫ਼ ਸਰਵਰ 'ਤੇ ਇਸ ਦੇ ਅੰਦਰ 'joss run main.joss' ਚਲਾਉਣ ਦੀ ਲੋੜ ਹੈ।",
+  "buildWebRunTip": "ਤੁਹਾਨੂੰ ਸਿਰਫ਼ ਸਰਵਰ 'ਤੇ ਇਸ ਦੇ ਅੰਦਰ ਚਲਾਉਣ ਦੀ ਲੋੜ ਹੈ।",
   "@buildWebRunTip": {},
   "buildWebStart": "Joss WEB ਬਿਲਡ ਸ਼ੁਰੂ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
   "@buildWebStart": {},
@@ -323,15 +323,15 @@
   "@cliCmdTest": {
     "description": "Descripción del comando joss test"
   },
-  "cliErrNoMain": "ਗਲਤੀ: 'main.joss' ਨਹੀਂ ਮਿਲੀ।",
+  "cliErrNoMain": "ਗਲਤੀ: ਨਹੀਂ ਮਿਲੀ।",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
-  "cliErrRequireMain": "ਸਾਰੇ ਪ੍ਰੋਜੈਕਟਾਂ ਨੂੰ 'main.joss' ਨਾਮਕ ਐਂਟਰੀ ਪੌਇੰਟ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ ਜੋ ਸਰਵਰ ਨੂੰ ਸ਼ੁਰੂ ਕਰਦਾ ਹੈ।",
+  "cliErrRequireMain": "ਸਾਰੇ ਪ੍ਰੋਜੈਕਟਾਂ ਨੂੰ ਨਾਮਕ ਐਂਟਰੀ ਪੌਇੰਟ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ ਜੋ ਸਰਵਰ ਨੂੰ ਸ਼ੁਰੂ ਕਰਦਾ ਹੈ।",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] ਸਟਾਰਟਅੱਪ ਸਕ੍ਰਿਪਟ ਚੱਲ ਰਹੀ ਹੈ (main.joss)...",
+  "cliExecMain": "[CLI] ਸਟਾਰਟਅੱਪ ਸਕ੍ਰਿਪਟ ਚੱਲ ਰਹੀ ਹੈ...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "'main.joss' ਐਂਟਰੀ ਪੁਆਇੰਟ ਚਲਾ ਕੇ ਉੱਚ-ਪ੍ਰਦਰਸ਼ਨ ਵਾਲੇ HTTP ਵੈੱਬ ਸਰਵਰ ਨੂੰ ਸ਼ੁਰੂ ਕਰੋ। ਐਪ/ ਵਿੱਚ ਸਾਰੇ ਡਰਾਈਵਰਾਂ, ਮਾਡਲਾਂ ਅਤੇ ਰੂਟਾਂ ਨੂੰ ਆਟੋਮੈਟਿਕਲੀ ਲੋਡ ਕਰੋ। ਸਰਵਰ ਨੂੰ ਸੁਰੱਖਿਅਤ ਢੰਗ ਨਾਲ ਰੋਕਣ ਲਈ ਕੰਸੋਲ ਵਿੱਚ 'q' ਜਾਂ Ctrl+C ਦਬਾਓ।",
+  "helpTopicServer": "ਐਂਟਰੀ ਪੁਆਇੰਟ ਚਲਾ ਕੇ ਉੱਚ-ਪ੍ਰਦਰਸ਼ਨ ਵਾਲੇ HTTP ਵੈੱਬ ਸਰਵਰ ਨੂੰ ਸ਼ੁਰੂ ਕਰੋ। ਐਪ/ ਵਿੱਚ ਸਾਰੇ ਡਰਾਈਵਰਾਂ, ਮਾਡਲਾਂ ਅਤੇ ਰੂਟਾਂ ਨੂੰ ਆਟੋਮੈਟਿਕਲੀ ਲੋਡ ਕਰੋ। ਸਰਵਰ ਨੂੰ ਸੁਰੱਖਿਅਤ ਢੰਗ ਨਾਲ ਰੋਕਣ ਲਈ ਕੰਸੋਲ ਵਿੱਚ 'q' ਜਾਂ Ctrl+C ਦਬਾਓ।",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "ਰਨਟਾਈਮ, SDK ਅਤੇ ਐਕਸਟੈਂਸ਼ਨ ਨੂੰ ਆਪਣੇ ਆਪ ਅੱਪਡੇਟ ਕਰਨ ਲਈ 'joss update --{channel}' ਚਲਾਓ।",
+  "updaterRunHint": "ਰਨਟਾਈਮ, SDK ਅਤੇ ਐਕਸਟੈਂਸ਼ਨ ਨੂੰ ਆਪਣੇ ਆਪ ਅੱਪਡੇਟ ਕਰਨ ਲਈ ਚਲਾਓ।",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 JOSS ਅੱਪਡੇਟ",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 ਸੁਝਾਅ: ਬਾਈਨਰੀ ਨੂੰ ਮੁੜ-ਡਾਊਨਲੋਡ ਕਰਨ ਅਤੇ ਸਥਾਪਨਾ ਕਰਨ ਲਈ ਮਜਬੂਰ ਕਰਨ ਲਈ 'joss update -f' ਦੀ ਵਰਤੋਂ ਕਰੋ।",
+  "updaterForceTip": "💡 ਸੁਝਾਅ: ਬਾਈਨਰੀ ਨੂੰ ਮੁੜ-ਡਾਊਨਲੋਡ ਕਰਨ ਅਤੇ ਸਥਾਪਨਾ ਕਰਨ ਲਈ ਮਜਬੂਰ ਕਰਨ ਲਈ ਦੀ ਵਰਤੋਂ ਕਰੋ।",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} ਫਾਈਲਾਂ ਨੂੰ ਫਾਰਮੈਟਿੰਗ ਦੀ ਲੋੜ ਹੈ (ਲਾਗੂ ਕਰਨ ਲਈ --write ਦੀ ਵਰਤੋਂ ਕਰੋ):",
+  "formatRequireFormat": "[FORMAT] {count} ਫਾਈਲਾਂ ਨੂੰ ਫਾਰਮੈਟਿੰਗ ਦੀ ਲੋੜ ਹੈ",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[ਚੇਤਾਵਨੀ ਦੀ ਜਾਂਚ ਕਰੋ] {count} ਫਾਈਲਾਂ ਕੈਨੋਨੀਕਲ ਫਾਰਮੈਟ ਦੀ ਪਾਲਣਾ ਨਹੀਂ ਕਰਦੀਆਂ ('ਜੌਸ ਫਾਰਮੈਟ --ਰਾਈਟ' ਨੂੰ ਲਾਗੂ ਕਰੋ):",
+  "checkFormatWarning": "[ਚੇਤਾਵਨੀ ਦੀ ਜਾਂਚ ਕਰੋ] {count} ਫਾਈਲਾਂ ਕੈਨੋਨੀਕਲ ਫਾਰਮੈਟ ਦੀ ਪਾਲਣਾ ਨਹੀਂ ਕਰਦੀਆਂ ('ਜੌਸ ਫਾਰਮੈਟ --ਰਾਈਟ' ਨੂੰ ਲਾਗੂ ਕਰੋ)",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[ਪ੍ਰੋਗਰਾਮ] ਚੱਲ ਰਿਹਾ main.joss...",
+  "programRunningMain": "[ਪ੍ਰੋਗਰਾਮ] ਚੱਲ ਰਿਹਾ...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[ਪ੍ਰੋਗਰਾਮ] main.joss ਨਹੀਂ ਮਿਲਿਆ, ਸਰਵਰ ਨੂੰ ਸਿੱਧਾ ਸ਼ੁਰੂ ਕਰਨਾ...",
+  "programNoMainStarting": "[ਪ੍ਰੋਗਰਾਮ] ਨਹੀਂ ਮਿਲਿਆ, ਸਰਵਰ ਨੂੰ ਸਿੱਧਾ ਸ਼ੁਰੂ ਕਰਨਾ...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[ਪ੍ਰੋਗਰਾਮ] main.joss ਵਿੱਚ ਤਰੁੱਟੀਆਂ: {errors}",
+  "programErrorsInMain": "[ਪ੍ਰੋਗਰਾਮ] ਵਿੱਚ ਤਰੁੱਟੀਆਂ: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "ਕੀ ਤੁਹਾਡਾ ਮਤਲਬ 'joss make:migration [Name]' ਸੀ?",
+  "cliDidYouMean": "ਕੀ ਤੁਹਾਡਾ ਮਤਲਬ",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "ਸਾਰੇ ਪ੍ਰੋਜੈਕਟਾਂ ਵਿੱਚ ਇੱਕ 'main.joss' ਐਂਟਰੀ ਪੁਆਇੰਟ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ ਜਾਂ ਇੱਕ ਫਾਈਲ ਨਿਰਧਾਰਤ ਕਰਨੀ ਚਾਹੀਦੀ ਹੈ: joss analyze [file.joss]",
+  "cliRequireMainOrScript": "ਸਾਰੇ ਪ੍ਰੋਜੈਕਟਾਂ ਵਿੱਚ ਇੱਕ ਐਂਟਰੀ ਪੁਆਇੰਟ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ ਜਾਂ ਇੱਕ ਫਾਈਲ ਨਿਰਧਾਰਤ ਕਰਨੀ ਚਾਹੀਦੀ ਹੈ",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

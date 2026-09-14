@@ -68,7 +68,7 @@ Conecta a la base de datos configurada en `env.joss`, inspecciona el esquema de 
 1. **Inspección de Claves Foráneas (`_id`)**: Detecta relaciones con otras tablas, infiere nombres de modelos relacionales y auto-detecta columnas visibles (`username`, `name`, `title`).
 2. **Modelo y Modelos Relacionados**: Genera `app/models/Model.joss` y cualquier modelo relacional faltante.
 3. **Controlador CRUD completo**: Genera `app/controllers/ModelController.joss` con métodos `index`, `create`, `store`, `edit`, `update` y `delete` que incluyen `joins` y `selects` automáticos.
-4. **Vistas Tailwind CSS`: Genera `app/views/model/index.joss.html`, `create.joss.html` y `edit.joss.html` con formularios dinámicos y menús desplegables `<select>` para relaciones.
+4. **Vistas Tailwind CSS**: Genera `app/views/model/index.joss.html`, `create.joss.html` y `edit.joss.html` con formularios dinámicos y menús desplegables `<select>` para relaciones.
 5. **Inyección en Navbar y Rutas**: Inyecta la opción en `app/views/layouts/master.joss.html` e inserta las rutas protegidas dentro del grupo `Router::middleware("auth")` en `routes.joss`.
 
 El comando sólo se admite en proyectos web y requiere que la tabla ya exista.

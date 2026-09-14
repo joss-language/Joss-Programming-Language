@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "今すぐ試してください: joss run tu_script.joss",
+  "aiTryScript": "今すぐ試してください",
   "@aiTryScript": {},
   "aiWizardConfig": "このウィザードは、プロジェクト内のネイティブ AI を構成します。",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "エラー: API キーを空にすることはできません。",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "BREVO_API を有効にしますか？ (y/n): ",
+  "brevoEnablePrompt": "BREVO_API を有効にしますか？",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Brevo の API キーを入力してください: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "デプロイするには、「build/」フォルダーの内容をサーバーにアップロードします。",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "サーバー上でその中で「joss run main.joss」を実行するだけです。",
+  "buildWebRunTip": "サーバー上でその中で「",
   "@buildWebRunTip": {},
   "buildWebStart": "Joss WEB 構築を開始しています...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "すべてのプロジェクトは、サーバーを起動する 'main.joss' エントリーポイントを持つ必要があります。",
+  "cliErrRequireMain": "すべてのプロジェクトは、サーバーを起動する エントリーポイントを持つ必要があります。",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] 起動スクリプト (main.joss) を実行しています...",
+  "cliExecMain": "[CLI] 起動スクリプト を実行しています...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "エラー: 「main.joss」が見つかりません。",
+  "cliErrNoMain": "エラー: 「」が見つかりません。",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "ビルドに 'node_modules' を含めますか？ (y/n):",
+  "buildPromptNodeModules": "ビルドに 'node_modules' を含めますか？",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "「main.joss」エントリ ポイントを実行して、高性能 HTTP Web サーバーを起動します。すべてのドライバー、モデル、ルートを app/ に自動的にロードします。サーバーを安全に停止するには、コンソールで「q」または Ctrl+C を押します。",
+  "helpTopicServer": "「」エントリ ポイントを実行して、高性能 HTTP Web サーバーを起動します。すべてのドライバー、モデル、ルートを app/ に自動的にロードします。サーバーを安全に停止するには、コンソールで「q」または Ctrl+C を押します。",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "「joss update --{channel}」を実行して、ランタイム、SDK、拡張機能を自動的に更新します。",
+  "updaterRunHint": "「",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄ジョスのアップデート",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 ヒント: バイナリの再ダウンロードとインストールを強制するには、「joss update -f」を使用します。",
+  "updaterForceTip": "💡 ヒント: バイナリの再ダウンロードとインストールを強制するには、「",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2313,7 +2310,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[フォーマット] {count} ファイルにはフォーマットが必要です (適用するには --write を使用します):",
+  "formatRequireFormat": "[フォーマット] {count} ファイルにはフォーマットが必要です",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2393,14 +2390,14 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[警告を確認] {count} ファイルは正規フォーマットに準拠していません (「joss format --write」を実行):",
+  "checkFormatWarning": "[警告を確認] {count} ファイルは正規フォーマットに準拠していません",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
       "count": {}
     }
   },
-  "programRunningMain": "[プログラム] main.jossを実行中...",
+  "programRunningMain": "[プログラム] を実行中...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2411,11 +2408,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[プログラム] main.joss が見つかりません。サーバーを直接起動しています...",
+  "programNoMainStarting": "[プログラム] が見つかりません。サーバーを直接起動しています...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[プログラム] main.joss のエラー: {errors}",
+  "programErrorsInMain": "[プログラム] のエラー: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2429,7 +2426,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "「joss make:migration [名前]」のことですか?",
+  "cliDidYouMean": "「",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2462,7 +2459,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "すべてのプロジェクトには「main.joss」エントリ ポイントがあるか、ファイルを指定する必要があります: joss Analyze [file.joss]",
+  "cliRequireMainOrScript": "すべてのプロジェクトには「」エントリ ポイントがあるか、ファイルを指定する必要があります",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

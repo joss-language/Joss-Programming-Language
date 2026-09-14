@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Zkuste nyní pomocí: joss run tu_script.joss",
+  "aiTryScript": "Zkuste nyní pomocí",
   "@aiTryScript": {},
   "aiWizardConfig": "Tento průvodce nakonfiguruje nativní AI ve vašem projektu.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Chyba: Klíč API nemůže být prázdný.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Chcete aktivovat BREVO_API? (y/n): ",
+  "brevoEnablePrompt": "Chcete aktivovat BREVO_API?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Zadejte svůj Brevo API Key: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "Chcete-li nasadit, nahrajte obsah složky 'build/' na svůj server.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "Stačí v něm na serveru spustit 'joss run main.joss'.",
+  "buildWebRunTip": "Stačí v něm na serveru spustit.",
   "@buildWebRunTip": {},
   "buildWebStart": "Spouštění tvorby Joss WEB...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Všechny projekty musí mít vstupní bod 'main.joss', který spustí server.",
+  "cliErrRequireMain": "Všechny projekty musí mít vstupní bod, který spustí server.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Spouštění spouštěcího skriptu (main.joss)...",
+  "cliExecMain": "[CLI] Spouštění spouštěcího skriptu...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Chyba: 'main.joss' nebyl nalezen.",
+  "cliErrNoMain": "Chyba: nebyl nalezen.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Chcete zahrnout 'node_modules' do sestavení? (y/n):",
+  "buildPromptNodeModules": "Chcete zahrnout 'node_modules' do sestavení?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Spusťte vysoce výkonný webový server HTTP spuštěním vstupního bodu 'main.joss'. Automaticky načíst všechny ovladače, modely a trasy v aplikaci/. Stisknutím 'q' nebo Ctrl+C v konzole bezpečně zastavíte server.",
+  "helpTopicServer": "Spusťte vysoce výkonný webový server HTTP spuštěním vstupního bodu. Automaticky načíst všechny ovladače, modely a trasy v aplikaci/. Stisknutím 'q' nebo Ctrl+C v konzole bezpečně zastavíte server.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Spusťte 'joss update --{channel}', aby se automaticky aktualizovalo runtime, SDK a rozšíření.",
+  "updaterRunHint": "Spusťte, aby se automaticky aktualizovalo runtime, SDK a rozšíření.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 AKTUALIZACE JOSS",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Tip: Použijte 'joss update -f' k vynucení opětovného stažení a instalace binárky.",
+  "updaterForceTip": "💡 Tip: Použijte k vynucení opětovného stažení a instalace binárky.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} souborů vyžaduje formátování (použijte --write pro použití):",
+  "formatRequireFormat": "[FORMAT] {count} souborů vyžaduje formátování",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[ZKONTROLUJTE VAROVÁNÍ] {count} soubor(y) nevyhovuje kanonickému formátu (spusťte 'joss format --write'):",
+  "checkFormatWarning": "[ZKONTROLUJTE VAROVÁNÍ] {count} soubor(y) nevyhovuje kanonickému formátu",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Program] Spuštění main.joss...",
+  "programRunningMain": "[Program] Spuštění...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[Program] main.joss nenalezen, server se spouští přímo...",
+  "programNoMainStarting": "[Program] nenalezen, server se spouští přímo...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Program] Chyby v main.joss: {errors}",
+  "programErrorsInMain": "[Program] Chyby v: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "Měli jste na mysli 'joss make:migration [Name]'?",
+  "cliDidYouMean": "Měli jste na mysli",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "Všechny projekty musí mít vstupní bod 'main.joss' nebo zadat soubor: joss analysis [file.joss]",
+  "cliRequireMainOrScript": "Všechny projekty musí mít vstupní bod nebo zadat soubor: joss analysis",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

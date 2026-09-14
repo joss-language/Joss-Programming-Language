@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Próbálja ki most a következővel: joss run tu_script.joss",
+  "aiTryScript": "Próbálja ki most a következővel",
   "@aiTryScript": {},
   "aiWizardConfig": "Ez a varázsló konfigurálja a natív AI-t a projektben.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Hiba: Az API-kulcs nem lehet üres.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Szeretné aktiválni a BREVO_API-t? (y/n): ",
+  "brevoEnablePrompt": "Szeretné aktiválni a BREVO_API-t?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Adja meg a Brevo API-kulcsát: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "A telepítéshez töltse fel a 'build/' mappa tartalmát a szerverére.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "Csak a 'joss run main.joss'-t kell futtatnia benne a szerveren.",
+  "buildWebRunTip": "Csak a -t kell futtatnia benne a szerveren.",
   "@buildWebRunTip": {},
   "buildWebStart": "Joss WEB build indítása...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Minden projektnek rendelkeznie kell egy 'main.joss' belépési ponttal, amely elindítja a szervert.",
+  "cliErrRequireMain": "Minden projektnek rendelkeznie kell egy belépési ponttal, amely elindítja a szervert.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Indító szkript futtatása (main.joss)...",
+  "cliExecMain": "[CLI] Indító szkript futtatása...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Hiba: \"main.joss\" nem található.",
+  "cliErrNoMain": "Hiba: nem található.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Szeretné beilleszteni a 'node_modules'-t a buildbe? (y/n):",
+  "buildPromptNodeModules": "Szeretné beilleszteni a 'node_modules'-t a buildbe?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Indítsa el a nagy teljesítményű HTTP webszervert a „main.joss” belépési pont futtatásával. Automatikusan betölti az összes illesztőprogramot, modellt és útvonalat az app/. A kiszolgáló biztonságos leállításához nyomja meg a 'q' vagy a Ctrl+C billentyűkombinációt a konzolon.",
+  "helpTopicServer": "Indítsa el a nagy teljesítményű HTTP webszervert a „ belépési pont futtatásával. Automatikusan betölti az összes illesztőprogramot, modellt és útvonalat az app/. A kiszolgáló biztonságos leállításához nyomja meg a 'q' vagy a Ctrl+C billentyűkombinációt a konzolon.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Futtassa a „joss update --{channel}” parancsot a futási környezet, az SDK és a bővítmény automatikus frissítéséhez.",
+  "updaterRunHint": "Futtassa a „ parancsot a futási környezet, az SDK és a bővítmény automatikus frissítéséhez.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 JOSS FRISSÍTÉS",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Tipp: Használja a \"joss update -f\" parancsot a bináris újraletöltésének és telepítésének kényszerítéséhez.",
+  "updaterForceTip": "💡 Tipp: Használja a parancsot a bináris újraletöltésének és telepítésének kényszerítéséhez.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} fájl(ok) formázást igényelnek (az alkalmazáshoz használja a --write parancsot):",
+  "formatRequireFormat": "[FORMAT] {count} fájl(ok) formázást igényelnek",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[FIGYELMEZTETÉS ELLENŐRZÉSE] A {count} fájl(ok) nem felelnek meg a kanonikus formátumnak (futtassa a „joss format --write” parancsot):",
+  "checkFormatWarning": "[FIGYELMEZTETÉS ELLENŐRZÉSE] A {count} fájl(ok) nem felelnek meg a kanonikus formátumnak",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Program] Fut a main.joss...",
+  "programRunningMain": "[Program] Fut a...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[Program] main.joss nem található, a szerver közvetlenül indul...",
+  "programNoMainStarting": "[Program] nem található, a szerver közvetlenül indul...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Program] Hibák a main.joss fájlban: {errors}",
+  "programErrorsInMain": "[Program] Hibák a fájlban: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "„Joss make:migration [Név]” kifejezésre gondolt?",
+  "cliDidYouMean": "„",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "Minden projektnek rendelkeznie kell „main.joss” belépési ponttal, vagy meg kell adnia egy fájlt: joss analysis [file.joss]",
+  "cliRequireMainOrScript": "Minden projektnek rendelkeznie kell „ belépési ponttal, vagy meg kell adnia egy fájlt: joss analysis",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

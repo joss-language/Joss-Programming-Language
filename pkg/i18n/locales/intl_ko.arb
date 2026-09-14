@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "지금 사용해 보세요: joss run tu_script.joss",
+  "aiTryScript": "지금 사용해 보세요",
   "@aiTryScript": {},
   "aiWizardConfig": "이 마법사는 프로젝트의 기본 AI를 구성합니다.",
   "@aiWizardConfig": {},
@@ -91,7 +91,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "오류: API 키는 비워둘 수 없습니다.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "BREVO_API를 활성화하시겠습니까? (y/n): ",
+  "brevoEnablePrompt": "BREVO_API를 활성화하시겠습니까?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Brevo API 키를 입력하세요: ",
   "@brevoEnterKey": {},
@@ -216,7 +216,7 @@
   "@buildProgramStructure": {},
   "buildProgramSuccess": "PROGRAM 빌드가 'build/' 폴더에서 성공적으로 완료되었습니다.",
   "@buildProgramSuccess": {},
-  "buildPromptNodeModules": "빌드에 'node_modules'를 포함하시겠습니까? (y/n):",
+  "buildPromptNodeModules": "빌드에 'node_modules'를 포함하시겠습니까?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -240,7 +240,7 @@
   },
   "buildWebDeployTip": "배포하려면 'build/' 폴더의 콘텐츠를 서버에 업로드하세요.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "서버 내부에서 'joss run main.joss'만 실행하면 됩니다.",
+  "buildWebRunTip": "서버 내부에서 만 실행하면 됩니다.",
   "@buildWebRunTip": {},
   "buildWebStart": "Joss WEB 빌드 시작 중...",
   "@buildWebStart": {},
@@ -323,15 +323,15 @@
   "@cliCmdTest": {
     "description": "Descripción del comando joss test"
   },
-  "cliErrNoMain": "오류: 'main.joss'를 찾을 수 없습니다.",
+  "cliErrNoMain": "오류: 를 찾을 수 없습니다.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
-  "cliErrRequireMain": "모든 프로젝트는 서버를 시작하는 'main.joss' 진입점을 가져야 합니다.",
+  "cliErrRequireMain": "모든 프로젝트는 서버를 시작하는 진입점을 가져야 합니다.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] 시작 스크립트(main.joss) 실행 중...",
+  "cliExecMain": "[CLI] 시작 스크립트 실행 중...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "'main.joss' 진입점을 실행하여 고성능 HTTP 웹 서버를 시작합니다. app/의 모든 드라이버, 모델 및 경로를 자동으로 로드합니다. 서버를 안전하게 중지하려면 콘솔에서 'q' 또는 Ctrl+C를 누르세요.",
+  "helpTopicServer": "진입점을 실행하여 고성능 HTTP 웹 서버를 시작합니다. app/의 모든 드라이버, 모델 및 경로를 자동으로 로드합니다. 서버를 안전하게 중지하려면 콘솔에서 'q' 또는 Ctrl+C를 누르세요.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "런타임, SDK 및 확장 프로그램을 자동으로 업데이트하려면 'joss update --_{channel}'을 실행하세요.",
+  "updaterRunHint": "런타임, SDK 및 확장 프로그램을 자동으로 업데이트하려면 을 실행하세요.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 조스 업데이트",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 팁: 'joss update -f'를 사용하여 바이너리를 강제로 다시 다운로드하고 설치하세요.",
+  "updaterForceTip": "💡 팁: 를 사용하여 바이너리를 강제로 다시 다운로드하고 설치하세요.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[형식] {count} 파일에는 형식 지정이 필요합니다(적용하려면 --write 사용).",
+  "formatRequireFormat": "[형식] {count} 파일에는 형식 지정이 필요합니다.",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[경고 확인] {count} 파일이 표준 형식을 준수하지 않습니다('joss format --write' 실행):",
+  "checkFormatWarning": "[경고 확인] {count} 파일이 표준 형식을 준수하지 않습니다",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[프로그램] main.joss 실행 중...",
+  "programRunningMain": "[프로그램] 실행 중...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[프로그램] main.joss를 찾을 수 없습니다. 서버를 직접 시작합니다...",
+  "programNoMainStarting": "[프로그램] 를 찾을 수 없습니다. 서버를 직접 시작합니다...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[프로그램] main.joss 오류: {errors}",
+  "programErrorsInMain": "[프로그램] 오류: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "'joss make:migration [이름]'을 의미했나요?",
+  "cliDidYouMean": ".",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "모든 프로젝트에는 'main.joss' 진입점이 있거나 파일을 지정해야 합니다: joss analyze [file.joss]",
+  "cliRequireMainOrScript": "모든 프로젝트에는 진입점이 있거나 파일을 지정해야 합니다",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

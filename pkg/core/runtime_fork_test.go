@@ -4,6 +4,7 @@ import "testing"
 
 func TestFreeingForkDoesNotEraseParentPluginRegistries(t *testing.T) {
 	parent := NewRuntime()
+	defer parent.Free()
 	parent.NativePlugins["demo"] = &NativePluginDefinition{Name: "demo", Version: "1.0.0"}
 	parent.NativeDrivers["demo"] = &NativeDriverDefinition{Name: "demo"}
 	fork := parent.Fork()

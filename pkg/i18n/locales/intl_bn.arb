@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "এখনই চেষ্টা করুন: joss run tu_script.joss",
+  "aiTryScript": "এখনই চেষ্টা করুন",
   "@aiTryScript": {},
   "aiWizardConfig": "এই উইজার্ড আপনার প্রকল্পে নেটিভ এআই কনফিগার করবে।",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "ত্রুটি: API কী খালি থাকতে পারে না।",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "আপনি কি BREVO_API সক্রিয় করতে চান? (y/n): ",
+  "brevoEnablePrompt": "আপনি কি BREVO_API সক্রিয় করতে চান?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "আপনার Brevo API Key লিখুন: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "স্থাপন করতে, আপনার সার্ভারে 'বিল্ড/' ফোল্ডারের বিষয়বস্তু আপলোড করুন।",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "আপনাকে শুধুমাত্র সার্ভারে এর ভিতরে 'joss run main.joss' চালাতে হবে।",
+  "buildWebRunTip": "আপনাকে শুধুমাত্র সার্ভারে এর ভিতরে চালাতে হবে।",
   "@buildWebRunTip": {},
   "buildWebStart": "Joss WEB বিল্ড শুরু হচ্ছে...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "সব প্রকল্পের একটি এন্ট্রি পয়েন্ট 'main.joss' থাকতে হবে যা সার্ভার চালু করে।",
+  "cliErrRequireMain": "সব প্রকল্পের একটি এন্ট্রি পয়েন্ট থাকতে হবে যা সার্ভার চালু করে।",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] স্টার্টআপ স্ক্রিপ্ট চলছে (main.joss)...",
+  "cliExecMain": "[CLI] স্টার্টআপ স্ক্রিপ্ট চলছে...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "ত্রুটি: 'main.joss' পাওয়া যায়নি।",
+  "cliErrNoMain": "ত্রুটি: পাওয়া যায়নি।",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "আপনি কি বিল্ডে 'node_modules' অন্তর্ভুক্ত করতে চান? (y/n):",
+  "buildPromptNodeModules": "আপনি কি বিল্ডে 'node_modules' অন্তর্ভুক্ত করতে চান?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "'main.joss' এন্ট্রি পয়েন্ট চালিয়ে উচ্চ-কর্মক্ষমতা সম্পন্ন HTTP ওয়েব সার্ভার শুরু করুন। অ্যাপ/ এ সমস্ত ড্রাইভার, মডেল এবং রুট স্বয়ংক্রিয়ভাবে লোড করুন। সার্ভারটিকে নিরাপদে বন্ধ করতে কনসোলে 'q' বা Ctrl+C টিপুন।",
+  "helpTopicServer": "এন্ট্রি পয়েন্ট চালিয়ে উচ্চ-কর্মক্ষমতা সম্পন্ন HTTP ওয়েব সার্ভার শুরু করুন। অ্যাপ/ এ সমস্ত ড্রাইভার, মডেল এবং রুট স্বয়ংক্রিয়ভাবে লোড করুন। সার্ভারটিকে নিরাপদে বন্ধ করতে কনসোলে 'q' বা Ctrl+C টিপুন।",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "রানটাইম, SDK এবং এক্সটেনশন স্বয়ংক্রিয়ভাবে আপডেট করতে 'joss update --{channel}' চালান৷",
+  "updaterRunHint": "রানটাইম, SDK এবং এক্সটেনশন স্বয়ংক্রিয়ভাবে আপডেট করতে চালান৷",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 জোস আপডেট",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 টিপ: বাইনারি পুনরায় ডাউনলোড এবং ইনস্টল করার জন্য 'joss update -f' ব্যবহার করুন।",
+  "updaterForceTip": "💡 টিপ: বাইনারি পুনরায় ডাউনলোড এবং ইনস্টল করার জন্য ব্যবহার করুন।",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} ফাইল(গুলি) ফরম্যাটিং প্রয়োজন (প্রয়োগ করতে --write ব্যবহার করুন):",
+  "formatRequireFormat": "[FORMAT] {count} ফাইল(গুলি) ফরম্যাটিং প্রয়োজন",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[সতর্কতা যাচাই করুন] {count} ফাইল(গুলি) ক্যানোনিকাল ফরম্যাট মেনে চলে না ('জস ফরম্যাট --write' চালান):",
+  "checkFormatWarning": "[সতর্কতা যাচাই করুন] {count} ফাইল(গুলি) ক্যানোনিকাল ফরম্যাট মেনে চলে না",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[প্রোগ্রাম] চলমান main.joss...",
+  "programRunningMain": "[প্রোগ্রাম] চলমান...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[প্রোগ্রাম] main.joss পাওয়া যায়নি, সরাসরি সার্ভার শুরু হচ্ছে...",
+  "programNoMainStarting": "[প্রোগ্রাম] পাওয়া যায়নি, সরাসরি সার্ভার শুরু হচ্ছে...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[প্রোগ্রাম] main.joss-এ ত্রুটি: {errors}",
+  "programErrorsInMain": "[প্রোগ্রাম] -এ ত্রুটি: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "সমস্ত প্রকল্পের একটি 'main.joss' এন্ট্রি পয়েন্ট থাকতে হবে বা একটি ফাইল নির্দিষ্ট করতে হবে: joss analyze [file.joss]",
+  "cliRequireMainOrScript": "সমস্ত প্রকল্পের একটি এন্ট্রি পয়েন্ট থাকতে হবে বা একটি ফাইল নির্দিষ্ট করতে হবে",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

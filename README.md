@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://goreportcard.com/report/github.com/jossecurity/joss"><img src="https://goreportcard.com/badge/github.com/jossecurity/joss" alt="Go Report Card"></a>
+  <a href="https://goreportcard.com/report/github.com/josprox/Joss-language"><img src="https://goreportcard.com/badge/github.com/josprox/Joss-language" alt="Go Report Card"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
   <a href="https://joss.red/docs"><img src="https://img.shields.io/badge/docs-joss.red-teal.svg" alt="Docs"></a>
-  <a href="https://github.com/jossecurity/joss/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build Status"></a>
+  <a href="https://github.com/josprox/Joss-language/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build Status"></a>
 </p>
 
 ---
@@ -48,10 +48,10 @@ curl -fsSL https://raw.githubusercontent.com/josprox/Joss-language/main/install/
 
 ### Compilar desde el código fuente
 
-Si dispones de [Go](https://go.dev) (versión 1.22 o superior):
+Si dispones de [Go](https://go.dev) (versión 1.27 o superior):
 ```bash
-git clone https://github.com/jossecurity/joss.git
-cd joss
+git clone https://github.com/josprox/Joss-language.git
+cd Joss-language
 go build -o joss ./cmd/joss
 ```
 
@@ -117,13 +117,13 @@ print(($edad >= 18) ? "Puedes participar" : "Aún debes esperar")
 
 | Comando | Descripción |
 |---|---|
-| `joss init [nombre]` | Crea un nuevo proyecto con estructura estandarizada y configuración |
+| `joss new [web|console|package|plugin] <ruta>` | Crea un nuevo proyecto con la plantilla indicada |
 | `joss run <archivo.joss>` | Ejecuta un archivo o script de Joss |
 | `joss analyze [ruta]` | Ejecuta el análisis semántico y comprobación exhaustiva de tipos |
 | `joss lint [ruta]` | Inspecciona el código en busca de advertencias, desuso y buenas prácticas |
-| `joss fmt [ruta]` | Formatea el código fuente según las reglas canónicas del lenguaje |
+| `joss format [ruta] [--write|--check]` | Formatea o comprueba el código fuente según las reglas canónicas |
 | `joss test` | Ejecuta la suite de pruebas unitarias y de integración del proyecto |
-| `joss serve` | Inicia el servidor web nativo de alto rendimiento |
+| `joss server start` | Inicia el servidor web nativo de alto rendimiento |
 | `joss pub [comando]` | Administra paquetes y plugins del ecosistema Joss |
 
 ---
@@ -150,12 +150,14 @@ La documentación oficial se organiza en cuatro áreas temáticas:
 - [Sintaxis, tokens y precedencia de operadores](docs/SINTAXIS.md)
 - [Gramática EBNF formal y correspondencia con el AST](docs/GRAMATICA.md)
 - [Catálogo y referencia de diagnósticos (JOSS-*)](docs/DIAGNOSTICOS.md)
-- [Guía de las 117 funciones globales integradas](docs/FUNCIONES_GLOBALES.md)
+- [Guía de las 121 funciones globales integradas](docs/FUNCIONES_GLOBALES.md)
 - [Clases nativas y servicios del runtime](docs/MODULOS_NATIVOS.md)
 - [Catálogo nativo generado por docgen](docs/CATALOGO_NATIVO.md)
 - [Referencia de comandos de la CLI (`joss`)](docs/CLI.md)
 - [Extensión oficial para Visual Studio Code](docs/VSCODE_EXTENSION.md)
 - [Estado real de implementación y límites del sistema](docs/ESTADO_IMPLEMENTACION.md)
+- [Analizador semántico y flujo de diagnósticos](docs/ANALIZADOR.md)
+- [Recursión, frames y límites de llamadas](docs/RECURSION.md)
 
 ### 3. Desarrollo de aplicaciones reales
 - [Estructura de proyectos y convenciones](docs/ESTRUCTURA_PROYECTO.md)
@@ -170,13 +172,18 @@ La documentación oficial se organiza en cuatro áreas temáticas:
 - [WebSockets y comunicación en tiempo real](docs/WEBSOCKETS.md)
 - [Modelos relacionales y consultas GranDB](docs/MODELOS.md)
 - [Schema Builder y migraciones versionadas](docs/SCHEMA_BUILDER.md)
+- [Guía práctica de migraciones](docs/MIGRACIONES.md)
 - [Sistema de autenticación, sesiones y MFA](docs/AUTENTICACION.md)
+- [SEO y generación de sitemaps](docs/SEO_SITEMAP.md)
 
 ### 4. Arquitectura interna y contribución
 - [Arquitectura del compilador, analizador y runtime](docs/ARQUITECTURA.md)
 - [Guía para contribuidores del núcleo](docs/CONTRIBUIR.md)
 - [Informe de auditoría integral y reconstrucción documental](docs/DOCUMENTATION_AUDIT.md)
 - [Auditoría técnica y optimización del runtime](docs/AUDITORIA_TECNICA_2026.md)
+- [Auditoría integral del lenguaje 2026](docs/JOSS_LANGUAGE_AUDIT_2026.md)
+- [Auditoría de optimización del runtime](docs/RUNTIME_OPTIMIZATION_AUDIT.md)
+- [Novedades de Joss 3.6.7](docs/NOVEDADES_367.md)
 
 ---
 

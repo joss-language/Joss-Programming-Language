@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Спробуйте зараз: joss run tu_script.joss",
+  "aiTryScript": "Спробуйте зараз",
   "@aiTryScript": {},
   "aiWizardConfig": "Цей майстер налаштує власний ШІ у вашому проекті.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Помилка: ключ API не може бути порожнім.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Бажаєте активувати BREVO_API? (y/n): ",
+  "brevoEnablePrompt": "Бажаєте активувати BREVO_API?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Введіть ваш Brevo API Key: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "Щоб розгорнути, завантажте вміст папки «build/» на свій сервер.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "Вам потрібно лише запустити 'joss run main.joss' всередині нього на сервері.",
+  "buildWebRunTip": "Вам потрібно лише запустити всередині нього на сервері.",
   "@buildWebRunTip": {},
   "buildWebStart": "Початок створення Joss WEB...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Усі проєкти повинні мати точку входу 'main.joss', яка запускає сервер.",
+  "cliErrRequireMain": "Усі проєкти повинні мати точку входу, яка запускає сервер.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Запуск сценарію запуску (main.joss)...",
+  "cliExecMain": "[CLI] Запуск сценарію запуску...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Помилка: 'main.joss' не знайдено.",
+  "cliErrNoMain": "Помилка: не знайдено.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Бажаєте включити 'node_modules' у збірку? (y/n):",
+  "buildPromptNodeModules": "Бажаєте включити 'node_modules' у збірку?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Запустіть високопродуктивний веб-сервер HTTP, запустивши точку входу «main.joss». Автоматично завантажувати всі драйвери, моделі та маршрути в app/. Натисніть 'q' або Ctrl+C на консолі, щоб безпечно зупинити сервер.",
+  "helpTopicServer": "Запустіть високопродуктивний веб-сервер HTTP, запустивши точку входу. Автоматично завантажувати всі драйвери, моделі та маршрути в app/. Натисніть 'q' або Ctrl+C на консолі, щоб безпечно зупинити сервер.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Запустіть «joss update --{channel}», щоб автоматично оновити середовище виконання, SDK і розширення.",
+  "updaterRunHint": "Запустіть, щоб автоматично оновити середовище виконання, SDK і розширення.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 ОНОВЛЕННЯ JOSS",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Порада: використовуйте 'joss update -f', щоб примусово повторно завантажити та встановити двійковий файл.",
+  "updaterForceTip": "💡 Порада: використовуйте, щоб примусово повторно завантажити та встановити двійковий файл.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[ФОРМАТ] {count} файл(ів) вимагає форматування (використовуйте --write, щоб застосувати):",
+  "formatRequireFormat": "[ФОРМАТ] {count} файл(ів) вимагає форматування",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[ПЕРЕВІРТЕ ПОПЕРЕДЖЕННЯ] {count} файл(и) не відповідають канонічному формату (виконайте 'joss format --write'):",
+  "checkFormatWarning": "[ПЕРЕВІРТЕ ПОПЕРЕДЖЕННЯ] {count} файл(и) не відповідають канонічному формату",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Програма] Запуск main.joss...",
+  "programRunningMain": "[Програма] Запуск...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[Програма] main.joss не знайдено, сервер запускається безпосередньо...",
+  "programNoMainStarting": "[Програма] не знайдено, сервер запускається безпосередньо...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Програма] Помилки в main.joss: {errors}",
+  "programErrorsInMain": "[Програма] Помилки в: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "Ви мали на увазі 'joss make:migration [Name]'?",
+  "cliDidYouMean": "Ви мали на увазі",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "Усі проекти повинні мати точку входу «main.joss» або вказати файл: joss аналіз [file.joss]",
+  "cliRequireMainOrScript": "Усі проекти повинні мати точку входу або вказати файл: joss аналіз",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

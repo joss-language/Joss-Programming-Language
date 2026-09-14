@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Try now with: joss run tu_script.joss",
+  "aiTryScript": "Try now with",
   "@aiTryScript": {},
   "aiWizardConfig": "This wizard will configure the native AI in your project.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Error: The API Key cannot be empty.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Do you want to activate BREVO_API? (y/n): ",
+  "brevoEnablePrompt": "Do you want to activate BREVO_API?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Enter your Brevo API Key: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "To deploy, upload the contents of the 'build/' folder to your server.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "You only need to run 'joss run main.joss' inside it on the server.",
+  "buildWebRunTip": "You only need to run inside it on the server.",
   "@buildWebRunTip": {},
   "buildWebStart": "Starting Joss WEB build...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "All projects must have an entry point 'main.joss' that starts the server.",
+  "cliErrRequireMain": "All projects must have an entry point that starts the server.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Running startup script (main.joss)...",
+  "cliExecMain": "[CLI] Running startup script...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Error: 'main.joss' not found.",
+  "cliErrNoMain": "Error: not found.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Do you want to include 'node_modules' in the build? (y/n):",
+  "buildPromptNodeModules": "Do you want to include 'node_modules' in the build?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Start the high-performance HTTP web server by running the 'main.joss' entry point. Automatically load all drivers, models and routes in app/. Press 'q' or Ctrl+C in the console to safely stop the server.",
+  "helpTopicServer": "Start the high-performance HTTP web server by running the entry point. Automatically load all drivers, models and routes in app/. Press 'q' or Ctrl+C in the console to safely stop the server.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Run 'joss update --{channel}' to automatically update the runtime, SDK and extension.",
+  "updaterRunHint": "Run to automatically update the runtime, SDK and extension.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 JOSS UPDATE",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Tip: Use 'joss update -f' to force the re-download and installation of the binary.",
+  "updaterForceTip": "💡 Tip: Use to force the re-download and installation of the binary.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} file(s) require formatting (use --write to apply):",
+  "formatRequireFormat": "[FORMAT] {count} file(s) require formatting",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[CHECK WARNING] {count} file(s) do not comply with the canonical format (execute 'joss format --write'):",
+  "checkFormatWarning": "[CHECK WARNING] {count} file(s) do not comply with the canonical format",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Program] Running main.joss...",
+  "programRunningMain": "[Program] Running...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[Program] main.joss not found, starting server directly...",
+  "programNoMainStarting": "[Program] not found, starting server directly...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Program] Errors in main.joss: {errors}",
+  "programErrorsInMain": "[Program] Errors in: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "Did you mean 'joss make:migration [Name]'?",
+  "cliDidYouMean": "Did you mean",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "All projects must have a 'main.joss' entry point or specify a file: joss analyze [file.joss]",
+  "cliRequireMainOrScript": "All projects must have a entry point or specify a file",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

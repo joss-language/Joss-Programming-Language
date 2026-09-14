@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "اکنون با: joss run tu_script.joss را امتحان کنید",
+  "aiTryScript": "اکنون با",
   "@aiTryScript": {},
   "aiWizardConfig": "این جادوگر هوش مصنوعی بومی را در پروژه شما پیکربندی می کند.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "خطا: کلید API نمی تواند خالی باشد.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "آیا می‌خواهید BREVO_API را فعال کنید؟ (y/n): ",
+  "brevoEnablePrompt": "آیا می‌خواهید BREVO_API را فعال کنید؟",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "کلید API Brevo خود را وارد کنید: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "برای استقرار، محتویات پوشه 'build/' را در سرور خود آپلود کنید.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "شما فقط باید \"joss run main.joss\" را در داخل آن روی سرور اجرا کنید.",
+  "buildWebRunTip": "شما فقط باید را در داخل آن روی سرور اجرا کنید.",
   "@buildWebRunTip": {},
   "buildWebStart": "شروع ساخت Joss WEB...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "تمام پروژه‌ها باید یک نقطه ورودی 'main.joss' داشته باشند که سرور را راه‌اندازی می‌کند.",
+  "cliErrRequireMain": "تمام پروژه‌ها باید یک نقطه ورودی داشته باشند که سرور را راه‌اندازی می‌کند.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] اجرای اسکریپت راه اندازی (main.joss)...",
+  "cliExecMain": "[CLI] اجرای اسکریپت راه اندازی...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "خطا: \"main.joss\" یافت نشد.",
+  "cliErrNoMain": "خطا: یافت نشد.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "آیا می‌خواهید 'node_modules' را در ساخت گنجانده شود؟ (y/n):",
+  "buildPromptNodeModules": "آیا می‌خواهید 'node_modules' را در ساخت گنجانده شود؟",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "سرور وب HTTP با کارایی بالا را با اجرای نقطه ورودی \"main.joss\" راه اندازی کنید. بارگیری خودکار همه درایورها، مدل‌ها و مسیرها در برنامه/. برای متوقف کردن ایمن سرور، 'q' یا Ctrl+C را در کنسول فشار دهید.",
+  "helpTopicServer": "سرور وب HTTP با کارایی بالا را با اجرای نقطه ورودی راه اندازی کنید. بارگیری خودکار همه درایورها، مدل‌ها و مسیرها در برنامه/. برای متوقف کردن ایمن سرور، 'q' یا Ctrl+C را در کنسول فشار دهید.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "\"joss update --{channel}\" را اجرا کنید تا به طور خودکار زمان اجرا، SDK و برنامه افزودنی به روز شود.",
+  "updaterRunHint": "را اجرا کنید تا به طور خودکار زمان اجرا، SDK و برنامه افزودنی به روز شود.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 JOSS UPDATE",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 نکته: از \"joss update -f\" برای بارگیری مجدد و نصب باینری استفاده کنید.",
+  "updaterForceTip": "💡 نکته: از برای بارگیری مجدد و نصب باینری استفاده کنید.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} فایل(های) نیاز به قالب بندی دارند (برای اعمال از --write استفاده کنید):",
+  "formatRequireFormat": "[FORMAT] {count} فایل(های) نیاز به قالب بندی دارند",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[اخطار را بررسی کنید] فایل(های) {count} با قالب متعارف مطابقت ندارد (اجرای «فرمت joss --write»):",
+  "checkFormatWarning": "[اخطار را بررسی کنید] فایل(های) {count} با قالب متعارف مطابقت ندارد",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[برنامه] اجرای main.joss...",
+  "programRunningMain": "[برنامه] اجرای...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[برنامه] main.joss یافت نشد، سرور مستقیماً راه اندازی می شود...",
+  "programNoMainStarting": "[برنامه] یافت نشد، سرور مستقیماً راه اندازی می شود...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[برنامه] خطاها در main.joss: {errors}",
+  "programErrorsInMain": "[برنامه] خطاها در: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "آیا منظورتان \"joss make:migration [Name]\" بود؟",
+  "cliDidYouMean": "آیا منظورتان",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "همه پروژه‌ها باید یک نقطه ورودی «main.joss» داشته باشند یا یک فایل را مشخص کنند: joss analysis [file.joss]",
+  "cliRequireMainOrScript": "همه پروژه‌ها باید یک نقطه ورودی داشته باشند یا یک فایل را مشخص کنند: joss analysis",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

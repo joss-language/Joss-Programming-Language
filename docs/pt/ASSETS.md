@@ -8,4 +8,4 @@ O detector lê apenas `dependencies` de `package.json`. Para cada pacote instala
 
 As tags CSS são inseridas antes de `</head>` e as tags JS antes de `</body>` ao renderizar visualizações. Na construção VFS, `/assets/vendor/` não funciona diretamente de `node_modules`; Inclua na construção todos os ativos que o aplicativo precisa.
 
-Os `.scss` de `assets/css/` são recompilados durante a recarga. O compilador incluído implementa um subconjunto de SCSS e resolução básica de importação; não substitui toda a semântica do Sass.
+`.scss` de `assets/css/` são recompilados durante a recarga. O compilador incluído implementa um subconjunto de SCSS e resolução básica de importação; não substitui toda a semântica do Sass.

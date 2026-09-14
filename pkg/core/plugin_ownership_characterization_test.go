@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"unsafe"
+	"time"
 
 	"github.com/jossecurity/joss/pkg/bytecode"
 	"github.com/jossecurity/joss/pkg/parser"
@@ -175,9 +175,7 @@ func TestNativeDriverConcurrentCallsAndSafeUnload(t *testing.T) {
 	parent.NativeDrivers["mock_driver"] = driver
 
 	forkA := parent.Fork()
-	defer forkA.Free()
 	forkB := parent.Fork()
-	defer forkB.Free()
 
 	var wg sync.WaitGroup
 	for i := 0; i < 30; i++ {
@@ -206,15 +204,75 @@ func TestNativeDriverConcurrentCallsAndSafeUnload(t *testing.T) {
 	}
 	wg.Wait()
 
-	// Safe Unload: unloading clears Handle, Call, Free under lock
-	if err := driver.Unload(); err != nil {
-		t.Fatalf("Unload failed: %v", err)
+	if err := driver.Unload(); err == nil {
+		t.Fatal("Unload must reject a driver still borrowed by runtime forks")
 	}
+	forkA.Free()
+	forkB.Free()
 
-	// Subsequent calls must return an error without panicking
+	// The parent is now the sole owner and can explicitly unload the driver.
+	if err := driver.Unload(); err != nil {
+		t.Fatalf("Unload failed after releasing forks: %v", err)
+	}
 	_, err := callLoadedNativeDriver(driver, "test", "{}")
 	if err == nil {
 		t.Fatal("expected error after driver unload, got nil")
 	}
-	_ = unsafe.Pointer(nil)
+}
+
+func TestNativeDriverUnloadWaitsForActiveCall(t *testing.T) {
+	response := []byte("ok\x00")
+	callStarted := make(chan struct{})
+	releaseCall := make(chan struct{})
+	driver := &NativeDriverDefinition{
+		Name:   "blocking_driver",
+		owners: 1,
+		Call: func(_, _ string) *byte {
+			close(callStarted)
+			<-releaseCall
+			return &response[0]
+		},
+	}
+
+	callDone := make(chan error, 1)
+	go func() {
+		_, err := callLoadedNativeDriver(driver, "wait", "{}")
+		callDone <- err
+	}()
+	<-callStarted
+
+	unloadDone := make(chan error, 1)
+	go func() { unloadDone <- driver.Unload() }()
+	select {
+	case err := <-unloadDone:
+		t.Fatalf("Unload completed while a call was active: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	close(releaseCall)
+	if err := <-callDone; err != nil {
+		t.Fatalf("active call failed: %v", err)
+	}
+	if err := <-unloadDone; err != nil {
+		t.Fatalf("Unload failed after active call completed: %v", err)
+	}
+	if _, err := callLoadedNativeDriver(driver, "wait", "{}"); err == nil {
+		t.Fatal("driver accepted a call after unload")
+	}
+}
+
+func TestNativeDriverUnloadsWhenFinalRuntimeOwnerIsFreed(t *testing.T) {
+	driver := &NativeDriverDefinition{Name: "owned_driver", Call: func(_, _ string) *byte { return nil }}
+	parent := NewRuntime()
+	parent.NativeDrivers[driver.Name] = driver
+	child := parent.Fork()
+
+	parent.Free()
+	if driver.unloaded {
+		t.Fatal("freeing parent unloaded a driver still borrowed by its child")
+	}
+	child.Free()
+	if !driver.unloaded {
+		t.Fatal("final runtime owner did not unload its native driver")
+	}
 }

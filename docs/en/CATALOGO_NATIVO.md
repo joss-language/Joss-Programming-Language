@@ -3,12 +3,12 @@
 Before: [library and contracts](MODULOS_NATIVOS.md). Index: [documentation](README.md).
 
 Generated with `go run ./tools/docgen` from `Runtime.RegisterNativeClasses()`.
-Do not edit manually. Each name is an entry in the actual registry. **Published return**
+Do not edit manually. Each name is an entry in the actual registry. **Return posted**
 does not mean exhaustive return observed: the discrepancies are in the library.
-Native parameters are not published in this registry; consult the tables
-of contracts and the linked handler. `mixed` does not certify isolation or absence of faults.
+Native parameters are not published in this registry; consult the
+tables of contracts and the linked handler. `mixed` does not certify isolation or absence of faults.
 
-##Auth
+## Auth
 
 Implementation: [executeAuthMethod](../../pkg/core/auth.go#L14).
 
@@ -36,7 +36,7 @@ Implementation: [executeAuthMethod](../../pkg/core/auth.go#L14).
 | `verify` | `bool` |
 | `verify2FAChallenge` | `mixed` |
 
-##AuthLoginResult
+## AuthLoginResult
 
 Implementation: [executeAuthLoginResultMethod](../../pkg/core/auth_fluent.go#L18).
 
@@ -48,7 +48,7 @@ Implementation: [executeAuthLoginResultMethod](../../pkg/core/auth_fluent.go#L18
 | `require2FA` | `AuthLoginResult` |
 | `response` | `mixed` |
 
-##Blueprint
+## Blueprint
 
 Implementation: [executeBlueprintMethod](../../pkg/core/schema_blueprint.go#L34).
 
@@ -107,7 +107,7 @@ Implementation: [executeCacheMethod](../../pkg/core/native_cache.go#L18).
 | `has` | `bool` |
 | `put` | `mixed` |
 
-##Console
+## Console
 
 | Method | Posted return to parser |
 |---|---|
@@ -123,7 +123,7 @@ Implementation: [executeCacheMethod](../../pkg/core/native_cache.go#L18).
 | `red` | `string` |
 | `yellow` | `string` |
 
-##Cron
+## Cron
 
 Implementation: [executeCronMethod](../../pkg/core/cron.go#L11).
 
@@ -131,7 +131,7 @@ Implementation: [executeCronMethod](../../pkg/core/cron.go#L11).
 |---|---|
 | `schedule` | `mixed` |
 
-##Exception
+## Exception
 
 Implementation: [executeExceptionMethod](../../pkg/core/native.go#L367).
 
@@ -141,7 +141,7 @@ Implementation: [executeExceptionMethod](../../pkg/core/native.go#L367).
 | `getCode` | `int` |
 | `getMessage` | `string` |
 
-## BigDB
+## GranDB
 
 Implementation: [executeGranDBMethod](../../pkg/core/database.go#L11).
 
@@ -290,7 +290,7 @@ Implementation: [executeGranDBMethod](../../pkg/core/database.go#L11).
 | `wheretime` | `mixed` |
 | `whereyear` | `mixed` |
 
-##Http
+## Http
 
 Implementation: [executeHttpMethod](../../pkg/core/http_client.go#L14).
 
@@ -306,7 +306,7 @@ Implementation: [executeHttpMethod](../../pkg/core/http_client.go#L14).
 | `put` | `mixed` |
 | `request` | `mixed` |
 
-##JSON
+## JSON
 
 | Method | Posted return to parser |
 |---|---|
@@ -315,7 +315,7 @@ Implementation: [executeHttpMethod](../../pkg/core/http_client.go#L14).
 | `parse` | `mixed` |
 | `stringify` | `string` |
 
-##Lang
+## Lang
 
 | Method | Posted return to parser |
 |---|---|
@@ -324,7 +324,7 @@ Implementation: [executeHttpMethod](../../pkg/core/http_client.go#L14).
 | `locales` | `array` |
 | `set` | `mixed` |
 
-## M.F.A.
+## MFA
 
 Implementation: [executeMFAMethod](../../pkg/core/auth_fluent.go#L99).
 
@@ -335,7 +335,7 @@ Implementation: [executeMFAMethod](../../pkg/core/auth_fluent.go#L99).
 | `verifyRecoveryCode` | `bool` |
 | `verifyTOTP` | `bool` |
 
-##Markdown
+## Markdown
 
 | Method | Posted return to parser |
 |---|---|
@@ -351,15 +351,15 @@ Implementation: [executeMFAMethod](../../pkg/core/auth_fluent.go#L99).
 | `floor` | `float` |
 | `random` | `int` |
 
-##Middleware
+## Middleware
 
-Registered base class without its own native methods.
+Registered base class with no native methods of its own.
 
 ## Migration
 
-Registered base class without its own native methods.
+Registered base class without native methods of its own.
 
-##Plugin
+## Plugin
 
 Implementation: [executePluginMethod](../../pkg/core/native_plugin.go#L47).
 
@@ -385,7 +385,7 @@ Implementation: [executeProcessMethod](../../pkg/core/native_process.go#L13).
 | `stdout_chan` | `mixed` |
 | `wait` | `mixed` |
 
-##Queue
+## Queue
 
 | Method | Posted return to parser |
 |---|---|
@@ -393,7 +393,7 @@ Implementation: [executeProcessMethod](../../pkg/core/native_process.go#L13).
 | `enqueue` | `mixed` |
 | `peek` | `mixed` |
 
-##Redirect
+## Redirect
 
 Implementation: [executeRedirectMethod](../../pkg/core/response.go#L177).
 
@@ -401,7 +401,7 @@ Implementation: [executeRedirectMethod](../../pkg/core/response.go#L177).
 |---|---|
 | `to` | `WebResponse` |
 
-##Redis
+## Redis
 
 Implementation: [executeRedisMethod](../../pkg/core/redis.go#L96).
 
@@ -416,7 +416,7 @@ Implementation: [executeRedisMethod](../../pkg/core/redis.go#L96).
 | `set` | `mixed` |
 | `ttl` | `mixed` |
 
-##Request
+## Request
 
 Implementation: [executeRequestMethod](../../pkg/core/request.go#L9).
 
@@ -481,7 +481,7 @@ Implementation: [executeRouterMethod](../../pkg/core/router.go#L12).
 | `registerMiddleware` | `mixed` |
 | `ws` | `mixed` |
 
-##SEO
+## SEO
 
 Implementation: [executeSEOMethod](../../pkg/core/native_seo.go#L12).
 
@@ -528,7 +528,7 @@ Implementation: [executeServerControlMethod](../../pkg/core/native_server_contro
 | `spawn` | `mixed` |
 | `start` | `mixed` |
 
-##Session
+## Session
 
 Implementation: [executeSessionMethod](../../pkg/core/native_extensions.go#L75).
 
@@ -552,7 +552,7 @@ Implementation: [executeSitemapMethod](../../pkg/core/native_seo.go#L127).
 | `provider` | `Sitemap` |
 | `xsl` | `Sitemap` |
 
-##SmtpClient
+## SmtpClient
 
 Implementation: [executeSmtpClientMethod](../../pkg/core/smtp_native.go#L12).
 
@@ -564,7 +564,7 @@ Implementation: [executeSmtpClientMethod](../../pkg/core/smtp_native.go#L12).
 | `send` | `bool` |
 | `timeout` | `SmtpClient` |
 
-##Stack
+## Stack
 
 | Method | Posted return to parser |
 |---|---|
@@ -572,7 +572,7 @@ Implementation: [executeSmtpClientMethod](../../pkg/core/smtp_native.go#L12).
 | `pop` | `mixed` |
 | `push` | `mixed` |
 
-##Str
+## Str
 
 | Method | Posted return to parser |
 |---|---|
@@ -585,7 +585,7 @@ Implementation: [executeSmtpClientMethod](../../pkg/core/smtp_native.go#L12).
 | `substring` | `string` |
 | `trim` | `string` |
 
-##Stream
+## Stream
 
 Implementation: [executeStreamMethod](../../pkg/core/native_stream.go#L10).
 
@@ -594,7 +594,7 @@ Implementation: [executeStreamMethod](../../pkg/core/native_stream.go#L10).
 | `close` | `mixed` |
 | `send` | `mixed` |
 
-##System
+## System
 
 Implementation: [executeSystemMethod](../../pkg/core/system.go#L14).
 
@@ -608,7 +608,7 @@ Implementation: [executeSystemMethod](../../pkg/core/system.go#L14).
 | `now` | `int` |
 | `sleep` | `mixed` |
 
-##Task
+## Task
 
 Implementation: [executeTaskMethod](../../pkg/core/task.go#L10).
 
@@ -616,7 +616,7 @@ Implementation: [executeTaskMethod](../../pkg/core/task.go#L10).
 |---|---|
 | `on_request` | `mixed` |
 
-##TwoFactor
+## TwoFactor
 
 Implementation: [executeTwoFactorMethod](../../pkg/core/auth_fluent.go#L168).
 
@@ -632,7 +632,7 @@ Implementation: [executeTwoFactorMethod](../../pkg/core/auth_fluent.go#L168).
 | `generate` | `string` |
 | `v4` | `string` |
 
-##UserStorage
+## UserStorage
 
 Implementation: [executeUserStorageMethod](../../pkg/core/lib_storage.go#L20).
 
@@ -644,7 +644,7 @@ Implementation: [executeUserStorageMethod](../../pkg/core/lib_storage.go#L20).
 | `path` | `mixed` |
 | `put` | `mixed` |
 
-##View
+## View
 
 Implementation: [executeViewMethod](../../pkg/core/view.go#L61).
 
@@ -665,7 +665,7 @@ Implementation: [executeWebResponseMethod](../../pkg/core/response.go#L132).
 | `withCookie` | `WebResponse` |
 | `withHeader` | `WebResponse` |
 
-##WebSocket
+## WebSocket
 
 Implementation: [executeWebSocketMethod](../../pkg/core/websocket.go#L60).
 
@@ -690,7 +690,7 @@ Implementation: [executeWebSocketMethod](../../pkg/core/websocket.go#L60).
 ## Global functions
 
 Contracts: [global functions](FUNCIONES_GLOBALES.md). Variants that share implementation
-they are explained together there; This list preserves all registered spellings.
+are explained together there; This list preserves all registered spellings.
 
 - `__`
 - `abs`

@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Kokeile nyt: joss run tu_script.joss",
+  "aiTryScript": "Kokeile nyt",
   "@aiTryScript": {},
   "aiWizardConfig": "Tämä ohjattu toiminto määrittää alkuperäisen tekoälyn projektissasi.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Virhe: API-avain ei voi olla tyhjä.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Haluatko ottaa käyttöön BREVO_API:n? (y/n): ",
+  "brevoEnablePrompt": "Haluatko ottaa käyttöön BREVO_API:n?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Syötä Brevo API -avaimesi: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "Ota käyttöön lataamalla 'build/'-kansion sisältö palvelimellesi.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "Sinun tarvitsee vain ajaa \"joss run main.joss\" sen sisällä palvelimella.",
+  "buildWebRunTip": "Sinun tarvitsee vain ajaa sen sisällä palvelimella.",
   "@buildWebRunTip": {},
   "buildWebStart": "Aloitetaan Joss WEB build...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Kaikkien projektien on oltava sisäänkäyntipiste 'main.joss', joka käynnistää palvelimen.",
+  "cliErrRequireMain": "Kaikkien projektien on oltava sisäänkäyntipiste, joka käynnistää palvelimen.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Suoritetaan käynnistysohjelmaa (main.joss)...",
+  "cliExecMain": "[CLI] Suoritetaan käynnistysohjelmaa...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Virhe: 'main.joss' ei löydy.",
+  "cliErrNoMain": "Virhe: ei löydy.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Haluatko sisällyttää 'node_modules' buildiin? (y/n):",
+  "buildPromptNodeModules": "Haluatko sisällyttää 'node_modules' buildiin?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Käynnistä tehokas HTTP-verkkopalvelin suorittamalla main.joss-aloituspiste. Lataa automaattisesti kaikki ajurit, mallit ja reitit app/. Pysäytä palvelin turvallisesti painamalla konsolissa q tai Ctrl+C.",
+  "helpTopicServer": "Käynnistä tehokas HTTP-verkkopalvelin suorittamalla -aloituspiste. Lataa automaattisesti kaikki ajurit, mallit ja reitit app/. Pysäytä palvelin turvallisesti painamalla konsolissa q tai Ctrl+C.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Suorita \"joss update --{channel}\" päivittääksesi suoritusajan, SDK:n ja laajennuksen automaattisesti.",
+  "updaterRunHint": "Suorita päivittääksesi suoritusajan, SDK:n ja laajennuksen automaattisesti.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 JOSS-PÄIVITYS",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Vinkki: Käytä 'joss update -f' pakottaaksesi binaarin uudelleenlatauksen ja asennuksen.",
+  "updaterForceTip": "💡 Vinkki: Käytä pakottaaksesi binaarin uudelleenlatauksen ja asennuksen.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} tiedosto(t) vaativat muotoilun (käytä --write):",
+  "formatRequireFormat": "[FORMAT] {count} tiedosto(t) vaativat muotoilun",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[TARKISTA VAROITUS] {count} tiedosto(t) eivät ole kanonisen muodon mukaisia ​​(suorita \"joss format --write\"):",
+  "checkFormatWarning": "[TARKISTA VAROITUS] {count} tiedosto(t) eivät ole kanonisen muodon mukaisia ​​",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Ohjelma] Käynnissä main.joss...",
+  "programRunningMain": "[Ohjelma] Käynnissä...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[Ohjelma] main.joss ei löydy, palvelin käynnistyy suoraan...",
+  "programNoMainStarting": "[Ohjelma] ei löydy, palvelin käynnistyy suoraan...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Ohjelma] Virheet tiedostossa main.joss: {errors}",
+  "programErrorsInMain": "[Ohjelma] Virheet tiedostossa: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "Tarkoititko \"joss make:migration [nimi]\"?",
+  "cliDidYouMean": "Tarkoititko",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "Kaikissa projekteissa on oltava main.joss-alkupiste tai määritettävä tiedosto: joss analysoi [file.joss]",
+  "cliRequireMainOrScript": "Kaikissa projekteissa on oltava -alkupiste tai määritettävä tiedosto: joss analysoi",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

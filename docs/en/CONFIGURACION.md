@@ -99,8 +99,8 @@ REDIS_DB="0"
 ## Processes and plugins
 
 - `ALLOW_SYSTEM_RUN=true` enables `System::Run()`.
-- `JOSS_PLUGIN_SIGNING_KEY` allows selecting an existing Ed25519 private key to compile JP. If not specified, Joss automatically generates and manages a key per plugin under `~/.joss/keys/`.
-- The `.jp` plugins run directly in memory (VM bytecode and AST Engine), with access to the environment map `r.Env` according to their executor; this does not constitute an operating system sandbox.
+- `JOSS_PLUGIN_SIGNING_KEY` allows you to select an existing Ed25519 private key to compile JP. If not specified, Joss generates and manages a key automatically per plugin under `~/.joss/keys/`.
+- `.jp` plugins run directly in memory (VM and AST Engine bytecode), with access to the `r.Env` environment map depending on their executor; this does not constitute an operating system sandbox.
 
 Do not publish environment files or private keys.
 

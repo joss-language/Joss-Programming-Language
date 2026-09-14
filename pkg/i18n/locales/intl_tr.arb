@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Şimdi şunu deneyin: joss run tu_script.joss",
+  "aiTryScript": "Şimdi şunu deneyin",
   "@aiTryScript": {},
   "aiWizardConfig": "Bu sihirbaz projenizdeki yerel yapay zekayı yapılandıracaktır.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Hata: API Anahtarı boş olamaz.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "BREVO_API'yi etkinleştirmek istiyor musunuz? (y/n): ",
+  "brevoEnablePrompt": "BREVO_API'yi etkinleştirmek istiyor musunuz?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Brevo API Anahtarınızı girin: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "Dağıtmak için 'build/' klasörünün içeriğini sunucunuza yükleyin.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "Sunucuda sadece 'joss run main.joss' komutunu çalıştırmanız yeterli.",
+  "buildWebRunTip": "Sunucuda sadece komutunu çalıştırmanız yeterli.",
   "@buildWebRunTip": {},
   "buildWebStart": "Joss WEB derlemesi başlatılıyor...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Tüm projeler, sunucuyu başlatan 'main.joss' giriş noktasına sahip olmalıdır.",
+  "cliErrRequireMain": "Tüm projeler, sunucuyu başlatan giriş noktasına sahip olmalıdır.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Başlangıç ​​betiği (main.joss) çalıştırılıyor...",
+  "cliExecMain": "[CLI] Başlangıç ​​betiği çalıştırılıyor...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Hata: 'main.joss' bulunamadı.",
+  "cliErrNoMain": "Hata: bulunamadı.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "'node_modules' dosyasını derlemeye dahil etmek istiyor musunuz? (y/n):",
+  "buildPromptNodeModules": "'node_modules' dosyasını derlemeye dahil etmek istiyor musunuz?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "'Main.joss' giriş noktasını çalıştırarak yüksek performanslı HTTP web sunucusunu başlatın. Tüm sürücüleri, modelleri ve rotaları otomatik olarak app/.app dosyasına yükleyin. Sunucuyu güvenli bir şekilde durdurmak için konsolda 'q' veya Ctrl+C tuşlarına basın.",
+  "helpTopicServer": "giriş noktasını çalıştırarak yüksek performanslı HTTP web sunucusunu başlatın. Tüm sürücüleri, modelleri ve rotaları otomatik olarak app/.app dosyasına yükleyin. Sunucuyu güvenli bir şekilde durdurmak için konsolda 'q' veya Ctrl+C tuşlarına basın.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Çalışma zamanını, SDK'yı ve uzantıyı otomatik olarak güncellemek için 'joss update --{channel}_' komutunu çalıştırın.",
+  "updaterRunHint": "Çalışma zamanını, SDK'yı ve uzantıyı otomatik olarak güncellemek için komutunu çalıştırın.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 JOSS GÜNCELLEMESİ",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 İpucu: İkili dosyanın yeniden indirilmesini ve kurulmasını zorlamak için 'joss update -f' komutunu kullanın.",
+  "updaterForceTip": "💡 İpucu: İkili dosyanın yeniden indirilmesini ve kurulmasını zorlamak için komutunu kullanın.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} dosya(lar)ı biçimlendirme gerektiriyor (uygulamak için --write kullanın):",
+  "formatRequireFormat": "[FORMAT] {count} dosya(lar)ı biçimlendirme gerektiriyor",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[UYARIYI KONTROL EDİN] {count} dosya(lar) standart formata uymuyor ('joss format --write' komutunu çalıştırın):",
+  "checkFormatWarning": "[UYARIYI KONTROL EDİN] {count} dosya(lar) standart formata uymuyor",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Program] main.joss çalıştırılıyor...",
+  "programRunningMain": "[Program] çalıştırılıyor...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[Program] main.joss bulunamadı, sunucu doğrudan başlatılıyor...",
+  "programNoMainStarting": "[Program] bulunamadı, sunucu doğrudan başlatılıyor...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Program] Main.joss'taki hatalar: {errors}",
+  "programErrorsInMain": "[Program] taki hatalar: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "'Joss make:migration [Name]' mi demek istediniz?",
+  "cliDidYouMean": ".",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "Tüm projelerin bir 'main.joss' giriş noktası olması veya bir dosya belirtmesi gerekir: joss analyze [file.joss]",
+  "cliRequireMainOrScript": "Tüm projelerin bir giriş noktası olması veya bir dosya belirtmesi gerekir",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

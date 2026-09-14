@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Coba sekarang dengan: joss run tu_script.joss",
+  "aiTryScript": "Coba sekarang dengan",
   "@aiTryScript": {},
   "aiWizardConfig": "Wizard ini akan mengonfigurasi AI asli di proyek Anda.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Kesalahan: Kunci API tidak boleh kosong.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Apakah Anda ingin mengaktifkan BREVO_API? (y/n): ",
+  "brevoEnablePrompt": "Apakah Anda ingin mengaktifkan BREVO_API?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Masukkan API Key Brevo Anda: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "Untuk menyebarkan, unggah konten folder 'build/' ke server Anda.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "Anda hanya perlu menjalankan 'joss run main.joss' di dalamnya di server.",
+  "buildWebRunTip": "Anda hanya perlu menjalankan di dalamnya di server.",
   "@buildWebRunTip": {},
   "buildWebStart": "Memulai pembuatan Joss WEB...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Semua proyekti harus memiliki titik masuk 'main.joss' yang memulai server.",
+  "cliErrRequireMain": "Semua proyekti harus memiliki titik masuk yang memulai server.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Menjalankan skrip startup (main.joss)...",
+  "cliExecMain": "[CLI] Menjalankan skrip startup...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Kesalahan: 'main.joss' tidak ditemukan.",
+  "cliErrNoMain": "Kesalahan: tidak ditemukan.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Apakah Anda ingin menyertakan 'node_modules' dalam build? (y/n):",
+  "buildPromptNodeModules": "Apakah Anda ingin menyertakan 'node_modules' dalam build?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Mulai server web HTTP berkinerja tinggi dengan menjalankan titik masuk 'main.joss'. Secara otomatis memuat semua driver, model, dan rute di app/. Tekan 'q' atau Ctrl+C di konsol untuk menghentikan server dengan aman.",
+  "helpTopicServer": "Mulai server web HTTP berkinerja tinggi dengan menjalankan titik masuk. Secara otomatis memuat semua driver, model, dan rute di app/. Tekan 'q' atau Ctrl+C di konsol untuk menghentikan server dengan aman.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Jalankan 'joss update --{channel}' untuk memperbarui runtime, SDK, dan ekstensi secara otomatis.",
+  "updaterRunHint": "Jalankan untuk memperbarui runtime, SDK, dan ekstensi secara otomatis.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 PEMBARUAN JOSS",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Tip: Gunakan 'joss update -f' untuk memaksa pengunduhan ulang dan pemasangan biner.",
+  "updaterForceTip": "💡 Tip: Gunakan untuk memaksa pengunduhan ulang dan pemasangan biner.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} file memerlukan pemformatan (gunakan --write untuk menerapkan):",
+  "formatRequireFormat": "[FORMAT] {count} file memerlukan pemformatan",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[PERIKSA PERINGATAN] {count} file tidak sesuai dengan format kanonik (jalankan 'format joss --write'):",
+  "checkFormatWarning": "[PERIKSA PERINGATAN] {count} file tidak sesuai dengan format kanonik",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Program] Menjalankan main.joss...",
+  "programRunningMain": "[Program] Menjalankan...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[Program] main.joss tidak ditemukan, langsung memulai server...",
+  "programNoMainStarting": "[Program] tidak ditemukan, langsung memulai server...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Program] Kesalahan di main.joss: {errors}",
+  "programErrorsInMain": "[Program] Kesalahan di: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "Apakah maksud Anda 'joss make:migration [Nama]'?",
+  "cliDidYouMean": "Apakah maksud Anda",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "Semua proyek harus memiliki titik masuk 'main.joss' atau menentukan file: joss analysis [file.joss]",
+  "cliRequireMainOrScript": "Semua proyek harus memiliki titik masuk atau menentukan file: joss analysis",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

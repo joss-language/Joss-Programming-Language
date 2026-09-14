@@ -41,7 +41,7 @@ func newRuntimeState() interface{} {
 func NewRuntime() *Runtime {
 	InitLogger()
 	r := runtimePool.Get().(*Runtime)
-	r.freed = false
+	r.freed.Store(false)
 	r.ensureLifecycleMaps()
 	if _, ok := r.Variables["View"]; !ok {
 		r.registerCanonicalHostState()
@@ -127,10 +127,9 @@ func (r *Runtime) registerCanonicalHostState() {
 // Free resets request/execution state and returns the runtime to the pool.
 // External resources such as DB are not owned or closed by this lifecycle.
 func (r *Runtime) Free() {
-	if r == nil || r.freed {
+	if r == nil || !r.freed.CompareAndSwap(false, true) {
 		return
 	}
-	r.freed = true
 	clear(r.Env)
 	clear(r.Variables)
 	clear(r.VarTypes)
@@ -144,6 +143,7 @@ func (r *Runtime) Free() {
 	clear(r.CustomMiddlewares)
 	clear(r.NativeHandlers)
 	clear(r.NativePlugins)
+	releaseRuntimeNativeDrivers(r.NativeDrivers)
 	clear(r.NativeDrivers)
 	clear(r.callablePlans)
 	clear(r.functionPlans)
@@ -177,4 +177,18 @@ func (r *Runtime) Free() {
 	r.topDefers = r.topDefers[:0]
 
 	runtimePool.Put(r)
+}
+
+func releaseRuntimeNativeDrivers(drivers map[string]*NativeDriverDefinition) {
+	released := make(map[*NativeDriverDefinition]struct{}, len(drivers))
+	for _, driver := range drivers {
+		if driver == nil {
+			continue
+		}
+		if _, exists := released[driver]; exists {
+			continue
+		}
+		_ = releaseNativeDriver(driver)
+		released[driver] = struct{}{}
+	}
 }

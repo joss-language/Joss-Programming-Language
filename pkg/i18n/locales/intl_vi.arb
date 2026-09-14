@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Hãy thử ngay với: joss run tu_script.joss",
+  "aiTryScript": "Hãy thử ngay với",
   "@aiTryScript": {},
   "aiWizardConfig": "Trình hướng dẫn này sẽ định cấu hình AI gốc trong dự án của bạn.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Lỗi: Khóa API không được để trống.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Bạn có muốn kích hoạt BREVO_API không? (y/n): ",
+  "brevoEnablePrompt": "Bạn có muốn kích hoạt BREVO_API không?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Nhập khóa API Brevo của bạn: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "Để triển khai, hãy tải nội dung của thư mục 'build/' lên máy chủ của bạn.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "Bạn chỉ cần chạy 'joss run main.joss' bên trong nó trên máy chủ.",
+  "buildWebRunTip": "Bạn chỉ cần chạy bên trong nó trên máy chủ.",
   "@buildWebRunTip": {},
   "buildWebStart": "Đang bắt đầu xây dựng Joss WEB...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Tất cả các dự án phải có điểm vào 'main.joss' khởi động máy chủ.",
+  "cliErrRequireMain": "Tất cả các dự án phải có điểm vào khởi động máy chủ.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Chạy tập lệnh khởi động (main.joss)...",
+  "cliExecMain": "[CLI] Chạy tập lệnh khởi động...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Lỗi: không tìm thấy 'main.joss'.",
+  "cliErrNoMain": "Lỗi: không tìm thấy.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Bạn có muốn bao gồm 'node_modules' trong bản dựng không? (y/n):",
+  "buildPromptNodeModules": "Bạn có muốn bao gồm 'node_modules' trong bản dựng không?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Khởi động máy chủ web HTTP hiệu suất cao bằng cách chạy điểm vào 'main.joss'. Tự động tải tất cả trình điều khiển, kiểu máy và tuyến đường trong app/. Nhấn 'q' hoặc Ctrl+C trong bảng điều khiển để dừng máy chủ một cách an toàn.",
+  "helpTopicServer": "Khởi động máy chủ web HTTP hiệu suất cao bằng cách chạy điểm vào. Tự động tải tất cả trình điều khiển, kiểu máy và tuyến đường trong app/. Nhấn 'q' hoặc Ctrl+C trong bảng điều khiển để dừng máy chủ một cách an toàn.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Chạy 'joss update --{channel}' để tự động cập nhật thời gian chạy, SDK và tiện ích mở rộng.",
+  "updaterRunHint": "Chạy để tự động cập nhật thời gian chạy, SDK và tiện ích mở rộng.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 CẬP NHẬT JOSS",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Mẹo: Sử dụng 'joss update -f' để buộc tải xuống lại và cài đặt tệp nhị phân.",
+  "updaterForceTip": "💡 Mẹo: Sử dụng để buộc tải xuống lại và cài đặt tệp nhị phân.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] (các) tệp {count} yêu cầu định dạng (sử dụng --write để áp dụng):",
+  "formatRequireFormat": "[FORMAT] (các) tệp {count} yêu cầu định dạng",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[KIỂM TRA CẢNH BÁO] {count} tệp không tuân thủ định dạng chuẩn (thực thi 'joss format --write'):",
+  "checkFormatWarning": "[KIỂM TRA CẢNH BÁO] {count} tệp không tuân thủ định dạng chuẩn",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Chương trình] Chạy main.joss...",
+  "programRunningMain": "[Chương trình] Chạy...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[Chương trình] không tìm thấy main.joss, khởi động máy chủ trực tiếp...",
+  "programNoMainStarting": "[Chương trình] không tìm thấy, khởi động máy chủ trực tiếp...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Chương trình] Lỗi trong main.joss: {errors}",
+  "programErrorsInMain": "[Chương trình] Lỗi trong: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "Có phải ý bạn là 'joss make:migration [Name]'?",
+  "cliDidYouMean": "Có phải ý bạn là",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "Tất cả các dự án phải có điểm vào 'main.joss' hoặc chỉ định một tệp: joss analyze [file.joss]",
+  "cliRequireMainOrScript": "Tất cả các dự án phải có điểm vào hoặc chỉ định một tệp",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

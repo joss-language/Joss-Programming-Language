@@ -121,6 +121,37 @@ func TestRuntimePoolConcurrentAcquireAndFree(t *testing.T) {
 	}
 }
 
+func TestRuntimeFreeIsIdempotentUnderConcurrency(t *testing.T) {
+	runtime := newRuntimeState().(*Runtime)
+
+	const callers = 32
+	var wg sync.WaitGroup
+	wg.Add(callers)
+	for caller := 0; caller < callers; caller++ {
+		go func() {
+			defer wg.Done()
+			runtime.Free()
+		}()
+	}
+	wg.Wait()
+
+	// Keep every acquired runtime checked out at once. If Free inserted the same
+	// pointer more than once, the pool could hand one live Runtime to two owners.
+	acquired := make([]*Runtime, 0, callers)
+	seen := make(map[*Runtime]struct{}, callers)
+	for index := 0; index < callers; index++ {
+		candidate := NewRuntime()
+		if _, duplicate := seen[candidate]; duplicate {
+			t.Fatalf("runtime pool returned %p to two simultaneous owners", candidate)
+		}
+		seen[candidate] = struct{}{}
+		acquired = append(acquired, candidate)
+	}
+	for _, candidate := range acquired {
+		candidate.Free()
+	}
+}
+
 func TestFreeRemovesPerExecutionAndPerRequestStateBeforeReuse(t *testing.T) {
 	runtime := NewRuntime()
 	runtime.Env["REQUEST_SECRET"] = "must-not-survive"

@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "现在尝试： joss run tu_script.joss",
+  "aiTryScript": "现在尝试",
   "@aiTryScript": {},
   "aiWizardConfig": "该向导将在您的项目中配置本机 AI。",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "错误：API 密钥不能为空。",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "是否激活 BREVO_API？ (y/n): ",
+  "brevoEnablePrompt": "是否激活 BREVO_API？",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "输入您的 Brevo API 密钥: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "要进行部署，请将“build/”文件夹的内容上传到您的服务器。",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "您只需要在服务器上运行“joss run main.joss”即可。",
+  "buildWebRunTip": "您只需要在服务器上运行即可。",
   "@buildWebRunTip": {},
   "buildWebStart": "开始乔斯WEB构建...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "所有项目必须有一个启动服务器的入口点 'main.joss'。",
+  "cliErrRequireMain": "所有项目必须有一个启动服务器的入口点 。",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] 运行启动脚本 (main.joss)...",
+  "cliExecMain": "[CLI] 运行启动脚本...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "错误：找不到“main.joss”。",
+  "cliErrNoMain": "错误：找不到。",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "是否要在构建中包含 'node_modules'？ (y/n):",
+  "buildPromptNodeModules": "是否要在构建中包含 'node_modules'？",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "通过运行“main.joss”入口点来启动高性能 HTTP Web 服务器。自动加载 app/ 中的所有驱动程序、模型和路线。在控制台中按“q”或 Ctrl+C 可安全停止服务器。",
+  "helpTopicServer": "通过运行入口点来启动高性能 HTTP Web 服务器。自动加载 app/ 中的所有驱动程序、模型和路线。在控制台中按“q”或 Ctrl+C 可安全停止服务器。",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "运行“joss update --{channel}”以自动更新运行时、SDK 和扩展。",
+  "updaterRunHint": "运行以自动更新运行时、SDK 和扩展。",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 乔斯更新",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡提示：使用“joss update -f”强制重新下载并安装二进制文件。",
+  "updaterForceTip": "💡提示：使用强制重新下载并安装二进制文件。",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[格式] {count} 文件需要格式化（使用 --write 来应用）：",
+  "formatRequireFormat": "[格式] {count} 文件需要格式化",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[检查警告] {count} 文件不符合规范格式（执行“joss format --write”）：",
+  "checkFormatWarning": "[检查警告] {count} 文件不符合规范格式",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[程序] 运行 main.joss...",
+  "programRunningMain": "[程序] 运行...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[程序] main.joss 未找到，直接启动服务器...",
+  "programNoMainStarting": "[程序] 未找到，直接启动服务器...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[程序] main.joss 中的错误： {errors}",
+  "programErrorsInMain": "[程序] 中的错误： {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "您的意思是“joss make:migration [Name]”吗？",
+  "cliDidYouMean": "您的意思是",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "所有项目必须有一个“main.joss”入口点或指定一个文件：jossanalyze [file.joss]",
+  "cliRequireMainOrScript": "所有项目必须有一个入口点或指定一个文件：jossanalyze",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

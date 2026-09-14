@@ -18,7 +18,7 @@
 │    - SINTAXIS: Tokens, precedencias y operadores.           │
 │    - GRAMATICA: EBNF formal y correspondencia con el AST.   │
 │    - DIAGNOSTICOS: Catálogo completo de códigos JOSS-*.     │
-│    - FUNCIONES_GLOBALES: Las 117 funciones built-in.        │
+│    - FUNCIONES_GLOBALES: Las 121 funciones built-in.        │
 │    - MODULOS_NATIVOS: Clases integradas en Go.              │
 │    - CATALOGO_NATIVO: Catálogo sincronizado por docgen.     │
 │    - CLI: Referencia de comandos joss.                      │

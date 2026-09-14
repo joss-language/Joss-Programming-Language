@@ -89,9 +89,11 @@ func main() {
 			// Always require main.joss
 			if _, err := os.Stat("main.joss"); err == nil {
 				fmt.Println(i18n.Tr("cliExecMain"))
+				fmt.Println("  main.joss")
 				executeScript("main.joss")
 			} else {
 				fmt.Println(i18n.Tr("cliErrNoMain"))
+				fmt.Println("  main.joss")
 				fmt.Println(i18n.Tr("cliErrRequireMain"))
 				os.Exit(1)
 			}
@@ -322,6 +324,7 @@ func main() {
 		fmt.Println(i18n.Tr("cliUnknownCommand", i18n.M{"command": command}))
 		if command == "make:miggrate" {
 			fmt.Println(i18n.Tr("cliDidYouMean"))
+			fmt.Println("  joss make:migration [Nombre]")
 		}
 		printHelp()
 		os.Exit(1)
@@ -333,6 +336,8 @@ func analyzeScript(filename string) {
 		fmt.Println(i18n.Tr("cliScriptNotFound", i18n.M{"file": filename}))
 		if filename == "main.joss" {
 			fmt.Println(i18n.Tr("cliRequireMainOrScript"))
+			fmt.Println("  main.joss")
+			fmt.Println("  joss analyze [archivo.joss]")
 		}
 		os.Exit(1)
 	}

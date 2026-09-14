@@ -30,6 +30,7 @@ func handleCheckCommand(args []string) {
 		hasErrors = true
 	} else if len(unformatted) > 0 {
 		fmt.Println(i18n.Tr("checkFormatWarning", i18n.M{"count": len(unformatted)}))
+		fmt.Println("  joss format --write")
 		for _, f := range unformatted {
 			fmt.Printf("  - %s\n", f)
 		}

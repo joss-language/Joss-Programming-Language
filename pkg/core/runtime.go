@@ -265,7 +265,14 @@ func copyNativePluginMap(source map[string]*NativePluginDefinition) map[string]*
 
 func copyNativeDriverMap(source map[string]*NativeDriverDefinition) map[string]*NativeDriverDefinition {
 	result := make(map[string]*NativeDriverDefinition, len(source))
+	retained := make(map[*NativeDriverDefinition]struct{}, len(source))
 	for key, value := range source {
+		if _, exists := retained[value]; !exists {
+			if err := retainNativeDriver(value); err != nil {
+				continue
+			}
+			retained[value] = struct{}{}
+		}
 		result[key] = value
 	}
 	return result

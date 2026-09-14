@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "Experimente agora com: joss run tu_script.joss",
+  "aiTryScript": "Experimente agora com",
   "@aiTryScript": {},
   "aiWizardConfig": "Este assistente configurará a IA nativa em seu projeto.",
   "@aiWizardConfig": {},
@@ -87,7 +87,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "Erro: a chave API não pode estar vazia.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "Deseja ativar BREVO_API? (y/n): ",
+  "brevoEnablePrompt": "Deseja ativar BREVO_API?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "Insira sua API Key do Brevo: ",
   "@brevoEnterKey": {},
@@ -144,7 +144,7 @@
   "@buildSelectOsWindows": {},
   "buildWebDeployTip": "Para implantar, carregue o conteúdo da pasta 'build/' em seu servidor.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "Você só precisa executar 'joss run main.joss' dentro dele no servidor.",
+  "buildWebRunTip": "Você só precisa executar dentro dele no servidor.",
   "@buildWebRunTip": {},
   "buildWebStart": "Iniciando a construção do Joss WEB...",
   "@buildWebStart": {},
@@ -292,15 +292,15 @@
   "@analyzeSuccess": {
     "description": "Mensaje de éxito del analizador estático"
   },
-  "cliErrRequireMain": "Todos os projetos devem ter um ponto de entrada 'main.joss' que inicia o servidor.",
+  "cliErrRequireMain": "Todos os projetos devem ter um ponto de entrada que inicia o servidor.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] Executando script de inicialização (main.joss)...",
+  "cliExecMain": "[CLI] Executando script de inicialização...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
-  "cliErrNoMain": "Erro: 'main.joss' não encontrado.",
+  "cliErrNoMain": "Erro: não encontrado.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
@@ -424,7 +424,7 @@
       "dir": {}
     }
   },
-  "buildPromptNodeModules": "Deseja incluir 'node_modules' na compilação? (y/n):",
+  "buildPromptNodeModules": "Deseja incluir 'node_modules' na compilação?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "Inicie o servidor web HTTP de alto desempenho executando o ponto de entrada 'main.joss'. Carregue automaticamente todos os drivers, modelos e rotas no app/. Pressione 'q' ou Ctrl+C no console para parar o servidor com segurança.",
+  "helpTopicServer": "Inicie o servidor web HTTP de alto desempenho executando o ponto de entrada. Carregue automaticamente todos os drivers, modelos e rotas no app/. Pressione 'q' ou Ctrl+C no console para parar o servidor com segurança.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "Execute 'joss update --{channel}' para atualizar automaticamente o tempo de execução, SDK e extensão.",
+  "updaterRunHint": "Execute para atualizar automaticamente o tempo de execução, SDK e extensão.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 ATUALIZAÇÃO JOSS",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 Dica: Use 'joss update -f' para forçar o novo download e instalação do binário.",
+  "updaterForceTip": "💡 Dica: Use para forçar o novo download e instalação do binário.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[FORMAT] {count} arquivo(s) requerem formatação (use --write para aplicar):",
+  "formatRequireFormat": "[FORMAT] {count} arquivo(s) requerem formatação",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2411,7 +2408,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[VERIFIQUE AVISO] {count} arquivo(s) não estão em conformidade com o formato canônico (execute 'joss format --write'):",
+  "checkFormatWarning": "[VERIFIQUE AVISO] {count} arquivo(s) não estão em conformidade com o formato canônico",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2426,7 +2423,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[Programa] Executando main.joss...",
+  "programRunningMain": "[Programa] Executando...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2437,11 +2434,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[Programa] main.joss não encontrado, iniciando o servidor diretamente...",
+  "programNoMainStarting": "[Programa] não encontrado, iniciando o servidor diretamente...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[Programa] Erros em main.joss: {errors}",
+  "programErrorsInMain": "[Programa] Erros em: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2455,7 +2452,7 @@
       "command": {}
     }
   },
-  "cliDidYouMean": "Você quis dizer 'joss make:migration [Nome]'?",
+  "cliDidYouMean": "Você quis dizer",
   "@cliDidYouMean": {
     "description": "Sugerencia interactiva ante error tipográfico común en make:migration"
   },
@@ -2488,7 +2485,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "Todos os projetos devem ter um ponto de entrada 'main.joss' ou especificar um arquivo: joss analyze [file.joss]",
+  "cliRequireMainOrScript": "Todos os projetos devem ter um ponto de entrada ou especificar um arquivo",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

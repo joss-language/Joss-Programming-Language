@@ -69,7 +69,7 @@
       "provider": {}
     }
   },
-  "aiTryScript": "ഇപ്പോൾ ഇതുപയോഗിച്ച് ശ്രമിക്കുക: joss run tu_script.joss",
+  "aiTryScript": "ഇപ്പോൾ ഇതുപയോഗിച്ച് ശ്രമിക്കുക",
   "@aiTryScript": {},
   "aiWizardConfig": "ഈ വിസാർഡ് നിങ്ങളുടെ പ്രോജക്റ്റിൽ നേറ്റീവ് AI കോൺഫിഗർ ചെയ്യും.",
   "@aiWizardConfig": {},
@@ -91,7 +91,7 @@
   "@brevoDisabledSuccess": {},
   "brevoEmptyKeyError": "പിശക്: API കീ ശൂന്യമായിരിക്കരുത്.",
   "@brevoEmptyKeyError": {},
-  "brevoEnablePrompt": "നിങ്ങൾക്ക് BREVO_API സജീവമാക്കണോ? (y/n): ",
+  "brevoEnablePrompt": "നിങ്ങൾക്ക് BREVO_API സജീവമാക്കണോ?",
   "@brevoEnablePrompt": {},
   "brevoEnterKey": "നിങ്ങളുടെ Brevo API കീ നൽകുക: ",
   "@brevoEnterKey": {},
@@ -216,7 +216,7 @@
   "@buildProgramStructure": {},
   "buildProgramSuccess": "'ബിൽഡ്/' ഫോൾഡറിൽ പ്രോഗ്രാം ബിൽഡ് വിജയകരമായി പൂർത്തിയാക്കി.",
   "@buildProgramSuccess": {},
-  "buildPromptNodeModules": "ബിൽഡിൽ 'node_modules' ഉൾപ്പെടുത്താൻ നിങ്ങൾ ആഗ്രഹിക്കുന്നുവോ? (y/n):",
+  "buildPromptNodeModules": "ബിൽഡിൽ 'node_modules' ഉൾപ്പെടുത്താൻ നിങ്ങൾ ആഗ്രഹിക്കുന്നുവോ?",
   "@buildPromptNodeModules": {
     "description": "Pregunta interactiva para incluir dependencias JS"
   },
@@ -240,7 +240,7 @@
   },
   "buildWebDeployTip": "വിന്യസിക്കാൻ, 'ബിൽഡ്/' ഫോൾഡറിലെ ഉള്ളടക്കങ്ങൾ നിങ്ങളുടെ സെർവറിലേക്ക് അപ്‌ലോഡ് ചെയ്യുക.",
   "@buildWebDeployTip": {},
-  "buildWebRunTip": "സെർവറിൽ അതിനുള്ളിൽ 'joss run main.joss' പ്രവർത്തിപ്പിച്ചാൽ മതിയാകും.",
+  "buildWebRunTip": "സെർവറിൽ അതിനുള്ളിൽ പ്രവർത്തിപ്പിച്ചാൽ മതിയാകും.",
   "@buildWebRunTip": {},
   "buildWebStart": "ജോസ് വെബ് ബിൽഡ് ആരംഭിക്കുന്നു...",
   "@buildWebStart": {},
@@ -323,15 +323,15 @@
   "@cliCmdTest": {
     "description": "Descripción del comando joss test"
   },
-  "cliErrNoMain": "പിശക്: 'main.joss' കണ്ടെത്തിയില്ല.",
+  "cliErrNoMain": "പിശക്: കണ്ടെത്തിയില്ല.",
   "@cliErrNoMain": {
     "description": "Error cuando falta el archivo de entrada principal"
   },
-  "cliErrRequireMain": "എല്ലാ പ്രോജക്റ്റുകളും സർവർ ആരംഭിക്കുന്ന 'main.joss' എന്ന എൻട്രി പോയിന്റ് ഉണ്ടായിരിക്കണം.",
+  "cliErrRequireMain": "എല്ലാ പ്രോജക്റ്റുകളും സർവർ ആരംഭിക്കുന്ന എന്ന എൻട്രി പോയിന്റ് ഉണ്ടായിരിക്കണം.",
   "@cliErrRequireMain": {
     "description": "Explicación de la necesidad del archivo main.joss"
   },
-  "cliExecMain": "[CLI] സ്റ്റാർട്ടപ്പ് സ്ക്രിപ്റ്റ് പ്രവർത്തിപ്പിക്കുന്നു (main.joss)...",
+  "cliExecMain": "[CLI] സ്റ്റാർട്ടപ്പ് സ്ക്രിപ്റ്റ് പ്രവർത്തിപ്പിക്കുന്നു...",
   "@cliExecMain": {
     "description": "Mensaje informativo al arrancar el script main.joss"
   },
@@ -542,7 +542,7 @@
   "@helpTopicBuild": {
     "description": "Descripción del comando joss build"
   },
-  "helpTopicServer": "'main.joss' എൻട്രി പോയിൻ്റ് പ്രവർത്തിപ്പിച്ച് ഉയർന്ന പ്രവർത്തനക്ഷമതയുള്ള HTTP വെബ് സെർവർ ആരംഭിക്കുക. എല്ലാ ഡ്രൈവറുകളും മോഡലുകളും റൂട്ടുകളും ആപ്പിൽ സ്വയമേവ ലോഡ് ചെയ്യുക/. സെർവർ സുരക്ഷിതമായി നിർത്താൻ കൺസോളിൽ 'q' അല്ലെങ്കിൽ Ctrl+C അമർത്തുക.",
+  "helpTopicServer": "എൻട്രി പോയിൻ്റ് പ്രവർത്തിപ്പിച്ച് ഉയർന്ന പ്രവർത്തനക്ഷമതയുള്ള HTTP വെബ് സെർവർ ആരംഭിക്കുക. എല്ലാ ഡ്രൈവറുകളും മോഡലുകളും റൂട്ടുകളും ആപ്പിൽ സ്വയമേവ ലോഡ് ചെയ്യുക/. സെർവർ സുരക്ഷിതമായി നിർത്താൻ കൺസോളിൽ 'q' അല്ലെങ്കിൽ Ctrl+C അമർത്തുക.",
   "@helpTopicServer": {
     "description": "Descripción del comando joss server"
   },
@@ -1124,12 +1124,9 @@
   "@updaterNewVersionTitle": {
     "description": "Aviso cuando hay una versión más reciente de Joss"
   },
-  "updaterRunHint": "റൺടൈം, SDK, എക്സ്റ്റൻഷൻ എന്നിവ സ്വയമേവ അപ്ഡേറ്റ് ചെയ്യാൻ 'joss update --{channel}' റൺ ചെയ്യുക.",
+  "updaterRunHint": "റൺടൈം, SDK, എക്സ്റ്റൻഷൻ എന്നിവ സ്വയമേവ അപ്ഡേറ്റ് ചെയ്യാൻ റൺ ചെയ്യുക.",
   "@updaterRunHint": {
-    "description": "Sugerencia del comando de actualización a ejecutar",
-    "placeholders": {
-      "channel": {}
-    }
+    "description": "Sugerencia del comando de actualización a ejecutar"
   },
   "updaterTitle": "🔄 ജോസ് അപ്ഡേറ്റ്",
   "@updaterTitle": {
@@ -1174,7 +1171,7 @@
   "@updaterForcedRedownload": {
     "description": "Aviso al ejecutar en modo forzado"
   },
-  "updaterForceTip": "💡 നുറുങ്ങ്: ബൈനറി വീണ്ടും ഡൗൺലോഡ് ചെയ്യാനും ഇൻസ്റ്റാൾ ചെയ്യാനും 'joss update -f' ഉപയോഗിക്കുക.",
+  "updaterForceTip": "💡 നുറുങ്ങ്: ബൈനറി വീണ്ടും ഡൗൺലോഡ് ചെയ്യാനും ഇൻസ്റ്റാൾ ചെയ്യാനും ഉപയോഗിക്കുക.",
   "@updaterForceTip": {
     "description": "Consejo sobre cómo forzar la re-descarga de la versión actual"
   },
@@ -2323,7 +2320,7 @@
       "count": {}
     }
   },
-  "formatRequireFormat": "[ഫോർമാറ്റ്] {count} ഫയൽ(കൾ) ഫോർമാറ്റിംഗ് ആവശ്യമാണ് (പ്രയോഗിക്കാൻ --എഴുതുക ഉപയോഗിക്കുക):",
+  "formatRequireFormat": "[ഫോർമാറ്റ്] {count} ഫയൽ(കൾ) ഫോർമാറ്റിംഗ് ആവശ്യമാണ് (പ്രയോഗിക്കാൻ --എഴുതുക ഉപയോഗിക്കുക)",
   "@formatRequireFormat": {
     "description": "Listado de archivos que necesitan formateo sin aplicar cambios",
     "placeholders": {
@@ -2395,7 +2392,7 @@
       "error": {}
     }
   },
-  "checkFormatWarning": "[മുന്നറിയിപ്പ് പരിശോധിക്കുക] {count} ഫയൽ(കൾ) കാനോനിക്കൽ ഫോർമാറ്റുമായി പൊരുത്തപ്പെടുന്നില്ല ('ജോസ് ഫോർമാറ്റ് --റൈറ്റ്' എക്സിക്യൂട്ട് ചെയ്യുക):",
+  "checkFormatWarning": "[മുന്നറിയിപ്പ് പരിശോധിക്കുക] {count} ഫയൽ(കൾ) കാനോനിക്കൽ ഫോർമാറ്റുമായി പൊരുത്തപ്പെടുന്നില്ല ('ജോസ് ഫോർമാറ്റ് --റൈറ്റ്' എക്സിക്യൂട്ട് ചെയ്യുക)",
   "@checkFormatWarning": {
     "description": "Aviso de archivos mal formateados durante check",
     "placeholders": {
@@ -2410,7 +2407,7 @@
       "warnings": {}
     }
   },
-  "programRunningMain": "[പ്രോഗ്രാം] റൺ ചെയ്യുന്നു main.joss...",
+  "programRunningMain": "[പ്രോഗ്രാം] റൺ ചെയ്യുന്നു...",
   "@programRunningMain": {
     "description": "Mensaje informativo de inicio de ejecución de main.joss en modo GUI"
   },
@@ -2421,11 +2418,11 @@
       "suggestion": {}
     }
   },
-  "programNoMainStarting": "[പ്രോഗ്രാം] main.joss കണ്ടെത്തിയില്ല, സെർവർ നേരിട്ട് ആരംഭിക്കുന്നു...",
+  "programNoMainStarting": "[പ്രോഗ്രാം] കണ്ടെത്തിയില്ല, സെർവർ നേരിട്ട് ആരംഭിക്കുന്നു...",
   "@programNoMainStarting": {
     "description": "Aviso en modo GUI de Windows cuando no hay main.joss de entrada"
   },
-  "programErrorsInMain": "[പ്രോഗ്രാം] main.joss-ലെ പിശകുകൾ: {errors}",
+  "programErrorsInMain": "[പ്രോഗ്രാം] -ലെ പിശകുകൾ: {errors}",
   "@programErrorsInMain": {
     "description": "Errores de sintaxis detectados al iniciar modo GUI",
     "placeholders": {
@@ -2472,7 +2469,7 @@
       "file": {}
     }
   },
-  "cliRequireMainOrScript": "എല്ലാ പ്രോജക്റ്റുകൾക്കും ഒരു 'main.joss' എൻട്രി പോയിൻ്റ് ഉണ്ടായിരിക്കണം അല്ലെങ്കിൽ ഒരു ഫയൽ വ്യക്തമാക്കണം: ജോസ് വിശകലനം [file.joss]",
+  "cliRequireMainOrScript": "എല്ലാ പ്രോജക്റ്റുകൾക്കും ഒരു എൻട്രി പോയിൻ്റ് ഉണ്ടായിരിക്കണം അല്ലെങ്കിൽ ഒരു ഫയൽ വ്യക്തമാക്കണം: ജോസ് വിശകലനം",
   "@cliRequireMainOrScript": {
     "description": "Instrucciones de entrada para análisis semántico"
   },

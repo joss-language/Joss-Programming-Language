@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"sync"
+	"sync/atomic"
 
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/pluginruntime"
@@ -54,7 +55,7 @@ type Runtime struct {
 	PluginRegistry    *pluginruntime.PluginRegistry
 	ProjectRoot       string
 	pluginASTEngines  map[string]*PluginASTEngine
-	freed             bool
+	freed             atomic.Bool
 
 	// SEO & Sitemap
 	SEO                *SEOData
@@ -144,6 +145,7 @@ type NativeDriverDefinition struct {
 	Call     func(string, string) *byte
 	Free     func(*byte)
 	Mu       sync.Mutex
+	owners   int
 	unloaded bool
 }
 

@@ -89,7 +89,12 @@ func TestMainHandlerRejectsUnavailableAndCorruptSessionBackends(t *testing.T) {
 
 func TestSessionBackendSnapshotsAreIsolatedAndFailedWritesRollback(t *testing.T) {
 	installHandlerRuntime(t, map[string]string{"SESSION_DRIVER": "memory"}, "")
-	if err := saveSession(map[string]string{"SESSION_DRIVER": "memory"}, "memory", "a", map[string]interface{}{"user": "Ada"}); err != nil {
+	if err := saveSession(map[string]string{"SESSION_DRIVER": "memory"}, "memory", "a", map[string]interface{}{
+		"user": "Ada",
+		"preferences": map[string]interface{}{
+			"roles": []interface{}{"reader"},
+		},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	first, _, err := loadSession(map[string]string{"SESSION_DRIVER": "memory"}, "a")
@@ -97,12 +102,17 @@ func TestSessionBackendSnapshotsAreIsolatedAndFailedWritesRollback(t *testing.T)
 		t.Fatal(err)
 	}
 	first["user"] = "Grace"
+	first["preferences"].(map[string]interface{})["roles"].([]interface{})[0] = "admin"
 	second, _, err := loadSession(map[string]string{"SESSION_DRIVER": "memory"}, "a")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if second["user"] != "Ada" {
 		t.Fatal("request-local session mutation leaked before save")
+	}
+	roles := second["preferences"].(map[string]interface{})["roles"].([]interface{})
+	if roles[0] != "reader" {
+		t.Fatal("nested request-local session mutation leaked before save")
 	}
 
 	path := filepath.Join(t.TempDir(), "sessions.json")
@@ -120,6 +130,16 @@ func TestSessionBackendSnapshotsAreIsolatedAndFailedWritesRollback(t *testing.T)
 	sessionMu.Unlock()
 	if stable != true || badExists {
 		t.Fatal("failed persistence changed the in-memory session")
+	}
+}
+
+func TestSessionBackendRejectsUnknownDriver(t *testing.T) {
+	env := map[string]string{"SESSION_DRIVER": "memroy"}
+	if _, driver, err := loadSession(env, "unknown"); err == nil || driver != "memroy" {
+		t.Fatalf("loadSession driver=%q err=%v, want unsupported-driver error", driver, err)
+	}
+	if err := saveSession(env, "memroy", "unknown", map[string]interface{}{}); err == nil {
+		t.Fatal("saveSession accepted an unsupported session driver")
 	}
 }
 

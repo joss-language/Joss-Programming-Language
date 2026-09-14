@@ -98,7 +98,10 @@ func (r *Runtime) executeSystemMethod(instance *Instance, method string, args []
 				fmt.Printf("[System] No se pudo cargar driver %s: %v\n", path, err)
 				return false
 			}
-			r.NativeDrivers[name] = driver
+			if err := r.installNativeDriver(name, driver); err != nil {
+				fmt.Printf("[System] No se pudo registrar driver %s: %v\n", path, err)
+				return false
+			}
 			return true
 		}
 	case "driver_call":

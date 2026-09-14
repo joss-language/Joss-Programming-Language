@@ -74,7 +74,7 @@ func buildWeb() {
 	// Check for node_modules inclusion
 	includeNodeModules := false
 	if _, err := os.Stat("node_modules"); err == nil {
-		fmt.Print(i18n.T("buildPromptNodeModules"))
+		fmt.Printf("%s (s/n): ", i18n.T("buildPromptNodeModules"))
 		reader := bufio.NewReader(os.Stdin)
 		response, _ := reader.ReadString('\n')
 		response = strings.ToLower(strings.TrimSpace(response))

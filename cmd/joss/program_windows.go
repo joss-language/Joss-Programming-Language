@@ -39,11 +39,13 @@ func launchProgramRuntime() {
 	data, err := readMainJossData()
 	if err != nil {
 		fmt.Println(i18n.Tr("programNoMainStarting"))
+		fmt.Println("  main.joss")
 		server.Start(nil)
 		return
 	}
 
 	fmt.Println(i18n.Tr("programRunningMain"))
+	fmt.Println("  main.joss")
 	l := parser.NewLexer(string(data))
 	p := parser.NewParser(l)
 	program := p.ParseProgram()
@@ -51,6 +53,7 @@ func launchProgramRuntime() {
 		r.Execute(program)
 	} else {
 		fmt.Println(i18n.Tr("programErrorsInMain", i18n.M{"errors": fmt.Sprintf("%v", p.Errors())}))
+		fmt.Println("  main.joss")
 	}
 }
 
