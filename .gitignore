@@ -61,3 +61,4 @@ hardcoded_strings.json
 
 # Build artifacts
 build/
+.dart_tool/

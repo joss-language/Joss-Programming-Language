@@ -28,6 +28,7 @@ var supportedTargets = map[string][]string{
 	"windows": {"amd64", "arm64", "386"},
 	"linux":   {"amd64", "arm64", "arm", "386", "riscv64"},
 	"darwin":  {"amd64", "arm64"},
+	"android": {"arm64", "arm", "amd64", "386"},
 }
 
 // buildNative orchestrates self-contained native binary compilation.

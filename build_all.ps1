@@ -125,9 +125,55 @@ try {
     Copy-Required (Join-Path $root 'install/remote-install.sh') (Join-Path $macos 'remote-install.sh')
     Copy-Required (Join-Path $root 'LICENSE') (Join-Path $macos 'LICENSE')
 
+    $android = New-StagingDirectory 'android'
+    Copy-Required (Join-Path $dist 'android-arm64/joss') (Join-Path $android 'joss-android-arm64')
+    Copy-Required (Join-Path $dist 'linux-armv7/joss') (Join-Path $android 'joss-android-armv7')
+    Copy-Required (Join-Path $root 'LICENSE') (Join-Path $android 'LICENSE')
+    $androidReadme = @"
+Joss para Android (CLI / Termux)
+================================
+Instalacion en Termux:
+1. Copia el binario correspondiente a tu dispositivo (ej. joss-android-arm64).
+2. Dale permisos de ejecucion e instalalo en el PATH de Termux:
+   chmod +x joss-android-arm64
+   cp joss-android-arm64 `$PREFIX/bin/joss
+3. Prueba la instalacion:
+   joss version
+"@
+    [IO.File]::WriteAllText((Join-Path $android 'README-ANDROID.txt'), $androidReadme, [Text.Encoding]::UTF8)
+
+    $mobileSdk = New-StagingDirectory 'mobile-sdk'
+    $mobileAndroid = Join-Path $mobileSdk 'android'
+    $mobileDesktop = Join-Path $mobileSdk 'desktop'
+    $mobileDart = Join-Path $mobileSdk 'dart'
+    New-Item -ItemType Directory -Force -Path $mobileAndroid, $mobileDesktop, $mobileDart | Out-Null
+
+    Copy-Required (Join-Path $dist 'android-arm64/joss') (Join-Path $mobileAndroid 'joss-android-arm64')
+    Copy-Required (Join-Path $dist 'linux-armv7/joss') (Join-Path $mobileAndroid 'joss-android-armv7')
+    Copy-Required (Join-Path $dist 'windows-amd64/joss.exe') (Join-Path $mobileDesktop 'joss-windows-amd64.exe')
+    Copy-Required (Join-Path $dist 'linux-amd64/joss') (Join-Path $mobileDesktop 'joss-linux-amd64')
+    Copy-Required (Join-Path $dist 'darwin-arm64/joss') (Join-Path $mobileDesktop 'joss-macos-arm64')
+    Copy-Required (Join-Path $root 'sdk/dart/lib/joss.dart') (Join-Path $mobileDart 'joss.dart')
+    Copy-Required (Join-Path $root 'LICENSE') (Join-Path $mobileSdk 'LICENSE')
+
+    $mobileSdkReadme = @"
+Joss Mobile SDK
+===============
+Version: $releaseVersion
+
+Paquete para integracion en Flutter (Dart) y Android.
+Carpetas:
+- android/: Binarios arm64 y armv7 para Android.
+- desktop/: Binarios para pruebas locales en Windows, Linux y macOS.
+- dart/: Conector para apps Dart y Flutter.
+"@
+    [IO.File]::WriteAllText((Join-Path $mobileSdk 'README.txt'), $mobileSdkReadme, [Text.Encoding]::UTF8)
+
     Compress-Directory $windows (Join-Path $dist 'jossecurity-windows.zip')
     Compress-Directory $linux (Join-Path $dist 'jossecurity-linux.zip')
     Compress-Directory $macos (Join-Path $dist 'jossecurity-macos.zip')
+    Compress-Directory $android (Join-Path $dist 'jossecurity-android.zip')
+    Compress-Directory $mobileSdk (Join-Path $dist 'jossecurity-mobile-sdk.zip')
 
     if (-not $SkipVSCode) {
         $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue

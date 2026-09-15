@@ -45,6 +45,7 @@ que ya conozcas otro lenguaje.
 - [Clases nativas y servicios](MODULOS_NATIVOS.md)
 - [Catálogo nativo generado](CATALOGO_NATIVO.md)
 - [CLI, formatter, linter y tests](CLI.md)
+- [Soporte móvil: Android e iOS](MOBILE.md)
 - [Extensión de VS Code](VSCODE_EXTENSION.md)
 - [Estado y límites](ESTADO_IMPLEMENTACION.md)
 

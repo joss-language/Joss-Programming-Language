@@ -13,6 +13,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/i18n"
+	"github.com/jossecurity/joss/pkg/mobile"
 	"github.com/jossecurity/joss/pkg/parser"
 	_ "github.com/jossecurity/joss/pkg/server"
 	"github.com/jossecurity/joss/pkg/template"
@@ -122,9 +123,32 @@ func main() {
 			filename = os.Args[2]
 		}
 		analyzeScript(filename)
+	case "eval":
+		if len(os.Args) < 3 {
+			fmt.Printf("%s joss eval \"codigo\" [--json]\n", i18n.Tr("cliUsageLabel"))
+			return
+		}
+		asJSON := false
+		source := ""
+		for _, arg := range os.Args[2:] {
+			if arg == "--json" {
+				asJSON = true
+			} else if source == "" {
+				source = arg
+			}
+		}
+		executeEval(source, asJSON)
 	case "run":
 		if len(os.Args) < 3 {
-			fmt.Printf("%s joss run [archivo.joss]\n", i18n.Tr("cliUsageLabel"))
+			fmt.Printf("%s joss run [archivo.joss | -e \"codigo\"]\n", i18n.Tr("cliUsageLabel"))
+			return
+		}
+		if os.Args[2] == "-e" {
+			if len(os.Args) < 4 {
+				fmt.Printf("%s joss run -e \"codigo\"\n", i18n.Tr("cliUsageLabel"))
+				return
+			}
+			executeEval(os.Args[3], false)
 			return
 		}
 		filename := os.Args[2]
@@ -410,6 +434,26 @@ func executeScript(filename string) {
 	}()
 
 	rt.Execute(program)
+}
+
+func executeEval(source string, asJSON bool) {
+	if asJSON {
+		fmt.Println(mobile.Run(source, 0))
+		return
+	}
+	res := mobile.RunDirect(source, 0)
+	if res.Stdout != "" {
+		fmt.Print(res.Stdout)
+	}
+	if res.Stderr != "" {
+		fmt.Fprint(os.Stderr, res.Stderr)
+	}
+	if !res.Success {
+		if res.Error != "" {
+			fmt.Fprintln(os.Stderr, res.Error)
+		}
+		os.Exit(1)
+	}
 }
 
 func createNewPackage(name string) {

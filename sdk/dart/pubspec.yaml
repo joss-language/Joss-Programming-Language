@@ -1,0 +1,17 @@
+name: joss
+description: SDK oficial de Joss para Dart y Flutter. Ejecuta y prueba código Joss en Android, iOS, Windows, Mac y Linux con descarga y configuración automática.
+version: 3.6.7
+homepage: https://joss.red
+repository: https://github.com/jossecurity/Joss-language
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  http: ^1.2.0
+  path: ^1.9.0
+  archive: ^3.6.1
+
+dev_dependencies:
+  test: ^1.24.0
+  lints: ^3.0.0

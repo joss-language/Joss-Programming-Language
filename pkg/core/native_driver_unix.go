@@ -1,4 +1,4 @@
-//go:build (darwin || freebsd || linux || netbsd) && (amd64 || arm64)
+//go:build (darwin || freebsd || linux || netbsd) && (amd64 || arm64) && !android && !ios
 
 package core
 
