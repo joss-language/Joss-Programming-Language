@@ -212,8 +212,14 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 		stderrChan <- buf.String()
 	}()
 
+	core.GetAssetManager().Initialized = true
 	rt := core.NewRuntime()
 	defer rt.Free()
+	if rt.Env == nil {
+		rt.Env = make(map[string]string)
+	}
+	rt.Env["APP_ENV"] = "mobile"
+	rt.Env["APP_KEY"] = "mobile-dev-key"
 
 	done := make(chan struct{})
 	var panicErr any

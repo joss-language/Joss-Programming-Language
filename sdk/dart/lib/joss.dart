@@ -127,4 +127,23 @@ class Joss {
       );
     }
   }
+
+  /// Realiza análisis estático del código fuente Joss sin ejecutarlo.
+  static Future<JossAnalysisResult> analyze(
+    String code, {
+    Directory? targetDir,
+    String? customBinaryPath,
+  }) async {
+    final result = await run(
+      code,
+      timeoutMs: 5000,
+      targetDir: targetDir,
+      customBinaryPath: customBinaryPath,
+    );
+    return JossAnalysisResult(
+      isValid: result.diagnostics.every((d) => d.severity != 'error'),
+      diagnostics: result.diagnostics,
+    );
+  }
 }
+

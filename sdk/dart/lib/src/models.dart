@@ -19,6 +19,8 @@ class JossResult {
     this.diagnostics = const [],
   });
 
+  int get exitCode => isSuccess ? 0 : 1;
+
   factory JossResult.fromJson(Map<String, dynamic> json) {
     final diags = <JossDiagnostic>[];
     if (json['diagnostics'] is List) {
@@ -88,3 +90,30 @@ class JossDiagnostic {
     );
   }
 }
+
+/// Resultado del análisis estático de código Joss.
+class JossAnalysisResult {
+  final bool isValid;
+  final List<JossDiagnostic> diagnostics;
+
+  const JossAnalysisResult({
+    required this.isValid,
+    required this.diagnostics,
+  });
+
+  factory JossAnalysisResult.fromJson(Map<String, dynamic> json) {
+    final diags = <JossDiagnostic>[];
+    if (json['diagnostics'] is List) {
+      for (final item in json['diagnostics']) {
+        if (item is Map<String, dynamic>) {
+          diags.add(JossDiagnostic.fromJson(item));
+        }
+      }
+    }
+    return JossAnalysisResult(
+      isValid: json['valid'] == true,
+      diagnostics: diags,
+    );
+  }
+}
+
