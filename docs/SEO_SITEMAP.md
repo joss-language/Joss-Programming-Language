@@ -34,10 +34,15 @@ Sitemap::add({
 
 ### 2. Proveedores dinámicos
 
-`Sitemap::provider` está registrado, pero el handler acepta un
-`parser.FunctionLiteral` mientras una closure evaluada llega como
-`CapturedFunction`. Su funcionamiento fuente no está garantizado. Consulta los
-registros y llama a `Sitemap::add` por cada URL mientras se corrige la frontera.
+`Sitemap::provider` acepta una closure o función que retorna una lista de entradas de sitemap, agregando dinámicamente registros desde la base de datos:
+
+```joss
+Sitemap::provider(func() {
+    return [
+        {"url": "/blog/mi-post", "changefreq": "daily", "priority": 0.9}
+    ]
+})
+```
 
 ### 3. Exclusiones de Rutas
 ```joss

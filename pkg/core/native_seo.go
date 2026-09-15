@@ -184,9 +184,12 @@ func (r *Runtime) executeSitemapMethod(instance *Instance, method string, args [
 
 	case "provider":
 		if len(args) >= 1 {
-			if fn, ok := args[0].(*parser.FunctionLiteral); ok {
+			switch fn := args[0].(type) {
+			case *parser.FunctionLiteral:
 				captured := r.captureFunction(fn)
 				r.SitemapProviders = append(r.SitemapProviders, captured)
+			case *CapturedFunction:
+				r.SitemapProviders = append(r.SitemapProviders, fn)
 			}
 		}
 		return nil
