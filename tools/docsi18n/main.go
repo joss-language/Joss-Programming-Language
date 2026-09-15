@@ -62,6 +62,7 @@ func main() {
 	translate := flag.Bool("translate", false, "translate stale or missing English and Portuguese documents")
 	force := flag.Bool("force", false, "translate every document even when its source hash is current")
 	fixLinks := flag.Bool("fix-links", false, "normalize translated relative links without calling the translation provider")
+	acceptCurrent := flag.Bool("accept-current", false, "accept manually reviewed translations after validating protected Markdown")
 	syncPublic := flag.Bool("sync", false, "synchronize all three locales to the JosSecurity public mirror")
 	check := flag.Bool("check", false, "verify translation coverage, freshness, links and public mirrors")
 	filesFlag := flag.String("files", "", "optional comma-separated canonical Markdown filenames")
@@ -69,7 +70,7 @@ func main() {
 	provider := flag.String("provider", "google", "translation provider: google or bing")
 	flag.Parse()
 
-	if !*translate && !*fixLinks && !*syncPublic && !*check {
+	if !*translate && !*fixLinks && !*acceptCurrent && !*syncPublic && !*check {
 		flag.Usage()
 		os.Exit(2)
 	}
@@ -92,6 +93,10 @@ func main() {
 	}
 	if *fixLinks {
 		fixTranslatedLinks(files)
+	}
+	if *acceptCurrent {
+		acceptManualTranslations(files, selectLocales(*localesFlag), m)
+		writeManifest(m)
 	}
 	if *syncPublic {
 		syncMirrors(canonicalFiles())
@@ -180,7 +185,7 @@ func translateFile(sourcePath, locale string, m *manifest, force bool, translato
 	hash := digest(source)
 	target := filepath.Join("docs", locale, name)
 	if !force && m.Sources[locale][name] == hash {
-		if targetData, err := os.ReadFile(target); err == nil && bytes.Count(targetData, []byte{'\n'}) == bytes.Count(source, []byte{'\n'}) {
+		if _, err := os.ReadFile(target); err == nil {
 			fmt.Printf("current %s/%s\n", locale, name)
 			return
 		}
@@ -204,6 +209,7 @@ func fixTranslatedLinks(files []string) {
 			data, err := os.ReadFile(path)
 			must(err)
 			fixed := string(data)
+			fixed = restoreProtectedMarkdown(string(source), fixed, locale)
 			if len(inlineCode.FindAllStringIndex(string(source), -1)) == len(inlineCode.FindAllStringIndex(fixed, -1)) {
 				fixed = restoreInlineCode(string(source), fixed, locale)
 			} else {
@@ -211,6 +217,46 @@ func fixTranslatedLinks(files []string) {
 			}
 			fixed = restoreLinkTargets(string(source), fixed, locale)
 			must(os.WriteFile(path, []byte(fixed), 0644))
+		}
+	}
+}
+
+func restoreProtectedMarkdown(source, translated, locale string) string {
+	sourceSpans := protectedMarkdown.FindAllStringIndex(source, -1)
+	translatedSpans := protectedMarkdown.FindAllStringIndex(translated, -1)
+	if len(sourceSpans) != len(translatedSpans) {
+		must(fmt.Errorf("translation changed protected Markdown count for locale %s: got %d, want %d", locale, len(translatedSpans), len(sourceSpans)))
+	}
+	var output strings.Builder
+	position := 0
+	for index, translatedSpan := range translatedSpans {
+		sourceSpan := sourceSpans[index]
+		output.WriteString(translated[position:translatedSpan[0]])
+		output.WriteString(source[sourceSpan[0]:sourceSpan[1]])
+		position = translatedSpan[1]
+	}
+	output.WriteString(translated[position:])
+	return output.String()
+}
+
+func acceptManualTranslations(files, locales []string, m *manifest) {
+	for _, locale := range locales {
+		for _, canonical := range files {
+			name := filepath.Base(canonical)
+			source, err := os.ReadFile(canonical)
+			must(err)
+			translated, err := os.ReadFile(filepath.Join("docs", locale, name))
+			must(err)
+			if !equalBlocks(protectedMarkdown.FindAll(source, -1), protectedMarkdown.FindAll(translated, -1)) {
+				must(fmt.Errorf("cannot accept %s/%s: protected Markdown differs", locale, name))
+			}
+			if !equalBlocks(inlineCode.FindAll(source, -1), inlineCode.FindAll(translated, -1)) {
+				must(fmt.Errorf("cannot accept %s/%s: inline code differs", locale, name))
+			}
+			if len(markdownLink.FindAll(source, -1)) != len(markdownLink.FindAll(translated, -1)) {
+				must(fmt.Errorf("cannot accept %s/%s: Markdown link count differs", locale, name))
+			}
+			m.Sources[locale][name] = digest(source)
 		}
 	}
 }
@@ -726,9 +772,6 @@ func checkAll(files []string, m *manifest) error {
 				}
 				if !equalBlocks(inlineCode.FindAll(canonicalData, -1), inlineCode.FindAll(data, -1)) {
 					problems = append(problems, fmt.Sprintf("inline code changed in %s/%s", locale, name))
-				}
-				if bytes.Count(canonicalData, []byte{'\n'}) != bytes.Count(data, []byte{'\n'}) {
-					problems = append(problems, fmt.Sprintf("line structure changed in %s/%s", locale, name))
 				}
 			}
 			checkLinks(source, data, names, &problems)

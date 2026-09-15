@@ -1,6 +1,8 @@
 # Native catalog generated
 
-Before: [library and contracts](MODULOS_NATIVOS.md). Index: [documentation](README.md).
+Before: [library and contracts](MODULOS_NATIVOS.md).
+
+Index: [documentation](README.md).
 
 Generated with `go run ./tools/docgen` from `Runtime.RegisterNativeClasses()`.
 Do not edit manually. Each name is an entry in the actual registry. **Return posted**
@@ -361,7 +363,7 @@ Registered base class without native methods of its own.
 
 ## Plugin
 
-Implementation: [executePluginMethod](../../pkg/core/native_plugin.go#L47).
+Implementation: [executePluginMethod](../../pkg/core/native_plugin.go#L49).
 
 | Method | Posted return to parser |
 |---|---|

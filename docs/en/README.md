@@ -6,7 +6,7 @@ move forward in order and an experienced person finds concrete rules.
 
 ## Languages
 
-- [Español (canonical source)](../README.md)
+- [Español (canonical source)](README.md)
 - English: this directory.
 - [Português](../pt/README.md)
 
@@ -45,6 +45,7 @@ that you already know another language.
 - [Native classes and services](MODULOS_NATIVOS.md)
 - [Generated native catalog](CATALOGO_NATIVO.md)
 - [CLI, formatter, linter and tests](CLI.md)
+- [Mobile support: Android and iOS](MOBILE.md)
 - [VS Code Extension](VSCODE_EXTENSION.md)
 - [State and limits](ESTADO_IMPLEMENTACION.md)
 

@@ -6,8 +6,8 @@ avança em ordem e uma pessoa experiente encontra regras concretas.
 
 ## Idiomas
 
-- [Español (fonte canônica)](../README.md)
-- [English](../en/README.md)
+- [Español (fonte canônica)](../en/README.md)
+- [English](README.md)
 - Português: este diretório.
 
 Todos os 46 documentos usam o mesmo nome de arquivo em cada idioma, para que
@@ -45,6 +45,7 @@ que você já conhece outro idioma.
 - [Classes e serviços nativos](MODULOS_NATIVOS.md)
 - [Catálogo nativo gerado](CATALOGO_NATIVO.md)
 - [CLI, formatador, linter e testes](CLI.md)
+- [Suporte móvel: Android e iOS](MOBILE.md)
 - [Extensão de código VS](VSCODE_EXTENSION.md)
 - [Estado e limites](ESTADO_IMPLEMENTACION.md)
 

@@ -63,3 +63,5 @@ hardcoded_strings.json
 build/
 .dart_tool/
 joss-android-arm64
+.tmp*
+docs/.i18n-manifest.json

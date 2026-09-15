@@ -1,6 +1,10 @@
 # Joss language architecture
 
-[Index](README.md) · Before: [status](ESTADO_IMPLEMENTACION.md) · After: [contribute](CONTRIBUIR.md)
+[Index](README.md) ·
+
+Before: [status](ESTADO_IMPLEMENTACION.md) ·
+
+After: [contribute](CONTRIBUIR.md)
 
 ## Real pipeline
 
@@ -53,7 +57,7 @@ flowchart LR
 
 - Keywords and symbols: `pkg/parser/token.go` ;`parser.KeywordNames()` and `parser.SymbolDefinitions()` are the projections for lexer, formatter and generators.
 - Types and compatibility: `pkg/typesystem`, including semantic classifications such as `Type.IsNumeric()`.
-- Primitive methods: name and return in `pkg/typesystem/primitive_methods.go` .`pkg/analyzer` projects that metadata and `pkg/core/primitives.go` preserves only the runtime implementation.Any definition must be covered by `TestPrimitiveMethodCatalogHasRuntimeImplementations` .
+- Primitive methods: name and return in `pkg/typesystem/primitive_methods.go` .`pkg/analyzer` projects that metadata and `pkg/core/primitives.go` preserves only the runtime implementation.Any definition should be covered by `TestPrimitiveMethodCatalogHasRuntimeImplementations` .
 - Global built-ins: `pkg/core/builtins.go` declares name, dispatcher domain and return once.The runtime dispatches directly by that descriptor and rejects names outside the catalog.
 - Native classes/methods: calls to `registerNative` within `Runtime.RegisterNativeClasses()` ;its returns are typed in `pkg/core/native_signatures.go` .
 - Plugin symbols: `pluginpkg.SymbolIndex` included in every `.jp` .
@@ -65,7 +69,7 @@ CI executes `go run ./tools/cataloggen --check` ;editing the generated catalog b
 ## Scopes and symbols
 
 - Each function, method, `Init` and closure has its own scope.
-- Parameters belong solely to your callable.
+- Parameters belong only to your callable.
 - Control blocks use the scope of the callable to reflect the current runtime.
 - The `foreach` binding can be reused in another loop;the runtime treats it as an assignment.
 - Top-level classes and functions are resolved at the project level.
@@ -81,11 +85,11 @@ The development mode interprets the AST.Each invocation of callable creates an i
 
 Before executing a callable, `pkg/runtime/plan` can assign slots to
 and local parameters.`frame_runtime.go` uses those slots and maintains a fallback for
-bindings
-that don't fit into the plan.Class, access and scope metadata are cached;any
+bindings that do not fit in the plan.Class, access and scope metadata are cached;any
 semantic change must compare the quick route with the general route.
-loop controls look for direct jumps in the planned AST and today do not traverse all
-ternaries/matches, a limit recorded in the audit.
+controls
+of loops look for direct jumps in the planned AST and today not all
+the ternaries/match cross, a limit recorded in the audit.
 
 Safe references do not expose Go pointers: `core.VariableReference` preserves the value/type/const binding during a call and is automatically dereferenced by the evaluator.A reference is not a storable Joss value nor does it cross async/plugin boundaries.
 
@@ -94,13 +98,13 @@ Safe references do not expose Go pointers: `core.VariableReference` preserves th
 The `pkg/vm` tree contains opcodes and an experimental VM.Its arithmetic and
 errors do not define the published semantics as long as it is not connected to the previous
 pipeline.Likewise, JPBC only defines plugin execution.When documenting
-“compilation” indicates which of the three representations is being used.
+“build” indicate which of the three representations is being used.
 
 ## Dependency rule
 
 Language layers ( `parser` , `typesystem` , `diagnostics` , `analyzer` ) do not import `core` .`core` adapts its records to the analyzer.This address prevents the type checker from depending on server or database side effects.
 
-The server keeps its HTTP adapters outside the interpreter: `request_data.go` translates `net/http` to the stable map consumed by Joss, and `rate_limiter.go` encapsulates the throttling state.`handler.go` continues as orchestrator and should not absorb these responsibilities again.
+The server keeps its HTTP adapters outside the interpreter: `request_data.go` translates `net/http` to the stable map consumed by Joss, and `rate_limiter.go` encapsulates the limiting state.`handler.go` continues as orchestrator and should not absorb these responsibilities again.
 
 ## Internal boundaries of the evaluator
 
@@ -132,11 +136,11 @@ Authority is explicitly divided: syntax truth in parser, type truth in typesyste
 
 ## Fifth architecture phase — September 2026
 
-The fifth phase consolidates ownership, secure concurrency, session contracts, and the lifecycle of plugins and WebSockets:
+The fifth phase consolidates ownership, secure concurrency, session contracts and the life cycle of plugins and WebSockets:
 
-- **Ownership of Native Plugins and Drivers**: The global plugin registry acts as a catalog of libraries and immutable ASTs;each `Runtime` implements `PluginAwareHost` and manages its own AST execution engines ( `pluginASTEngines` ) and namespaces ( `PluginNamespace` ).When performing a `Fork()` , the engine instances are duplicated linked to the forked runtime, ensuring that plugins with identical functions in different packages do not collide and that the lexical state never crosses requests.Dynamic drivers ( `NativeDriverDefinition` ) implement safe and atomic `Unload()` using OS primitives ( `FreeLibrary` / `dlclose` ), preventing memory leaks or concurrent calls on unloaded libraries.
-- **Session and Flash Contracts in Responses**: The persistence of session and flash data for HTTP redirects is unified under the storage contract ( `saveSession` ).Any failure in session persistence during a redirect cancels the issuance of the `Location` header and generates a deterministic HTTP 500 error, preventing the client from following a redirect with inconsistent state.
-- **Isolation and WebSocket Callbacks**: The WebSocket connection executes real callbacks in Joss ( `onConnect` , `onMessage` , etc.) in a separate forked runtime, correctly injecting route parameters ( `$params` ).Multiple simultaneous connections do not share frames or collide in the reception/emission of frames.
-- **Runtime Pool Defense**: To prevent multiple returns of a runtime to `sync.Pool` from causing concurrent races in class maps or scopes, `Runtime.Free()` uses a `freed` guard synchronized with `poolMu` .
-- **Native Metadata Expansion**: The canonical catalog is expanded by migrating 10 native classes to `NativeMethodDefinition` ( `Stack` , `Queue` , `Math` , `JSON` , `Markdown` ,`Str` , `UUID` , `Lang` , `Console` , `Zip` ), allowing the analyzer and LSP to check parameters and return types without invoking native Go code.
+- **Ownership of Native Plugins and Drivers**: The plugin registry shares catalogs and ASTs treated as immutable;each `Runtime` implements `PluginAwareHost` and maintains AST engines and namespaces tied to its execution.Dynamic drivers use counted ownership: the loader runtime owns the handle, each `Fork()` retains it, and each `Free()` releases it.The last owner runs `FreeLibrary` / `dlclose` ;`Unload()` rejects an explicit flush as long as borrowers exist and serializes with active calls.
+- **Session Contracts and Flash in Responses**: `memory` , `file` and `redis` are the only accepted backends;an unknown name fails explicitly.Each request receives a snapshot that recursively clones JSON maps and slices to prevent aliasing before `saveSession` .Any failure to persist flash aborts `Location` and produces HTTP 500.
+- **WebSocket Isolation and Callbacks**: The connection is currently running `onMessage` and `onClose` ;the handler receives the socket followed by the positional route parameters.`onConnect` , `onError` and a variable `$params` are not yet part of the implemented contract.The server provides a request-forked runtime, while tests protect cleanup, panic isolation, and concurrent messaging.
+- **Runtime Pool Defense**: `Runtime.Free()` uses `atomic.Bool.CompareAndSwap` so that only one caller can clean up and return an instance to `sync.Pool` .Global asset initialization is serialized independently so that concurrent acquisitions do not write the singleton simultaneously.
+- **Native Metadata Expansion**: Ten classes use `NativeMethodDefinition` ( `Stack` , `Queue` , `Math` , `JSON` , `Markdown` , `Str` ,`UUID` , `Lang` , `Console` , `Zip` ).The projection publishes reliable names and returns;Its arity remains explicitly unknown until proven contracts are available.
 - **Rune-Aware Positioning in View Templates**: The directive scanner and linter ( `pkg/viewtemplate` ) computes exact columns by counting UTF-8 runes, guaranteeing absolute consistency in diagnostics against multibyte characters.

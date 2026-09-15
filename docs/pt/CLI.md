@@ -1,6 +1,10 @@
 # Joss CLI – Referência completa de comandos
 
-[Índice](README.md) · Antes: [primeiros passos](PRIMEROS_PASOS.md) · Depois: [analisador](ANALIZADOR.md)
+[Índice](README.md) ·
+
+Antes: [primeiros passos](PRIMEROS_PASOS.md) ·
+
+Depois: [analisador](ANALIZADOR.md)
 
 A fonte do comando canônico é `cmd/joss/main.go`. `joss help` mostra a ajuda interativa instalada e `joss version` a versão atual do tempo de execução.
 
@@ -10,7 +14,9 @@ desempenho (`joss server start`) e um conjunto completo de ferramentas de qualid
 
 ---
 
-## 1. Execução, REPL e Build```bash
+## 1. Execução, REPL e Build
+
+```bash
 joss run archivo.joss
 joss repl
 joss server start
@@ -20,6 +26,7 @@ joss update [-f|--canary|--stable]
 joss build [web|program|native|package]
 joss build native [os] [arch] [--gui]
 ```
+
 - `run [archivo]`: Execute um script `.joss` após analisar o projeto. Erros semânticos bloqueiam a execução; os avisos não.
 - `repl`: Inicia o console interativo (Read-Eval-Print Loop) para avaliar expressões, testar funções e experimentar código em tempo real. Digite `exit` ou pressione `Ctrl+C` para sair.
 - `server start`: Requer o ponto de entrada `main.joss` e inicia o servidor HTTP multinível de alto desempenho. Pressione `q` para pará-lo com segurança.
@@ -30,13 +37,16 @@ joss build native [os] [arch] [--gui]
 
 ---
 
-## 2. Criação de Projeto (`new`)```bash
+## 2. Criação de Projeto (`new`)
+
+```bash
 joss new mi_proyecto
 joss new web mi_proyecto
 joss new console mi_cli
 joss new package mi_paquete
 joss new plugin mi_plugin
 ```
+
 - `new web` / `new`: Gera a estrutura MVC completa de uma aplicação web com motor de visualizações, rotas, middleware e ORM.
 - `new console`: Gere um modelo leve para ferramentas de linha de comando.
 - `new package`: Crie uma estrutura de pacote declarativa para o gerenciador `pub`.
@@ -44,7 +54,9 @@ joss new plugin mi_plugin
 
 ---
 
-## 3. Geradores de código (`make:*` e `remove:*`)```bash
+## 3. Geradores de código (`make:*` e `remove:*`)
+
+```bash
 joss make:controller Users
 joss make:middleware AuthGuard
 joss make:model User
@@ -54,12 +66,13 @@ joss make:crud products
 joss remove:crud products
 joss make:migration create_products
 ```
+
 ### 🛠️ `make:crud [Tabla]` (Gerador Relacional Inteligente)
 Conecta-se ao banco de dados configurado em `env.joss`, inspeciona o esquema da tabela e gera automaticamente um módulo administrativo completo:
 1. **Inspeção de chave estrangeira (`_id`)**: Detecta relacionamentos com outras tabelas, infere nomes de modelos relacionais e detecta automaticamente colunas visíveis (`username`, `name`, `title`).
 2. **Modelo e modelos relacionados**: Gere `app/models/Model.joss` e quaisquer modelos relacionais ausentes.
 3. **Controlador CRUD completo**: Gere `app/controllers/ModelController.joss` com métodos `index`, `create`, `store`, `edit`, `update` e `delete` que incluem `joins` e `selects` automáticos.
-4. **Visualizações CSS do Tailwind`: Genera `app/views/model/index.joss.html`, `create.joss.html` y `edit.joss.html` con formularios dinámicos y menús desplegables `<select>` para relacionamentos.
+4. **Visualizações Tailwind CSS**: Gera `app/views/model/index.joss.html`, `create.joss.html` e `edit.joss.html` com formulários dinâmicos e menus suspensos `<select>` para relacionamentos.
 5. **Injeção de barra de navegação e rotas**: Injete a opção em `app/views/layouts/master.joss.html` e insira as rotas protegidas no grupo `Router::middleware("auth")` em `routes.joss`.
 
 O comando só é suportado em projetos web e requer que a tabela já exista.
@@ -73,7 +86,9 @@ Desfaz a compilação de maneira limpa: remove o controlador, o modelo, a pasta 
 
 ---
 
-## 4. Banco de dados e migrações```bash
+## 4. Banco de dados e migrações
+
+```bash
 joss make:migration create_users_table
 joss migrate
 joss migrate:fresh
@@ -83,6 +98,7 @@ joss change db sqlite
 joss change db prefix app_
 joss change db migrate --host=HOST --port=3306 --database=DB --user=USER --password=PASS
 ```
+
 - `make:migration`: Gere uma nova migração com timestamp em `app/database/migrations/`. `create_users`, `create_users_table` e `user` são normalizados para a tabela lógica `users`; `make:miggrate` não é um alias e mostra a correção sugerida.
 - `migrate`: Execute migrações pendentes em ordem cronológica.
 - `migrate:fresh`: Exclua todas as tabelas do banco de dados e execute novamente todas as migrações do zero.
@@ -92,19 +108,24 @@ joss change db migrate --host=HOST --port=3306 --database=DB --user=USER --passw
 
 ---
 
-## 5. Compilação e gerenciamento de plugins (`.jp`)```bash
+## 5. Compilação e gerenciamento de plugins (`.jp`)
+
+```bash
 joss plugin compile .
 joss plugin compile script.py --lang=python --name=mi_plugin --exports=calcular
 joss plugin inspect mi_plugin.jp
 joss plugin verify mi_plugin.jp
 ```
+
 - `plugin compile`: Produz JPBC assinado a partir de backends parciais. Subconjuntos de tradução Python/PHP/Java; A rota Wasm valida apenas o cabeçalho e gera stubs de demonstração. Consulte [Plugins](PLUGINS.md).
 - `plugin inspect`: Mostra metadados, permissões declaradas e tabela de símbolos do pacote `.jp`.
 - `plugin verify`: Verifica a assinatura digital Ed25519 e a integridade estrutural do container `.jp`.
 
 ---
 
-## 6. Gerenciador de pacotes (`pub`)```bash
+## 6. Gerenciador de pacotes (`pub`)
+
+```bash
 joss pub add paquete ^1.2.0
 joss pub remove paquete
 joss pub install
@@ -117,17 +138,21 @@ joss pub login
 joss pub logout
 joss pub cache clean
 ```
+
 Se `PUB_REGISTRY_URL` não for especificado, o Pub resolve as dependências usando o registro oficial em `https://joss.red`.
 
 ---
 
-## 7. Qualidade de código e ferramentas (`check`, `format`, `lint`, `fix`, `test`)```bash
+## 7. Qualidade de código e ferramentas (`check`, `format`, `lint`, `fix`, `test`)
+
+```bash
 joss check [ruta]
 joss format [ruta] [--write|--check]
 joss lint [ruta] [--json]
 joss fix [ruta] [--dry-run]
 joss test [--filter=nombre] [ruta]
 ```
+
 - `check`: Executa formato, sintaxe, análise e linter. Verifique a saída: um problema de formatação é relatado como um aviso neste pipeline.
 - `format`: Em um arquivo, modifique o padrão a menos que você use `--check`; em um diretório você só escreve com `--write`. Sempre use `joss format ruta --check` no CI.
 - `lint`: Executa análise estática com regras de consistência de tipo, estilo e detecção de segredos ou credenciais em código rígido (`--json` para integração estruturada).
@@ -136,7 +161,9 @@ joss test [--filter=nombre] [ruta]
 
 ---
 
-## 8. Comandos de plug-ins e ajuda dinâmica```bash
+## 8. Comandos de plug-ins e ajuda dinâmica
+
+```bash
 joss help plugins
 joss help plugins [nombre_plugin]
 joss ai:activate
@@ -146,16 +173,20 @@ joss backup:restore <archivo.zip>
 joss bg:remove <input.jpg> [output.png]
 joss notify:send <canal> <mensaje>
 ```
+
 - `help plugins`: Mostra todos os plugins instalados e disponíveis junto com seus comandos CLI expostos e seu status (`[protegido]`).
 - `help plugins [nombre_plugin]`: Mostra a ficha técnica, repositório, opções e comandos específicos do plugin selecionado.
 - **Comandos de plug-ins**: Plugins instalados em `plugins/` ou declarados em `joss.yaml` podem registrar e despachar comandos CLI independentes e protegidos.
 
 ---
 
-## 9. Armazenamento e serviços em nuvem (`userstorage`)```bash
+## 9. Armazenamento e serviços em nuvem (`userstorage`)
+
+```bash
 joss userstorage local
 joss userstorage oci
 joss userstorage sync-oci
 joss userstorage sync-local
 ```
+
 - `userstorage`: alterna o provedor de armazenamento entre o disco local e o **Oracle Cloud Infrastructure (OCI)**, permitindo a sincronização bidirecional via `sync-oci` e `sync-local`.

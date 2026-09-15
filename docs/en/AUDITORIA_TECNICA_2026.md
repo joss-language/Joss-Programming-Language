@@ -60,17 +60,32 @@ The implementation matches the ALIM vision in the integrated runtime, Pratt pars
 
 | Thesis statement | Checked repository status |
 |---|---|
-| Pipeline includes type checker | There is an initial semantic checker with fixed inference, constants, signatures/returns and recursive calls; it does not yet cover taint, escaping or DB schemas. |
-| AOT/LLVM/Cranelift and machine code | The main build packages serialized AST and the Go interpreter. LLVM/Cranelift are not implemented. |
-| Lexer/parser in Rust | The current implementation is in Go. |
-| Immutability by default/ownership | There is no ownership semantics or immutability by default. |
-| Imports/modules with network and cycles | The historical syntax was removed completely and will not return. Plugins and conventional files are loaded automatically; Joss deliberately adopts a zero-imports project. |
-| Routes/DBs as first order AST nodes | Today they are calls to native classes (`Router`, `GranDB`), not specific nodes. |
-| 1,420 tests and 91.4% coverage | The repository contains a much smaller Go suite. Current focused measurement: parser 52.3%, typesystem 44.9%, analyzer 47.7% and core 14.8%; CI validates execution and does not assert non-existent coverage. |
-| Taint analysis and 83% of vulnerabilities | There is a heuristic security analyzer in the LSP, not a formal taint engine in the compiler. |
+| Pipeline includes type checker | There is an initial semantic checker with fixed inference, constants, signatures/returns and recursive calls; it does not yet cover taint, escaping or DB schemas.
+
+|
+| AOT/LLVM/Cranelift and machine code | The main build packages serialized AST and the Go interpreter. LLVM/Cranelift are not implemented.
+
+|
+| Lexer/parser in Rust | The current implementation is in Go.
+
+|
+| Immutability by default/ownership | There is no ownership semantics or immutability by default.
+
+|
+| Imports/modules with network and cycles | The historical syntax was removed completely and will not return. Plugins and conventional files are loaded automatically; Joss deliberately adopts a zero-imports project.
+
+|
+| Routes/DBs as first order AST nodes | Today they are calls to native classes (`Router`, `GranDB`), not specific nodes.
+
+|
+| 1,420 tests and 91.4% coverage | The repository contains a much smaller Go suite. Current focused measurement: parser 52.3%, typesystem 44.9%, analyzer 47.7% and core 14.8%; CI validates execution and does not assert non-existent coverage.
+
+|
+| Taint analysis and 83% of vulnerabilities | There is a heuristic security analyzer in the LSP, not a formal taint engine in the compiler.
+
+|
 
 These differences were not “corrected” by inventing features. The proposal for source modules in chapter 11 is expressly ruled out for Joss; ALIM modularity is preserved through runtime components and isolated plugins. The rest must be resolved in the thesis, distinguishing validated implementation, conceptual syntax and future work.
-
 
 ## Incremental architectural audit — September 11, 2026
 
@@ -78,7 +93,9 @@ The revision of commit 4b41742 used size only as a signal and contrasted respons
 
 ### Prioritized map
 
-| Priority | Archive | Lines approx. | Diagnosis | Action |
+| Priority | Archive | Lines approx.
+
+| Diagnosis | Action |
 |---|---|---:|---|---|
 | P0 | cmd/joss/pub_cli.go | 1169 | credentials, HTTP, resolution, cache, ZIP, YAML, lockfile and publishing | Extract client, resolver, installer and storage |
 | P0 | pkg/analyzer/infer.go | 1075 | inference, calls, members, access, hierarchy and narrowing | Extract nominal resolver and call validation |
@@ -342,50 +359,51 @@ Windows/amd64 i5-10300H, `-benchtime=100ms`: simple call 794 ns/op, nested 2936 
 
 ---
 
-## Fifth phase of architecture — September 2026
+## Fifth architecture phase — September 2026
 
-The fifth phase addresses and resolves all outstanding critical P0 debt from the fourth phase, focusing on ownership consistency, secure concurrency, session contracts, and the lifecycle of plugins and WebSockets, in addition to advancing canonical metadata and template tooling.
+The fifth phase advances critical ownership, concurrency, session, plugin, and WebSocket debt. The guarantees below distinguish verified behavior from work that remains pending.
 
 ### 1. Ownership and Concurrency of Plugins and Native Drivers (P0-A)
 
 - **Isolation by Runtime (`PluginAwareHost`)**: The `PluginAwareHost` interface was introduced in `pkg/pluginruntime` to decouple the global package registration from the specific execution. `Runtime` implements this interface by maintaining its own AST engines (`pluginASTEngines map[string]*PluginASTEngine`) and namespaces (`PluginNamespace`).
 - **Fork Semantics**: When executing `Runtime.Fork()`, the engine facades are duplicated linked to the new child runtime, safely sharing the plugin's immutable AST while fully isolating the evaluated state and local frames. Two different plugins with identical functions (e.g. `run()`) no longer collide with each other or cross request scopes.
-- **Atomic driver download (`NativeDriverDefinition.Unload()`)**: The dynamic native drivers (`.dll`/`.so`/`.dylib`) incorporate a safe `Unload()` method and protected by `driverMu`. Through `unloadNativeDriverHandle` (`FreeLibrary` on Windows, `dlclose` on Unix), the idempotent release of resources and the prevention of segmentation faults during concurrent or post-download calls are guaranteed.
+- **Counted driver ownership**: The loading runtime owns each `NativeDriverDefinition`; forks retain the handle and `Free()` releases that share. The last owner invokes `FreeLibrary`/`dlclose`. `Unload()` is idempotent, serialized with active calls, and rejects unloading while borrower runtimes still exist.
 
 | Component | Sharing Level | Life Cycle | Concurrent Policy |
 |---|---|---|---|
 | Plugin AST (`*parser.Program`) | Immutable / Shared | Process | Read-only thread-safe |
 | `PluginASTEngine` | By `Runtime` / Instance | Request/Fork | No contention between threads |
 | `PluginNamespace` | By `Runtime` / Instance | Request/Fork | Instances cloned in `Fork()` |
-| `NativeDriverDefinition.handle` | Pointer to OS | Load up to `Unload()` | Protected by `driverMu` |
+| `NativeDriverDefinition.handle` | Shared with counted ownership | Last owner or explicit `Unload()` | Protected by `Mu`; calls and unloading are mutually exclusive |
 
 ### 2. Complete Lifecycle and WebSocket Callbacks (P0-B)
 
-- **Isolated execution of callbacks**: WebSocket connections execute callbacks defined in Joss code (`onConnect`, `onMessage`, `onClose`, `onError`) in an independent forked runtime.
-- **Parameter Propagation**: The route parameters (`$params`) extracted during the HTTP handshake are correctly injected into the callback context.
+- **Implemented callbacks**: WebSocket connections execute `onMessage` and `onClose`, with panic recovery and idempotent cleanup. `onConnect` and `onError` remain pending.
+- **Parameter propagation**: The setup handler receives the socket followed by route parameters as positional arguments. A `$params` binding does not exist yet.
 - **Multi-connection isolation**: Concurrent connections operate on independent sockets and runtimes, without filtering frames or lexical state between clients.
 
 ### 3. Flash Redirect and Session Storage Contracts (P0-C)
 
 - **Unified persistence**: Flash serialization in HTTP redirects (`persistRedirectFlash` in `response_writer.go`) was unified under the canonical contract `saveSession(sessionID, store)`.
 - **Strict error handling**: If the session backend fails during a redirect, the response immediately aborts with HTTP 500 and an explicit error message, suppressing the `Location` header to prevent the client from following a redirect with corrupted or non-persisted flash or session data.
+- **Backends and isolation**: Only `memory`, `file`, and `redis` are valid configurations. Snapshots recursively clone JSON maps and slices so that a request cannot modify nested persisted state before `saveSession`.
 
 ### 4. Double Release Protection (`sync.Pool`)
 
-- **Defense against double-free**: A potential race condition was identified and resolved in tests and requests due to duplicate calls to `Free()` on the same `*Runtime`. A boolean field `freed` protected by `poolMu` ensures that return to the pool is idempotent and that a pointer does not re-enter the concurrent pool multiple times.
+- **Defense against double-free**: `Runtime.Free()` uses `atomic.Bool.CompareAndSwap`; only the caller that performs the active-to-released transition may clean and return the pointer to the pool. A concurrent regression test verifies that the pool cannot hand the same instance to two owners. That test also exposed a race in `AssetManager.Initialize`, which is now serialized.
 
 ### 5. Native Metadata Expansion (`NativeMethodDefinition`)
 
-Completed migration of an extended batch of 10 canonical native classes to `NativeMethodDefinition`, distinguishing canonical signatures, typed names and exact arity:
-- `Stack`: `push`, `pop`, `peek`, `isEmpty`, `clear`, `count`, `toArray`
-- `Queue`: `push`, `pop`, `peek`, `isEmpty`, `clear`, `count`, `toArray`
-- `Math`: `abs`, `sqrt`, `pow`, `round`, `floor`, `ceil`, `min`, `max`, `random`, `sin`, `cos`, `tan`, `log`, `exp`
-- `JSON`: `encode`, `decode`, `valid`, `prettify`
-- `Markdown`: `toHtml`, `toHtmlSafe`, `toc`, `meta`
-- `Str`: `length`, `lower`, `upper`, `contains`, `startsWith`, `endsWith`, `replace`, `split`, `trim`, `substr`, `indexOf`, `pad`, `repeat`
-- `UUID`: `v4`, `v7`, `isValid`
-- `Lang`: `type`, `isNumeric`, `isCallable`, `isIterable`, `methods`, `properties`, `clone`
-- `Console`: `log`, `info`, `warn`, `error`, `debug`, `table`, `trace`, `clear`, `time`, `timeEnd`, `assert`
+Ten classes were migrated to `NativeMethodDefinition` with verified names and return types. None publishes exact arity yet (`ArityKnown=false`):
+- `Stack`: `push`, `pop`, `peek`
+- `Queue`: `enqueue`, `dequeue`, `peek`
+- `Math`: `random`, `floor`, `ceil`, `abs`
+- `JSON`: `parse`, `stringify`, `decode`, `encode`
+- `Markdown`: `toHtml`, `readFile`
+- `Str`: `length`, `random`, `startsWith`, `substring`, `indexOf`, `contains`, `trim`, `replace`
+- `UUID`: `generate`, `v4`
+- `Lang`: `get`, `set`, `locale`, `locales`
+- `Console`: `green`, `red`, `yellow`, `blue`, `cyan`, `magenta`, `gray`, `bold`, `clear`, `color`, `log`
 - `Zip`: `extract`
 
 The definitions are consumed by the analyzer, the catalog generator (`tools/cataloggen`), the documentation generator (`tools/docgen`) and the language server (LSP).
@@ -397,7 +415,8 @@ The definitions are consumed by the analyzer, the catalog generator (`tools/cata
 
 ### Reordered debt (Fifth phase)
 
-- **P0:** None. All inconsistencies in ownership, native drivers, sessions and WebSocket have been resolved and verified under characterization tests and race detector.
+- **P0:** No known P0 issues remain in this batch. Double-free protection, driver ownership, session backends, and the published WebSocket callbacks (`onMessage`/`onClose`) have focused contract and race tests.
+- **P1:** Explicitly decide whether `onConnect`, `onError`, or `$params` should extend the WebSocket API; formalize freezing of AST catalogs before serving requests.
 - **P1:** Continue progressive migration of the remaining native classes (`GranDB`, `Crypto`, `File`, `Http`, `Router`, etc.) to `NativeMethodDefinition`; extract session/CSRF from `MainHandler` to dedicated submodules; migrate remaining policies (`@extends`, `@section`, `@yield`, `@include`, `@foreach`) to the `pkg/viewtemplate` unified scanner.
 - **P2:** Extend Analyzer↔Interpreter↔VM differential corpus for complex types and closures; expand type parser fuzzing and lockfile round-trip.
 - **P3:** Automate fan-in/fan-out and change surface metrics in CI; establish comparable performance benchmarks.

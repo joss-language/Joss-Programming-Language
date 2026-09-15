@@ -60,17 +60,32 @@ A implementação corresponde à visão ALIM no tempo de execução integrado, a
 
 | Declaração de tese | Status do repositório verificado |
 |---|---|
-| Pipeline inclui verificador de tipo | Existe um verificador semântico inicial com inferência fixa, constantes, assinaturas/retornos e chamadas recursivas; ainda não cobre esquemas contaminados, de escape ou de banco de dados. |
-| AOT/LLVM/Cranelift e código de máquina | Os principais pacotes de construção serializaram o AST e o interpretador Go. LLVM/Cranelift não estão implementados. |
-| Lexer/analisador em Rust | A implementação atual está em Go. |
-| Imutabilidade por padrão/propriedade | Não há semântica de propriedade ou imutabilidade por padrão. |
-| Importações/módulos com rede e ciclos | A sintaxe histórica foi completamente removida e não retornará. Plugins e arquivos convencionais são carregados automaticamente; Joss adota deliberadamente um projeto de importação zero. |
-| Rotas/BDs como nós AST de primeira ordem | Hoje são chamadas para classes nativas (`Router`, `GranDB`), não para nós específicos. |
-| 1.420 exames e cobertura de 91,4% | O repositório contém um conjunto Go muito menor. Medição focada atual: analisador 52,3%, sistema de tipos 44,9%, analisador 47,7% e núcleo 14,8%; O CI valida a execução e não afirma cobertura inexistente. |
-| Análise de contaminação e 83% de vulnerabilidades | Existe um analisador heurístico de segurança no LSP, não um mecanismo de contaminação formal no compilador. |
+| Pipeline inclui verificador de tipo | Existe um verificador semântico inicial com inferência fixa, constantes, assinaturas/retornos e chamadas recursivas; ainda não cobre esquemas contaminados, de escape ou de banco de dados.
+
+|
+| AOT/LLVM/Cranelift e código de máquina | Os principais pacotes de construção serializaram o AST e o interpretador Go. LLVM/Cranelift não estão implementados.
+
+|
+| Lexer/analisador em Rust | A implementação atual está em Go.
+
+|
+| Imutabilidade por padrão/propriedade | Não há semântica de propriedade ou imutabilidade por padrão.
+
+|
+| Importações/módulos com rede e ciclos | A sintaxe histórica foi completamente removida e não retornará. Plugins e arquivos convencionais são carregados automaticamente; Joss adota deliberadamente um projeto de importação zero.
+
+|
+| Rotas/BDs como nós AST de primeira ordem | Hoje são chamadas para classes nativas (`Router`, `GranDB`), não para nós específicos.
+
+|
+| 1.420 exames e cobertura de 91,4% | O repositório contém um conjunto Go muito menor. Medição focada atual: analisador 52,3%, sistema de tipos 44,9%, analisador 47,7% e núcleo 14,8%; O CI valida a execução e não afirma cobertura inexistente.
+
+|
+| Análise de contaminação e 83% de vulnerabilidades | Existe um analisador heurístico de segurança no LSP, não um mecanismo de contaminação formal no compilador.
+
+|
 
 Essas diferenças não foram “corrigidas” pela invenção de recursos. A proposta de módulos fonte no capítulo 11 está expressamente descartada para Joss; A modularidade do ALIM é preservada através de componentes de tempo de execução e plugins isolados. O resto deverá ser resolvido na tese, distinguindo implementação validada, sintaxe conceitual e trabalhos futuros.
-
 
 ## Auditoria arquitetônica incremental — 11 de setembro de 2026
 
@@ -78,7 +93,9 @@ A revisão do commit 4b41742 usou o tamanho apenas como um sinal e comparou resp
 
 ### Mapa priorizado
 
-| Prioridade | Arquivo | Linhas aprox. | Diagnóstico | Ação |
+| Prioridade | Arquivo | Linhas aprox.
+
+| Diagnóstico | Ação |
 |---|---|---:|---|---|
 | P0 | cmd/joss/pub_cli.go | 1169 | credenciais, HTTP, resolução, cache, ZIP, YAML, lockfile e publicação | Extraia cliente, resolvedor, instalador e armazenamento |
 | P0 | pkg/analyzer/infer.go | 1075 | inferência, chamadas, membros, acesso, hierarquia e estreitamento | Extraia o resolvedor nominal e valide a chamada |
@@ -344,48 +361,49 @@ Windows/amd64 i5-10300H, `-benchtime=100ms`: chamada simples 794 ns/op, aninhado
 
 ## Quinta fase da arquitetura — setembro de 2026
 
-A quinta fase aborda e resolve todas as dívidas P0 críticas pendentes da quarta fase, com foco na consistência de propriedade, simultaneidade segura, contratos de sessão e ciclo de vida de plug-ins e WebSockets, além de avançar metadados canônicos e ferramentas de modelo.
+A quinta fase avança as dívidas críticas de ownership, concorrência, sessões, plugins e WebSockets. As garantias abaixo distinguem o comportamento verificado do trabalho ainda pendente.
 
 ### 1. Propriedade e simultaneidade de plug-ins e drivers nativos (P0-A)
 
 - **Isolamento por Tempo de Execução (`PluginAwareHost`)**: A interface `PluginAwareHost` foi introduzida em `pkg/pluginruntime` para dissociar o registro global do pacote da execução específica. `Runtime` implementa esta interface mantendo seus próprios mecanismos AST (`pluginASTEngines map[string]*PluginASTEngine`) e namespaces (`PluginNamespace`).
 - **Semântica de Fork**: Ao executar `Runtime.Fork()`, as fachadas do mecanismo são duplicadas vinculadas ao novo tempo de execução filho, compartilhando com segurança o AST imutável do plugin enquanto isolam totalmente o estado avaliado e os frames locais. Dois plug-ins diferentes com funções idênticas (por exemplo, `run()`) não colidem mais entre si ou cruzam escopos de solicitação.
-- **Baixar driver atômico (`NativeDriverDefinition.Unload()`)**: Os drivers nativos dinâmicos (`.dll`/`.so`/`.dylib`) incorporam um método `Unload()` seguro e protegido por `driverMu`. Através de `unloadNativeDriverHandle` (`FreeLibrary` no Windows, `dlclose` no Unix), é garantida a liberação idempotente de recursos e a prevenção de falhas de segmentação durante chamadas simultâneas ou pós-download.
+- **Ownership contado dos drivers**: O runtime que carrega possui cada `NativeDriverDefinition`; os forks retêm o handle e `Free()` libera essa participação. O último owner invoca `FreeLibrary`/`dlclose`. `Unload()` é idempotente, serializado com chamadas ativas e rejeita a descarga enquanto existirem runtimes borrowers.
 
 | Componente | Nível de compartilhamento | Ciclo de Vida | Política Simultânea |
 |---|---|---|---|
 | Plug-in AST (`*parser.Program`) | Imutável/Compartilhado | Processo | Thread-safe somente leitura |
 | `PluginASTEngine` | Por `Runtime` / Instância | Solicitação/Fork | Nenhuma contenção entre threads |
 | `PluginNamespace` | Por `Runtime` / Instância | Solicitação/Fork | Instâncias clonadas em `Fork()` |
-| `NativeDriverDefinition.handle` | Ponteiro para sistema operacional | Carregue até `Unload()` | Protegido por `driverMu` |
+| `NativeDriverDefinition.handle` | Compartilhado com ownership contado | Último owner ou `Unload()` explícito | Protegido por `Mu`; chamadas e descarga são mutuamente exclusivas |
 
 ### 2. Ciclo de vida completo e retornos de chamada WebSocket (P0-B)
 
-- **Execução isolada de retornos de chamada**: conexões WebSocket executam retornos de chamada definidos no código Joss (`onConnect`, `onMessage`, `onClose`, `onError`) em um tempo de execução bifurcado independente.
-- **Propagação de parâmetros**: Os parâmetros de rota (`$params`) extraídos durante o handshake HTTP são injetados corretamente no contexto de retorno de chamada.
+- **Callbacks implementados**: As conexões WebSocket executam `onMessage` e `onClose`, com recuperação de panics e cleanup idempotente. `onConnect` e `onError` continuam pendentes.
+- **Propagação de parâmetros**: O handler de setup recebe o socket e depois os parâmetros de rota como argumentos posicionais. Ainda não existe um binding `$params`.
 - **Isolamento de múltiplas conexões**: Conexões simultâneas operam em soquetes e tempos de execução independentes, sem filtragem de frames ou estado léxico entre clientes.
 
 ### 3. Contratos de redirecionamento de Flash e armazenamento de sessão (P0-C)
 
 - **Persistência unificada**: A serialização de Flash em redirecionamentos HTTP (`persistRedirectFlash` em `response_writer.go`) foi unificada sob o contrato canônico `saveSession(sessionID, store)`.
 - **Tratamento estrito de erros**: se o back-end da sessão falhar durante um redirecionamento, a resposta será imediatamente abortada com HTTP 500 e uma mensagem de erro explícita, suprimindo o cabeçalho `Location` para evitar que o cliente siga um redirecionamento com flash corrompido ou não persistente ou dados de sessão.
+- **Backends e isolamento**: Somente `memory`, `file` e `redis` são configurações válidas. Os snapshots clonam recursivamente mapas e slices JSON, impedindo que um request modifique estado persistido aninhado antes de `saveSession`.
 
 ### 4. Proteção de liberação dupla (`sync.Pool`)
 
-- **Defesa contra double-free**: Uma potencial condição de corrida foi identificada e resolvida em testes e solicitações devido a chamadas duplicadas para `Free()` no mesmo `*Runtime`. Um campo booleano `freed` protegido por `poolMu` garante que o retorno ao pool seja idempotente e que um ponteiro não entre novamente no pool simultâneo várias vezes.
+- **Defesa contra double-free**: `Runtime.Free()` usa `atomic.Bool.CompareAndSwap`; somente o caller que realiza a transição ativo→liberado pode limpar e devolver o ponteiro ao pool. Um teste de regressão concorrente comprova que o pool não entrega a mesma instância a dois owners. Esse teste também revelou uma corrida em `AssetManager.Initialize`, agora serializada.
 
 ### 5. Expansão de metadados nativos (`NativeMethodDefinition`)
 
-Migração concluída de um lote estendido de 10 classes nativas canônicas para `NativeMethodDefinition`, distinguindo assinaturas canônicas, nomes digitados e aridade exata:
-- `Stack`: `push`, `pop`, `peek`, `isEmpty`, `clear`, `count`, `toArray`
-- `Queue`: `push`, `pop`, `peek`, `isEmpty`, `clear`, `count`, `toArray`
-- `Math`: `abs`, `sqrt`, `pow`, `round`, `floor`, `ceil`, `min`, `max`, `random`, `sin`, `cos`, `tan`, `log`, `exp`
-- `JSON`: `encode`, `decode`, `valid`, `prettify`
-- `Markdown`: `toHtml`, `toHtmlSafe`, `toc`, `meta`
-- `Str`: `length`, `lower`, `upper`, `contains`, `startsWith`, `endsWith`, `replace`, `split`, `trim`, `substr`, `indexOf`, `pad`, `repeat`
-- `UUID`: `v4`, `v7`, `isValid`
-- `Lang`: `type`, `isNumeric`, `isCallable`, `isIterable`, `methods`, `properties`, `clone`
-- `Console`: `log`, `info`, `warn`, `error`, `debug`, `table`, `trace`, `clear`, `time`, `timeEnd`, `assert`
+Dez classes foram migradas para `NativeMethodDefinition` com nomes e retornos verificados. Nenhuma publica aridade exata ainda (`ArityKnown=false`):
+- `Stack`: `push`, `pop`, `peek`
+- `Queue`: `enqueue`, `dequeue`, `peek`
+- `Math`: `random`, `floor`, `ceil`, `abs`
+- `JSON`: `parse`, `stringify`, `decode`, `encode`
+- `Markdown`: `toHtml`, `readFile`
+- `Str`: `length`, `random`, `startsWith`, `substring`, `indexOf`, `contains`, `trim`, `replace`
+- `UUID`: `generate`, `v4`
+- `Lang`: `get`, `set`, `locale`, `locales`
+- `Console`: `green`, `red`, `yellow`, `blue`, `cyan`, `magenta`, `gray`, `bold`, `clear`, `color`, `log`
 - `Zip`: `extract`
 
 As definições são consumidas pelo analisador, pelo gerador de catálogo (`tools/cataloggen`), pelo gerador de documentação (`tools/docgen`) e pelo servidor de linguagem (LSP).
@@ -397,7 +415,8 @@ As definições são consumidas pelo analisador, pelo gerador de catálogo (`too
 
 ### Dívida reordenada (Quinta fase)
 
-- **P0:** Nenhuma. Todas as inconsistências de propriedade, drivers nativos, sessões e WebSocket foram resolvidas e verificadas em testes de caracterização e detector de corrida.
+- **P0:** Não restam problemas P0 conhecidos neste lote. A proteção contra double-free, o ownership dos drivers, os backends de sessão e os callbacks WebSocket publicados (`onMessage`/`onClose`) possuem testes focados de contrato e race.
+- **P1:** Decidir explicitamente se `onConnect`, `onError` ou `$params` devem ampliar a API WebSocket; formalizar o congelamento dos catálogos AST antes de atender requests.
 - **P1:** Continuar a migração progressiva das demais classes nativas (`GranDB`, `Crypto`, `File`, `Http`, `Router`, etc.) para `NativeMethodDefinition`; extrair sessão/CSRF de `MainHandler` para submódulos dedicados; migre as políticas restantes (`@extends`, `@section`, `@yield`, `@include`, `@foreach`) para o `pkg/viewtemplate` scanner unificado.
 - **P2:** Estender o corpus diferencial do Analisador↔Interpretador↔VM para tipos complexos e fechamentos; expanda o tipo de difusão do analisador e ida e volta do arquivo de bloqueio.
 - **P3:** Automatize fan-in/fan-out e altere métricas de superfície em CI; estabelecer benchmarks de desempenho comparáveis.

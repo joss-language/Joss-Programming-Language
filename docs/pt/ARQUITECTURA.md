@@ -1,6 +1,10 @@
 # Arquitetura da linguagem Joss
 
-[Índice](README.md) · Antes: [status](ESTADO_IMPLEMENTACION.md) · Depois: [contribuir](CONTRIBUIR.md)
+[Índice](README.md) ·
+
+Antes: [status](ESTADO_IMPLEMENTACION.md) ·
+
+Depois: [contribuir](CONTRIBUIR.md)
 
 ## Pipeline real
 
@@ -35,19 +39,45 @@ flowchart LR
 
 | Pacote | Responsabilidade |
 |---|---|
-| `pkg/parser` | Tokens, lexer, precedências, analisador e nós AST. |
-| `pkg/typesystem` | Nomes canônicos, inferência, coerção explícita e compatibilidade de atribuição. |
-| `pkg/analyzer` | Unidades de origem, escopos, símbolos, inferência de expressões, assinaturas e fluxo alcançável. Não depende do tempo de execução. |
-| `pkg/diagnostics` | Modelo comum: código, gravidade, mensagem, arquivo, intervalo, explicação e dica. |
-| `pkg/core` | Adaptação de catálogos reais ao analisador, interpretador e primitivas integradas. |
-| `pkg/runtime/errors` | Erro de tempo de execução estruturado e Joss stack frames, sem dependências de framework. |
-| `pkg/runtime/value` | Semântica de valor independente do avaliador, incluindo indexação Unicode. |
-| `pkg/runtime/plan` , `pkg/runtime/frame` | Planos resgatáveis, slots e representação etiquetada usados ​​para acelerar a resolução local; eles não formam bytecode portátil. |
-| `pkg/pluginruntime` , `pkg/pluginpkg` | Carregamento isolado, verificação e resolução de símbolos de plugins JP v2. |
-| `pkg/bytecode` | Serialização compactada do AST. Não é código de máquina ou LLVM IR. |
-| `pkg/vm` | VM/compilador experimental independente. A CLI e `pkg/core` não os utilizam como rota padrão. |
-| `cmd/joss` | CLI, análise, execução, construção e administração de projetos. |
-| `vscode-joss` | LSP/editora. Consome o catálogo gerado do kernel. |
+| `pkg/parser` | Tokens, lexer, precedências, analisador e nós AST.
+
+|
+| `pkg/typesystem` | Nomes canônicos, inferência, coerção explícita e compatibilidade de atribuição.
+
+|
+| `pkg/analyzer` | Unidades de origem, escopos, símbolos, inferência de expressões, assinaturas e fluxo alcançável. Não depende do tempo de execução.
+
+|
+| `pkg/diagnostics` | Modelo comum: código, gravidade, mensagem, arquivo, intervalo, explicação e dica.
+
+|
+| `pkg/core` | Adaptação de catálogos reais ao analisador, interpretador e primitivas integradas.
+
+|
+| `pkg/runtime/errors` | Erro de tempo de execução estruturado e Joss stack frames, sem dependências de framework.
+
+|
+| `pkg/runtime/value` | Semântica de valor independente do avaliador, incluindo indexação Unicode.
+
+|
+| `pkg/runtime/plan` , `pkg/runtime/frame` | Planos resgatáveis, slots e representação etiquetada usados ​​para acelerar a resolução local; eles não formam bytecode portátil.
+
+|
+| `pkg/pluginruntime` , `pkg/pluginpkg` | Carregamento isolado, verificação e resolução de símbolos de plugins JP v2.
+
+|
+| `pkg/bytecode` | Serialização compactada do AST. Não é código de máquina ou LLVM IR.
+
+|
+| `pkg/vm` | VM/compilador experimental independente. A CLI e `pkg/core` não os utilizam como rota padrão.
+
+|
+| `cmd/joss` | CLI, análise, execução, construção e administração de projetos.
+
+|
+| `vscode-joss` | LSP/editora. Consome o catálogo gerado do kernel.
+
+|
 
 ## Fontes da verdade
 
@@ -133,9 +163,9 @@ A autoridade é explicitamente dividida: verdade de sintaxe no analisador, verda
 
 A quinta fase consolida propriedade, simultaneidade segura, contratos de sessão e o ciclo de vida de plug-ins e WebSockets:
 
-- **Propriedade de Plugins e Drivers Nativos**: O registro global de plugins atua como um catálogo de bibliotecas e ASTs imutáveis; cada `Runtime` implementa `PluginAwareHost` e gerencia seus próprios mecanismos de execução AST ( `pluginASTEngines` ) e namespaces ( `PluginNamespace` ). Ao realizar um `Fork()` , as instâncias do motor são duplicadas vinculadas ao tempo de execução bifurcado, garantindo que plugins com funções idênticas em pacotes diferentes não colidam e que o estado lexical nunca cruze as solicitações. Drivers dinâmicos ( `NativeDriverDefinition` ) implementam `Unload()` seguro e atômico usando primitivos do sistema operacional ( `FreeLibrary` / `dlclose` ), evitando vazamentos de memória ou chamadas simultâneas em bibliotecas descarregadas.
-- **Contratos de sessão e Flash em respostas**: a persistência de dados de sessão e flash para redirecionamentos HTTP é unificada no contrato de armazenamento ( `saveSession` ). Qualquer falha na persistência da sessão durante um redirecionamento cancela a emissão do cabeçalho `Location` e gera um erro HTTP 500 determinístico, evitando que o cliente siga um redirecionamento com estado inconsistente.
-- **Isolamento e retornos de chamada WebSocket**: A conexão WebSocket executa retornos de chamada reais em Joss ( `onConnect` , `onMessage` , etc.) em um tempo de execução bifurcado separado, injetando corretamente os parâmetros de rota ( `$params` ). Múltiplas conexões simultâneas não compartilham frames nem colidem na recepção/emissão de frames.
-- **Runtime Pool Defense**: Para evitar que vários retornos de um tempo de execução para `sync.Pool` causem corridas simultâneas em mapas de classe ou escopos, `Runtime.Free()` usa um guarda `freed` sincronizado com `poolMu` .
-- **Expansão de metadados nativos**: O catálogo canônico é expandido migrando 10 classes nativas para `NativeMethodDefinition` ( `Stack` , `Queue` , `Math` , `JSON` , `Markdown` , `Str` , `UUID` , `Lang` , `Console` , `Zip` ), permitindo que o analisador e o LSP verifiquem parâmetros e retornem tipos sem invocar o código Go nativo.
-- **Posicionamento com reconhecimento de runas em modelos de visualização**: O scanner de diretiva e linter ( `pkg/viewtemplate` ) calcula colunas exatas contando runas UTF-8, garantindo consistência absoluta no diagnóstico contra caracteres multibyte.
+- **Propriedade de plugins e drivers nativos**: O registro de plugins compartilha catálogos e ASTs tratados como imutáveis; cada `Runtime` implementa `PluginAwareHost` e mantém mecanismos AST e namespaces vinculados à sua execução. Os drivers dinâmicos usam propriedade contada: o runtime que carrega possui o handle, cada `Fork()` o retém e cada `Free()` o libera. O último proprietário executa `FreeLibrary`/`dlclose`; `Unload()` rejeita uma descarga explícita enquanto existirem mutuários e é serializado com as chamadas ativas.
+- **Contratos de sessão e flash nas respostas**: `memory`, `file` e `redis` são os únicos backends aceitos; um nome desconhecido falha explicitamente. Cada requisição recebe um snapshot que clona recursivamente mapas e slices JSON para impedir aliasing antes de `saveSession`. Qualquer falha ao persistir o flash cancela `Location` e produz HTTP 500.
+- **Isolamento e callbacks WebSocket**: Atualmente, a conexão executa `onMessage` e `onClose`; o handler recebe o socket seguido dos parâmetros posicionais da rota. `onConnect`, `onError` e uma variável `$params` ainda não fazem parte do contrato implementado. O servidor fornece um runtime bifurcado por requisição, enquanto os testes protegem a limpeza, o isolamento de panics e as mensagens concorrentes.
+- **Defesa do pool de runtimes**: `Runtime.Free()` usa `atomic.Bool.CompareAndSwap` para que apenas um chamador possa limpar e devolver uma instância a `sync.Pool`. A inicialização global dos assets é serializada separadamente para impedir que aquisições simultâneas gravem no singleton ao mesmo tempo.
+- **Expansão dos metadados nativos**: Dez classes usam `NativeMethodDefinition` (`Stack`, `Queue`, `Math`, `JSON`, `Markdown`, `Str`, `UUID`, `Lang`, `Console`, `Zip`). A projeção publica nomes e retornos confiáveis; sua aridade permanece explicitamente desconhecida até que existam contratos comprovados.
+- **Posicionamento consciente de runas em templates de views**: O scanner e o linter de diretivas (`pkg/viewtemplate`) calculam colunas exatas contando runas UTF-8, garantindo consistência absoluta nos diagnósticos diante de caracteres multibyte.

@@ -154,6 +154,7 @@ La documentación oficial se organiza en cuatro áreas temáticas:
 - [Clases nativas y servicios del runtime](docs/MODULOS_NATIVOS.md)
 - [Catálogo nativo generado por docgen](docs/CATALOGO_NATIVO.md)
 - [Referencia de comandos de la CLI (`joss`)](docs/CLI.md)
+- [Soporte móvil: Android e iOS](docs/MOBILE.md)
 - [Extensión oficial para Visual Studio Code](docs/VSCODE_EXTENSION.md)
 - [Estado real de implementación y límites del sistema](docs/ESTADO_IMPLEMENTACION.md)
 - [Analizador semántico y flujo de diagnósticos](docs/ANALIZADOR.md)
