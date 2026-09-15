@@ -85,13 +85,13 @@ Una **terminal** (o consola) es una ventana de texto donde te comunicas con el s
 En **Windows** (abre PowerShell como usuario estándar o Administrador):
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/josprox/Joss-language/main/install/remote-install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.ps1 | iex
 ```
 
 En **Linux o macOS** (abre tu Terminal):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/josprox/Joss-language/main/install/remote-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.sh | bash
 ```
 
 Este comando descargará el binario compilado de Joss, lo ubicará en una carpeta estándar del sistema y lo registrará en tu `PATH`.
@@ -102,7 +102,7 @@ Este comando descargará el binario compilado de Joss, lo ubicará en una carpet
 
 ### Opción B: Descarga manual desde GitHub Releases
 
-1. Ve a la sección de lanzamientos: [GitHub Releases de Joss](https://github.com/josprox/Joss-language/releases).
+1. Ve a la sección de lanzamientos: [GitHub Releases de Joss](https://github.com/joss-language/Joss-Programming-Language/releases).
 2. Descarga el paquete comprimido `.zip` o `.tar.gz` correspondiente a tu arquitectura (`windows_amd64`, `linux_amd64`, `darwin_arm64`, etc.).
 3. Descomprime el archivo y coloca el ejecutable `joss` (o `joss.exe`) en una carpeta accesible de tu disco.
 4. Agrega dicha carpeta a las variables de entorno de tu sistema (`PATH`).
@@ -112,8 +112,8 @@ Este comando descargará el binario compilado de Joss, lo ubicará en una carpet
 Si eres desarrollador y tienes [Go](https://go.dev) instalado (versión 1.22 o superior), puedes clonar este repositorio y compilarlo en segundos:
 
 ```bash
-git clone https://github.com/josprox/Joss-language.git
-cd Joss-language
+git clone https://github.com/joss-language/Joss-Programming-Language.git
+cd Joss-Programming-Language
 go build -o joss ./cmd/joss
 ```
 

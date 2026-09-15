@@ -7,7 +7,7 @@ Los instaladores remotos descargan dos artefactos del último release: el runtim
 Ejecuta PowerShell como administrador:
 
 ```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; iwr -useb https://raw.githubusercontent.com/josprox/Joss-language/main/install/remote-install.ps1 | iex
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; iwr -useb https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.ps1 | iex
 ```
 
 El runtime se instala en `C:\Program Files\JosSecurity`. El instalador añade esa carpeta al `PATH`. Si `code` está disponible, también instala el VSIX; si VS Code no existe, ofrece instalarlo con Winget. Al instalar, actualizar o desinstalar también limpia un directorio `sdk` dejado por versiones antiguas.
@@ -15,7 +15,7 @@ El runtime se instala en `C:\Program Files\JosSecurity`. El instalador añade es
 ## Linux y macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/josprox/Joss-language/main/install/remote-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.sh | bash
 ```
 
 El runtime queda en `/usr/local/bin/joss`. Si se ejecuta como `root`, realiza las operaciones directamente; para usuarios normales utiliza `sudo` cuando está disponible. Si `code` está en el `PATH`, también instala el VSIX. Al instalar, actualizar o desinstalar también limpia `/usr/local/share/joss/sdk` cuando fue creado por una versión antigua.

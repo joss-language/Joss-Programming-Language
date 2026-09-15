@@ -15,8 +15,8 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-REPO_OWNER="josprox"
-REPO_NAME="Joss-language"
+REPO_OWNER="joss-language"
+REPO_NAME="Joss-Programming-Language"
 
 # Rutas
 INSTALL_DIR="/usr/local/bin"

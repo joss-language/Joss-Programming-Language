@@ -9,8 +9,8 @@ $ErrorActionPreference = "Stop"
 $Host.UI.RawUI.ForegroundColor = "White"
 
 # --- CONFIGURACIÓN ---
-$RepoOwner = "josprox"
-$RepoName = "Joss-language"
+$RepoOwner = "joss-language"
+$RepoName = "Joss-Programming-Language"
 
 # Rutas
 $InstallDir = "C:\Program Files\JosSecurity"

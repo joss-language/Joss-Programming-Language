@@ -12,7 +12,7 @@ En tu `pubspec.yaml`:
 dependencies:
   joss:
     git:
-      url: https://github.com/jossecurity/Joss-language.git
+      url: https://github.com/joss-language/Joss-Programming-Language.git
       path: sdk/dart
       ref: v3.6.7 # O la versión que utilices
 ```

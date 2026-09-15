@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://goreportcard.com/report/github.com/josprox/Joss-language"><img src="https://goreportcard.com/badge/github.com/josprox/Joss-language" alt="Go Report Card"></a>
+  <a href="https://goreportcard.com/report/github.com/joss-language/Joss-Programming-Language"><img src="https://goreportcard.com/badge/github.com/joss-language/Joss-Programming-Language" alt="Go Report Card"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
   <a href="https://joss.red/docs"><img src="https://img.shields.io/badge/docs-joss.red-teal.svg" alt="Docs"></a>
-  <a href="https://github.com/josprox/Joss-language/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build Status"></a>
+  <a href="https://github.com/joss-language/Joss-Programming-Language/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build Status"></a>
 </p>
 
 ---
@@ -38,20 +38,20 @@
 
 En **Windows** (PowerShell):
 ```powershell
-iwr -useb https://raw.githubusercontent.com/josprox/Joss-language/main/install/remote-install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.ps1 | iex
 ```
 
 En **Linux o macOS** (Terminal):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/josprox/Joss-language/main/install/remote-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.sh | bash
 ```
 
 ### Compilar desde el código fuente
 
 Si dispones de [Go](https://go.dev) (versión 1.27 o superior):
 ```bash
-git clone https://github.com/josprox/Joss-language.git
-cd Joss-language
+git clone https://github.com/joss-language/Joss-Programming-Language.git
+cd Joss-Programming-Language
 go build -o joss ./cmd/joss
 ```
 

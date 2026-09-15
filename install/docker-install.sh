@@ -2,7 +2,7 @@
 # -----------------------------------------------------------
 # JosSecurity Docker Installer (Non-Interactive)
 # Uso en Dockerfile:
-#   RUN curl -fsSL https://raw.githubusercontent.com/josprox/Joss-language/main/install/docker-install.sh | bash
+#   RUN curl -fsSL https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/docker-install.sh | bash
 #
 # Diferencias con remote-install.sh:
 #   - Sin menú interactivo (no necesita TTY)
@@ -12,8 +12,8 @@
 
 set -e
 
-REPO_OWNER="josprox"
-REPO_NAME="Joss-language"
+REPO_OWNER="joss-language"
+REPO_NAME="Joss-Programming-Language"
 JOSS_VERSION="${JOSS_VERSION:-latest}"
 INSTALL_DIR="/usr/local/bin"
 TEMP_DIR="/tmp/jossecurity-docker-install"

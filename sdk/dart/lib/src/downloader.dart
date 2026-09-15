@@ -5,8 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 class JossDownloader {
-  static const String repoOwner = 'josprox';
-  static const String repoName = 'Joss-language';
+  static const String repoOwner = 'joss-language';
+  static const String repoName = 'Joss-Programming-Language';
 
   /// Determina el nombre del zip de release según el sistema operativo.
   static String getReleaseZipName() {

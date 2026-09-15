@@ -79,10 +79,10 @@ A **terminal** (or console) is a text window where you communicate with the oper
 ### Option A: Official Automatic Installer (Recommended)
 
 On **Windows** (open PowerShell as a standard user or Administrator):```powershell
-iwr -useb https://raw.githubusercontent.com/josprox/Joss-language/main/install/remote-install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.ps1 | iex
 ```
 On **Linux or macOS** (open your Terminal):```bash
-curl -fsSL https://raw.githubusercontent.com/josprox/Joss-language/main/install/remote-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.sh | bash
 ```
 This command will download the compiled Joss binary, place it in a standard system folder, and register it in your `PATH`.
 
@@ -92,7 +92,7 @@ This command will download the compiled Joss binary, place it in a standard syst
 
 ### Option B: Manual download from GitHub Releases
 
-1. Go to the releases section: [Joss GitHub Releases](https://github.com/josprox/Joss-language/releases).
+1. Go to the releases section: [Joss GitHub Releases](https://github.com/joss-language/Joss-Programming-Language/releases).
 2. Download the compressed `.zip` or `.tar.gz` package corresponding to your architecture (`windows_amd64`, `linux_amd64`, `darwin_arm64`, etc.).
 3. Unzip the file and place the `joss` executable (or `joss.exe`) in an accessible folder on your disk.
 4. Add this folder to your system environment variables (`PATH`).
@@ -100,8 +100,8 @@ This command will download the compiled Joss binary, place it in a standard syst
 ### Option C: Compile from source with Go
 
 If you are a developer and have [Go](https://go.dev) installed (version 1.22 or higher), you can clone this repository and build it in seconds:```bash
-git clone https://github.com/josprox/Joss-language.git
-cd Joss-language
+git clone https://github.com/joss-language/Joss-Programming-Language.git
+cd Joss-Programming-Language
 go build -o joss ./cmd/joss
 ```
 On Windows `joss.exe` will be created; on Linux/macOS the `joss` executable binary will be created.

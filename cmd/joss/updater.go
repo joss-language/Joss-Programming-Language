@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	githubReleasesURL = "https://api.github.com/repos/josprox/Joss-language/releases"
+	githubReleasesURL = "https://api.github.com/repos/joss-language/Joss-Programming-Language/releases"
 	defaultChannel    = "stable"
 )
 
