@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"strings"
+	"time"
 
 	"github.com/jossecurity/joss/pkg/parser"
 )
@@ -598,6 +599,35 @@ func (r *Runtime) GenerateSitemapXSL() string {
 </xsl:stylesheet>`
 }
 
+func formatSitemapLastMod(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+
+	// Try standard date formats
+	formats := []string{
+		"2006-01-02 15:04:05 -0700 MST",
+		"2006-01-02 15:04:05",
+		time.RFC3339,
+		"2006-01-02T15:04:05",
+		"2006-01-02",
+	}
+
+	for _, layout := range formats {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t.UTC().Format("2006-01-02T15:04:05Z")
+		}
+	}
+
+	// Fallback: if it starts with YYYY-MM-DD
+	if len(raw) >= 10 && raw[4] == '-' && raw[7] == '-' {
+		return raw[:10]
+	}
+
+	return ""
+}
+
 func (r *Runtime) writeSitemapEntry(sb *strings.Builder, urlPath, lastMod, freq string, priority float64, dynamicBase string) {
 	appUrl := dynamicBase
 	if appUrl == "" {
@@ -615,10 +645,12 @@ func (r *Runtime) writeSitemapEntry(sb *strings.Builder, urlPath, lastMod, freq 
 		fullUrl = urlPath
 	}
 
+	formattedDate := formatSitemapLastMod(lastMod)
+
 	sb.WriteString("  <url>\n")
 	sb.WriteString(fmt.Sprintf("    <loc>%s</loc>\n", html.EscapeString(fullUrl)))
-	if lastMod != "" {
-		sb.WriteString(fmt.Sprintf("    <lastmod>%s</lastmod>\n", html.EscapeString(lastMod)))
+	if formattedDate != "" {
+		sb.WriteString(fmt.Sprintf("    <lastmod>%s</lastmod>\n", html.EscapeString(formattedDate)))
 	}
 	sb.WriteString(fmt.Sprintf("    <changefreq>%s</changefreq>\n", html.EscapeString(freq)))
 	sb.WriteString(fmt.Sprintf("    <priority>%.1f</priority>\n", priority))
