@@ -365,13 +365,15 @@ func generateSecureKey() string {
 	return hex.EncodeToString(bytes)
 }
 
+const defaultEnvFileName = "env.joss"
+
 func (r *Runtime) writeEnvJoss() {
-	filePath := "env.joss"
-	if _, err := os.Stat("env.joss"); os.IsNotExist(err) {
+	filePath := defaultEnvFileName
+	if _, err := os.Stat(defaultEnvFileName); os.IsNotExist(err) {
 		if _, errDot := os.Stat(".env"); errDot == nil {
 			filePath = ".env"
 		} else {
-			f, errCreate := os.Create("env.joss")
+			f, errCreate := os.Create(defaultEnvFileName)
 			if errCreate != nil {
 				return
 			}

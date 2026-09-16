@@ -11,7 +11,3 @@ func pluralize(s string) string {
 func singularize(s string) string {
 	return core.Singularize(s)
 }
-
-func isVowel(c byte) bool {
-	return core.IsVowel(c)
-}

@@ -21,6 +21,12 @@ import (
 //go:embed default_logo.png
 var DefaultLogo []byte
 
+const (
+	headerContentType        = "Content-Type"
+	headerCacheControl       = "Cache-Control"
+	headerCacheControlPublic = "public, max-age=86400"
+)
+
 var (
 	sessionStore = make(map[string]map[string]interface{})
 	sessionMu    sync.Mutex
@@ -85,80 +91,13 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 
 	// rt.LoadEnv(core.GlobalFileSystem) // Fork already has Env copied
 
-	// Detect Locale from Header
-	acceptLang := r.Header.Get("Accept-Language")
-	if acceptLang != "" {
-		// Simple parser: first entry (e.g. "es-MX,es;q=0.9,en;q=0.8") -> "es-MX"
-		parts := strings.Split(acceptLang, ",")
-		if len(parts) > 0 {
-			first := strings.TrimSpace(parts[0])
-			// Remove quality value if present (though usually quality is in subsequent parts, but better safe)
-			first = strings.Split(first, ";")[0]
-			rt.SetLocale(first)
-		}
-	} else {
-		rt.SetLocale("en") // Default
-	}
+	setupRequestLocale(r, rt)
 
 	if !enforceRateLimit(w, r, rt.Env) {
 		return
 	}
 
-	// CORS Headers — controlled by CORS_WEB in env.joss
-	// CORS_WEB=*                     → allow any origin (no Allow-Credentials for browser compat)
-	// CORS_WEB=https://a.com,https://b.com → allow listed origins only (with Allow-Credentials)
-	// CORS_WEB not set               → no CORS headers
-	corsPolicy := rt.Env["CORS_WEB"]
-	if corsPolicy != "" {
-		origin := r.Header.Get("Origin")
-		if origin != "" {
-			allowOrigin := ""
-			if corsPolicy == "*" {
-				// Wildcard: allow any origin — must NOT send Allow-Credentials with * (browser rejects it)
-				allowOrigin = "*"
-			} else {
-				// Whitelist: check if the request origin is in the allowed list
-				allowed := strings.Split(corsPolicy, ",")
-				for _, a := range allowed {
-					if strings.TrimSpace(a) == origin {
-						allowOrigin = origin
-						break
-					}
-				}
-			}
-
-			if allowOrigin != "" {
-				w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-CSRF-TOKEN")
-				if corsPolicy != "*" {
-					// Only send Allow-Credentials when origin is an explicit match (not wildcard)
-					w.Header().Set("Access-Control-Allow-Credentials", "true")
-				}
-				if r.Method == "OPTIONS" {
-					w.WriteHeader(http.StatusOK)
-					return
-				}
-			}
-		}
-	}
-
-	if r.URL.Path == "/favicon.ico" {
-		if _, err := os.Stat("public/favicon.ico"); err == nil {
-			http.ServeFile(w, r, "public/favicon.ico")
-			return
-		}
-		if _, err := os.Stat("assets/logo.png"); err == nil {
-			http.ServeFile(w, r, "assets/logo.png")
-			return
-		}
-		if _, err := os.Stat("assets/logo.ico"); err == nil {
-			http.ServeFile(w, r, "assets/logo.ico")
-			return
-		}
-		w.Header().Set("Content-Type", "image/png")
-		w.Header().Set("Cache-Control", "public, max-age=86400")
-		w.Write(DefaultLogo)
+	if handleCORSHeaders(w, r, rt.Env) {
 		return
 	}
 
@@ -170,46 +109,7 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 	host := r.Host
 	baseUrl := scheme + "://" + host
 
-	// Automatic Sitemap.xml & Sitemap.xsl stylesheet
-	if r.URL.Path == "/sitemap.xml" {
-		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
-		fmt.Fprintf(w, "%s", rt.GenerateSitemapXML(baseUrl))
-		return
-	}
-	if r.URL.Path == "/sitemap.xsl" {
-		w.Header().Set("Content-Type", "application/xslt+xml; charset=utf-8")
-		w.Header().Set("Cache-Control", "public, max-age=86400")
-		fmt.Fprintf(w, "%s", rt.GenerateSitemapXSL())
-		return
-	}
-
-	// Automatic IndexNow Key Verification Endpoint (/{key}.txt)
-	if indexNowKey := rt.GetIndexNowKey(); indexNowKey != "" && r.URL.Path == "/"+indexNowKey+".txt" {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("Cache-Control", "public, max-age=86400")
-		fmt.Fprint(w, indexNowKey)
-		return
-	}
-
-	// Handle Virtual Assets (Node Modules)
-	if strings.HasPrefix(r.URL.Path, "/assets/vendor/") {
-		// ... existing code ...
-		// Path: /assets/vendor/PACKAGE/FILE...
-		// Real: node_modules/PACKAGE/FILE...
-		relPath := strings.TrimPrefix(r.URL.Path, "/assets/vendor/")
-		fullPath := "node_modules/" + relPath // Simple mapping, security risk minimal in dev tool context but beware traversal
-
-		// Security Check: Prevent directory traversal up
-		if strings.Contains(relPath, "..") {
-			http.Error(w, "Invalid path", http.StatusForbidden)
-			return
-		}
-
-		if _, err := os.Stat(fullPath); err == nil {
-			http.ServeFile(w, r, fullPath)
-			return
-		}
-		http.NotFound(w, r)
+	if handleEarlySpecialRoutes(w, r, rt, baseUrl) {
 		return
 	}
 
@@ -441,7 +341,7 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Fallback / 404
 	if r.URL.Path == "/" {
-		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set(headerContentType, "text/html")
 		fmt.Fprintf(w, "<h1>JosSecurity Server Running</h1>")
 		fmt.Fprintf(w, "<p>Environment: %s</p>", rt.Env["APP_ENV"])
 		fmt.Fprintf(w, `<link rel="stylesheet" href="/public/css/app.css">`)

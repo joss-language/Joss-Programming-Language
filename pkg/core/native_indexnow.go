@@ -36,14 +36,12 @@ func (r *Runtime) GetIndexNowKey() string {
 }
 
 func (r *Runtime) resolveDynamicBaseUrl(fallback string) string {
-	// 1. If dynamic base is already detected from current HTTP request
 	if r.SEO != nil && r.SEO.Canonical != "" {
 		if parsed, err := url.Parse(r.SEO.Canonical); err == nil && parsed.Host != "" {
 			return parsed.Scheme + "://" + parsed.Host
 		}
 	}
 
-	// 2. Check APP_URL in Env
 	if appUrl, ok := r.Env["APP_URL"]; ok && strings.TrimSpace(appUrl) != "" {
 		return strings.TrimRight(strings.TrimSpace(appUrl), "/")
 	}
@@ -53,6 +51,105 @@ func (r *Runtime) resolveDynamicBaseUrl(fallback string) string {
 	}
 
 	return ""
+}
+
+func extractRawUrls(arg interface{}) []string {
+	var rawUrls []string
+	switch v := arg.(type) {
+	case string:
+		if s := strings.TrimSpace(v); s != "" {
+			rawUrls = append(rawUrls, s)
+		}
+	case []interface{}:
+		for _, item := range v {
+			if s := strings.TrimSpace(fmt.Sprintf("%v", item)); s != "" {
+				rawUrls = append(rawUrls, s)
+			}
+		}
+	case []string:
+		for _, item := range v {
+			if s := strings.TrimSpace(item); s != "" {
+				rawUrls = append(rawUrls, s)
+			}
+		}
+	default:
+		if s := strings.TrimSpace(fmt.Sprintf("%v", arg)); s != "" {
+			rawUrls = append(rawUrls, s)
+		}
+	}
+	return rawUrls
+}
+
+func (r *Runtime) resolveUrlsAndHost(rawUrls []string, baseUrl string) ([]string, string) {
+	detectedHost := ""
+	if baseUrl != "" {
+		if u, err := url.Parse(baseUrl); err == nil {
+			detectedHost = u.Host
+		}
+	}
+
+	var absoluteUrls []string
+	for _, uStr := range rawUrls {
+		if strings.HasPrefix(uStr, "http://") || strings.HasPrefix(uStr, "https://") {
+			absoluteUrls = append(absoluteUrls, uStr)
+			if detectedHost == "" {
+				if parsed, err := url.Parse(uStr); err == nil {
+					detectedHost = parsed.Host
+				}
+			}
+		} else {
+			rel := "/" + strings.TrimLeft(uStr, "/")
+			if baseUrl != "" {
+				absoluteUrls = append(absoluteUrls, baseUrl+rel)
+			} else {
+				absoluteUrls = append(absoluteUrls, rel)
+			}
+		}
+	}
+
+	if detectedHost == "" {
+		if appUrl, ok := r.Env["APP_URL"]; ok && appUrl != "" {
+			if parsed, err := url.Parse(appUrl); err == nil {
+				detectedHost = parsed.Host
+			}
+		}
+	}
+
+	return absoluteUrls, detectedHost
+}
+
+func (r *Runtime) handleSubmitIndexNow(args []interface{}) bool {
+	if len(args) < 1 || args[0] == nil {
+		return false
+	}
+
+	key := r.GetIndexNowKey()
+	if len(args) >= 2 && args[1] != nil && strings.TrimSpace(fmt.Sprintf("%v", args[1])) != "" {
+		key = strings.TrimSpace(fmt.Sprintf("%v", args[1]))
+	}
+	if key == "" {
+		return false
+	}
+
+	rawUrls := extractRawUrls(args[0])
+	if len(rawUrls) == 0 {
+		return false
+	}
+
+	baseUrl := r.resolveDynamicBaseUrl("")
+	absoluteUrls, detectedHost := r.resolveUrlsAndHost(rawUrls, baseUrl)
+
+	keyLocation := ""
+	if baseUrl != "" && key != "" {
+		keyLocation = baseUrl + "/" + key + ".txt"
+	}
+
+	return r.sendIndexNowRequest(IndexNowPayload{
+		Host:        detectedHost,
+		Key:         key,
+		KeyLocation: keyLocation,
+		URLList:     absoluteUrls,
+	})
 }
 
 // executeIndexNowMethod handles IndexNow class methods
@@ -85,100 +182,7 @@ func (r *Runtime) executeIndexNowMethod(instance *Instance, method string, args 
 		return baseUrl + "/" + key + ".txt"
 
 	case "submit":
-		if len(args) < 1 || args[0] == nil {
-			return false
-		}
-
-		key := r.GetIndexNowKey()
-		if len(args) >= 2 && args[1] != nil && strings.TrimSpace(fmt.Sprintf("%v", args[1])) != "" {
-			key = strings.TrimSpace(fmt.Sprintf("%v", args[1]))
-		}
-
-		if key == "" {
-			return false
-		}
-
-		// Collect URL list
-		var rawUrls []string
-		switch v := args[0].(type) {
-		case string:
-			if strings.TrimSpace(v) != "" {
-				rawUrls = append(rawUrls, strings.TrimSpace(v))
-			}
-		case []interface{}:
-			for _, item := range v {
-				if str := strings.TrimSpace(fmt.Sprintf("%v", item)); str != "" {
-					rawUrls = append(rawUrls, str)
-				}
-			}
-		case []string:
-			for _, item := range v {
-				if str := strings.TrimSpace(item); str != "" {
-					rawUrls = append(rawUrls, str)
-				}
-			}
-		default:
-			str := strings.TrimSpace(fmt.Sprintf("%v", args[0]))
-			if str != "" {
-				rawUrls = append(rawUrls, str)
-			}
-		}
-
-		if len(rawUrls) == 0 {
-			return false
-		}
-
-		baseUrl := r.resolveDynamicBaseUrl("")
-		detectedHost := ""
-		if baseUrl != "" {
-			if u, err := url.Parse(baseUrl); err == nil {
-				detectedHost = u.Host
-			}
-		}
-
-		// Normalize URLs to absolute URLs and determine host
-		var absoluteUrls []string
-		for _, uStr := range rawUrls {
-			if strings.HasPrefix(uStr, "http://") || strings.HasPrefix(uStr, "https://") {
-				absoluteUrls = append(absoluteUrls, uStr)
-				if detectedHost == "" {
-					if parsed, err := url.Parse(uStr); err == nil {
-						detectedHost = parsed.Host
-					}
-				}
-			} else {
-				// Relative URL
-				rel := "/" + strings.TrimLeft(uStr, "/")
-				if baseUrl != "" {
-					absoluteUrls = append(absoluteUrls, baseUrl+rel)
-				} else {
-					absoluteUrls = append(absoluteUrls, rel)
-				}
-			}
-		}
-
-		if detectedHost == "" {
-			if appUrl, ok := r.Env["APP_URL"]; ok && appUrl != "" {
-				if parsed, err := url.Parse(appUrl); err == nil {
-					detectedHost = parsed.Host
-				}
-			}
-		}
-
-		keyLocation := ""
-		if baseUrl != "" && key != "" {
-			keyLocation = baseUrl + "/" + key + ".txt"
-		}
-
-		payload := IndexNowPayload{
-			Host:        detectedHost,
-			Key:         key,
-			KeyLocation: keyLocation,
-			URLList:     absoluteUrls,
-		}
-
-		// Send to IndexNow API
-		return r.sendIndexNowRequest(payload)
+		return r.handleSubmitIndexNow(args)
 	}
 
 	return nil

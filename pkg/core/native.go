@@ -307,58 +307,39 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.registerNative("Exception", []string{"constructor", "getMessage", "getCode"}, (*Runtime).executeExceptionMethod)
 }
 
+const ansiReset = "\033[0m"
+
+var consoleAnsiCodes = map[string]string{
+	"green":   "\033[32m",
+	"red":     "\033[31m",
+	"yellow":  "\033[33m",
+	"blue":    "\033[34m",
+	"cyan":    "\033[36m",
+	"magenta": "\033[35m",
+	"gray":    "\033[90m",
+	"bold":    "\033[1m",
+}
+
 func (r *Runtime) executeConsoleMethod(instance *Instance, method string, args []interface{}) interface{} {
 	text := ""
 	if len(args) > 0 {
 		text = fmt.Sprint(args[0])
 	}
+
+	if code, ok := consoleAnsiCodes[method]; ok {
+		if len(args) == 0 {
+			return code
+		}
+		return code + text + ansiReset
+	}
+
 	switch method {
-	case "green":
-		if len(args) == 0 {
-			return "\033[32m"
-		}
-		return "\033[32m" + text + "\033[0m"
-	case "red":
-		if len(args) == 0 {
-			return "\033[31m"
-		}
-		return "\033[31m" + text + "\033[0m"
-	case "yellow":
-		if len(args) == 0 {
-			return "\033[33m"
-		}
-		return "\033[33m" + text + "\033[0m"
-	case "blue":
-		if len(args) == 0 {
-			return "\033[34m"
-		}
-		return "\033[34m" + text + "\033[0m"
-	case "cyan":
-		if len(args) == 0 {
-			return "\033[36m"
-		}
-		return "\033[36m" + text + "\033[0m"
-	case "magenta":
-		if len(args) == 0 {
-			return "\033[35m"
-		}
-		return "\033[35m" + text + "\033[0m"
-	case "gray":
-		if len(args) == 0 {
-			return "\033[90m"
-		}
-		return "\033[90m" + text + "\033[0m"
-	case "bold":
-		if len(args) == 0 {
-			return "\033[1m"
-		}
-		return "\033[1m" + text + "\033[0m"
 	case "clear":
 		return "\033[2J\033[H"
 	case "color":
 		if len(args) >= 2 {
 			code := fmt.Sprint(args[1])
-			return "\033[" + code + "m" + text + "\033[0m"
+			return "\033[" + code + "m" + text + ansiReset
 		}
 		return text
 	case "log":

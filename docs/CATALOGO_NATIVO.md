@@ -133,7 +133,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L371).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L352).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -308,7 +308,7 @@ Implementación: [executeHttpMethod](../pkg/core/http_client.go#L14).
 
 ## IndexNow
 
-Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L59).
+Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L156).
 
 | Método | Retorno publicado al analizador |
 |---|---|
