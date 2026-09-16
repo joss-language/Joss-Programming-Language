@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -85,6 +87,8 @@ func main() {
 		runPluginCommand(os.Args[2:])
 	case "update":
 		handleUpdateCommand(os.Args[2:])
+	case "indexnow":
+		handleIndexNowCommand(os.Args[2:])
 	case "server":
 		if len(os.Args) >= 3 && os.Args[2] == "start" {
 			// Always require main.joss
@@ -583,4 +587,65 @@ func runRepl() {
 			}
 		}()
 	}
+}
+
+func handleIndexNowCommand(args []string) {
+	if len(args) == 0 || args[0] != "generate" {
+		fmt.Println("Uso: joss indexnow generate")
+		return
+	}
+
+	// Generate 32-character secure hex key
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		fmt.Printf("Error al generar clave criptográfica: %v\n", err)
+		return
+	}
+	key := hex.EncodeToString(bytes)
+
+	// Update or create .env
+	envPath := ".env"
+	envContent := ""
+	if data, err := os.ReadFile(envPath); err == nil {
+		envContent = string(data)
+	}
+
+	keyLine := fmt.Sprintf("INDEXNOW_KEY=%s", key)
+	if strings.Contains(envContent, "INDEXNOW_KEY=") {
+		lines := strings.Split(envContent, "\n")
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "INDEXNOW_KEY=") {
+				lines[i] = keyLine
+				break
+			}
+		}
+		envContent = strings.Join(lines, "\n")
+	} else {
+		if envContent != "" && !strings.HasSuffix(envContent, "\n") {
+			envContent += "\n"
+		}
+		envContent += keyLine + "\n"
+	}
+
+	if err := os.WriteFile(envPath, []byte(envContent), 0644); err != nil {
+		fmt.Printf("Error al escribir en .env: %v\n", err)
+		return
+	}
+
+	// Also generate verification file in public/{key}.txt if public directory exists
+	publicDir := "public"
+	if fi, err := os.Stat(publicDir); err == nil && fi.IsDir() {
+		pubFile := filepath.Join(publicDir, key+".txt")
+		if err := os.WriteFile(pubFile, []byte(key), 0644); err != nil {
+			fmt.Printf("Advertencia: No se pudo escribir %s: %v\n", pubFile, err)
+		} else {
+			fmt.Printf("✓ Archivo de verificación creado en: %s\n", pubFile)
+		}
+	}
+
+	fmt.Println("✓ IndexNow configurado exitosamente:")
+	fmt.Printf("  Key: %s\n", key)
+	fmt.Println("  Guardado en .env (INDEXNOW_KEY)")
+	fmt.Println("  El servidor web nativo de Joss responderá automáticamente en:")
+	fmt.Printf("  GET /%s.txt\n", key)
 }

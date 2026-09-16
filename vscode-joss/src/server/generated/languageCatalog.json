@@ -445,6 +445,12 @@
       "put",
       "request"
     ],
+    "IndexNow": [
+      "enabled",
+      "key",
+      "keyLocation",
+      "submit"
+    ],
     "JSON": [
       "decode",
       "encode",

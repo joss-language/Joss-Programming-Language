@@ -133,7 +133,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L367).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L371).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -305,6 +305,17 @@ Implementación: [executeHttpMethod](../pkg/core/http_client.go#L14).
 | `post` | `mixed` |
 | `put` | `mixed` |
 | `request` | `mixed` |
+
+## IndexNow
+
+Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L59).
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `enabled` | `bool` |
+| `key` | `string` |
+| `keyLocation` | `string` |
+| `submit` | `bool` |
 
 ## JSON
 
@@ -819,4 +830,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 43 clases, 404 métodos y 126 built-ins.
+Total: 44 clases, 408 métodos y 126 built-ins.

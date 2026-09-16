@@ -91,6 +91,7 @@ func printHelp(topics ...string) {
 	fmt.Println()
 	fmt.Println(i18n.Tr("cliSectionSystem"))
 	fmt.Printf("  version                        %s\n", i18n.Tr("version"))
+	fmt.Println("  indexnow generate              Genera y configura una clave IndexNow para indexación instantánea")
 	fmt.Printf("  update [-f|--canary|--stable]  %s\n", i18n.Tr("cliCmdUpdate"))
 	fmt.Printf("  help [comando]                 %s\n", i18n.Tr("helpPrint"))
 
@@ -302,6 +303,12 @@ func printTopicHelp(cmd string) {
 	case "version":
 		fmt.Printf("%s joss version\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicVersion"))
+
+	case "indexnow":
+		fmt.Printf("%s joss indexnow generate\n", i18n.Tr("cliUsageLabel"))
+		fmt.Println("Genera una clave criptográfica de verificación y configura IndexNow en .env y public/{key}.txt.")
+		fmt.Println("\nEl servidor web nativo de Joss responderá automáticamente en:")
+		fmt.Println("  GET /{key}.txt")
 
 	case "ai:activate", "ai":
 		fmt.Printf("%s joss ai:activate\n", i18n.Tr("cliUsageLabel"))

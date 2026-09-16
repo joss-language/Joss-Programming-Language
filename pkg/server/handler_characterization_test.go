@@ -391,3 +391,33 @@ func TestRedirectFlashPersistenceAndFailureHandling(t *testing.T) {
 		t.Fatal("failed flash persistence must not set redirect Location")
 	}
 }
+
+func TestIndexNowKeyEndpoint(t *testing.T) {
+	testKey := "0123456789abcdef0123456789abcdef"
+	rt := installHandlerRuntime(t, map[string]string{
+		"INDEXNOW_KEY": testKey,
+	}, "")
+
+	if rt.GetIndexNowKey() != testKey {
+		t.Fatalf("expected key %s, got %s", testKey, rt.GetIndexNowKey())
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/"+testKey+".txt", nil)
+	rec := httptest.NewRecorder()
+
+	MainHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	if body != testKey {
+		t.Fatalf("expected body %q, got %q", testKey, body)
+	}
+
+	contentType := rec.Header().Get("Content-Type")
+	if !strings.Contains(contentType, "text/plain") {
+		t.Fatalf("expected text/plain content type, got %s", contentType)
+	}
+}

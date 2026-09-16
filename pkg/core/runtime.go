@@ -154,6 +154,8 @@ func (r *Runtime) Fork() *Runtime {
 		copy(newR.SitemapExclusions, r.SitemapExclusions)
 	}
 
+	newR.IndexNowKey = r.IndexNowKey
+
 	return newR
 }
 

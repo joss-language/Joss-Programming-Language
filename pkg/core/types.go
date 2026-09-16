@@ -57,11 +57,12 @@ type Runtime struct {
 	pluginASTEngines  map[string]*PluginASTEngine
 	freed             atomic.Bool
 
-	// SEO & Sitemap
+	// SEO & Sitemap & IndexNow
 	SEO                *SEOData
 	SitemapEntries     []SitemapEntry
 	SitemapProviders   []*CapturedFunction
 	SitemapExclusions  []string
+	IndexNowKey        string
 	CurrentSource      string // "routes", "api", "app", etc.
 	CurrentFile        string // Currently executing file path
 	MaxCallDepth       int    // Guard against unbounded recursive calls

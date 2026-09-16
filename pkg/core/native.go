@@ -295,6 +295,10 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.registerNative("Sitemap", []string{"add", "provider", "exclude", "generate", "xsl"}, (*Runtime).executeSitemapMethod)
 	r.Variables["Sitemap"] = &Instance{Class: r.Classes["Sitemap"], Fields: make(map[string]interface{})}
 
+	// IndexNow
+	r.registerNative("IndexNow", []string{"key", "enabled", "submit", "keyLocation"}, (*Runtime).executeIndexNowMethod)
+	r.Variables["IndexNow"] = &Instance{Class: r.Classes["IndexNow"], Fields: make(map[string]interface{})}
+
 	// Console (Terminal styling & ANSI colors)
 	r.registerNativeDefinitions("Console", migratedNativeMethods["Console"], (*Runtime).executeConsoleMethod)
 	r.Variables["Console"] = &Instance{Class: r.Classes["Console"], Fields: make(map[string]interface{})}

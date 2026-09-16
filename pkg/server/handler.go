@@ -183,6 +183,14 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Automatic IndexNow Key Verification Endpoint (/{key}.txt)
+	if indexNowKey := rt.GetIndexNowKey(); indexNowKey != "" && r.URL.Path == "/"+indexNowKey+".txt" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		fmt.Fprint(w, indexNowKey)
+		return
+	}
+
 	// Handle Virtual Assets (Node Modules)
 	if strings.HasPrefix(r.URL.Path, "/assets/vendor/") {
 		// ... existing code ...

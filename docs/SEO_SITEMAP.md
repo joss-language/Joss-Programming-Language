@@ -57,3 +57,23 @@ La URL base usa el request actual, después `APP_URL` y finalmente `http://local
 
 `SEO::twitter` no está registrado. `SEO::render` ya agrega una card predeterminada;
 usa `SEO::meta("twitter:...", valor)` para metadata adicional.
+
+## IndexNow (Indexación Instantánea)
+
+IndexNow permite notificar en tiempo real a los motores de búsqueda (Bing, Yandex, Seznam, Naver) sobre cambios o nuevas páginas sin esperar a que un crawler recorra el sitemap.
+
+<!-- joss-check: Requiere servidor HTTP activo y clave INDEXNOW_KEY -->
+```joss
+// Generar la clave con CLI: joss indexnow generate
+// O enviar URLs a IndexNow directamente:
+IndexNow::submit("/blog/mi-nuevo-articulo")
+
+// Notificar múltiples URLs por lote:
+IndexNow::submit([
+    "/blog/post-1",
+    "/blog/post-2"
+])
+```
+
+Al arrancar el servidor (`joss server start`, `joss program start`, etc.), el runtime detecta `INDEXNOW_KEY` en `.env` y el servidor HTTP de Joss responde automáticamente en `GET /{key}.txt` con la clave en texto plano, validando la propiedad de tu dominio de forma instantánea.
+
