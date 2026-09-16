@@ -632,20 +632,10 @@ func handleIndexNowCommand(args []string) {
 		return
 	}
 
-	// Also generate verification file in public/{key}.txt if public directory exists
-	publicDir := "public"
-	if fi, err := os.Stat(publicDir); err == nil && fi.IsDir() {
-		pubFile := filepath.Join(publicDir, key+".txt")
-		if err := os.WriteFile(pubFile, []byte(key), 0644); err != nil {
-			fmt.Printf("Advertencia: No se pudo escribir %s: %v\n", pubFile, err)
-		} else {
-			fmt.Printf("✓ Archivo de verificación creado en: %s\n", pubFile)
-		}
-	}
-
 	fmt.Println("✓ IndexNow configurado exitosamente:")
 	fmt.Printf("  Key: %s\n", key)
 	fmt.Println("  Guardado en .env (INDEXNOW_KEY)")
-	fmt.Println("  El servidor web nativo de Joss responderá automáticamente en:")
+	fmt.Println("  El servidor web nativo de Joss responderá de forma interna y automática en:")
 	fmt.Printf("  GET /%s.txt\n", key)
+	fmt.Println("  (No requiere crear archivos físicos ni rutas manuales en routes.joss)")
 }

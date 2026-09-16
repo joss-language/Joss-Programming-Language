@@ -306,9 +306,10 @@ func printTopicHelp(cmd string) {
 
 	case "indexnow":
 		fmt.Printf("%s joss indexnow generate\n", i18n.Tr("cliUsageLabel"))
-		fmt.Println("Genera una clave criptográfica de verificación y configura IndexNow en .env y public/{key}.txt.")
-		fmt.Println("\nEl servidor web nativo de Joss responderá automáticamente en:")
+		fmt.Println("Genera una clave criptográfica de verificación y activa IndexNow en el entorno (.env).")
+		fmt.Println("\nEl servidor web nativo de Joss responde internamente en:")
 		fmt.Println("  GET /{key}.txt")
+		fmt.Println("(Sin necesidad de crear archivos físicos en disco ni rutas en routes.joss)")
 
 	case "ai:activate", "ai":
 		fmt.Printf("%s joss ai:activate\n", i18n.Tr("cliUsageLabel"))

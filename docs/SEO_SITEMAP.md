@@ -75,5 +75,5 @@ IndexNow::submit([
 ])
 ```
 
-Al arrancar el servidor (`joss server start`, `joss program start`, etc.), el runtime detecta `INDEXNOW_KEY` en `.env` y el servidor HTTP de Joss responde automáticamente en `GET /{key}.txt` con la clave en texto plano, validando la propiedad de tu dominio de forma instantánea.
+Al arrancar el servidor (`joss server start`, `joss program start`, etc.), el runtime detecta `INDEXNOW_KEY` en `.env` y el servidor HTTP de Joss responde automáticamente de forma interna en `GET /{key}.txt` con la clave en texto plano, validando la propiedad de tu dominio de forma instantánea. No necesitas crear archivos físicos en disco ni definir rutas en `routes.joss`.
 
