@@ -308,7 +308,7 @@ Implementación: [executeHttpMethod](../pkg/core/http_client.go#L14).
 
 ## IndexNow
 
-Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L156).
+Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
 
 | Método | Retorno publicado al analizador |
 |---|---|
