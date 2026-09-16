@@ -148,10 +148,7 @@ func JsonEncode(data interface{}) string {
 }
 
 func JsonDecode(str string) interface{} {
-	str = strings.TrimSpace(str)
-	if strings.HasPrefix(str, "\xef\xbb\xbf") {
-		str = str[3:]
-	}
+	str = strings.TrimPrefix(strings.TrimSpace(str), "\xef\xbb\xbf")
 	var result interface{}
 	err := json.Unmarshal([]byte(str), &result)
 	if err != nil {

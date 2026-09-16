@@ -32,7 +32,7 @@ func (r *Runtime) executeServerControlMethod(instance *Instance, method string, 
 		if len(args) >= 3 {
 			name := args[0].(string) // For future management
 			commandStr := args[1].(string)
-			port := args[2].(interface{}) // int or string or float
+			port := args[2] // int or string or float
 
 			// Security Check
 			allow, ok := r.Env["ALLOW_SYSTEM_RUN"]

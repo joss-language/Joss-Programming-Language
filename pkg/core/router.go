@@ -29,7 +29,7 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 		}
 
 		// Add current middleware if any
-		if r.CurrentMiddleware != nil && len(r.CurrentMiddleware) > 0 {
+		if len(r.CurrentMiddleware) > 0 {
 			mwCopy := make([]string, len(r.CurrentMiddleware))
 			copy(mwCopy, r.CurrentMiddleware)
 			routeInfo["middleware"] = mwCopy
@@ -66,7 +66,7 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 
 	case "end":
 		// End middleware group (pop last)
-		if r.CurrentMiddleware != nil && len(r.CurrentMiddleware) > 0 {
+		if len(r.CurrentMiddleware) > 0 {
 			r.CurrentMiddleware = r.CurrentMiddleware[:len(r.CurrentMiddleware)-1]
 		}
 		return nil

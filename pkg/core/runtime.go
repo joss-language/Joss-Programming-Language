@@ -102,32 +102,7 @@ func (r *Runtime) Fork() *Runtime {
 	newR.Constants["endl"] = true
 	newR.Variables["JOSS_VERSION"] = version.Version
 
-	// Deep Copy Global Variables
-	for k, v := range r.Variables {
-		if inst, ok := v.(*Instance); ok {
-			newR.Variables[k] = inst.Clone()
-		} else if ns, ok := v.(*PluginNamespace); ok {
-			newR.Variables[k] = &PluginNamespace{
-				Name:    ns.Name,
-				Plugin:  ns.Plugin,
-				Runtime: newR,
-			}
-		} else if m, ok := v.(map[string]interface{}); ok {
-			// Deep copy maps
-			newMap := make(map[string]interface{})
-			for mk, mv := range m {
-				newMap[mk] = mv
-			}
-			newR.Variables[k] = newMap
-		} else if l, ok := v.([]interface{}); ok {
-			// Deep copy slices
-			newList := make([]interface{}, len(l))
-			copy(newList, l)
-			newR.Variables[k] = newList
-		} else {
-			newR.Variables[k] = v
-		}
-	}
+	copyForkVariables(r.Variables, newR)
 
 	// Copy Functions and Classes
 	for k, v := range r.Functions {
@@ -157,6 +132,37 @@ func (r *Runtime) Fork() *Runtime {
 	newR.IndexNowKey = r.IndexNowKey
 
 	return newR
+}
+
+func copyForkVariables(source map[string]interface{}, target *Runtime) {
+	for k, v := range source {
+		target.Variables[k] = cloneForkValue(v, target)
+	}
+}
+
+func cloneForkValue(v interface{}, target *Runtime) interface{} {
+	switch val := v.(type) {
+	case *Instance:
+		return val.Clone()
+	case *PluginNamespace:
+		return &PluginNamespace{
+			Name:    val.Name,
+			Plugin:  val.Plugin,
+			Runtime: target,
+		}
+	case map[string]interface{}:
+		newMap := make(map[string]interface{}, len(val))
+		for mk, mv := range val {
+			newMap[mk] = mv
+		}
+		return newMap
+	case []interface{}:
+		newList := make([]interface{}, len(val))
+		copy(newList, val)
+		return newList
+	default:
+		return val
+	}
 }
 
 func copyBoolMap(source map[string]bool) map[string]bool {
@@ -368,17 +374,9 @@ func generateSecureKey() string {
 const defaultEnvFileName = "env.joss"
 
 func (r *Runtime) writeEnvJoss() {
-	filePath := defaultEnvFileName
-	if _, err := os.Stat(defaultEnvFileName); os.IsNotExist(err) {
-		if _, errDot := os.Stat(".env"); errDot == nil {
-			filePath = ".env"
-		} else {
-			f, errCreate := os.Create(defaultEnvFileName)
-			if errCreate != nil {
-				return
-			}
-			f.Close()
-		}
+	filePath := resolveEnvFilePath()
+	if filePath == "" {
+		return
 	}
 
 	content, err := os.ReadFile(filePath)
@@ -386,34 +384,48 @@ func (r *Runtime) writeEnvJoss() {
 		return
 	}
 
-	lines := strings.Split(string(content), "\n")
-	hasJWT := false
-	hasKey := false
+	newLines := buildUpdatedEnvLines(string(content), r.Env["JWT_SECRET"], r.Env["APP_KEY"])
+	_ = os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")), 0644)
+	fmt.Printf("[Security] Archivo de entorno %s actualizado con claves de seguridad fuertes.\n", filePath)
+}
+
+func resolveEnvFilePath() string {
+	if _, err := os.Stat(defaultEnvFileName); err == nil {
+		return defaultEnvFileName
+	}
+	if _, errDot := os.Stat(".env"); errDot == nil {
+		return ".env"
+	}
+	f, errCreate := os.Create(defaultEnvFileName)
+	if errCreate != nil {
+		return ""
+	}
+	_ = f.Close()
+	return defaultEnvFileName
+}
+
+func buildUpdatedEnvLines(content, jwtSecret, appKey string) []string {
+	lines := strings.Split(content, "\n")
+	hasJWT, hasKey := false, false
 
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "JWT_SECRET=") {
-			lines[i] = fmt.Sprintf("JWT_SECRET=\"%s\"", r.Env["JWT_SECRET"])
+			lines[i] = fmt.Sprintf("JWT_SECRET=\"%s\"", jwtSecret)
 			hasJWT = true
 		} else if strings.HasPrefix(trimmed, "APP_KEY=") {
-			lines[i] = fmt.Sprintf("APP_KEY=\"%s\"", r.Env["APP_KEY"])
+			lines[i] = fmt.Sprintf("APP_KEY=\"%s\"", appKey)
 			hasKey = true
 		}
 	}
 
-	var newLines []string
-	for _, l := range lines {
-		newLines = append(newLines, l)
-	}
 	if !hasJWT {
-		newLines = append(newLines, fmt.Sprintf("JWT_SECRET=\"%s\"", r.Env["JWT_SECRET"]))
+		lines = append(lines, fmt.Sprintf("JWT_SECRET=\"%s\"", jwtSecret))
 	}
 	if !hasKey {
-		newLines = append(newLines, fmt.Sprintf("APP_KEY=\"%s\"", r.Env["APP_KEY"]))
+		lines = append(lines, fmt.Sprintf("APP_KEY=\"%s\"", appKey))
 	}
-
-	os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")), 0644)
-	fmt.Printf("[Security] Archivo de entorno %s actualizado con claves de seguridad fuertes.\n", filePath)
+	return lines
 }
 
 // GetDB ensures the database connection is initialized and returns it.
@@ -550,23 +562,28 @@ func (r *Runtime) preloadSingleDir(dirPath string) {
 			return nil
 		}
 		if parser.IsJossSourceFile(path) {
-			content, readErr := os.ReadFile(path)
-			if readErr == nil {
-				l := parser.NewLexer(string(content))
-				p := parser.NewParser(l)
-				program := p.ParseProgram()
-				if len(p.Errors()) == 0 {
-					r.Execute(program)
-				} else {
-					fmt.Printf("[Runtime Warning] Parser errors in %s:\n", path)
-					for _, msg := range p.Errors() {
-						fmt.Printf("\t%s\n", msg)
-					}
-				}
+			if content, readErr := os.ReadFile(path); readErr == nil {
+				r.parseAndExecuteJossContent(string(content), path)
 			}
 		}
 		return nil
 	})
+}
+
+func (r *Runtime) parseAndExecuteJossContent(content, sourcePath string) {
+	l := parser.NewLexer(content)
+	p := parser.NewParser(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) == 0 {
+		r.Execute(program)
+		return
+	}
+	if sourcePath != "" {
+		fmt.Printf("[Runtime Warning] Parser errors in %s:\n", sourcePath)
+		for _, msg := range p.Errors() {
+			fmt.Printf("\t%s\n", msg)
+		}
+	}
 }
 
 // PreloadVFSAppFiles recursively preloads .joss files from VFS within domain-scoped subfolders.
@@ -581,63 +598,54 @@ func (r *Runtime) PreloadVFSAppFiles(fs http.FileSystem, targetPath string) {
 		domains = []string{filepath.ToSlash(targetPath)}
 	}
 
-	var walkVFS func(dir string)
-	walkVFS = func(dir string) {
-		dirFile, err := fs.Open(dir)
-		if err != nil {
-			return
-		}
-		defer dirFile.Close()
+	for _, domain := range domains {
+		r.walkVFSAppDir(fs, domain)
+	}
+}
 
-		info, err := dirFile.Stat()
-		if err != nil {
-			return
-		}
-		if !info.IsDir() {
-			if strings.HasSuffix(dir, ".joss") {
-				content, err := io.ReadAll(dirFile)
-				if err == nil {
-					l := parser.NewLexer(string(content))
-					p := parser.NewParser(l)
-					program := p.ParseProgram()
-					if len(p.Errors()) == 0 {
-						r.Execute(program)
-					}
-				}
-			}
-			return
-		}
+func (r *Runtime) walkVFSAppDir(fs http.FileSystem, dir string) {
+	dirFile, err := fs.Open(dir)
+	if err != nil {
+		return
+	}
+	defer dirFile.Close()
 
-		if readdir, ok := dirFile.(interface {
-			Readdir(count int) ([]os.FileInfo, error)
-		}); ok {
-			infos, err := readdir.Readdir(-1)
-			if err == nil {
-				for _, childInfo := range infos {
-					childPath := filepath.ToSlash(filepath.Join(dir, childInfo.Name()))
-					if childInfo.IsDir() {
-						walkVFS(childPath)
-					} else if strings.HasSuffix(childInfo.Name(), ".joss") {
-						cf, err := fs.Open(childPath)
-						if err == nil {
-							data, readErr := io.ReadAll(cf)
-							cf.Close()
-							if readErr == nil {
-								l := parser.NewLexer(string(data))
-								p := parser.NewParser(l)
-								program := p.ParseProgram()
-								if len(p.Errors()) == 0 {
-									r.Execute(program)
-								}
-							}
-						}
-					}
-				}
+	info, err := dirFile.Stat()
+	if err != nil {
+		return
+	}
+	if !info.IsDir() {
+		if strings.HasSuffix(dir, ".joss") {
+			if content, err := io.ReadAll(dirFile); err == nil {
+				r.parseAndExecuteJossContent(string(content), "")
 			}
 		}
+		return
 	}
 
-	for _, domain := range domains {
-		walkVFS(domain)
+	readdir, ok := dirFile.(interface {
+		Readdir(count int) ([]os.FileInfo, error)
+	})
+	if !ok {
+		return
+	}
+
+	infos, err := readdir.Readdir(-1)
+	if err != nil {
+		return
+	}
+	for _, childInfo := range infos {
+		childPath := filepath.ToSlash(filepath.Join(dir, childInfo.Name()))
+		if childInfo.IsDir() {
+			r.walkVFSAppDir(fs, childPath)
+		} else if strings.HasSuffix(childInfo.Name(), ".joss") {
+			if cf, err := fs.Open(childPath); err == nil {
+				data, readErr := io.ReadAll(cf)
+				cf.Close()
+				if readErr == nil {
+					r.parseAndExecuteJossContent(string(data), "")
+				}
+			}
+		}
 	}
 }

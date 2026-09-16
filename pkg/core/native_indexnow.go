@@ -81,41 +81,43 @@ func extractRawUrls(arg interface{}) []string {
 }
 
 func (r *Runtime) resolveUrlsAndHost(rawUrls []string, baseUrl string) ([]string, string) {
-	detectedHost := ""
-	if baseUrl != "" {
-		if u, err := url.Parse(baseUrl); err == nil {
-			detectedHost = u.Host
-		}
-	}
+	detectedHost := hostFromUrl(baseUrl)
 
 	var absoluteUrls []string
 	for _, uStr := range rawUrls {
-		if strings.HasPrefix(uStr, "http://") || strings.HasPrefix(uStr, "https://") {
-			absoluteUrls = append(absoluteUrls, uStr)
-			if detectedHost == "" {
-				if parsed, err := url.Parse(uStr); err == nil {
-					detectedHost = parsed.Host
-				}
-			}
-		} else {
-			rel := "/" + strings.TrimLeft(uStr, "/")
-			if baseUrl != "" {
-				absoluteUrls = append(absoluteUrls, baseUrl+rel)
-			} else {
-				absoluteUrls = append(absoluteUrls, rel)
-			}
+		absUrl, host := resolveSingleUrl(uStr, baseUrl)
+		absoluteUrls = append(absoluteUrls, absUrl)
+		if detectedHost == "" && host != "" {
+			detectedHost = host
 		}
 	}
 
 	if detectedHost == "" {
-		if appUrl, ok := r.Env["APP_URL"]; ok && appUrl != "" {
-			if parsed, err := url.Parse(appUrl); err == nil {
-				detectedHost = parsed.Host
-			}
-		}
+		detectedHost = hostFromUrl(r.Env["APP_URL"])
 	}
 
 	return absoluteUrls, detectedHost
+}
+
+func hostFromUrl(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(raw); err == nil {
+		return parsed.Host
+	}
+	return ""
+}
+
+func resolveSingleUrl(uStr, baseUrl string) (string, string) {
+	if strings.HasPrefix(uStr, "http://") || strings.HasPrefix(uStr, "https://") {
+		return uStr, hostFromUrl(uStr)
+	}
+	rel := "/" + strings.TrimLeft(uStr, "/")
+	if baseUrl != "" {
+		return baseUrl + rel, ""
+	}
+	return rel, ""
 }
 
 func (r *Runtime) handleSubmitIndexNow(args []interface{}) bool {

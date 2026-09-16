@@ -10,9 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/jossecurity/joss/pkg/core"
 
 	_ "embed"
@@ -33,39 +31,11 @@ var (
 )
 
 func MainHandler(w http.ResponseWriter, r *http.Request) {
-	// Lazy load sessions on first request if empty? No, better to do it once.
-	// We can do it in init() but variables might not be ready.
-	// Let's do it in a sync.Once or just check if empty?
-	// Actually, `Start` in server.go calls MainHandler only via http.Handle.
-	// We can add a sync.Once here.
-
 	requestID := fmt.Sprintf("%s %s", r.Method, r.URL.Path)
-
-	requestStartTime := time.Now()
-	done := make(chan struct{})
-	go func() {
-		// Dynamic Watchdog Suppression
-		// Detect WebSockets or SSE (AI Streams) to avoid false positives
-		if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") ||
-			strings.Contains(r.Header.Get("Accept"), "text/event-stream") {
-			return
-		}
-
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				fmt.Printf("[WATCHDOG] Request %s still processing (%.0fs)...\n", requestID, time.Since(requestStartTime).Seconds())
-			case <-done:
-				return
-			}
-		}
-	}()
-	defer close(done)
+	stopWatchdog := startRequestWatchdog(r, requestID)
+	defer stopWatchdog()
 
 	// 1. Runtime Fork (Isolation)
-	// fmt.Printf("[HANDLER] %s: Forking runtime...\n", requestID)
 	mutex.RLock()
 	if currentRuntime == nil {
 		mutex.RUnlock()
@@ -75,8 +45,7 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 	rt := currentRuntime.Fork()
 	mutex.RUnlock()
 	webSocketUpgraded := false
-	// Every branch after acquisition, including rate-limit and storage errors,
-	// must release the request runtime.
+
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			errMsg := core.FormatPanicAsError(recovered)
@@ -89,15 +58,9 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 		rt.Free()
 	}()
 
-	// rt.LoadEnv(core.GlobalFileSystem) // Fork already has Env copied
-
 	setupRequestLocale(r, rt)
 
-	if !enforceRateLimit(w, r, rt.Env) {
-		return
-	}
-
-	if handleCORSHeaders(w, r, rt.Env) {
+	if !enforceRateLimit(w, r, rt.Env) || handleCORSHeaders(w, r, rt.Env) {
 		return
 	}
 
@@ -113,210 +76,23 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2.5 Check for WebSocket Upgrade for Routes
-	if r.URL.Path == "/api/chat-ws" {
-		fmt.Printf("[WS DEBUG] Headers for %s:\n", r.URL.Path)
-		for k, v := range r.Header {
-			fmt.Printf("\t%s: %v\n", k, v)
-		}
-	}
-
-	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
-		// Only if not ignored internal paths
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			fmt.Printf("[WS] Upgrade failed: %v\n", err)
-			return
-		}
-		webSocketUpgraded = true
-
-		maxMessageBytes := int64(envPositiveInt(rt.Env, "WS_MAX_MESSAGE_BYTES", 8*1024*1024))
-		idleTimeout := time.Duration(envPositiveInt(rt.Env, "WS_IDLE_TIMEOUT_SECONDS", 120)) * time.Second
-		pingInterval := time.Duration(envPositiveInt(rt.Env, "WS_PING_INTERVAL_SECONDS", 30)) * time.Second
-		if pingInterval >= idleTimeout {
-			pingInterval = idleTimeout / 2
-		}
-		if pingInterval < time.Second {
-			pingInterval = time.Second
-		}
-
-		conn.SetReadLimit(maxMessageBytes)
-		refreshReadDeadline := func() error {
-			return conn.SetReadDeadline(time.Now().Add(idleTimeout))
-		}
-		_ = refreshReadDeadline()
-		conn.SetPongHandler(func(string) error {
-			return refreshReadDeadline()
-		})
-
-		var writeMu sync.Mutex
-		pingDone := make(chan struct{})
-		defer close(pingDone)
-		defer conn.Close()
-		go func() {
-			ticker := time.NewTicker(pingInterval)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					writeMu.Lock()
-					err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(10*time.Second))
-					writeMu.Unlock()
-					if err != nil {
-						_ = conn.Close()
-						return
-					}
-				case <-pingDone:
-					return
-				}
-			}
-		}()
-
-		// Create Reader Closure to avoid importing websocket in core
-		reader := func() (int, []byte, error) {
-			return conn.ReadMessage()
-		}
-
-		// Create Sender Closure
-		sender := func(v interface{}) error {
-			writeMu.Lock()
-			defer writeMu.Unlock()
-			// If v is string/byte, use WriteMessage?
-			// Joss usually sends JSON string via .send().
-			// But native logic in websocket.go gets `msg`.
-			// If `msg` is string, we should use WriteMessage(TextMessage, []byte(msg))?
-			// Or just WriteJSON?
-			// Controller logic: $ws.send(JSON.stringify(...)) -> String.
-			// WriteJSON would wrap it in quotes again: `"{\"type\":...}"`.
-			// We want raw text if it's a string, or JSON if object.
-
-			// Simple check
-			if str, ok := v.(string); ok {
-				return conn.WriteMessage(1, []byte(str)) // 1 = TextMessage
-			}
-			return conn.WriteJSON(v)
-		}
-
-		// Dispatch to WebSocket Handler in Core (Blocking)
-		rt.DispatchWebSocket(r.URL.Path, conn, reader, sender, conn.Close)
-
+	if handleWebSocketRoute(w, r, rt, &webSocketUpgraded) {
 		return
 	}
 
 	// Translate the HTTP request into the stable map exposed to Joss code.
 	reqData := decodeRequestData(r, host, scheme)
 
-	// 4. Session Management
-	sessionID := ""
-	cookie, err := r.Cookie("joss_session")
-	if err != nil {
-		sessionID = generateSessionID()
-		http.SetCookie(w, &http.Cookie{Name: "joss_session", Value: sessionID, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode})
-	} else {
-		sessionID = cookie.Value
-	}
-
-	// JWT Persistence Logic (Stateless fallback)
-	jwtCookie, err := r.Cookie("joss_token")
-	var jwtClaims map[string]interface{}
-	if err == nil && jwtCookie.Value != "" {
-		claims, valid := rt.ValidateJWT(jwtCookie.Value)
-		if valid {
-			jwtClaims = claims
-		}
-	}
-
-	// fmt.Printf("[HANDLER] %s: Acquiring session lock...\n", requestID)
-	sessData, driver, sessionErr := loadSession(rt.Env, sessionID)
-	if sessionErr != nil {
-		status := http.StatusInternalServerError
-		if driver == "redis" {
-			status = http.StatusServiceUnavailable
-		}
-		http.Error(w, "Unable to load session storage", status)
-		fmt.Printf("[Session] %v\n", sessionErr)
+	sessionID, driver, sessData, ok := setupSessionAndSecurity(w, r, rt)
+	if !ok {
 		return
 	}
-	// fmt.Printf("[HANDLER] %s: Session lock released (Load).\n", requestID)
 
-	// If session is empty but we have a valid JWT, restore session state
-	if jwtClaims != nil {
-		if _, ok := sessData["user_id"]; !ok {
-			// Restore User from JWT
-			if uid, ok := jwtClaims["user_id"].(float64); ok {
-				sessData["user_id"] = int(uid)
-			}
-			if email, ok := jwtClaims["email"].(string); ok {
-				sessData["user_email"] = email
-			}
-			if name, ok := jwtClaims["name"].(string); ok {
-				sessData["user_name"] = name
-			}
-			if role, ok := jwtClaims["role"].(string); ok {
-				sessData["user_role"] = role
-			}
-			// Token itself
-			sessData["user_token"] = jwtCookie.Value // Or from claims if stored
-
-			fmt.Printf("[HANDLER] Session restored from JWT for user: %v\n", sessData["user_email"])
-		}
-	}
-
-	// 5. Security Headers
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("X-Frame-Options", "DENY")
-	w.Header().Set("X-XSS-Protection", "1; mode=block")
-	if r.TLS != nil {
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-	}
-
-	// 6. CSRF Protection
-	csrfToken := ""
-	if val, ok := sessData["csrf_token"]; ok {
-		var valid bool
-		csrfToken, valid = val.(string)
-		if !valid || csrfToken == "" {
-			http.Error(w, "Unable to load session storage", http.StatusInternalServerError)
-			fmt.Printf("[Session] csrf_token has invalid type %T\n", val)
-			return
-		}
-	} else {
-		b := make([]byte, 32)
-		if _, err := rand.Read(b); err != nil {
-			http.Error(w, "Unable to initialize session security", http.StatusInternalServerError)
-			return
-		}
-		csrfToken = hex.EncodeToString(b)
-		sessData["csrf_token"] = csrfToken
-		if err := saveSession(rt.Env, driver, sessionID, sessData); err != nil {
-			http.Error(w, "Unable to persist session storage", http.StatusInternalServerError)
-			fmt.Printf("[Session] %v\n", err)
-			return
-		}
-	}
-
-	// Exempt API routes from CSRF
-	if (r.Method == "POST" || r.Method == "PUT" || r.Method == "DELETE" || r.Method == "PATCH") && !strings.HasPrefix(r.URL.Path, "/api/") {
-		reqToken := ""
-		if val, ok := reqData["_token"]; ok {
-			reqToken = fmt.Sprintf("%v", val)
-		} else {
-			reqToken = r.Header.Get("X-CSRF-TOKEN")
-		}
-
-		fmt.Printf("[CSRF DEBUG] Session: %s | Stored: %s | Received: %s\n", sessionID, csrfToken, reqToken)
-
-		if reqToken == "" || reqToken != csrfToken {
-			w.WriteHeader(http.StatusForbidden)
-			fmt.Fprintf(w, "<h1>419 Page Expired</h1><p>CSRF token mismatch.</p>")
-			// Print debug info to browser too (for development)
-			fmt.Fprintf(w, "<!-- Debug: Stored='%s' Received='%s' -->", csrfToken, reqToken)
-			return
-		}
+	if !validateCSRFToken(w, r, reqData, sessData, sessionID) {
+		return
 	}
 
 	// 7. Dispatch
-	// fmt.Printf("[DEBUG] Dispatching %s %s\n", r.Method, r.URL.Path)
 	result, err := rt.Dispatch(r.Method, r.URL.Path, reqData, sessData)
 
 	// 8. Save Session
@@ -576,20 +352,4 @@ func generateSessionID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return hex.EncodeToString(b)
-}
-
-// resolveRedirectStatus returns the HTTP status code from a WebResponse instance,
-// falling back to 302 (Found) if not explicitly set.
-func resolveRedirectStatus(inst *core.Instance) int {
-	if code, ok := inst.Fields["status_code"]; ok {
-		switch v := code.(type) {
-		case int:
-			return v
-		case int64:
-			return int(v)
-		case float64:
-			return int(v)
-		}
-	}
-	return http.StatusFound
 }
