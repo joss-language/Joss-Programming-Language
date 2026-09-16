@@ -483,7 +483,7 @@ Implementación: [executeRouterMethod](../pkg/core/router.go#L12).
 
 ## SEO
 
-Implementación: [executeSEOMethod](../pkg/core/native_seo.go#L12).
+Implementación: [executeSEOMethod](../pkg/core/native_seo.go#L13).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -542,7 +542,7 @@ Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L75).
 
 ## Sitemap
 
-Implementación: [executeSitemapMethod](../pkg/core/native_seo.go#L127).
+Implementación: [executeSitemapMethod](../pkg/core/native_seo.go#L128).
 
 | Método | Retorno publicado al analizador |
 |---|---|
