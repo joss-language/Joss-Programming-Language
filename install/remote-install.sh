@@ -19,10 +19,22 @@ REPO_OWNER="joss-language"
 REPO_NAME="Joss-Programming-Language"
 
 # Rutas
-INSTALL_DIR="/usr/local/bin"
-LEGACY_SDK_INSTALL_DIR="/usr/local/share/joss/sdk"
-LOG_FILE="/tmp/jossecurity-action.log"
-TEMP_DIR="/tmp/jossecurity-temp-action"
+IS_TERMUX=false
+if [ -n "${TERMUX_VERSION:-}" ] || [ -n "${PREFIX:-}" ] && [ -d "${PREFIX:-}/bin" ]; then
+    IS_TERMUX=true
+fi
+
+if [ "$IS_TERMUX" = true ]; then
+    INSTALL_DIR="${PREFIX}/bin"
+    LEGACY_SDK_INSTALL_DIR="${PREFIX}/share/joss/sdk"
+    LOG_FILE="${TMPDIR:-$PREFIX/tmp}/jossecurity-action.log"
+    TEMP_DIR="${TMPDIR:-$PREFIX/tmp}/jossecurity-temp-action"
+else
+    INSTALL_DIR="/usr/local/bin"
+    LEGACY_SDK_INSTALL_DIR="/usr/local/share/joss/sdk"
+    LOG_FILE="/tmp/jossecurity-action.log"
+    TEMP_DIR="/tmp/jossecurity-temp-action"
+fi
 REPO_URL="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest"
 # --------------------
 
@@ -46,7 +58,7 @@ detect_vscode() {
 }
 
 run_privileged() {
-    if [ "$(id -u)" -eq 0 ]; then
+    if [ "$IS_TERMUX" = true ] || [ "$(id -u)" -eq 0 ]; then
         "$@"
         return $?
     fi
@@ -62,6 +74,15 @@ run_privileged() {
 get_binary_name() {
     OS=$(uname -s)
     ARCH=$(uname -m)
+
+    if [ "$IS_TERMUX" = true ]; then
+        case "$ARCH" in
+            aarch64|arm64) echo "joss-android-arm64";;
+            armv7*|armv8l|arm) echo "joss-android-armv7";;
+            *) log ERROR "Termux/Android Architecture $ARCH not supported."; exit 1;;
+        esac
+        return 0
+    fi
 
     case "$OS" in
         Linux*)
@@ -132,6 +153,10 @@ install_jossecurity() {
 }
 
 install_extension() {
+    if [ "$IS_TERMUX" = true ]; then
+        return 0
+    fi
+
     log INFO "[2/2] Installing VS Code extension..."
     
     if ! detect_vscode; then
@@ -300,7 +325,9 @@ download_and_extract() {
 
     # Determine correct ZIP
     OS=$(uname -s)
-    if [[ "$OS" == "Darwin" ]]; then
+    if [ "$IS_TERMUX" = true ]; then
+        OS_ZIP="jossecurity-android.zip"
+    elif [[ "$OS" == "Darwin" ]]; then
         OS_ZIP="jossecurity-macos.zip"
     else
         OS_ZIP="jossecurity-linux.zip"
@@ -318,20 +345,21 @@ download_and_extract() {
         return 1
     fi
     
-    # 2. Extension
-    log INFO "[INIT] Downloading Extension ($EXT_ZIP)..."
-    if ! curl -fsSL "$EXT_URL" -o "$TEMP_DIR/$EXT_ZIP"; then
-        log ERROR "[X] Failed to download extension." 
-        # Non-fatal? Maybe we still proceed with binary. But let's fail safe.
-        return 1
-    fi
-
     log INFO "[INIT] Extracting files..."
     unzip -o "$TEMP_DIR/$OS_ZIP" -d "$TEMP_DIR/runtime"
-    unzip -o "$TEMP_DIR/$EXT_ZIP" -d "$TEMP_DIR/extension"
-    
-    # Check VS Code
-    ensure_vscode
+
+    # 2. Extension (Omitida en Termux/Android por no aplicar VS Code de escritorio)
+    if [ "$IS_TERMUX" != true ]; then
+        log INFO "[INIT] Downloading Extension ($EXT_ZIP)..."
+        if curl -fsSL "$EXT_URL" -o "$TEMP_DIR/$EXT_ZIP" 2>/dev/null; then
+            unzip -o "$TEMP_DIR/$EXT_ZIP" -d "$TEMP_DIR/extension" || true
+        else
+            log WARNING "[!] Could not download VS Code extension (continuing with runtime only)."
+        fi
+        
+        # Check VS Code
+        ensure_vscode
+    fi
     
     return 0
 }

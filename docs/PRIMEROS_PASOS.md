@@ -88,7 +88,7 @@ En **Windows** (abre PowerShell como usuario estándar o Administrador):
 iwr -useb https://joss.red/install | iex
 ```
 
-En **Linux o macOS** (abre tu Terminal):
+En **Linux, macOS o Android (Termux)** (abre tu Terminal):
 
 ```bash
 curl -fsSL https://joss.red/install.sh | bash

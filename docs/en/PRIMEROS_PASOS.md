@@ -81,7 +81,7 @@ A **terminal** (or console) is a text window where you communicate with the oper
 On **Windows** (open PowerShell as a standard user or Administrator):```powershell
 iwr -useb https://joss.red/install | iex
 ```
-On **Linux or macOS** (open your Terminal):```bash
+On **Linux, macOS or Android (Termux)** (open your Terminal):```bash
 curl -fsSL https://joss.red/install.sh | bash
 ```
 This command will download the compiled Joss binary, place it in a standard system folder, and register it in your `PATH`.

@@ -41,7 +41,7 @@ En **Windows** (PowerShell):
 iwr -useb https://joss.red/install | iex
 ```
 
-En **Linux o macOS** (Terminal):
+En **Linux, macOS o Android (Termux)** (Terminal):
 ```bash
 curl -fsSL https://joss.red/install.sh | bash
 ```
