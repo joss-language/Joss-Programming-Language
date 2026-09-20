@@ -38,12 +38,12 @@
 
 En **Windows** (PowerShell):
 ```powershell
-iwr -useb https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.ps1 | iex
+iwr -useb https://joss.red/install | iex
 ```
 
 En **Linux o macOS** (Terminal):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.sh | bash
+curl -fsSL https://joss.red/install.sh | bash
 ```
 
 ### Compilar desde el código fuente

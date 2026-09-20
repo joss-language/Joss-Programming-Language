@@ -85,13 +85,13 @@ Una **terminal** (o consola) es una ventana de texto donde te comunicas con el s
 En **Windows** (abre PowerShell como usuario estándar o Administrador):
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.ps1 | iex
+iwr -useb https://joss.red/install | iex
 ```
 
 En **Linux o macOS** (abre tu Terminal):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/joss-language/Joss-Programming-Language/main/install/remote-install.sh | bash
+curl -fsSL https://joss.red/install.sh | bash
 ```
 
 Este comando descargará el binario compilado de Joss, lo ubicará en una carpeta estándar del sistema y lo registrará en tu `PATH`.
