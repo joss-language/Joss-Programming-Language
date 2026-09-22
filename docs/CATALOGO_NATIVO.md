@@ -131,15 +131,57 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 |---|---|
 | `schedule` | `mixed` |
 
+## DateInterval
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `days` | `DateInterval` |
+| `hours` | `DateInterval` |
+| `minutes` | `DateInterval` |
+| `seconds` | `DateInterval` |
+| `totalSeconds` | `int` |
+
+## DateTime
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `add` | `DateTime` |
+| `create` | `DateTime` |
+| `day` | `int` |
+| `diff` | `DateInterval` |
+| `format` | `string` |
+| `hour` | `int` |
+| `iso` | `string` |
+| `minute` | `int` |
+| `month` | `int` |
+| `now` | `DateTime` |
+| `parse` | `DateTime` |
+| `second` | `int` |
+| `sub` | `DateTime` |
+| `timestamp` | `int` |
+| `year` | `int` |
+
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L352).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L375).
 
 | Método | Retorno publicado al analizador |
 |---|---|
 | `constructor` | `mixed` |
 | `getCode` | `int` |
 | `getMessage` | `string` |
+
+## FileStream
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `close` | `void` |
+| `flush` | `void` |
+| `open` | `FileStream` |
+| `read` | `string` |
+| `seek` | `int` |
+| `size` | `int` |
+| `write` | `int` |
 
 ## GranDB
 
@@ -370,6 +412,14 @@ Clase base registrada sin métodos nativos propios.
 
 Clase base registrada sin métodos nativos propios.
 
+## Mutex
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `lock` | `void` |
+| `tryLock` | `bool` |
+| `unlock` | `void` |
+
 ## Plugin
 
 Implementación: [executePluginMethod](../pkg/core/native_plugin.go#L49).
@@ -403,6 +453,15 @@ Implementación: [executeProcessMethod](../pkg/core/native_process.go#L13).
 | `dequeue` | `mixed` |
 | `enqueue` | `mixed` |
 | `peek` | `mixed` |
+
+## RWMutex
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `lock` | `void` |
+| `rLock` | `void` |
+| `rUnlock` | `void` |
+| `unlock` | `void` |
 
 ## Redirect
 
@@ -575,6 +634,19 @@ Implementación: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 | `send` | `bool` |
 | `timeout` | `SmtpClient` |
 
+## Socket
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `accept` | `Socket` |
+| `close` | `void` |
+| `connect` | `Socket` |
+| `listen` | `Socket` |
+| `port` | `int` |
+| `receive` | `string` |
+| `send` | `int` |
+| `tcp` | `Socket` |
+
 ## Stack
 
 | Método | Retorno publicado al analizador |
@@ -598,12 +670,31 @@ Implementación: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 
 ## Stream
 
-Implementación: [executeStreamMethod](../pkg/core/native_stream.go#L10).
+Implementación: [executeStreamMethod](../pkg/core/native_stream.go#L296).
 
 | Método | Retorno publicado al analizador |
 |---|---|
 | `close` | `mixed` |
 | `send` | `mixed` |
+
+## StreamReader
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `close` | `void` |
+| `open` | `StreamReader` |
+| `readLine` | `string\|null` |
+| `readToEnd` | `string` |
+
+## StreamWriter
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `close` | `void` |
+| `flush` | `void` |
+| `open` | `StreamWriter` |
+| `write` | `int` |
+| `writeLine` | `int` |
 
 ## System
 
@@ -664,6 +755,14 @@ Implementación: [executeViewMethod](../pkg/core/view.go#L61).
 | `exists` | `bool` |
 | `render` | `string` |
 | `share` | `mixed` |
+
+## WaitGroup
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `add` | `void` |
+| `done` | `void` |
+| `wait` | `void` |
 
 ## WebResponse
 
@@ -830,4 +929,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 44 clases, 408 métodos y 126 built-ins.
+Total: 53 clases, 462 métodos y 126 built-ins.

@@ -50,9 +50,15 @@ func (a *Analyzer) analyzeSourceBodies(units []SourceUnit, global *scope) {
 				case *parser.InterfaceStatement:
 					continue
 				case *parser.MethodStatement:
+					for _, tp := range node.TypeParameters {
+						if tp != nil {
+							a.currentTypeParams[tp.Value] = true
+							defer delete(a.currentTypeParams, tp.Value)
+						}
+					}
 					returnType := typeFromToken(node.ReturnType)
 					a.validateDeclaredType(returnType, node.ReturnType, "return annotation")
-					a.analyzeCallable(node.Parameters, node.Body, global, "", returnType)
+					a.analyzeCallable(node.Parameters, node.Body, global, "", returnType, false)
 				default:
 					a.analyzeStatement(statement, fileScope)
 				}
@@ -62,10 +68,13 @@ func (a *Analyzer) analyzeSourceBodies(units []SourceUnit, global *scope) {
 	}
 }
 
-func (a *Analyzer) analyzeCallable(parameters []*parser.Parameter, body *parser.BlockStatement, parent *scope, className string, returnType typesystem.Type) {
+func (a *Analyzer) analyzeCallable(parameters []*parser.Parameter, body *parser.BlockStatement, parent *scope, className string, returnType typesystem.Type, inConstructor bool) {
 	previousReturnType := a.currentReturnType
 	a.currentReturnType = returnType
 	defer func() { a.currentReturnType = previousReturnType }()
+	previousInConstructor := a.inConstructor
+	a.inConstructor = inConstructor
+	defer func() { a.inConstructor = previousInConstructor }()
 	local := newScope(parent)
 	if className != "" {
 		local.put(&symbol{Name: "this", Type: typesystem.Type{Kind: typesystem.Class, Name: className}, Kind: symbolImplicit, Used: true, Synthetic: true})
@@ -138,6 +147,8 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 		a.analyzeDeclaration(node, current, true)
 	case *parser.MultiLetStatement:
 		a.analyzeMultiDeclaration(node, current, true)
+	case *parser.DestructureStatement:
+		a.analyzeDestructure(node, current)
 	case *parser.ExpressionStatement:
 		a.inferExpression(node.Expression, current)
 		if te, ok := node.Expression.(*parser.TernaryExpression); ok {
@@ -293,13 +304,20 @@ func (a *Analyzer) validateDeclaredType(declaredType typesystem.Type, token pars
 		if member.Kind != typesystem.Class {
 			continue
 		}
-		if _, exists := a.classes[member.Name]; exists {
+		baseName := member.Name
+		if idx := strings.Index(baseName, "<"); idx != -1 {
+			baseName = strings.TrimSpace(baseName[:idx])
+		}
+		if _, exists := a.classes[baseName]; exists {
 			continue
 		}
-		if _, exists := a.interfaces[member.Name]; exists {
+		if _, exists := a.interfaces[baseName]; exists {
 			continue
 		}
-		if _, exists := a.enums[member.Name]; exists {
+		if _, exists := a.enums[baseName]; exists {
+			continue
+		}
+		if a.currentTypeParams != nil && a.currentTypeParams[baseName] {
 			continue
 		}
 		a.add("JOSS-TYPE-009", diagnostics.SeverityError, a.file, token,
@@ -316,6 +334,35 @@ func (a *Analyzer) analyzeMultiDeclaration(node *parser.MultiLetStatement, curre
 	for _, declaration := range node.Declarations {
 		single := &parser.LetStatement{Token: node.TypeToken, Name: declaration.Name, Value: declaration.Value}
 		a.analyzeDeclaration(single, current, warnUnused)
+	}
+}
+
+func (a *Analyzer) analyzeDestructure(node *parser.DestructureStatement, current *scope) {
+	if node == nil {
+		return
+	}
+	if node.Value != nil {
+		a.inferExpression(node.Value, current)
+	}
+	for _, name := range node.Names {
+		if name == nil {
+			continue
+		}
+		varName := cleanName(name.Value)
+		if _, exists := current.local(varName); exists {
+			a.redeclaration(varName, name.Token)
+			continue
+		}
+		current.put(&symbol{
+			Name:        varName,
+			Kind:        symbolVariable,
+			Type:        typesystem.Type{Kind: typesystem.Mixed},
+			Token:       name.Token,
+			File:        a.file,
+			Dynamic:     true,
+			Initialized: true,
+			Used:        false,
+		})
 	}
 }
 
@@ -362,6 +409,8 @@ func tokenOfStatement(statement parser.Statement) parser.Token {
 		return node.Token
 	case *parser.MultiLetStatement:
 		return node.TypeToken
+	case *parser.DestructureStatement:
+		return node.Token
 	case *parser.ExpressionStatement:
 		return node.Token
 	case *parser.EchoStatement:

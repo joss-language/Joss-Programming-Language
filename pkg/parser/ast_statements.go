@@ -83,13 +83,15 @@ func (es *ExpressionStatement) String() string {
 }
 
 type ClassStatement struct {
-	Token      Token // CLASS
-	Name       *Identifier
-	SuperClass *Identifier
-	Interfaces []*Identifier // interfaces implemented via 'implements'
-	Body       *BlockStatement
-	Visibility string // "public", etc.
-	IsAbstract bool
+	Token          Token // CLASS or RECORD
+	Name           *Identifier
+	TypeParameters []*Identifier
+	SuperClass     *Identifier
+	Interfaces     []*Identifier // interfaces implemented via 'implements'
+	Body           *BlockStatement
+	Visibility     string // "public", etc.
+	IsAbstract     bool
+	IsRecord       bool
 }
 
 func (cs *ClassStatement) statementNode()       {}
@@ -102,8 +104,22 @@ func (cs *ClassStatement) String() string {
 	if cs.IsAbstract {
 		out.WriteString("abstract ")
 	}
-	out.WriteString("class ")
+	if cs.IsRecord {
+		out.WriteString("record ")
+	} else {
+		out.WriteString("class ")
+	}
 	out.WriteString(cs.Name.String())
+	if len(cs.TypeParameters) > 0 {
+		out.WriteString("<")
+		for i, tp := range cs.TypeParameters {
+			if i > 0 {
+				out.WriteString(", ")
+			}
+			out.WriteString(tp.String())
+		}
+		out.WriteString(">")
+	}
 	if cs.SuperClass != nil {
 		out.WriteString(" extends ")
 		out.WriteString(cs.SuperClass.String())
@@ -333,14 +349,15 @@ func (ds *DeferStatement) String() string {
 }
 
 type MethodStatement struct {
-	Token      Token // FUNCTION
-	Name       *Identifier
-	Parameters []*Parameter
-	ReturnType Token // optional type after ':'
-	Body       *BlockStatement
-	Visibility string // "public", "private", "protected"
-	IsStatic   bool
-	IsAbstract bool
+	Token          Token // FUNCTION
+	Name           *Identifier
+	TypeParameters []*Identifier
+	Parameters     []*Parameter
+	ReturnType     Token // optional type after ':'
+	Body           *BlockStatement
+	Visibility     string // "public", "private", "protected"
+	IsStatic       bool
+	IsAbstract     bool
 }
 
 func (ms *MethodStatement) statementNode()       {}
@@ -358,6 +375,16 @@ func (ms *MethodStatement) String() string {
 	}
 	out.WriteString(ms.TokenLiteral() + " ")
 	out.WriteString(ms.Name.String())
+	if len(ms.TypeParameters) > 0 {
+		out.WriteString("<")
+		for i, tp := range ms.TypeParameters {
+			if i > 0 {
+				out.WriteString(", ")
+			}
+			out.WriteString(tp.String())
+		}
+		out.WriteString(">")
+	}
 	out.WriteString("(")
 	params := []string{}
 	for _, p := range ms.Parameters {
@@ -374,6 +401,30 @@ func (ms *MethodStatement) String() string {
 	} else {
 		out.WriteString(";")
 	}
+	return out.String()
+}
+
+type DestructureStatement struct {
+	Token Token // 'let' or '('
+	Names []*Identifier
+	Value Expression
+}
+
+func (ds *DestructureStatement) statementNode()       {}
+func (ds *DestructureStatement) TokenLiteral() string { return ds.Token.Literal }
+func (ds *DestructureStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("let (")
+	names := []string{}
+	for _, n := range ds.Names {
+		names = append(names, "$"+n.Value)
+	}
+	out.WriteString(strings.Join(names, ", "))
+	out.WriteString(") = ")
+	if ds.Value != nil {
+		out.WriteString(ds.Value.String())
+	}
+	out.WriteString(";")
 	return out.String()
 }
 

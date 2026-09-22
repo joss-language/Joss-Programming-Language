@@ -291,6 +291,22 @@ func splitGenericArgs(s string) []string {
 	return parts
 }
 
+func baseClassName(name string) string {
+	if idx := strings.Index(name, "<"); idx != -1 {
+		return strings.TrimSpace(name[:idx])
+	}
+	return name
+}
+
+func genericArgsOf(name string) []string {
+	start := strings.Index(name, "<")
+	end := strings.LastIndex(name, ">")
+	if start != -1 && end > start {
+		return splitGenericArgs(name[start+1 : end])
+	}
+	return nil
+}
+
 // Assignable reports whether a value of source type can be assigned to a
 // destination. Unknown is deliberately non-accusatory: lack of information is
 // not evidence of invalid user code.
@@ -317,6 +333,23 @@ func Assignable(destination, source Type) bool {
 	if destination.Kind == source.Kind {
 		if destination.Kind == Class {
 			if destination.Name != source.Name {
+				destBase := baseClassName(destination.Name)
+				srcBase := baseClassName(source.Name)
+				if destBase == srcBase {
+					destArgs := genericArgsOf(destination.Name)
+					srcArgs := genericArgsOf(source.Name)
+					if len(destArgs) == 0 || len(srcArgs) == 0 {
+						return true
+					}
+					if len(destArgs) == len(srcArgs) {
+						for i := range destArgs {
+							if !Assignable(Parse(destArgs[i]), Parse(srcArgs[i])) {
+								return false
+							}
+						}
+						return true
+					}
+				}
 				return false
 			}
 			if destination.Name == "Result" {

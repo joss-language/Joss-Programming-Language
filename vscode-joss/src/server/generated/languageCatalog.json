@@ -6,6 +6,7 @@
     "abstract",
     "as",
     "async",
+    "await",
     "break",
     "case",
     "catch",
@@ -37,6 +38,7 @@
     "private",
     "protected",
     "public",
+    "record",
     "ref",
     "return",
     "select",
@@ -285,10 +287,43 @@
     "Cron": [
       "schedule"
     ],
+    "DateInterval": [
+      "days",
+      "hours",
+      "minutes",
+      "seconds",
+      "totalSeconds"
+    ],
+    "DateTime": [
+      "add",
+      "create",
+      "day",
+      "diff",
+      "format",
+      "hour",
+      "iso",
+      "minute",
+      "month",
+      "now",
+      "parse",
+      "second",
+      "sub",
+      "timestamp",
+      "year"
+    ],
     "Exception": [
       "constructor",
       "getCode",
       "getMessage"
+    ],
+    "FileStream": [
+      "close",
+      "flush",
+      "open",
+      "read",
+      "seek",
+      "size",
+      "write"
     ],
     "GranDB": [
       "avg",
@@ -481,6 +516,11 @@
     ],
     "Middleware": [],
     "Migration": [],
+    "Mutex": [
+      "lock",
+      "tryLock",
+      "unlock"
+    ],
     "Plugin": [
       "call",
       "path",
@@ -501,6 +541,12 @@
       "dequeue",
       "enqueue",
       "peek"
+    ],
+    "RWMutex": [
+      "lock",
+      "rLock",
+      "rUnlock",
+      "unlock"
     ],
     "Redirect": [
       "to"
@@ -613,6 +659,16 @@
       "send",
       "timeout"
     ],
+    "Socket": [
+      "accept",
+      "close",
+      "connect",
+      "listen",
+      "port",
+      "receive",
+      "send",
+      "tcp"
+    ],
     "Stack": [
       "peek",
       "pop",
@@ -631,6 +687,19 @@
     "Stream": [
       "close",
       "send"
+    ],
+    "StreamReader": [
+      "close",
+      "open",
+      "readLine",
+      "readToEnd"
+    ],
+    "StreamWriter": [
+      "close",
+      "flush",
+      "open",
+      "write",
+      "writeLine"
     ],
     "System": [
       "Run",
@@ -663,6 +732,11 @@
       "exists",
       "render",
       "share"
+    ],
+    "WaitGroup": [
+      "add",
+      "done",
+      "wait"
     ],
     "WebResponse": [
       "status",

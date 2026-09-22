@@ -823,6 +823,25 @@ func (p *Parser) parseNewExpression() Expression {
 	}
 	exp.Class = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
+	if p.peekToken.Type == LT {
+		p.nextToken() // consume '<'
+		for p.peekToken.Type != GT && p.peekToken.Type != SHIFT_RIGHT && p.peekToken.Type != EOF {
+			p.nextToken()
+			if isTypeStart(p.curToken) {
+				exp.TypeArguments = append(exp.TypeArguments, p.parseTypeReference())
+			}
+			if p.peekToken.Type == COMMA {
+				p.nextToken() // consume COMMA
+			}
+		}
+		if p.peekToken.Type == GT {
+			p.nextToken() // consume '>'
+		} else if p.peekToken.Type == SHIFT_RIGHT {
+			p.curToken = Token{Type: GT, Literal: ">", Line: p.peekToken.Line, Column: p.peekToken.Column}
+			p.peekToken = Token{Type: GT, Literal: ">", Line: p.peekToken.Line, Column: p.peekToken.Column + 1}
+		}
+	}
+
 	if !p.expectPeek(LPAREN) {
 		return nil
 	}
@@ -1051,7 +1070,7 @@ func isIdentifierOrKeyword(t TokenType) bool {
 	switch t {
 	case FUNCTION, VAR, TRUE, FALSE, RETURN, PRINT, ECHO, CLASS, INIT,
 		NEW, FOREACH, AS, THIS, ISSET, EMPTY, BREAK,
-		CONTINUE, WHILE, DO, TRY, CATCH, THROW, EXTENDS, IF, ELSE, MATCH, DEFAULT, ASYNC,
+		CONTINUE, WHILE, DO, TRY, CATCH, THROW, EXTENDS, IF, ELSE, MATCH, DEFAULT, ASYNC, AWAIT, RECORD,
 		INTERFACE, IMPLEMENTS, ABSTRACT, ENUM, CASE, IS, INSTANCEOF, SELECT, YIELD:
 		return true
 	}
@@ -1084,6 +1103,26 @@ func (p *Parser) parseAsyncExpression() Expression {
 	return &CallExpression{
 		Token:     Token{Type: IDENT, Literal: "async", Line: tok.Line},
 		Function:  &Identifier{Token: Token{Type: IDENT, Literal: "async", Line: tok.Line}, Value: "async"},
+		Arguments: []Expression{exp},
+	}
+}
+
+func (p *Parser) parseAwaitExpression() Expression {
+	tok := p.curToken
+	if p.peekToken.Type == LPAREN {
+		p.nextToken() // move to LPAREN
+		args := p.parseCallArguments()
+		return &CallExpression{
+			Token:     Token{Type: IDENT, Literal: "await", Line: tok.Line, Column: tok.Column},
+			Function:  &Identifier{Token: Token{Type: IDENT, Literal: "await", Line: tok.Line, Column: tok.Column}, Value: "await"},
+			Arguments: args,
+		}
+	}
+	p.nextToken()
+	exp := p.parseExpression(PREFIX)
+	return &CallExpression{
+		Token:     Token{Type: IDENT, Literal: "await", Line: tok.Line, Column: tok.Column},
+		Function:  &Identifier{Token: Token{Type: IDENT, Literal: "await", Line: tok.Line, Column: tok.Column}, Value: "await"},
 		Arguments: []Expression{exp},
 	}
 }

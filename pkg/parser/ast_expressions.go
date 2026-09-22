@@ -266,9 +266,10 @@ func (fl *FunctionLiteral) String() string {
 }
 
 type NewExpression struct {
-	Token     Token // NEW
-	Class     *Identifier
-	Arguments []Expression
+	Token         Token // NEW
+	Class         *Identifier
+	TypeArguments []Token
+	Arguments     []Expression
 }
 
 func (ne *NewExpression) expressionNode()      {}
@@ -277,6 +278,15 @@ func (ne *NewExpression) String() string {
 	var out bytes.Buffer
 	out.WriteString("new ")
 	out.WriteString(ne.Class.String())
+	if len(ne.TypeArguments) > 0 {
+		out.WriteString("<")
+		types := []string{}
+		for _, t := range ne.TypeArguments {
+			types = append(types, t.Literal)
+		}
+		out.WriteString(strings.Join(types, ", "))
+		out.WriteString(">")
+	}
 	out.WriteString("(")
 	args := []string{}
 	for _, a := range ne.Arguments {

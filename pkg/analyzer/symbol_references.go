@@ -81,6 +81,23 @@ func collectFromStatement(stmt parser.Statement, file string) []SymbolOccurrence
 			}
 		}
 
+	case *parser.DestructureStatement:
+		for _, name := range s.Names {
+			if name != nil {
+				res = append(res, SymbolOccurrence{
+					Name:         cleanName(name.Value),
+					File:         file,
+					Line:         name.Token.Line,
+					Column:       name.Token.Column,
+					IsDefinition: true,
+					Kind:         "variable",
+				})
+			}
+		}
+		if s.Value != nil {
+			res = append(res, collectFromExpression(s.Value, file)...)
+		}
+
 	case *parser.ExpressionStatement:
 		res = append(res, collectFromExpression(s.Expression, file)...)
 

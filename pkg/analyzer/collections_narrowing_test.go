@@ -64,3 +64,26 @@ public func run(): string {
 		t.Fatalf("expected clean analysis with equality narrowing, got diagnostics: %#v", items)
 	}
 }
+
+func TestCollectionCovarianceAndAliasingCharacterization(t *testing.T) {
+	// Characterization test for Phase 2 collection soundness:
+	// Untyped collections act as boundary for dynamic values.
+	// Assigning array to array<int> is allowed, but direct typed mismatch is caught.
+	typedAssign := analyzeSource(t, `
+array<string> $strs = ["a", "b"]
+array<int> $nums = $strs
+`, NewEnvironment())
+	if !hasCode(typedAssign, "JOSS-TYPE-002") {
+		t.Fatalf("expected JOSS-TYPE-002 when assigning array<string> to array<int>, got %#v", typedAssign)
+	}
+
+	// Map key/element covariance characterization:
+	mapAssign := analyzeSource(t, `
+map<string, string> $m1 = {"k": "v"}
+map<string, int> $m2 = $m1
+`, NewEnvironment())
+	if !hasCode(mapAssign, "JOSS-TYPE-002") {
+		t.Fatalf("expected JOSS-TYPE-002 when assigning map<string, string> to map<string, int>, got %#v", mapAssign)
+	}
+}
+

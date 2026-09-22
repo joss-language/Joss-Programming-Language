@@ -142,6 +142,17 @@ print($maximo)
 
 Si intentas escribir `$maximo = 4`, el analizador emitirá un error `JOSS-SYM-006` indicando que no se puede reasignar una constante.
 
+### 5. Desestructuración múltiple: `let ($a, $b) = lista`
+Cuando una función devuelve una lista o tupla de valores, puedes desempaquetar sus elementos en variables independientes en una sola línea:
+
+```joss
+let ($x, $y) = [10, 20]
+print($x)
+print($y)
+```
+
+Cada posición de la lista se asigna a su correspondiente variable receptora.
+
 ---
 
 ## 4. Texto, comentarios y salida formateada

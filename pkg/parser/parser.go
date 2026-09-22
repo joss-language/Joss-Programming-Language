@@ -110,6 +110,7 @@ func NewParser(l *Lexer) *Parser {
 	p.registerPrefix(FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(MATCH, p.parseMatchExpression)
 	p.registerPrefix(ASYNC, p.parseAsyncExpression)
+	p.registerPrefix(AWAIT, p.parseAwaitExpression)
 	p.registerPrefix(REF, p.parseReferenceExpression)
 	p.registerPrefix(ELLIPSIS, p.parseSpreadExpression)
 	p.registerPrefix(YIELD, p.parseYieldExpression)

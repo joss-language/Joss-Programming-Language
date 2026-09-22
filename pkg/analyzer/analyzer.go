@@ -26,7 +26,9 @@ type Analyzer struct {
 	enumTokens        map[string]functionDeclaration
 	file              string
 	currentClass      string
+	inConstructor     bool
 	currentReturnType typesystem.Type
+	currentTypeParams map[string]bool
 	suppressUndefined int
 }
 
@@ -41,6 +43,7 @@ func Analyze(units []SourceUnit, environment Environment) []diagnostics.Diagnost
 		enums:             make(map[string]Enum),
 		enumTokens:        make(map[string]functionDeclaration),
 		currentReturnType: typesystem.Type{Kind: typesystem.Unknown},
+		currentTypeParams: make(map[string]bool),
 	}
 	for name, class := range environment.Classes {
 		a.classes[name] = class

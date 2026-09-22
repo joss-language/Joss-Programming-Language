@@ -36,6 +36,7 @@ func newRuntimeState() interface{} {
 		classMetadataCache: make(map[string]*classMetadata),
 		pluginASTEngines:   make(map[string]*PluginASTEngine),
 		MaxCallDepth:       DefaultMaxCallDepth,
+		Capabilities:       DefaultHostCapabilities(),
 	}
 	r.registerCanonicalHostState()
 	return r

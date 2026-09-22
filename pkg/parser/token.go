@@ -116,6 +116,8 @@ const (
 	INSTANCEOF = "INSTANCEOF"
 	SELECT     = "SELECT"
 	YIELD      = "YIELD"
+	AWAIT      = "AWAIT"
+	RECORD     = "RECORD"
 
 	// Modifiers & Visibility
 	PUBLIC    = "PUBLIC"
@@ -168,6 +170,8 @@ var keywords = map[string]TokenType{
 	"match":      MATCH,
 	"default":    DEFAULT,
 	"async":      ASYNC,
+	"await":      AWAIT,
+	"record":     RECORD,
 	"defer":      DEFER,
 	"abstract":   ABSTRACT,
 	"enum":       ENUM,
@@ -328,7 +332,7 @@ func IsControlKeyword(ident string) bool {
 // IsDeclarationKeyword returns true if ident is a declaration keyword that may introduce a block (e.g. class, interface, enum, func, Init).
 func IsDeclarationKeyword(ident string) bool {
 	switch LookupIdent(ident) {
-	case CLASS, INTERFACE, ENUM, FUNCTION, INIT:
+	case CLASS, INTERFACE, ENUM, FUNCTION, INIT, RECORD:
 		return true
 	default:
 		return false

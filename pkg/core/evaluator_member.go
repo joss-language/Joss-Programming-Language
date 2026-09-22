@@ -75,7 +75,8 @@ func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 				}
 			}
 			instance.Fields[field.Declaration.Name.Value] = value
-			if field.IsConst {
+			instance.Fields[field.Declaration.Name.Value] = value
+			if field.IsConst && meta.Constructor == nil {
 				instance.Constants[field.Declaration.Name.Value] = true
 			}
 		}
@@ -83,6 +84,16 @@ func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 		if meta.Constructor != nil {
 			r.requireMemberAccess(meta.Constructor.Visibility, className, meta.Constructor.Name.Value, meta.Constructor.Name.Token.Line)
 			r.CallMethod(meta.Constructor, instance, ne.Arguments)
+			for _, field := range meta.Fields {
+				if field.IsConst {
+					instance.Constants[field.Declaration.Name.Value] = true
+				}
+			}
+		}
+		if meta.Class != nil && meta.Class.IsRecord {
+			for name := range instance.Fields {
+				instance.Constants[name] = true
+			}
 		}
 	}
 

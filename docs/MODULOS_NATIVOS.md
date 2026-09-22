@@ -32,6 +32,14 @@ metadatos de parámetros en parte de la biblioteca.
 | `new Stack()` → `push(valor)`, `pop()`, `peek()` | Pila: último en entrar, primero en salir. pop sí elimina; vacío retorna null. |
 | `new Queue()` → `enqueue(valor)`, `dequeue()`, `peek()` | Cola: primero en entrar, primero en salir. dequeue elimina; vacío null. |
 | `new Exception(mensaje,[codigo])` → `getMessage()`, `getCode()` | Objeto de error con campos; código predeterminado 0. No genera por sí mismo un diagnóstico JOSS. |
+| `FileStream::open(ruta, modo)` | Flujo de archivo binario o de texto (`read`, `write`, `seek`, `size`, `close`). |
+| `StreamReader::open(fuente)` | Lector de flujos por líneas o completo (`readLine`, `readToEnd`, `close`). |
+| `StreamWriter::open(destino, append)` | Escritor bufferizado de streams (`write`, `writeLine`, `flush`, `close`). |
+| `Socket::tcp(host, puerto)`, `listen(...)` | Sockets de red TCP cliente/servidor (`connect`, `listen`, `accept`, `send`, `receive`, `close`). |
+| `DateTime::now()`, `parse(texto)`, `create(...)` | Fechas y horas orientadas a objetos (`format`, `timestamp`, `iso`, `add`, `sub`, `diff`). |
+| `DateInterval::days(n)`, `hours(n)`, ... | Intervalos de tiempo para aritmética sobre `DateTime`. |
+| `new Mutex()`, `new RWMutex()`, `new WaitGroup()` | Primitivas de sincronización concurrente seguras (`lock`, `unlock`, `add`, `done`, `wait`). |
+
 
 <!-- joss-run: ["abc", "1", "dos", "uno"] -->
 ```joss

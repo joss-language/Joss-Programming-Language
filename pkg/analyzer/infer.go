@@ -144,7 +144,7 @@ func (a *Analyzer) inferExpression(expression parser.Expression, current *scope)
 	case *parser.FunctionLiteral:
 		returnType := typeFromToken(node.ReturnType)
 		a.validateDeclaredType(returnType, node.ReturnType, "return annotation")
-		a.analyzeCallable(node.Parameters, node.Body, current, "", returnType)
+		a.analyzeCallable(node.Parameters, node.Body, current, "", returnType, false)
 		return typesystem.Type{Kind: typesystem.Object}
 	case *parser.IssetExpression:
 		a.suppressUndefined++
@@ -418,10 +418,18 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 					a.accessError(member.Property.Token, field.Visibility, field.Owner, member.Property.Value)
 				}
 				if field.Constant {
-					a.add("JOSS-SYM-006", diagnostics.SeverityError, a.file, member.Property.Token,
-						fmt.Sprintf("Constant property `%s::%s` cannot be reassigned.", receiver.Name, member.Property.Value),
-						"Constant properties are immutable after instance initialization.", "Create a mutable property or assign a different variable.")
-					return field.Type
+					isThis := false
+					if ident, ok := member.Left.(*parser.Identifier); ok && (ident.Value == "$this" || ident.Value == "this") {
+						isThis = true
+					}
+					if a.inConstructor && isThis && receiver.Name == a.currentClass {
+						// Inicialización válida en constructor
+					} else {
+						a.add("JOSS-SYM-006", diagnostics.SeverityError, a.file, member.Property.Token,
+							fmt.Sprintf("Constant property `%s::%s` cannot be reassigned.", receiver.Name, member.Property.Value),
+							"Constant properties are immutable after instance initialization.", "Create a mutable property or assign a different variable.")
+						return field.Type
+					}
 				}
 				if field.Type.IsKnown() && !a.assignableExpression(field.Type, valueType, assignment.Value) {
 					a.add("JOSS-TYPE-001", diagnostics.SeverityError, a.file, member.Property.Token,

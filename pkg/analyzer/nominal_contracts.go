@@ -238,6 +238,14 @@ func (a *Analyzer) analyzeClassBody(classNode *parser.ClassStatement, global *sc
 	previousClass := a.currentClass
 	a.currentClass = classNode.Name.Value
 	defer func() { a.currentClass = previousClass }()
+
+	for _, tp := range classNode.TypeParameters {
+		if tp != nil {
+			a.currentTypeParams[tp.Value] = true
+			defer delete(a.currentTypeParams, tp.Value)
+		}
+	}
+
 	classScope := newScope(global)
 	classScope.put(&symbol{Name: "this", Type: typesystem.Type{Kind: typesystem.Class, Name: classNode.Name.Value}, Kind: symbolImplicit, Used: true, Synthetic: true})
 	if classNode.Body == nil {
@@ -246,11 +254,17 @@ func (a *Analyzer) analyzeClassBody(classNode *parser.ClassStatement, global *sc
 	for _, member := range classNode.Body.Statements {
 		switch node := member.(type) {
 		case *parser.MethodStatement:
+			for _, tp := range node.TypeParameters {
+				if tp != nil {
+					a.currentTypeParams[tp.Value] = true
+					defer delete(a.currentTypeParams, tp.Value)
+				}
+			}
 			returnType := typeFromToken(node.ReturnType)
 			a.validateDeclaredType(returnType, node.ReturnType, "return annotation")
-			a.analyzeCallable(node.Parameters, node.Body, classScope, classNode.Name.Value, returnType)
+			a.analyzeCallable(node.Parameters, node.Body, classScope, classNode.Name.Value, returnType, node.Name.Value == "Init")
 		case *parser.InitStatement:
-			a.analyzeCallable(node.Parameters, node.Body, classScope, classNode.Name.Value, typesystem.Type{Kind: typesystem.Unknown})
+			a.analyzeCallable(node.Parameters, node.Body, classScope, classNode.Name.Value, typesystem.Type{Kind: typesystem.Unknown}, true)
 		case *parser.LetStatement:
 			a.analyzeDeclaration(node, classScope, false)
 		case *parser.MultiLetStatement:

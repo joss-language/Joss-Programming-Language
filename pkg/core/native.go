@@ -305,6 +305,29 @@ func (r *Runtime) RegisterNativeClasses() {
 
 	// Exception
 	r.registerNative("Exception", []string{"constructor", "getMessage", "getCode"}, (*Runtime).executeExceptionMethod)
+
+	// FileStream, StreamReader, StreamWriter (Stream I/O)
+	r.registerNativeDefinitions("FileStream", migratedNativeMethods["FileStream"], (*Runtime).executeFileStreamMethod)
+	r.Variables["FileStream"] = &Instance{Class: r.Classes["FileStream"], Fields: make(map[string]interface{})}
+	r.registerNativeDefinitions("StreamReader", migratedNativeMethods["StreamReader"], (*Runtime).executeStreamReaderMethod)
+	r.Variables["StreamReader"] = &Instance{Class: r.Classes["StreamReader"], Fields: make(map[string]interface{})}
+	r.registerNativeDefinitions("StreamWriter", migratedNativeMethods["StreamWriter"], (*Runtime).executeStreamWriterMethod)
+	r.Variables["StreamWriter"] = &Instance{Class: r.Classes["StreamWriter"], Fields: make(map[string]interface{})}
+
+	// Socket (Low-Level Networking)
+	r.registerNativeDefinitions("Socket", migratedNativeMethods["Socket"], (*Runtime).executeSocketMethod)
+	r.Variables["Socket"] = &Instance{Class: r.Classes["Socket"], Fields: make(map[string]interface{})}
+
+	// DateTime, DateInterval (Object-Oriented Date & Time)
+	r.registerNativeDefinitions("DateTime", migratedNativeMethods["DateTime"], (*Runtime).executeDateTimeMethod)
+	r.Variables["DateTime"] = &Instance{Class: r.Classes["DateTime"], Fields: make(map[string]interface{})}
+	r.registerNativeDefinitions("DateInterval", migratedNativeMethods["DateInterval"], (*Runtime).executeDateIntervalMethod)
+	r.Variables["DateInterval"] = &Instance{Class: r.Classes["DateInterval"], Fields: make(map[string]interface{})}
+
+	// Mutex, RWMutex, WaitGroup (Concurrency & Synchronization)
+	r.registerNativeDefinitions("Mutex", migratedNativeMethods["Mutex"], (*Runtime).executeMutexMethod)
+	r.registerNativeDefinitions("RWMutex", migratedNativeMethods["RWMutex"], (*Runtime).executeRWMutexMethod)
+	r.registerNativeDefinitions("WaitGroup", migratedNativeMethods["WaitGroup"], (*Runtime).executeWaitGroupMethod)
 }
 
 const ansiReset = "\033[0m"

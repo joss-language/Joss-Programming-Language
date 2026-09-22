@@ -130,6 +130,13 @@ func (callable *Callable) collectStatement(statement parser.Statement) {
 			}
 			callable.collectExpression(declaration.Value)
 		}
+	case *parser.DestructureStatement:
+		for _, name := range node.Names {
+			if name != nil {
+				callable.addSlot(Slot{Name: name.Value, TypeName: "mixed", Type: typesystem.Type{Kind: typesystem.Mixed}, Inferred: true})
+			}
+		}
+		callable.collectExpression(node.Value)
 	case *parser.ExpressionStatement:
 		callable.collectExpression(node.Expression)
 	case *parser.EchoStatement:
@@ -293,6 +300,11 @@ func (callable *Callable) annotateStatement(statement parser.Statement) {
 			callable.annotateIdentifier(declaration.Name)
 			callable.annotateExpression(declaration.Value)
 		}
+	case *parser.DestructureStatement:
+		for _, name := range node.Names {
+			callable.annotateIdentifier(name)
+		}
+		callable.annotateExpression(node.Value)
 	case *parser.ExpressionStatement:
 		callable.annotateExpression(node.Expression)
 	case *parser.EchoStatement:

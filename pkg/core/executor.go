@@ -207,6 +207,27 @@ func (r *Runtime) executeStatement(stmt parser.Statement) interface{} {
 			}
 			r.Variables[decl.Name.Value] = val
 		}
+	case *parser.DestructureStatement:
+		val := r.evaluateExpression(s.Value)
+		var items []interface{}
+		if list, ok := val.([]interface{}); ok {
+			items = list
+		} else if listMap, ok := val.([]map[string]interface{}); ok {
+			for _, item := range listMap {
+				items = append(items, item)
+			}
+		} else {
+			items = []interface{}{val}
+		}
+		for i, ident := range s.Names {
+			var elemVal interface{}
+			if i < len(items) {
+				elemVal = items[i]
+			}
+			if ident != nil {
+				r.bindDestructuredVariable(ident, elemVal)
+			}
+		}
 	case *parser.ExpressionStatement:
 		if postfix, ok := s.Expression.(*parser.PostfixExpression); ok && r.executePostfixStatement(postfix) {
 			return nil

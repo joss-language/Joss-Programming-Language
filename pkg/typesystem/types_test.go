@@ -167,6 +167,16 @@ func TestAssignableLawsForPublishedStructuralTypes(t *testing.T) {
 		// Untyped collections are the explicit dynamic boundary for legacy APIs.
 		{destination: "array<int>", source: "array", want: true},
 		{destination: "object", source: "User", want: true},
+		{destination: "Box<int>", source: "Box<int>", want: true},
+		{destination: "Box<int>", source: "Box<string>", want: false},
+		{destination: "Box", source: "Box<int>", want: true},
+		{destination: "Box<int>", source: "Box", want: true},
+		{destination: "Result<int, string>", source: "Result<int, string>", want: true},
+		{destination: "Result<int, string>", source: "Result<int, int>", want: false},
+		{destination: "channel<string>", source: "channel<string>", want: true},
+		{destination: "channel<string>", source: "channel<int>", want: false},
+		{destination: "channel", source: "channel<string>", want: true},
+		{destination: "channel<string>", source: "channel", want: true},
 	}
 	for _, test := range tests {
 		if got := Assignable(Parse(test.destination), Parse(test.source)); got != test.want {

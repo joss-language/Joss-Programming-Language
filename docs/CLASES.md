@@ -309,7 +309,37 @@ Si `$usuario` es `null`, la llamada se cancela de forma silenciosa y segura, y `
 
 ---
 
-## 10. Ciclo de vida y autodestrucción inteligente por protección
+## 10. Clases genéricas (`class Contenedor<T>`) y Records inmutables (`record`)
+
+### Clases genéricas
+Joss admite parámetros de tipo formales `<T>` en la declaración de clases:
+
+```joss
+public class Caja<T> {
+    public T $contenido
+    Init constructor(T $valor) {
+        $this->contenido = $valor
+    }
+}
+```
+
+El analizador semántico valida la coherencia de tipos asegurando que `Caja<int>` no sea asignable a `Caja<string>`.
+
+### Records (`public record Nombre(campos...)`)
+Un `record` es una declaración concisa de clase orientada a datos inmutables con constructor y campos automáticos:
+
+```joss
+public record Coordenada(int $x, int $y)
+
+$c = new Coordenada(10, 20)
+print($c->x)
+```
+
+Los campos declarados en un `record` quedan sellados como constantes (`const`) tras la inicialización del objeto, impidiendo cualquier reasignación accidental.
+
+---
+
+## 11. Ciclo de vida y autodestrucción inteligente por protección
 
 En Joss, las clases se escriben de forma estándar sin sintaxis engorrosa. Internamente, el motor acopla un finalizador de ciclo de vida a cada instancia creada con `new`.
 

@@ -1,6 +1,9 @@
 package parser
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func (p *Parser) parseStatement() Statement {
 	if msg, removed := removedKeywordMessage(p.curToken); removed {
@@ -50,15 +53,17 @@ func (p *Parser) parseStatement() Statement {
 			p.addError(p.curToken, "`static` no implica visibilidad; escribe `public static`, `protected static` o `private static`.")
 		}
 
-		if p.peekToken.Type == CLASS {
+		if p.peekToken.Type == CLASS || p.peekToken.Type == RECORD {
+			isRecord := p.peekToken.Type == RECORD
 			if vis == "protected" {
-				p.addError(p.curToken, "Una clase de proyecto sólo puede ser `public` o `private`; `protected` se reserva para miembros.")
+				p.addError(p.curToken, "Una clase o record de proyecto sólo puede ser `public` o `private`; `protected` se reserva para miembros.")
 			}
-			p.nextToken() // move to CLASS
+			p.nextToken() // move to CLASS or RECORD
 			classStmt := p.parseClassStatement()
 			if classStmt != nil {
 				classStmt.Visibility = vis
 				classStmt.IsAbstract = isAbstract
+				classStmt.IsRecord = isRecord
 			}
 			return classStmt
 		}
@@ -152,9 +157,13 @@ func (p *Parser) parseStatement() Statement {
 		}
 	}
 
-	if p.curToken.Type == CLASS {
-		p.addError(p.curToken, "Las clases requieren visibilidad explícita: `public class`, `protected class` o `private class`.")
-		return p.parseClassStatement()
+	if p.curToken.Type == CLASS || p.curToken.Type == RECORD {
+		p.addError(p.curToken, "Las clases y records requieren visibilidad explícita: `public class`, `public record`, etc.")
+		classStmt := p.parseClassStatement()
+		if classStmt != nil {
+			classStmt.IsRecord = p.curToken.Type == RECORD
+		}
+		return classStmt
 	}
 	if p.curToken.Type == ENUM {
 		p.addError(p.curToken, "Los enums requieren visibilidad explícita: `public enum` o `private enum`.")
@@ -214,8 +223,11 @@ func (p *Parser) parseStatement() Statement {
 	if p.curToken.Type == CONST {
 		return p.parseConstStatement()
 	}
-	// Check for 'let' keyword variable declaration: let int $x = 10, let $x = 10
+	// Check for 'let' keyword variable declaration: let int $x = 10, let $x = 10, let ($a, $b) = val
 	if p.curToken.Type == LET || p.curToken.Literal == "let" {
+		if p.peekToken.Type == LPAREN {
+			return p.parseDestructureStatement()
+		}
 		if p.peekToken.Type == IDENT {
 			p.nextToken() // move to type (e.g. int, string)
 			return p.parseLetStatement()
@@ -340,13 +352,77 @@ func (p *Parser) parseContinueStatement() *ContinueStatement {
 }
 
 func (p *Parser) parseClassStatement() *ClassStatement {
-	stmt := &ClassStatement{Token: p.curToken}
+	stmt := &ClassStatement{Token: p.curToken, IsRecord: p.curToken.Type == RECORD}
 
 	if !p.expectPeek(IDENT) {
 		return nil
 	}
 
 	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if p.peekToken.Type == LT {
+		stmt.TypeParameters = p.parseTypeParameterList()
+	}
+
+	if stmt.IsRecord && p.peekToken.Type == LPAREN {
+		p.nextToken() // move to (
+		params := p.parseFunctionParameters()
+		recordBody := &BlockStatement{Token: Token{Type: LBRACE, Literal: "{"}}
+		for _, param := range params {
+			letStmt := &LetStatement{
+				Token:      param.Type,
+				Name:       param.Name,
+				Visibility: "public",
+				IsConst:    true,
+			}
+			recordBody.Statements = append(recordBody.Statements, letStmt)
+		}
+		stmt.Body = recordBody
+		hasCustomInit := false
+		if p.peekToken.Type == LBRACE {
+			p.nextToken() // move to {
+			customBody := p.parseClassBody()
+			if customBody != nil {
+				for _, s := range customBody.Statements {
+					if ms, ok := s.(*MethodStatement); ok && ms.Name != nil && ms.Name.Value == "Init" {
+						hasCustomInit = true
+					}
+					stmt.Body.Statements = append(stmt.Body.Statements, s)
+				}
+			}
+		} else if p.peekToken.Type == SEMICOLON || p.peekToken.Type == NEWLINE {
+			p.nextToken()
+		}
+
+		if !hasCustomInit {
+			initParams := make([]*Parameter, len(params))
+			initBody := &BlockStatement{Token: Token{Type: LBRACE, Literal: "{"}}
+			for i, param := range params {
+				initParams[i] = param
+				fieldName := strings.TrimPrefix(param.Name.Value, "$")
+				initBody.Statements = append(initBody.Statements, &ExpressionStatement{
+					Expression: &AssignExpression{
+						Token: Token{Type: ASSIGN, Literal: "="},
+						Left: &MemberExpression{
+							Token:    Token{Type: ARROW, Literal: "->"},
+							Left:     &Identifier{Token: Token{Type: THIS, Literal: "$this"}, Value: "$this"},
+							Property: &Identifier{Token: param.Name.Token, Value: fieldName},
+						},
+						Value: &Identifier{Token: param.Name.Token, Value: param.Name.Value},
+					},
+				})
+			}
+			initMethod := &MethodStatement{
+				Token:      Token{Type: IDENT, Literal: "Init"},
+				Name:       &Identifier{Token: Token{Type: IDENT, Literal: "Init"}, Value: "Init"},
+				Parameters: initParams,
+				Body:       initBody,
+				Visibility: "public",
+			}
+			stmt.Body.Statements = append(stmt.Body.Statements, initMethod)
+		}
+		return stmt
+	}
 
 	if p.peekToken.Type == EXTENDS {
 		p.nextToken()
@@ -1000,6 +1076,10 @@ func (p *Parser) parseMethodStatement(isAbstract ...bool) *MethodStatement {
 	}
 	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
+	if p.peekToken.Type == LT {
+		stmt.TypeParameters = p.parseTypeParameterList()
+	}
+
 	if !p.expectPeek(LPAREN) {
 		return nil
 	}
@@ -1210,4 +1290,66 @@ func (p *Parser) parseAsyncStatement() Statement {
 		Arguments: []Expression{exp},
 	}
 	return &ExpressionStatement{Token: tok, Expression: call}
+}
+
+func (p *Parser) parseTypeParameterList() []*Identifier {
+	p.nextToken() // move to '<'
+	params := []*Identifier{}
+	for p.peekToken.Type != GT && p.peekToken.Type != SHIFT_RIGHT && p.peekToken.Type != EOF {
+		p.nextToken() // move to type parameter IDENT
+		if p.curToken.Type == IDENT {
+			params = append(params, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
+		}
+		if p.peekToken.Type == COMMA {
+			p.nextToken() // consume COMMA
+		}
+	}
+	if p.peekToken.Type == GT {
+		p.nextToken() // consume '>'
+	} else if p.peekToken.Type == SHIFT_RIGHT {
+		p.curToken = Token{Type: GT, Literal: ">", Line: p.peekToken.Line, Column: p.peekToken.Column}
+		p.peekToken = Token{Type: GT, Literal: ">", Line: p.peekToken.Line, Column: p.peekToken.Column + 1}
+	}
+	return params
+}
+
+func (p *Parser) parseDestructureStatement() *DestructureStatement {
+	tok := p.curToken
+	if tok.Type == LET || tok.Literal == "let" {
+		p.nextToken() // move to LPAREN
+	}
+	names := []*Identifier{}
+	for p.curToken.Type != RPAREN && p.curToken.Type != EOF {
+		if p.peekToken.Type == VAR {
+			p.nextToken() // move to $
+			if p.expectPeek(IDENT) {
+				names = append(names, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
+			}
+		} else if p.peekToken.Type == IDENT {
+			p.nextToken() // move to IDENT
+			names = append(names, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
+		}
+		if p.peekToken.Type == COMMA {
+			p.nextToken() // consume COMMA
+		} else if p.peekToken.Type == RPAREN {
+			p.nextToken() // consume RPAREN
+			break
+		} else {
+			p.nextToken()
+			break
+		}
+	}
+	if !p.expectPeek(ASSIGN) {
+		return nil
+	}
+	p.nextToken() // move to value
+	value := p.parseExpression(LOWEST)
+	if p.peekToken.Type == SEMICOLON || p.peekToken.Type == NEWLINE {
+		p.nextToken()
+	}
+	return &DestructureStatement{
+		Token: tok,
+		Names: names,
+		Value: value,
+	}
 }

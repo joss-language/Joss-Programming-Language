@@ -10,7 +10,7 @@ import (
 
 // differentialFeatures is intentionally narrow: it records only semantics
 // currently implemented by both the published interpreter and prototype VM.
-var differentialFeatures = []string{"integer arithmetic", "integer comparison", "local assignment", "integer prefix"}
+var differentialFeatures = []string{"integer arithmetic", "integer comparison", "local assignment", "integer prefix", "equality comparison", "while loop"}
 
 func TestInterpreterAndVMSupportedDifferentialFeatures(t *testing.T) {
 	if len(differentialFeatures) == 0 {
@@ -24,6 +24,8 @@ func TestInterpreterAndVMSupportedDifferentialFeatures(t *testing.T) {
 		{name: "integer comparison", source: `$result = 3 >= 2`, want: true},
 		{name: "integer prefix", source: `$result = -4 + 10`, want: int64(6)},
 		{name: "local assignment", source: "int $a = 10\n$result = $a + 5", want: int64(15)},
+		{name: "equality comparison", source: `$result = 10 == 10`, want: true},
+		{name: "while loop", source: "int $i = 0\nint $sum = 0\nwhile ($i < 5) {\n    $sum = $sum + $i\n    $i++\n}\n$result = $sum", want: int64(10)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

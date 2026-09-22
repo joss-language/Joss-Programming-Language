@@ -400,4 +400,26 @@ func BenchmarkJossApplicationScenarios(b *testing.B) {
 			}
 		})
 	}
+
+	// Hot path benchmarks for Phase 8 profiling:
+	b.Run("HotPath_MemberAccess", func(b *testing.B) {
+		source := `
+public class UserState {
+    public string $name = "Alice"
+    public int $score = 100
 }
+public func access(): int {
+    $u = new UserState()
+    return $u->score
+}
+`
+		runtime := benchmarkPreparedRuntime(b, source)
+		fn := runtime.Functions["access"]
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchmarkValue = runtime.CallMethodEvaluated(fn, nil, nil)
+		}
+	})
+}
+
