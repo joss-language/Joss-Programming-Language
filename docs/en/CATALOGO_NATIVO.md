@@ -670,7 +670,7 @@ Implementación: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 
 ## Stream
 
-Implementación: [executeStreamMethod](../pkg/core/native_stream.go#L296).
+Implementación: [executeStreamMethod](../pkg/core/native_stream.go#L311).
 
 | Método | Retorno publicado al analizador |
 |---|---|

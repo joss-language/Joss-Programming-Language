@@ -121,6 +121,45 @@ default:
 	r.Execute(program)
 }
 
+func TestSelectSendAndCloseConcurrent(t *testing.T) {
+	program := parser.NewParser(parser.NewLexer(`select {
+case send($ch, 42):
+    $result = true
+}`)).ParseProgram()
+	for i := 0; i < 50; i++ {
+		r := newRuntimeState().(*Runtime)
+		ch := NewChannel(0)
+		r.Variables["ch"] = ch
+		finished := make(chan interface{}, 1)
+		go func() {
+			defer func() { finished <- recover() }()
+			r.Execute(program)
+		}()
+		deadline := time.Now().Add(time.Second)
+		for ch.senders.Load() == 0 {
+			if time.Now().After(deadline) {
+				t.Fatal("select did not register its sender")
+			}
+			time.Sleep(time.Millisecond)
+		}
+		if err := ch.TryClose(); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case result := <-finished:
+			if result != nil {
+				jerr, ok := result.(*JossError)
+				if !ok || jerr.Code != diagnostics.CodeChannelClosed {
+					t.Fatalf("unexpected select result: %#v", result)
+				}
+			}
+		case <-time.After(time.Second):
+			t.Fatal("select send did not stop after close")
+		}
+		r.Free()
+	}
+}
+
 func TestSelectStatementCancelsOnExecutionContext(t *testing.T) {
 	r := newRuntimeState().(*Runtime)
 	defer r.Free()

@@ -37,19 +37,11 @@ func (c *Channel) TrySend(value interface{}) (err error) {
 }
 
 func (c *Channel) TrySendContext(ctx context.Context, value interface{}) (err error) {
-	if c == nil || c.Ch == nil {
-		return &JossError{Type: "ChannelError", Code: diagnostics.CodeChannelClosed, Message: "El canal no está disponible"}
+	closing, err := c.beginSend()
+	if err != nil {
+		return err
 	}
-	if c.closed.Load() {
-		return &JossError{Type: "ChannelError", Code: diagnostics.CodeChannelClosed, Message: "No se puede enviar al canal: el canal está cerrado"}
-	}
-	closing := c.ensureClosing()
-	c.senders.Add(1)
-	defer c.senders.Add(-1)
-
-	if c.closed.Load() {
-		return &JossError{Type: "ChannelError", Code: diagnostics.CodeChannelClosed, Message: "No se puede enviar al canal: el canal está cerrado"}
-	}
+	defer c.endSend()
 
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -61,10 +53,36 @@ func (c *Channel) TrySendContext(ctx context.Context, value interface{}) (err er
 	case c.Ch <- value:
 		return nil
 	case <-closing:
-		return &JossError{Type: "ChannelError", Code: diagnostics.CodeChannelClosed, Message: "No se puede enviar al canal: el canal está cerrado"}
+		return closedChannelError()
 	case <-ctx.Done():
 		return &JossError{Type: "ExecutionCancelled", Message: ctx.Err().Error()}
 	}
+}
+
+func closedChannelError() *JossError {
+	return &JossError{Type: "ChannelError", Code: diagnostics.CodeChannelClosed, Message: "No se puede enviar al canal: el canal está cerrado"}
+}
+
+// beginSend reserves a sender until the caller finishes its send or select.
+// TryClose waits for every reservation before closing the underlying Go channel.
+func (c *Channel) beginSend() (chan struct{}, error) {
+	if c == nil || c.Ch == nil {
+		return nil, &JossError{Type: "ChannelError", Code: diagnostics.CodeChannelClosed, Message: "El canal no está disponible"}
+	}
+	if c.closed.Load() {
+		return nil, closedChannelError()
+	}
+	closing := c.ensureClosing()
+	c.senders.Add(1)
+	if c.closed.Load() {
+		c.endSend()
+		return nil, closedChannelError()
+	}
+	return closing, nil
+}
+
+func (c *Channel) endSend() {
+	c.senders.Add(-1)
 }
 
 func (c *Channel) Send(value interface{}) {

@@ -10,7 +10,7 @@ versão baixada anteriormente.
 |---|---|---|
 | Idioma | Analisador Pratt, variáveis explícitas de tipo fixo ou misto, classes/herança/interfaces/enums/visibilidade, funções/fechamentos/ref, ternários, guard, loops, correspondência de valores, try/catch, defer e select de canais. | [Sintaxe](SINTAXIS.md) |
 | Tipos | int64, float64, decimal, strings, arrays, mapas, objeto, canal, classes, uniões e anulável. Análise e defesa em tempo de execução com diferenças registradas. | [Tipos](SISTEMA_TIPOS.md) |
-| Simultaneidade | Goroutines usando assíncrono, Future, bloqueando espera e canais. A execução móvel suporta cancelamento cooperativo; não existe cancelamento estruturado geral nem isolamento profundo. | [Simultaneidade](CONCURRENCIA.md) |
+| Simultaneidade | Goroutines usando assíncrono, Future, espera bloqueante e canais. A execução móvel suporta cancelamento cooperativo e captura segura de saída tardia; uma chamada nativa bloqueante pode continuar após o timeout. Não existe cancelamento estruturado geral nem isolamento profundo. | [Simultaneidade](CONCURRENCIA.md) |
 | Analisador | Declarações, escopos, atribuibilidade, membros conhecidos, retornos e diagnósticos; narrowing local em ternários, guard e comparações com null. Não existe CFG geral nem prova de terminação completa. | [Analisador](ANALIZADOR.md) |
 | Execução principal | AST interpretado com planos, frames e caches que podem ser chamados. Pacotes de construção nativos JOSSBC2Z compactados AST com runner Go. | [Arquitetura](ARQUITECTURA.md) |
 | VM experimental | pkg/vm contém compilador e VM separados; não é o back-end padrão da CLI/core. | [Interno](ARQUITECTURA.md) |

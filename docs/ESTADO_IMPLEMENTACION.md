@@ -10,7 +10,7 @@ versión descargada previamente.
 |---|---|---|
 | Lenguaje | Parser Pratt, variables de tipo fijo o mixed explícito, clases/herencia/interfaces/enums/visibilidad, funciones/closures/ref, ternarios, guard, loops, match de valores, try/catch, defer y select de canales. | [Sintaxis](SINTAXIS.md) |
 | Tipos | int64, float64, decimal, strings, arrays, maps, object, channel, clases, uniones y nullable. Análisis y defensa runtime con diferencias registradas. | [Tipos](SISTEMA_TIPOS.md) |
-| Concurrencia | Goroutines mediante async, Future, espera bloqueante y channels. La ejecución móvil admite cancelación cooperativa; no existe cancelación estructurada general ni aislamiento profundo. | [Concurrencia](CONCURRENCIA.md) |
+| Concurrencia | Goroutines mediante async, Future, espera bloqueante y channels. La ejecución móvil admite cancelación cooperativa y captura segura de salida tardía; una llamada nativa bloqueante puede seguir tras el timeout. No existe cancelación estructurada general ni aislamiento profundo. | [Concurrencia](CONCURRENCIA.md) |
 | Analizador | Declaraciones, scopes, asignabilidad, miembros conocidos, retornos y diagnósticos; narrowing local en ternarios, guard y comparaciones con null. No existe CFG general ni prueba de terminación completa. | [Analizador](ANALIZADOR.md) |
 | Ejecución principal | AST interpretado con planes de callable, frames y caches. Build nativo empaqueta AST comprimido JOSSBC2Z con runner Go. | [Arquitectura](ARQUITECTURA.md) |
 | VM experimental | pkg/vm contiene compilador y VM independientes; no es backend por defecto de CLI/core. | [Internos](ARQUITECTURA.md) |

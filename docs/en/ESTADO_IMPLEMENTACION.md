@@ -10,7 +10,7 @@ previously downloaded version.
 |---|---|---|
 | Language | Parser Pratt, explicit fixed or mixed type variables, classes/inheritance/interfaces/enums/visibility, functions/closures/ref, ternaries, guard, loops, value matching, try/catch, defer and channel select. | [Syntax](SINTAXIS.md) |
 | Types | int64, float64, decimal, strings, arrays, maps, object, channel, classes, unions and nullable. Runtime analysis and defense with registered differences. | [Types](SISTEMA_TIPOS.md) |
-| Concurrency | Goroutines using async, Future, blocking wait and channels. Mobile execution supports cooperative cancellation; no general structured cancellation or deep isolation exists. | [Concurrency](CONCURRENCIA.md) |
+| Concurrency | Goroutines using async, Future, blocking wait and channels. Mobile execution supports cooperative cancellation and safe capture of late output; a blocking native call may continue after timeout. No general structured cancellation or deep isolation exists. | [Concurrency](CONCURRENCIA.md) |
 | Analyzer | Declarations, scopes, assignability, known members, returns and diagnostics; local narrowing in ternaries, guard and null comparisons. No general CFG or complete termination proof exists. | [Parser](ANALIZADOR.md) |
 | Main run | AST interpreted with callable plans, frames and caches. Native build packages JOSSBC2Z compressed AST with runner Go. | [Architecture](ARQUITECTURA.md) |
 | Experimental VM | pkg/vm contains separate compiler and VM; it is not default backend of CLI/core. | [Internal](ARQUITECTURA.md) |

@@ -44,6 +44,30 @@ type AnalysisResult struct {
 
 var execMutex sync.Mutex
 
+// captureBuffer accepts writes from a runtime that may outlive a cooperative
+// timeout, while allowing RunDirect to take a stable result snapshot.
+type captureBuffer struct {
+	mu     sync.Mutex
+	buffer bytes.Buffer
+	closed bool
+}
+
+func (b *captureBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return len(p), nil
+	}
+	return b.buffer.Write(p)
+}
+
+func (b *captureBuffer) closeAndSnapshot() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.closed = true
+	return normalizeOutput(b.buffer.String())
+}
+
 // Version returns the current Joss language version.
 func Version() string {
 	return version.Version
@@ -172,13 +196,13 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 	execMutex.Lock()
 	defer execMutex.Unlock()
 
-	var stdoutBuf bytes.Buffer
-	var stderrBuf bytes.Buffer
+	stdoutBuf := &captureBuffer{}
+	stderrBuf := &captureBuffer{}
 
 	core.GetAssetManager().Initialized = true
 	rt := core.NewRuntime()
-	rt.Out = &stdoutBuf
-	rt.ErrOut = &stderrBuf
+	rt.Out = stdoutBuf
+	rt.ErrOut = stderrBuf
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
 	defer cancel()
@@ -216,14 +240,19 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 		case <-time.After(250 * time.Millisecond):
 		}
 	}
+	if ctx.Err() != nil {
+		timedOut = true
+	}
 
 	duration := time.Since(start).Milliseconds()
+	stdout := stdoutBuf.closeAndSnapshot()
+	stderr := stderrBuf.closeAndSnapshot()
 
 	if timedOut {
 		return &ExecutionResult{
 			Success:    false,
-			Stdout:     normalizeOutput(stdoutBuf.String()),
-			Stderr:     normalizeOutput(stderrBuf.String()),
+			Stdout:     stdout,
+			Stderr:     stderr,
 			Error:      "Execution timed out",
 			TimedOut:   true,
 			DurationMs: duration,
@@ -233,8 +262,8 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 	if panicErr != nil {
 		return &ExecutionResult{
 			Success:    false,
-			Stdout:     normalizeOutput(stdoutBuf.String()),
-			Stderr:     normalizeOutput(stderrBuf.String()),
+			Stdout:     stdout,
+			Stderr:     stderr,
 			Error:      core.FormatPanicAsError(panicErr),
 			DurationMs: duration,
 		}
@@ -242,8 +271,8 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 
 	return &ExecutionResult{
 		Success:    true,
-		Stdout:     normalizeOutput(stdoutBuf.String()),
-		Stderr:     normalizeOutput(stderrBuf.String()),
+		Stdout:     stdout,
+		Stderr:     stderr,
 		DurationMs: duration,
 	}
 }

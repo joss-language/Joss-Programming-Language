@@ -1,14 +1,52 @@
 package core
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
+	"time"
 )
+
+func (r *Runtime) socketContext() context.Context {
+	if r.executionContext != nil {
+		return r.executionContext
+	}
+	return context.Background()
+}
+
+func (r *Runtime) socketDeadline() (time.Time, bool) {
+	if r.executionContext == nil {
+		return time.Time{}, false
+	}
+	return r.executionContext.Deadline()
+}
+
+func (r *Runtime) checkSocketCancellation(err error) {
+	if r.executionContext == nil {
+		return
+	}
+	var networkError net.Error
+	if errors.As(err, &networkError) && networkError.Timeout() {
+		if _, hasDeadline := r.executionContext.Deadline(); hasDeadline {
+			<-r.executionContext.Done()
+		}
+	}
+	r.checkExecutionCancelled()
+}
 
 // executeSocketMethod handles methods on Socket instances and static calls
 func (r *Runtime) executeSocketMethod(instance *Instance, method string, args []interface{}) interface{} {
+	if method != "close" {
+		r.checkExecutionCancelled()
+	}
+	if method != "close" && method != "port" {
+		if err := r.RequireCapability("network"); err != nil {
+			panic(err)
+		}
+	}
 	switch method {
 	case "tcp", "connect":
 		host := "127.0.0.1"
@@ -20,8 +58,9 @@ func (r *Runtime) executeSocketMethod(instance *Instance, method string, args []
 			port = fmt.Sprintf("%v", args[1])
 		}
 		addr := net.JoinHostPort(host, port)
-		conn, err := net.Dial("tcp", addr)
+		conn, err := (&net.Dialer{}).DialContext(r.socketContext(), "tcp", addr)
 		if err != nil {
+			r.checkSocketCancellation(err)
 			panic(&JossError{Type: "SocketError", Message: fmt.Sprintf("Socket::connect failed: %v", err), File: r.CurrentFile})
 		}
 		inst := instance
@@ -58,8 +97,19 @@ func (r *Runtime) executeSocketMethod(instance *Instance, method string, args []
 		if !ok || listener == nil {
 			panic(&JossError{Type: "SocketError", Message: "Socket is not listening", File: r.CurrentFile})
 		}
+		if deadline, hasDeadline := r.socketDeadline(); hasDeadline {
+			if tcpListener, ok := listener.(*net.TCPListener); ok {
+				_ = tcpListener.SetDeadline(deadline)
+				defer tcpListener.SetDeadline(time.Time{})
+			}
+		}
 		conn, err := listener.Accept()
 		if err != nil {
+			if r.executionContext != nil && r.executionContext.Err() != nil {
+				_ = listener.Close()
+				instance.Fields["_listener"] = nil
+			}
+			r.checkSocketCancellation(err)
 			panic(&JossError{Type: "SocketError", Message: fmt.Sprintf("Socket::accept failed: %v", err), File: r.CurrentFile})
 		}
 		clientInst := &Instance{Class: r.Classes["Socket"], Fields: make(map[string]interface{})}
@@ -75,8 +125,13 @@ func (r *Runtime) executeSocketMethod(instance *Instance, method string, args []
 		if len(args) > 0 {
 			data = fmt.Sprintf("%v", args[0])
 		}
+		if deadline, hasDeadline := r.socketDeadline(); hasDeadline {
+			_ = conn.SetWriteDeadline(deadline)
+			defer conn.SetWriteDeadline(time.Time{})
+		}
 		n, err := conn.Write([]byte(data))
 		if err != nil {
+			r.checkSocketCancellation(err)
 			panic(&JossError{Type: "SocketError", Message: fmt.Sprintf("Socket::send failed: %v", err), File: r.CurrentFile})
 		}
 		return int64(n)
@@ -98,9 +153,14 @@ func (r *Runtime) executeSocketMethod(instance *Instance, method string, args []
 				}
 			}
 		}
+		if deadline, hasDeadline := r.socketDeadline(); hasDeadline {
+			_ = conn.SetReadDeadline(deadline)
+			defer conn.SetReadDeadline(time.Time{})
+		}
 		buf := make([]byte, maxBytes)
 		n, err := conn.Read(buf)
 		if err != nil && err != io.EOF {
+			r.checkSocketCancellation(err)
 			panic(&JossError{Type: "SocketError", Message: fmt.Sprintf("Socket::receive failed: %v", err), File: r.CurrentFile})
 		}
 		return string(buf[:n])

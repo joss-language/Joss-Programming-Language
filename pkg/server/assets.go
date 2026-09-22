@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+func CompileStyles() {
+	compileStyles()
+}
+
 func compileStyles() {
 	fmt.Println("Compilando estilos...")
 	// Find .scss files

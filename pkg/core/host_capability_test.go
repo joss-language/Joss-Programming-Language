@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/jossecurity/joss/pkg/parser"
@@ -16,6 +18,37 @@ func parseAndRunSource(r *Runtime, source string) (panickedErr interface{}) {
 	program := p.ParseProgram()
 	r.Execute(program)
 	return nil
+}
+
+func TestNativeStreamsRespectFilesystemCapability(t *testing.T) {
+	path := filepath.ToSlash(filepath.Join(t.TempDir(), "denied.txt"))
+	for _, source := range []string{
+		fmt.Sprintf(`$stream = new FileStream(); $stream->open(%q, "w");`, path),
+		fmt.Sprintf(`$reader = new StreamReader(); $reader->open(%q);`, path),
+		fmt.Sprintf(`$writer = new StreamWriter(); $writer->open(%q);`, path),
+	} {
+		r := NewRuntime()
+		r.Capabilities.AllowFS = false
+		got := parseAndRunSource(r, source)
+		r.Free()
+		jerr, ok := got.(*JossError)
+		if !ok || jerr.Type != "SecurityError" {
+			t.Fatalf("source %q bypassed filesystem capability: %#v", source, got)
+		}
+	}
+}
+
+func TestNativeSocketRespectsNetworkCapability(t *testing.T) {
+	for _, method := range []string{"listen", "connect"} {
+		r := NewRuntime()
+		r.Capabilities.AllowNetwork = false
+		got := parseAndRunSource(r, fmt.Sprintf(`$socket = new Socket(); $socket->%s("127.0.0.1", "0");`, method))
+		r.Free()
+		jerr, ok := got.(*JossError)
+		if !ok || jerr.Type != "SecurityError" {
+			t.Fatalf("Socket::%s bypassed network capability: %#v", method, got)
+		}
+	}
 }
 
 func TestProcessCapabilityDeniedWhenRestricted(t *testing.T) {

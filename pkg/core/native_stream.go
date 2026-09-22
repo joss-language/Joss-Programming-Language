@@ -11,6 +11,11 @@ import (
 
 // executeFileStreamMethod handles methods on FileStream instances and static calls
 func (r *Runtime) executeFileStreamMethod(instance *Instance, method string, args []interface{}) interface{} {
+	if method != "close" {
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
+	}
 	switch method {
 	case "open":
 		path := ""
@@ -144,6 +149,11 @@ func (r *Runtime) executeFileStreamMethod(instance *Instance, method string, arg
 
 // executeStreamReaderMethod handles methods on StreamReader instances
 func (r *Runtime) executeStreamReaderMethod(instance *Instance, method string, args []interface{}) interface{} {
+	if method != "close" {
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
+	}
 	switch method {
 	case "open":
 		var file *os.File
@@ -209,6 +219,11 @@ func (r *Runtime) executeStreamReaderMethod(instance *Instance, method string, a
 
 // executeStreamWriterMethod handles methods on StreamWriter instances
 func (r *Runtime) executeStreamWriterMethod(instance *Instance, method string, args []interface{}) interface{} {
+	if method != "close" {
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
+	}
 	switch method {
 	case "open":
 		var file *os.File

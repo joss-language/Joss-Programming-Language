@@ -32,10 +32,10 @@ parameter metadata in part of the library.
 | `new Stack()` → `push(valor)`, `pop()`, `peek()` | Stack: last in, first out. pop does remove; void returns null. |
 | `new Queue()` → `enqueue(valor)`, `dequeue()`, `peek()` | Queue: first in, first out. dequeue removes; void null. |
 | `new Exception(mensaje,[codigo])` → `getMessage()`, `getCode()` | Error object with fields; default code 0. Does not itself generate a JOSS diagnostic. |
-| `FileStream::open(ruta, modo)` | Binary or text file stream (`read`, `write`, `seek`, `size`, `close`). |
-| `StreamReader::open(fuente)` | Line-by-line or full stream reader (`readLine`, `readToEnd`, `close`). |
-| `StreamWriter::open(destino, append)` | Buffered stream writer (`write`, `writeLine`, `flush`, `close`). |
-| `Socket::tcp(host, puerto)`, `listen(...)` | TCP client/server network sockets (`connect`, `listen`, `accept`, `send`, `receive`, `close`). |
+| `FileStream::open(ruta, modo)` | Binary or text file stream (`read`, `write`, `seek`, `size`, `close`); requires filesystem capability. |
+| `StreamReader::open(fuente)` | Line-by-line or full stream reader (`readLine`, `readToEnd`, `close`); requires filesystem capability. |
+| `StreamWriter::open(destino, append)` | Buffered stream writer (`write`, `writeLine`, `flush`, `close`); requires filesystem capability. |
+| `Socket::tcp(host, puerto)`, `listen(...)` | TCP client/server network sockets (`connect`, `listen`, `accept`, `send`, `receive`, `close`); require network capability. |
 | `DateTime::now()`, `parse(texto)`, `create(...)` | Object-oriented dates and times (`format`, `timestamp`, `iso`, `add`, `sub`, `diff`). |
 | `DateInterval::days(n)`, `hours(n)`, ... | Time intervals for arithmetic operations on `DateTime`. |
 | `new Mutex()`, `new RWMutex()`, `new WaitGroup()` | Thread-safe concurrency synchronization primitives (`lock`, `unlock`, `add`, `done`, `wait`). |

@@ -13,8 +13,18 @@ func (r *Runtime) executeSelect(ss *parser.SelectStatement) interface{} {
 	type caseInfo struct {
 		caseStmt *parser.SelectCaseStatement
 		assignTo *parser.Identifier
+		closed   bool
 	}
 	caseInfos := make([]caseInfo, 0, len(ss.Cases))
+	var activeSends []*Channel
+	var closingSignals []chan struct{}
+	releaseSenders := func() {
+		for _, ch := range activeSends {
+			ch.endSend()
+		}
+		activeSends = nil
+	}
+	defer releaseSenders()
 
 	for _, cs := range ss.Cases {
 		if cs.IsDefault {
@@ -51,10 +61,20 @@ func (r *Runtime) executeSelect(ss *parser.SelectStatement) interface{} {
 								panic(fmt.Sprintf("SelectError: Se esperaba un Channel para send(), se obtuvo %T", chVal))
 							}
 							sendVal := r.evaluateExpression(call.Arguments[1])
+							closing, err := ch.beginSend()
+							if err != nil {
+								panic(err)
+							}
+							activeSends = append(activeSends, ch)
+							closingSignals = append(closingSignals, closing)
+							sendValue := reflect.ValueOf(sendVal)
+							if !sendValue.IsValid() {
+								sendValue = reflect.Zero(reflect.TypeOf(ch.Ch).Elem())
+							}
 							cases = append(cases, reflect.SelectCase{
 								Dir:  reflect.SelectSend,
 								Chan: reflect.ValueOf(ch.Ch),
-								Send: reflect.ValueOf(sendVal),
+								Send: sendValue,
 							})
 							caseInfos = append(caseInfos, caseInfo{caseStmt: cs})
 							continue
@@ -83,6 +103,10 @@ func (r *Runtime) executeSelect(ss *parser.SelectStatement) interface{} {
 
 	if len(cases) == 0 {
 		return nil
+	}
+	for _, closing := range closingSignals {
+		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(closing)})
+		caseInfos = append(caseInfos, caseInfo{closed: true})
 	}
 
 	var cancelIdx int = -1
@@ -115,6 +139,7 @@ func (r *Runtime) executeSelect(ss *parser.SelectStatement) interface{} {
 		}()
 		chosen, recvVal, recvOK = reflect.Select(cases)
 	}()
+	releaseSenders()
 
 	if cancelIdx >= 0 && chosen == cancelIdx {
 		r.checkExecutionCancelled()
@@ -122,6 +147,9 @@ func (r *Runtime) executeSelect(ss *parser.SelectStatement) interface{} {
 	}
 
 	chosenInfo := caseInfos[chosen]
+	if chosenInfo.closed {
+		panic(closedChannelError())
+	}
 
 	if chosenInfo.assignTo != nil {
 		var val interface{}

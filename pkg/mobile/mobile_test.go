@@ -3,8 +3,45 @@ package mobile
 import (
 	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
+
+func TestCaptureBufferSnapshotIgnoresLateConcurrentWrites(t *testing.T) {
+	buffer := &captureBuffer{}
+	if _, err := buffer.Write([]byte("before")); err != nil {
+		t.Fatal(err)
+	}
+	var writers sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		writers.Add(1)
+		go func() {
+			defer writers.Done()
+			_, _ = buffer.Write([]byte("later"))
+		}()
+	}
+	snapshot := buffer.closeAndSnapshot()
+	writers.Wait()
+	if !strings.HasPrefix(snapshot, "before") || buffer.closeAndSnapshot() != snapshot {
+		t.Fatalf("capture changed after snapshot: %q", snapshot)
+	}
+}
+
+func TestRunTimeoutInterruptsSocketAccept(t *testing.T) {
+	started := time.Now()
+	result := RunDirect(`
+$server = new Socket()
+$server->listen("127.0.0.1", "0")
+$server->accept()
+`, 30)
+	if !result.TimedOut || result.Success {
+		t.Fatalf("socket accept did not time out: %+v", result)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("socket accept outlived timeout: %v", elapsed)
+	}
+}
 
 func TestVersion(t *testing.T) {
 	v := Version()

@@ -32,10 +32,10 @@ metadados de parâmetro em parte da biblioteca.
 | `new Stack()` → `push(valor)`, `pop()`, `peek()` | Pilha: último a entrar, primeiro a sair. pop remove; vazio retorna nulo. |
 | `new Queue()` → `enqueue(valor)`, `dequeue()`, `peek()` | Fila: primeiro a entrar, primeiro a sair. desenfileirar remove; nulo nulo. |
 | `new Exception(mensaje,[codigo])` → `getMessage()`, `getCode()` | Objeto de erro com campos; código padrão 0. Não gera um diagnóstico JOSS. |
-| `FileStream::open(ruta, modo)` | Fluxo de arquivo binário ou de texto (`read`, `write`, `seek`, `size`, `close`). |
-| `StreamReader::open(fuente)` | Leitor de streams por linhas ou completo (`readLine`, `readToEnd`, `close`). |
-| `StreamWriter::open(destino, append)` | Escritor bufferizado de streams (`write`, `writeLine`, `flush`, `close`). |
-| `Socket::tcp(host, puerto)`, `listen(...)` | Sockets de rede TCP cliente/servidor (`connect`, `listen`, `accept`, `send`, `receive`, `close`). |
+| `FileStream::open(ruta, modo)` | Fluxo de arquivo binário ou de texto (`read`, `write`, `seek`, `size`, `close`); requer capacidade de sistema de arquivos. |
+| `StreamReader::open(fuente)` | Leitor de streams por linhas ou completo (`readLine`, `readToEnd`, `close`); requer capacidade de sistema de arquivos. |
+| `StreamWriter::open(destino, append)` | Escritor bufferizado de streams (`write`, `writeLine`, `flush`, `close`); requer capacidade de sistema de arquivos. |
+| `Socket::tcp(host, puerto)`, `listen(...)` | Sockets de rede TCP cliente/servidor (`connect`, `listen`, `accept`, `send`, `receive`, `close`); requerem capacidade de rede. |
 | `DateTime::now()`, `parse(texto)`, `create(...)` | Datas e horas orientadas a objetos (`format`, `timestamp`, `iso`, `add`, `sub`, `diff`). |
 | `DateInterval::days(n)`, `hours(n)`, ... | Intervalos de tempo para operações aritméticas em `DateTime`. |
 | `new Mutex()`, `new RWMutex()`, `new WaitGroup()` | Primitivas de sincronização concorrente seguras (`lock`, `unlock`, `add`, `done`, `wait`). |<!-- joss-run: ["abc", "1", "dos", "uno"] -->
