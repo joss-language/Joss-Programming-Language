@@ -31,7 +31,15 @@ parameter metadata in part of the library.
 | `Markdown::toHtml(texto)`, `readFile(ruta)` | rendered HTML; readFile requires local file. It is not a substitute for route authorization or sanitization of untrusted content. |
 | `new Stack()` → `push(valor)`, `pop()`, `peek()` | Stack: last in, first out. pop does remove; void returns null. |
 | `new Queue()` → `enqueue(valor)`, `dequeue()`, `peek()` | Queue: first in, first out. dequeue removes; void null. |
-| `new Exception(mensaje,[codigo])` → `getMessage()`, `getCode()` | Error object with fields; default code 0. Does not itself generate a JOSS diagnostic. |<!-- joss-run: ["abc", "1", "dos", "uno"] -->
+| `new Exception(mensaje,[codigo])` → `getMessage()`, `getCode()` | Error object with fields; default code 0. Does not itself generate a JOSS diagnostic. |
+| `FileStream::open(ruta, modo)` | Binary or text file stream (`read`, `write`, `seek`, `size`, `close`). |
+| `StreamReader::open(fuente)` | Line-by-line or full stream reader (`readLine`, `readToEnd`, `close`). |
+| `StreamWriter::open(destino, append)` | Buffered stream writer (`write`, `writeLine`, `flush`, `close`). |
+| `Socket::tcp(host, puerto)`, `listen(...)` | TCP client/server network sockets (`connect`, `listen`, `accept`, `send`, `receive`, `close`). |
+| `DateTime::now()`, `parse(texto)`, `create(...)` | Object-oriented dates and times (`format`, `timestamp`, `iso`, `add`, `sub`, `diff`). |
+| `DateInterval::days(n)`, `hours(n)`, ... | Time intervals for arithmetic operations on `DateTime`. |
+| `new Mutex()`, `new RWMutex()`, `new WaitGroup()` | Thread-safe concurrency synchronization primitives (`lock`, `unlock`, `add`, `done`, `wait`). |
+<!-- joss-run: ["abc", "1", "dos", "uno"] -->
 ```joss
 print(Str::trim(" abc "))
 print(Str::indexOf("casa", "a"))

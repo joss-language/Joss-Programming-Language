@@ -309,7 +309,37 @@ If `$usuario` is `null`, the call is silently and safely canceled, and `$nombre`
 
 ---
 
-## 10. Life cycle and intelligent self-destruction for protection
+## 10. Generic classes (`class Contenedor<T>`) and immutable Records (`record`)
+
+### Generic classes
+Joss supports formal type parameters `<T>` in class declarations:
+
+```joss
+public class Caja<T> {
+    public T $contenido
+    Init constructor(T $valor) {
+        $this->contenido = $valor
+    }
+}
+```
+
+The semantic analyzer validates type consistency, ensuring that `Caja<int>` is not assignable to `Caja<string>`.
+
+### Records (`public record Nombre(campos...)`)
+A `record` is a concise class declaration oriented towards immutable data with automatic constructors and fields:
+
+```joss
+public record Coordenada(int $x, int $y)
+
+$c = new Coordenada(10, 20)
+print($c->x)
+```
+
+Fields declared in a `record` are sealed as constants (`const`) after object initialization, preventing any accidental reassignment.
+
+---
+
+## 11. Life cycle and intelligent self-destruction for protection
 
 In Joss, classes are written in a standard way without cumbersome syntax. Internally, the engine attaches a lifecycle finalizer to each instance created with `new`.
 

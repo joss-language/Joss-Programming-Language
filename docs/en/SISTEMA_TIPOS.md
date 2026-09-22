@@ -129,6 +129,9 @@ print($inventario["pan"])
 ```
 - `array<T>`: An array where all elements must be of type `T`.
 - `map<K, V>`: A map with keys of type `K` (must be `string`) and values ​​of type `V`.
+- `channel<T>`: A typed concurrency channel where transmitted messages must be of type `T` (e.g. `channel<string>`).
+- `Result<T, E>`: Canonical type for operation outcomes that can succeed with a value of type `T` or fail with an error of type `E`.
+- `Clase<T>`: Classes with formal generic type parameters (e.g. `Caja<T>`).
 
 When indexing a parameterized collection (for example `$cantidades[0]`), the parser immediately infers that the result is of type `int`, ensuring safety in the rest of the code.
 

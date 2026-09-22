@@ -1,18 +1,18 @@
-# Native catalog generated
+# Catálogo nativo generado
 
-Before: [library and contracts](MODULOS_NATIVOS.md). Index: [documentation](README.md).
+Antes: [biblioteca y contratos](MODULOS_NATIVOS.md). Índice: [documentación](README.md).
 
-Generated with `go run ./tools/docgen` from `Runtime.RegisterNativeClasses()`.
-Do not edit manually. Each name is an entry in the actual registry. **Return posted**
-does not mean exhaustive return observed: the discrepancies are in the library.
-Native parameters are not published in this registry; consult the
-tables of contracts and the linked handler. `mixed` does not certify isolation or absence of faults.
+Generado con `go run ./tools/docgen` desde `Runtime.RegisterNativeClasses()`.
+No editar manualmente. Cada nombre es una entrada del registro real. **Retorno publicado**
+no significa retorno exhaustivo observado: las discrepancias están en la biblioteca.
+Los parámetros nativos no están publicados en este registro; consulta las tablas
+de contratos y el handler enlazado. `mixed` no certifica aislamiento ni ausencia de fallos.
 
 ## Auth
 
-Implementation: [executeAuthMethod](../pkg/core/auth.go#L14).
+Implementación: [executeAuthMethod](../pkg/core/auth.go#L14).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `attempt` | `mixed` |
 | `check` | `bool` |
@@ -38,9 +38,9 @@ Implementation: [executeAuthMethod](../pkg/core/auth.go#L14).
 
 ## AuthLoginResult
 
-Implementation: [executeAuthLoginResultMethod](../pkg/core/auth_fluent.go#L18).
+Implementación: [executeAuthLoginResultMethod](../pkg/core/auth_fluent.go#L18).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `onChallenge` | `AuthLoginResult` |
 | `onFail` | `AuthLoginResult` |
@@ -50,9 +50,9 @@ Implementation: [executeAuthLoginResultMethod](../pkg/core/auth_fluent.go#L18).
 
 ## Blueprint
 
-Implementation: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L34).
+Implementación: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L34).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `bigInteger` | `Blueprint` |
 | `boolean` | `Blueprint` |
@@ -98,9 +98,9 @@ Implementation: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L34).
 
 ## Cache
 
-Implementation: [executeCacheMethod](../pkg/core/native_cache.go#L18).
+Implementación: [executeCacheMethod](../pkg/core/native_cache.go#L18).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `forget` | `mixed` |
 | `get` | `mixed` |
@@ -109,7 +109,7 @@ Implementation: [executeCacheMethod](../pkg/core/native_cache.go#L18).
 
 ## Console
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `blue` | `string` |
 | `bold` | `string` |
@@ -125,27 +125,69 @@ Implementation: [executeCacheMethod](../pkg/core/native_cache.go#L18).
 
 ## Cron
 
-Implementation: [executeCronMethod](../pkg/core/cron.go#L11).
+Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `schedule` | `mixed` |
 
+## DateInterval
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `days` | `DateInterval` |
+| `hours` | `DateInterval` |
+| `minutes` | `DateInterval` |
+| `seconds` | `DateInterval` |
+| `totalSeconds` | `int` |
+
+## DateTime
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `add` | `DateTime` |
+| `create` | `DateTime` |
+| `day` | `int` |
+| `diff` | `DateInterval` |
+| `format` | `string` |
+| `hour` | `int` |
+| `iso` | `string` |
+| `minute` | `int` |
+| `month` | `int` |
+| `now` | `DateTime` |
+| `parse` | `DateTime` |
+| `second` | `int` |
+| `sub` | `DateTime` |
+| `timestamp` | `int` |
+| `year` | `int` |
+
 ## Exception
 
-Implementation: [executeExceptionMethod](../pkg/core/native.go#L352).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L375).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `constructor` | `mixed` |
 | `getCode` | `int` |
 | `getMessage` | `string` |
 
+## FileStream
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `close` | `void` |
+| `flush` | `void` |
+| `open` | `FileStream` |
+| `read` | `string` |
+| `seek` | `int` |
+| `size` | `int` |
+| `write` | `int` |
+
 ## GranDB
 
-Implementation: [executeGranDBMethod](../pkg/core/database.go#L11).
+Implementación: [executeGranDBMethod](../pkg/core/database.go#L11).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `avg` | `float\|null` |
 | `changeDB` | `GranDB` |
@@ -292,9 +334,9 @@ Implementation: [executeGranDBMethod](../pkg/core/database.go#L11).
 
 ## Http
 
-Implementation: [executeHttpMethod](../pkg/core/http_client.go#L14).
+Implementación: [executeHttpMethod](../pkg/core/http_client.go#L14).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `delete` | `mixed` |
 | `get` | `mixed` |
@@ -308,9 +350,9 @@ Implementation: [executeHttpMethod](../pkg/core/http_client.go#L14).
 
 ## IndexNow
 
-Implementation: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
+Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `enabled` | `bool` |
 | `key` | `string` |
@@ -319,7 +361,7 @@ Implementation: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
 
 ## JSON
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `decode` | `mixed` |
 | `encode` | `string` |
@@ -328,7 +370,7 @@ Implementation: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
 
 ## Lang
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `get` | `mixed` |
 | `locale` | `string` |
@@ -337,9 +379,9 @@ Implementation: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
 
 ## MFA
 
-Implementation: [executeMFAMethod](../pkg/core/auth_fluent.go#L99).
+Implementación: [executeMFAMethod](../pkg/core/auth_fluent.go#L99).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `generateRecoveryCodes` | `mixed` |
 | `generateTOTP` | `mixed` |
@@ -348,14 +390,14 @@ Implementation: [executeMFAMethod](../pkg/core/auth_fluent.go#L99).
 
 ## Markdown
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `readFile` | `string` |
 | `toHtml` | `string` |
 
 ## Math
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `abs` | `float` |
 | `ceil` | `float` |
@@ -364,17 +406,25 @@ Implementation: [executeMFAMethod](../pkg/core/auth_fluent.go#L99).
 
 ## Middleware
 
-Registered base class without native methods of its own.
+Clase base registrada sin métodos nativos propios.
 
 ## Migration
 
-Registered base class without native methods of its own.
+Clase base registrada sin métodos nativos propios.
+
+## Mutex
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `lock` | `void` |
+| `tryLock` | `bool` |
+| `unlock` | `void` |
 
 ## Plugin
 
-Implementation: [executePluginMethod](../pkg/core/native_plugin.go#L49).
+Implementación: [executePluginMethod](../pkg/core/native_plugin.go#L49).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `call` | `mixed` |
 | `path` | `mixed` |
@@ -383,9 +433,9 @@ Implementation: [executePluginMethod](../pkg/core/native_plugin.go#L49).
 
 ## Process
 
-Implementation: [executeProcessMethod](../pkg/core/native_process.go#L13).
+Implementación: [executeProcessMethod](../pkg/core/native_process.go#L13).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `constructor` | `mixed` |
 | `kill` | `mixed` |
@@ -398,25 +448,34 @@ Implementation: [executeProcessMethod](../pkg/core/native_process.go#L13).
 
 ## Queue
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `dequeue` | `mixed` |
 | `enqueue` | `mixed` |
 | `peek` | `mixed` |
 
+## RWMutex
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `lock` | `void` |
+| `rLock` | `void` |
+| `rUnlock` | `void` |
+| `unlock` | `void` |
+
 ## Redirect
 
-Implementation: [executeRedirectMethod](../pkg/core/response.go#L177).
+Implementación: [executeRedirectMethod](../pkg/core/response.go#L177).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `to` | `WebResponse` |
 
 ## Redis
 
-Implementation: [executeRedisMethod](../pkg/core/redis.go#L96).
+Implementación: [executeRedisMethod](../pkg/core/redis.go#L96).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `connect` | `mixed` |
 | `del` | `mixed` |
@@ -429,9 +488,9 @@ Implementation: [executeRedisMethod](../pkg/core/redis.go#L96).
 
 ## Request
 
-Implementation: [executeRequestMethod](../pkg/core/request.go#L9).
+Implementación: [executeRequestMethod](../pkg/core/request.go#L9).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `all` | `map` |
 | `bearerToken` | `mixed` |
@@ -457,9 +516,9 @@ Implementation: [executeRequestMethod](../pkg/core/request.go#L9).
 
 ## Response
 
-Implementation: [executeResponseMethod](../pkg/core/response.go#L10).
+Implementación: [executeResponseMethod](../pkg/core/response.go#L10).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `back` | `WebResponse` |
 | `download` | `WebResponse` |
@@ -471,9 +530,9 @@ Implementation: [executeResponseMethod](../pkg/core/response.go#L10).
 
 ## Router
 
-Implementation: [executeRouterMethod](../pkg/core/router.go#L12).
+Implementación: [executeRouterMethod](../pkg/core/router.go#L12).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `any` | `mixed` |
 | `api` | `mixed` |
@@ -494,9 +553,9 @@ Implementation: [executeRouterMethod](../pkg/core/router.go#L12).
 
 ## SEO
 
-Implementation: [executeSEOMethod](../pkg/core/native_seo.go#L13).
+Implementación: [executeSEOMethod](../pkg/core/native_seo.go#L13).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `canonical` | `SEO` |
 | `description` | `SEO` |
@@ -508,9 +567,9 @@ Implementation: [executeSEOMethod](../pkg/core/native_seo.go#L13).
 
 ## SQLite
 
-Implementation: [executeSQLiteMethod](../pkg/core/native_sqlite.go#L16).
+Implementación: [executeSQLiteMethod](../pkg/core/native_sqlite.go#L16).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `close` | `mixed` |
 | `open` | `mixed` |
@@ -518,9 +577,9 @@ Implementation: [executeSQLiteMethod](../pkg/core/native_sqlite.go#L16).
 
 ## Schema
 
-Implementation: [executeSchemaMethod](../pkg/core/schema.go#L119).
+Implementación: [executeSchemaMethod](../pkg/core/schema.go#L119).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `create` | `mixed` |
 | `drop` | `mixed` |
@@ -532,18 +591,18 @@ Implementation: [executeSchemaMethod](../pkg/core/schema.go#L119).
 
 ## Server
 
-Implementation: [executeServerControlMethod](../pkg/core/native_server_control.go#L15).
+Implementación: [executeServerControlMethod](../pkg/core/native_server_control.go#L15).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `spawn` | `mixed` |
 | `start` | `mixed` |
 
 ## Session
 
-Implementation: [executeSessionMethod](../pkg/core/native_extensions.go#L75).
+Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L75).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `all` | `map` |
 | `forget` | `mixed` |
@@ -553,9 +612,9 @@ Implementation: [executeSessionMethod](../pkg/core/native_extensions.go#L75).
 
 ## Sitemap
 
-Implementation: [executeSitemapMethod](../pkg/core/native_seo.go#L128).
+Implementación: [executeSitemapMethod](../pkg/core/native_seo.go#L128).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `add` | `Sitemap` |
 | `exclude` | `Sitemap` |
@@ -565,9 +624,9 @@ Implementation: [executeSitemapMethod](../pkg/core/native_seo.go#L128).
 
 ## SmtpClient
 
-Implementation: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
+Implementación: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `auth` | `SmtpClient` |
 | `lastError` | `string\|null` |
@@ -575,9 +634,22 @@ Implementation: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 | `send` | `bool` |
 | `timeout` | `SmtpClient` |
 
+## Socket
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `accept` | `Socket` |
+| `close` | `void` |
+| `connect` | `Socket` |
+| `listen` | `Socket` |
+| `port` | `int` |
+| `receive` | `string` |
+| `send` | `int` |
+| `tcp` | `Socket` |
+
 ## Stack
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `peek` | `mixed` |
 | `pop` | `mixed` |
@@ -585,7 +657,7 @@ Implementation: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 
 ## Str
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `contains` | `bool` |
 | `indexOf` | `int` |
@@ -598,18 +670,37 @@ Implementation: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 
 ## Stream
 
-Implementation: [executeStreamMethod](../pkg/core/native_stream.go#L10).
+Implementación: [executeStreamMethod](../pkg/core/native_stream.go#L296).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `close` | `mixed` |
 | `send` | `mixed` |
 
+## StreamReader
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `close` | `void` |
+| `open` | `StreamReader` |
+| `readLine` | `string\|null` |
+| `readToEnd` | `string` |
+
+## StreamWriter
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `close` | `void` |
+| `flush` | `void` |
+| `open` | `StreamWriter` |
+| `write` | `int` |
+| `writeLine` | `int` |
+
 ## System
 
-Implementation: [executeSystemMethod](../pkg/core/system.go#L14).
+Implementación: [executeSystemMethod](../pkg/core/system.go#L14).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `Run` | `mixed` |
 | `driver_call` | `mixed` |
@@ -621,33 +712,33 @@ Implementation: [executeSystemMethod](../pkg/core/system.go#L14).
 
 ## Task
 
-Implementation: [executeTaskMethod](../pkg/core/task.go#L10).
+Implementación: [executeTaskMethod](../pkg/core/task.go#L10).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `on_request` | `mixed` |
 
 ## TwoFactor
 
-Implementation: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L168).
+Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L168).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `required` | `bool` |
 | `verify` | `bool` |
 
 ## UUID
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `generate` | `string` |
 | `v4` | `string` |
 
 ## UserStorage
 
-Implementation: [executeUserStorageMethod](../pkg/core/lib_storage.go#L20).
+Implementación: [executeUserStorageMethod](../pkg/core/lib_storage.go#L20).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `delete` | `mixed` |
 | `get` | `mixed` |
@@ -657,19 +748,27 @@ Implementation: [executeUserStorageMethod](../pkg/core/lib_storage.go#L20).
 
 ## View
 
-Implementation: [executeViewMethod](../pkg/core/view.go#L61).
+Implementación: [executeViewMethod](../pkg/core/view.go#L61).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `exists` | `bool` |
 | `render` | `string` |
 | `share` | `mixed` |
 
+## WaitGroup
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `add` | `void` |
+| `done` | `void` |
+| `wait` | `void` |
+
 ## WebResponse
 
-Implementation: [executeWebResponseMethod](../pkg/core/response.go#L132).
+Implementación: [executeWebResponseMethod](../pkg/core/response.go#L132).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `status` | `WebResponse` |
 | `with` | `WebResponse` |
@@ -678,9 +777,9 @@ Implementation: [executeWebResponseMethod](../pkg/core/response.go#L132).
 
 ## WebSocket
 
-Implementation: [executeWebSocketMethod](../pkg/core/websocket.go#L60).
+Implementación: [executeWebSocketMethod](../pkg/core/websocket.go#L60).
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `broadcast` | `mixed` |
 | `close` | `mixed` |
@@ -694,14 +793,14 @@ Implementation: [executeWebSocketMethod](../pkg/core/websocket.go#L60).
 
 ## Zip
 
-| Method | Posted return to parser |
+| Método | Retorno publicado al analizador |
 |---|---|
 | `extract` | `bool` |
 
-## Global functions
+## Funciones globales
 
-Contracts: [global functions](FUNCIONES_GLOBALES.md). Variants that share implementation
-are explained together there; this list preserves all registered spellings.
+Contratos: [funciones globales](FUNCIONES_GLOBALES.md). Variantes que comparten implementación
+se explican juntas allí; esta lista conserva todas las grafías registradas.
 
 - `__`
 - `abs`
@@ -830,4 +929,4 @@ are explained together there; this list preserves all registered spellings.
 - `values`
 - `view`
 
-Total: 44 classes, 408 methods and 126 built-ins.
+Total: 53 clases, 462 métodos y 126 built-ins.

@@ -129,6 +129,9 @@ print($inventario["pan"])
 ```
 - `array<T>`: Um array onde todos os elementos devem ser do tipo `T`.
 - `map<K, V>`: Um mapa com chaves do tipo `K` (deve ser `string`) e valores do tipo `V`.
+- `channel<T>`: Um canal de concorrência tipado onde as mensagens transmitidas devem ser do tipo `T` (ex. `channel<string>`).
+- `Result<T, E>`: Tipo canônico para resultados de operações que podem ter sucesso com um valor do tipo `T` ou falhar com um erro do tipo `E`.
+- `Clase<T>`: Classes com parâmetros formais de tipo genérico (ex. `Caja<T>`).
 
 Ao indexar uma coleção parametrizada (por exemplo `$cantidades[0]`), o analisador infere imediatamente que o resultado é do tipo `int`, garantindo segurança no restante do código.
 

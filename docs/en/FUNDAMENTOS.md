@@ -142,6 +142,17 @@ print($maximo)
 
 If you try to type `$maximo = 4`, the parser will issue an error `JOSS-SYM-006` indicating that a constant cannot be reassigned.
 
+### 5. Multiple destructuring: `let ($a, $b) = lista`
+When a function returns a list or tuple of values, you can unpack its elements into independent variables in a single line:
+
+```joss
+let ($x, $y) = [10, 20]
+print($x)
+print($y)
+```
+
+Each position of the list is assigned to its corresponding receiving variable.
+
 ---
 
 ## 4. Text, comments and formatted output

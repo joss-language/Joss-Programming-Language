@@ -31,7 +31,14 @@ metadados de parâmetro em parte da biblioteca.
 | `Markdown::toHtml(texto)`, `readFile(ruta)` | HTML renderizado; readFile requer arquivo local. Não substitui a autorização de rota ou a higienização de conteúdo não confiável. |
 | `new Stack()` → `push(valor)`, `pop()`, `peek()` | Pilha: último a entrar, primeiro a sair. pop remove; vazio retorna nulo. |
 | `new Queue()` → `enqueue(valor)`, `dequeue()`, `peek()` | Fila: primeiro a entrar, primeiro a sair. desenfileirar remove; nulo nulo. |
-| `new Exception(mensaje,[codigo])` → `getMessage()`, `getCode()` | Objeto de erro com campos; código padrão 0. Não gera um diagnóstico JOSS. |<!-- joss-run: ["abc", "1", "dos", "uno"] -->
+| `new Exception(mensaje,[codigo])` → `getMessage()`, `getCode()` | Objeto de erro com campos; código padrão 0. Não gera um diagnóstico JOSS. |
+| `FileStream::open(ruta, modo)` | Fluxo de arquivo binário ou de texto (`read`, `write`, `seek`, `size`, `close`). |
+| `StreamReader::open(fuente)` | Leitor de streams por linhas ou completo (`readLine`, `readToEnd`, `close`). |
+| `StreamWriter::open(destino, append)` | Escritor bufferizado de streams (`write`, `writeLine`, `flush`, `close`). |
+| `Socket::tcp(host, puerto)`, `listen(...)` | Sockets de rede TCP cliente/servidor (`connect`, `listen`, `accept`, `send`, `receive`, `close`). |
+| `DateTime::now()`, `parse(texto)`, `create(...)` | Datas e horas orientadas a objetos (`format`, `timestamp`, `iso`, `add`, `sub`, `diff`). |
+| `DateInterval::days(n)`, `hours(n)`, ... | Intervalos de tempo para operações aritméticas em `DateTime`. |
+| `new Mutex()`, `new RWMutex()`, `new WaitGroup()` | Primitivas de sincronização concorrente seguras (`lock`, `unlock`, `add`, `done`, `wait`). |<!-- joss-run: ["abc", "1", "dos", "uno"] -->
 ```joss
 print(Str::trim(" abc "))
 print(Str::indexOf("casa", "a"))
