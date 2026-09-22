@@ -86,4 +86,3 @@ map<string, int> $m2 = $m1
 		t.Fatalf("expected JOSS-TYPE-002 when assigning map<string, string> to map<string, int>, got %#v", mapAssign)
 	}
 }
-
