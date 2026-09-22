@@ -3,6 +3,8 @@ package core
 import (
 	"testing"
 
+	"github.com/jossecurity/joss/pkg/diagnostics"
+	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/typesystem"
 )
 
@@ -89,5 +91,78 @@ func TestNativeMethodDefinitionsProjectToRuntimeAndAnalyzer(t *testing.T) {
 		if runtime.NativeHandlers[className] == nil {
 			t.Fatalf("migrated native class %s has no runtime implementation", className)
 		}
+	}
+}
+
+func TestMigratedNativeSignaturesPublishReliableOptionalArity(t *testing.T) {
+	definitions := GetNativeMethodDefinitions()
+	checks := map[string]struct {
+		method   string
+		minimum  int
+		maximum  int
+		returned string
+	}{
+		"Math":    {method: "random", minimum: 2, maximum: 2, returned: "int"},
+		"Str":     {method: "substring", minimum: 2, maximum: 3, returned: "string"},
+		"Lang":    {method: "get", minimum: 1, maximum: 2, returned: "mixed"},
+		"Console": {method: "log", minimum: 0, maximum: 1, returned: "void"},
+	}
+	for className, check := range checks {
+		var found NativeMethodDefinition
+		foundDefinition := false
+		for _, definition := range definitions[className] {
+			if definition.Name == check.method {
+				found = definition
+				foundDefinition = true
+				break
+			}
+		}
+		if !foundDefinition {
+			t.Fatalf("missing %s::%s", className, check.method)
+		}
+		minimum := 0
+		for _, parameter := range found.Parameters {
+			if !parameter.HasDefault {
+				minimum++
+			}
+		}
+		if !found.ArityKnown || minimum != check.minimum || len(found.Parameters) != check.maximum || found.ReturnType.String() != check.returned {
+			t.Fatalf("%s::%s signature = known:%v %d..%d -> %s, want %d..%d -> %s", className, check.method, found.ArityKnown, minimum, len(found.Parameters), found.ReturnType, check.minimum, check.maximum, check.returned)
+		}
+	}
+}
+
+func TestMigratedNativeSignaturesDriveCallDiagnostics(t *testing.T) {
+	mathRandom := buildAnalysisEnvironment().Classes["Math"].Methods["random"]
+	if mathRandom.Variadic || len(mathRandom.Parameters) != 2 {
+		t.Fatalf("Math::random analyzer projection = %#v", mathRandom)
+	}
+	parse := func(source string) *AnalysisReport {
+		p := parser.NewParser(parser.NewLexer(source))
+		program := p.ParseProgram()
+		if errors := p.Errors(); len(errors) != 0 {
+			t.Fatalf("parse errors: %v", errors)
+		}
+		return AnalyzeProgram(program)
+	}
+
+	valid := parse(`Math::random(1, 2)
+Str::random()
+Str::random(8)
+Str::substring("joss", 1)
+Str::substring("joss", 1, 2)
+Lang::get("welcome")
+Lang::get("welcome", {})
+Console::log()`)
+	if valid.HasErrors() {
+		t.Fatalf("valid native calls produced diagnostics: %#v", valid.Diagnostics)
+	}
+
+	invalid := parse(`Math::random(1)
+Str::substring("joss")
+Lang::get()
+Console::clear("unexpected")`)
+	if got := invalid.Count(diagnostics.SeverityError); got != 4 {
+		t.Fatalf("native arity error count = %d, want 4; diagnostics: %#v", got, invalid.Diagnostics)
 	}
 }

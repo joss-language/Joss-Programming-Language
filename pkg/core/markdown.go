@@ -30,6 +30,9 @@ func (r *Runtime) executeMarkdownMethod(instance *Instance, method string, args 
 		return markdownToHTML(content)
 
 	case "readFile":
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
 		// Markdown::readFile(string $path) - Read markdown file and return HTML
 		if len(args) != 1 {
 			fmt.Println("Error: Markdown::readFile requiere 1 argumento (path)")

@@ -59,6 +59,7 @@ A diferencia de los mensajes de error genéricos de herramientas antiguas, cada 
 | `JOSS-TYPE-009` | Tipos | Tipo de dato o clase inexistente (incluye aliases eliminados como `integer`, `double`, `boolean`, `any`, `list`). | `integer $x = 10`<br>`boolean $flag = true` | Usar los tipos canónicos de Joss:<br>`int $x = 10`<br>`bool $flag = true` |
 | `JOSS-TYPE-010` | Tipos | Función con tipo de retorno anotado puede terminar sin ejecutar un `return` o `throw`. | `public func f(int $n): string {`<br>`    $n > 0 ? { return "si" } : {}`<br>`}` | Garantizar que todas las rutas posibles retornen un valor del tipo prometido. |
 | `JOSS-TYPE-011` | Tipos | Se declaró un parámetro sin tipo explícito. | `public func f($x) {}` | En Joss todos los parámetros deben declarar su tipo:<br>`public func f(int $x) {}` o `public func f(mixed $x) {}` |
+| `JOSS-TYPE-012` | Warning | Una colección mutable sin parámetros se usa como colección tipada. El alias original podría insertar valores incompatibles. | `array $origen = [1]`<br>`array<int> $numeros = $origen` | Mantener el tipo desde la declaración o validar y copiar en el límite: `array<int> $origen = [1]`. |
 | `JOSS-CALL-001` | Llamadas | Cantidad incorrecta de argumentos respecto a los parámetros de la firma conocida. | `public func f(int $a, int $b) {}`<br>`f(1)` | Proporcionar todos los argumentos obligatorios requeridos por la función. |
 | `JOSS-MEMBER-001` | Miembros | Se intenta invocar un método que no existe en la clase receptora resuelta. | `$usuario->metodoInexistente()` | Comprobar el nombre del método en la definición de la clase o en el catálogo nativo. |
 | `JOSS-ACCESS-001` | Visibilidad | Se intenta usar una clase o función declarada como `private` desde otro archivo. | Llamar a una función privada de otro archivo. | Declarar la función o clase como `public` si debe ser compartida en el proyecto. |
@@ -167,6 +168,27 @@ Caso corregido usando dinamismo voluntario (`mixed`):
 mixed $dato = 20
 $dato = "veinte"
 print($dato)
+```
+
+---
+
+### Estrechamiento inseguro de colección mutable (`JOSS-TYPE-012`)
+
+La compatibilidad heredada permite la operación, pero el analyzer avisa porque ambos nombres pueden compartir la misma colección mutable.
+
+<!-- joss-error: JOSS-TYPE-012 -->
+```joss-invalid
+array $origen = [1]
+array<int> $numeros = $origen
+```
+
+Caso seguro manteniendo el tipo desde el origen:
+
+<!-- joss-run: ["1"] -->
+```joss
+array<int> $origen = [1]
+array<int> $numeros = $origen
+print($numeros[0])
 ```
 
 ---

@@ -44,7 +44,7 @@ func (a *Analyzer) inferMember(expression *parser.MemberExpression, current *sco
 	if expression == nil {
 		return typesystem.Type{Kind: typesystem.Unknown}
 	}
-	receiver := a.receiverType(expression.Left, current)
+	receiver := a.memberReceiverType(expression, current)
 	if receiver.Kind == typesystem.Class && expression.Property != nil {
 		if enumDef, isEnum := a.enums[receiver.Name]; isEnum {
 			if caseType, ok := enumDef.Cases[expression.Property.Value]; ok {
@@ -59,6 +59,27 @@ func (a *Analyzer) inferMember(expression *parser.MemberExpression, current *sco
 		}
 	}
 	return typesystem.Type{Kind: typesystem.Unknown}
+}
+
+// memberReceiverType preserves lexical shadowing for instance access while
+// giving the explicit static operator its source-level meaning. Core exposes
+// native class singletons as globals, so resolving those globals first would
+// otherwise erase the class metadata used for arity and member diagnostics.
+func (a *Analyzer) memberReceiverType(expression *parser.MemberExpression, current *scope) typesystem.Type {
+	if expression != nil && expression.Token.Type == parser.DOUBLE_COLON {
+		if identifier, ok := expression.Left.(*parser.Identifier); ok {
+			if _, exists := a.classes[identifier.Value]; exists {
+				return typesystem.Type{Kind: typesystem.Class, Name: identifier.Value}
+			}
+			if _, exists := a.interfaces[identifier.Value]; exists {
+				return typesystem.Type{Kind: typesystem.Class, Name: identifier.Value}
+			}
+			if _, exists := a.enums[identifier.Value]; exists {
+				return typesystem.Type{Kind: typesystem.Class, Name: identifier.Value}
+			}
+		}
+	}
+	return a.receiverType(expression.Left, current)
 }
 
 func (a *Analyzer) canAccess(visibility, owner string) bool {

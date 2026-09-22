@@ -193,7 +193,7 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.Variables["Redirect"] = &Instance{Class: r.Classes["Redirect"], Fields: make(map[string]interface{})}
 
 	// Request
-	r.registerNative("Request", []string{"input", "post", "all", "except", "file", "hasFile", "hasfile", "has", "cookie", "root", "header", "isMethod", "ismethod", "method", "path", "url", "ip", "userAgent", "useragent", "bearerToken", "bearertoken"}, (*Runtime).executeRequestMethod)
+	r.registerNative("Request", []string{"input", "post", "all", "except", "file", "hasFile", "hasfile", "has", "cookie", "root", "header", "isMethod", "ismethod", "method", "path", "url", "uri", "ip", "userAgent", "useragent", "bearerToken", "bearertoken"}, (*Runtime).executeRequestMethod)
 	r.Variables["Request"] = &Instance{Class: r.Classes["Request"], Fields: make(map[string]interface{})}
 
 	// Response

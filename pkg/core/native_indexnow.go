@@ -191,6 +191,9 @@ func (r *Runtime) executeIndexNowMethod(instance *Instance, method string, args 
 }
 
 func (r *Runtime) sendIndexNowRequest(payload IndexNowPayload) bool {
+	if err := r.RequireCapability("network"); err != nil {
+		panic(err)
+	}
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
 		return false
@@ -204,10 +207,14 @@ func (r *Runtime) sendIndexNowRequest(payload IndexNowPayload) bool {
 	if err != nil {
 		return false
 	}
+	if r.executionContext != nil {
+		req = req.WithContext(r.executionContext)
+	}
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 
 	resp, err := client.Do(req)
 	if err != nil {
+		r.checkExecutionCancelled()
 		return false
 	}
 	defer resp.Body.Close()

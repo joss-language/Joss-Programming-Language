@@ -28,7 +28,7 @@ parameter metadata in part of the library.
 | `UUID::generate()`, `v4()` | Textual UUID identifier. |
 | `JSON::parse(texto)`, `decode(texto)` | Decoded value or null; JSON numbers are floats, not arbitrarily precise integers. |
 | `JSON::stringify(valor)`, `encode(valor)` | Compact JSON or "" on failure. |
-| `Markdown::toHtml(texto)`, `readFile(ruta)` | rendered HTML; readFile requires local file. It is not a substitute for route authorization or sanitization of untrusted content. |
+| `Markdown::toHtml(texto)`, `readFile(ruta)` | Rendered HTML; readFile requires filesystem capability. It does not replace route authorization or sanitization of untrusted content. |
 | `new Stack()` → `push(valor)`, `pop()`, `peek()` | Stack: last in, first out. pop does remove; void returns null. |
 | `new Queue()` → `enqueue(valor)`, `dequeue()`, `peek()` | Queue: first in, first out. dequeue removes; void null. |
 | `new Exception(mensaje,[codigo])` → `getMessage()`, `getCode()` | Error object with fields; default code 0. Does not itself generate a JOSS diagnostic. |
@@ -116,7 +116,7 @@ can receive hot reload in development.
 | `UserStorage::put(token,nombre,contenido)` | Bool; local storage/OCI selected by environment; requires configuration and internal tables. |
 | `UserStorage::get(token,nombre)`, `getToFile(token,nombre,destino)`, `delete(token,nombre)` | String/null, bool and bool respectively. Token can be user with user_token. |
 | `UserStorage::path([ruta])` | Local route under storage; does not download OCI objects. |
-| `Zip::extract(archivo,destino)` | Bool; extract files with path checking. You can write before encountering a later error: it is not atomic operation. |
+| `Zip::extract(archivo,destino)` | Bool; requires filesystem capability and checks paths. It may write before a later error: extraction is not atomic. |
 
 Do not use a cache as the only copy of irreplaceable information. A saved map
 in Cache can still share its content: the concurrent container does not

@@ -313,6 +313,8 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 			}
 			if !existing.Dynamic && !a.assignableExpression(targetType, valueType, assignment.Value) {
 				a.typeMismatch("JOSS-TYPE-001", name, targetType, valueType, identifier.Token, "assignment")
+			} else if !existing.Dynamic {
+				a.warnUnsafeCollectionNarrowing(targetType, valueType, identifier.Token)
 			}
 			if existing.Synthetic {
 				existing.Type = valueType
@@ -411,7 +413,7 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 		return typesystem.Type{Kind: typesystem.Map}
 	}
 	if member, ok := assignment.Left.(*parser.MemberExpression); ok && member.Property != nil {
-		receiver := a.receiverType(member.Left, current)
+		receiver := a.memberReceiverType(member, current)
 		if receiver.Kind == typesystem.Class {
 			if field, exists := a.lookupField(receiver.Name, member.Property.Value); exists {
 				if !a.canAccess(field.Visibility, field.Owner) {
@@ -436,6 +438,7 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 						fmt.Sprintf("Cannot assign `%s` to property `%s::%s` of type `%s`.", valueType.String(), receiver.Name, member.Property.Value, field.Type.String()),
 						"Properties keep their declared type.", "Assign a compatible value or correct the property declaration.")
 				}
+				a.warnUnsafeCollectionNarrowing(field.Type, valueType, member.Property.Token)
 				return field.Type
 			}
 		}

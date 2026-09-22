@@ -28,7 +28,7 @@ metadatos de parámetros en parte de la biblioteca.
 | `UUID::generate()`, `v4()` | Identificador UUID textual. |
 | `JSON::parse(texto)`, `decode(texto)` | Valor decodificado o null; números JSON son float, no enteros arbitrariamente precisos. |
 | `JSON::stringify(valor)`, `encode(valor)` | JSON compacto o "" al fallar. |
-| `Markdown::toHtml(texto)`, `readFile(ruta)` | HTML renderizado; readFile requiere archivo local. No sustituye autorización sobre la ruta ni saneamiento de contenido no confiable. |
+| `Markdown::toHtml(texto)`, `readFile(ruta)` | HTML renderizado; readFile requiere capacidad de filesystem. No sustituye autorización sobre la ruta ni saneamiento de contenido no confiable. |
 | `new Stack()` → `push(valor)`, `pop()`, `peek()` | Pila: último en entrar, primero en salir. pop sí elimina; vacío retorna null. |
 | `new Queue()` → `enqueue(valor)`, `dequeue()`, `peek()` | Cola: primero en entrar, primero en salir. dequeue elimina; vacío null. |
 | `new Exception(mensaje,[codigo])` → `getMessage()`, `getCode()` | Objeto de error con campos; código predeterminado 0. No genera por sí mismo un diagnóstico JOSS. |
@@ -123,7 +123,7 @@ puede recibir hot reload en desarrollo.
 | `UserStorage::put(token,nombre,contenido)` | Bool; almacenamiento local/OCI seleccionado por entorno; requiere configuración y tablas internas. |
 | `UserStorage::get(token,nombre)`, `getToFile(token,nombre,destino)`, `delete(token,nombre)` | String/null, bool y bool respectivamente. Token puede ser usuario con user_token. |
 | `UserStorage::path([ruta])` | Ruta local bajo storage; no descarga objetos OCI. |
-| `Zip::extract(archivo,destino)` | Bool; extrae archivos con comprobación de rutas. Puede escribir antes de encontrar un error posterior: no es operación atómica. |
+| `Zip::extract(archivo,destino)` | Bool; requiere capacidad de filesystem y comprueba rutas. Puede escribir antes de encontrar un error posterior: no es operación atómica. |
 
 No uses una cache como única copia de información irremplazable. Un map guardado
 en Cache puede seguir compartiendo su contenido: el contenedor concurrente no

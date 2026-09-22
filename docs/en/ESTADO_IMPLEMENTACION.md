@@ -21,9 +21,10 @@ previously downloaded version.
 | Tools | CLI with REPL, formatter, linter/fix, test runner and VS Code extension with generated catalog. No integrated debugger exists. | [CLI](CLI.md) |
 
 No general ownership, default immutability, general pointers,
-traits, protocols, function/class generics, finally,
+traits, protocols, function generics, finally,
 nor LLVM/Cranelift backend exist. Collection annotations are not equivalent to universal generics
-nor do they guarantee that each mutation revalidates elements.
+nor do they guarantee that each mutation revalidates elements. Generic classes
+exist, but their parameters still need stronger guarantees.
 
 The absence of source imports/exports/namespaces is a permanent decision,
 not a pending feature. ALIM modularity uses integrated capabilities,

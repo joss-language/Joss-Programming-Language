@@ -238,6 +238,9 @@ func (r *Runtime) quickHttpRequestWithBody(method string, args []interface{}) st
 }
 
 func (r *Runtime) performFullHttpRequest(method, urlStr, bodyStr string, headers map[string]string, queryParams map[string]string, timeoutSec int, followRedirects bool) map[string]interface{} {
+	if err := r.RequireCapability("network"); err != nil {
+		panic(err)
+	}
 	if timeoutSec <= 0 {
 		timeoutSec = 15
 	}
@@ -280,6 +283,9 @@ func (r *Runtime) performFullHttpRequest(method, urlStr, bodyStr string, headers
 			"error":       err.Error(),
 		}
 	}
+	if r.executionContext != nil {
+		req = req.WithContext(r.executionContext)
+	}
 
 	req.Header.Set("User-Agent", "Joss/3.6 Runtime")
 
@@ -289,6 +295,7 @@ func (r *Runtime) performFullHttpRequest(method, urlStr, bodyStr string, headers
 
 	resp, err := client.Do(req)
 	if err != nil {
+		r.checkExecutionCancelled()
 		return map[string]interface{}{
 			"status":      0,
 			"status_text": "",
@@ -302,6 +309,7 @@ func (r *Runtime) performFullHttpRequest(method, urlStr, bodyStr string, headers
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
+		r.checkExecutionCancelled()
 		return map[string]interface{}{
 			"status":      resp.StatusCode,
 			"status_text": resp.Status,

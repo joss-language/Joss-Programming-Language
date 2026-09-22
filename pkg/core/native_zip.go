@@ -17,6 +17,9 @@ import (
 func (r *Runtime) executeZipMethod(instance *Instance, method string, args []interface{}) interface{} {
 	switch method {
 	case "extract":
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
 		if len(args) < 2 {
 			fmt.Println("[Zip Error] extract() requires zip path and destination path")
 			return false

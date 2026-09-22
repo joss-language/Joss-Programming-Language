@@ -55,7 +55,7 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 		return typesystem.Type{Kind: typesystem.Unknown}
 	}
 	if member, ok := call.Function.(*parser.MemberExpression); ok {
-		receiver := a.receiverType(member.Left, current)
+		receiver := a.memberReceiverType(member, current)
 		if receiver.Kind == typesystem.Class && member.Property != nil {
 			if _, isEnum := a.enums[receiver.Name]; isEnum {
 				switch member.Property.Value {
@@ -224,6 +224,7 @@ func (a *Analyzer) validateCallArgument(callable Callable, index int, argument p
 	if !a.assignableExpression(parameter.Type, argumentType, argument) {
 		a.add("JOSS-TYPE-003", diagnostics.SeverityError, a.file, tokenOfExpression(argument), fmt.Sprintf("Argument %d to `%s` has type `%s`; parameter `$%s` requires `%s`.", index+1, callable.Name, argumentType.String(), parameter.Name, parameter.Type.String()), "Function arguments follow the same assignment compatibility rules as variables.", "Convert the argument or correct the parameter type.")
 	}
+	a.warnUnsafeCollectionNarrowing(parameter.Type, argumentType, tokenOfExpression(argument))
 }
 
 func (a *Analyzer) callArityError(callable Callable, got int, token parser.Token) {

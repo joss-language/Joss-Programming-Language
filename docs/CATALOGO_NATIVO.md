@@ -375,7 +375,7 @@ Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
 | `get` | `mixed` |
 | `locale` | `string` |
 | `locales` | `array` |
-| `set` | `mixed` |
+| `set` | `bool` |
 
 ## MFA
 
@@ -399,7 +399,7 @@ Implementación: [executeMFAMethod](../pkg/core/auth_fluent.go#L99).
 
 | Método | Retorno publicado al analizador |
 |---|---|
-| `abs` | `float` |
+| `abs` | `mixed` |
 | `ceil` | `float` |
 | `floor` | `float` |
 | `random` | `int` |
@@ -510,6 +510,7 @@ Implementación: [executeRequestMethod](../pkg/core/request.go#L9).
 | `path` | `string` |
 | `post` | `mixed` |
 | `root` | `string` |
+| `uri` | `string` |
 | `url` | `string` |
 | `userAgent` | `mixed` |
 | `useragent` | `mixed` |
@@ -600,7 +601,7 @@ Implementación: [executeServerControlMethod](../pkg/core/native_server_control.
 
 ## Session
 
-Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L75).
+Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L78).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -660,11 +661,14 @@ Implementación: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 | Método | Retorno publicado al analizador |
 |---|---|
 | `contains` | `bool` |
+| `endsWith` | `bool` |
 | `indexOf` | `int` |
 | `length` | `int` |
+| `lower` | `string` |
 | `random` | `string` |
 | `replace` | `string` |
 | `startsWith` | `bool` |
+| `substr` | `string` |
 | `substring` | `string` |
 | `trim` | `string` |
 
@@ -929,4 +933,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 53 clases, 462 métodos y 126 built-ins.
+Total: 53 clases, 466 métodos y 126 built-ins.

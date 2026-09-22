@@ -51,6 +51,51 @@ func TestNativeSocketRespectsNetworkCapability(t *testing.T) {
 	}
 }
 
+func TestNativeFilesystemEntrypointsRespectCapability(t *testing.T) {
+	checks := map[string]func(*Runtime){
+		"Markdown.readFile": func(r *Runtime) { r.executeMarkdownMethod(nil, "readFile", []interface{}{"missing.md"}) },
+		"Zip.extract":       func(r *Runtime) { r.executeZipMethod(nil, "extract", []interface{}{"missing.zip", "output"}) },
+	}
+	for name, run := range checks {
+		t.Run(name, func(t *testing.T) {
+			r := NewRuntime()
+			defer r.Free()
+			r.Capabilities.AllowFS = false
+			defer expectSecurityPanic(t)
+			run(r)
+		})
+	}
+}
+
+func TestNativeNetworkEntrypointsRespectCapability(t *testing.T) {
+	checks := map[string]func(*Runtime){
+		"Http.request": func(r *Runtime) {
+			r.performFullHttpRequest("GET", "http://127.0.0.1:1", "", nil, nil, 1, true)
+		},
+		"SmtpClient.send": func(r *Runtime) {
+			r.sendSmtpClientMail(&Instance{Fields: map[string]interface{}{}}, "a@example.com", "subject", "body")
+		},
+		"IndexNow.submit": func(r *Runtime) { r.sendIndexNowRequest(IndexNowPayload{}) },
+	}
+	for name, run := range checks {
+		t.Run(name, func(t *testing.T) {
+			r := NewRuntime()
+			defer r.Free()
+			r.Capabilities.AllowNetwork = false
+			defer expectSecurityPanic(t)
+			run(r)
+		})
+	}
+}
+
+func expectSecurityPanic(t *testing.T) {
+	t.Helper()
+	got, ok := recover().(*JossError)
+	if !ok || got.Type != "SecurityError" {
+		t.Fatalf("expected SecurityError, got %#v", got)
+	}
+}
+
 func TestProcessCapabilityDeniedWhenRestricted(t *testing.T) {
 	r := NewRuntime()
 	defer r.Free()

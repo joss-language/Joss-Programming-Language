@@ -580,6 +580,7 @@
       "path",
       "post",
       "root",
+      "uri",
       "url",
       "userAgent",
       "useragent"
@@ -676,11 +677,14 @@
     ],
     "Str": [
       "contains",
+      "endsWith",
       "indexOf",
       "length",
+      "lower",
       "random",
       "replace",
       "startsWith",
+      "substr",
       "substring",
       "trim"
     ],

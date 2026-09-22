@@ -67,6 +67,9 @@ func (r *Runtime) executeSmtpClientMethod(instance *Instance, method string, arg
 }
 
 func (r *Runtime) sendSmtpClientMail(instance *Instance, to, subject, body string) bool {
+	if err := r.RequireCapability("network"); err != nil {
+		panic(err)
+	}
 	host := r.Env["MAIL_HOST"]
 	port := r.Env["MAIL_PORT"]
 	user := r.Env["MAIL_USERNAME"]

@@ -21,9 +21,10 @@ versão baixada anteriormente.
 | Ferramentas | CLI com REPL, formatador, linter/fix, test runner e extensão VS Code com catálogo gerado. Não há depurador integrado. | [CLI](CLI.md) |
 
 Não existem ownership geral, imutabilidade padrão, ponteiros gerais,
-traits, protocolos, genéricos de função/classe, finally,
+traits, protocolos, genéricos de função, finally,
 nem backend LLVM/Cranelift. As anotações de coleção não são equivalentes a genéricas
-universais nem garantem que cada mutação revalide elementos.
+universais nem garantem que cada mutação revalide elementos. Classes genéricas
+existem, mas seus parâmetros ainda precisam de garantias mais fortes.
 
 A ausência de importações/exportações/namespaces de origem é uma decisão permanente,
 não é um recurso pendente. A modularidade ALIM usa recursos integrados,

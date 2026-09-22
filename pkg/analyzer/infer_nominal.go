@@ -1,6 +1,9 @@
 package analyzer
 
 import (
+	"fmt"
+
+	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/typesystem"
 )
@@ -29,6 +32,47 @@ func (a *Analyzer) assignableExpression(destination, source typesystem.Type, exp
 		return coerced
 	}
 	return false
+}
+
+// warnUnsafeCollectionNarrowing preserves the legacy assignment while making
+// its aliasing risk visible. Untyped mutable collections do not carry enough
+// information to guarantee that another alias will only insert values accepted
+// by the typed destination.
+func (a *Analyzer) warnUnsafeCollectionNarrowing(destination, source typesystem.Type, token parser.Token) {
+	if !unsafeCollectionNarrowing(destination, source) {
+		return
+	}
+	a.add("JOSS-TYPE-012", diagnostics.SeverityWarning, a.file, token,
+		fmt.Sprintf("Untyped mutable collection `%s` is being used as `%s`.", source.String(), destination.String()),
+		"Another alias can mutate the same collection without preserving the destination element types.",
+		"Validate and copy the collection at the boundary, or keep the source typed from its declaration.")
+}
+
+func unsafeCollectionNarrowing(destination, source typesystem.Type) bool {
+	if destination.Kind != source.Kind {
+		return false
+	}
+	switch destination.Kind {
+	case typesystem.Array, typesystem.Channel:
+		if destination.Element == nil {
+			return false
+		}
+		if source.Element == nil {
+			return true
+		}
+		return unsafeCollectionNarrowing(*destination.Element, *source.Element)
+	case typesystem.Map:
+		if destination.Key == nil || destination.Element == nil {
+			return false
+		}
+		if source.Key == nil || source.Element == nil {
+			return true
+		}
+		return unsafeCollectionNarrowing(*destination.Key, *source.Key) ||
+			unsafeCollectionNarrowing(*destination.Element, *source.Element)
+	default:
+		return false
+	}
 }
 
 func (a *Analyzer) classImplements(className, interfaceName string) bool {

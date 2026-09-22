@@ -28,7 +28,7 @@ metadados de parâmetro em parte da biblioteca.
 | `UUID::generate()`, `v4()` | Identificador UUID textual. |
 | `JSON::parse(texto)`, `decode(texto)` | Valor decodificado ou nulo; Os números JSON são flutuantes, e não números inteiros arbitrariamente precisos. |
 | `JSON::stringify(valor)`, `encode(valor)` | JSON compacto ou "" em caso de falha. |
-| `Markdown::toHtml(texto)`, `readFile(ruta)` | HTML renderizado; readFile requer arquivo local. Não substitui a autorização de rota ou a higienização de conteúdo não confiável. |
+| `Markdown::toHtml(texto)`, `readFile(ruta)` | HTML renderizado; readFile requer capacidade de sistema de arquivos. Não substitui a autorização de rota nem a higienização de conteúdo não confiável. |
 | `new Stack()` → `push(valor)`, `pop()`, `peek()` | Pilha: último a entrar, primeiro a sair. pop remove; vazio retorna nulo. |
 | `new Queue()` → `enqueue(valor)`, `dequeue()`, `peek()` | Fila: primeiro a entrar, primeiro a sair. desenfileirar remove; nulo nulo. |
 | `new Exception(mensaje,[codigo])` → `getMessage()`, `getCode()` | Objeto de erro com campos; código padrão 0. Não gera um diagnóstico JOSS. |
@@ -115,7 +115,7 @@ pode receber recarga a quente em desenvolvimento.
 | `UserStorage::put(token,nombre,contenido)` | Bool; armazenamento local/OCI selecionado por ambiente; requer configuração e tabelas internas. |
 | `UserStorage::get(token,nombre)`, `getToFile(token,nombre,destino)`, `delete(token,nombre)` | String/nulo, bool e bool respectivamente. O token pode ser um usuário com user_token. |
 | `UserStorage::path([ruta])` | Rota local em armazenamento; não baixa objetos OCI. |
-| `Zip::extract(archivo,destino)` | Bool; extraia arquivos com verificação de caminho. Você pode escrever antes de encontrar um erro posterior: não é uma operação atômica. |
+| `Zip::extract(archivo,destino)` | Bool; requer capacidade de sistema de arquivos e verifica caminhos. Pode escrever antes de um erro posterior: a extração não é atômica. |
 
 Não use um cache como única cópia de informações insubstituíveis. Um mapa salvo
 no Cache ainda pode compartilhar seu conteúdo: o contêiner simultâneo não

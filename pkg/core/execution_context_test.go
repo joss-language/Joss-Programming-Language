@@ -2,6 +2,8 @@ package core
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -32,4 +34,23 @@ func TestExecutionContextCancelsEmptyInfiniteLoop(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("interpreter did not stop after context cancellation")
 	}
+}
+
+func TestExecutionContextCancelsOutgoingHTTP(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		<-req.Context().Done()
+	}))
+	defer server.Close()
+	r := newRuntimeState().(*Runtime)
+	defer r.Free()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	r.SetExecutionContext(ctx)
+	defer func() {
+		got, ok := recover().(*JossError)
+		if !ok || got.Type != "ExecutionCancelled" {
+			t.Fatalf("expected HTTP cancellation, got %#v", got)
+		}
+	}()
+	r.performFullHttpRequest("GET", server.URL, "", nil, nil, 5, true)
 }

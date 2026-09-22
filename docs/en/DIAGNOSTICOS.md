@@ -59,6 +59,7 @@ Unlike generic error messages from older tools, each Joss diagnostic is designed
 | `JOSS-TYPE-009` | Types | Non-existent data type or class (includes deleted aliases such as `integer`, `double`, `boolean`, `any`, `list`). | `integer $x = 10`<br>`boolean $flag = true` | Use Joss canonical types:<br>`int $x = 10`<br>`bool $flag = true` |
 | `JOSS-TYPE-010` | Types | Function with annotated return type may terminate without executing a `return` or `throw`. | `public func f(int $n): string {`<br>`    $n > 0 ? { return "si" } : {}`<br>`}` | Ensure that all possible routes return a value of the promised type. |
 | `JOSS-TYPE-011` | Types | A parameter without an explicit type was declared. | `public func f($x) {}` | In Joss all parameters must declare their type:<br>`public func f(int $x) {}` or `public func f(mixed $x) {}` |
+| `JOSS-TYPE-012` | Warning | An unparameterized mutable collection is used as a typed collection. Its original alias could insert incompatible values. | `array $origen = [1]`<br>`array<int> $numeros = $origen` | Keep the source typed, or validate and copy at the boundary: `array<int> $origen = [1]`. |
 | `JOSS-CALL-001` | Calls | Incorrect number of arguments regarding known signature parameters. | `public func f(int $a, int $b) {}`<br>`f(1)` | Provide all mandatory arguments required by the function. |
 | `JOSS-MEMBER-001` | Members | An attempt is made to invoke a method that does not exist in the resolved receiving class. | `$usuario->metodoInexistente()` | Check the method name in the class definition or native catalog. |
 | `JOSS-ACCESS-001` | Visibility | An attempt is made to use a class or function declared as `private` from another file. | Call a private function from another file. | Declare the function or class as `public` if it must be shared in the project. |
@@ -167,6 +168,27 @@ Corrected case using voluntary dynamism (`mixed`):
 mixed $dato = 20
 $dato = "veinte"
 print($dato)
+```
+
+---
+
+### Unsafe mutable collection narrowing (`JOSS-TYPE-012`)
+
+Legacy compatibility permits the operation, but the analyzer warns because both names may share the same mutable collection.
+
+<!-- joss-error: JOSS-TYPE-012 -->
+```joss-invalid
+array $origen = [1]
+array<int> $numeros = $origen
+```
+
+Safe case that keeps the source typed:
+
+<!-- joss-run: ["1"] -->
+```joss
+array<int> $origen = [1]
+array<int> $numeros = $origen
+print($numeros[0])
 ```
 
 ---

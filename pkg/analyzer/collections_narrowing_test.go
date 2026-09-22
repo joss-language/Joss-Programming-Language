@@ -2,6 +2,8 @@ package analyzer
 
 import (
 	"testing"
+
+	"github.com/jossecurity/joss/pkg/diagnostics"
 )
 
 func TestTypedCollectionsAnalyzerInference(t *testing.T) {
@@ -84,5 +86,42 @@ map<string, int> $m2 = $m1
 `, NewEnvironment())
 	if !hasCode(mapAssign, "JOSS-TYPE-002") {
 		t.Fatalf("expected JOSS-TYPE-002 when assigning map<string, string> to map<string, int>, got %#v", mapAssign)
+	}
+}
+
+func TestUntypedMutableCollectionNarrowingWarnsAtTypedBoundaries(t *testing.T) {
+	items := analyzeSource(t, `
+public class Holder {
+    public array<int> $items = [1]
+}
+public func accept(array<int> $items): int { return $items[0] }
+public func produce(array $items): array<int> { return $items }
+array $source = [1]
+array<int> $declared = $source
+$declared = $source
+$holder = new Holder()
+$holder->items = $source
+accept($source)
+produce($source)
+`, NewEnvironment())
+	if got := countCode(items, "JOSS-TYPE-012"); got != 5 {
+		t.Fatalf("JOSS-TYPE-012 count = %d, want 5; diagnostics: %#v", got, items)
+	}
+	for _, item := range items {
+		if item.Code == "JOSS-TYPE-012" && item.Severity != diagnostics.SeverityWarning {
+			t.Fatalf("JOSS-TYPE-012 severity = %s, want warning", item.Severity)
+		}
+	}
+}
+
+func TestTypedAndDynamicCollectionBoundariesDoNotWarn(t *testing.T) {
+	items := analyzeSource(t, `
+array<int> $typed = [1]
+array<int> $same = $typed
+array $legacy = $typed
+mixed $dynamic = $typed
+`, NewEnvironment())
+	if hasCode(items, "JOSS-TYPE-012") {
+		t.Fatalf("unexpected narrowing warning: %#v", items)
 	}
 }

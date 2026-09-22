@@ -42,6 +42,12 @@ func nativeParam(name, typeName string) NativeParameterDefinition {
 	}
 }
 
+func nativeOptionalParam(name, typeName string) NativeParameterDefinition {
+	parameter := nativeParam(name, typeName)
+	parameter.HasDefault = true
+	return parameter
+}
+
 var migratedNativeMethods = map[string][]NativeMethodDefinition{
 	"Stack": {
 		nativeMethodWithArity("push", "mixed", nativeParam("item", "mixed")),
@@ -54,10 +60,10 @@ var migratedNativeMethods = map[string][]NativeMethodDefinition{
 		nativeMethodWithArity("peek", "mixed"),
 	},
 	"Math": {
-		nativeMethod("random", "int"),
+		nativeMethodWithArity("random", "int", nativeParam("min", "int"), nativeParam("max", "int")),
 		nativeMethodWithArity("floor", "float", nativeParam("val", "float")),
 		nativeMethodWithArity("ceil", "float", nativeParam("val", "float")),
-		nativeMethodWithArity("abs", "float", nativeParam("val", "float")),
+		nativeMethodWithArity("abs", "mixed", nativeParam("val", "mixed")),
 	},
 	"JSON": {
 		nativeMethodWithArity("parse", "mixed", nativeParam("json", "string")),
@@ -71,9 +77,12 @@ var migratedNativeMethods = map[string][]NativeMethodDefinition{
 	},
 	"Str": {
 		nativeMethodWithArity("length", "int", nativeParam("str", "string")),
-		nativeMethod("random", "string"),
+		nativeMethodWithArity("random", "string", nativeOptionalParam("length", "int")),
 		nativeMethodWithArity("startsWith", "bool", nativeParam("haystack", "string"), nativeParam("needle", "string")),
-		nativeMethod("substring", "string"),
+		nativeMethodWithArity("endsWith", "bool", nativeParam("haystack", "string"), nativeParam("needle", "string")),
+		nativeMethodWithArity("substring", "string", nativeParam("str", "string"), nativeParam("start", "int"), nativeOptionalParam("length", "int")),
+		nativeMethodWithArity("substr", "string", nativeParam("str", "string"), nativeParam("start", "int"), nativeOptionalParam("length", "int")),
+		nativeMethodWithArity("lower", "string", nativeParam("str", "string")),
 		nativeMethodWithArity("indexOf", "int", nativeParam("haystack", "string"), nativeParam("needle", "string")),
 		nativeMethodWithArity("contains", "bool", nativeParam("haystack", "string"), nativeParam("needle", "string")),
 		nativeMethodWithArity("trim", "string", nativeParam("str", "string")),
@@ -84,16 +93,23 @@ var migratedNativeMethods = map[string][]NativeMethodDefinition{
 		nativeMethodWithArity("v4", "string"),
 	},
 	"Lang": {
-		nativeMethod("get", "mixed"),
-		nativeMethod("set", "mixed"),
+		nativeMethodWithArity("get", "mixed", nativeParam("key", "string"), nativeOptionalParam("replacements", "map")),
+		nativeMethodWithArity("set", "bool", nativeParam("locale", "string")),
 		nativeMethodWithArity("locale", "string"),
 		nativeMethodWithArity("locales", "array"),
 	},
 	"Console": {
-		nativeMethod("green", "string"), nativeMethod("red", "string"), nativeMethod("yellow", "string"),
-		nativeMethod("blue", "string"), nativeMethod("cyan", "string"), nativeMethod("magenta", "string"),
-		nativeMethod("gray", "string"), nativeMethod("bold", "string"), nativeMethod("clear", "string"),
-		nativeMethod("color", "string"), nativeMethod("log", "void"),
+		nativeMethodWithArity("green", "string", nativeOptionalParam("text", "mixed")),
+		nativeMethodWithArity("red", "string", nativeOptionalParam("text", "mixed")),
+		nativeMethodWithArity("yellow", "string", nativeOptionalParam("text", "mixed")),
+		nativeMethodWithArity("blue", "string", nativeOptionalParam("text", "mixed")),
+		nativeMethodWithArity("cyan", "string", nativeOptionalParam("text", "mixed")),
+		nativeMethodWithArity("magenta", "string", nativeOptionalParam("text", "mixed")),
+		nativeMethodWithArity("gray", "string", nativeOptionalParam("text", "mixed")),
+		nativeMethodWithArity("bold", "string", nativeOptionalParam("text", "mixed")),
+		nativeMethodWithArity("clear", "string"),
+		nativeMethodWithArity("color", "string", nativeParam("text", "mixed"), nativeParam("code", "mixed")),
+		nativeMethodWithArity("log", "void", nativeOptionalParam("value", "mixed")),
 	},
 	"Zip": {
 		nativeMethodWithArity("extract", "bool", nativeParam("src", "string"), nativeParam("dest", "string")),
@@ -244,6 +260,7 @@ var preciseNativeReturns = map[string]string{
 	"Request::path":              "string",
 	"Request::root":              "string",
 	"Request::url":               "string",
+	"Request::uri":               "string",
 	"Response::back":             "WebResponse",
 	"Response::download":         "WebResponse",
 	"Response::error":            "WebResponse",

@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <img src="assets/logo.png" alt="Logo de Joss Language" width="150" height="150">
 </p>
 
@@ -222,3 +222,11 @@ go test ./pkg/core -run TestDocumentation -v
 ## 📜 Licencia y Seguridad
 
 Joss es software libre publicado bajo los términos de la [Licencia MIT](LICENSE). Para reportar vulnerabilidades de seguridad de forma privada y responsable, consulta la directriz en [SECURITY.md](SECURITY.md).
+
+---
+
+## ☕ Apoya el proyecto / Support
+
+Si este proyecto te ha sido de utilidad o deseas apoyar mi trabajo, ¡puedes invitarme un café!
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Fitted?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black&color=FFDD00)](https://buymeacoffee.com/jossestrely)

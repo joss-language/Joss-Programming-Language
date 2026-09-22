@@ -40,7 +40,10 @@ func (r *Runtime) executeMathMethod(instance *Instance, method string, args []in
 			fmt.Println("Error: Argumentos de Math.random deben ser enteros")
 			return nil
 		}
-		return min + rand.Int63n(max-min+1)
+		if max < min {
+			panic(&JossError{Type: "ValueError", Message: "Math.random requiere que min sea menor o igual que max"})
+		}
+		return randomInt64Inclusive(min, max)
 
 	case "floor":
 		if len(args) != 1 {
@@ -163,6 +166,9 @@ func (r *Runtime) executeStrMethod(instance *Instance, method string, args []int
 				length = l
 			}
 		}
+		if length < 0 {
+			panic(&JossError{Type: "ValueError", Message: "Str.random requiere una longitud no negativa"})
+		}
 		const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 		b := make([]byte, length)
 		for i := range b {
@@ -181,7 +187,18 @@ func (r *Runtime) executeStrMethod(instance *Instance, method string, args []int
 		}
 		return strings.HasPrefix(s, prefix)
 
-	case "substring":
+	case "endsWith":
+		if len(args) != 2 {
+			return false
+		}
+		s, ok1 := args[0].(string)
+		suffix, ok2 := args[1].(string)
+		if !ok1 || !ok2 {
+			return false
+		}
+		return strings.HasSuffix(s, suffix)
+
+	case "substring", "substr":
 		if len(args) < 2 {
 			return nil
 		}
@@ -200,13 +217,25 @@ func (r *Runtime) executeStrMethod(instance *Instance, method string, args []int
 		end := int64(len(runes))
 		if len(args) >= 3 {
 			if l, ok := args[2].(int64); ok {
-				end = start + l
-				if end > int64(len(runes)) {
+				if l < 0 {
+					panic(&JossError{Type: "ValueError", Message: "Str.substring requiere una longitud no negativa"})
+				}
+				if l >= int64(len(runes))-start {
 					end = int64(len(runes))
+				} else {
+					end = start + l
 				}
 			}
 		}
 		return string(runes[start:end])
+	case "lower":
+		if len(args) != 1 {
+			return ""
+		}
+		if s, ok := args[0].(string); ok {
+			return strings.ToLower(s)
+		}
+		return ""
 	case "indexOf":
 		if len(args) != 2 {
 			return int64(-1)
@@ -253,4 +282,19 @@ func (r *Runtime) executeStrMethod(instance *Instance, method string, args []int
 	}
 
 	return nil
+}
+
+func randomInt64Inclusive(min, max int64) int64 {
+	span := uint64(max) - uint64(min) + 1
+	if span == 0 {
+		return int64(rand.Uint64())
+	}
+	// Reject the short prefix that would bias a modulo reduction.
+	threshold := -span % span
+	for {
+		candidate := rand.Uint64()
+		if candidate >= threshold {
+			return int64(uint64(min) + candidate%span)
+		}
+	}
 }
