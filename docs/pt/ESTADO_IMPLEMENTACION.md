@@ -8,20 +8,20 @@ versão baixada anteriormente.
 
 | Área | Situação real | Referência |
 |---|---|---|
-| Idioma | Analisador Pratt, variáveis ​​explícitas de tipo fixo ou misto, classes/herança/visibilidade, funções/fechamento/ref, ternários, loops, correspondência de valores, try/catch. | [Sintaxe](SINTAXIS.md) |
+| Idioma | Analisador Pratt, variáveis explícitas de tipo fixo ou misto, classes/herança/interfaces/enums/visibilidade, funções/fechamentos/ref, ternários, guard, loops, correspondência de valores, try/catch, defer e select de canais. | [Sintaxe](SINTAXIS.md) |
 | Tipos | int64, float64, decimal, strings, arrays, mapas, objeto, canal, classes, uniões e anulável. Análise e defesa em tempo de execução com diferenças registradas. | [Tipos](SISTEMA_TIPOS.md) |
-| Simultaneidade | Goroutines usando assíncrono, Future, bloqueando espera e canais. Sem cancelamento estruturado ou isolamento profundo. | [Simultaneidade](CONCURRENCIA.md) |
-| Analisador | Símbolos em duas passagens, escopos, atribuibilidade, membros conhecidos, retornos e diagnósticos. Nenhuma prova geral de conclusão ou refinamento por parte das filiais. | [Analisador](ANALIZADOR.md) |
+| Simultaneidade | Goroutines usando assíncrono, Future, bloqueando espera e canais. A execução móvel suporta cancelamento cooperativo; não existe cancelamento estruturado geral nem isolamento profundo. | [Simultaneidade](CONCURRENCIA.md) |
+| Analisador | Declarações, escopos, atribuibilidade, membros conhecidos, retornos e diagnósticos; narrowing local em ternários, guard e comparações com null. Não existe CFG geral nem prova de terminação completa. | [Analisador](ANALIZADOR.md) |
 | Execução principal | AST interpretado com planos, frames e caches que podem ser chamados. Pacotes de construção nativos JOSSBC2Z compactados AST com runner Go. | [Arquitetura](ARQUITECTURA.md) |
 | VM experimental | pkg/vm contém compilador e VM separados; não é o back-end padrão da CLI/core. | [Interno](ARQUITECTURA.md) |
 | Rede | Roteador HTTP/WS, visualizações, Solicitação/Resposta, sessão, CSRF, CORS, TLS e limites configuráveis. | [Projeto Web](PROYECTO_WEB.md) |
-| SQL | Adaptadores, construtor, esquema e migrações SQLite/MySQL/PostgreSQL/SQL Server. Portabilidade parcial por operação; transação não vincula consultas ao Tx. | [Modelos](MODELOS.md) |
+| SQL | Adaptadores SQLite/MySQL/PostgreSQL/SQL Server, construtor, Schema e migrações. Portabilidade parcial por operação; as consultas SQL ordinárias do runtime durante GranDB::transaction usam o Tx ativo. Transações aninhadas não são suportadas. | [Modelos](MODELOS.md) |
 | Plug-ins | Contêiner e índice assinado, AST e JPBC; compiladores parciais. Route Wasm gera stubs de texto, mas não executa Wasm. | [Plugins](PLUGINS.md) |
 | Permissões de plug-in | Proteção para chamadas de host mapeadas; sem sandbox WASI/OS ou consentimento por pacote. | [Plugins](PLUGINS.md) |
-| Ferramentas | CLI, formatador, linter/fix, test runner e extensão VS Code com catálogo gerado. Não há comando REPL ou depurador integrado. | [CLI](CLI.md) |
+| Ferramentas | CLI com REPL, formatador, linter/fix, test runner e extensão VS Code com catálogo gerado. Não há depurador integrado. | [CLI](CLI.md) |
 
-Não há propriedade, imutabilidade padrão, indicadores gerais, interfaces,
-características, protocolos, genéricos de função/classe, adiar/finalmente, seleção de canal,
+Não existem ownership geral, imutabilidade padrão, ponteiros gerais,
+traits, protocolos, genéricos de função/classe, finally,
 nem backend LLVM/Cranelift. As anotações de coleção não são equivalentes a genéricas
 universais nem garantem que cada mutação revalide elementos.
 

@@ -83,39 +83,49 @@ func (r *Runtime) callBuiltinDate(name string, args []interface{}) (interface{},
 
 	case "sleep":
 		if len(args) > 0 {
-			sec := 0
+			var dur time.Duration
 			switch v := args[0].(type) {
 			case int:
-				sec = v
+				dur = time.Duration(v) * time.Second
 			case int64:
-				sec = int(v)
+				dur = time.Duration(v) * time.Second
 			case float64:
-				time.Sleep(time.Duration(v * float64(time.Second)))
-				return nil, true
+				dur = time.Duration(v * float64(time.Second))
 			}
-			if sec > 0 {
-				time.Sleep(time.Duration(sec) * time.Second)
-			}
+			r.sleepWithContext(dur)
 		}
 		return nil, true
 
 	case "usleep":
 		if len(args) > 0 {
-			usec := int64(0)
+			var dur time.Duration
 			switch v := args[0].(type) {
 			case int:
-				usec = int64(v)
+				dur = time.Duration(v) * time.Microsecond
 			case int64:
-				usec = v
+				dur = time.Duration(v) * time.Microsecond
 			case float64:
-				usec = int64(v)
+				dur = time.Duration(v * float64(time.Microsecond))
 			}
-			if usec > 0 {
-				time.Sleep(time.Duration(usec) * time.Microsecond)
-			}
+			r.sleepWithContext(dur)
 		}
 		return nil, true
 	}
 
 	return nil, false
+}
+
+func (r *Runtime) sleepWithContext(dur time.Duration) {
+	if dur <= 0 {
+		return
+	}
+	if r.executionContext != nil {
+		select {
+		case <-time.After(dur):
+		case <-r.executionContext.Done():
+			r.checkExecutionCancelled()
+		}
+		return
+	}
+	time.Sleep(dur)
 }

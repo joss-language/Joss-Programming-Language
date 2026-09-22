@@ -1,288 +1,283 @@
-# Auditoria Profunda da Linguagem de Programação Joss (2026) > **Documento Canônico de Auditoria Técnica, Ergonomia, Sistema de Tipos, Ferramentas e Arquitetura** > **Data de Preparação:** Setembro de 2026 > **Escopo:** Repositório oficial `jossecurity/joss`, subsistemas de kernel (`pkg/*`), ferramentas CLI, Servidor LSP (`vscode-joss`) e projeto de referência real `Joss-Red-JosSecurity`. > **Objetivo:** Diagnóstico exaustivo, evidência empírica em código, catálogo de propostas e plano de evolução tecnológica rumo a uma linguagem mais expressiva, coerente e segura. --- ## Índice Geral 1. [Resumo Executivo](#1-resumen-ejecutivo) 2. [Filosofia Atual Detectada em Joss](#2-filosofía-actual-detectada-en-joss) 3. [Pontos fortes atuais](#3-fortalezas-actuales) 4. [Pontos fracos estruturais](#4-debilidades-estructurales) 5. [Fricção encontrada no código de gravação](#5-fricción-encontrada-al-escribir-código) 6. [Boilerplate e cerimônia identificadas](#6-boilerplate-y-ceremonia-identificados) 7. [Inconsistências de idioma](#7-inconsistencias-del-lenguaje) 8. [Complexidade conceitual](#8-complejidad-conceptual) 9. [Tipo System Audit](#9-auditoría-del-sistema-de-tipos) 10. [Auditoria de segurança e defesa em tempo de execução](#10-auditoría-de-seguridad-y-defensas-runtime) 11. [Auditoria de erros e diagnóstico](#11-auditoría-de-errores-y-diagnósticos) 12. [Auditoria da Biblioteca Padrão (Stdlib)](#12-auditoría-de-la-biblioteca-estándar-stdlib) 13. [Auditoria de ferramentas e ecossistemas](#13-auditoría-de-tooling-y-ecosistema) 14. [Auditoria oficial do formatador](#14-auditoría-del-formatter-oficial) 15. [Analisador e auditoria de Linter](#15-auditoría-del-analyzer-y-linter) 16. [Comparação seletiva com outros idiomas](#16-comparación-selectiva-con-otros-lenguajes) 17. [Oportunidades de simplificação](#17-oportunidades-de-simplificación) 18. [Recursos que NÃO devem ser implementados](#18-características-que-no-conviene-implementar) 19. [Catálogo de Propostas Priorizadas (P1 a P8)](#19-catálogo-de-propuestas-priorizadas-p1-a-p8) 20. [Alterações que exigiriam suspensão de uso](#20-cambios-que-necesitarían-deprecación) 21. [Possíveis alterações significativas justificadas](#21-posibles-breaking-changes-justificados) 22. [Proposta e Arquitetura de `joss fix`](#22-propuesta-y-arquitectura-de-joss-fix) 23. [Definição de "Código Joss Idiomático"](#23-definición-de-código-joss-idiomático) 24. [Roteiro recomendado (Fases 0 a 5)](#24-roadmap-recomendado-fases-0-a-5) --- ## 1. Resumo executivo Joss é uma moderna linguagem de programação multiparadigma desenvolvida em Go, concebida para o desenvolvimento de serviços web, APIs de alto desempenho, microsserviços e utilitários de infraestrutura. Sua proposta fundadora busca combinar a **agilidade de iteração e familiaridade sintática** de linguagens de servidores dinâmicos (PHP, JavaScript, Python) com a **segurança estática, robustez simultânea e velocidade** do ecossistema Go. Através da sua evolução, Joss estabeleceu pilares arquitetônicos excepcionais:- **Pipeline de compilação desacoplado:** Arquitetura formal baseada em um lexer especializado, um analisador de precedência de operador Pratt, um AST unificado, um analisador semântico estrito (`pkg/analyzer`), diagnósticos estruturados e um tempo de execução de avaliação de árvore otimizado para slot lexical (`pkg/runtime/plan`). - **Arquitetura Zero-Imports:** Carregamento e resolução automáticos de símbolos no nível do projeto com base em convenções de estrutura, eliminando o gerenciamento manual de gráficos de dependência em aplicações web. - **Segurança aritmética e de memória:** inteiros de 64 bits com detecção de overflow em tempo de compilação e execução (`JOSS-ARITH-001`), ponto fixo monetário nativo (`decimal` com literal `m`), referências temporais seguras e invariantes (`ref`) e controle de recursão profundo. - **Assincronia limpa:** Suporte nativo para goroutines usando `async { ... }` e canais com operadores diretos (`$c << $msg`), com a função `await(...)` habilitada em qualquer contexto sem forçar a fragmentação do código em funções coloridas. ### O diagnóstico de auditoria Apesar de seus pontos fortes, esta auditoria técnica detectou que **Joss atualmente impõe um atrito acidental notável ao desenvolvedor**: 1. **Assimetria do verificador de tipo:** O compilador requer anotações estritas nos parâmetros (`JOSS-TYPE-011`) e validação exaustiva de ramificações nos retornos (`JOSS-TYPE-010`), mas carece de **propagação de refinamento de tipo (estreitamento de tipo sensível ao fluxo)** após cláusulas de guarda. Isso leva os programadores em produção a desfazer a digitação usando `mixed` generalizado. 2. **Controle de fluxo forçado:** A erradicação dogmática de declarações condicionais clássicas em favor do operador ternário generalizado com blocos produz pirâmides de aninhamento de até 6 níveis e a proliferação de ramos vazios falsos `: {}`. 3. **Perda de identidade do objeto em exceções:** Instâncias de erro capturadas em `catch ($e)` são rebaixadas para texto usando `fmt.Sprintf`, destruindo o OOP no tratamento de exceções. 4. **Biblioteca padrão inconsistente:** Nomes duplicados de funções globais herdadas do PHP coexistem com métodos fluidos ausentes em strings e coleções. 5. **Ferramentas Fragmentadas:** Formatador e linter reimplementam analisadores independentes em vez de compartilhar o kernel AST oficial. Este documento apresenta a análise detalhada, as evidências empíricas coletadas no código e o catálogo priorizado de soluções para consolidar Joss como uma linguagem previsível, segura e produtiva. --- ## 2. Filosofia Atual Detectada em Joss A análise da implementação revela as seguintes premissas que definem o caráter atual de Joss:```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        PRINCIPIOS REALES DE JOSS                        │
-├─────────────────────────────────────────────────────────────────────────┤
-│ 1. Seguridad estática demostrable sin compilación pesada a máquina.     │
-│ 2. Cero fricción de importación de archivos de proyecto (Zero-Imports). │
-│ 3. Unificación sintáctica: las bifurcaciones son expresiones evaluables.│
-│ 4. Tipado numérico defensivo: protección monetaria y anti-overflow.     │
-│ 5. Concurrencia de paso de mensajes inspirada en CSP / Go.              │
-│ 6. Baterías incluidas para desarrollo web y servicios backend.          │
-└─────────────────────────────────────────────────────────────────────────┘
+# Auditoria abrangente da linguagem Joss — setembro de 2026
+
+[Índice](README.md) · [Arquitetura](ARQUITECTURA.md) · [Tipos](SISTEMA_TIPOS.md) · [Diagnósticos](DIAGNOSTICOS.md)
+
+**Escopo e método.** Revisão da árvore atual do repositório, não da tese nem de auditorias históricas como autoridade. Foram comparados parser, AST, analyzer, typesystem, runtime, servidor, CLI, VM, bytecode, plugins, mobile, ferramentas, testes, benchmarks, documentação e o projeto web de referência. `go test ./...` concluiu com código 0 durante esta auditoria. As observações que dependem de um caminho de código são indicadas como tal; não são atribuídas medições de desempenho nem explorações de segurança sem um teste específico. Este relatório é uma avaliação e um plano: **não implementa as melhorias**.
+
+## 1. Executive Summary
+
+Joss já cumpre uma parte importante do objetivo «analisar → validar → executar»: a CLI analisa o projeto antes de executá-lo, o analyzer possui símbolos e escopos, tipos de parâmetros obrigatórios, contratos nominais, verificações de chamadas e membros conhecidos, retorno declarado, diagnósticos estruturados e detecção de certas operações aritméticas constantes. A execução publicada continua sendo um interpretador de AST em Go com planos de slots por callable. `JOSSBC2Z` empacota AST compactado e a VM é experimental; nenhum é uma fase geral de compilação semântica.
+
+As maiores lacunas atuais estão em **ciclo de vida concorrente e recursos**, **contratos de APIs nativas e coleções**, **fluxo sensível a estados**, e **discrepância entre rotas de entrada**. A rota móvel implementa um timeout que relata falha sem interromper a goroutine; as rotas `async`, `Task` e finalização de instâncias criam forks sem liberar seu ownership; `GranDB::transaction` abre um `sql.Tx` que as consultas normais do callback não usam. Os canais delegam operações inválidas a panics de Go. Esses são achados do código atual, não propostas estéticas.
+
+**Julgamento:** a base da linguagem é promissora e modular nas camadas de análise, mas ainda não oferece garantias equivalentes a uma linguagem compilada para programas com `mixed`, nativos, recursos externos ou concorrência. P0 deve priorizar falhas de ciclo de vida/atomicidade e testes de regressão; depois ampliar contratos estáticos. A melhoria de desempenho só deve avançar após perfilar cargas representativas.
+
+## 2. Current Architecture
+
+```text
+.joss → parser.Lexer → parser Pratt → parser.Program / AST
+                                  ├→ analyzer.LoadProject (entrypoint + app/**/*.joss)
+                                  │    → collectDeclarations → projectScope
+                                  │    → validateNominalContracts → analyzeSourceBodies
+                                  │    → diagnostics.Diagnostic
+                                  ├→ bytecode.Encode → JOSSBC2Z → runner Go → intérprete
+                                  └→ core.Runtime.Execute → registro de clases/funciones
+                                       → runtime/plan.Callable → runtime/frame.Slot
+                                       → evaluator/executor → nativos/host/servidor
+                       VM experimental ← subconjunto AST (sin ruta CLI principal)
+             plugins JP ← SymbolIndex + AST/JPBC propios
 ```
-### Inconsistências Históricas e Tensões Filosóficas 1. **Expressividade vs. Burocracia nas Declarações:** - Embora Joss busque eliminar a cerimônia nas importações, ele impõe rigidez formal nas assinaturas exigíveis: visibilidade explícita obrigatória (`public`/`private`/`protected`), tipos de parâmetros obrigatórios e contratos de retorno exaustivos. Na prática, o código de produção contorna essa rigidez digitando `mixed` e omitindo o retorno. 2. **"Tudo é Expressão" vs. Código Imperativo com Efeitos Colaterais:** - A unificação de decisões sob o operador ternário `($cond) ? { ... } : { ... }` funciona elegantemente para atribuições simples:     ```joss-snippet
-     $estado = ($puntos >= 60) ? "Aprobado" : "Reprobado"
-     ```
-No entanto, no código do controlador de negócios onde é necessário validar pré-condições, registrar auditorias e abortar prematuramente, o ternário é usado como uma instrução, forçando a escrita de blocos vazios `: {}` ou aninhamento profundo que contradiz o objetivo de clareza. 3. **Digitação forte versus biblioteca de procedimentos que não conhece tipos:** - O sistema de tipos permite que você especifique `array<int>` e `map<string, Usuario>`, mas quase todas as funções em `builtins_array.go` retornam `[]interface{}` ou `mixed`, retirando a coleção de seu tipo de garantias. 4. **Importações Zero vs. Espaço Global Contaminado:** - Como não há namespaces no código-fonte do Joss, as classes devem ser renomeadas com prefixos artificiais (`XiaomiCategory`, `CmsPost`, `AuthUser`) para evitar colisões no global do projeto. dicionário. --- ## 3. Pontos fortes atuais Joss possui pilares técnicos excepcionais que devem ser preservados como vantagens competitivas: 1. **Pipeline arquitetônico unidirecional:** - O compilador respeita estritamente o limite da camada: `parser`, `typesystem` e `analyzer` são independentes de tempo de execução e nunca importe bancos de dados ou serviços de rede. 2. **Modelo de diagnóstico estruturado:** - Saída determinística via `pkg/diagnostics` com intervalos precisos de linha/coluna, códigos estáveis ​​e sugestões de correção legíveis e consumíveis por IDEs. 3. **Precisão Numérica Financeira (`decimal`):** - Suporte integrado de ponto fixo de base dez (`decimal $precio = 99.99m`) via `shopspring/decimal` elimina erros de arredondamento IEEE-754 comuns em PHP, Python ou JavaScript. 4. **Rigorosa Defesa contra Overflow:** - Interceptação de overflow na aritmética de 64 bits via `typesystem.CheckedIntBinary` antes que ocorram corrupções de dados. 5. **Simultaneidade Pragmática e Leve:** - Canais como cidadãos de primeira ordem (`channel $c = make_chan(10)`), operador emissor `$c << $msg`, consumo sequencial `foreach ($c as $msg)` e controle múltiplo `select`. - `async { ... }` produz objetos `Future` simultâneos em goroutines sem impor "coloração de função" ao longo da árvore de chamadas. 6. **Promoção de propriedade do construtor:** - A sintaxe `Init(public string $nombre, public int $edad = 30) {}` erradica o código de atribuição de campo cerimonial. 7. **Verificação automatizada de documentação:** - `pkg/core/documentation_test.go` valida automaticamente cada fragmento executável da documentação oficial, garantindo que os manuais nunca fiquem fora de sincronia com o comportamento real do mecanismo. --- ## 4. Fraquezas Estruturais 1. **Ausência de Estreitamento Exterior do Tipo Sensível ao Fluxo:** - O analisador reconhece apenas o estreitamento de um tipo anulável dentro dos ramos do ternário. Após uma cláusula de guarda com saída prematura, a variável externa não é promovida. 2. **Atrito no controle de fluxo:**- Ausência de uma declaração de decisão simples (`guard` ou `if`), resultando em construções forçadas com blocos falsos vazios e ramificações `: {}`. 3. **Destruição de instâncias no tratamento de exceções:** - O tempo de execução degrada as instâncias de classe iniciadas via `throw new CustomException(...)` em strings de texto simples `string` quando presas em `catch ($e)`. 4. **Comportamento Surpreendente em Igualdade (`==`) e Falsidade (`isFalsy`):** - O operador `==` recorre à conversão para texto usando `fmt.Sprintf` quando os operandos são não numérico, gerando que `null == ""` e `[1, 2] == ["1", "2"]` são avaliados como verdadeiros. - Em `isFalsy`, o número flutuante `0.0` e os mapas vazios `{}` são tratados como verdadeiros, enquanto a string `"0"` é tratada como falsa. 5. **Biblioteca padrão fragmentada:** - Sobrevivência de nomes duplicados (`str_contains` vs `contains`, `len` vs `count` vs `strlen`) e ausência completa de métodos de instância orientados a objetos em strings e coleções. 6. **Ferramentas dissociadas do AST Central:** - O formatador reimplementa um scanner léxico independente, o fixador depende de expressões regulares e a extensão VS Code replica análises TypeScript. --- ## 5. Atrito encontrado ao escrever código ### Evidência 1: Pirâmide de ternários aninhados em controladores No arquivo real [BackupController.joss:10-66](file:///c:/Users/Asus/Documents/proyectos/Joss-language/ejemplos/Joss-Red-JosSecurity/app/controllers/vault/BackupController.joss#L10-L66) do projeto de referência, o seguinte padrão de validação em cadeia é observado:```joss-snippet
-// CÓDIGO REAL EN JOSS-RED-JOSSECURITY:
-public func saveOrUpdateBackup(mixed $appName) {
-    return ($appName == "otp_backup") ? json({"error": "..."}, 400) : {
-        $allowedExtension = $this->getAllowedExtension($appName)
 
-        return (!$allowedExtension) ? json({"error": "..."}, 404) : {
-            $file = Request::file("file")
-            
-            return (!$file) ? json({"error": "..."}, 422) : {
-                $originalName = $file["name"]
-                $parts = explode(".", $originalName)
-                $ext = end($parts)
+**Fronteiras e dependências.** `pkg/parser` define tokens, lexer, precedências, AST e parser; `pkg/typesystem` define nomes, atribuibilidade e verificações de inteiros; `pkg/analyzer` importa essas camadas e `pkg/diagnostics`, mas não `pkg/core`. `pkg/core/analyzer.go` projeta built-ins, classes nativas e plugins para o ambiente semântico. `pkg/core` executa AST e integra SQL, arquivos, rede, visualizações, auth, WebSocket e plugins. `pkg/server` adapta HTTP para runtimes forkeados. `cmd/joss` orquestra o projeto; `cmd/runner` consome builds. `pkg/mobile` oferece API embutida e exportação C; `sdk/dart` adapta essa superfície e baixa binários de release. Não há um pacote separado chamado `libjoss` nesta árvore. `vscode-joss` oferece LSP; `pkg/formatter`, `pkg/linter`, `pkg/fixer` e `pkg/tester` são ferramentas separadas. `pkg/plugincompiler`, `pkg/pluginpkg`, `pkg/pluginruntime` e `pkg/vfs` formam a fronteira de plugins/pacotes. `pkg/i18n`, `pkg/template`, `pkg/viewtemplate` e `pkg/crypto` apoiam superfícies de aplicação.
 
-                return ($ext != $allowedExtension) ? json({"error": "..."}, 422) : {
-                    $u = Auth::user()
-                    return (!$u) ? json({"error": "..."}, 401) : {
-                        // ... Lógica de negocio desplazada a más de 24 espacios de sangría ...
-                    }
-                }
-            }
-        }
-    }
-}
+**Decisões acertadas já aplicadas.** Catálogos canônicos de tokens, built-ins e métodos primitivos; assinaturas semânticas separadas da execução; frames isolados para funções nomeadas; closures com captura lexical; `ref` temporário e invariante; `Free` idempotente com `atomic.Bool`; ownership contado para drivers; snapshots de sessão; scanner compartilhado de diretivas; metadados de classe em cache. Veja [Arquitetura](ARQUITECTURA.md) e `pkg/core/runtime_lifecycle.go`, `pkg/core/call_arguments.go`, `pkg/analyzer/analyzer.go`.
+
+**Acoplamento restante.** `core.Runtime` reúne linguagem e serviços do host (`pkg/core/types.go`); `cmd/joss/main.go` e `pkg/server/handler.go` orquestram muitas rotas; `core/evaluator_member.go` conserva buscas dinâmicas por nomes e scans de plugins. É acoplamento funcional real, mas dividir arquivos por tamanho não seria uma solução. Os contratos duplicados intencionalmente (analyzer vs runtime) devem compartilhar metadados, não estado. A fronteira de análise termina ao produzir diagnósticos: o AST não se converte em um typed IR reutilizado por todas as rotas. `runtime/plan` é calculado na execução de callables, não certificando o programa inteiro.
+
+## 3. Language Pipeline
+
+A sintaxe fonte real exige `$` para variáveis e visibilidade explícita em funções/classes globais. Portanto `func suma(int a, int b)` e `class Usuario` são exemplos conceituais, não Joss válido: seriam `public func suma(int $a, int $b): int { return $a + $b }` e `public class Usuario { public string $nombre }`. O laço é `foreach ($items as $item) { ... }`; `await($futuro)` é chamada nativa, não operador prefixo; `async { ... }` cria o futuro.
+
+| Fonte | Tokens / AST principal | Analyzer e tipo conhecido | Execução e resolução pendente |
+|---|---|---|---|
+| `int $edad = 20` | tipo, variável, atribuição, inteiro → `LetStatement(IntegerLiteral)` | tipo declarado `int`, compatibilidade do inicializador | armazena binding tipado, `int64`; runtime revalida |
+| `var $nombre = "Joss"` | `VAR`, literal string → `LetStatement` | infere e fixa `string` | slot/map com tipo inferido; revalidação ao reatribuir |
+| `mixed $valor = obtenerValor()` | declaração + `CallExpression` | `mixed` explícito; assinatura de chamada se resolúvel | busca função/callable e valor efetivo em runtime |
+| `public func suma(int $a, int $b): int` | `MethodStatement`, `ReturnStatement(InfixExpression)` | parâmetros, aridade, `+`, tipo de retorno e rotas de saída | planeja slots; resolve chamada, frame e operação |
+| `public class Usuario { public string $nombre }` | `ClassStatement` + propriedade | contratos nominais, membros e visibilidade conhecida | metadados em cache; instância usa `Fields map[string]interface{}` |
+| `await($f)` | `CallExpression` | built-in conhecido; resultado frequentemente `mixed` | `Future.Wait()`, pode bloquear ou propagar erro |
+| `foreach ($items as $item)` | `ForeachStatement` | iterável é inferido; elemento se torna `unknown` no binding | executa iteração de array/map/channel/generator, conforme valor |
+
+Os tokens precisos e a precedência vêm de `pkg/parser/token.go`, `lexer.go` e `parser.go`; a tabela resume categorias, não um rastreamento de `NextToken` instrumentado. O AST retém tokens/posições e tipos escritos; não retém um `SymbolID` nem uma referência semântica universal a cada chamada. `runtime/plan/callable.go` adiciona `IdentifierSlots` e `NameSlots` para parâmetros/locais, mas globais, propriedades, métodos, plugins e nativos continuam com buscas por nome.
+
+Em classes/métodos: o analyzer coleta declarações antes dos corpos, valida herança/interfaces e visibilidade, e tipifica chamadas quando conhece receiver/assinatura. O runtime ainda verifica construtor, propriedade, acesso e tipo do valor efetivo. Em closures: `FunctionLiteral` captura mapas e slots atuais; ao invocar usa um frame planejado e um mutex do ambiente capturado. Em `try/catch`, `throw`, `defer`, geradores, `select`, `match` e `async`, a sintaxe existe, mas a análise de estados/efeitos é parcial. Para `null`, `T?` normaliza para união; narrowing se aplica em `is`, comparações com null e alguns `guard`/ternários (`pkg/analyzer/infer_narrowing.go`).
+
+## 4. Type System
+
+| Tipo/conceito | Garantia real | Limite |
+|---|---|---|
+| `int` | `int64`; somas/subtrações/produtos e negação protegidos contra overflow; divisão por zero protegida | valores de nativos ou `mixed` testados apenas na execução |
+| `float` | `float64`; aceita atribuição a partir de `int` | inteiros maiores que 2^53 não são todos representados exatamente; revisar NaN/Inf por operação específica |
+| `decimal` | `shopspring/decimal`; aceita promoção int/float; literal decimal | converter `float` pode importar seu arredondamento anterior |
+| `string`, `bool` | tipos canônicos; strings UTF-8 e operações Unicode específicas | coerção de string para int/float/decimal/bool existe ao atribuir a tipo explícito; a regra deve permanecer explícita em diagnósticos |
+| `array<T>`, `map<K,V>` | tipo de elemento/valor verificável ao declarar e validar valores completos; maps runtime usam chave string | não são genéricos universais; funções nativas e mutações podem retornar `unknown/mixed`; não há prova de aliasing/variância segura |
+| `object`, classes, interfaces | tipo nominal, herança e interfaces do projeto; membros conhecidos são checados | campos são maps, não offsets; o receiver `mixed` requer lookup dinâmico |
+| `channel` | identidade de canal | sem tipo de mensagem nem estado aberto/fechado estático |
+| `mixed` | dinamismo deliberado | aceita qualquer origem/destino em `Assignable`; desloca erros para o runtime |
+| `var` / primeira atribuição | infere o primeiro tipo concreto e o fixa; null adia a inferência | fluxo condicional e chamadas de retorno desconhecido reduzem precisão |
+| `const` | impede reatribuição; propriedades constantes protegidas | não converte estruturas referenciadas em profundamente imutáveis |
+| `T|null`, `T?` | união nullable normalizada; verificação de atribuição e narrowing local | não há análise geral de null-state interprocedural |
+
+`typesystem.Assignable` aceita `Unknown` de maneira permissiva para evitar falsos positivos (`pkg/typesystem/types.go`); portanto «análise limpa» não significa «sem erro de tipos possível». `int $edad = "hola"` produz incompatibilidade se a string não for coercível; `int $edad = "20"` pode ser aceito mediante `CoerceString`. `var $contador = 10; $contador = "texto"` é rejeitado; `mixed` é a opção dinâmica. `ref T` é invariante e não escapa. A compatibilidade nominal é complementada em `pkg/analyzer/infer_nominal.go` e em `core.checkParsedType`; há duas defesas necessárias, mas convém testar sua concordância com um corpus comum.
+
+**Achado de consistência:** `Assignable` trata `array<T>` e `map<K,V>` de forma covariante e aceita coleções sem argumento de tipo como destino/origem. Com contêineres mutáveis/com alias isso pode admitir uma atribuição que posteriormente permite introduzir elementos incompatíveis. A extensão real da exposição depende de cada rota de mutação: é um risco de soundness que exige regressões de aliasing antes de alterar a regra. `runtimeTypeOf` de um array/map perde os argumentos genéricos; `checkParsedType` percorre elementos para uma variável tipada, mas uma operação nativa posterior pode perder essa verificação.
+
+**Precisão numérica:** `typesystem.Assignable` documenta `int → float` como «losslessly», mas um `float64` não pode representar cada `int64` (por exemplo, 2^53+1). A compatibilidade está implementada, não a garantia de precisão do comentário. Isso merece um teste de valor e uma política explícita: warning por conversão potencialmente inexata, cast expresso ou conservação do comportamento documentando perda. `decimal` preserva precisão decimal ao receber um inteiro; converter a partir de `float` não restaura dígitos já perdidos.
+
+## 5. Static Safety
+
+O analyzer detecta símbolos e classes inexistentes, duplicados, visibilidade, tipos fonte desconhecidos, inicializadores/reatribuições/argumentos/retornos incompatíveis, aridade e nomes de argumentos conhecidos, referências ilegais, membros conhecidos inexistentes, índices com tipo inválido, operações conhecidas inválidas, overflow e divisão por zero constantes, retornos demonstravelmente ausentes e código após uma saída incondicional. Emite códigos `JOSS-...` a partir de `pkg/analyzer`, apoiado por `pkg/diagnostics`. `pkg/analyzer/flow.go` é deliberadamente conservador: não constrói um CFG geral e `hasYield` considera gerador uma saída válida.
+
+| Erro / decisão | Fase atual | Movimento razoável | Fallback |
+|---|---|---|---|
+| sintaxe, visibilidade obrigatória | parser | já inicial | não executar |
+| variável/função/classe desconhecida | analyzer quando resolúvel | fechar diferenças de entrypoint e plugin | runtime para carga dinâmica |
+| tipo incompatível / retorno / `ref` | analyzer | aprofundar aliasing e fluxo | runtime obrigatório |
+| chamada/membro com `mixed` ou nativo sem assinatura | runtime | publicar assinaturas verificadas e narrowing | runtime |
+| uso antes de inicialização | parcial; runtime slot `Initialized` | definite assignment via CFG | runtime |
+| null dereference | narrowing parcial / runtime | análise de estado e `T?` | runtime |
+| divisão por zero / índice fora de intervalo | constantes: analyzer; variáveis: runtime | propagação de constantes de baixo custo | runtime |
+| canal fechado / send/recv bloqueante | runtime/Go panic | estado apenas se local e demonstrável | runtime estruturado |
+| transação não vinculada / recurso não fechado | runtime/host | efeitos e ownership de APIs | runtime e testes de integração |
+
+A regra fundamental é preservar defesas runtime: cargas dinâmicas, `mixed`, I/O e concorrência não são decidíveis em geral antes de executar.
+
+## 6. Runtime Safety
+
+Os erros do Joss usam `pkg/runtime/errors` e `pkg/core/errors.go`; aritmética e índices têm códigos estáveis. `MaxCallDepth` limita a recursão a 1024 frames por padrão. O runtime valida tipos de slots, campos, parâmetros, retornos, visibilidade e `ref`; o pool é limpo em `Free`. As falhas do Go originadas em APIs nativas nem sempre se convertem em `JossError`: `close(ch.Ch)` duplicado e `send` para canal fechado podem gerar panic; `make_chan` com capacidade negativa também. Isso produz uma experiência diferente das falhas aritméticas/indexação estruturadas. `await` e `recv` podem bloquear indefinidamente se não houver produtor; não existe cancelamento estruturado geral.
+
+Classificação de controles: parser para construção impossível; analyzer/typesystem para incompatibilidade, fluxo e null demonstráveis; planner para referências e metadados estáveis; runtime para estado de canal, limites, recursos e valores externos; stdlib para contratos de rede/FS/SQL; tooling para diagnósticos, rastreamento e auditoria de dependências. FFI e plugins com permissão de host não constituem sandbox do SO: a assinatura do pacote verifica procedência/integridade, não isola efeitos. Qualquer proposta de permissões deve distinguir capacidades do host e isolamento real.
+
+## 7. Memory Model
+
+Os valores são armazenados em `interface{}` e estruturas Go: arrays `[]interface{}`, maps `map[string]interface{}`, instâncias com `Fields map`, strings Go e decimal. O GC do Go gerencia a memória ordinária. `executionFrame` usa slots tipados etiquetados e `sync.Pool`; `Runtime` também usa pool e `Free` limpa caches, globais, estado de request, geradores, defers e plugins. `Fork` copia tabelas, compartilha AST/planos e `*sql.DB`; clona certas instâncias/mapas/fatias apenas superficialmente (`pkg/core/runtime.go`). Uma estrutura aninhada mutável pode permanecer com alias entre forks se introduzida por um caminho não coberto; exigir teste específico antes de afirmar isolamento profundo.
+
+`CapturedFunction` armazena um snapshot lexical em mapas protegidos por mutex, com a semântica de aliasing própria de valores internos. `ref` conserva binding durante a chamada, não ponteiro geral nem valor que escapa. O ownership de `DB` é externo ao runtime; o de drivers nativos é contado. O ownership de forks assíncronos e finalizadores não está fechado em todas as rotas. `evaluateNew` cria um `Fork()` por instância para um finalizer, e `AutoDestroy` pode criar outro fork para destruidor sem `Free` visível (`pkg/core/evaluator_member.go`, `instance_lifecycle.go`). Além disso, finalizadores do Go não garantem execução pontual; não devem ser a única estratégia para recursos críticos.
+
+## 8. Concurrency
+
+`async { ... }` projeta-se para o built-in `async`: cria `Future`, realiza `Fork` e executa uma goroutine; `await` aguarda seu resultado/erro. `channel`, `send`, `recv`, `close`, `foreach` sobre canal e `select` existem. `pkg/server` usa um fork por request e possui caracterizações de WebSocket, sessões e cleanup; sua segurança não deve ser extrapolada para outras goroutines. `ClosureEnvironment.mu` serializa o uso compartilhado de uma captura.
+
+Riscos comprovados por inspeção: forks sem `Free` em `builtins_async.go` e `task.go`; tarefas sem cancelamento nem join obrigatório; `Future` pode não ser observado; operações de canal sem estado e com panics do Go; `mobile.RunDirect` retorna timeout enquanto a goroutine pode continuar usando o runtime que seu caller libera. A última rota pode ocasionar condição de corrida/uso após reciclagem, não apenas atraso. Priorizar contexto/cancelamento cooperativo e ownership explícito antes de prometer «timeout de execução» no SDK móvel. `go test -race` da suíte existente é necessário, mas não demonstra ausência de condições de corrida em intercalações não cobertas.
+
+## 9. Performance
+
+Há trabalho prévio útil: `runtime/plan` atribui slots por identificador AST, `runtime/frame` reduz maps para locais e `classMetadataCache` evita reconstruir hierarquias por acesso. `pkg/core/runtime_benchmark_test.go` cobre startup, operadores, laços, funções, objetos, coleções e cenários de aplicação; `pkg/vm/vm_benchmark_test.go` cobre apenas um subconjunto. Não há nesta auditoria perfis de CPU/heap que permitam declarar um hot path dominante nem prometer porcentagens.
+
+Candidatos para **medição**: `evaluateNew` busca classe de plugin percorrendo registro/classes e cria fork/finalizer por instância; `evaluateMember` e despacho nativo resolvem nomes; classes guardam campos em mapas; `typesystem.Parse` de uniões refaz parse de nomes; coerção e validação de coleções percorrem valores; closures copiam mapas; `Fork` copia vários registros. Um cache de método monomórfico/polimórfico ou IDs só tem valor para classes estáveis e com invalidação clara. Antes de otimizar: bench de chamadas/propriedades em frio/quente, `benchmem`, perfis pprof e comparação semântica de caminho rápido/geral.
+
+## 10. Diagnostics
+
+`diagnostics.Diagnostic` contém código, severidade, arquivo, intervalo, mensagem, explicação e sugestão; o analyzer ordena por arquivo/linha/coluna. Parser e LSP consomem diagnósticos. Arith/index runtime possuem códigos; vários nativos ainda lançam strings ou panics do Go sem código nem span preciso. Um `JossError` suporta stack, mas a tradução em CLI/móvel/servidor não possui apresentação idêntica. O parser recupera erros parcialmente e pode emitir derivados após o primeiro. A prioridade é alinhar erros nativos frequentes e adicionar localização/intervalo completo à falha runtime, sem inventar um novo código se já existir um canônico. Os exemplos de `docs/DIAGNOSTICOS.md` devem acompanhar cada código novo.
+
+## 11. Tooling
+
+A CLI implementa `run`, `build`, `check`, `analyze`, `test`, `format`, `lint`, `fix`, `eval` e **`repl`** (`cmd/joss/main.go`), além de comandos de aplicação/pacotes. `format` preserva trivia com scanner próprio que consome símbolos canônicos; `fix` usa regras/regex de transformação e necessita de testes contra strings/comentários. `vscode-joss` declara completion, hover, definition, references, signature help, diagnostics, document symbols e formatting; não consta provedor de rename em `server.ts`. Há testes de parser fuzzing, typesystem fuzzing, valor Unicode, diferencial de VM e benchmarks. Faltam debugger/profiler de Joss integrados e um inspetor de efeitos/dependências de projeto; «ausente» não implica prioridade alta.
+
+**Divergências documentais concretas:** [Estado de implementação](ESTADO_IMPLEMENTACION.md) afirma que não há REPL, interfaces, `defer` nem `select`; CLI, AST, analyzer e executor de fato os possuem. O relatório histórico que ocupava esta página também afirmava ausência de `guard`/narrowing posterior, mas `body_analysis.go` e `infer_narrowing.go` já implementam ambos. `sdk/dart/README.md` descreve distribuição mobile que deve ser verificada contra artefatos de release reais antes de prometer instalação automática. Corrigir essas páginas na fase documental posterior, com contratos executáveis; não usar suas afirmações antigas como base de projeto.
+
+## 12. Technical Debt
+
+1. **HIGH:** contratos de coleções mutáveis e `Unknown/Mixed` deixam brechas de soundness; `typesystem.Assignable` e `runtimeTypeOf` necessitam de testes de aliasing e política explícita.
+2. **HIGH:** rotas de entrada não compartilham um `PreparedProgram` com análise e metadados persistidos; CLI, mobile, runner e server orquestram análise/registro de forma distinta.
+3. **HIGH:** ownership de forks fora do HTTP não está expresso em tipos/API e permite esquecimentos.
+4. **MEDIUM:** metadados nativos publicam retornos confiáveis, mas `ArityKnown=false` em muitas APIs; o analyzer não pode antecipar aridade/tipos.
+5. **MEDIUM:** metadados de métodos/classes e resolução de plugin ainda usam strings/mapas e scans em rotas potencialmente frequentes.
+6. **MEDIUM:** `pkg/core` integra semântica e infraestrutura; separar unicamente os pontos onde contratos/testes de fronteira justifiquem.
+7. **MEDIUM:** documentação de estado e auditorias históricas contradizem funcionalidades atuais; a auditoria da linguagem não pode basear-se nessas páginas sem revalidar.
+8. **LOW:** símbolos LSP gerados convivem com assinaturas ricas mantidas manualmente; risco de metadados incompletos.
+
+## 13. Bugs Found
+
+| Severidade | Evidência e causa raiz | Efeito / verificação pendente |
+|---|---|---|
+| **CRITICAL** | `pkg/core/database.go` ramo `transaction` abre `tx := db.Begin()`, chama callback mediante `r.CallFunction` e confirma `tx`; as consultas ordinárias usam `r.GetDB()`, sem contexto `tx`. Já consta como limite em [Estado](ESTADO_IMPLEMENTACION.md). | Uma operação do callback pode persistir mesmo que este falhe e ocorra rollback do `tx`. Teste SQLite em `t.TempDir`: insert + throw + verificar tabela vazia. |
+| **HIGH** | `pkg/mobile/mobile.go` seleciona `time.After` mas não cancela nem aguarda a goroutine; restaura `os.Stdout/Stderr` e `defer rt.Free()` pode reciclar o runtime ainda ativo. | Timeout não é interrupção de execução; risco de goroutine persistente, saída tardia e condição de corrida. Teste de timeout com sinalização/join e `-race`. |
+| **HIGH** | `pkg/core/builtins_async.go` e `pkg/core/task.go` fazem `r.Fork()` sem `Free()` na goroutine; `evaluator_member.go` e `instance_lifecycle.go` repetem padrão em finalizadores/destruidor. | Estado/handles retidos e ownership contado não liberado. Teste de driver retido e ciclos de fork; definir encerramento do owner. |
+| **HIGH** | `builtins_async.go` executa `close(ch.Ch)`, `ch.Ch <- value` e `make(chan, size)` sem controlar fechamento duplo, envio em canal fechado ou capacidade negativa. | Panic do Go ou bloqueio sem erro estruturado Joss. Testes dos três casos e concorrente com `-race`. |
+| **MEDIUM** | `typesystem.Assignable` permite `int → float` e descreve como sem perda, embora `float64` perca precisão acima de 2^53. | Resultado numérico surpreendente em IDs/contadores grandes. Teste de 2^53+1 e decisão de compatibilidade. |
+| **MEDIUM** | `pkg/analyzer/project.go` carrega entrypoint e `app/**/*.joss`; `routes.joss` é carregado pelo servidor conforme [auditoria documental](DOCUMENTATION_AUDIT.md). | `joss analyze` pode omitir erros de rotas; verificar fixture web e unificar manifesto de fontes de execução. |
+| **MEDIUM** | `docs/ESTADO_IMPLEMENTACION.md` nega REPL/interfaces/defer/select; implementação presente em `cmd/joss/main.go`, AST e `core/executor.go`. | Decisões de usuários e roadmap baseados em informação errônea. Corrigir com contratos de documentação. |
+
+Não são atribuídos como bugs atuais o antigo `match` de blocos, o escape de `break` em ternário ou o reset do pool: há rotas/guardas posteriores e requerem nova reprodução antes de reabrir. Os achados de código anteriores ainda necessitam de testes de regressão ao serem corrigidos; a inspeção não substitui um teste end-to-end.
+
+## 14. Missing Language Features
+
+Problemas reais: falta análise geral de definite assignment e null-state; não há tipo de mensagem para canais nem cancelamento de tarefas; não há tipo de resultado para falhas esperadas de I/O; não há contrato de efeito/capacidade para chamadas nativas; a precisão de coleções se perde com APIs `mixed`. `match` de valores existe, mas não é exaustivo por enum/tipo união. Interfaces e enums **de fato existem**; não devem ser propostos como ausentes. Imports fonte não existem por decisão explícita de projeto zero-imports; adicioná-los agora quebraria a arquitetura sem solucionar o problema prioritário. Tampouco se justifica ownership geral no estilo Rust, genéricos universais, traits, AOT/LLVM ou uma VM completa nesta fase.
+
+## 15. Proposed Language Features
+
+Cada sintaxe é uma **proposta**, não um contrato atual.
+
+| Proposta e exemplo | Problema | Parser/AST | Analyzer | Runtime/tooling | Compatibilidade; complexidade |
+|---|---|---|---|---|---|
+| **Definite assignment e null-state**: `T? $x`, guard e acesso posterior | uso antes de inicializar / dereference nullable | sem sintaxe nova; CFG sobre AST atual | estados por símbolo e joins; narrowing invalidado por mutação/alias | defesas conservadas; hover mostra estado | compatível com warning → erro opt-in; média |
+| **`Result<T,E>` leve**: `Result<Usuario, DbError>` com `match` | falhas esperadas de DB/HTTP hoje misturam nil, false, panic | gramática de tipo parametrizado já existe para coleções; ampliar AST de type refs e construção | variantes e exaustividade; propagação explícita apenas se projetada | valor tagged e SDK; LSP completion | experimental; alta |
+| **Canal tipado e fechamento seguro**: `channel<string>` | enviar valor incorreto/fechar duas vezes | estender TypeReference/AST sem alterar `send` | verificar tipo de mensagem e diagnósticos locais de estado | wrapper de estado, erro Joss, hover; testes race | compatível opt-in; média |
+| **`match` exaustivo para enum/união** | ramo faltante deriva para null | AST atual possui braços/default; possível padrão simples novo | cobertura de casos e duplicados | runtime conserva fallback; quick fix LSP | warning primeiro; média |
+| **Atributo de efeito para nativos confiáveis**, p. ex. metadata `effects: io, blocking` (sem sintaxe fonte inicialmente) | analyzer desconhece bloqueio/recursos | nenhuma alteração parser/AST no início | validar `await`, recursos e rotas críticas usando assinaturas | catálogo e LSP; wrapper host | compatível; média |
+
+Não recomendar `readonly` superficial enquanto mapas/fatias com alias permanecerem mutáveis; uma garantia parcial deve ser chamada explicitamente de «binding imutável». Safe casts só trariam valor após definir falhas como `Result`/nullable e testar a interação com `mixed`. Records/sealed classes podem ser reavaliados após exaustividade nominal; extension methods/traits e overloads adicionam resolução complexa sem bug demonstrado que os exija.
+
+**Comparação seletiva:** Kotlin/Dart/Swift inspiram null-state e promoção local, mas o Joss precisa invalidar narrowing ao escrever `mixed` ou aliases; TypeScript demonstra a utilidade e os limites do controle de fluxo com dinamismo; Rust traz `Result` e recursos explícitos, sem tornar necessário borrow checking completo; Go fornece canais e contextos de cancelamento, enquanto o Joss deve evitar panics visíveis do Go; Java/C# mostram metadados estáveis e despachos antecipados, úteis apenas para receptores nominais; Lua/JVM demonstram VM viável após equivalência semântica; Python/PHP lembram o valor de `mixed` e iteração rápida, junto ao custo de falhas tardias. Copiar sintaxe externa sem resolver contratos internos não oferece garantias.
+
+## 16. Compiled-Like Experience
+
+Arquitetura objetivo incremental, derivada das camadas atuais:
+
+```text
+parser.Program + SourceUnits
+  → analyzer: símbolos, tipos, contratos, CFG/estados
+  → diagnostics + AnalysisFacts (ID de símbolo, tipo, efectos, spans)
+  → PreparedProgram (AST inmutable + planes de callable/clase + referencias resueltas)
+  → intérprete core (ruta publicada) / VM sólo para subset diferencial
+  → runtime host (recursos, IO, requests, plugins)
 ```
-**Diagnóstico:** O programador é forçado a converter validações lineares sequenciais em uma hierarquia de blocos falsos aninhados. Qualquer modificação intermediária do método requer reformatação e reinserção de dezenas de linhas de código. ### Evidência 2: The Phantom Fake Branch `: {}` Em [AuthController.joss:3](file:///c:/Users/Asus/Documents/proyectos/Joss-language/ejemplos/Joss-Red-JosSecurity/app/controllers/auth/AuthController.joss#L3) e em vários controladores:```joss-snippet
-// CÓDIGO REAL:
-public func showLogin() {
-    (!Auth::guest()) ? { return redirect("/dashboard") } : {}
-    SEO::title("Iniciar Sesión — Joss Red")
-    return view("auth.login", { ... })
-}
-```
-**Diagnóstico:** O desenvolvedor escreve `: {}` no final de cada ternário condicional para ter certeza de que o compilador não interpretará a próxima linha como uma continuação do operador. ### Evidência 3: Transformações processuais desnecessárias em [BackupController.joss:70-97](file:///c:/Users/Asus/Documents/proyectos/Joss-language/ejemplos/Joss-Red-JosSecurity/app/controllers/vault/BackupController.joss#L70-L97):```joss-snippet
-// CÓDIGO REAL:
-$files = $db->table("backups")->where("user_token", $userToken)->get()
-$filesList = $files
-$mapped = []
 
-foreach ($filesList as $file) {
-    $parts = explode("/", $file["file_name"])
-    $fileName = end($parts)
-    
-    $mapped[] = {
-        "id": $file["id"],
-        "name": $fileName
-    }
-}
-return json({"files": $mapped})
-```
-**Diagnóstico:** 16 linhas de código processual com acumulador mutável `$mapped[] = ...` para executar uma operação que é conceitualmente uma única transformação de mapeamento. --- ## 6. Padrão e Cerimônia Identificados | Padrão Cerimonial | Impacto nas Linhas | Causa subjacente | Solução Proposta | |---|:---:|---|---| | **Branch `: {}` em declarações condicionais** | 1 linha por condicional | Sintaxe ternária forçada para controle de fluxo | Introdução de `guard` ou declaração condicional simples | | **Parâmetros marcados como `mixed`** | 1 por parâmetro | Falta de estreitamento de fluxo em variáveis ​​com tipos de união | Estreitamento automático do escopo (smart casts) | | **Extração manual de nome/extensão de arquivo** | 3-4 linhas | Ausência de métodos em strings ou classe utilitária `Path` | `$archivo->extension()` ou `Path::extension($archivo)` | | **Instanciação repetitiva `new GranDB()`** | 1 linha por consulta | Acesso a instâncias não unificadas com fachadas estáticas | Unifique em `GranDB::table(...)` | | **Mapeamento cumulativo `$acc[] = ...`** | 10-15 linhas por loop | Matrizes sem métodos funcionais fluentes | `$files->map(func($f) => ...)` | | **Verificação manual da existência de pré-leitura** | 2-3 linhas | Falta de métodos seguros em dicionários/mapas | `$map->get("clave", "default")` | --- ## 7. Inconsistências de idioma ### 1. Inconsistência furtiva `$` - Variáveis ​​locais: obrigatórias (`$usuario = new Usuario()`). - Parâmetros: Obrigatórios (`func(string $nombre)`). - Propriedades em declaração: Obrigatório (`public string $nombre = ""`). - Acesso à propriedade da instância: **Proibido** (`$this->nombre`, não `$this->$nombre`). - Acesso à propriedade estática: **Obrigatório** (`Clase::$contador`). - Parâmetro Catch: **Obrigatório** (`catch ($e)`). ### 2. Duplicidade de Paradigmas em Bibliotecas Três estilos irreconciliáveis coexistem nas APIs integradas: - **Estilo PHP histórico:** `str_contains`, `str_replace`, `array_keys`, `file_get_contents`. - **Resumo de estilo moderno:** `contains`, `keys`, `values`, `file_read`. - **Estilo C++:** Operadores de streaming `cout << $val` e `cin >> $var`. - **Estilo Web Fachada:** `Response::json()`, `View::render()`, `Request::input()`. ### 3. Requisito de digitação assimétrica - Em vigor: `func($x)` é estritamente proibido (`JOSS-TYPE-011`); requer `func(mixed $x)`. - Em `catch`: `catch (MiError $e)` gera um erro de sintaxe do compilador; requer estritamente `catch ($e)`. ### 4. Indexação fora do intervalo - Em arrays e strings: `$arr[99]` causa um **pânico fatal em tempo de execução** (`JOSS-INDEX-001`). - Em mapas: `$map["clave_inexistente"]` retorna **`null` silenciosamente**. --- ## 8. Complexidade Conceitual Atualmente, um desenvolvedor deve memorizar um número desnecessário de regras para tarefas idênticas:```text
-DECLARACIÓN DE VARIABLES (7 Formas Convivientes):
-  1. $x = 10         (inferencia fija)
-  2. var $x = 10     (inferencia fija explícita)
-  3. int $x = 10     (tipo estático estricto)
-  4. let int $x = 10 (tipo estático con prefijo let)
-  5. let $x = 10     (variable dinámica mixed)
-  6. mixed $x = 10   (variable dinámica explícita)
-  7. const $x = 10   (inmutable)
-```
-**Proposta de unificação:** Reduzir para três formas intuitivas e previsíveis: - `$x = 10` ou `var $x = 10`: Inferência fixa do valor atribuído. - `int $x = 10`: tipo estático declarado explicitamente. - `mixed $x = 10`: Dinamismo voluntário (recomendando `let $x`). - `const $x = 10`: Constante imutável. --- ## 9. Digite System Audit O núcleo de digitação (`pkg/typesystem/types.go`) possui bases matemáticas sólidas: - Promoção numérica estrita: `int` → `float` → `decimal`. - Operações seguras com tipos de união normalizados (`T|U`) e opcionais (`T?` → `T|null`). - Compatibilidade nominal de classes e interfaces. ### A falha crítica: refinamento de escopo isolado Em `pkg/analyzer/infer.go:929` (`narrowScopeFromCondition`), o estreitamento de tipos anuláveis ​​opera através da criação de escopos isolados:```go
-trueScope := newScope(current)
-falseScope := newScope(current)
-```
-Esses escopos **afetam apenas as expressões localizadas no ternário**. Depois que a análise continua para a próxima instrução no bloco principal, a variável retorna ao seu tipo original com `null`.```joss-snippet
-public func formatearNombre(string? $nombre): string {
-    ($nombre == null) ? {
-        return "Anónimo"
-    }
+Primeiro adicionar fatos semânticos **sidecar** indexados por nós AST, evitando mutar AST compartilhado por forks. IDs imutáveis por projeto/versão podem estabilizar símbolos; `SlotID` já existe para locais. Resolver antecipadamente funções e métodos apenas quando classe e tabela forem estáveis; `mixed`, plugins dinâmicos e host globals mantêm guardas/fallback. Um typed IR completo teria alto custo de duplicação semântica: exigir protótipo com comparação diferencial e métricas antes de adotá-lo. CFG para retornos, atribuição e null-state tem valor antes de otimizações. Constant folding/propagation apenas para operações puras com `typesystem.CheckedIntBinary`; nunca antecipar efeitos de nativos. Field offsets e inline caches necessitam de versão/invalidação de classe; não são primeira fase.
 
-    // EL COMPILADOR FALLA AQUÍ:
-    // $nombre sigue siendo inferido como string|null.
-    return $nombre // JOSS-TYPE-008: se esperaba 'string', se obtuvo 'string|null'.
-}
-```
-Esta limitação impede a escrita de cláusulas de proteção idiomáticas e leva ao abuso de `mixed` em projetos de software reais. --- ## 10. Auditoria de segurança e defesas de tempo de execução ### Defesas validadas e bem-sucedidas: - **Detecção de overflow:** `CheckedIntBinary` bloqueia adições ou produtos que excedem o intervalo `int64`. - **Divisão controlada por zero:** Inicia diagnósticos imediatos sem produzir estados de memória corrompidos. - **Proteção de recursão infinita:** Limite máximo configurável de frames de chamada. ### Lacunas e vulnerabilidades ocultas: 1. **O operador `??` oculta erros críticos:** - Em [evaluator_infix.go:54-60](file:///c:/Users/Asus/Documents/proyectos/Joss-language/pkg/core/evaluator_infix.go#L54-L60):   ```go
-   if ie.Operator == "??" {
-       var left interface{}
-       func() {
-           defer func() {
-               if rec := recover(); rec != nil {
-                   left = nil
-               }
-           }()
-           left = r.evaluateExpression(ie.Left)
-       }()
-   ```
-Qualquer exceção lançada no branch esquerdo (divisão por zero, overflow ou exceção de banco de dados) é capturada silenciosamente e substituída pelo valor padrão, impossibilitando o diagnóstico de bugs na produção. 2. **Rebaixamento silencioso de caracteres UTF-8 no Lexer:** - Em [lexer.go:327-332](file:///c:/Users/Asus/Documents/proyectos/Joss-language/pkg/parser/lexer.go#L327-L332), o lexer descarta sem notificação quaisquer bytes maiores que 127 fora dos literais de string. Um identificador como `$año` é silenciosamente transformado em `$ao`. --- ## 11. Auditoria e diagnóstico de erros O subsistema `pkg/diagnostics` é de alta qualidade arquitetural, mas requer maior empatia contextual: 1. **Mensagens tecnicamente corretas, mas não de orientação:** - *Atual:* `error[JOSS-TYPE-001] app.joss:15:5: Asignación incompatible: se esperaba 'int', se obtuvo 'string'.` - *Orientação:* `error[JOSS-TYPE-001] app.joss:15:5: No se puede asignar 'string' a la variable '$edad' porque fue inferida como 'int' en la línea 4. Sugerencia: Modifica el valor asignado o declara explícitamente 'mixed $edad'.` 2. **Cascata de erros no analisador:** - Na ausência de um delimitador ou chave, o analisador Pratt emite vários diagnósticos derivados. É uma prioridade sincronizar o analisador com o seguinte `SEMICOLON` ou `NEWLINE`. --- ## 12. Auditoria de biblioteca padrão (Stdlib) ### Principais oportunidades de redesenho: 1. **Unificação de strings e coleções orientadas a objetos:** - Substitua funções aninhadas por chamadas fluidas:     ```joss-snippet
-     // Actual:
-     $limpio = trim(strtolower(substr($texto, 0, 10)))
+## 17. Architecture Improvements
 
-     // Propuesto:
-     $limpio = $texto->slice(0, 10)->lower()->trim()
-     ```
-2. **Avaliação preguiçosa do operador Range (`..`):** - Modifique `evaluator_infix.go:458` para que `1..1000000` retorne um iterador leve em vez de alocar imediatamente uma matriz de um milhão de elementos no heap. --- ## 13. Auditoria de ferramentas e ecossistemas - **`joss run` e `joss analyze`:** Eles funcionam perfeitamente, garantindo que nenhum código com erros de análise semântica seja executado. - **Extensão de código VS (`vscode-joss`):** Duplica a análise de caminho e a lógica de validação de sintaxe no TypeScript. Deve evoluir para um servidor de linguagem puro em Go, desenvolvido por `pkg/analyzer`. --- ## 14. Auditoria Oficial do Formatador - O arquivo `pkg/formatter/scanner.go` mantém uma tabela de tokens paralela que diverge de `pkg/parser/token.go`. - O formatador deve ser refatorado para operar diretamente na sequência de tokens gerada pelo lexer canônico, preservando quebras de linha intencionais e aplicando formatação canônica estrita à la `gofmt`. --- ## 15. Analisador e Auditoria Linter Recomenda-se segregar claramente os níveis de severidade: - **Analyzer:** Valida a correção do programa (tipos, símbolos, terminação de chamada, invariantes). Transmite exclusivamente `Error` e `Warning`. - **Linter:** Avalia estilo e boas práticas (convenção de nomenclatura, detecção de chave em código rígido `JOSS-SEC-001`). Edições `Warning` e `Info`. --- ## 16. Comparação seletiva com outros idiomas | Idioma | Abordagem de controle de fluxo | Gestão de Nulabilidade | Lição para Joss | |---|---|---|---| | **Dardo** | Mantém o tradicional `if/else` | Som Nulo Segurança com Promoção de Fluxo | Permite que você escreva código linear enquanto o compilador remove `null` após salvar. | | **Vá** | Declarações simples `if err != nil` | Ponteiros de erro explícitos e tuplas | O código linear é mais legível que as expressões aninhadas. | | **Rápido** | Frase obrigatória `guard cond else { return }` | Opcionais estritos (`T?`) | A cláusula `guard` garante a saída da função sem recuo de pirâmide. | | **Kotlin** | `if` é expressão; suporta *elencos inteligentes* | Tipos anuláveis ​​`T?` com operador Elvis `?:` | Se uma variável for verificada em `null`, o compilador deverá atualizar seu tipo automaticamente. | --- ## 17. Oportunidades de simplificação 1. **Remover aliases obsoletos das funções:** Descontinuar gradualmente os prefixos `str_` e `array_`. 2. **Desencorajar `let $x` em favor de `mixed $x`:** Remova a ambiguidade conceitual sobre a mutabilidade de tipo. 3. **Unifique Fachadas e Auxiliares:** Certifique-se de que `view()` e `View::render()` compartilhem o mesmo contrato formal de assinatura. --- ## 18. Recursos que NÃO devem ser implementados Recomenda-se rejeitar explicitamente: - ❌ **Gráficos de Importações Tradicionais:** Preservar a simplicidade do modelo Zero-Importações. - ❌ **Genéricos complexos de ordem superior:** Mantenha a parametrização limitada a `array<T>` e `map<K, V>`. - ❌ **Herança Múltipla ou Características Complexas:** Preserve a herança simples com interfaces limpas.- ❌ **Função de coloração em assíncrono:** Proíbe a exigência de palavras-chave `async func`. --- ## 19. Catálogo de Propostas Priorizadas (P1 a P8) Segue abaixo o catálogo técnico de propostas de evolução da linguagem Joss, priorizadas de acordo com seu impacto na redução da complexidade acidental, eliminação de código defensivo e melhoria direta da produtividade e segurança do desenvolvedor. ### Matriz de Decisão e Priorização | ID | Proposta | Problema Principal | Benefício | Complexidade | Risco | Compatibilidade | Prioridade | Subsistema | |:---|:---|:---|:---|:---:|:---:|:---:|:---:|:---| | **P1** | **Frase `guard`** | Aninhamento de pirâmides por validações anteriores | Fluxo de controle linear e leitura sequencial | Médio | Baixo | 100% compatível | **P0** | Analisador, Analisador, Avaliador | | **P2** | **Propagação de restrição de tipo** | Perda de refinamento da taxa após saídas antecipadas | Elimine afirmações e verificações redundantes | Médio | Baixo | 100% compatível | **P0** | Analisador (`flow.go`, `infer.go`) | | **P3** | **Métodos Fluidos em Primitivos** | Atrito devido à mistura entre PHP processual e classes estáticas | API moderna, preenchimento automático e encadeamento | Médio | Baixo | 100% compatível | **P1** | Avaliador, Stdlib, Analisador | | **P4** | **Preservação de Objetos em `catch`** | Exceções rebaixadas para `string` flat in catch | Tratamento de erros digitados, acesso a rastreamento e metadados | Baixo | Mínimo | 100% compatível | **P0** | Avaliador (`executor.go`) | | **P5** | **Segurança de coalescência `??`** | Silenciamento indiscriminado de pânicos reais | Detecção imediata de bugs lógicos e divisões por zero | Baixo | Baixo | Compatível (correção semântica) | **P1** | Avaliador (`evaluator_infix.go`) | | **P6** | **Desestruturação Declarativa** | 5 a 10 linhas de descompactação repetitivas por controlador | Redução de 60% na alocação padrão | Médio | Baixo | 100% compatível | **P1** | Analisador, Analisador, Avaliador | | **P7** | **Promoção de imóvel em `Init`** | Declaração quádrupla de propriedades em classes e DTOs | Definição concisa e declarativa de modelos | Médio | Mínimo | 100% compatível | **P1** | Analisador, Analisador, Núcleo (`classes.go`) | | **P8** | **Mecanismo AST de correção automática (`joss fix`)** | Dívida técnica e correções manuais de sintaxe | Migração e modernização automáticas com esforço 0 | Médio | Baixo | Ferramenta CLI externa | **P0** | CLI, fixador, formatador | --- ### P1: Declaração de guarda e controle de fluxo plano (`guard`) #### 1. Problema atual Nos controladores, middlewares e serviços Joss, os métodos exigem a verificação de múltiplas pré-condições (autenticação, existência de registros no banco de dados, validade de tokens, presença de arquivos carregados). Como os desenvolvedores costumam usar ternários com blocos ou condicionais aninhados para evitar retornos duplicados, o código entra em colapso na chamada "pirâmide da destruição". Cada validação adiciona um nível extra de recuo e encerra a lógica principal dentro do corpo da ramificação falsa ou verdadeira.#### 2. Evidência em código real - `ejemplos/Joss-Red-JosSecurity/app/controllers/vault/BackupController.joss`: Até 5 níveis de aninhamento ternários consecutivos para verificar `$user`, permissões de função, existência de backup e parâmetros de solicitação. - `ejemplos/Joss-Red-JosSecurity/app/controllers/api/ApiRepositoryController.joss` (linhas 60-80): Três ternários são aninhados para verificar se o arquivo existe, se o JSON está analisado e se os campos opcionais estão presentes. - `ejemplos/Joss-Red-JosSecurity/app/middleware/MiddlewareLoader.joss` (linhas 30-93): Blocos de validação defensivos que forçam saltos de leitura. #### 3. Impacto no desenvolvedor - **Legibilidade gravemente degradada:** A lógica de negócios feliz (*caminho feliz*) está oculta no nível mais profundo de recuo. - **Risco de erros na refatoração:** Modificar um bloco aninhado requer o ajuste de colchetes emparelhados com dezenas de linhas de distância. - **Dificuldade de auditoria:** À primeira vista, não é óbvio quais são os pré-requisitos para um endpoint executar sua lógica central. #### 4. Solução técnica proposta Incorpore a frase `guard (condición) else { ... }`. - **Semântica:** A condição deve ser avaliada como booleana. Se a condição for verdadeira, a execução continua imediatamente na próxima instrução no mesmo nível de indentação. Se for falso, o bloco `else` é executado. - **Invariante estático:** O analisador semântico (`pkg/analyzer`) requer exaustivamente que o bloco `else` de um `guard` encerre o fluxo da função (via `return`, `throw` ou saída do terminal). Se o bloco `else` não interromper o fluxo, o compilador emitirá um erro estático `JOSS-FLOW-005`. #### 5. Código Atual vs. Código Proposto```joss-snippet
-// --- ACTUAL (Anidamiento y ramas de escape complejas) ---
-public func download(mixed $id) {
-    $item = GranDB::table("repos")->where("id", $id)->first()
-    return (!$item) ? json({"error": "No encontrado"}, 404) : {
-        $user = Auth::user()
-        return (!$user) ? json({"error": "No autenticado"}, 401) : {
-            $path = $item["file_path"]
-            return (!file_exists($path)) ? json({"error": "Archivo perdido"}, 404) : {
-                return Response::download($path)
-            }
-        }
-    }
-}
+1. Um `PreparedProgram` por projeto com origem de arquivos, diagnósticos, `AnalysisFacts`, planos e catálogo de assinaturas; CLI/mobile/runner/server consomem a mesma validação. Manter `analyzer` sem importar `core`.
+2. Uma API de ownership para forks/tarefas com `defer Free()` obrigatório na goroutine e finalização explícita de instâncias com recursos. Não transferir ownership de `DB` para o pool.
+3. Um contexto de transação no adaptador de DB, propagado a todas as operações do callback; não basta envolver `Begin/Commit`.
+4. Metadados `NativeMethodDefinition` com parâmetros e efeitos apenas onde o contrato for comprovado; `ArityKnown=false` deve permanecer para casos desconhecidos.
+5. Manifesto único de arquivos fonte do projeto que cubra rotas web realmente executadas; preservar política zero-imports.
+6. Contextos de erro com código/span/stack em fronteiras nativas e SDK, sem managers públicos cerimoniais.
 
-// --- PROPUESTO (Flujo plano y lectura lineal con guard) ---
-public func download(mixed $id) {
-    $item = GranDB::table("repos")->where("id", $id)->first()
-    guard ($item != null) else {
-        return json({"error": "No encontrado"}, 404)
-    }
+## 18. Security Improvements
 
-    $user = Auth::user()
-    guard ($user != null) else {
-        return json({"error": "No autenticado"}, 401)
-    }
+Prioridade: transações atômicas e gerenciamento de recursos; depois, cancelamento cooperativo de requests/tarefas; capacidades explícitas para filesystem/rede/processo/FFI em host/plugin; limites de tamanho, tempo e profundidade em nível de operação. Verificar rotas e VFS contra traversal, e não confundir assinatura JP com sandbox. Para `null`, índice, divisão e overflow, o analyzer detecta constantes/estados demonstráveis e o runtime conserva verificações. A propagação de erros async deve ser observável mesmo se o Future não for awaited; uma política de tarefas órfãs (log/propagação para o request ou cancelamento) necessita de especificação antes de ser implementada. `panic` de um nativo deve se converter em erro estruturado sem silenciar falhas internas não previstas.
 
-    $path = $item["file_path"]
-    guard (file_exists($path)) else {
-        return json({"error": "Archivo perdido"}, 404)
-    }
+## 19. Performance Improvements
 
-    return Response::download($path)
-}
-```
-#### 6. Subsistema afetado - `pkg/parser`: Nova palavra-chave `guard`, nó AST `GuardStatement`. - `pkg/analyzer`: validação de condição booleana e verificação de conclusão garantida no bloco `else` usando `flow.go:blockTerminatesCallable`. - `pkg/core`: Avaliação em `executor.go` (se `isTruthy(cond)`, continue; caso contrário, avalie `elseBlock`). #### 7. Estimativa e Compatibilidade - **Benefício:** Muito Alto (Elimina 80% de aninhamento acidental em controladores). - **Dificuldade:** Médio. - **Risco:** Baixo. - **Compatibilidade:** 100% compatível com versões anteriores (palavra-chave contextual ou reservada com verificação em `token.go`). - **Prioridade:** **P0**. --- ### P2: Propagação do Estreitamento de Tipos no Escopo Principal (*Smart Casts*) #### 2.1. Problema atual O sistema de tipos Joss implementa refinamento de tipo (`narrowScopeFromCondition` em `pkg/analyzer/infer.go`), mas apenas dentro do corpo interno de uma ramificação `if` ou no braço verdadeiro/falso de um operador ternário. Quando um desenvolvedor valida o nulo de uma variável no início de uma função e retorna imediatamente se for nulo, o analisador semântico **esquece o refinamento** nas linhas subsequentes do escopo principal. #### 2.2. Evidência no Código Real - `ejemplos/Joss-Red-JosSecurity/app/controllers/auth/ProfileController.joss` (linha 18-28):  ```joss-snippet
-  $u = Auth::user() // Tipo inferido: User|null
-  (!$u) ? { return redirect("/login") }
-  // En las siguientes líneas, $u->email o $u->first_name siguen considerando User|null
-  ```
-- `pkg/analyzer/infer.go` (linhas 90-96): `narrowScopeFromCondition` gera dois escopos filhos isolados (`trueScope`, `falseScope`), mas nenhum deles retorna ao escopo pai `current`. #### 23. Impacto no desenvolvedor - O desenvolvedor é forçado a usar `mixed` em variáveis ​​para silenciar os avisos do analisador. - Causa desconfiança no sistema de tipos, incentivando verificações defensivas duplicadas (`if ($u != null && $u->email)`) em todo o mesmo método. #### 2.4. Solução técnica proposta Integrar análise de encerramento de fluxo (`flow.go`) com refinamento de escopo em `infer.go`: - Quando uma instrução condicional (`if`, `guard`, ou instrução ternária) demonstra de forma abrangente que seu escapar da ramificação encerra a execução da função (`return`, `throw`), o escopo pai subsequente assume o tipo refinado da ramificação sem escape. - Exemplo: se `$x` for `User|null` e você executar `if ($x == null) { return }`, o tipo de `$x` no escopo principal se tornará automaticamente `User`. #### 2.5. Código Atual vs. Código Proposto```joss-snippet
-// --- ACTUAL: Analyzer reporta posible desreferencia nula en $user->email ---
-public func getEmail(): string {
-    User|null $user = Auth::user()
-    if ($user == null) {
-        return ""
-    }
-    // El analyzer todavía considera que $user puede ser null
-    return $user->email // Genera fricción o exige let mixed
-}
+Hipóteses com benchmark requerido: pré-indexar classes exportadas de plugins para `new`; reduzir forks/finalizers por instância; compartilhar metadados de classe imutáveis entre forks; resolver receiver nominal para método pré-computado; cache de acesso a propriedade com invalidação; especializar operadores de tipos conhecidos em planos. A primeira melhoria pode ser de **segurança e memória** além de tempo. Métricas mínimas: ns/op, B/op, allocs/op, p50/p95 de request, heap retido por 10k objetos/futures, custo de cold start e pprof. Rejeitar uma otimização se quebrar equivalência, aumentar retenção ou beneficiar apenas microbenchmarks irrelevantes.
 
-// --- PROPUESTO: Smart Cast automático en flujo secuencial ---
-public func getEmail(): string {
-    User|null $user = Auth::user()
-    if ($user == null) {
-        return ""
-    }
-    // Type Narrowing propagado al scope exterior: $user promovido a User estricto
-    return $user->email // 100% tipado, autocompletado y validado
-}
-```
-#### 2.6. Subsistema Afetado - `pkg/analyzer/flow.go`: Exponha `statementTerminatesCallable(stmt parser.Statement) bool`. - `pkg/analyzer/infer.go`: Em `inferStatement`, se um bloco condicional tiver escape, aplique as mutações de tipo de `narrowScopeFromCondition` em `currentScope`. #### 2.7. Estimativa e Compatibilidade - **Benefício:** Muito Alto (O sistema de tipos funciona a favor do desenvolvedor, não contra ele). - **Dificuldade:** Médio. - **Risco:** Baixo. - **Compatibilidade:** 100% compatível com versões anteriores (não invalida o código válido existente; apenas resolve falsos positivos). - **Prioridade:** **P0**. --- ### P3: Métodos de instância fluentes em primitivos (`string`, `array`, `map`) #### 3.1. Problema atual Atualmente existe uma dicotomia confusa na biblioteca padrão e nos tipos básicos: 1. Funções globais de estilo processual herdadas do PHP (`strlen`, `str_contains`, `substr`, `array_keys`, `array_push`, `json_encode`). 2. Classes nativas com métodos estáticos (`Str::contains`, `Str::length`, `Arr::has`, `JSON::encode`). O desenvolvedor deve memorizar constantemente quando chamar uma função global, quando usar uma classe estática e em que ordem os parâmetros vão (por exemplo, `$needle` vs `$haystack`). As transformações de dados encadeadas tornam-se ilegíveis pelo aninhamento de chamadas internas. ####3.2. Evidência no Código Real - `ejemplos/Joss-Red-JosSecurity/app/services/PageBuilderService.joss`:  ```joss-snippet
-  $clean = Str::trim(Str::lower(Str::replace($input, " ", "-")))
-  ```
-A leitura é feita de dentro para fora, exigindo 3 chamadas estáticas para uma operação trivial em uma string. - `ShopController.joss`: Lista manipulações que combinam `count($items)`, `array_slice($items, ...)` e `Arr::map(...)`. ####3.3. Impacto do desenvolvedor – Atrito cognitivo contínuo causado pela alternância entre estilos sintáticos incompatíveis. - Falta de preenchimento automático natural no editor: Ao escrever `$cadena->`, o LSP não pode oferecer métodos de transformação fluidos porque os primitivos não expõem métodos de instância. ####3.4. Solução técnica proposta Permite a invocação de métodos de instância virtual diretamente em valores do tipo `string`, `array` e `map`: - `$cadena->trim()->lower()->replace(" ", "-")` - `$lista->map(fn($x) => $x * 2)->filter(fn($x) => $x > 10)->join(", ")` - `$mapa->keys()`, `$mapa->values()`, `$mapa->has("clave")` - **Implementação gratuita:** Em `pkg/core/evaluator_member.go`, se o receptor for um valor primitivo Go nativo (`string`, `[]interface{}`, `map[string]interface{}`), despacha internamente para os avaliadores já otimizados de `StrMethods` e `ArrMethods` sem criar objetos wrapper intermediários. ####3.5. Código Atual vs. Código Proposto```joss-snippet
-// --- ACTUAL: Llamadas estáticas anidadas de adentro hacia afuera ---
-public func slugify(string $title): string {
-    return Str::lower(Str::trim(Str::replace($title, " ", "-")))
-}
+## 20. Roadmap
 
-// --- PROPUESTO: Encadenamiento fluido natural de izquierda a derecha ---
-public func slugify(string $title): string {
-    return $title->trim()->replace(" ", "-")->lower()
-}
-```
-####3.6. Subsistema Afetado - `pkg/core/evaluator_member.go`: Intercepta chamadas de membros em tipos e índices não instanciados em despachantes primitivos nativos. - `pkg/analyzer/infer.go`: Declare assinaturas de retorno para membros dos tipos `String`, `Array` e `Map`. - `tools/cataloggen`: Exporte métodos primitivos para o catálogo de preenchimento automático do VS Code. ####3.7. Estimativa e Compatibilidade - **Benefício:** Muito Alto (Moderniza drasticamente a ergonomia da linguagem). - **Dificuldade:** Médio. - **Risco:** Baixo. - **Compatibilidade:** 100% compatível. Funções globais e classes estáticas continuam a existir sem alterações. - **Prioridade:** **P1**. --- ### P4: Preservação de instâncias e exceções de objetos em `catch` #### 4.1. Problema atual Na implementação atual do tempo de execução do Joss (`pkg/core/executor.go`, linha 459), quando uma exceção é capturada usando um bloco `try / catch ($ex)`, o valor retornado é convertido à força em uma string de texto simples usando `fmt.Sprint(evalErr.Value)`. Se o desenvolvedor lançou uma instância de classe (`throw new ValidationException("Error", 422, $errores)`), o bloco `catch` recebe uma string vazia ou uma representação formatada inerte (`"Instance of ValidationException"`), em vez da instância ativa do objeto. #### 4.2. Evidência no Código Real - `pkg/core/executor.go` (linha 459):  ```go
-  r.currentEnvironment.Set(node.Variable.Value, fmt.Sprint(evalErr.Value))
-  ```
-- `ejemplos/Joss-Red-JosSecurity/app/controllers/web/FlaskController.joss` (linhas 28-30):  ```joss-snippet
-  } catch ($ex) {
-      return json({"error": "Plugin error: " . $ex}, 500)
-  }
-  ```
-Os desenvolvedores não podem acessar `$ex->getCode()` ou inspecionar propriedades específicas porque `$ex` é sempre uma string. #### 4.3. Impacto no desenvolvedor – Incapacidade de implementar tratamento granular de exceções por tipo (`if ($ex instanceof NotFoundException)`). - Perda irremediável do stack trace, códigos de status HTTP associados, metadados e contexto de falha estruturada. #### 4.4. Solução técnica proposta - Em `pkg/core/executor.go`, atribua diretamente o valor `evalErr.Value` (seja `*Instance`, `error`, mapa ou string) ao quadro do ambiente lexical do bloco `catch`. - Se o valor gerado for um erro genérico ou uma string, envolva-o de forma transparente em uma instância da classe base nativa `Exception` com os métodos `$ex->getMessage()` e `$ex->getFile()`. #### 4.5. Código Atual vs. Código Proposto```joss-snippet
-// --- ACTUAL: $ex es forzado a string plano, sin métodos ni propiedades ---
-try {
-    PaymentGateway::charge($amount)
-} catch ($ex) {
-    // $ex es string: "CardDeclinedException"
-    // $ex->getCode() provoca error de runtime
-    return json({"error": $ex}, 500)
-}
+As prioridades são P0 (falha de segurança/corretude), P1 (garantia central), P2 (evolução condicionada), P3 (opcional). Cada tarefa parte de problema e evidência anteriores; ao executá-la: reproduzir → caracterizar → comparar alternativas → corrigir → testes → benchmark se aplicável.
 
-// --- PROPUESTO: $ex preserva la instancia original lanzada ---
-try {
-    PaymentGateway::charge($amount)
-} catch ($ex) {
-    if ($ex instanceof CardDeclinedException) {
-        return json({"error": $ex->getMessage(), "decline_code": $ex->declineCode}, 402)
-    }
-    return json({"error": $ex->getMessage()}, 500)
-}
-```
-#### 4.6. Subsistema Afetado - `pkg/core/executor.go`: Substitua a coerção `fmt.Sprint` por atribuição direta de valor e empacotamento consistente em `Exception`. - `pkg/core/classes.go`: certifique-se de que a classe base `Exception` oferece métodos canônicos `getMessage()`, `getCode()`, `getLine()`, `getFile()`. #### 4.7. Estimativa e Compatibilidade - **Benefício:** Crítico (restaura a integridade do paradigma orientado a objetos no gerenciamento de erros). - **Dificuldade:** Baixa. - **Risco:** Mínimo. - **Compatibilidade:** 100% compatível (concatenar `$ex` como string ainda funciona graças a `CoerceString`). - **Prioridade:** **P0** (Correção imediata). --- ### P5: Segurança no Operador Coalescente `??` e Resgate com Silenciador Sem Pânico #### 5.1. Problema atual O operador de coalescência nula `??` foi projetado para fornecer um valor alternativo quando uma expressão é avaliada como `null` ou acessa um índice/propriedade indefinido em uma coleção. No entanto, na implementação atual (`pkg/core/evaluator_infix.go`, linhas 88-94), a avaliação do operando esquerdo é envolvida em um `recover()` que captura qualquer pânico Go ou exceção Joss, silenciando erros graves de programação, como divisão por zero, tipos inválidos ou erros de lógica interna. #### 5.2. Evidência no Código Real - `pkg/core/evaluator_infix.go` (linhas 88-94):  ```go
-  defer func() {
-      if r := recover(); r != nil {
-          result = r.evaluateExpression(ie.Right)
-      }
-  }()
-  ```
-- Se um desenvolvedor digitar `$val = ($total / $count) ?? 0` e `$count` for 0, em vez de alertar sobre a falha ou divisão proibida, o operador oculta silenciosamente o erro e retorna o valor correto. #### 5.3. Impacto no desenvolvedor - **Bugs silenciosos que são difíceis de depurar:** Defeitos críticos em algoritmos passam despercebidos porque `??` captura quaisquer exceções que ocorrem na avaliação de expressões complexas em seu lado esquerdo. - Viola o princípio da menor surpresa e as garantias de robustez de Joss. #### 5.4. Solução técnica proposta - Refatore o avaliador `??` para que ele recupere apenas erros de valor faltante (`UndefinedVariable`, `MissingKeyError` ou valor de retorno igual a `nil`/`NullValue`). - Erros fatais de tempo de execução (exceções lançadas explicitamente, erros de invocação de método inexistentes ou falhas de tipo estrito) não devem ser consumidos por `??` e devem ser propagados para o manipulador de erro superior ou bloquear `catch`. #### 5.5. Código Atual vs. Código Proposto```joss-snippet
-// --- ACTUAL: Silenciamiento accidental de fallos de ejecución ---
-// Si calculateDiscount() tiene un bug y arroja excepción, ?? lo oculta
-$precioFinal = calculateDiscount($producto) ?? 0 // Devuelve 0 en silencio
+### Phase 1 — Correctness
 
-// --- PROPUESTO: Coalescencia estricta solo ante null/no definido ---
-// Si calculateDiscount() retorna null, asigna 0.
-// Si calculateDiscount() arroja una excepción, la excepción se propaga y se diagnostica.
-$precioFinal = calculateDiscount($producto) ?? 0
-```
-####5.6. Subsistema Afetado - `pkg/core/evaluator_infix.go`: Exclua o blind `recover()` em `evaluateNullCoalesceExpression` e avalie o valor verificando se é nulo ou índice não encontrado. ####5.7. Estimativa e Compatibilidade - **Benefício:** Alto (Evita falhas silenciosas na produção). - **Dificuldade:** Baixa. - **Risco:** Baixo. - **Compatibilidade:** Compatível (melhora a correção semântica sem quebrar o código idiomático). - **Prioridade:** **P1**. --- ### P6: Desestruturação Declarativa de Tuplas, Matrizes e Mapas #### 6.1. Problema atual Em aplicativos da web Joss (como o projeto JosSecurity real), os métodos de controlador e serviço recebem constantemente mapas ou tuplas com vários valores (dados de formulário, cabeçalhos, resultados de validação, segredos 2FA). Para extrair esses valores, o desenvolvedor é forçado a escrever de 5 a 10 mapeamentos repetitivos individuais linha por linha. #### 6.2. Evidência no Código Real - `ejemplos/Joss-Red-JosSecurity/app/controllers/auth/ProfileController.joss` (linhas 43-48):  ```joss-snippet
-  $first_name = request("first_name")
-  $last_name  = request("last_name")
-  $phone      = request("phone")
-  $password   = request("password")
-  ```
-- `AuthController.joss` (linhas 125-140): Descompactação manual de arrays retornados por autenticação e serviços 2FA (`$secret = $totp["secret"]`, `$qrCode = $totp["qr_url"]`). #### 6.3. Impacto no desenvolvedor – Grande volume de código cerimonial e repetitivo. - Aumento de erros de digitação na correspondência manual entre o nome da variável e a chave do mapa. #### 6.4. Solução técnica proposta Incorporar padrões de desestruturação (*atribuição de desestruturação*) em instruções de atribuição e declaração: 1. **Desestruturação de listas/tuplas por posição:** `[$id, $nombre, $rol] = $usuarioArray` 2. **Desestruturação de mapas por chave:** `{"email": $email, "password": $password} = request()` 3. **Valores padrão opcionais:** `{"role": $role = "cliente", "active": $active = true} = $data` #### 6.5. Código Atual vs. Código Proposto```joss-snippet
-// --- ACTUAL: 6 líneas ceremoniales de extracción individual ---
-public func registerUser() {
-    $req = request()
-    $name = $req["name"]
-    $email = $req["email"]
-    $password = $req["password"]
-    $role = $req["role"] ?? "user"
-    $terms = $req["terms"] ?? false
-}
+| Tarefa | Prioridade | Problema / solução | Arquivos afetados | Compatibilidade | Risco / benefício | Testes necessários |
+|---|---|---|---|---|---|---|
+| Transação real | P0 | Callback opera fora de `sql.Tx`; introduzir executor transacional em toda consulta do callback, rollback em erro | `core/database*.go`, testes SQL | compatível, correção de bug | risco médio por nesting; atomicidade alta | SQLite rollback/commit/nested/error |
+| Ownership de forks | P0 | forks async/task/finalizer sem encerramento; `defer Free`, política de destruidor e recursos | `core/builtins_async.go`, `task.go`, `evaluator_member.go`, `instance_lifecycle.go`, lifecycle | compatível | risco médio; memória/handles alta | owner count, GC, panic, race |
+| Timeout móvel | P0 | goroutine sobrevive e runtime é liberado; cancelamento cooperativo + join ou isolar processo se prometer hard timeout | `mobile/mobile.go`, `core/executor.go` | depreciação do timeout «duro» se não alcançado | risco alto; isolamento alto | loop infinito, IO bloqueante, race, stdout |
+| Canais seguros | P0 | panics do Go por close/send/capacidade; wrapper de estado e erros Joss | `core/builtins_async.go`, channel tests | compatível exceto tipo de erro | risco médio; estabilidade alta | fechado/duplicado/negativo/concorrente |
 
-// --- PROPUESTO: 1 sola línea declarativa y expresiva ---
-public func registerUser() {
-    {"name": $name, "email": $email, "password": $password, "role": $role = "user", "terms": $terms = false} = request()
-}
-```
-#### 6.6. Subsistema Afetado - `pkg/parser`: Suporte para padrões `ArrayPattern` e `MapPattern` no lado esquerdo das instruções de atribuição (`parser_statements.go`). - `pkg/analyzer`: Digitação e inferência de cada variável individual do tipo de contêiner (`infer.go`). - `pkg/core/executor.go`: Atribuição sequencial de slots do objeto iterado ou indexado. #### 6.7. Estimativa e Compatibilidade - **Benefício:** Muito Alto (Reduz o padrão do controlador em 60%). - **Dificuldade:** Médio. - **Risco:** Baixo. - **Compatibilidade:** 100% compatível (nova construção sintática sem conflitos lexicais). - **Prioridade:** **P1**. --- ### P7: Promoção de Imóveis no Builder (`Init`) #### 7.1. Problema Atual Para criar classes de domínio simples, DTOs (*Data Transfer Objects*), entidades ou serviços em Joss, o programador deve declarar o nome do campo em quatro locais diferentes: 1. Como uma propriedade de classe (`public string $name`). 2. Como parâmetro no construtor `Init(string $name)`. 3. Como uma atribuição para `$this` no corpo do construtor (`$this->name = $name`). 4. Na documentação ou tipos de retorno. #### 7.2. Evidência em código real - `ejemplos/Joss-Red-JosSecurity/app/services/LicenseService.joss`: Múltiplas classes de serviço com 5 ou mais propriedades atribuídas de forma idêntica no construtor. - `ejemplos/plugins/joss_ai/src/plugin.joss`: Repetição dos parâmetros de configuração atribuídos um a um a `$this->propiedad`. #### 7.3. Impacto do desenvolvedor - Resistência à criação de DTOs fortemente tipados devido à verbosidade cerimonial necessária para cada classe. - Refatorações lentas: renomear uma propriedade requer a modificação de vários pontos dentro do mesmo arquivo. #### 7.4. Solução técnica proposta Permite modificadores de visibilidade (`public`, `protected`, `private`) e constância (`const`) diretamente nos parâmetros da função construtora `Init`: - Ao declarar um parâmetro com visibilidade (por exemplo, `func Init(public string $titulo, private GranDB $db = new GranDB())`), o compilador e o tempo de execução declaram automaticamente a propriedade na classe e geram a atribuição `$this->titulo = $titulo` antes de executar o corpo de `Init`. #### 7.5. Código Atual vs. Código Proposto```joss-snippet
-// --- ACTUAL: Cuádruple repetición del identificador ---
-public class UserDTO {
-    public int $id
-    public string $email
-    public string $role
+### Phase 2 — Type Safety
 
-    public func Init(int $id, string $email, string $role) {
-        $this->id = $id
-        $this->email = $email
-        $this->role = $role
-    }
-}
+| Tarefa | Prioridade | Problema / solução | Arquivos afetados | Compatibilidade | Risco / benefício | Testes necessários |
+|---|---|---|---|---|---|---|
+| Soundness de coleções | P1 | covariância/aliasing e perda de tipo; decidir invariância ou wrapper revalidado e documentar | `typesystem/types.go`, analyzer, core collections | warning → depreciação se quebrar | risco alto; segurança alta | alias, aninhado, mutação, nativos |
+| Assinaturas nativas | P1 | aridade/tipos desconhecidos; completar apenas contratos confiáveis | `core/native_signatures.go`, analyzer, catálogo | compatível com warning | risco baixo/médio; DX alta | paridade assinatura-handler, negativos |
 
-// --- PROPUESTO: Constructor conciso con promoción de propiedades ---
-public class UserDTO {
-    public func Init(
-        public int $id,
-        public string $email,
-        public string $role = "cliente"
-    ) {}
-}
-```
-#### 7.6. Subsistema afetado - `pkg/parser`: reconheça `public`, `protected`, `private` antes de digitar a lista de parâmetros de função `Init`. - `pkg/analyzer`: Sintetize as propriedades da classe a partir dos parâmetros promovidos. - `pkg/core/classes.go`: Instanciação automática de slots na construção do objeto. #### 7.7. Estimativa e compatibilidade - **Benefício:** Muito alto em ergonomia orientada a objetos e arquitetura limpa. - **Dificuldade:** Médio. - **Risco:** Mínimo. - **Compatibilidade:** 100% compatível. A sintaxe tradicional de `Init` ainda funciona exatamente da mesma forma. - **Prioridade:** **P1**. --- ### P8: Mecanismo de autofixação mecânica baseado em AST (`joss fix`) #### 8.1. Problema Atual A evolução de uma linguagem inevitavelmente gera dívida técnica em projetos reais quando os padrões são modernizados (como as 370 filiais vazias `: {}` que acabamos de limpar no JosSecurity, ou a exigência de visibilidade explícita em funções e métodos globais). Atualmente, os desenvolvedores contam com pesquisas manuais de expressões regulares, o que apresenta riscos de modificação de texto em strings literais ou comentários. ####8.2. Evidência em código real - A presença massiva de `: {}` ramificações em 65 arquivos no JosSecurity demonstrou que os programadores mantêm velhos hábitos sintáticos na ausência de uma ferramenta oficial de modernização. - Vários diagnósticos de compilador estável (`JOSS-VIS-001`, `JOSS-TYPE-009`, `JOSS-DEPR-001`) já calculam sugestões de soluções precisas (`Diagnostic.Suggestion`), mas hoje elas só são impressas no console sem poder ser aplicadas automaticamente na fonte código. ####8.3. Impacto no Desenvolvedor – Atrito e atraso na adoção de novas versões do Joss. - Medo de refatorar ou atualizar o compilador devido à carga de trabalho manual de correção de avisos ou descontinuações de estilo. ####8.4. Solução técnica proposta Consolidar o comando CLI `joss fix [directorio]` como um mecanismo de reescrita mecânica baseado diretamente na árvore de sintaxe abstrata (AST) e na tabela de diagnósticos: 1. **Detecção estruturada:** O analisador semântico identifica diagnósticos que possuem uma sugestão `FixAvailable` ou padronizada. 2. **Transformação segura:** Em vez de substituir o texto usando expressões regulares, o fixador substitui nós específicos no AST ou aplica deltas de texto delimitados por intervalos exatos de tokens (`Token.StartLine`, `Token.StartCol`, `Token.EndCol`). 3. **Formatação preservada:** Após a conclusão da aplicação das correções, invoca automaticamente o mecanismo `pkg/formatter` para garantir que o recuo e o estilo do projeto permaneçam consistentes. 4. **Regras iniciais suportadas em `joss fix`:** - Remoção automática de ramificações vazias redundantes `: {}`. - Inserção de modificadores automáticos de visibilidade `public` onde faltam. - Substituição de funções globais obsoletas por chamadas canônicas para classes estáticas (`str_contains` -> `Str::contains`).- Normalização de tipos históricos obsoletos (`list` -> `array`, `dynamic` -> `mixed`). ####8.5. Exemplo de fluxo de trabalho de terminal```bash
-# Diagnosticar problemas corregibles automáticamente en el proyecto
-joss check ./app
+### Phase 3 — Static Analysis
 
-# Aplicar correcciones mecánicas automáticas con informe detallado
-joss fix ./app
+| Tarefa | Prioridade | Problema / solução | Arquivos afetados | Compatibilidade | Risco / benefício | Testes necessários |
+|---|---|---|---|---|---|---|
+| CFG e definite assignment | P1 | inicialização/retorno parcialmente resolvidos; CFG mínimo por callable com joins | `analyzer/flow.go`, `body_analysis.go` | warning → erro opt-in | risco médio; segurança alta | ramos, laços, try/catch, defer, yield |
+| Null-state/exaustividade | P1 | dereference e match incompleto; narrowing com invalidação e cobertura de enums | `analyzer/infer_narrowing.go`, `flow.go`, LSP | warning → erro opt-in | risco médio; DX alta | alias, mutação, união, defaults |
+| Fonte web completa | P1 | `routes.joss` fora da análise de projeto; manifesto de execução compartilhado | `analyzer/project.go`, CLI/server | compatível | risco baixo; erros iniciais | projeto web fixture |
 
-# Salida esperada:
-# [joss fix] Analizando 65 archivos...
-# [joss fix] Eliminadas 370 ramas ternarias vacías ': {}' innecesarias.
-# [joss fix] Actualizadas 14 llamadas deprecadas a métodos canónicos de Str/Arr.
-# [joss fix] Formateado completado satisfactoriamente. 0 errores restantes.
-```
-####8.6. Subsistema afetado - `cmd/joss/fix.go`: subcomando CLI e orquestrador de projeto. - `pkg/fixer/`: Mecanismo de reescrita de token delta no AST. - `pkg/diagnostics`: Incorporação do campo opcional `TextEdit` em `Diagnostic`. ####8.7. Estimativa e Compatibilidade - **Benefício:** Extraordinário para a saúde do ecossistema e fidelidade do desenvolvedor. - **Dificuldade:** Médio. - **Risco:** Baixo. - **Compatibilidade:** 100% compatível (ferramenta opt-in que não modifica a semântica da linguagem). - **Prioridade:** **P0** (Essencial para o ciclo de vida da linguagem). --- --- ## 20. Mudanças que exigiriam depreciação - Sinalize com aviso de diagnóstico `JOSS-DEPR-001` os nomes procedimentais de funções globais que duplicam nomes modernos (`str_contains`, `array_keys`, `file_get_contents`). - Ofereça autofix mecânico através de `joss fix`. --- ## 21. Possíveis alterações de ruptura justificadas 1. **Restrição de `null == ""` para `false`:** Nenhum tipo nulo deve ser avaliado como equivalente a uma string vazia sob igualdade ordinária. 2. **Propagação do Pânico em `??`:** Erradique a captura silenciosa de erros fatais no ramo esquerdo do operador. --- ## 22. Proposta e Arquitetura de `joss fix` Modernizar a ferramenta CLI para usar transformações de árvore de sintaxe (reescrita AST) em vez de regex: - Inserção automática de modificadores de visibilidade necessários. - Substituição de chamadas a funções obsoletas por seus equivalentes canônicos. - Remoção automática de filiais `: {}` redundantes e vazias. - Lançamento automático do formatador oficial após a conclusão do reparo. --- ## 23. Definição de "Código Joss Idiomático" O código Joss idiomático é definido pelas seguintes características: 1. **Digitação Declarativa e Segura:** Contratos públicos explícitos, inferência limpa em variáveis ​​locais e uso de `mixed` reservado para limites de entrada dinâmicos. 2. **Fluxo Linear sem Nesting:** Uso disciplinado de cláusulas de guarda com rescisão antecipada. 3. **Expressividade Fluida:** Uso do operador de pipeline `|>` e chamadas encadeadas em coleções. 4. **Tratamento de erros estruturado:** Exceções representadas como objetos de domínio, evitando strings de texto simples. --- ## 24. Roteiro Recomendado (Fases 0 a 5) | Fase | Título | Principais Iniciativas | Prioridade | Impacto | |---|---|---|:---:|---| | **Fase 0** | **Correções Imediatas** | Preservar instâncias em `catch ($e)`; não silencie pânicos fatais em `??`; relatar caracteres UTF-8 inválidos no lexer. | **P0** | Crítico | | **Fase 1** | **Vitórias rápidas** | Estreitamento sensível ao fluxo após retornos no analisador; correção de `isFalsy` (tratar `0.0` e `{}` como falso); coerção de chaves numéricas em mapas. | **P0** | Muito alto | | **Fase 2** | **Ferramentas Unificadas** | Refatore `pkg/formatter` usando o lexer canônico; modernize `joss fix` com reescrita AST. | **P1** | Alto || **Fase 3** | **Ergonomia das Coleções** | Métodos de instância nativa em strings e arrays; operador preguiçoso `..` (iterador lento). | **P1** | Alto | | **Fase 4** | **Evolução da linguagem** | Julgamento `guard (...) else { ... }`; suporte para `catch (TipoException $e)` e bloco `finally`. | **P2** | Muito alto | | **Fase 5** | **Arquitetura Futura** | Servidor LSP unificado nativo em Go; conexão gradual de `pkg/vm` para otimização de bytecode. | **P3** | Estratégico | --- *Fim do Documento de Auditoria 2026. Este relatório constitui a base de referência oficial para a tomada de decisões de design e evolução técnica do Joss.*
+### Phase 4 — Runtime Safety
+
+| Tarefa | Prioridade | Problema / solução | Arquivos afetados | Compatibilidade | Risco / benefício | Testes necessários |
+|---|---|---|---|---|---|---|
+| Cancelamento e erros nativos | P1 | bloqueio/panics sem código; contexto por execução e adaptadores de erro | `core`, server, mobile, runtime/errors | compatível exceto mensagens | risco alto; estabilidade alta | timeout/IO/canal/panic/stack |
+| Capability host | P2 | FFI/FS/rede sem contrato declarativo universal; permissões de host comprovadas | pluginruntime/core/native | experimental | risco alto; segurança alta | rejeição e autorização por recurso |
+
+### Phase 5 — Execution Architecture
+
+| Tarefa | Prioridade | Problema / solução | Arquivos afetados | Compatibilidade | Risco / benefício | Testes necessários |
+|---|---|---|---|---|---|---|
+| AnalysisFacts/PreparedProgram | P2 | análise e planos não persistidos uniformemente; sidecar imutável, IDs, fontes | analyzer, runtime/plan, core, CLI/mobile | compatível internamente | risco alto; previsibilidade alta | diferencial rota prévia/nova, invalidação |
+| VM seletiva | P3 | VM cobre subconjunto; ampliar apenas após corpus diferencial | `pkg/vm` | experimental | risco alto; potencial desempenho | diferencial, fuzz, bench |
+
+### Phase 6 — Language Features
+
+| Tarefa | Prioridade | Problema / solução | Arquivos afetados | Compatibilidade | Risco / benefício | Testes necessários |
+|---|---|---|---|---|---|---|
+| Canal tipado + Result | P2 | erros de mensagem/I-O tardios; protótipos independentes, sem impor adoção | parser, typesystem, analyzer, core, docs | experimental | risco alto; API clara | sintaxe +/-; analyzer; runtime; LSP |
+| Match exaustivo | P2 | faltam casos nominais; warning antes de erro | analyzer, docs, LSP | compatível com warning | risco médio; robustez | enums/uniões/default |
+
+### Phase 7 — Tooling and Documentation
+
+| Tarefa | Prioridade | Problema / solução | Arquivos afetados | Compatibilidade | Risco / benefício | Testes necessários |
+|---|---|---|---|---|---|---|
+| Corrigir estado/documentação | P1 | páginas negam funcionalidades existentes; atualizar a partir do código, espelho e traduções | `docs/*.md`, espelho, traduções | compatível | risco baixo; confiança alta | contratos, navegação, docsi18n |
+| Rename e rastros | P2 | LSP sem rename, depuração limitada; usar IDs semânticos antes de editar referências | `vscode-joss`, analyzer | compatível | risco médio; DX alta | workspace edits, shadowing |
+
+### Phase 8 — Performance
+
+| Tarefa | Prioridade | Problema / solução | Arquivos afetados | Compatibilidade | Risco / benefício | Testes necessários |
+|---|---|---|---|---|---|---|
+| Perfilar e otimizar hot paths | P2 | scans/mapas/forks potencialmente caros; pprof primeiro, cache com invalidação depois | `core/evaluator_member.go`, runtime/plan, class metadata, plugin registry | compatível internamente | risco médio/alto; desempenho a medir | benchmem, pprof, diferencial, race |
+
+### Matriz de recomendações
+
+| Proposta | Segurança | Estabilidade | Desempenho | DX | Complexidade | Prioridade |
+|---|---|---|---|---|---|---|
+| Transação vinculada a Tx | alta: evita rollback falso | alta | neutra | média | média | P0 |
+| Encerramento de forks e timeout móvel | alta: evita estado concorrente reciclado | alta | média por retenção | média | alta | P0 |
+| Canais com erros Joss | alta: evita panic do host | alta | neutra | alta | média | P0 |
+| CFG/null-state | alta: adianta falhas | média | neutra | alta | média | P1 |
+| Coleções sound | alta: protege aliasing | alta | possível custo de verificação | média | alta | P1 |
+| Assinaturas nativas verificadas | média | média | neutra | alta | média | P1 |
+| PreparedProgram/IDs | média | média | potencial alta | média | alta | P2 |
+| VM ampliada | baixa até equivalência | incerta | potencial alta | baixa | alta | P3 |
+
+As categorias descrevem causalidade e custos demonstráveis no código; «potencial» significa que falta benchmark, não pontuação inventada. A ordenação preserva semântica antes de otimizar. Não se recomenda iniciar a implementação desta folha de rota até revisar e aceitar seus contratos de comportamento e testes de regressão.
+
+**Verificação desta edição.** `go test ./...`, `go vet ./...`, `go build ./...`, `go run ./tools/cataloggen --check`, `go run ./tools/docgen --check`, `go test ./pkg/core -run TestDocumentation -v`, `npm run compile` e `git diff --check` concluíram com código 0. Uma cópia temporária do VS Code completou `npm ci --ignore-scripts` e `npm run compile`; o `npm ci` normal falhou com `EPERM spawn` tanto no checkout quanto em uma cópia limpa, de modo que seus scripts de instalação não ficaram validados. O Go imprimiu advertências do host por ACL de telemetria/cache sem afetar os comandos aprovados. `go test -race ./pkg/parser ./pkg/typesystem ./pkg/analyzer ./pkg/core` não pôde compilar `runtime/race` neste host (`package testmain: cannot find package`); não é apresentado como aprovado. `go run ./tools/docsi18n -check` relatou traduções e espelhos desatualizados pré-existentes e, após esta edição, versões en/pt do relatório pendentes de tradução. O espelho espanhol do JosSecurity foi sincronizado byte a byte; a tradução completa permanece como tarefa documental, sem alterações semânticas.

@@ -84,6 +84,7 @@ Unlike generic error messages from older tools, each Joss diagnostic is designed
 | Code | Severity | Meaning and Cause | Solution |
 |---|---|---|---|
 | `JOSS-FLOW-001` | Warning | Unreachable code (*dead code*): Instructions written after an unconditional `return`. | Move the instructions before `return` or delete them. |
+| `JOSS-FLOW-002` | Warning | Non-exhaustive match on enum: a `match` expression on an enum does not cover all possible cases and does not declare a `default` arm. | Add the missing enum cases or include a `default => ...` branch. |
 | `JOSS-LINT-001` | Warning | Local variable declared but never read into the body. | Use the variable or remove it to keep the code clean. |
 | `JOSS-SYNTAX-001` | Error | Syntax error captured during the linter parsing phase. | Correct the punctuation or structure indicated by the parser. |
 | `JOSS-LINT-002` | Error | Parameter without explicit type reported by the linter. | Add the corresponding type annotation (`int`, `string`, `mixed`). |
@@ -107,6 +108,13 @@ Unlike generic error messages from older tools, each Joss diagnostic is designed
 ---
 
 ## 6. Complete Verified Test Cases
+
+Channel operations also have stable runtime defenses. `JOSS-CHANNEL-001`
+occurs when closing a channel twice or sending after closing; the valid
+neighbor is to send while open and close it only once. `JOSS-CHANNEL-002`
+is produced with `make_chan(-1)`; `make_chan(0)` is a valid capacity for an
+unbuffered channel. These states may depend on another concurrent task, so
+the analyzer cannot substitute the runtime defense.
 
 Below are executable examples that formally validate the issuance of the diagnoses and their correct counterpart:
 
@@ -180,6 +188,42 @@ public func signo(int $n): string {
     return $n > 0 ? "positivo" : "no positivo"
 }
 print(signo(0))
+```
+
+---
+
+### Non-exhaustive match on enum (`JOSS-FLOW-002`)
+
+<!-- joss-error: JOSS-FLOW-002 -->
+```joss-invalid
+public enum Estado {
+    case Activo;
+    case Inactivo;
+}
+
+public func describir(Estado $e): string {
+    return match ($e) {
+        Estado::Activo => "activo",
+    }
+}
+```
+
+Corrected case exhaustively covering all enum cases:
+
+<!-- joss-run: ["activo"] -->
+```joss
+public enum Estado {
+    case Activo;
+    case Inactivo;
+}
+
+public func describir(Estado $e): string {
+    return match ($e) {
+        Estado::Activo => "activo",
+        Estado::Inactivo => "inactivo",
+    }
+}
+print(describir(Estado::Activo))
 ```
 
 ---

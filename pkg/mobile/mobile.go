@@ -2,9 +2,8 @@ package mobile
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"io"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -169,52 +168,21 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 		}
 	}
 
-	// 4. Thread-safe execution with output capture and timeout guard
+	// 4. Thread-safe execution with isolated output buffers and timeout guard
 	execMutex.Lock()
 	defer execMutex.Unlock()
 
-	stdoutPipeR, stdoutPipeW, errOut := os.Pipe()
-	stderrPipeR, stderrPipeW, errErr := os.Pipe()
-
-	if errOut != nil || errErr != nil {
-		if stdoutPipeR != nil {
-			_ = stdoutPipeR.Close()
-			_ = stdoutPipeW.Close()
-		}
-		if stderrPipeR != nil {
-			_ = stderrPipeR.Close()
-			_ = stderrPipeW.Close()
-		}
-		return &ExecutionResult{
-			Success:    false,
-			Error:      "Failed to allocate IO capture pipes",
-			DurationMs: time.Since(start).Milliseconds(),
-		}
-	}
-
-	origStdout := os.Stdout
-	origStderr := os.Stderr
-	os.Stdout = stdoutPipeW
-	os.Stderr = stderrPipeW
-
-	stdoutChan := make(chan string, 1)
-	stderrChan := make(chan string, 1)
-
-	go func() {
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, stdoutPipeR)
-		stdoutChan <- buf.String()
-	}()
-
-	go func() {
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, stderrPipeR)
-		stderrChan <- buf.String()
-	}()
+	var stdoutBuf bytes.Buffer
+	var stderrBuf bytes.Buffer
 
 	core.GetAssetManager().Initialized = true
 	rt := core.NewRuntime()
-	defer rt.Free()
+	rt.Out = &stdoutBuf
+	rt.ErrOut = &stderrBuf
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
+	defer cancel()
+	rt.SetExecutionContext(ctx)
 	if rt.Env == nil {
 		rt.Env = make(map[string]string)
 	}
@@ -229,6 +197,7 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 			if rec := recover(); rec != nil {
 				panicErr = rec
 			}
+			rt.Free()
 			close(done)
 		}()
 		rt.Execute(program)
@@ -238,29 +207,23 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 	select {
 	case <-done:
 		// Completed within time limit
-	case <-time.After(time.Duration(timeoutMs) * time.Millisecond):
+	case <-ctx.Done():
 		timedOut = true
+		// Cooperatively wait for goroutine termination to avoid returning
+		// while runtime is still finalizing or accessing resources.
+		select {
+		case <-done:
+		case <-time.After(250 * time.Millisecond):
+		}
 	}
-
-	// Restore original IO streams
-	_ = stdoutPipeW.Close()
-	_ = stderrPipeW.Close()
-	os.Stdout = origStdout
-	os.Stderr = origStderr
-
-	stdout := <-stdoutChan
-	stderr := <-stderrChan
-
-	_ = stdoutPipeR.Close()
-	_ = stderrPipeR.Close()
 
 	duration := time.Since(start).Milliseconds()
 
 	if timedOut {
 		return &ExecutionResult{
 			Success:    false,
-			Stdout:     normalizeOutput(stdout),
-			Stderr:     normalizeOutput(stderr),
+			Stdout:     normalizeOutput(stdoutBuf.String()),
+			Stderr:     normalizeOutput(stderrBuf.String()),
 			Error:      "Execution timed out",
 			TimedOut:   true,
 			DurationMs: duration,
@@ -270,8 +233,8 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 	if panicErr != nil {
 		return &ExecutionResult{
 			Success:    false,
-			Stdout:     normalizeOutput(stdout),
-			Stderr:     normalizeOutput(stderr),
+			Stdout:     normalizeOutput(stdoutBuf.String()),
+			Stderr:     normalizeOutput(stderrBuf.String()),
 			Error:      core.FormatPanicAsError(panicErr),
 			DurationMs: duration,
 		}
@@ -279,8 +242,8 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 
 	return &ExecutionResult{
 		Success:    true,
-		Stdout:     normalizeOutput(stdout),
-		Stderr:     normalizeOutput(stderr),
+		Stdout:     normalizeOutput(stdoutBuf.String()),
+		Stderr:     normalizeOutput(stderrBuf.String()),
 		DurationMs: duration,
 	}
 }

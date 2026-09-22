@@ -66,6 +66,9 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		return false, true
 
 	case "file_get_contents":
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
 		if len(args) == 1 {
 			if path, ok := args[0].(string); ok {
 				content, err := os.ReadFile(path)
@@ -78,6 +81,9 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		return nil, true
 
 	case "file_put_contents":
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
 		if len(args) == 2 {
 			path, ok1 := args[0].(string)
 			content, ok2 := args[1].(string)

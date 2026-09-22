@@ -46,6 +46,7 @@ func (r *Runtime) Fork() *Runtime {
 		CurrentMiddleware:  make([]string, 0),
 		CustomMiddlewares:  make(map[string]interface{}),
 		DB:                 r.DB, // Share DB Connection (Thread-Safe)
+		executionContext:   r.executionContext,
 		Variables:          make(map[string]interface{}),
 		VarTypes:           make(map[string]string),
 		Constants:          copyBoolMap(r.Constants),
@@ -59,6 +60,10 @@ func (r *Runtime) Fork() *Runtime {
 		MaxCallDepth:       r.MaxCallDepth,
 		PluginRegistry:     nil,
 		ProjectRoot:        r.ProjectRoot,
+		Out:                r.Out,
+		ErrOut:             r.ErrOut,
+		Capabilities:       r.Capabilities,
+		RestrictedMode:     r.RestrictedMode,
 	}
 	if r.PluginRegistry != nil {
 		newR.PluginRegistry = r.PluginRegistry.WithHost(newR)

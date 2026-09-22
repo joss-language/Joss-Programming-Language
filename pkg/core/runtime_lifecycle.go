@@ -8,7 +8,11 @@ import (
 	"github.com/jossecurity/joss/pkg/version"
 )
 
-var runtimePool = sync.Pool{New: newRuntimeState}
+var runtimePool sync.Pool
+
+func init() {
+	runtimePool.New = newRuntimeState
+}
 
 func newRuntimeState() interface{} {
 	r := &Runtime{
@@ -172,9 +176,15 @@ func (r *Runtime) Free() {
 	r.SitemapExclusions = r.SitemapExclusions[:0]
 	r.cinReader = nil
 	r.cinTokens = r.cinTokens[:0]
+	r.Capabilities = DefaultHostCapabilities()
+	r.RestrictedMode = false
+	r.Out = nil
+	r.ErrOut = nil
 	r.currentGenerator = nil
 	r.generatorIndex = 0
 	r.topDefers = r.topDefers[:0]
+	r.activeTx = nil
+	r.executionContext = nil
 
 	runtimePool.Put(r)
 }

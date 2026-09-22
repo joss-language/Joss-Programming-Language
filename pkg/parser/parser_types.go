@@ -39,7 +39,7 @@ func (p *Parser) parseSingleType() string {
 	if p.peekToken.Type == LT {
 		p.nextToken() // consume '<'
 		genericParts := []string{}
-		for p.peekToken.Type != GT && p.peekToken.Type != EOF {
+		for p.peekToken.Type != GT && p.peekToken.Type != SHIFT_RIGHT && p.peekToken.Type != EOF {
 			p.nextToken()
 			if isTypeStart(p.curToken) {
 				genericParts = append(genericParts, p.parseTypeReference().Literal)
@@ -50,6 +50,9 @@ func (p *Parser) parseSingleType() string {
 		}
 		if p.peekToken.Type == GT {
 			p.nextToken() // consume '>'
+		} else if p.peekToken.Type == SHIFT_RIGHT {
+			p.curToken = Token{Type: GT, Literal: ">", Line: p.peekToken.Line, Column: p.peekToken.Column}
+			p.peekToken = Token{Type: GT, Literal: ">", Line: p.peekToken.Line, Column: p.peekToken.Column + 1}
 		} else {
 			p.addError(p.peekToken, "Se esperaba `>` para cerrar el tipo genérico.")
 		}

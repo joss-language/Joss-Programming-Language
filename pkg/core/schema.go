@@ -90,7 +90,7 @@ func (r *Runtime) ensureInternalSchemaTable(table string, columns []schemaColumn
 		}
 		definitions = append(definitions, r.buildColumnDefinition(quotedColumn, column.definition, driver))
 	}
-	_, err = r.GetDB().Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", quotedTable, strings.Join(definitions, ", ")))
+	_, err = r.databaseExecutor().Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", quotedTable, strings.Join(definitions, ", ")))
 	return err
 }
 
@@ -111,7 +111,7 @@ func (r *Runtime) addInternalSchemaColumn(table string, column schemaColumn) err
 		return err
 	}
 	definition := r.buildColumnDefinition(quotedColumn, column.definition, driver)
-	_, err = r.GetDB().Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", quotedTable, definition))
+	_, err = r.databaseExecutor().Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", quotedTable, definition))
 	return err
 }
 
@@ -186,7 +186,7 @@ func (r *Runtime) executeSchemaMethod(instance *Instance, method string, args []
 			query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", quotedTable, strings.Join(definitions, ", "))
 
 			fmt.Printf("[Schema] Ejecutando: %s\n", query)
-			_, err = r.GetDB().Exec(query)
+			_, err = r.databaseExecutor().Exec(query)
 			if err != nil {
 				fmt.Printf("[Schema] Error creando tabla %s: %v\n", tableName, err)
 				return false
@@ -235,7 +235,7 @@ func (r *Runtime) executeSchemaMethod(instance *Instance, method string, args []
 						def := r.buildColumnDefinition(columnName, col["type"], dbDriver)
 						query := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", quotedTable, def)
 						fmt.Printf("[Schema] Ejecutando: %s\n", query)
-						if _, err := r.GetDB().Exec(query); err != nil {
+						if _, err := r.databaseExecutor().Exec(query); err != nil {
 							fmt.Printf("[Schema] Error: %v\n", err)
 							return false
 						}
@@ -277,7 +277,7 @@ func (r *Runtime) executeSchemaMethod(instance *Instance, method string, args []
 			if dbDriver == "mysql" {
 				query = fmt.Sprintf("RENAME TABLE %s TO %s", quotedFrom, quotedTo)
 			}
-			_, err = r.GetDB().Exec(query)
+			_, err = r.databaseExecutor().Exec(query)
 			return err == nil
 		}
 
@@ -293,7 +293,7 @@ func (r *Runtime) executeSchemaMethod(instance *Instance, method string, args []
 				return false
 			}
 			query := fmt.Sprintf("DROP TABLE IF EXISTS %s", quotedTable)
-			_, err = r.GetDB().Exec(query)
+			_, err = r.databaseExecutor().Exec(query)
 			return err == nil
 		}
 
@@ -308,16 +308,16 @@ func (r *Runtime) executeSchemaMethod(instance *Instance, method string, args []
 			var exists bool
 			if dbDriver == "sqlite" {
 				query := "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?"
-				r.GetDB().QueryRow(query, tableName).Scan(&exists)
+				r.databaseExecutor().QueryRow(query, tableName).Scan(&exists)
 			} else if dbDriver == "postgres" {
 				query := "SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = ?"
-				r.GetDB().QueryRow(query, tableName).Scan(&exists)
+				r.databaseExecutor().QueryRow(query, tableName).Scan(&exists)
 			} else if dbDriver == "sqlserver" {
 				query := "SELECT count(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = ?"
-				r.GetDB().QueryRow(query, tableName).Scan(&exists)
+				r.databaseExecutor().QueryRow(query, tableName).Scan(&exists)
 			} else {
 				query := "SELECT count(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?"
-				r.GetDB().QueryRow(query, tableName).Scan(&exists)
+				r.databaseExecutor().QueryRow(query, tableName).Scan(&exists)
 			}
 			return exists
 		}
@@ -332,7 +332,7 @@ func (r *Runtime) executeSchemaMethod(instance *Instance, method string, args []
 			}
 
 			if dbDriver == "sqlite" {
-				rows, err := r.GetDB().Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
+				rows, err := r.databaseExecutor().Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
 				if err == nil {
 					defer rows.Close()
 					for rows.Next() {
@@ -352,17 +352,17 @@ func (r *Runtime) executeSchemaMethod(instance *Instance, method string, args []
 			} else if dbDriver == "postgres" {
 				var count int
 				query := "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?"
-				r.GetDB().QueryRow(query, tableName, columnName).Scan(&count)
+				r.databaseExecutor().QueryRow(query, tableName, columnName).Scan(&count)
 				return count > 0
 			} else if dbDriver == "sqlserver" {
 				var count int
 				query := "SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?"
-				r.GetDB().QueryRow(query, tableName, columnName).Scan(&count)
+				r.databaseExecutor().QueryRow(query, tableName, columnName).Scan(&count)
 				return count > 0
 			} else {
 				var count int
 				query := "SELECT count(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?"
-				r.GetDB().QueryRow(query, tableName, columnName).Scan(&count)
+				r.databaseExecutor().QueryRow(query, tableName, columnName).Scan(&count)
 				return count > 0
 			}
 		}
@@ -424,7 +424,7 @@ func (r *Runtime) executeSchemaCommand(quotedTable, tableName, driver string, co
 			if err != nil {
 				return err
 			}
-			if _, err := r.GetDB().Exec(fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", quotedTable, quoted)); err != nil {
+			if _, err := r.databaseExecutor().Exec(fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", quotedTable, quoted)); err != nil {
 				return err
 			}
 		}
@@ -439,7 +439,7 @@ func (r *Runtime) executeSchemaCommand(quotedTable, tableName, driver string, co
 		if err != nil {
 			return err
 		}
-		_, err = r.GetDB().Exec(fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", quotedTable, quotedFrom, quotedTo))
+		_, err = r.databaseExecutor().Exec(fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", quotedTable, quotedFrom, quotedTo))
 		return err
 	case "index", "uniqueIndex":
 		columns := schemaStringList(command["columns"])
@@ -463,7 +463,7 @@ func (r *Runtime) executeSchemaCommand(quotedTable, tableName, driver string, co
 		if typeName == "uniqueIndex" {
 			unique = "UNIQUE "
 		}
-		_, err = r.GetDB().Exec(fmt.Sprintf("CREATE %sINDEX %s ON %s (%s)", unique, quotedName, quotedTable, strings.Join(quotedColumns, ", ")))
+		_, err = r.databaseExecutor().Exec(fmt.Sprintf("CREATE %sINDEX %s ON %s (%s)", unique, quotedName, quotedTable, strings.Join(quotedColumns, ", ")))
 		return err
 	case "dropIndex":
 		name, _ := command["name"].(string)
@@ -472,9 +472,9 @@ func (r *Runtime) executeSchemaCommand(quotedTable, tableName, driver string, co
 			return err
 		}
 		if driver == "mysql" {
-			_, err = r.GetDB().Exec(fmt.Sprintf("ALTER TABLE %s DROP INDEX %s", quotedTable, quotedName))
+			_, err = r.databaseExecutor().Exec(fmt.Sprintf("ALTER TABLE %s DROP INDEX %s", quotedTable, quotedName))
 		} else {
-			_, err = r.GetDB().Exec(fmt.Sprintf("DROP INDEX IF EXISTS %s", quotedName))
+			_, err = r.databaseExecutor().Exec(fmt.Sprintf("DROP INDEX IF EXISTS %s", quotedName))
 		}
 		return err
 	case "foreign":
@@ -485,7 +485,7 @@ func (r *Runtime) executeSchemaCommand(quotedTable, tableName, driver string, co
 		if err != nil {
 			return err
 		}
-		_, err = r.GetDB().Exec(fmt.Sprintf("ALTER TABLE %s ADD %s", quotedTable, constraint))
+		_, err = r.databaseExecutor().Exec(fmt.Sprintf("ALTER TABLE %s ADD %s", quotedTable, constraint))
 		return err
 	}
 	return nil

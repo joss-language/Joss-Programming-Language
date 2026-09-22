@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 
+	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
 )
 
@@ -25,6 +26,7 @@ func (r *Runtime) callBuiltinAsync(name string, args []interface{}) (interface{}
 							future.err = fmt.Errorf("%v", p)
 						}
 					}
+					newR.Free()
 					close(future.done)
 				}()
 
@@ -45,6 +47,13 @@ func (r *Runtime) callBuiltinAsync(name string, args []interface{}) (interface{}
 	case "await":
 		if len(args) == 1 {
 			if future, ok := args[0].(*Future); ok {
+				if r.executionContext != nil {
+					select {
+					case <-future.done:
+					case <-r.executionContext.Done():
+						r.checkExecutionCancelled()
+					}
+				}
 				return future.Wait(), true
 			}
 		}
@@ -54,15 +63,18 @@ func (r *Runtime) callBuiltinAsync(name string, args []interface{}) (interface{}
 		size := 0
 		if len(args) > 0 {
 			if s, ok := args[0].(int64); ok {
+				if s < 0 || int64(int(s)) != s {
+					panic(&JossError{Type: "ChannelError", Code: diagnostics.CodeChannelCapacity, Message: "La capacidad del canal debe ser un entero no negativo representable"})
+				}
 				size = int(s)
 			}
 		}
-		return &Channel{Ch: make(chan interface{}, size)}, true
+		return NewChannel(size), true
 
 	case "close":
 		if len(args) == 1 {
 			if ch, ok := args[0].(*Channel); ok {
-				close(ch.Ch)
+				ch.Close()
 				return nil, true
 			}
 		}
@@ -71,7 +83,13 @@ func (r *Runtime) callBuiltinAsync(name string, args []interface{}) (interface{}
 	case "send":
 		if len(args) == 2 {
 			if ch, ok := args[0].(*Channel); ok {
-				ch.Ch <- args[1]
+				if r.executionContext != nil {
+					if err := ch.TrySendContext(r.executionContext, args[1]); err != nil {
+						panic(err)
+					}
+				} else {
+					ch.Send(args[1])
+				}
 				return nil, true
 			}
 		}
@@ -80,7 +98,17 @@ func (r *Runtime) callBuiltinAsync(name string, args []interface{}) (interface{}
 	case "recv":
 		if len(args) == 1 {
 			if ch, ok := args[0].(*Channel); ok {
-				val, ok := <-ch.Ch
+				var val interface{}
+				var ok bool
+				if r.executionContext != nil {
+					select {
+					case val, ok = <-ch.Ch:
+					case <-r.executionContext.Done():
+						r.checkExecutionCancelled()
+					}
+				} else {
+					val, ok = <-ch.Ch
+				}
 				if !ok {
 					return nil, true
 				}

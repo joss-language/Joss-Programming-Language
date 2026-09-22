@@ -11,7 +11,7 @@ func (r *Runtime) addSQLiteForeign(tableName string, command schemaCommand) erro
 		return err
 	}
 	var createSQL string
-	if err := r.GetDB().QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", tableName).Scan(&createSQL); err != nil {
+	if err := r.databaseExecutor().QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", tableName).Scan(&createSQL); err != nil {
 		return err
 	}
 	openParen := strings.Index(createSQL, "(")
@@ -26,6 +26,9 @@ func (r *Runtime) addSQLiteForeign(tableName string, command schemaCommand) erro
 }
 
 func (r *Runtime) alterSQLiteTableStructure(tableName, temporarySQL, temporaryTable string) error {
+	if r.activeTx != nil {
+		return fmt.Errorf("la reconstrucción de tablas SQLite no está soportada dentro de GranDB.transaction")
+	}
 	quotedTable, err := quoteSchemaIdentifier(tableName, "sqlite")
 	if err != nil {
 		return err
@@ -35,7 +38,7 @@ func (r *Runtime) alterSQLiteTableStructure(tableName, temporarySQL, temporaryTa
 		return err
 	}
 
-	rows, err := r.GetDB().Query(fmt.Sprintf("PRAGMA table_info(%s)", quotedTable))
+	rows, err := r.databaseExecutor().Query(fmt.Sprintf("PRAGMA table_info(%s)", quotedTable))
 	if err != nil {
 		return err
 	}
@@ -57,7 +60,7 @@ func (r *Runtime) alterSQLiteTableStructure(tableName, temporarySQL, temporaryTa
 	}
 	_ = rows.Close()
 
-	objectRows, err := r.GetDB().Query("SELECT sql FROM sqlite_master WHERE tbl_name=? AND type IN ('index','trigger') AND sql IS NOT NULL", tableName)
+	objectRows, err := r.databaseExecutor().Query("SELECT sql FROM sqlite_master WHERE tbl_name=? AND type IN ('index','trigger') AND sql IS NOT NULL", tableName)
 	if err != nil {
 		return err
 	}
@@ -70,10 +73,10 @@ func (r *Runtime) alterSQLiteTableStructure(tableName, temporarySQL, temporaryTa
 	}
 	_ = objectRows.Close()
 
-	if _, err := r.GetDB().Exec("PRAGMA foreign_keys=OFF"); err != nil {
+	if _, err := r.databaseExecutor().Exec("PRAGMA foreign_keys=OFF"); err != nil {
 		return err
 	}
-	defer r.GetDB().Exec("PRAGMA foreign_keys=ON")
+	defer r.databaseExecutor().Exec("PRAGMA foreign_keys=ON")
 	tx, err := r.GetDB().Begin()
 	if err != nil {
 		return err

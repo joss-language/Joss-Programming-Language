@@ -8,4 +8,6 @@ const (
 	CodeDivisionByZero     = "JOSS-ARITH-002"
 	CodeIndexOutOfRange    = "JOSS-INDEX-001"
 	CodeInvalidIndexType   = "JOSS-INDEX-002"
+	CodeChannelClosed      = "JOSS-CHANNEL-001"
+	CodeChannelCapacity    = "JOSS-CHANNEL-002"
 )

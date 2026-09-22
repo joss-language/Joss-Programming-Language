@@ -23,6 +23,7 @@ func TestInterpreterAndVMSupportedDifferentialFeatures(t *testing.T) {
 		{name: "integer arithmetic", source: `$result = 1 + 2 * 3`, want: int64(7)},
 		{name: "integer comparison", source: `$result = 3 >= 2`, want: true},
 		{name: "integer prefix", source: `$result = -4 + 10`, want: int64(6)},
+		{name: "local assignment", source: "int $a = 10\n$result = $a + 5", want: int64(15)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

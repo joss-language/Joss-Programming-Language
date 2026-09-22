@@ -110,15 +110,15 @@ Fragment that requires products table:<!-- joss-check: escritura contextual -->
 $id = GranDB::table("products")->insertGetId({"name": "Cuaderno", "active": true})
 GranDB::table("products")->where("id", $id)->update({"name": "Cuaderno azul"})
 ```
-##Transactions: limitation checked
+## Transactions
 
-A transaction should cause multiple writes to be committed or rolled back
-together. `GranDB::transaction(callback)` opens a `sql.Tx`, calls the callback and
-does commit/rollback, **but does not link that Tx to the queries executed by the
-callback**: these continue using the normal connection. Does not currently offer the
-expected atomicity for transfers or related changes. The return is
-that of the callback, or null in the event of certain failures; don't use this API to promise
-write reversal. This defect requires a runtime fix.
+`GranDB::transaction(callback)` opens a `sql.Tx` and directs ordinary SQL
+queries executed by the same runtime during the callback to that Tx. If the
+callback fails, it rolls back those queries; if it finishes, it commits. The return is
+that of the callback, or null upon certain open/commit failures. Nested
+transactions are rejected. The scope does not include asynchronous work,
+external connections or network/filesystem effects; keep those operations outside
+the callback when you need SQL atomicity.
 
 ## Engines and availability
 

@@ -13,6 +13,21 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 		name := identifier.Value
 		if builtin, exists := a.environment.Builtins[name]; exists {
 			a.checkCall(builtin, call.Arguments, current, identifier.Token)
+			if name == "send" && len(call.Arguments) >= 2 {
+				chanType := a.inferExpression(call.Arguments[0], current)
+				valType := a.inferExpression(call.Arguments[1], current)
+				if chanType.Kind == typesystem.Channel && chanType.Element != nil {
+					if valType.IsKnown() && !typesystem.Assignable(*chanType.Element, valType) {
+						a.typeMismatch("JOSS-TYPE-003", "send", *chanType.Element, valType, tokenOfExpression(call.Arguments[1]), "channel send argument")
+					}
+				}
+			}
+			if name == "recv" && len(call.Arguments) >= 1 {
+				chanType := a.inferExpression(call.Arguments[0], current)
+				if chanType.Kind == typesystem.Channel && chanType.Element != nil {
+					return *chanType.Element
+				}
+			}
 			return builtin.ReturnType
 		}
 		if function, exists := a.functions[name]; exists {

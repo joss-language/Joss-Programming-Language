@@ -119,15 +119,15 @@ $id = GranDB::table("products")->insertGetId({"name": "Cuaderno", "active": true
 GranDB::table("products")->where("id", $id)->update({"name": "Cuaderno azul"})
 ```
 
-## Transacciones: limitación comprobada
+## Transacciones
 
-Una transacción debería hacer que varias escrituras se confirmen o reviertan
-juntas. `GranDB::transaction(callback)` abre un `sql.Tx`, llama al callback y
-hace commit/rollback, **pero no enlaza ese Tx a las consultas que ejecuta el
-callback**: éstas siguen usando la conexión normal. No ofrece actualmente la
-atomicidad esperada para transferencias o cambios relacionados. El retorno es
-el del callback, o null ante ciertos fallos; no uses esta API para prometer
-reversión de escrituras. Este defecto necesita una corrección del runtime.
+`GranDB::transaction(callback)` abre un `sql.Tx` y dirige las consultas SQL
+ordinarias ejecutadas por el mismo runtime durante el callback a ese Tx. Si el
+callback falla, revierte esas consultas; si termina, confirma. El retorno es
+el del callback, o null ante ciertos fallos de apertura/commit. Las
+transacciones anidadas se rechazan. El alcance no incluye trabajo asíncrono,
+conexiones externas ni efectos de red/archivos; mantén esas operaciones fuera
+del callback cuando necesites atomicidad SQL.
 
 ## Motores y disponibilidad
 

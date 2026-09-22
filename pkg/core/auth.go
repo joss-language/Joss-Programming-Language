@@ -57,7 +57,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 				LEFT JOIN %s r ON u.role_id = r.id 
 				WHERE u.id = ?`, usersTable, rolesTable)
 
-			err := r.GetDB().QueryRow(query, userId).Scan(&email, &username, &roleName)
+			err := r.databaseExecutor().QueryRow(query, userId).Scan(&email, &username, &roleName)
 			if err == nil {
 				return r.generateJWT(userId, email.String, username.String, roleName.String, false)
 			}
@@ -117,7 +117,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 				resultFields["jwt"] = jwtVal
 				var userId int
 				query := fmt.Sprintf("SELECT id FROM %s WHERE email = ?", usersTable)
-				err := r.GetDB().QueryRow(query, email).Scan(&userId)
+				err := r.databaseExecutor().QueryRow(query, email).Scan(&userId)
 				if err == nil {
 					resultFields["user_id"] = userId
 				}
@@ -211,7 +211,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 				LEFT JOIN %s r ON u.role_id = r.id 
 				WHERE u.email = ?`, usersTable, rolesTable)
 
-			err := r.GetDB().QueryRow(query, email).Scan(&userId, &userToken, &userName, &storedHash, &verificado, &roleName)
+			err := r.databaseExecutor().QueryRow(query, email).Scan(&userId, &userToken, &userName, &storedHash, &verificado, &roleName)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					LogError("[Auth] User not found for email: '%s'", email)
@@ -249,7 +249,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			if val, ok := r.Env["DB"]; ok && val == "mysql" {
 				updateQuery = fmt.Sprintf("UPDATE %s SET last_login_at = NOW() WHERE id = ?", usersTable)
 			}
-			r.GetDB().Exec(updateQuery, userId)
+			r.databaseExecutor().Exec(updateQuery, userId)
 
 			return r.generateJWT(userId, email, userName.String, roleName.String, false)
 		}
@@ -277,7 +277,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			var expiresAtStr sql.NullString
 
 			query := fmt.Sprintf("SELECT id, token_expires_at FROM %s WHERE user_token = ? AND verificado = 0 LIMIT 1", usersTable)
-			err := r.GetDB().QueryRow(query, token).Scan(&id, &expiresAtStr)
+			err := r.databaseExecutor().QueryRow(query, token).Scan(&id, &expiresAtStr)
 
 			if err != nil {
 				return false
@@ -291,7 +291,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			}
 
 			update := fmt.Sprintf("UPDATE %s SET verificado = 1, user_token = '', token_expires_at = NULL WHERE id = ?", usersTable)
-			_, err = r.GetDB().Exec(update, id)
+			_, err = r.databaseExecutor().Exec(update, id)
 
 			if err == nil {
 				return true
@@ -311,7 +311,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 
 			var userId int
 			queryCheck := fmt.Sprintf("SELECT id FROM %s WHERE LOWER(email) = ?", usersTable)
-			err := r.GetDB().QueryRow(queryCheck, email).Scan(&userId)
+			err := r.databaseExecutor().QueryRow(queryCheck, email).Scan(&userId)
 			if err != nil {
 				return false
 			}
@@ -320,7 +320,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			var existingToken string
 			var existingExpiry sql.NullString
 			existingQuery := fmt.Sprintf("SELECT token, expires_at FROM %s WHERE LOWER(email) = ? AND used = 0 ORDER BY id DESC LIMIT 1", resetsTable)
-			if err = r.GetDB().QueryRow(existingQuery, email).Scan(&existingToken, &existingExpiry); err == nil {
+			if err = r.databaseExecutor().QueryRow(existingQuery, email).Scan(&existingToken, &existingExpiry); err == nil {
 				if expiry, ok := parseAuthExpiry(existingExpiry.String); ok && time.Now().Before(expiry) {
 					return existingToken
 				}
@@ -330,7 +330,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			expiresAt := time.Now().UTC().Add(1 * time.Hour).Format("2006-01-02 15:04:05")
 
 			query := fmt.Sprintf("INSERT INTO %s (email, token, expires_at) VALUES (?, ?, ?)", resetsTable)
-			_, err = r.GetDB().Exec(query, email, token, expiresAt)
+			_, err = r.databaseExecutor().Exec(query, email, token, expiresAt)
 
 			if err == nil {
 				return token
@@ -351,6 +351,9 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			}
 
 			if r.GetDB() == nil {
+				return "database_error"
+			}
+			if r.activeTx != nil {
 				return "database_error"
 			}
 
@@ -431,7 +434,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			var currentToken sql.NullString
 			var currentExpiry sql.NullString
 			query := fmt.Sprintf("SELECT id, verificado, user_token, token_expires_at FROM %s WHERE LOWER(email) = ?", usersTable)
-			err := r.GetDB().QueryRow(query, email).Scan(&id, &verificado, &currentToken, &currentExpiry)
+			err := r.databaseExecutor().QueryRow(query, email).Scan(&id, &verificado, &currentToken, &currentExpiry)
 
 			if err != nil {
 				return false
@@ -451,7 +454,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			newExpiry := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02 15:04:05")
 
 			update := fmt.Sprintf("UPDATE %s SET user_token = ?, token_expires_at = ? WHERE id = ?", usersTable)
-			_, err = r.GetDB().Exec(update, newToken, newExpiry, id)
+			_, err = r.databaseExecutor().Exec(update, newToken, newExpiry, id)
 
 			if err == nil {
 				return newToken
@@ -468,7 +471,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 
 			var verified int
 			query := fmt.Sprintf("SELECT verificado FROM %s WHERE LOWER(email) = ? LIMIT 1", usersTable)
-			err := r.GetDB().QueryRow(query, email).Scan(&verified)
+			err := r.databaseExecutor().QueryRow(query, email).Scan(&verified)
 			if err != nil {
 				return "not_found"
 			}
@@ -498,7 +501,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 						LEFT JOIN %s r ON u.role_id = r.id 
 						WHERE u.id = ?`, usersTable, rolesTable)
 
-					err := r.GetDB().QueryRow(query, uid).Scan(&id, &username, &firstName, &lastName, &email, &pPhone, &roleId, &roleName, &userToken, &createdAt)
+					err := r.databaseExecutor().QueryRow(query, uid).Scan(&id, &username, &firstName, &lastName, &email, &pPhone, &roleId, &roleName, &userToken, &createdAt)
 					if err != nil {
 						fmt.Printf("[Auth Error] User Query Failed for ID %v: %v\n", uid, err)
 					}
@@ -580,7 +583,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 					LEFT JOIN %s r ON u.role_id = r.id 
 					WHERE u.id = ?`, usersTable, rolesTable)
 
-				err := r.GetDB().QueryRow(query, id).Scan(&email, &username, &roleName)
+				err := r.databaseExecutor().QueryRow(query, id).Scan(&email, &username, &roleName)
 				if err != nil {
 					return false
 				}
@@ -632,7 +635,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 				}
 
 				query := fmt.Sprintf("UPDATE %s SET %s WHERE id = ?", usersTable, strings.Join(sets, ", "))
-				_, err := r.GetDB().Exec(query, vals...)
+				_, err := r.databaseExecutor().Exec(query, vals...)
 				return err == nil
 			}
 		}
@@ -645,7 +648,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 					return false
 				}
 				query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", usersTable)
-				_, err := r.GetDB().Exec(query, id)
+				_, err := r.databaseExecutor().Exec(query, id)
 				return err == nil
 			}
 		}

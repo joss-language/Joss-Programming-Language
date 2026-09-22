@@ -20,6 +20,7 @@ func (r *Runtime) executeTaskMethod(instance *Instance, method string, args []in
 				// Execute immediately in a goroutine for PoC
 				newR := r.Fork()
 				go func() {
+					defer newR.Free()
 					defer func() {
 						if r := recover(); r != nil {
 							fmt.Printf("[Task] Error en tarea %s: %v\n", name, r)

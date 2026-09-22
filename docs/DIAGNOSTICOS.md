@@ -84,6 +84,7 @@ A diferencia de los mensajes de error genéricos de herramientas antiguas, cada 
 | Código | Severidad | Significado y Causa | Solución |
 |---|---|---|---|
 | `JOSS-FLOW-001` | Warning | Código inalcanzable (*dead code*): instrucciones escritas después de un `return` incondicional. | Mover las instrucciones antes del `return` o eliminarlas. |
+| `JOSS-FLOW-002` | Warning | Match no exhaustivo en enum: una expresión `match` sobre un enum no cubre todos los casos posibles ni declara un brazo `default`. | Agregar los casos de enum faltantes o incluir una rama `default => ...`. |
 | `JOSS-LINT-001` | Warning | Variable local declarada pero nunca leída en el cuerpo. | Utilizar la variable o retirarla para mantener el código limpio. |
 | `JOSS-SYNTAX-001` | Error | Error sintáctico capturado durante la fase de análisis del linter. | Corregir la puntuación o estructura señalada por el parser. |
 | `JOSS-LINT-002` | Error | Parámetro sin tipo explícito reportado por el linter. | Añadir la anotación de tipo correspondiente (`int`, `string`, `mixed`). |
@@ -107,6 +108,13 @@ A diferencia de los mensajes de error genéricos de herramientas antiguas, cada 
 ---
 
 ## 6. Casos completos de prueba verificados
+
+Las operaciones de canal también tienen defensas runtime estables. `JOSS-CHANNEL-001`
+se produce al cerrar dos veces un canal o enviar después del cierre; el vecino
+válido es enviar mientras está abierto y cerrarlo una sola vez. `JOSS-CHANNEL-002`
+se produce con `make_chan(-1)`; `make_chan(0)` es una capacidad válida para un
+canal sin búfer. Estos estados pueden depender de otra tarea concurrente, así
+que el analyzer no puede sustituir la defensa runtime.
 
 A continuación se presentan ejemplos ejecutables que validan formalmente la emisión de los diagnósticos y su contraparte correcta:
 
@@ -180,6 +188,42 @@ public func signo(int $n): string {
     return $n > 0 ? "positivo" : "no positivo"
 }
 print(signo(0))
+```
+
+---
+
+### Match no exhaustivo en enum (`JOSS-FLOW-002`)
+
+<!-- joss-error: JOSS-FLOW-002 -->
+```joss-invalid
+public enum Estado {
+    case Activo;
+    case Inactivo;
+}
+
+public func describir(Estado $e): string {
+    return match ($e) {
+        Estado::Activo => "activo",
+    }
+}
+```
+
+Caso corregido cubriendo exhaustivamente todos los casos del enum:
+
+<!-- joss-run: ["activo"] -->
+```joss
+public enum Estado {
+    case Activo;
+    case Inactivo;
+}
+
+public func describir(Estado $e): string {
+    return match ($e) {
+        Estado::Activo => "activo",
+        Estado::Inactivo => "inactivo",
+    }
+}
+print(describir(Estado::Activo))
 ```
 
 ---

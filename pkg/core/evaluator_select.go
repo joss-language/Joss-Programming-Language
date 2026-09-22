@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
 )
 
@@ -84,7 +85,42 @@ func (r *Runtime) executeSelect(ss *parser.SelectStatement) interface{} {
 		return nil
 	}
 
-	chosen, recvVal, recvOK := reflect.Select(cases)
+	var cancelIdx int = -1
+	if r.executionContext != nil {
+		cancelIdx = len(cases)
+		cases = append(cases, reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(r.executionContext.Done()),
+		})
+	}
+
+	var chosen int
+	var recvVal reflect.Value
+	var recvOK bool
+
+	func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				if jerr, ok := rec.(*JossError); ok {
+					panic(jerr)
+				}
+				panic(&JossError{
+					Type:    "ChannelError",
+					Code:    diagnostics.CodeChannelClosed,
+					Message: fmt.Sprintf("Error en operación de canal durante select: %v", rec),
+					File:    r.CurrentFile,
+					Line:    ss.Token.Line,
+				})
+			}
+		}()
+		chosen, recvVal, recvOK = reflect.Select(cases)
+	}()
+
+	if cancelIdx >= 0 && chosen == cancelIdx {
+		r.checkExecutionCancelled()
+		return nil
+	}
+
 	chosenInfo := caseInfos[chosen]
 
 	if chosenInfo.assignTo != nil {

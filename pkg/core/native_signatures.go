@@ -26,31 +26,68 @@ func nativeMethod(name, returnName string) NativeMethodDefinition {
 	return NativeMethodDefinition{Name: name, ReturnType: typesystem.Parse(returnName)}
 }
 
+func nativeMethodWithArity(name, returnName string, params ...NativeParameterDefinition) NativeMethodDefinition {
+	return NativeMethodDefinition{
+		Name:       name,
+		ReturnType: typesystem.Parse(returnName),
+		Parameters: params,
+		ArityKnown: true,
+	}
+}
+
+func nativeParam(name, typeName string) NativeParameterDefinition {
+	return NativeParameterDefinition{
+		Name: name,
+		Type: typesystem.Parse(typeName),
+	}
+}
+
 var migratedNativeMethods = map[string][]NativeMethodDefinition{
 	"Stack": {
-		nativeMethod("push", "mixed"), nativeMethod("pop", "mixed"), nativeMethod("peek", "mixed"),
+		nativeMethodWithArity("push", "mixed", nativeParam("item", "mixed")),
+		nativeMethodWithArity("pop", "mixed"),
+		nativeMethodWithArity("peek", "mixed"),
 	},
 	"Queue": {
-		nativeMethod("enqueue", "mixed"), nativeMethod("dequeue", "mixed"), nativeMethod("peek", "mixed"),
+		nativeMethodWithArity("enqueue", "mixed", nativeParam("item", "mixed")),
+		nativeMethodWithArity("dequeue", "mixed"),
+		nativeMethodWithArity("peek", "mixed"),
 	},
 	"Math": {
-		nativeMethod("random", "int"), nativeMethod("floor", "float"), nativeMethod("ceil", "float"), nativeMethod("abs", "float"),
+		nativeMethod("random", "int"),
+		nativeMethodWithArity("floor", "float", nativeParam("val", "float")),
+		nativeMethodWithArity("ceil", "float", nativeParam("val", "float")),
+		nativeMethodWithArity("abs", "float", nativeParam("val", "float")),
 	},
 	"JSON": {
-		nativeMethod("parse", "mixed"), nativeMethod("stringify", "string"), nativeMethod("decode", "mixed"), nativeMethod("encode", "string"),
+		nativeMethodWithArity("parse", "mixed", nativeParam("json", "string")),
+		nativeMethodWithArity("stringify", "string", nativeParam("value", "mixed")),
+		nativeMethodWithArity("decode", "mixed", nativeParam("json", "string")),
+		nativeMethodWithArity("encode", "string", nativeParam("value", "mixed")),
 	},
 	"Markdown": {
-		nativeMethod("toHtml", "string"), nativeMethod("readFile", "string"),
+		nativeMethodWithArity("toHtml", "string", nativeParam("markdown", "string")),
+		nativeMethodWithArity("readFile", "string", nativeParam("path", "string")),
 	},
 	"Str": {
-		nativeMethod("length", "int"), nativeMethod("random", "string"), nativeMethod("startsWith", "bool"), nativeMethod("substring", "string"),
-		nativeMethod("indexOf", "int"), nativeMethod("contains", "bool"), nativeMethod("trim", "string"), nativeMethod("replace", "string"),
+		nativeMethodWithArity("length", "int", nativeParam("str", "string")),
+		nativeMethod("random", "string"),
+		nativeMethodWithArity("startsWith", "bool", nativeParam("haystack", "string"), nativeParam("needle", "string")),
+		nativeMethod("substring", "string"),
+		nativeMethodWithArity("indexOf", "int", nativeParam("haystack", "string"), nativeParam("needle", "string")),
+		nativeMethodWithArity("contains", "bool", nativeParam("haystack", "string"), nativeParam("needle", "string")),
+		nativeMethodWithArity("trim", "string", nativeParam("str", "string")),
+		nativeMethodWithArity("replace", "string", nativeParam("search", "string"), nativeParam("replace", "string"), nativeParam("subject", "string")),
 	},
 	"UUID": {
-		nativeMethod("generate", "string"), nativeMethod("v4", "string"),
+		nativeMethodWithArity("generate", "string"),
+		nativeMethodWithArity("v4", "string"),
 	},
 	"Lang": {
-		nativeMethod("get", "mixed"), nativeMethod("set", "mixed"), nativeMethod("locale", "string"), nativeMethod("locales", "array"),
+		nativeMethod("get", "mixed"),
+		nativeMethod("set", "mixed"),
+		nativeMethodWithArity("locale", "string"),
+		nativeMethodWithArity("locales", "array"),
 	},
 	"Console": {
 		nativeMethod("green", "string"), nativeMethod("red", "string"), nativeMethod("yellow", "string"),
@@ -59,7 +96,7 @@ var migratedNativeMethods = map[string][]NativeMethodDefinition{
 		nativeMethod("color", "string"), nativeMethod("log", "void"),
 	},
 	"Zip": {
-		nativeMethod("extract", "bool"),
+		nativeMethodWithArity("extract", "bool", nativeParam("src", "string"), nativeParam("dest", "string")),
 	},
 }
 

@@ -2,17 +2,17 @@
 
 Antes: [biblioteca e contratos](MODULOS_NATIVOS.md). Índice: [documentação](README.md).
 
-Gerado com `go run ./tools/docgen` de `Runtime.RegisterNativeClasses()`.
+Gerado com `go run ./tools/docgen` a partir de `Runtime.RegisterNativeClasses()`.
 Não edite manualmente. Cada nome é uma entrada no registro real. **Retorno publicado**
 não significa retorno exaustivo observado: as discrepâncias estão na biblioteca.
-Os parâmetros nativos não são publicados neste registro; consulte as tabelas
-de contratos e o manipulador vinculado. `mixed` não certifica isolamento ou ausência de falhas.
+Os parâmetros nativos não estão publicados neste registro; consulte as
+tabelas de contratos e o handler vinculado. `mixed` não certifica isolamento nem ausência de falhas.
 
-##Autorização
+## Auth
 
-Implementação: [executeAuthMethod](../../pkg/core/auth.go#L14).
+Implementação: [executeAuthMethod](../pkg/core/auth.go#L14).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `attempt` | `mixed` |
 | `check` | `bool` |
@@ -36,11 +36,11 @@ Implementação: [executeAuthMethod](../../pkg/core/auth.go#L14).
 | `verify` | `bool` |
 | `verify2FAChallenge` | `mixed` |
 
-##AuthLoginResult
+## AuthLoginResult
 
-Implementação: [executeAuthLoginResultMethod](../../pkg/core/auth_fluent.go#L18).
+Implementação: [executeAuthLoginResultMethod](../pkg/core/auth_fluent.go#L18).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `onChallenge` | `AuthLoginResult` |
 | `onFail` | `AuthLoginResult` |
@@ -48,11 +48,11 @@ Implementação: [executeAuthLoginResultMethod](../../pkg/core/auth_fluent.go#L1
 | `require2FA` | `AuthLoginResult` |
 | `response` | `mixed` |
 
-##Projeto
+## Blueprint
 
-Implementação: [executeBlueprintMethod](../../pkg/core/schema_blueprint.go#L34).
+Implementação: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L34).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `bigInteger` | `Blueprint` |
 | `boolean` | `Blueprint` |
@@ -98,20 +98,21 @@ Implementação: [executeBlueprintMethod](../../pkg/core/schema_blueprint.go#L34
 
 ## Cache
 
-Implementação: [executeCacheMethod](../../pkg/core/native_cache.go#L18).
+Implementação: [executeCacheMethod](../pkg/core/native_cache.go#L18).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `forget` | `mixed` |
 | `get` | `mixed` |
 | `has` | `bool` |
 | `put` | `mixed` |
 
-##Console
+## Console
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
-| `blue` | `string` || `bold` | `string` |
+| `blue` | `string` |
+| `bold` | `string` |
 | `clear` | `string` |
 | `color` | `string` |
 | `cyan` | `string` |
@@ -122,29 +123,29 @@ Implementação: [executeCacheMethod](../../pkg/core/native_cache.go#L18).
 | `red` | `string` |
 | `yellow` | `string` |
 
-##Cron
+## Cron
 
-Implementação: [executeCronMethod](../../pkg/core/cron.go#L11).
+Implementação: [executeCronMethod](../pkg/core/cron.go#L11).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `schedule` | `mixed` |
 
-##Exceção
+## Exception
 
-Implementação: [executeExceptionMethod](../../pkg/core/native.go#L367).
+Implementação: [executeExceptionMethod](../pkg/core/native.go#L352).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `constructor` | `mixed` |
 | `getCode` | `int` |
 | `getMessage` | `string` |
 
-## BigDB
+## GranDB
 
-Implementação: [executeGranDBMethod](../../pkg/core/database.go#L11).
+Implementação: [executeGranDBMethod](../pkg/core/database.go#L11).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `avg` | `float\|null` |
 | `changeDB` | `GranDB` |
@@ -237,7 +238,8 @@ Implementação: [executeGranDBMethod](../../pkg/core/database.go#L11).
 | `paginate` | `mixed` |
 | `pluck` | `array` |
 | `reorder` | `GranDB` |
-| `rightJoin` | `GranDB` || `select` | `GranDB` |
+| `rightJoin` | `GranDB` |
+| `select` | `GranDB` |
 | `skip` | `GranDB` |
 | `sole` | `mixed` |
 | `sum` | `float` |
@@ -288,11 +290,11 @@ Implementação: [executeGranDBMethod](../../pkg/core/database.go#L11).
 | `wheretime` | `mixed` |
 | `whereyear` | `mixed` |
 
-##http
+## Http
 
-Implementação: [executeHttpMethod](../../pkg/core/http_client.go#L14).
+Implementação: [executeHttpMethod](../pkg/core/http_client.go#L14).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `delete` | `mixed` |
 | `get` | `mixed` |
@@ -304,18 +306,29 @@ Implementação: [executeHttpMethod](../../pkg/core/http_client.go#L14).
 | `put` | `mixed` |
 | `request` | `mixed` |
 
-##JSON
+## IndexNow
 
-| Método | Publicado retorno ao analisador |
+Implementação: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
+
+| Método | Retorno publicado para o analisador |
+|---|---|
+| `enabled` | `bool` |
+| `key` | `string` |
+| `keyLocation` | `string` |
+| `submit` | `bool` |
+
+## JSON
+
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `decode` | `mixed` |
 | `encode` | `string` |
 | `parse` | `mixed` |
 | `stringify` | `string` |
 
-##Lang
+## Lang
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `get` | `mixed` |
 | `locale` | `string` |
@@ -324,55 +337,55 @@ Implementação: [executeHttpMethod](../../pkg/core/http_client.go#L14).
 
 ## MFA
 
-Implementação: [executeMFAMethod](../../pkg/core/auth_fluent.go#L99).
+Implementação: [executeMFAMethod](../pkg/core/auth_fluent.go#L99).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `generateRecoveryCodes` | `mixed` |
 | `generateTOTP` | `mixed` |
 | `verifyRecoveryCode` | `bool` |
 | `verifyTOTP` | `bool` |
 
-##Redução
+## Markdown
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `readFile` | `string` |
 | `toHtml` | `string` |
 
-## Matemática
+## Math
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `abs` | `float` |
 | `ceil` | `float` |
 | `floor` | `float` |
 | `random` | `int` |
 
-##Middleware
+## Middleware
 
-Classe base registrada sem seus próprios métodos nativos.
+Classe base registrada sem métodos nativos próprios.
 
-## Migração
+## Migration
 
-Classe base registrada sem seus próprios métodos nativos.
+Classe base registrada sem métodos nativos próprios.
 
-##Plug-in
+## Plugin
 
-Implementação: [executePluginMethod](../../pkg/core/native_plugin.go#L49).
+Implementação: [executePluginMethod](../pkg/core/native_plugin.go#L49).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `call` | `mixed` |
 | `path` | `mixed` |
 | `platform` | `mixed` |
 | `stream` | `mixed` |
 
-## Processo
+## Process
 
-Implementação: [executeProcessMethod](../../pkg/core/native_process.go#L13).
+Implementação: [executeProcessMethod](../pkg/core/native_process.go#L13).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `constructor` | `mixed` |
 | `kill` | `mixed` |
@@ -381,27 +394,29 @@ Implementação: [executeProcessMethod](../../pkg/core/native_process.go#L13).
 | `stderr_chan` | `mixed` |
 | `stdin` | `mixed` |
 | `stdout_chan` | `mixed` |
-| `wait` | `mixed` |##Fila
+| `wait` | `mixed` |
 
-| Método | Publicado retorno ao analisador |
+## Queue
+
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `dequeue` | `mixed` |
 | `enqueue` | `mixed` |
 | `peek` | `mixed` |
 
-##Redirecionar
+## Redirect
 
-Implementação: [executeRedirectMethod](../../pkg/core/response.go#L177).
+Implementação: [executeRedirectMethod](../pkg/core/response.go#L177).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `to` | `WebResponse` |
 
-##Redis
+## Redis
 
-Implementação: [executeRedisMethod](../../pkg/core/redis.go#L96).
+Implementação: [executeRedisMethod](../pkg/core/redis.go#L96).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `connect` | `mixed` |
 | `del` | `mixed` |
@@ -412,11 +427,11 @@ Implementação: [executeRedisMethod](../../pkg/core/redis.go#L96).
 | `set` | `mixed` |
 | `ttl` | `mixed` |
 
-##Solicitar
+## Request
 
-Implementação: [executeRequestMethod](../../pkg/core/request.go#L9).
+Implementação: [executeRequestMethod](../pkg/core/request.go#L9).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `all` | `map` |
 | `bearerToken` | `mixed` |
@@ -440,11 +455,11 @@ Implementação: [executeRequestMethod](../../pkg/core/request.go#L9).
 | `userAgent` | `mixed` |
 | `useragent` | `mixed` |
 
-## Resposta
+## Response
 
-Implementação: [executeResponseMethod](../../pkg/core/response.go#L10).
+Implementação: [executeResponseMethod](../pkg/core/response.go#L10).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `back` | `WebResponse` |
 | `download` | `WebResponse` |
@@ -454,11 +469,11 @@ Implementação: [executeResponseMethod](../../pkg/core/response.go#L10).
 | `redirect` | `WebResponse` |
 | `stream` | `WebResponse` |
 
-## Roteador
+## Router
 
-Implementação: [executeRouterMethod](../../pkg/core/router.go#L12).
+Implementação: [executeRouterMethod](../pkg/core/router.go#L12).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `any` | `mixed` |
 | `api` | `mixed` |
@@ -477,11 +492,11 @@ Implementação: [executeRouterMethod](../../pkg/core/router.go#L12).
 | `registerMiddleware` | `mixed` |
 | `ws` | `mixed` |
 
-##SEO
+## SEO
 
-Implementação: [executeSEOMethod](../../pkg/core/native_seo.go#L12).
+Implementação: [executeSEOMethod](../pkg/core/native_seo.go#L13).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `canonical` | `SEO` |
 | `description` | `SEO` |
@@ -491,21 +506,21 @@ Implementação: [executeSEOMethod](../../pkg/core/native_seo.go#L12).
 | `render` | `string` |
 | `title` | `SEO` |
 
-##SQLite
+## SQLite
 
-Implementação: [executeSQLiteMethod](../../pkg/core/native_sqlite.go#L16).
+Implementação: [executeSQLiteMethod](../pkg/core/native_sqlite.go#L16).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `close` | `mixed` |
 | `open` | `mixed` |
 | `query` | `mixed` |
 
-## Esquema
+## Schema
 
-Implementação: [executeSchemaMethod](../../pkg/core/schema.go#L119).
+Implementação: [executeSchemaMethod](../pkg/core/schema.go#L119).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `create` | `mixed` |
 | `drop` | `mixed` |
@@ -515,31 +530,32 @@ Implementação: [executeSchemaMethod](../../pkg/core/schema.go#L119).
 | `rename` | `mixed` |
 | `table` | `mixed` |
 
-## Servidor
+## Server
 
-Implementação: [executeServerControlMethod](../../pkg/core/native_server_control.go#L15).
+Implementação: [executeServerControlMethod](../pkg/core/native_server_control.go#L15).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `spawn` | `mixed` |
 | `start` | `mixed` |
 
-##Sessão
+## Session
 
-Implementação: [executeSessionMethod](../../pkg/core/native_extensions.go#L75).
+Implementação: [executeSessionMethod](../pkg/core/native_extensions.go#L75).
 
-| Método | Publicado retorno ao analisador ||---|---|
+| Método | Retorno publicado para o analisador |
+|---|---|
 | `all` | `map` |
 | `forget` | `mixed` |
 | `get` | `mixed` |
 | `has` | `bool` |
 | `put` | `mixed` |
 
-## Mapa do site
+## Sitemap
 
-Implementação: [executeSitemapMethod](../../pkg/core/native_seo.go#L127).
+Implementação: [executeSitemapMethod](../pkg/core/native_seo.go#L128).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `add` | `Sitemap` |
 | `exclude` | `Sitemap` |
@@ -547,11 +563,11 @@ Implementação: [executeSitemapMethod](../../pkg/core/native_seo.go#L127).
 | `provider` | `Sitemap` |
 | `xsl` | `Sitemap` |
 
-##SmtpCliente
+## SmtpClient
 
-Implementação: [executeSmtpClientMethod](../../pkg/core/smtp_native.go#L12).
+Implementação: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `auth` | `SmtpClient` |
 | `lastError` | `string\|null` |
@@ -559,17 +575,17 @@ Implementação: [executeSmtpClientMethod](../../pkg/core/smtp_native.go#L12).
 | `send` | `bool` |
 | `timeout` | `SmtpClient` |
 
-##Pilha
+## Stack
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `peek` | `mixed` |
 | `pop` | `mixed` |
 | `push` | `mixed` |
 
-##Str
+## Str
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `contains` | `bool` |
 | `indexOf` | `int` |
@@ -580,20 +596,20 @@ Implementação: [executeSmtpClientMethod](../../pkg/core/smtp_native.go#L12).
 | `substring` | `string` |
 | `trim` | `string` |
 
-##Transmitir
+## Stream
 
-Implementação: [executeStreamMethod](../../pkg/core/native_stream.go#L10).
+Implementação: [executeStreamMethod](../pkg/core/native_stream.go#L10).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `close` | `mixed` |
 | `send` | `mixed` |
 
-##Sistema
+## System
 
-Implementação: [executeSystemMethod](../../pkg/core/system.go#L14).
+Implementação: [executeSystemMethod](../pkg/core/system.go#L14).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `Run` | `mixed` |
 | `driver_call` | `mixed` |
@@ -603,35 +619,35 @@ Implementação: [executeSystemMethod](../../pkg/core/system.go#L14).
 | `now` | `int` |
 | `sleep` | `mixed` |
 
-##Tarefa
+## Task
 
-Implementação: [executeTaskMethod](../../pkg/core/task.go#L10).
+Implementação: [executeTaskMethod](../pkg/core/task.go#L10).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `on_request` | `mixed` |
 
-##DoisFatores
+## TwoFactor
 
-Implementação: [executeTwoFactorMethod](../../pkg/core/auth_fluent.go#L168).
+Implementação: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L168).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `required` | `bool` |
 | `verify` | `bool` |
 
-##UUID
+## UUID
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `generate` | `string` |
 | `v4` | `string` |
 
-##Armazenamento do usuário
+## UserStorage
 
-Implementação: [executeUserStorageMethod](../../pkg/core/lib_storage.go#L20).
+Implementação: [executeUserStorageMethod](../pkg/core/lib_storage.go#L20).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `delete` | `mixed` |
 | `get` | `mixed` |
@@ -639,11 +655,11 @@ Implementação: [executeUserStorageMethod](../../pkg/core/lib_storage.go#L20).
 | `path` | `mixed` |
 | `put` | `mixed` |
 
-##Ver
+## View
 
-Implementação: [executeViewMethod](../../pkg/core/view.go#L61).
+Implementação: [executeViewMethod](../pkg/core/view.go#L61).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `exists` | `bool` |
 | `render` | `string` |
@@ -651,20 +667,20 @@ Implementação: [executeViewMethod](../../pkg/core/view.go#L61).
 
 ## WebResponse
 
-Implementação: [executeWebResponseMethod](../../pkg/core/response.go#L132).
+Implementação: [executeWebResponseMethod](../pkg/core/response.go#L132).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `status` | `WebResponse` |
 | `with` | `WebResponse` |
 | `withCookie` | `WebResponse` |
 | `withHeader` | `WebResponse` |
 
-##WebSocket
+## WebSocket
 
-Implementação: [executeWebSocketMethod](../../pkg/core/websocket.go#L60).
+Implementação: [executeWebSocketMethod](../pkg/core/websocket.go#L60).
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `broadcast` | `mixed` |
 | `close` | `mixed` |
@@ -676,16 +692,18 @@ Implementação: [executeWebSocketMethod](../../pkg/core/websocket.go#L60).
 | `subscriberCount` | `int` |
 | `unsubscribe` | `mixed` |
 
-## CEP
+## Zip
 
-| Método | Publicado retorno ao analisador |
+| Método | Retorno publicado para o analisador |
 |---|---|
 | `extract` | `bool` |
 
-## Funções globaisContratos: [funções globais](FUNCIONES_GLOBALES.md). Variantes que compartilham implementação
-eles são explicados juntos lá; Esta lista preserva todas as grafias registradas.
+## Funções globais
 
--`__`
+Contratos: [funções globais](FUNCIONES_GLOBALES.md). Variantes que compartilham implementação
+são explicadas juntas lá; esta lista preserva todas as grafias registradas.
+
+- `__`
 - `abs`
 - `all`
 - `any`
@@ -812,4 +830,4 @@ eles são explicados juntos lá; Esta lista preserva todas as grafias registrada
 - `values`
 - `view`
 
-Total: 43 classes, 404 métodos e 126 built-ins.
+Total: 44 classes, 408 métodos e 126 built-ins.

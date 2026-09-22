@@ -38,6 +38,7 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 		go func() {
 			defer func() {
 				recover()
+				forked.Free()
 				close(generator.items)
 			}()
 			forked.callMethodEvaluatedWithPlan(method, instance, arguments, writeBack, compiled)

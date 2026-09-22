@@ -19,13 +19,8 @@ func (r *Runtime) executeProcessMethod(instance *Instance, method string, args [
 
 	switch method {
 	case "constructor":
-		// Process(command, args, options?)
-		// Check ALLOW_SYSTEM_RUN inside the implementation or constructor?
-		// System::Run checks it, so we should too.
-		allow, ok := r.Env["ALLOW_SYSTEM_RUN"]
-		if !ok || (allow != "true" && allow != "1") {
-			fmt.Println("[Process::Security] Error: Ejecución de procesos bloqueada. Configure ALLOW_SYSTEM_RUN=true en su entorno.")
-			return instance
+		if err := r.RequireCapability("process"); err != nil {
+			panic(err)
 		}
 
 		if len(args) == 0 {
@@ -100,18 +95,22 @@ func (r *Runtime) executeProcessMethod(instance *Instance, method string, args [
 				// Native channel send is not exposed easily here if we want to respect runtime locks?
 				// Actually, channels in go are thread-safe.
 				// r.Channel implementation uses Go channels.
-				outChan.Ch <- scanner.Text()
+				if err := outChan.TrySend(scanner.Text()); err != nil {
+					break
+				}
 			}
-			close(outChan.Ch)
+			_ = outChan.TryClose()
 		}()
 
 		// STDERR Reader
 		go func() {
 			scanner := bufio.NewScanner(stderrPipe)
 			for scanner.Scan() {
-				errChan.Ch <- scanner.Text()
+				if err := errChan.TrySend(scanner.Text()); err != nil {
+					break
+				}
 			}
-			close(errChan.Ch)
+			_ = errChan.TryClose()
 		}()
 
 		return true

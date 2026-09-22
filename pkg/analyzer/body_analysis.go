@@ -93,7 +93,7 @@ func (a *Analyzer) analyzeCallable(parameters []*parser.Parameter, body *parser.
 			a.redeclaration(parameter.Name.Value, parameter.Name.Token)
 			continue
 		}
-		local.put(&symbol{Name: parameter.Name.Value, Type: parameterType, Kind: symbolParameter, Token: parameter.Name.Token, File: a.file, Dynamic: parameterType.IsDynamic()})
+		local.put(&symbol{Name: parameter.Name.Value, Type: parameterType, Kind: symbolParameter, Token: parameter.Name.Token, File: a.file, Dynamic: parameterType.IsDynamic(), Initialized: true})
 		if parameter.DefaultValue != nil {
 			valueType := a.inferExpression(parameter.DefaultValue, local)
 			if !a.assignableExpression(parameterType, valueType, parameter.DefaultValue) {
@@ -197,8 +197,10 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 			if existing, exists := current.local(keyName); exists {
 				existing.Type = typesystem.Type{Kind: typesystem.Unknown}
 				existing.Kind = symbolIteration
+				existing.Initialized = true
+				current.markInitialized(keyName)
 			} else {
-				current.put(&symbol{Name: keyName, Type: typesystem.Type{Kind: typesystem.Unknown}, Kind: symbolIteration, Token: node.Token, File: a.file, Inferred: true})
+				current.put(&symbol{Name: keyName, Type: typesystem.Type{Kind: typesystem.Unknown}, Kind: symbolIteration, Token: node.Token, File: a.file, Inferred: true, Initialized: true})
 			}
 		}
 		name := cleanName(node.Value)
@@ -207,8 +209,10 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 			// in the runtime and does not redeclare a typed local.
 			existing.Type = typesystem.Type{Kind: typesystem.Unknown}
 			existing.Kind = symbolIteration
+			existing.Initialized = true
+			current.markInitialized(name)
 		} else {
-			current.put(&symbol{Name: name, Type: typesystem.Type{Kind: typesystem.Unknown}, Kind: symbolIteration, Token: node.Token, File: a.file, Inferred: true})
+			current.put(&symbol{Name: name, Type: typesystem.Type{Kind: typesystem.Unknown}, Kind: symbolIteration, Token: node.Token, File: a.file, Inferred: true, Initialized: true})
 		}
 		if node.Body != nil {
 			a.analyzeBlock(node.Body, current)
@@ -218,19 +222,31 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 			a.analyzeStatement(node.Body, current)
 		}
 	case *parser.TryCatchStatement:
+		tryScope := newScope(current)
 		tryTerminates := false
 		if node.TryBlock != nil {
-			tryTerminates = a.analyzeBlock(node.TryBlock, current)
+			tryTerminates = a.analyzeBlock(node.TryBlock, tryScope)
 		}
+		catchScope := newScope(current)
 		if node.CatchVar != "" {
 			name := cleanName(node.CatchVar)
-			if _, exists := current.local(name); !exists {
-				current.put(&symbol{Name: name, Type: typesystem.Type{Kind: typesystem.Object}, Kind: symbolCatch, Token: node.CatchToken, File: a.file})
+			if _, exists := catchScope.local(name); !exists {
+				catchScope.put(&symbol{Name: name, Type: typesystem.Type{Kind: typesystem.Object}, Kind: symbolCatch, Token: node.CatchToken, File: a.file, Initialized: true})
 			}
 		}
 		catchTerminates := false
 		if node.CatchBlock != nil {
-			catchTerminates = a.analyzeBlock(node.CatchBlock, current)
+			catchTerminates = a.analyzeBlock(node.CatchBlock, catchScope)
+		}
+		for name, sym := range current.symbols {
+			if !current.isInitialized(name) && sym.Kind == symbolVariable {
+				tryInit := tryTerminates || tryScope.isInitialized(name)
+				catchInit := catchTerminates || catchScope.isInitialized(name)
+				if tryInit && catchInit {
+					current.markInitialized(name)
+					sym.Initialized = true
+				}
+			}
 		}
 		return tryTerminates && catchTerminates
 	case *parser.BreakStatement, *parser.ContinueStatement:
@@ -265,7 +281,8 @@ func (a *Analyzer) analyzeDeclaration(node *parser.LetStatement, current *scope,
 	if !warnUnused {
 		kind = symbolImplicit
 	}
-	current.put(&symbol{Name: name, Type: declaredType, Kind: kind, Token: node.Name.Token, File: a.file, Dynamic: dynamic, Inferred: inferred, Constant: node.IsConst, Used: !warnUnused})
+	initialized := node.Value != nil || !warnUnused || kind != symbolVariable
+	current.put(&symbol{Name: name, Type: declaredType, Kind: kind, Token: node.Name.Token, File: a.file, Dynamic: dynamic, Inferred: inferred, Constant: node.IsConst, Used: !warnUnused, Initialized: initialized})
 }
 
 func (a *Analyzer) validateDeclaredType(declaredType typesystem.Type, token parser.Token, context string) {
@@ -280,6 +297,9 @@ func (a *Analyzer) validateDeclaredType(declaredType typesystem.Type, token pars
 			continue
 		}
 		if _, exists := a.interfaces[member.Name]; exists {
+			continue
+		}
+		if _, exists := a.enums[member.Name]; exists {
 			continue
 		}
 		a.add("JOSS-TYPE-009", diagnostics.SeverityError, a.file, token,

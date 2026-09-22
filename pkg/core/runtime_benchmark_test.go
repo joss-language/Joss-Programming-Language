@@ -56,6 +56,7 @@ func benchmarkRuntimeInstance() *Runtime {
 		CustomMiddlewares: make(map[string]interface{}),
 		NativeHandlers:    make(map[string]NativeHandler),
 		MaxCallDepth:      DefaultMaxCallDepth,
+		Capabilities:      DefaultHostCapabilities(),
 	}
 	r.Variables["cout"] = &Cout{}
 	r.Variables["cin"] = &Cin{}

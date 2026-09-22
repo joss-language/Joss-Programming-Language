@@ -18,6 +18,17 @@ func LoadProject(entrypoint string, sourceDirs ...string) ([]SourceUnit, []diagn
 	if absolute, err := filepath.Abs(entrypoint); err == nil {
 		seen[filepath.Clean(absolute)] = true
 	}
+	// A server entrypoint executes routes.joss from the same project root.
+	// Include it in the analysis surface before execution discovers errors.
+	if filepath.Base(entrypoint) == "main.joss" {
+		routesPath := filepath.Join(filepath.Dir(entrypoint), "routes.joss")
+		if info, err := os.Stat(routesPath); err == nil && !info.IsDir() {
+			paths = append(paths, routesPath)
+			if absolute, err := filepath.Abs(routesPath); err == nil {
+				seen[filepath.Clean(absolute)] = true
+			}
+		}
+	}
 
 	for _, sourceDir := range sourceDirs {
 		info, err := os.Stat(sourceDir)

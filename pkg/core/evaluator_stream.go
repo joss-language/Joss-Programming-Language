@@ -54,13 +54,13 @@ func (r *Runtime) evaluateOutputInfix(left, right interface{}, operator string) 
 	}
 	switch stream := left.(type) {
 	case *Cout:
-		fmt.Print(right)
+		fmt.Fprint(r.Output(), right)
 		return stream, true
 	case *Cerr:
-		fmt.Fprint(os.Stderr, right)
+		fmt.Fprint(r.ErrorOutput(), right)
 		return stream, true
 	case *Channel:
-		stream.Ch <- right
+		stream.Send(right)
 		return stream, true
 	default:
 		return nil, false

@@ -65,17 +65,21 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 
 	case "transaction":
 		if len(args) > 0 && r.isCallable(args[0]) {
+			if r.activeTx != nil {
+				panic(&JossError{Type: "TransactionError", Message: "Las transacciones anidadas de GranDB no están soportadas"})
+			}
 			db := r.GetDB()
 			if db == nil {
-				return nil
+				panic(&JossError{Type: "TransactionError", Message: "GranDB requiere una conexión de base de datos"})
 			}
 			tx, err := db.Begin()
 			if err != nil {
-				fmt.Printf("[GranDB Transaction] Error iniciando transacción: %v\n", err)
-				return nil
+				panic(&JossError{Type: "TransactionError", Message: fmt.Sprintf("No se pudo iniciar la transacción: %v", err)})
 			}
 			var res interface{}
+			r.activeTx = tx
 			defer func() {
+				r.activeTx = nil
 				if p := recover(); p != nil {
 					_ = tx.Rollback()
 					panic(p)
@@ -84,8 +88,7 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 			res = r.CallFunction(args[0], []interface{}{instance})
 			if err := tx.Commit(); err != nil {
 				_ = tx.Rollback()
-				fmt.Printf("[GranDB Transaction] Error al confirmar transacción: %v\n", err)
-				return nil
+				panic(&JossError{Type: "TransactionError", Message: fmt.Sprintf("No se pudo confirmar la transacción: %v", err)})
 			}
 			return res
 		}

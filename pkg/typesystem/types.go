@@ -48,6 +48,9 @@ type Type struct {
 }
 
 func (t Type) String() string {
+	if t.Kind == Class && t.Name == "Result" && t.Key != nil && t.Element != nil {
+		return fmt.Sprintf("Result<%s, %s>", t.Key.String(), t.Element.String())
+	}
 	if (t.Kind == Class || t.Kind == Union) && t.Name != "" {
 		return t.Name
 	}
@@ -62,6 +65,12 @@ func (t Type) String() string {
 			return fmt.Sprintf("map<%s, %s>", t.Key.String(), t.Element.String())
 		}
 		return string(Map)
+	}
+	if t.Kind == Channel {
+		if t.Element != nil {
+			return fmt.Sprintf("channel<%s>", t.Element.String())
+		}
+		return string(Channel)
 	}
 	if t.Kind == "" {
 		return string(Unknown)
@@ -191,6 +200,20 @@ func Parse(name string) Type {
 		}
 		return Type{Kind: Map}
 	}
+	if strings.HasPrefix(lower, "channel<") && strings.HasSuffix(name, ">") {
+		inner := strings.TrimSpace(name[8 : len(name)-1])
+		elem := Parse(inner)
+		return Type{Kind: Channel, Element: &elem}
+	}
+	if strings.HasPrefix(lower, "result<") && strings.HasSuffix(name, ">") {
+		inner := strings.TrimSpace(name[7 : len(name)-1])
+		parts := splitGenericArgs(inner)
+		if len(parts) == 2 {
+			okType := Parse(parts[0])
+			errType := Parse(parts[1])
+			return Type{Kind: Class, Name: "Result", Key: &okType, Element: &errType}
+		}
+	}
 
 	switch lower {
 	case "", "unknown", "var":
@@ -293,7 +316,24 @@ func Assignable(destination, source Type) bool {
 	}
 	if destination.Kind == source.Kind {
 		if destination.Kind == Class {
-			return destination.Name == source.Name
+			if destination.Name != source.Name {
+				return false
+			}
+			if destination.Name == "Result" {
+				if destination.Key != nil && source.Key != nil && !Assignable(*destination.Key, *source.Key) {
+					return false
+				}
+				if destination.Element != nil && source.Element != nil && !Assignable(*destination.Element, *source.Element) {
+					return false
+				}
+			}
+			return true
+		}
+		if destination.Kind == Channel {
+			if destination.Element == nil || source.Element == nil {
+				return true
+			}
+			return Assignable(*destination.Element, *source.Element)
 		}
 		if destination.Kind == Array {
 			if destination.Element == nil || source.Element == nil {
@@ -309,8 +349,9 @@ func Assignable(destination, source Type) bool {
 		}
 		return true
 	}
-	// Integer values are losslessly accepted by float variables, matching the
-	// runtime's existing numeric compatibility rule.
+	// Integer values are accepted by float variables per the language's numeric
+	// assignment rules. Note that integer values exceeding 2^53 (e.g. 9007199254740993)
+	// cannot be represented exactly in IEEE 754 float64 and incur precision loss.
 	if destination.Kind == Float && source.Kind == Int {
 		return true
 	}

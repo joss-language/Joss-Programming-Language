@@ -80,7 +80,7 @@ func (r *Runtime) executeUpdateMethod(instance *Instance, args []interface{}) in
 	instance.Fields["_bindings"] = []interface{}{}
 
 	// Execute query
-	result, err := r.GetDB().Exec(query, updateBindings...)
+	result, err := r.databaseExecutor().Exec(query, updateBindings...)
 	if err != nil {
 		panic(fmt.Sprintf("GranDB Error en update: %v", err))
 	}
@@ -100,7 +100,7 @@ func (r *Runtime) tableHasColumn(table, column string) bool {
 		return false
 	}
 
-	rows, err := r.GetDB().Query(fmt.Sprintf("SELECT * FROM %s LIMIT 0", table))
+	rows, err := r.databaseExecutor().Query(fmt.Sprintf("SELECT * FROM %s LIMIT 0", table))
 	if err != nil {
 		fmt.Printf("[GranDB] No se pudo inspeccionar columnas de %s: %v\n", table, err)
 		return false
@@ -150,7 +150,7 @@ func (r *Runtime) executeIncrementMethod(instance *Instance, args []interface{},
 
 	resetReadState(instance)
 	execBindings := append([]interface{}{amount}, bindings...)
-	res, err := r.GetDB().Exec(query, execBindings...)
+	res, err := r.databaseExecutor().Exec(query, execBindings...)
 	if err != nil {
 		panic(fmt.Sprintf("GranDB Error en increment/decrement: %v", err))
 	}

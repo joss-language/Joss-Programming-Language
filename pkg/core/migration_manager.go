@@ -40,7 +40,7 @@ func (r *Runtime) GetExecutedMigrations() map[string]bool {
 		return executed
 	}
 
-	rows, err := r.GetDB().Query(fmt.Sprintf("SELECT migration FROM %s", tableName))
+	rows, err := r.databaseExecutor().Query(fmt.Sprintf("SELECT migration FROM %s", tableName))
 	if err != nil {
 		return executed
 	}
@@ -67,7 +67,7 @@ func (r *Runtime) GetNextBatch() int {
 	}
 
 	var maxBatch sql.NullInt64
-	err := r.GetDB().QueryRow(fmt.Sprintf("SELECT MAX(batch) FROM %s", tableName)).Scan(&maxBatch)
+	err := r.databaseExecutor().QueryRow(fmt.Sprintf("SELECT MAX(batch) FROM %s", tableName)).Scan(&maxBatch)
 	if err != nil {
 		return 1
 	}
@@ -94,7 +94,7 @@ func (r *Runtime) LogMigration(migration string, batch int) error {
 	} else if driver == "sqlserver" {
 		placeholders = "@p1, @p2"
 	}
-	_, err = r.GetDB().Exec(fmt.Sprintf("INSERT INTO %s (migration, batch) VALUES (%s)", tableName, placeholders), migration, batch)
+	_, err = r.databaseExecutor().Exec(fmt.Sprintf("INSERT INTO %s (migration, batch) VALUES (%s)", tableName, placeholders), migration, batch)
 	return err
 }
 
@@ -113,7 +113,7 @@ func (r *Runtime) DropAllTables() {
 
 	if dbDriver == "sqlite" {
 		// SQLite: Get all tables except sqlite_* system tables
-		rows, err := r.GetDB().Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+		rows, err := r.databaseExecutor().Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
 		if err != nil {
 			fmt.Printf("[Migration] Error obteniendo tablas: %v\n", err)
 			return
@@ -129,7 +129,7 @@ func (r *Runtime) DropAllTables() {
 
 		// Drop each table
 		for _, table := range tables {
-			_, err := r.GetDB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
+			_, err := r.databaseExecutor().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
 			if err != nil {
 				fmt.Printf("[Migration] Error eliminando tabla %s: %v\n", table, err)
 			} else {
@@ -137,7 +137,7 @@ func (r *Runtime) DropAllTables() {
 			}
 		}
 	} else if dbDriver == "postgres" {
-		rows, err := r.GetDB().Query("SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'")
+		rows, err := r.databaseExecutor().Query("SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'")
 		if err != nil {
 			fmt.Printf("[Migration] Error obteniendo tablas: %v\n", err)
 			return
@@ -152,7 +152,7 @@ func (r *Runtime) DropAllTables() {
 		for _, table := range tables {
 			quoted, err := quoteSchemaIdentifier(table, "postgres")
 			if err == nil {
-				_, _ = r.GetDB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s CASCADE", quoted))
+				_, _ = r.databaseExecutor().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s CASCADE", quoted))
 			}
 		}
 	} else {
@@ -163,7 +163,7 @@ func (r *Runtime) DropAllTables() {
 			return
 		}
 
-		rows, err := r.GetDB().Query("SELECT table_name FROM information_schema.tables WHERE table_schema = ?", dbName)
+		rows, err := r.databaseExecutor().Query("SELECT table_name FROM information_schema.tables WHERE table_schema = ?", dbName)
 		if err != nil {
 			fmt.Printf("[Migration] Error obteniendo tablas: %v\n", err)
 			return
@@ -178,11 +178,11 @@ func (r *Runtime) DropAllTables() {
 		}
 
 		// Disable foreign key checks for MySQL
-		r.GetDB().Exec("SET FOREIGN_KEY_CHECKS = 0")
+		r.databaseExecutor().Exec("SET FOREIGN_KEY_CHECKS = 0")
 
 		// Drop each table
 		for _, table := range tables {
-			_, err := r.GetDB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`", table))
+			_, err := r.databaseExecutor().Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`", table))
 			if err != nil {
 				fmt.Printf("[Migration] Error eliminando tabla %s: %v\n", table, err)
 			} else {
@@ -191,6 +191,6 @@ func (r *Runtime) DropAllTables() {
 		}
 
 		// Re-enable foreign key checks
-		r.GetDB().Exec("SET FOREIGN_KEY_CHECKS = 1")
+		r.databaseExecutor().Exec("SET FOREIGN_KEY_CHECKS = 1")
 	}
 }

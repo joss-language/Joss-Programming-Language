@@ -40,7 +40,7 @@ func (r *Runtime) EnsureAuthTables() {
 			name VARCHAR(50) UNIQUE
 		)`, rolesTable)
 	}
-	r.GetDB().Exec(queryRoles)
+	r.databaseExecutor().Exec(queryRoles)
 
 	// Seed Roles
 	// SQLite doesn't support INSERT IGNORE. Use INSERT OR IGNORE.
@@ -56,8 +56,8 @@ func (r *Runtime) EnsureAuthTables() {
 	if dbDriver == "postgres" {
 		roleSuffix = " ON CONFLICT (id) DO NOTHING"
 	}
-	r.GetDB().Exec(fmt.Sprintf("%s %s (id, name) VALUES (1, 'admin')%s", insertRole, rolesTable, roleSuffix))
-	r.GetDB().Exec(fmt.Sprintf("%s %s (id, name) VALUES (2, 'client')%s", insertRole, rolesTable, roleSuffix))
+	r.databaseExecutor().Exec(fmt.Sprintf("%s %s (id, name) VALUES (1, 'admin')%s", insertRole, rolesTable, roleSuffix))
+	r.databaseExecutor().Exec(fmt.Sprintf("%s %s (id, name) VALUES (2, 'client')%s", insertRole, rolesTable, roleSuffix))
 
 	// 2. Create Users Table
 	var queryUsers string
@@ -95,5 +95,5 @@ func (r *Runtime) EnsureAuthTables() {
 			FOREIGN KEY (role_id) REFERENCES %s(id)
 		)`, usersTable, rolesTable)
 	}
-	r.GetDB().Exec(queryUsers)
+	r.databaseExecutor().Exec(queryUsers)
 }

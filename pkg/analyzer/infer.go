@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
@@ -93,6 +94,7 @@ func (a *Analyzer) inferExpression(expression parser.Expression, current *scope)
 			trueType = a.inferExpression(node.Condition, trueScope)
 		}
 		falseType := a.inferExpression(node.False, falseScope)
+		a.mergeBranchInitialization(current, trueScope, falseScope, node.True, node.False)
 		return commonType(trueType, falseType)
 	case *parser.IndexExpression:
 		containerType := a.inferExpression(node.Left, current)
@@ -162,18 +164,58 @@ func (a *Analyzer) inferExpression(expression parser.Expression, current *scope)
 		}
 		return typesystem.Type{Kind: typesystem.Unknown}
 	case *parser.MatchExpression:
-		a.inferExpression(node.Subject, current)
+		subjectType := a.inferExpression(node.Subject, current)
 		result := typesystem.Type{Kind: typesystem.Unknown}
+		hasDefault := false
+		coveredCases := make(map[string]bool)
 		for _, arm := range node.Arms {
-			if !arm.IsDefault {
-				for _, key := range arm.Keys {
-					if identifier, ok := key.(*parser.Identifier); ok && identifier.Value == "default" {
-						continue
+			if arm.IsDefault {
+				hasDefault = true
+			}
+			for _, key := range arm.Keys {
+				if identifier, ok := key.(*parser.Identifier); ok && identifier.Value == "default" {
+					hasDefault = true
+					continue
+				}
+				a.inferExpression(key, current)
+				if subjectType.Kind == typesystem.Class {
+					if enumDef, isEnum := a.enums[subjectType.Name]; isEnum {
+						if id, ok := key.(*parser.Identifier); ok {
+							if _, exists := enumDef.Cases[id.Value]; exists {
+								coveredCases[id.Value] = true
+							}
+						} else if member, ok := key.(*parser.MemberExpression); ok && member.Property != nil {
+							if _, exists := enumDef.Cases[member.Property.Value]; exists {
+								coveredCases[member.Property.Value] = true
+							}
+						} else if infix, ok := key.(*parser.InfixExpression); ok && infix.Operator == "::" {
+							if rightId, ok := infix.Right.(*parser.Identifier); ok {
+								if _, exists := enumDef.Cases[rightId.Value]; exists {
+									coveredCases[rightId.Value] = true
+								}
+							}
+						}
 					}
-					a.inferExpression(key, current)
 				}
 			}
 			result = commonType(result, a.inferExpression(arm.Value, current))
+		}
+		if subjectType.Kind == typesystem.Class {
+			if enumDef, isEnum := a.enums[subjectType.Name]; isEnum && !hasDefault {
+				var missing []string
+				for caseName := range enumDef.Cases {
+					if !coveredCases[caseName] {
+						missing = append(missing, caseName)
+					}
+				}
+				if len(missing) > 0 {
+					sort.Strings(missing)
+					a.add("JOSS-FLOW-002", diagnostics.SeverityWarning, a.file, node.Token,
+						fmt.Sprintf("Match expression on enum `%s` is not exhaustive; missing cases: %s.", subjectType.Name, strings.Join(missing, ", ")),
+						"Match expressions on enums should cover all cases or declare a `default` arm.",
+						"Add the missing cases or a `default => ...` arm.")
+				}
+			}
 		}
 		return result
 	case *parser.IsExpression:
@@ -213,6 +255,12 @@ func (a *Analyzer) inferIdentifier(identifier *parser.Identifier, current *scope
 		}
 	}
 	if value, exists := current.resolve(name); exists {
+		if !current.isInitialized(name) && !value.Synthetic && value.Kind == symbolVariable {
+			a.add("JOSS-SYM-001", diagnostics.SeverityError, a.file, identifier.Token,
+				fmt.Sprintf("Variable `$%s` is used before being initialized.", name),
+				"The variable was declared without an initial value and has not been assigned yet.",
+				"Assign a value to the variable before reading it.")
+		}
 		value.Used = true
 		return value.Type
 	}
@@ -252,16 +300,34 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 					"Constants are immutable after their declaration.", "Create a new variable instead of assigning to the constant.")
 				return existing.Type
 			}
-			if existing.Inferred && !existing.Type.IsKnown() {
-				existing.Type = typesystem.MergeInference(existing.Type, valueType)
+			targetType := existing.Type
+			if existing.Synthetic && existing.Origin != nil {
+				targetType = existing.Origin.Type
 			}
-			if !existing.Dynamic && !a.assignableExpression(existing.Type, valueType, assignment.Value) {
-				a.typeMismatch("JOSS-TYPE-001", name, existing.Type, valueType, identifier.Token, "assignment")
+			if existing.Inferred && !targetType.IsKnown() {
+				targetType = typesystem.MergeInference(targetType, valueType)
+				if existing.Origin != nil {
+					existing.Origin.Type = targetType
+				}
+				existing.Type = targetType
+			}
+			if !existing.Dynamic && !a.assignableExpression(targetType, valueType, assignment.Value) {
+				a.typeMismatch("JOSS-TYPE-001", name, targetType, valueType, identifier.Token, "assignment")
+			}
+			if existing.Synthetic {
+				existing.Type = valueType
+			}
+			current.markInitialized(name)
+			if _, isLocal := current.local(name); isLocal {
+				existing.Initialized = true
+				if existing.Origin != nil {
+					existing.Origin.Initialized = true
+				}
 			}
 			return existing.Type
 		}
 		inferredType := typesystem.MergeInference(typesystem.Type{Kind: typesystem.Unknown}, valueType)
-		current.put(&symbol{Name: name, Type: inferredType, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true})
+		current.put(&symbol{Name: name, Type: inferredType, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true, Initialized: true})
 		return inferredType
 	}
 	if arrLit, ok := assignment.Left.(*parser.ArrayLiteral); ok {
@@ -290,8 +356,15 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 					if existing.Inferred && !existing.Type.IsKnown() {
 						existing.Type = elemType
 					}
+					current.markInitialized(name)
+					if _, isLocal := current.local(name); isLocal {
+						existing.Initialized = true
+						if existing.Origin != nil {
+							existing.Origin.Initialized = true
+						}
+					}
 				} else {
-					current.put(&symbol{Name: name, Type: elemType, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true})
+					current.put(&symbol{Name: name, Type: elemType, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true, Initialized: true})
 				}
 			}
 		}
@@ -323,8 +396,15 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 					if existing.Inferred && !existing.Type.IsKnown() {
 						existing.Type = targetType
 					}
+					current.markInitialized(name)
+					if _, isLocal := current.local(name); isLocal {
+						existing.Initialized = true
+						if existing.Origin != nil {
+							existing.Origin.Initialized = true
+						}
+					}
 				} else {
-					current.put(&symbol{Name: name, Type: targetType, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true})
+					current.put(&symbol{Name: name, Type: targetType, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true, Initialized: true})
 				}
 			}
 		}
@@ -350,6 +430,16 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 				}
 				return field.Type
 			}
+		}
+		return valueType
+	}
+	if index, ok := assignment.Left.(*parser.IndexExpression); ok {
+		containerType := a.inferExpression(index.Left, current)
+		a.inferExpression(index, current)
+		if containerType.Element != nil && !a.assignableExpression(*containerType.Element, valueType, assignment.Value) {
+			a.add("JOSS-TYPE-001", diagnostics.SeverityError, a.file, index.Token,
+				fmt.Sprintf("Cannot assign `%s` to an element of `%s`.", valueType.String(), containerType.String()),
+				"Typed collections require compatible element values.", "Convert the value or change the collection type.")
 		}
 		return valueType
 	}
@@ -540,5 +630,21 @@ func tokenOfExpression(expression parser.Expression) parser.Token {
 		return node.Token
 	default:
 		return parser.Token{}
+	}
+}
+
+func (a *Analyzer) mergeBranchInitialization(current *scope, trueScope, falseScope *scope, trueExpr, falseExpr parser.Expression) {
+	trueTerminates := trueExpr != nil && expressionTerminatesCallable(trueExpr)
+	falseTerminates := falseExpr != nil && expressionTerminatesCallable(falseExpr)
+
+	for name, sym := range current.symbols {
+		if !current.isInitialized(name) && sym.Kind == symbolVariable {
+			trueInit := trueTerminates || trueScope.isInitialized(name)
+			falseInit := falseTerminates || falseScope.isInitialized(name)
+			if trueInit && falseInit {
+				current.markInitialized(name)
+				sym.Initialized = true
+			}
+		}
 	}
 }

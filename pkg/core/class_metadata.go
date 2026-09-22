@@ -183,3 +183,16 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 	r.classMetadataCache[className] = meta
 	return meta
 }
+
+// InvalidateClassMetadata purges cached metadata for a specific class, or for all classes if className is empty.
+func (r *Runtime) InvalidateClassMetadata(className string) {
+	r.planMu.Lock()
+	defer r.planMu.Unlock()
+	if r.classMetadataCache != nil {
+		if className == "" {
+			clear(r.classMetadataCache)
+		} else {
+			delete(r.classMetadataCache, className)
+		}
+	}
+}

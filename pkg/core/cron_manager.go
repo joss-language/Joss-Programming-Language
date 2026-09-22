@@ -62,21 +62,21 @@ func (r *Runtime) TickCron() {
 
 		// Reset stale locks once on start
 		cronDBResetOnce.Do(func() {
-			_, _ = r.GetDB().Exec(fmt.Sprintf("UPDATE %s SET is_running = 0 WHERE is_running = 1", tableName))
+			_, _ = r.databaseExecutor().Exec(fmt.Sprintf("UPDATE %s SET is_running = 0 WHERE is_running = 1", tableName))
 		})
 
 		// Auto-sync in-memory registered tasks to DB
 		scheduledTasksMu.RLock()
 		for name, expr := range scheduledSchedules {
 			var exists int
-			err := r.GetDB().QueryRow(fmt.Sprintf("SELECT 1 FROM %s WHERE name = ?", tableName), name).Scan(&exists)
+			err := r.databaseExecutor().QueryRow(fmt.Sprintf("SELECT 1 FROM %s WHERE name = ?", tableName), name).Scan(&exists)
 			if err != nil {
-				_, _ = r.GetDB().Exec(fmt.Sprintf("INSERT INTO %s (name, schedule, status) VALUES (?, ?, 'idle')", tableName), name, expr)
+				_, _ = r.databaseExecutor().Exec(fmt.Sprintf("INSERT INTO %s (name, schedule, status) VALUES (?, ?, 'idle')", tableName), name, expr)
 			}
 		}
 		scheduledTasksMu.RUnlock()
 
-		rows, err := r.GetDB().Query(fmt.Sprintf("SELECT name, schedule, is_running FROM %s", tableName))
+		rows, err := r.databaseExecutor().Query(fmt.Sprintf("SELECT name, schedule, is_running FROM %s", tableName))
 		if err == nil {
 			defer rows.Close()
 			for rows.Next() {
@@ -141,6 +141,7 @@ func (r *Runtime) TickCron() {
 					if rec := recover(); rec != nil {
 						fmt.Printf("[Cron] Error en tarea in-memory %s: %v\n", taskName, rec)
 					}
+					newR.Free()
 					inMemoryRunningMu.Lock()
 					inMemoryRunning[taskName] = false
 					inMemoryRunningMu.Unlock()
@@ -157,7 +158,7 @@ func (r *Runtime) RunCronTask(name string, block *parser.BlockStatement) {
 	tableName := prefix + "cron"
 
 	// Lock task
-	_, err := r.GetDB().Exec(fmt.Sprintf("UPDATE %s SET is_running = 1, status = 'running' WHERE name = ?", tableName), name)
+	_, err := r.databaseExecutor().Exec(fmt.Sprintf("UPDATE %s SET is_running = 1, status = 'running' WHERE name = ?", tableName), name)
 	if err != nil {
 		return
 	}
@@ -168,13 +169,14 @@ func (r *Runtime) RunCronTask(name string, block *parser.BlockStatement) {
 			if rec := recover(); rec != nil {
 				fmt.Printf("[Cron] Error en tarea %s: %v\n", name, rec)
 				if r.GetDB() != nil {
-					_, _ = r.GetDB().Exec(fmt.Sprintf("UPDATE %s SET is_running = 0, status = 'error', last_run_at = CURRENT_TIMESTAMP WHERE name = ?", tableName), name)
+					_, _ = r.databaseExecutor().Exec(fmt.Sprintf("UPDATE %s SET is_running = 0, status = 'error', last_run_at = CURRENT_TIMESTAMP WHERE name = ?", tableName), name)
 				}
 			} else {
 				if r.GetDB() != nil {
-					_, _ = r.GetDB().Exec(fmt.Sprintf("UPDATE %s SET is_running = 0, status = 'completed', last_run_at = CURRENT_TIMESTAMP WHERE name = ?", tableName), name)
+					_, _ = r.databaseExecutor().Exec(fmt.Sprintf("UPDATE %s SET is_running = 0, status = 'completed', last_run_at = CURRENT_TIMESTAMP WHERE name = ?", tableName), name)
 				}
 			}
+			newR.Free()
 		}()
 		newR.executeBlock(block)
 	}()

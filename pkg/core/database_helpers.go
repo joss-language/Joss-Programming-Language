@@ -6,6 +6,21 @@ import (
 	"strings"
 )
 
+type sqlQueryExecutor interface {
+	Exec(string, ...interface{}) (sql.Result, error)
+	Query(string, ...interface{}) (*sql.Rows, error)
+	QueryRow(string, ...interface{}) *sql.Row
+}
+
+// databaseExecutor routes GranDB operations through the transaction owned by
+// the current callback. Other runtimes keep using their own DB connection.
+func (r *Runtime) databaseExecutor() sqlQueryExecutor {
+	if r.activeTx != nil {
+		return r.activeTx
+	}
+	return r.GetDB()
+}
+
 // rowsToMap converts SQL rows to []map[string]interface{}
 func rowsToMap(rows *sql.Rows) []map[string]interface{} {
 	var results []map[string]interface{}

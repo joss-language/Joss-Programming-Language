@@ -8,6 +8,7 @@ import (
 	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
 	runtimevalue "github.com/jossecurity/joss/pkg/runtime/value"
+	"github.com/jossecurity/joss/pkg/typesystem"
 )
 
 func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
@@ -122,6 +123,12 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 
 	if indexExp, ok := ae.Left.(*parser.IndexExpression); ok {
 		left := r.evaluateExpression(indexExp.Left)
+		if elementType := r.collectionElementType(indexExp.Left); elementType != nil {
+			val = r.coerceToParsedType(val, *elementType)
+			if !r.checkParsedType(val, *elementType) {
+				panic(&JossError{Type: "TypeError", Message: fmt.Sprintf("El elemento requiere %s", elementType.String()), File: r.CurrentFile, Line: indexExp.Token.Line})
+			}
+		}
 
 		if indexExp.Index == nil {
 			if list, ok := left.([]interface{}); ok {
@@ -158,6 +165,29 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 	}
 
 	fmt.Printf("Error: Asignación inválida a %T\n", ae.Left)
+	return nil
+}
+
+func (r *Runtime) collectionElementType(expression parser.Expression) *typesystem.Type {
+	if identifier, ok := expression.(*parser.Identifier); ok {
+		if slot, resolved := r.slotForIdentifier(identifier); resolved && slot.Type.Element != nil {
+			return slot.Type.Element
+		}
+		if declared, exists := r.VarTypes[identifier.Value]; exists {
+			return typesystem.Parse(declared).Element
+		}
+	} else if member, ok := expression.(*parser.MemberExpression); ok && member.Property != nil {
+		left := r.evaluateExpression(member.Left)
+		if inst, ok := left.(*Instance); ok {
+			if decl := r.lookupInstanceField(inst, member.Property.Value); decl != nil {
+				return typesystem.Parse(decl.Token.Literal).Element
+			}
+		}
+	} else if indexExp, ok := expression.(*parser.IndexExpression); ok {
+		if parentElem := r.collectionElementType(indexExp.Left); parentElem != nil && parentElem.Element != nil {
+			return parentElem.Element
+		}
+	}
 	return nil
 }
 

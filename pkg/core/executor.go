@@ -116,6 +116,7 @@ func (r *Runtime) executeMain(program *parser.Program) {
 }
 
 func (r *Runtime) executeBlock(block *parser.BlockStatement) interface{} {
+	r.checkExecutionCancelled()
 	var result interface{}
 	for _, stmt := range block.Statements {
 		result = r.executeStatement(stmt)
@@ -135,6 +136,7 @@ func (r *Runtime) registerClass(stmt *parser.ClassStatement) {
 }
 
 func (r *Runtime) executeStatement(stmt parser.Statement) interface{} {
+	r.checkExecutionCancelled()
 	switch s := stmt.(type) {
 	case *parser.LetStatement:
 		if _, resolved := r.slotForIdentifier(s.Name); resolved {
@@ -214,7 +216,7 @@ func (r *Runtime) executeStatement(stmt parser.Statement) interface{} {
 		return r.executeForeach(s)
 	case *parser.EchoStatement:
 		val := r.evaluateExpression(s.Value)
-		fmt.Println(val)
+		fmt.Fprintln(r.Output(), val)
 	case *parser.WhileStatement:
 		return r.executeWhile(s)
 	case *parser.GuardStatement:

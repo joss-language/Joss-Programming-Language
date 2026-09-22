@@ -37,7 +37,7 @@ func (r *Runtime) executeDeleteMethod(instance *Instance) interface{} {
 	instance.Fields["_bindings"] = []interface{}{}
 
 	// Execute query
-	result, err := r.GetDB().Exec(query, bindings...)
+	result, err := r.databaseExecutor().Exec(query, bindings...)
 	if err != nil {
 		panic(fmt.Sprintf("GranDB Error en delete: %v", err))
 	}
@@ -67,7 +67,7 @@ func (r *Runtime) executeDeleteAllMethod(instance *Instance) interface{} {
 	instance.Fields["_bindings"] = []interface{}{}
 
 	// Execute query
-	result, err := r.GetDB().Exec(query)
+	result, err := r.databaseExecutor().Exec(query)
 	if err != nil {
 		panic(fmt.Sprintf("GranDB Error en deleteAll: %v", err))
 	}
@@ -101,20 +101,20 @@ func (r *Runtime) executeTruncateMethod(instance *Instance) interface{} {
 		query = fmt.Sprintf("DELETE FROM %s", table)
 		fmt.Printf("[GranDB] Truncate Query (SQLite): %s\n", query)
 
-		_, err := r.GetDB().Exec(query)
+		_, err := r.databaseExecutor().Exec(query)
 		if err != nil {
 			fmt.Printf("[GranDB] Error truncate: %v\n", err)
 			return false
 		}
 
 		// Reset auto-increment sequence
-		r.GetDB().Exec(fmt.Sprintf("DELETE FROM sqlite_sequence WHERE name='%s'", strings.TrimPrefix(table, "`")))
+		r.databaseExecutor().Exec(fmt.Sprintf("DELETE FROM sqlite_sequence WHERE name='%s'", strings.TrimPrefix(table, "`")))
 	} else {
 		// MySQL and PostgreSQL have native TRUNCATE
 		query = fmt.Sprintf("TRUNCATE TABLE %s", table)
 		fmt.Printf("[GranDB] Truncate Query (MySQL): %s\n", query)
 
-		_, err := r.GetDB().Exec(query)
+		_, err := r.databaseExecutor().Exec(query)
 		if err != nil {
 			fmt.Printf("[GranDB] Error truncate: %v\n", err)
 			return false

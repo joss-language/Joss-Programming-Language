@@ -16,7 +16,7 @@ func (r *Runtime) executeGetMethod(instance *Instance, args []interface{}) inter
 	query, bindings := r.buildSelectQuery(instance, sel)
 	resetReadState(instance)
 
-	rows, err := r.GetDB().Query(query, bindings...)
+	rows, err := r.databaseExecutor().Query(query, bindings...)
 	if err != nil {
 		panic(fmt.Sprintf("GranDB Error en get: %v", err))
 	}
@@ -37,7 +37,7 @@ func (r *Runtime) executeFirstMethod(instance *Instance, args []interface{}) int
 	query, bindings := r.buildSelectQuery(instance, sel)
 	resetReadState(instance)
 
-	rows, err := r.GetDB().Query(query, bindings...)
+	rows, err := r.databaseExecutor().Query(query, bindings...)
 	if err != nil {
 		panic(fmt.Sprintf("GranDB Error en first: %v", err))
 	}
@@ -157,7 +157,7 @@ func (r *Runtime) executeCountMethod(instance *Instance, args []interface{}) int
 	}
 
 	var count int
-	err := r.GetDB().QueryRow(query, bindings...).Scan(&count)
+	err := r.databaseExecutor().QueryRow(query, bindings...).Scan(&count)
 	if err != nil {
 		panic(fmt.Sprintf("GranDB Error en count: %v", err))
 	}
@@ -262,7 +262,7 @@ func (r *Runtime) executeAggregateMethod(instance *Instance, method string, args
 	}
 
 	var value sql.NullFloat64
-	err := r.GetDB().QueryRow(query, bindings...).Scan(&value)
+	err := r.databaseExecutor().QueryRow(query, bindings...).Scan(&value)
 	if err != nil {
 		panic(fmt.Sprintf("GranDB Error en %s: %v", method, err))
 	}

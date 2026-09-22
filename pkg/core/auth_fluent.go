@@ -28,7 +28,7 @@ func (r *Runtime) executeAuthLoginResultMethod(instance *Instance, method string
 			// Check if any MFA method is active for the user
 			var count int
 			query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE user_id = ? AND is_active = 1", mfaMethodsTable)
-			err := r.GetDB().QueryRow(query, userId).Scan(&count)
+			err := r.databaseExecutor().QueryRow(query, userId).Scan(&count)
 			if err == nil && count > 0 {
 				instance.Fields["requires_2fa"] = true
 			} else {
@@ -142,7 +142,7 @@ func (r *Runtime) executeMFAMethod(instance *Instance, method string, args []int
 			recoveryCodesTable := prefix + "user_recovery_codes"
 
 			// We need to look up all unused codes for this user
-			rows, err := r.GetDB().Query(fmt.Sprintf("SELECT id, code_hash FROM %s WHERE user_id = ? AND used = 0", recoveryCodesTable), userId)
+			rows, err := r.databaseExecutor().Query(fmt.Sprintf("SELECT id, code_hash FROM %s WHERE user_id = ? AND used = 0", recoveryCodesTable), userId)
 			if err != nil {
 				return false
 			}
@@ -153,7 +153,7 @@ func (r *Runtime) executeMFAMethod(instance *Instance, method string, args []int
 				var codeHash string
 				if err := rows.Scan(&id, &codeHash); err == nil {
 					if bcrypt.CompareHashAndPassword([]byte(codeHash), []byte(code)) == nil {
-						r.GetDB().Exec(fmt.Sprintf("UPDATE %s SET used = 1, used_at = CURRENT_TIMESTAMP WHERE id = ?", recoveryCodesTable), id)
+						r.databaseExecutor().Exec(fmt.Sprintf("UPDATE %s SET used = 1, used_at = CURRENT_TIMESTAMP WHERE id = ?", recoveryCodesTable), id)
 						return true
 					}
 				}
@@ -177,7 +177,7 @@ func (r *Runtime) executeTwoFactorMethod(instance *Instance, method string, args
 
 				var count int
 				query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE user_id = ? AND is_active = 1", mfaMethodsTable)
-				err := r.GetDB().QueryRow(query, userId).Scan(&count)
+				err := r.databaseExecutor().QueryRow(query, userId).Scan(&count)
 				if err == nil && count > 0 {
 					return true
 				}
@@ -197,7 +197,7 @@ func (r *Runtime) executeTwoFactorMethod(instance *Instance, method string, args
 			// Get active TOTP secret
 			var secret string
 			query := fmt.Sprintf("SELECT secret FROM %s WHERE user_id = ? AND method_type = 'totp' AND is_active = 1 LIMIT 1", mfaMethodsTable)
-			err := r.GetDB().QueryRow(query, userId).Scan(&secret)
+			err := r.databaseExecutor().QueryRow(query, userId).Scan(&secret)
 			if err == nil && secret != "" {
 				// Criptografía: Desencriptar secreto usando APP_KEY
 				// Para simplificar por ahora, validemos directamente

@@ -1,8 +1,6 @@
 # Native catalog generated
 
-Before: [library and contracts](MODULOS_NATIVOS.md).
-
-Index: [documentation](README.md).
+Before: [library and contracts](MODULOS_NATIVOS.md). Index: [documentation](README.md).
 
 Generated with `go run ./tools/docgen` from `Runtime.RegisterNativeClasses()`.
 Do not edit manually. Each name is an entry in the actual registry. **Return posted**
@@ -12,7 +10,7 @@ tables of contracts and the linked handler. `mixed` does not certify isolation o
 
 ## Auth
 
-Implementation: [executeAuthMethod](../../pkg/core/auth.go#L14).
+Implementation: [executeAuthMethod](../pkg/core/auth.go#L14).
 
 | Method | Posted return to parser |
 |---|---|
@@ -40,7 +38,7 @@ Implementation: [executeAuthMethod](../../pkg/core/auth.go#L14).
 
 ## AuthLoginResult
 
-Implementation: [executeAuthLoginResultMethod](../../pkg/core/auth_fluent.go#L18).
+Implementation: [executeAuthLoginResultMethod](../pkg/core/auth_fluent.go#L18).
 
 | Method | Posted return to parser |
 |---|---|
@@ -52,7 +50,7 @@ Implementation: [executeAuthLoginResultMethod](../../pkg/core/auth_fluent.go#L18
 
 ## Blueprint
 
-Implementation: [executeBlueprintMethod](../../pkg/core/schema_blueprint.go#L34).
+Implementation: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L34).
 
 | Method | Posted return to parser |
 |---|---|
@@ -100,7 +98,7 @@ Implementation: [executeBlueprintMethod](../../pkg/core/schema_blueprint.go#L34)
 
 ## Cache
 
-Implementation: [executeCacheMethod](../../pkg/core/native_cache.go#L18).
+Implementation: [executeCacheMethod](../pkg/core/native_cache.go#L18).
 
 | Method | Posted return to parser |
 |---|---|
@@ -127,7 +125,7 @@ Implementation: [executeCacheMethod](../../pkg/core/native_cache.go#L18).
 
 ## Cron
 
-Implementation: [executeCronMethod](../../pkg/core/cron.go#L11).
+Implementation: [executeCronMethod](../pkg/core/cron.go#L11).
 
 | Method | Posted return to parser |
 |---|---|
@@ -135,7 +133,7 @@ Implementation: [executeCronMethod](../../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementation: [executeExceptionMethod](../../pkg/core/native.go#L367).
+Implementation: [executeExceptionMethod](../pkg/core/native.go#L352).
 
 | Method | Posted return to parser |
 |---|---|
@@ -145,7 +143,7 @@ Implementation: [executeExceptionMethod](../../pkg/core/native.go#L367).
 
 ## GranDB
 
-Implementation: [executeGranDBMethod](../../pkg/core/database.go#L11).
+Implementation: [executeGranDBMethod](../pkg/core/database.go#L11).
 
 | Method | Posted return to parser |
 |---|---|
@@ -294,7 +292,7 @@ Implementation: [executeGranDBMethod](../../pkg/core/database.go#L11).
 
 ## Http
 
-Implementation: [executeHttpMethod](../../pkg/core/http_client.go#L14).
+Implementation: [executeHttpMethod](../pkg/core/http_client.go#L14).
 
 | Method | Posted return to parser |
 |---|---|
@@ -307,6 +305,17 @@ Implementation: [executeHttpMethod](../../pkg/core/http_client.go#L14).
 | `post` | `mixed` |
 | `put` | `mixed` |
 | `request` | `mixed` |
+
+## IndexNow
+
+Implementation: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
+
+| Method | Posted return to parser |
+|---|---|
+| `enabled` | `bool` |
+| `key` | `string` |
+| `keyLocation` | `string` |
+| `submit` | `bool` |
 
 ## JSON
 
@@ -328,7 +337,7 @@ Implementation: [executeHttpMethod](../../pkg/core/http_client.go#L14).
 
 ## MFA
 
-Implementation: [executeMFAMethod](../../pkg/core/auth_fluent.go#L99).
+Implementation: [executeMFAMethod](../pkg/core/auth_fluent.go#L99).
 
 | Method | Posted return to parser |
 |---|---|
@@ -355,7 +364,7 @@ Implementation: [executeMFAMethod](../../pkg/core/auth_fluent.go#L99).
 
 ## Middleware
 
-Registered base class with no native methods of its own.
+Registered base class without native methods of its own.
 
 ## Migration
 
@@ -363,7 +372,7 @@ Registered base class without native methods of its own.
 
 ## Plugin
 
-Implementation: [executePluginMethod](../../pkg/core/native_plugin.go#L49).
+Implementation: [executePluginMethod](../pkg/core/native_plugin.go#L49).
 
 | Method | Posted return to parser |
 |---|---|
@@ -374,7 +383,7 @@ Implementation: [executePluginMethod](../../pkg/core/native_plugin.go#L49).
 
 ## Process
 
-Implementation: [executeProcessMethod](../../pkg/core/native_process.go#L13).
+Implementation: [executeProcessMethod](../pkg/core/native_process.go#L13).
 
 | Method | Posted return to parser |
 |---|---|
@@ -397,7 +406,7 @@ Implementation: [executeProcessMethod](../../pkg/core/native_process.go#L13).
 
 ## Redirect
 
-Implementation: [executeRedirectMethod](../../pkg/core/response.go#L177).
+Implementation: [executeRedirectMethod](../pkg/core/response.go#L177).
 
 | Method | Posted return to parser |
 |---|---|
@@ -405,7 +414,7 @@ Implementation: [executeRedirectMethod](../../pkg/core/response.go#L177).
 
 ## Redis
 
-Implementation: [executeRedisMethod](../../pkg/core/redis.go#L96).
+Implementation: [executeRedisMethod](../pkg/core/redis.go#L96).
 
 | Method | Posted return to parser |
 |---|---|
@@ -420,7 +429,7 @@ Implementation: [executeRedisMethod](../../pkg/core/redis.go#L96).
 
 ## Request
 
-Implementation: [executeRequestMethod](../../pkg/core/request.go#L9).
+Implementation: [executeRequestMethod](../pkg/core/request.go#L9).
 
 | Method | Posted return to parser |
 |---|---|
@@ -448,7 +457,7 @@ Implementation: [executeRequestMethod](../../pkg/core/request.go#L9).
 
 ## Response
 
-Implementation: [executeResponseMethod](../../pkg/core/response.go#L10).
+Implementation: [executeResponseMethod](../pkg/core/response.go#L10).
 
 | Method | Posted return to parser |
 |---|---|
@@ -462,7 +471,7 @@ Implementation: [executeResponseMethod](../../pkg/core/response.go#L10).
 
 ## Router
 
-Implementation: [executeRouterMethod](../../pkg/core/router.go#L12).
+Implementation: [executeRouterMethod](../pkg/core/router.go#L12).
 
 | Method | Posted return to parser |
 |---|---|
@@ -485,7 +494,7 @@ Implementation: [executeRouterMethod](../../pkg/core/router.go#L12).
 
 ## SEO
 
-Implementation: [executeSEOMethod](../../pkg/core/native_seo.go#L12).
+Implementation: [executeSEOMethod](../pkg/core/native_seo.go#L13).
 
 | Method | Posted return to parser |
 |---|---|
@@ -499,7 +508,7 @@ Implementation: [executeSEOMethod](../../pkg/core/native_seo.go#L12).
 
 ## SQLite
 
-Implementation: [executeSQLiteMethod](../../pkg/core/native_sqlite.go#L16).
+Implementation: [executeSQLiteMethod](../pkg/core/native_sqlite.go#L16).
 
 | Method | Posted return to parser |
 |---|---|
@@ -509,7 +518,7 @@ Implementation: [executeSQLiteMethod](../../pkg/core/native_sqlite.go#L16).
 
 ## Schema
 
-Implementation: [executeSchemaMethod](../../pkg/core/schema.go#L119).
+Implementation: [executeSchemaMethod](../pkg/core/schema.go#L119).
 
 | Method | Posted return to parser |
 |---|---|
@@ -523,7 +532,7 @@ Implementation: [executeSchemaMethod](../../pkg/core/schema.go#L119).
 
 ## Server
 
-Implementation: [executeServerControlMethod](../../pkg/core/native_server_control.go#L15).
+Implementation: [executeServerControlMethod](../pkg/core/native_server_control.go#L15).
 
 | Method | Posted return to parser |
 |---|---|
@@ -532,7 +541,7 @@ Implementation: [executeServerControlMethod](../../pkg/core/native_server_contro
 
 ## Session
 
-Implementation: [executeSessionMethod](../../pkg/core/native_extensions.go#L75).
+Implementation: [executeSessionMethod](../pkg/core/native_extensions.go#L75).
 
 | Method | Posted return to parser |
 |---|---|
@@ -544,7 +553,7 @@ Implementation: [executeSessionMethod](../../pkg/core/native_extensions.go#L75).
 
 ## Sitemap
 
-Implementation: [executeSitemapMethod](../../pkg/core/native_seo.go#L127).
+Implementation: [executeSitemapMethod](../pkg/core/native_seo.go#L128).
 
 | Method | Posted return to parser |
 |---|---|
@@ -556,7 +565,7 @@ Implementation: [executeSitemapMethod](../../pkg/core/native_seo.go#L127).
 
 ## SmtpClient
 
-Implementation: [executeSmtpClientMethod](../../pkg/core/smtp_native.go#L12).
+Implementation: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 
 | Method | Posted return to parser |
 |---|---|
@@ -589,7 +598,7 @@ Implementation: [executeSmtpClientMethod](../../pkg/core/smtp_native.go#L12).
 
 ## Stream
 
-Implementation: [executeStreamMethod](../../pkg/core/native_stream.go#L10).
+Implementation: [executeStreamMethod](../pkg/core/native_stream.go#L10).
 
 | Method | Posted return to parser |
 |---|---|
@@ -598,7 +607,7 @@ Implementation: [executeStreamMethod](../../pkg/core/native_stream.go#L10).
 
 ## System
 
-Implementation: [executeSystemMethod](../../pkg/core/system.go#L14).
+Implementation: [executeSystemMethod](../pkg/core/system.go#L14).
 
 | Method | Posted return to parser |
 |---|---|
@@ -612,7 +621,7 @@ Implementation: [executeSystemMethod](../../pkg/core/system.go#L14).
 
 ## Task
 
-Implementation: [executeTaskMethod](../../pkg/core/task.go#L10).
+Implementation: [executeTaskMethod](../pkg/core/task.go#L10).
 
 | Method | Posted return to parser |
 |---|---|
@@ -620,7 +629,7 @@ Implementation: [executeTaskMethod](../../pkg/core/task.go#L10).
 
 ## TwoFactor
 
-Implementation: [executeTwoFactorMethod](../../pkg/core/auth_fluent.go#L168).
+Implementation: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L168).
 
 | Method | Posted return to parser |
 |---|---|
@@ -636,7 +645,7 @@ Implementation: [executeTwoFactorMethod](../../pkg/core/auth_fluent.go#L168).
 
 ## UserStorage
 
-Implementation: [executeUserStorageMethod](../../pkg/core/lib_storage.go#L20).
+Implementation: [executeUserStorageMethod](../pkg/core/lib_storage.go#L20).
 
 | Method | Posted return to parser |
 |---|---|
@@ -648,7 +657,7 @@ Implementation: [executeUserStorageMethod](../../pkg/core/lib_storage.go#L20).
 
 ## View
 
-Implementation: [executeViewMethod](../../pkg/core/view.go#L61).
+Implementation: [executeViewMethod](../pkg/core/view.go#L61).
 
 | Method | Posted return to parser |
 |---|---|
@@ -658,7 +667,7 @@ Implementation: [executeViewMethod](../../pkg/core/view.go#L61).
 
 ## WebResponse
 
-Implementation: [executeWebResponseMethod](../../pkg/core/response.go#L132).
+Implementation: [executeWebResponseMethod](../pkg/core/response.go#L132).
 
 | Method | Posted return to parser |
 |---|---|
@@ -669,7 +678,7 @@ Implementation: [executeWebResponseMethod](../../pkg/core/response.go#L132).
 
 ## WebSocket
 
-Implementation: [executeWebSocketMethod](../../pkg/core/websocket.go#L60).
+Implementation: [executeWebSocketMethod](../pkg/core/websocket.go#L60).
 
 | Method | Posted return to parser |
 |---|---|
@@ -692,7 +701,7 @@ Implementation: [executeWebSocketMethod](../../pkg/core/websocket.go#L60).
 ## Global functions
 
 Contracts: [global functions](FUNCIONES_GLOBALES.md). Variants that share implementation
-are explained together there; This list preserves all registered spellings.
+are explained together there; this list preserves all registered spellings.
 
 - `__`
 - `abs`
@@ -821,4 +830,4 @@ are explained together there; This list preserves all registered spellings.
 - `values`
 - `view`
 
-Total: 43 classes, 404 methods and 126 built-ins.
+Total: 44 classes, 408 methods and 126 built-ins.

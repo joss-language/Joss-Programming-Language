@@ -2,8 +2,11 @@ package core
 
 import (
 	"bufio"
+	"context"
 	"database/sql"
 	"encoding/json"
+	"io"
+	"os"
 	"sync"
 	"sync/atomic"
 
@@ -46,6 +49,8 @@ type Runtime struct {
 	Enums             map[string]*EnumDefinition
 	Functions         map[string]*parser.MethodStatement
 	DB                *sql.DB
+	activeTx          *sql.Tx // current GranDB callback; owned by this Runtime
+	executionContext  context.Context
 	Routes            map[string]map[string]interface{} // HTTP Method -> Path -> Handler
 	CurrentMiddleware []string
 	CustomMiddlewares map[string]interface{} // Name -> Closure/Handler
@@ -81,6 +86,95 @@ type Runtime struct {
 	generatorIndex     int64
 	cinTokens          []string
 	topDefers          []*parser.DeferStatement
+	Out                io.Writer
+	ErrOut             io.Writer
+	Capabilities       HostCapabilities
+	RestrictedMode     bool
+}
+
+// HostCapabilities governs what host operations the runtime is permitted to execute.
+type HostCapabilities struct {
+	AllowProcess bool
+	AllowFS      bool
+	AllowNetwork bool
+}
+
+// DefaultHostCapabilities returns the standard permissive capability set.
+func DefaultHostCapabilities() HostCapabilities {
+	return HostCapabilities{
+		AllowProcess: true,
+		AllowFS:      true,
+		AllowNetwork: true,
+	}
+}
+
+func (r *Runtime) CanExecuteProcess() bool {
+	if r == nil {
+		return false
+	}
+	if r.RestrictedMode || !r.Capabilities.AllowProcess {
+		return false
+	}
+	allow, ok := r.Env["ALLOW_SYSTEM_RUN"]
+	return ok && (allow == "true" || allow == "1")
+}
+
+func (r *Runtime) CanAccessFS() bool {
+	if r == nil {
+		return false
+	}
+	return !r.RestrictedMode && r.Capabilities.AllowFS
+}
+
+func (r *Runtime) CanAccessNetwork() bool {
+	if r == nil {
+		return false
+	}
+	return !r.RestrictedMode && r.Capabilities.AllowNetwork
+}
+
+func (r *Runtime) RequireCapability(capability string) error {
+	switch capability {
+	case "process":
+		if !r.CanExecuteProcess() {
+			return &JossError{
+				Type:    "SecurityError",
+				Message: "Host capability denied: process execution is disabled",
+				File:    r.CurrentFile,
+			}
+		}
+	case "fs":
+		if !r.CanAccessFS() {
+			return &JossError{
+				Type:    "SecurityError",
+				Message: "Host capability denied: filesystem access is disabled",
+				File:    r.CurrentFile,
+			}
+		}
+	case "network":
+		if !r.CanAccessNetwork() {
+			return &JossError{
+				Type:    "SecurityError",
+				Message: "Host capability denied: network access is disabled",
+				File:    r.CurrentFile,
+			}
+		}
+	}
+	return nil
+}
+
+func (r *Runtime) Output() io.Writer {
+	if r != nil && r.Out != nil {
+		return r.Out
+	}
+	return os.Stdout
+}
+
+func (r *Runtime) ErrorOutput() io.Writer {
+	if r != nil && r.ErrOut != nil {
+		return r.ErrOut
+	}
+	return os.Stderr
 }
 
 func (r *Runtime) markCurrentVariablesAsHostGlobals() {
@@ -225,7 +319,11 @@ type EnumDefinition struct {
 
 // Channel represents a Go channel
 type Channel struct {
-	Ch chan interface{}
+	Ch      chan interface{}
+	closing chan struct{}
+	senders atomic.Int64
+	closed  atomic.Bool
+	initMu  sync.Once
 }
 
 func (c *Channel) String() string { return "channel" }

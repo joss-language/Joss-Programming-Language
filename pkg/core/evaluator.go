@@ -8,6 +8,7 @@ import (
 )
 
 func (r *Runtime) evaluateExpression(exp parser.Expression) interface{} {
+	r.checkExecutionCancelled()
 	switch e := exp.(type) {
 	case *parser.StringLiteral:
 		return e.Value

@@ -18,25 +18,32 @@ const (
 )
 
 type symbol struct {
-	Name      string
-	Type      typesystem.Type
-	Kind      symbolKind
-	Token     parser.Token
-	File      string
-	Used      bool
-	Dynamic   bool
-	Inferred  bool
-	Constant  bool
-	Synthetic bool
+	Name        string
+	Type        typesystem.Type
+	Kind        symbolKind
+	Token       parser.Token
+	File        string
+	Used        bool
+	Dynamic     bool
+	Inferred    bool
+	Constant    bool
+	Synthetic   bool
+	Initialized bool
+	Origin      *symbol
 }
 
 type scope struct {
-	parent  *scope
-	symbols map[string]*symbol
+	parent      *scope
+	symbols     map[string]*symbol
+	initialized map[string]bool
 }
 
 func newScope(parent *scope) *scope {
-	return &scope{parent: parent, symbols: make(map[string]*symbol)}
+	return &scope{
+		parent:      parent,
+		symbols:     make(map[string]*symbol),
+		initialized: make(map[string]bool),
+	}
 }
 
 func cleanName(name string) string { return strings.TrimPrefix(name, "$") }
@@ -56,4 +63,30 @@ func (s *scope) resolve(name string) (*symbol, bool) {
 	return nil, false
 }
 
-func (s *scope) put(value *symbol) { s.symbols[cleanName(value.Name)] = value }
+func (s *scope) markInitialized(name string) {
+	if s.initialized == nil {
+		s.initialized = make(map[string]bool)
+	}
+	s.initialized[cleanName(name)] = true
+}
+
+func (s *scope) isInitialized(name string) bool {
+	name = cleanName(name)
+	for curr := s; curr != nil; curr = curr.parent {
+		if curr.initialized != nil && curr.initialized[name] {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *scope) put(value *symbol) {
+	if s.symbols == nil {
+		s.symbols = make(map[string]*symbol)
+	}
+	clean := cleanName(value.Name)
+	s.symbols[clean] = value
+	if value.Initialized {
+		s.markInitialized(clean)
+	}
+}

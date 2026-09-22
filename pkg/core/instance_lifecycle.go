@@ -31,6 +31,7 @@ func (i *Instance) AutoDestroy(r *Runtime, skipHook ...bool) {
 					_ = recover() // Catch any panic in destructor so it doesn't crash the host or GC
 				}()
 				forked := r.Fork()
+				defer forked.Free()
 				forked.CallMethodEvaluated(destructor, i, nil)
 			}()
 		}
@@ -73,10 +74,7 @@ func closeFieldResource(val interface{}) {
 	}
 	// Check for Channel
 	if ch, ok := val.(*Channel); ok && ch != nil && ch.Ch != nil {
-		func() {
-			defer func() { _ = recover() }()
-			close(ch.Ch)
-		}()
+		_ = ch.TryClose()
 		return
 	}
 	// Reflect check for Close() method with 0 arguments

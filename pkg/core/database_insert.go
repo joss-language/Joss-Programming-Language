@@ -76,7 +76,7 @@ func (r *Runtime) insertFromMap(table string, data map[string]interface{}, retur
 	if returnID {
 		if driver == "postgres" {
 			var id int64
-			if err := r.GetDB().QueryRow(query+" RETURNING id", bindings...).Scan(&id); err != nil {
+			if err := r.databaseExecutor().QueryRow(query+" RETURNING id", bindings...).Scan(&id); err != nil {
 				panic(fmt.Sprintf("GranDB Error en insert: %v", err))
 			}
 			return id
@@ -84,11 +84,11 @@ func (r *Runtime) insertFromMap(table string, data map[string]interface{}, retur
 		if driver == "sqlserver" {
 			var id int64
 			outputQuery := strings.Replace(query, " VALUES", " OUTPUT INSERTED.id VALUES", 1)
-			if err := r.GetDB().QueryRow(outputQuery, bindings...).Scan(&id); err == nil && id > 0 {
+			if err := r.databaseExecutor().QueryRow(outputQuery, bindings...).Scan(&id); err == nil && id > 0 {
 				return id
 			}
-			if _, err := r.GetDB().Exec(query, bindings...); err == nil {
-				_ = r.GetDB().QueryRow("SELECT SCOPE_IDENTITY()").Scan(&id)
+			if _, err := r.databaseExecutor().Exec(query, bindings...); err == nil {
+				_ = r.databaseExecutor().QueryRow("SELECT SCOPE_IDENTITY()").Scan(&id)
 				if id > 0 {
 					return id
 				}
@@ -97,7 +97,7 @@ func (r *Runtime) insertFromMap(table string, data map[string]interface{}, retur
 		}
 	}
 
-	result, err := r.GetDB().Exec(query, bindings...)
+	result, err := r.databaseExecutor().Exec(query, bindings...)
 	if err != nil {
 		panic(fmt.Sprintf("GranDB Error en insert: %v", err))
 	}

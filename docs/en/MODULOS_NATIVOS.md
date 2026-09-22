@@ -148,10 +148,12 @@ update metadata; `render()` produces HTML. **SEO::twitter is not registered**:
 use meta for twitter names:*.
 
 `Sitemap::add(url,[lastmod,changefreq,priority])` or `add(mapa)`, `exclude(rutaOArray)`,
-`generate()`, `xsl()` generate XML/XSL. `provider(callback)` is registered,
-but the handler only accepts FunctionLiteral and a source closure evaluates to
-CapturedFunction: Your registration is not guaranteed. Use explicit add while
-that border is corrected. See [SEO and sitemap](SEO_SITEMAP.md).
+`generate()`, `xsl()` generate XML/XSL. `provider(callback)` registers a dynamic
+URL provider. See [SEO and sitemap](SEO_SITEMAP.md).
+
+`IndexNow::key([clave])`, `enabled()`, `keyLocation([base])` and `submit(urls,[clave])`
+enable real-time instant indexing to Bing and Yandex. The command
+`joss indexnow generate` automatically configures the key in the environment.
 
 The closed list of the [catalog](CATALOGO_NATIVO.md) allows you to check which APIs
 are available. The presence of a Go function, a comment or a suggestion

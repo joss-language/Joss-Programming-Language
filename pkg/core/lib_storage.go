@@ -80,7 +80,7 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 				// Check if exists
 				var existingId int
 				check := fmt.Sprintf("SELECT id FROM %s WHERE user_id = ? AND path = ?", storageTable)
-				err := r.GetDB().QueryRow(check, userId, fileName).Scan(&existingId)
+				err := r.databaseExecutor().QueryRow(check, userId, fileName).Scan(&existingId)
 
 				if err == sql.ErrNoRows {
 					// Insert
@@ -88,14 +88,14 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 					if val, ok := r.Env["DB"]; ok && val == "mysql" {
 						insert = fmt.Sprintf("INSERT INTO %s (user_id, path, created_at, updated_at) VALUES (?, ?, NOW(), NOW())", storageTable)
 					}
-					r.GetDB().Exec(insert, userId, fileName)
+					r.databaseExecutor().Exec(insert, userId, fileName)
 				} else {
 					// Update timestamp
 					update := fmt.Sprintf("UPDATE %s SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", storageTable)
 					if val, ok := r.Env["DB"]; ok && val == "mysql" {
 						update = fmt.Sprintf("UPDATE %s SET updated_at = NOW() WHERE id = ?", storageTable)
 					}
-					r.GetDB().Exec(update, existingId)
+					r.databaseExecutor().Exec(update, existingId)
 				}
 			}
 		}
@@ -180,7 +180,7 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 			userId := r.getUserIdFromToken(usersTable, userToken)
 			if userId > 0 {
 				query := fmt.Sprintf("DELETE FROM %s WHERE user_id = ? AND path = ?", storageTable)
-				r.GetDB().Exec(query, userId, fileName)
+				r.databaseExecutor().Exec(query, userId, fileName)
 			}
 		}
 
@@ -393,7 +393,7 @@ func (r *Runtime) getUserIdFromToken(usersTable, token string) int {
 	}
 	var id int
 	query := fmt.Sprintf("SELECT id FROM %s WHERE user_token = ? LIMIT 1", usersTable)
-	err := r.GetDB().QueryRow(query, token).Scan(&id)
+	err := r.databaseExecutor().QueryRow(query, token).Scan(&id)
 	if err != nil {
 		return 0
 	}
@@ -438,6 +438,6 @@ func (r *Runtime) ensureStorageTable(tableName string) {
 		);`, tableName)
 	}
 
-	r.GetDB().Exec(createCtx)
+	r.databaseExecutor().Exec(createCtx)
 	storageTablesEnsured.Store(ensureKey, true)
 }

@@ -36,10 +36,15 @@ func (a *Analyzer) narrowScopeFromCondition(condition parser.Expression, current
 }
 
 func narrowedSymbol(existing *symbol, narrowedType typesystem.Type) *symbol {
+	origin := existing
+	if existing.Origin != nil {
+		origin = existing.Origin
+	}
 	return &symbol{
 		Name: existing.Name, Type: narrowedType, Kind: existing.Kind, Token: existing.Token,
 		File: existing.File, Dynamic: existing.Dynamic, Inferred: existing.Inferred,
-		Constant: existing.Constant, Synthetic: true,
+		Constant: existing.Constant, Synthetic: true, Initialized: existing.Initialized,
+		Origin: origin,
 	}
 }
 

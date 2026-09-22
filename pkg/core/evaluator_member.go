@@ -88,6 +88,7 @@ func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 
 	capturedRuntime := r.Fork()
 	runtime.SetFinalizer(instance, func(inst *Instance) {
+		defer capturedRuntime.Free()
 		inst.AutoDestroy(capturedRuntime)
 	})
 
