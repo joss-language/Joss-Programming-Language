@@ -65,6 +65,7 @@ that you already know another language.
 - [Language architecture](ARQUITECTURA.md)
 - [Contribution Guide](CONTRIBUIR.md)- [Documentation audit](DOCUMENTATION_AUDIT.md)
 - [Joss Language Audit 2026](JOSS_LANGUAGE_AUDIT_2026.md)
+- [GranDB ORM Audit 2026](GRANDB_ORM_AUDIT_2026.md)
 - [Technical audit of 2026](AUDITORIA_TECNICA_2026.md)
 - [Runtime Optimization Audit](RUNTIME_OPTIMIZATION_AUDIT.md)
 - [Historical news 3.6.7](NOVEDADES_367.md)

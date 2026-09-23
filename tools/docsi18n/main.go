@@ -722,6 +722,13 @@ func translatedText(payload []any) (string, error) {
 }
 
 func syncMirrors(files []string) {
+	// Keep the legacy root mirror consumed by the current documentation route
+	// byte-identical to the canonical Spanish source.
+	for _, canonical := range files {
+		data, err := os.ReadFile(canonical)
+		must(err)
+		must(os.WriteFile(filepath.Join(publicRoot, filepath.Base(canonical)), data, 0644))
+	}
 	for _, locale := range []string{"es", "en", "pt"} {
 		dir := filepath.Join(publicRoot, locale)
 		must(os.MkdirAll(dir, 0755))

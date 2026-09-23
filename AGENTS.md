@@ -173,6 +173,25 @@ Las reglas arquitectónicas negativas siguen vigentes: analyzer no importa core;
 - **Metadata Nativa Declarativa**: 10 clases nativas (`Stack`, `Queue`, `Math`, `JSON`, `Markdown`, `Str`, `UUID`, `Lang`, `Console`, `Zip`) usan `NativeMethodDefinition`. Sólo se publican nombres y retornos comprobados; `ArityKnown=false` significa desconocimiento legítimo y no debe describirse como aridad exacta.
 - **Directivas y Posicionamiento de Plantillas**: `pkg/viewtemplate` implementa cálculo de columnas basado en runas Unicode (`utf8.RuneCountInString`), garantizando que caracteres acentuados o multibyte en directivas mantengan rangos 1-based exactos y compatibles con LSP/diagnósticos.
 
+## Sexta fase de arquitectura — Model ORM
+
+- La metadata de una subclase de `Model` se construye desde literales del AST, se conserva inmutable dentro de `classMetadataCache` y nunca usa un cache global mutable.
+- Valores de DB pasan por el hydrator y sus casts antes de entrar en `Instance.Fields`; `NULL` permanece `nil`. La serialización aplica `hidden`/`visible` y relaciones cargadas.
+- `fillable`/`guarded` solo gobiernan asignación masiva. Hydration y asignación explícita no dependen de esa política.
+- `save()` usa el estado explícito `exists`, compara atributos actuales con `original`, omite UPDATE sin cambios y sincroniza el estado solo después de SQL exitoso.
+- Consultas de `Model` componen el builder de GranDB. El builder directo conserva mapas; el builder de modelo hidrata instancias.
+- `belongsTo`, `hasOne` y `hasMany` producen la misma consulta de modelo. `with`, `load` y `loadMissing` comparten un cargador eager por lotes e indexan resultados por clave.
+
+## Reglas de evolución de GranDB
+
+- Los valores SQL se envían como bindings. Tablas, columnas, aliases, operadores y direcciones son estructura: deben validarse y compilarse, nunca tratarse como values ni interpolarse desde entrada de usuario.
+- Una expresión del ORM debe tener un tipo interno explícito. Un `string` de Joss siempre representa datos, aunque su contenido sea `CURRENT_TIMESTAMP`, `NULL` o parezca una función SQL.
+- Las diferencias entre SQLite, MySQL/MariaDB, PostgreSQL y SQL Server pertenecen a `databaseDialect`. No añada nuevas ramas de motor al dispatcher o a operaciones individuales cuando la diferencia pueda compilarse en el dialecto.
+- Las escrituras desde maps ordenan columnas antes de construir SQL y bindings. Operaciones bulk exigen filas homogéneas, respetan el límite de parámetros del dialecto y son atómicas cuando abarcan varios lotes.
+- Un método GranDB solo puede publicarse en `native.go` cuando el dispatcher tiene una ruta alcanzable, el retorno está proyectado al analyzer y existe al menos una prueba positiva. La compatibilidad de un motor solo se declara cuando una prueba de integración se ejecuta contra ese motor; los golden tests de SQL demuestran compilación, no ejecución.
+- `update` y `delete` requieren filtros. Las variantes que afecten toda una tabla deben tener un nombre explícito y pruebas que demuestren la intención destructiva.
+- Logging SQL es opt in. Nunca imprima bindings automáticamente; cualquier observer futuro debe admitir redacción y documentar su lifetime en `Runtime`, `Fork` y `Free`.
+
 ---
 
 ## 8. Reglas de internacionalización (i18n) y archivos ARB

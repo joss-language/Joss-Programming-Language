@@ -252,11 +252,15 @@ type Instance struct {
 	Destroyed  bool
 	Destroying bool
 	Mu         sync.RWMutex
+	model      *modelState
 }
 
 func (i *Instance) MarshalJSON() ([]byte, error) {
 	if i == nil {
 		return []byte("null"), nil
+	}
+	if i.model != nil && !i.model.query {
+		return json.Marshal(i.model.serializable(i.Fields))
 	}
 	return json.Marshal(i.Fields)
 }

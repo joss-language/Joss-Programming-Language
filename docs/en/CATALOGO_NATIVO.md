@@ -163,7 +163,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L375).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L377).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -192,11 +192,15 @@ Implementación: [executeGranDBMethod](../pkg/core/database.go#L11).
 | `avg` | `float\|null` |
 | `changeDB` | `GranDB` |
 | `changedb` | `GranDB` |
-| `chunk` | `mixed` |
+| `chunk` | `bool` |
+| `chunkById` | `bool` |
+| `chunkbyid` | `bool` |
 | `connection` | `GranDB` |
 | `count` | `int` |
 | `crossJoin` | `GranDB` |
 | `crossjoin` | `GranDB` |
+| `cursorPaginate` | `map` |
+| `cursorpaginate` | `map` |
 | `dd` | `mixed` |
 | `decrement` | `mixed` |
 | `delete` | `mixed` |
@@ -205,6 +209,7 @@ Implementación: [executeGranDBMethod](../pkg/core/database.go#L11).
 | `doesntExist` | `bool` |
 | `dump` | `mixed` |
 | `exists` | `bool` |
+| `explain` | `array` |
 | `find` | `mixed` |
 | `findMany` | `mixed` |
 | `findOrFail` | `mixed` |
@@ -228,7 +233,9 @@ Implementación: [executeGranDBMethod](../pkg/core/database.go#L11).
 | `innerJoin` | `GranDB` |
 | `insert` | `mixed` |
 | `insertGetId` | `mixed` |
+| `insertMany` | `int` |
 | `insertgetid` | `mixed` |
+| `insertmany` | `int` |
 | `join` | `GranDB` |
 | `latest` | `GranDB` |
 | `leftJoin` | `GranDB` |
@@ -277,11 +284,13 @@ Implementación: [executeGranDBMethod](../pkg/core/database.go#L11).
 | `orwherenull` | `GranDB` |
 | `orwheretime` | `mixed` |
 | `orwhereyear` | `mixed` |
-| `paginate` | `mixed` |
+| `paginate` | `map` |
 | `pluck` | `array` |
 | `reorder` | `GranDB` |
 | `rightJoin` | `GranDB` |
 | `select` | `GranDB` |
+| `simplePaginate` | `map` |
+| `simplepaginate` | `map` |
 | `skip` | `GranDB` |
 | `sole` | `mixed` |
 | `sum` | `float` |
@@ -296,7 +305,7 @@ Implementación: [executeGranDBMethod](../pkg/core/database.go#L11).
 | `update` | `mixed` |
 | `updateOrInsert` | `mixed` |
 | `updateorinsert` | `mixed` |
-| `upsert` | `mixed` |
+| `upsert` | `int` |
 | `use` | `GranDB` |
 | `value` | `mixed` |
 | `when` | `GranDB` |
@@ -411,6 +420,184 @@ Clase base registrada sin métodos nativos propios.
 ## Migration
 
 Clase base registrada sin métodos nativos propios.
+
+## Model
+
+Implementación: [executeModelMethod](../pkg/core/model.go#L401).
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `all` | `mixed` |
+| `avg` | `mixed` |
+| `belongsTo` | `mixed` |
+| `changeDB` | `mixed` |
+| `changedb` | `mixed` |
+| `chunk` | `mixed` |
+| `chunkById` | `mixed` |
+| `chunkbyid` | `mixed` |
+| `connection` | `mixed` |
+| `count` | `mixed` |
+| `create` | `mixed` |
+| `crossJoin` | `mixed` |
+| `crossjoin` | `mixed` |
+| `cursorPaginate` | `mixed` |
+| `cursorpaginate` | `mixed` |
+| `dd` | `mixed` |
+| `decrement` | `mixed` |
+| `delete` | `mixed` |
+| `deleteAll` | `mixed` |
+| `distinct` | `mixed` |
+| `doesntExist` | `mixed` |
+| `dump` | `mixed` |
+| `exists` | `mixed` |
+| `explain` | `mixed` |
+| `fill` | `mixed` |
+| `find` | `mixed` |
+| `findMany` | `mixed` |
+| `findOrFail` | `mixed` |
+| `findmany` | `mixed` |
+| `findorfail` | `mixed` |
+| `first` | `mixed` |
+| `firstOrFail` | `mixed` |
+| `firstWhere` | `mixed` |
+| `firstofail` | `mixed` |
+| `firstwhere` | `mixed` |
+| `forPage` | `mixed` |
+| `forceFill` | `mixed` |
+| `forpage` | `mixed` |
+| `get` | `mixed` |
+| `getBindings` | `mixed` |
+| `getChanges` | `mixed` |
+| `getOriginal` | `mixed` |
+| `getbindings` | `mixed` |
+| `groupBy` | `mixed` |
+| `groupby` | `mixed` |
+| `hasMany` | `mixed` |
+| `hasOne` | `mixed` |
+| `having` | `mixed` |
+| `inRandomOrder` | `mixed` |
+| `increment` | `mixed` |
+| `innerJoin` | `mixed` |
+| `insert` | `mixed` |
+| `insertGetId` | `mixed` |
+| `insertMany` | `mixed` |
+| `insertgetid` | `mixed` |
+| `insertmany` | `mixed` |
+| `isClean` | `mixed` |
+| `isDirty` | `mixed` |
+| `join` | `mixed` |
+| `latest` | `mixed` |
+| `leftJoin` | `mixed` |
+| `limit` | `mixed` |
+| `load` | `mixed` |
+| `loadMissing` | `mixed` |
+| `max` | `mixed` |
+| `min` | `mixed` |
+| `offset` | `mixed` |
+| `oldest` | `mixed` |
+| `orHaving` | `mixed` |
+| `orWhere` | `mixed` |
+| `orWhereBetween` | `mixed` |
+| `orWhereColumn` | `mixed` |
+| `orWhereDate` | `mixed` |
+| `orWhereDay` | `mixed` |
+| `orWhereIn` | `mixed` |
+| `orWhereJsonContains` | `mixed` |
+| `orWhereLike` | `mixed` |
+| `orWhereMonth` | `mixed` |
+| `orWhereNot` | `mixed` |
+| `orWhereNotBetween` | `mixed` |
+| `orWhereNotIn` | `mixed` |
+| `orWhereNotNull` | `mixed` |
+| `orWhereNull` | `mixed` |
+| `orWhereTime` | `mixed` |
+| `orWhereYear` | `mixed` |
+| `orderBy` | `mixed` |
+| `orderByAsc` | `mixed` |
+| `orderByDesc` | `mixed` |
+| `orderby` | `mixed` |
+| `orderbyasc` | `mixed` |
+| `orderbydesc` | `mixed` |
+| `orhaving` | `mixed` |
+| `orwhere` | `mixed` |
+| `orwherebetween` | `mixed` |
+| `orwherecolumn` | `mixed` |
+| `orwheredate` | `mixed` |
+| `orwhereday` | `mixed` |
+| `orwherein` | `mixed` |
+| `orwherejsoncontains` | `mixed` |
+| `orwherelike` | `mixed` |
+| `orwheremonth` | `mixed` |
+| `orwherenot` | `mixed` |
+| `orwherenotbetween` | `mixed` |
+| `orwherenotin` | `mixed` |
+| `orwherenotnull` | `mixed` |
+| `orwherenull` | `mixed` |
+| `orwheretime` | `mixed` |
+| `orwhereyear` | `mixed` |
+| `paginate` | `mixed` |
+| `pluck` | `mixed` |
+| `query` | `mixed` |
+| `refresh` | `mixed` |
+| `reorder` | `mixed` |
+| `rightJoin` | `mixed` |
+| `save` | `mixed` |
+| `select` | `mixed` |
+| `simplePaginate` | `mixed` |
+| `simplepaginate` | `mixed` |
+| `skip` | `mixed` |
+| `sole` | `mixed` |
+| `sum` | `mixed` |
+| `table` | `mixed` |
+| `take` | `mixed` |
+| `toJSON` | `mixed` |
+| `toMap` | `mixed` |
+| `toSql` | `mixed` |
+| `tosql` | `mixed` |
+| `touch` | `mixed` |
+| `transaction` | `mixed` |
+| `truncate` | `mixed` |
+| `unless` | `mixed` |
+| `update` | `mixed` |
+| `updateOrInsert` | `mixed` |
+| `updateorinsert` | `mixed` |
+| `upsert` | `mixed` |
+| `use` | `mixed` |
+| `value` | `mixed` |
+| `wasChanged` | `mixed` |
+| `when` | `mixed` |
+| `where` | `mixed` |
+| `whereBetween` | `mixed` |
+| `whereColumn` | `mixed` |
+| `whereDate` | `mixed` |
+| `whereDay` | `mixed` |
+| `whereIn` | `mixed` |
+| `whereJsonContains` | `mixed` |
+| `whereLike` | `mixed` |
+| `whereMonth` | `mixed` |
+| `whereNot` | `mixed` |
+| `whereNotBetween` | `mixed` |
+| `whereNotIn` | `mixed` |
+| `whereNotNull` | `mixed` |
+| `whereNull` | `mixed` |
+| `whereTime` | `mixed` |
+| `whereYear` | `mixed` |
+| `wherebetween` | `mixed` |
+| `wherecolumn` | `mixed` |
+| `wheredate` | `mixed` |
+| `whereday` | `mixed` |
+| `wherein` | `mixed` |
+| `wherejsoncontains` | `mixed` |
+| `wherelike` | `mixed` |
+| `wheremonth` | `mixed` |
+| `wherenot` | `mixed` |
+| `wherenotbetween` | `mixed` |
+| `wherenotin` | `mixed` |
+| `wherenotnull` | `mixed` |
+| `wherenull` | `mixed` |
+| `wheretime` | `mixed` |
+| `whereyear` | `mixed` |
+| `with` | `mixed` |
 
 ## Mutex
 
@@ -933,4 +1120,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 53 clases, 466 métodos y 126 built-ins.
+Total: 54 clases, 646 métodos y 126 built-ins.

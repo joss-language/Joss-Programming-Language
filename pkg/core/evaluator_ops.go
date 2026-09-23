@@ -363,7 +363,9 @@ func (r *Runtime) setInstanceField(instance *Instance, name string, value interf
 			}
 		}
 	}
+	instance.Mu.Lock()
 	instance.Fields[name] = value
+	instance.Mu.Unlock()
 	return value
 }
 

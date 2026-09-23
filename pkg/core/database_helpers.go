@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -78,14 +79,15 @@ func rowsToMap(rows *sql.Rows) []map[string]interface{} {
 	return results
 }
 
-// quoteIdentifier quotes SQL identifiers
+var sqlIdentifierPart = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_$]*$`)
+
+// quoteIdentifier quotes a simple, qualified SQL identifier. SQL expressions
+// are deliberately rejected here: callers that need trusted SQL must use an
+// explicit expression path instead of smuggling it through an identifier.
 func quoteIdentifier(name string) string {
 	name = strings.TrimSpace(name)
 	if name == "*" {
 		return "*"
-	}
-	if strings.Contains(name, " ") || strings.Contains(name, "(") {
-		return name
 	}
 	if strings.Contains(name, ".") {
 		parts := strings.Split(name, ".")
@@ -94,16 +96,32 @@ func quoteIdentifier(name string) string {
 		}
 		return strings.Join(parts, ".")
 	}
-	if strings.HasPrefix(name, "`") && strings.HasSuffix(name, "`") {
-		return name
-	}
-	if strings.HasPrefix(name, "[") && strings.HasSuffix(name, "]") {
-		return name
-	}
-	if strings.HasPrefix(name, "\"") && strings.HasSuffix(name, "\"") {
-		return name
+	if !sqlIdentifierPart.MatchString(name) {
+		panic(fmt.Sprintf("GranDB Error: identificador SQL inválido %q", name))
 	}
 	return "`" + name + "`"
+}
+
+func comparisonOperator(value interface{}) string {
+	op := strings.ToUpper(strings.Join(strings.Fields(fmt.Sprint(value)), " "))
+	switch op {
+	case "=", "!=", "<>", "<", "<=", ">", ">=", "LIKE", "NOT LIKE", "IS", "IS NOT":
+		return op
+	default:
+		panic(fmt.Sprintf("GranDB Error: operador SQL inválido %q", value))
+	}
+}
+
+func unquoteIdentifier(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) >= 2 {
+		if (value[0] == '`' && value[len(value)-1] == '`') ||
+			(value[0] == '"' && value[len(value)-1] == '"') ||
+			(value[0] == '[' && value[len(value)-1] == ']') {
+			return value[1 : len(value)-1]
+		}
+	}
+	return value
 }
 
 func buildWhereClause(wheres []string) string {
@@ -289,8 +307,9 @@ func (r *Runtime) getTable(instance *Instance) string {
 	}
 	if val, ok := instance.Fields["tabla"]; ok {
 		if str, ok := val.(string); ok && str != "" {
-			instance.Fields["_table"] = str
-			return str
+			quoted := quoteIdentifier(r.applyTablePrefix(str))
+			instance.Fields["_table"] = quoted
+			return quoted
 		}
 	}
 
@@ -301,8 +320,9 @@ func (r *Runtime) getTable(instance *Instance) string {
 
 	prefix := r.dbPrefix()
 	tableName := prefix + strings.ToLower(r.pluralize(className))
-	instance.Fields["_table"] = tableName
-	return tableName
+	quoted := quoteIdentifier(tableName)
+	instance.Fields["_table"] = quoted
+	return quoted
 }
 
 func (r *Runtime) dbPrefix() string {

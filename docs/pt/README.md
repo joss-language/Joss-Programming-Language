@@ -65,6 +65,7 @@ que você já conhece outro idioma.
 - [Arquitetura de linguagem](ARQUITECTURA.md)
 - [Guia de Contribuição](CONTRIBUIR.md)- [Auditoria de documentação](DOCUMENTATION_AUDIT.md)
 - [Auditoria de linguagem Joss 2026](JOSS_LANGUAGE_AUDIT_2026.md)
+- [Auditoria do ORM GranDB 2026](GRANDB_ORM_AUDIT_2026.md)
 - [Auditoria técnica de 2026](AUDITORIA_TECNICA_2026.md)
 - [Auditoria de otimização de tempo de execução](RUNTIME_OPTIMIZATION_AUDIT.md)
 - [Notícias históricas 3.6.7](NOVEDADES_367.md)

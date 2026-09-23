@@ -25,6 +25,10 @@ func (r *Runtime) executeInsertMethod(instance *Instance, args []interface{}, re
 
 // insertFromMap performs insert using a map of column-value pairs
 func (r *Runtime) insertFromMap(table string, data map[string]interface{}, returnID bool) interface{} {
+	return r.insertFromMapWithKey(table, data, returnID, "id")
+}
+
+func (r *Runtime) insertFromMapWithKey(table string, data map[string]interface{}, returnID bool, primaryKey string) interface{} {
 	if len(data) == 0 {
 		return false
 	}
@@ -40,24 +44,23 @@ func (r *Runtime) insertFromMap(table string, data map[string]interface{}, retur
 		insertData[key] = value
 	}
 	if _, hasCreatedAt := insertData["created_at"]; !hasCreatedAt && r.tableHasColumn(table, "created_at") {
-		insertData["created_at"] = "CURRENT_TIMESTAMP"
+		insertData["created_at"] = sqlExpression("CURRENT_TIMESTAMP")
 	}
 	if _, hasUpdatedAt := insertData["updated_at"]; !hasUpdatedAt && r.tableHasColumn(table, "updated_at") {
-		insertData["updated_at"] = "CURRENT_TIMESTAMP"
+		insertData["updated_at"] = sqlExpression("CURRENT_TIMESTAMP")
 	}
 
 	// Build column names, placeholders, and bindings
-	for colName, value := range insertData {
-		// Skip unsupported types (like maps)
+	for _, colName := range sortedMapKeys(insertData) {
+		value := insertData[colName]
 		if _, ok := value.(map[string]interface{}); ok {
-			continue
+			panic(fmt.Sprintf("GranDB Error: la columna %q contiene un map; serialícelo como JSON explícitamente", colName))
 		}
 
 		colNames = append(colNames, quoteIdentifier(colName))
 
-		// Check if value is a SQL function (like CURRENT_TIMESTAMP)
-		if strVal, ok := value.(string); ok && isSQLFunction(strVal) {
-			placeholders = append(placeholders, strVal)
+		if expression, ok := value.(sqlExpression); ok {
+			placeholders = append(placeholders, string(expression))
 		} else {
 			placeholders = append(placeholders, "?")
 			bindings = append(bindings, value)
@@ -70,20 +73,18 @@ func (r *Runtime) insertFromMap(table string, data map[string]interface{}, retur
 		strings.Join(colNames, ", "),
 		strings.Join(placeholders, ", "))
 
-	fmt.Printf("[GranDB] Insert Query: %s\n", query)
-	fmt.Printf("[GranDB] Bindings: %v\n", bindings)
 	driver := normalizeDatabaseDriver(r.Env["DB"])
 	if returnID {
 		if driver == "postgres" {
 			var id int64
-			if err := r.databaseExecutor().QueryRow(query+" RETURNING id", bindings...).Scan(&id); err != nil {
+			if err := r.databaseExecutor().QueryRow(query+" RETURNING "+quoteIdentifier(primaryKey), bindings...).Scan(&id); err != nil {
 				panic(fmt.Sprintf("GranDB Error en insert: %v", err))
 			}
 			return id
 		}
 		if driver == "sqlserver" {
 			var id int64
-			outputQuery := strings.Replace(query, " VALUES", " OUTPUT INSERTED.id VALUES", 1)
+			outputQuery := strings.Replace(query, " VALUES", " OUTPUT INSERTED."+quoteIdentifier(primaryKey)+" VALUES", 1)
 			if err := r.databaseExecutor().QueryRow(outputQuery, bindings...).Scan(&id); err == nil && id > 0 {
 				return id
 			}
@@ -111,22 +112,74 @@ func (r *Runtime) insertFromMap(table string, data map[string]interface{}, retur
 	return true
 }
 
-// isSQLFunction checks if a string is a SQL function that should not be quoted
-func isSQLFunction(value string) bool {
-	upperValue := strings.ToUpper(strings.TrimSpace(value))
-	sqlFunctions := []string{
-		"CURRENT_TIMESTAMP",
-		"NOW()",
-		"CURRENT_DATE",
-		"CURRENT_TIME",
-		"NULL",
+type sqlExpression string
+
+// executeInsertManyMethod inserts homogeneous rows in batches chosen from the
+// active dialect's parameter limit. Multiple batches are atomic when GranDB is
+// not already inside a transaction; an existing transaction is reused.
+func (r *Runtime) executeInsertManyMethod(instance *Instance, args []interface{}) interface{} {
+	if r.GetDB() == nil {
+		panic("GranDB Error: No hay conexión a la base de datos configurada")
+	}
+	if len(args) == 0 {
+		panic("GranDB Error: insertMany requiere un array de mapas")
+	}
+	rows := mapsFromArgument(args[0])
+	if len(rows) == 0 {
+		return int64(0)
+	}
+	columnCount := len(rows[0])
+	if columnCount == 0 {
+		panic("GranDB Error: insertMany no acepta filas vacías")
+	}
+	dialect := dialectFor(r.Env["DB"])
+	batchSize := dialect.parameterLimit() / columnCount
+	if batchSize < 1 {
+		panic("GranDB Error: una fila excede el límite de parámetros del motor")
 	}
 
-	for _, fn := range sqlFunctions {
-		if upperValue == fn || strings.HasPrefix(upperValue, fn) {
-			return true
+	createdTx := r.activeTx == nil
+	if createdTx {
+		tx, err := r.GetDB().Begin()
+		if err != nil {
+			panic(fmt.Sprintf("GranDB Error: no se pudo iniciar insertMany: %v", err))
+		}
+		r.activeTx = tx
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				_ = tx.Rollback()
+				r.activeTx = nil
+				panic(recovered)
+			}
+		}()
+	}
+
+	var affected int64
+	for start := 0; start < len(rows); start += batchSize {
+		end := start + batchSize
+		if end > len(rows) {
+			end = len(rows)
+		}
+		query, bindings, err := compileInsertRows(r.getTable(instance), rows[start:end])
+		if err != nil {
+			panic(fmt.Sprintf("GranDB Error: %v", err))
+		}
+		result, err := r.databaseExecutor().Exec(query, bindings...)
+		if err != nil {
+			panic(fmt.Sprintf("GranDB Error en insertMany: %v", err))
+		}
+		if count, err := result.RowsAffected(); err == nil {
+			affected += count
 		}
 	}
-
-	return false
+	if createdTx {
+		tx := r.activeTx
+		if err := tx.Commit(); err != nil {
+			_ = tx.Rollback()
+			r.activeTx = nil
+			panic(fmt.Sprintf("GranDB Error: no se pudo confirmar insertMany: %v", err))
+		}
+		r.activeTx = nil
+	}
+	return affected
 }

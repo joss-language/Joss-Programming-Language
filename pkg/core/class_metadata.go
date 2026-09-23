@@ -25,6 +25,7 @@ type classMetadata struct {
 	Fields      map[string]*classFieldInfo
 	FieldOrder  []*classFieldInfo
 	Constructor *parser.MethodStatement
+	Model       *modelMetadata
 }
 
 func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
@@ -179,6 +180,7 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 			}
 		}
 	}
+	meta.Model = buildModelMetadata(meta, chain)
 
 	r.classMetadataCache[className] = meta
 	return meta

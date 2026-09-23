@@ -54,7 +54,7 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 
 	case "crossjoin":
 		if len(args) >= 1 {
-			table := r.applyTablePrefix(fmt.Sprintf("%v", args[0]))
+			table := quoteIdentifier(r.applyTablePrefix(fmt.Sprintf("%v", args[0])))
 			if _, ok := instance.Fields["_joins"]; !ok {
 				instance.Fields["_joins"] = []string{}
 			}
@@ -198,7 +198,7 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 			bindings = append(bindings, val)
 		} else if len(args) == 3 {
 			col := quoteIdentifier(r.applyColumnPrefix(fmt.Sprintf("%v", args[0])))
-			op := fmt.Sprintf("%v", args[1])
+			op := comparisonOperator(args[1])
 			val := args[2]
 			wheres = append(wheres, fmt.Sprintf("%s%s %s ?", prefix, col, op))
 			bindings = append(bindings, val)
@@ -218,7 +218,7 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 			col2 := quoteIdentifier(r.applyColumnPrefix(fmt.Sprintf("%v", args[1])))
 			op := "="
 			if len(args) >= 3 {
-				op = fmt.Sprintf("%v", args[1])
+				op = comparisonOperator(args[1])
 				col2 = quoteIdentifier(r.applyColumnPrefix(fmt.Sprintf("%v", args[2])))
 			}
 			wheres := instance.Fields["_wheres"].([]string)
@@ -342,20 +342,22 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 			if strings.HasPrefix(methodLower, "or") {
 				prefix = "OR "
 			}
-			fn := "DATE"
+			part := "date"
 			if strings.Contains(methodLower, "year") {
-				fn = "YEAR"
+				part = "year"
 			} else if strings.Contains(methodLower, "month") {
-				fn = "MONTH"
+				part = "month"
 			} else if strings.Contains(methodLower, "day") {
-				fn = "DAY"
+				part = "day"
 			} else if strings.Contains(methodLower, "time") {
-				fn = "TIME"
+				part = "time"
 			}
 			wheres := instance.Fields["_wheres"].([]string)
 			bindings := instance.Fields["_bindings"].([]interface{})
-			wheres = append(wheres, fmt.Sprintf("%s%s(%s) = ?", prefix, fn, col))
-			bindings = append(bindings, args[1])
+			dialect := dialectFor(r.Env["DB"])
+			expression := dialect.datePartExpression(part, col)
+			wheres = append(wheres, fmt.Sprintf("%s%s = ?", prefix, expression))
+			bindings = append(bindings, dialect.datePartBinding(part, args[1]))
 			instance.Fields["_wheres"] = wheres
 			instance.Fields["_bindings"] = bindings
 		}
@@ -364,15 +366,18 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 	case "wherejsoncontains", "orwherejsoncontains":
 		if len(args) >= 2 {
 			col := quoteIdentifier(r.applyColumnPrefix(fmt.Sprintf("%v", args[0])))
-			val := args[1]
 			prefix := ""
 			if strings.HasPrefix(methodLower, "or") {
 				prefix = "OR "
 			}
 			wheres := instance.Fields["_wheres"].([]string)
 			bindings := instance.Fields["_bindings"].([]interface{})
-			wheres = append(wheres, fmt.Sprintf("%sJSON_CONTAINS(%s, ?)", prefix, col))
-			bindings = append(bindings, val)
+			predicate, binding, err := dialectFor(r.Env["DB"]).jsonContainsPredicate(col, args[1])
+			if err != nil {
+				panic(fmt.Sprintf("GranDB Error: %v", err))
+			}
+			wheres = append(wheres, prefix+predicate)
+			bindings = append(bindings, binding)
 			instance.Fields["_wheres"] = wheres
 			instance.Fields["_bindings"] = bindings
 		}
@@ -380,10 +385,10 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 
 	case "join", "innerjoin":
 		if len(args) >= 4 {
-			table := r.applyTablePrefix(fmt.Sprintf("%v", args[0]))
-			first := r.applyColumnPrefix(fmt.Sprintf("%v", args[1]))
-			op := fmt.Sprintf("%v", args[2])
-			second := r.applyColumnPrefix(fmt.Sprintf("%v", args[3]))
+			table := quoteIdentifier(r.applyTablePrefix(fmt.Sprintf("%v", args[0])))
+			first := quoteIdentifier(r.applyColumnPrefix(fmt.Sprintf("%v", args[1])))
+			op := comparisonOperator(args[2])
+			second := quoteIdentifier(r.applyColumnPrefix(fmt.Sprintf("%v", args[3])))
 			if _, ok := instance.Fields["_joins"]; !ok {
 				instance.Fields["_joins"] = []string{}
 			}
@@ -394,10 +399,10 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 
 	case "leftjoin":
 		if len(args) >= 4 {
-			table := r.applyTablePrefix(fmt.Sprintf("%v", args[0]))
-			first := r.applyColumnPrefix(fmt.Sprintf("%v", args[1]))
-			op := fmt.Sprintf("%v", args[2])
-			second := r.applyColumnPrefix(fmt.Sprintf("%v", args[3]))
+			table := quoteIdentifier(r.applyTablePrefix(fmt.Sprintf("%v", args[0])))
+			first := quoteIdentifier(r.applyColumnPrefix(fmt.Sprintf("%v", args[1])))
+			op := comparisonOperator(args[2])
+			second := quoteIdentifier(r.applyColumnPrefix(fmt.Sprintf("%v", args[3])))
 			if _, ok := instance.Fields["_joins"]; !ok {
 				instance.Fields["_joins"] = []string{}
 			}
@@ -408,10 +413,10 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 
 	case "rightjoin":
 		if len(args) >= 4 {
-			table := r.applyTablePrefix(fmt.Sprintf("%v", args[0]))
-			first := r.applyColumnPrefix(fmt.Sprintf("%v", args[1]))
-			op := fmt.Sprintf("%v", args[2])
-			second := r.applyColumnPrefix(fmt.Sprintf("%v", args[3]))
+			table := quoteIdentifier(r.applyTablePrefix(fmt.Sprintf("%v", args[0])))
+			first := quoteIdentifier(r.applyColumnPrefix(fmt.Sprintf("%v", args[1])))
+			op := comparisonOperator(args[2])
+			second := quoteIdentifier(r.applyColumnPrefix(fmt.Sprintf("%v", args[3])))
 			if _, ok := instance.Fields["_joins"]; !ok {
 				instance.Fields["_joins"] = []string{}
 			}
@@ -433,7 +438,7 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 	case "having", "orhaving":
 		if len(args) >= 3 {
 			col := quoteIdentifier(r.applyColumnPrefix(fmt.Sprintf("%v", args[0])))
-			op := fmt.Sprintf("%v", args[1])
+			op := comparisonOperator(args[1])
 			val := args[2]
 			prefix := ""
 			if methodLower == "orhaving" {
@@ -493,11 +498,7 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 		return instance
 
 	case "inrandomorder":
-		if r.Env != nil && strings.ToLower(r.Env["DB"]) == "sqlite" {
-			instance.Fields["_order"] = "RANDOM()"
-		} else {
-			instance.Fields["_order"] = "RAND()"
-		}
+		instance.Fields["_order"] = dialectFor(r.Env["DB"]).randomExpression()
 		return instance
 
 	case "limit", "take":
@@ -538,6 +539,9 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 	case "getbindings":
 		return instance.Fields["_bindings"].([]interface{})
 
+	case "explain":
+		return r.executeExplainMethod(instance)
+
 	case "dump":
 		sel := "*"
 		if s, ok := instance.Fields["_select"].(string); ok {
@@ -561,8 +565,17 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 	case "paginate":
 		return r.executePaginateMethod(instance, args)
 
+	case "simplepaginate":
+		return r.executeSimplePaginateMethod(instance, args)
+
+	case "cursorpaginate":
+		return r.executeCursorPaginateMethod(instance, args)
+
 	case "chunk":
 		return r.executeChunkMethod(instance, args)
+
+	case "chunkbyid":
+		return r.executeChunkByIDMethod(instance, args)
 
 	case "count":
 		return r.executeCountMethod(instance, args)
@@ -583,7 +596,7 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 	case "sole":
 		return r.executeSoleMethod(instance, args)
 
-	case "firstorfail":
+	case "firstorfail", "firstofail":
 		return r.executeFirstOrFailMethod(instance, args)
 
 	case "find":
@@ -610,6 +623,9 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 	case "insert":
 		return r.executeInsertMethod(instance, args, false)
 
+	case "insertmany":
+		return r.executeInsertManyMethod(instance, args)
+
 	case "insertgetid":
 		return r.executeInsertMethod(instance, args, true)
 
@@ -618,6 +634,9 @@ func (r *Runtime) executeGranDBMethod(instance *Instance, method string, args []
 
 	case "updateorinsert":
 		return r.executeUpdateOrInsertMethod(instance, args)
+
+	case "upsert":
+		return r.executeUpsertMethod(instance, args)
 
 	case "touch":
 		return r.executeTouchMethod(instance, args)

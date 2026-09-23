@@ -1,17 +1,88 @@
-# Dados e modelos com GranDB
+# Datos y modelos con GranDB
 
-[Índice](README.md) · Antes: [mapas](COLECCIONES.md), [configuração](CONFIGURACION.md) · Depois: [migrações](MIGRACIONES.md)
+[Índice](README.md) · Antes: [mapas](COLECCIONES.md), [configuración](CONFIGURACION.md) · Después: [migraciones](MIGRACIONES.md)
 
-Um banco de dados mantém os registros organizados em tabelas. Cada linha representa
-um registro; cada coluna, uma informação como nome ou preço. GranDB compila SQL
-através de chamadas encadeadas: os filtros preparam a consulta e uma operação
-como `get()` o executa. Sua API é inspirada em construtores de consultas conhecidos; **não
-é uma implementação completa do Laravel Eloquent**.
+Una base de datos conserva registros organizados en tablas. Cada fila representa
+un registro; cada columna, un dato como nombre o precio. GranDB construye SQL
+mediante llamadas encadenadas: los filtros preparan la consulta y una operación
+como `get()` la ejecuta. Su API se inspira en query builders conocidos; **no
+es una implementación completa de Laravel Eloquent**. Cuando una clase hereda
+`Model`, la misma infraestructura hidrata instancias con estado y casts.
 
-## Primeira consulta
+## Model ORM
 
-Este snippet requer uma conexão configurada e uma tabela de produtos com
-as colunas indicadas. Não cria a tabela; Para fazer isso, leia Schema Builder.<!-- joss-check: requiere tabla products -->
+Un modelo declara configuración mediante propiedades protegidas con valores
+literales. La metadata se calcula una vez por clase. Por seguridad, la asignación
+masiva queda bloqueada por defecto: declara `fillable` o configura `guarded`.
+
+<!-- joss-check: requiere tabla users y conexión configurada -->
+```joss
+public class User extends Model {
+    protected string $table = "users"
+    protected string $primaryKey = "uuid"
+    protected string $keyType = "string"
+    protected bool $incrementing = false
+    protected bool $timestamps = false
+    protected array $fillable = ["uuid", "name", "active", "profile"]
+    protected array $hidden = ["password"]
+    protected map $casts = {"active": "bool", "profile": "json"}
+
+    public func posts(): mixed {
+        return $this->hasMany("Post", "user_uuid", "uuid")
+    }
+}
+```
+
+`User::find(valor)`, `first()` y `get()` retornan `User` o arrays de modelos.
+Las consultas iniciadas directamente con `GranDB::table()` continúan retornando
+mapas. Se admiten casts `int`, `float`, `decimal`, `string`, `bool`, `date`,
+`datetime`, `json`, `array` y `object`; un `NULL` SQL permanece `null`.
+
+<!-- joss-check: CRUD de Model requiere tabla users -->
+```joss
+public class User extends Model {
+    protected string $table = "users"
+    protected string $primaryKey = "uuid"
+    protected bool $incrementing = false
+    protected array $fillable = ["uuid", "name", "active"]
+}
+$user = User::create({"uuid": "u-1", "name": "Ada", "active": true})
+$user->name = "Grace"
+$dirty = $user->isDirty("name")
+$user->save()
+$user->refresh()
+```
+
+`save()` elige INSERT para un modelo nuevo y UPDATE parcial para uno hidratado.
+Un modelo limpio no ejecuta UPDATE. `getOriginal()`, `getChanges()`, `isClean()`,
+`isDirty()` y `wasChanged()` exponen el estado. `forceFill()` omite la protección
+de asignación masiva y debe reservarse para datos internos ya validados.
+
+Las relaciones disponibles son `belongsTo`, `hasOne` y `hasMany`, incluidas
+claves personalizadas. `with("posts")` las carga en lote y
+`with("posts.comments")` admite rutas anidadas. `load()` y `loadMissing()` usan
+el mismo cargador. Una relación cargada vacía se distingue de una no cargada.
+
+<!-- joss-check: eager loading requiere modelos User/Post y sus tablas -->
+```joss
+public class User extends Model {
+    protected string $table = "users"
+    public func posts(): mixed {
+        return $this->hasMany("Post", "user_id", "id")
+    }
+}
+$users = User::query()->with("posts")->orderBy("name", "asc")->get()
+```
+
+Todavía no forman parte del contrato: `belongsToMany`, pivot, `attach`,
+`detach`, `sync`, lazy loading automático, scopes, soft deletes y eventos.
+
+## Primera consulta
+
+Este fragmento requiere una conexión configurada y una tabla products con
+las columnas indicadas. No crea la tabla; para hacerlo lee Schema Builder.
+
+<!-- joss-check: requiere tabla products -->
 ```joss
 $products = GranDB::table("products")
     ->where("active", true)
@@ -21,45 +92,48 @@ foreach ($products as $product) {
     print($product["name"])
 }
 ```
-`get()` retorna uma lista nativa de mapas. Não chame json_decode nele.
-`first()` retorna um mapa ou nulo. Uma classe que herda `GranDB` pode centralizar
-consultas de domínio; não adquire relacionamentos, eventos ou validadores Eloquent
-que não são implementados. Os construtores são mutáveis: crie um por consulta
-independente para evitar arrastar filtros. O prefixo das tabelas usa
-`PREFIX` (também conhecido como `DB_PREFIX`); não adicione duas vezes.
 
-##Construção de consulta
+`get()` devuelve una lista nativa de mapas. No llames a json_decode sobre ella.
+`first()` devuelve un mapa o null. Una clase que hereda `GranDB` puede centralizar
+consultas del dominio; no adquiere relaciones Eloquent, eventos ni validadores
+que no estén implementados. Los builders son mutables: crea uno por consulta
+independiente para evitar arrastrar filtros. El prefijo de tablas usa
+`PREFIX` (alias `DB_PREFIX`); no lo agregues dos veces.
 
-Todos esses métodos retornam o construtor, exceto os terminais a seguir
-mesa. As variantes `orWhere...` adicionam OR; aliases em letras minúsculas
-registrados estão listados no [catálogo](CATALOGO_NATIVO.md).
+## Construcción de consultas
 
-| Método e argumentos | Efeito |
+Todos estos métodos devuelven el builder salvo los terminales de la siguiente
+tabla. Las variantes `orWhere...` agregan OR; los aliases en minúsculas
+registrados están enumerados en el [catálogo](CATALOGO_NATIVO.md).
+
+| Método y argumentos | Efecto |
 |---|---|
-| `table(nombre)` | Selecione a tabela e redefina o status da leitura. |
-| `select(stringOArray)`, `distinct()` | Colunas ou expressão SQL confiável; linhas diferentes. |
-| `where(col,valor)`, `where(col,op,valor)`, `orWhere(...)` | Compara com valores vinculados como parâmetros. |
-| `where(callback)` | Agrupa filtros do retorno de chamada, que recebe um GranDB. |
-| `whereColumn(a,[op,]b)`, `orWhereColumn` | Compare colunas. |
-| `whereNot(col,valor)`, `orWhereNot` | NÃO igualdade. |
-| `whereLike(col,texto)`, `orWhereLike` | Adicione % em ambos os lados se não houver % no padrão. |
-| `whereIn(col,array)`, `whereNotIn`, variantes OR | Pertencimento; IN vazio é falso e NOT IN vazio é verdadeiro. |
-| `whereNull(col)`, `whereNotNull`, variantes OR | Ausência/presença de SQL. |
-| `whereBetween(col,[min,max])`, `whereNotBetween`, variantes OR | Intervalos SQL inclusivos. |
-| `whereDate/Year/Month/Day/Time(col,valor)`, OR variantes | Gera funções SQL do componente. Sua portabilidade depende do motor. |
-| `whereJsonContains(col,valor)`, `orWhereJsonContains` | Gerar JSON_CONTAINS; não garante suporte em todos os motores. |
-| `join/innerJoin/leftJoin/rightJoin(tabla,a,op,b)` | União de tabelas com condição de coluna. |
-| `crossJoin(tabla)` | Produto de linhas; pode multiplicar enormemente o resultado. |
-| `groupBy(columnas...)`, `having(col,op,valor)`, `orHaving` | Agrupamento e filtros em grupos. |
-| `orderBy(col,direccion)`, `orderByAsc(col)`, `orderByDesc(col)` | Estabelecer ordem; ASC/DESLIGADO |
-| `latest([col])`, `oldest([col])`, `inRandomOrder()`, `reorder()` | Ordem temporária, aleatória ou ordem limpa. |
-| `limit(n)` / `take(n)`, `offset(n)` / `skip(n)` | Tamanho e deslocamento. |
-| `forPage(pagina,tamaño)` | Calcular limite e deslocamento. |
-| `when(condicion,callback,[alternativo])` | Execute o retorno de chamada se for verdadeiro, alternativa se for falso. Ambos recebem construtor e condição. |
-| `unless(condicion,callback)` | Execute se for falso; também recebe dois argumentos. |
+| `table(nombre)` | Selecciona tabla y reinicia estado de lectura. |
+| `select(stringOArray)`, `distinct()` | Columnas o expresión SQL de confianza; filas distintas. |
+| `where(col,valor)`, `where(col,op,valor)`, `orWhere(...)` | Compara con valores ligados como parámetros. |
+| `where(callback)` | Agrupa filtros del callback, que recibe un GranDB. |
+| `whereColumn(a,[op,]b)`, `orWhereColumn` | Compara columnas. |
+| `whereNot(col,valor)`, `orWhereNot` | NOT de igualdad. |
+| `whereLike(col,texto)`, `orWhereLike` | Añade % a ambos lados si no hay % en el patrón. |
+| `whereIn(col,array)`, `whereNotIn`, variantes OR | Pertenencia; IN vacío es falso y NOT IN vacío verdadero. |
+| `whereNull(col)`, `whereNotNull`, variantes OR | Ausencia/presencia SQL. |
+| `whereBetween(col,[min,max])`, `whereNotBetween`, variantes OR | Intervalos inclusivos SQL. |
+| `whereDate/Year/Month/Day/Time(col,valor)`, variantes OR | Compila la extracción de fecha para cada dialecto. SQLite normaliza año/mes/día numéricos al texto producido por `strftime`. |
+| `whereJsonContains(col,valor)`, `orWhereJsonContains` | Busca un escalar en un array JSON mediante JSON1, JSON_CONTAINS, jsonb u OPENJSON según el motor. Estructuras anidadas requieren una consulta explícita. |
+| `join/innerJoin/leftJoin/rightJoin(tabla,a,op,b)` | Unión de tablas con condición de columnas. |
+| `crossJoin(tabla)` | Producto de filas; puede multiplicar mucho el resultado. |
+| `groupBy(columnas...)`, `having(col,op,valor)`, `orHaving` | Agrupación y filtros sobre grupos. |
+| `orderBy(col,direccion)`, `orderByAsc(col)`, `orderByDesc(col)` | Establece orden; ASC/DESC. |
+| `latest([col])`, `oldest([col])`, `inRandomOrder()`, `reorder()` | Orden temporal, aleatorio o limpieza de orden. |
+| `limit(n)` / `take(n)`, `offset(n)` / `skip(n)` | Tamaño y desplazamiento. |
+| `forPage(pagina,tamaño)` | Calcula límite y desplazamiento. |
+| `when(condicion,callback,[alternativo])` | Ejecuta callback si verdadero, alternativo si falso. Ambos reciben builder y condición. |
+| `unless(condicion,callback)` | Ejecuta si falso; también recibe dos argumentos. |
 
-Não passe nomes de colunas, operadores ou SQL arbitrário de uma solicitação.
-Os valores vinculados não tornam as partes estruturais do SQL seguras.<!-- joss-check: construcción de consulta con parámetros tipados -->
+No pases nombres de columnas, operadores ni SQL arbitrario desde una petición.
+Los valores ligados no convierten las partes estructurales de SQL en seguras.
+
+<!-- joss-check: construcción de consulta con parámetros tipados -->
 ```joss
 $roleFilter = "editor"
 $query = GranDB::table("users")
@@ -70,64 +144,90 @@ $query = GranDB::table("users")
         $q->where("is_deprecated", 0)
     })
 ```
-## Leitura e inspeção
 
-| Terminais | Resultado |
+## Lectura e inspección
+
+| Terminal | Resultado |
 |---|---|
-| `get()` | Matriz de mapas; Erros SQL podem ser impressos e produzir uma coleção vazia. |
-| `first()`, `find(id)`, `firstWhere(col,[op,]valor)` | Primeiro mapa ou nulo. |
-| `findMany(ids)` | Matriz de linhas. |
-| `firstOrFail()`, `findOrFail(id)` | Linha ou exceção por ausência. |
-| `sole()` | Requer exatamente uma linha; falha em zero ou mais de um. |
-| `value(col)` | Valor da primeira linha ou nulo. |
-| `pluck(col,[clave])` | Variedade; com chave, mapa. O retorno publicado não reflete todas as variantes. |
+| `get()` | Array de mapas; errores SQL pueden imprimirse y producir colección vacía. |
+| `first()`, `find(id)`, `firstWhere(col,[op,]valor)` | Primer mapa o null. |
+| `findMany(ids)` | Array de filas. |
+| `firstOrFail()`, `findOrFail(id)` | Fila o excepción por ausencia. |
+| `sole()` | Exige exactamente una fila; falla en cero o más de una. |
+| `value(col)` | Valor de primera fila o null. |
+| `pluck(col,[clave])` | Array; con clave, map. El retorno publicado no refleja todas las variantes. |
 | `exists()`, `doesntExist()` | Bool. |
-| `count()`, `sum(col)`, `avg(col)`, `min(col)`, `max(col)` | Agregados; eles não substituem uma verificação de erro SQL. |
-| `paginate(tamaño,pagina)` | Mapa com linhas e metadados de paginação. |
-| `chunk(tamaño,callback)` | Processar lotes; retorno de chamada recebe uma matriz de linhas. |
-| `toSql()`, `getBindings()` | SQL construído e matriz de valores vinculados. |
-| `dump()` | Imprimir consulta e ligações. |
-| `dd()` | Interrupções por pânico recuperável, não por saída incondicional do processo. |
+| `count()`, `sum(col)`, `avg(col)`, `min(col)`, `max(col)` | Agregados; no reemplazan una comprobación de error SQL. |
+| `paginate(tamaño,pagina)` | Map con filas y metadatos de paginación. |
+| `chunk(tamaño,callback)` | Procesa lotes; callback recibe array de filas. |
+| `simplePaginate(tamaño,pagina)` | Página offset sin consulta COUNT; incluye `has_more`. |
+| `cursorPaginate(tamaño,cursor,[columna])` | Página estable ascendente por clave; retorna `next_cursor`. |
+| `chunkById(tamaño,callback,[columna])` | Lotes por clave creciente, resistentes a desplazamientos por cambios previos. |
+| `toSql()`, `getBindings()` | SQL construido y array de valores ligados. |
+| `explain()` | Filas del plan de SQLite, MySQL o PostgreSQL sin consumir el builder. SQL Server falla explícitamente hasta disponer de un batch SHOWPLAN seguro. |
+| `dump()` | Imprime consulta y bindings. |
+| `dd()` | Interrumpe mediante panic recuperable, no salida incondicional del proceso. |
 
-O alias registrado `firstofail` não corresponde ao seletor `firstorfail`
-do manipulador; use `firstOrFail`, não a ortografia abreviada. Eles não são publicados como APIs
-casos internos que não estão registrados (por exemplo `from`).
+`firstOrFail` y su alias histórico `firstofail` alcanzan el mismo handler. No se
+publican como APIs los cases internos que no estén registrados (por ejemplo
+`from`).
 
 ## Escrituras
 
-`insert(mapa)` e `insertGetId(mapa)` recebem um único mapa de colunas e valores.
-O primeiro reporta sucesso e o segundo retorna o ID baseado no mecanismo.
-`update(mapa)` modifica as linhas filtradas; `updateOrInsert(busqueda,valores)`
-pesquise antes de atualizar ou inserir. `upsert` é uma operação separada:
-verifique sua implementação e chaves exclusivas antes de assumir a atomicidade.
+`insert(mapa)` e `insertGetId(mapa)` reciben un único mapa de columnas y valores.
+El primero informa éxito y el segundo devuelve el ID según el motor.
+`insertMany(arrayDeMapas)` exige las mismas columnas en cada fila, usa orden de
+columnas determinista, divide el trabajo según el límite de parámetros del motor
+y envuelve todos los lotes en una transacción cuando no existe otra activa.
+`update(mapa)` modifica las filas filtradas; `updateOrInsert(busqueda,valores)`
+busca antes de actualizar o insertar y no promete atomicidad. `update` sin
+`where` se rechaza; una actualización total debe expresarse mediante una API
+masiva explícita cuando exista.
 
-`increment(col,[cantidad])`, `decrement(col,[cantidad])` atualização de construção
-do contador; `touch()` atualiza o carimbo de data/hora. `delete()` sem onde
-aborta. `deleteAll()` e `truncate()` são explicitamente destrutivos.
+`upsert(filas, clavesUnicas, [columnasAActualizar])` acepta un mapa o un array de
+mapas homogéneos. Compila `ON CONFLICT` en SQLite/PostgreSQL,
+`ON DUPLICATE KEY UPDATE` en MySQL/MariaDB y `MERGE` en SQL Server. Requiere que
+la base de datos tenga el constraint único correspondiente. Actualmente SQLite
+posee prueba de integración local; los otros tres dialectos tienen pruebas de
+compilación y deben validarse en la suite de integración antes de afirmar
+compatibilidad completa.
 
-Fragmento que requer tabela de produtos:<!-- joss-check: escritura contextual -->
+`increment(col,[cantidad])`, `decrement(col,[cantidad])` construyen actualización
+del contador; `touch()` actualiza la marca temporal. `delete()` sin where se
+aborta. `deleteAll()` y `truncate()` son explícitamente destructivos.
+
+Fragmento que requiere tabla products:
+
+<!-- joss-check: escritura contextual -->
 ```joss
 $id = GranDB::table("products")->insertGetId({"name": "Cuaderno", "active": true})
 GranDB::table("products")->where("id", $id)->update({"name": "Cuaderno azul"})
 ```
-## Transações
 
-`GranDB::transaction(callback)` abre um `sql.Tx` e direciona as consultas SQL
-ordinárias executadas pelo mesmo runtime durante o callback para esse Tx. Se o
-callback falhar, reverte essas consultas; se terminar, confirma. O retorno é
-o do callback, ou nulo mediante certas falhas de abertura/commit. Transações
-aninhadas são rejeitadas. O escopo não inclui trabalho assíncrono,
-conexões externas nem efeitos de rede/arquivos; mantenha essas operações fora
-do callback quando precisar de atomicidade SQL.
+Las tablas, columnas y operadores pasan validación estructural. Los valores,
+incluidos textos como `CURRENT_TIMESTAMP`, se envían como bindings. Las
+expresiones internas del ORM no se confunden con strings de usuario. `select`
+continúa aceptando una expresión SQL de confianza por compatibilidad; no debe
+recibir texto procedente de una petición.
 
-## Motores e disponibilidade
+## Transacciones
 
-Existem adaptadores para SQLite, MySQL, PostgreSQL e SQL Server. O apoio de
-conexão, espaços reservados e operações principais não significa equivalência de
-cada função SQL, índice ou migração. Teste a consulta com o mecanismo de destino.
-`GranDB::connection(motor,opciones)`, `changeDB` e `use` selecionam conexão
-de acordo com o manipulador; `System::change_db` **não está registrado**.
+`GranDB::transaction(callback)` abre un `sql.Tx` y dirige las consultas SQL
+ordinarias ejecutadas por el mismo runtime durante el callback a ese Tx. Si el
+callback falla, revierte esas consultas; si termina, confirma. El retorno es
+el del callback, o null ante ciertos fallos de apertura/commit. Las
+transacciones anidadas se rechazan. El alcance no incluye trabajo asíncrono,
+conexiones externas ni efectos de red/archivos; mantén esas operaciones fuera
+del callback cuando necesites atomicidad SQL.
 
-Fontes: [construtor](../../pkg/core/database.go),
-[lê](../../pkg/core/database_read.go), [inserções](../../pkg/core/database_insert.go),
-[atualizações](../../pkg/core/database_update.go), [excluído](../../pkg/core/database_delete.go).
+## Motores y disponibilidad
+
+Hay adaptadores para SQLite, MySQL, PostgreSQL y SQL Server. El soporte de
+conexión, placeholders y operaciones principales no significa equivalencia de
+cada función SQL, índice o migración. Prueba la consulta con el motor objetivo.
+`GranDB::connection(motor,opciones)`, `changeDB` y `use` seleccionan conexión
+según el handler; `System::change_db` **no está registrado**.
+
+Fuentes: [builder](../pkg/core/database.go),
+[lecturas](../pkg/core/database_read.go), [inserts](../pkg/core/database_insert.go),
+[updates](../pkg/core/database_update.go), [borrados](../pkg/core/database_delete.go).

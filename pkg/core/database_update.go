@@ -35,6 +35,10 @@ func (r *Runtime) executeUpdateMethod(instance *Instance, args []interface{}) in
 		fmt.Println("[GranDB] Error: update() data is empty")
 		return false
 	}
+	if len(wheres) == 0 {
+		fmt.Println("[GranDB] Aborting update without WHERE. Use an explicit bulk operation for all rows.")
+		return false
+	}
 
 	// Do not assume every table has Laravel-style timestamps. Older and
 	// externally-managed tables are valid GranDB targets too.
@@ -43,17 +47,17 @@ func (r *Runtime) executeUpdateMethod(instance *Instance, args []interface{}) in
 		updateData[key] = value
 	}
 	if _, hasUpdatedAt := updateData["updated_at"]; !hasUpdatedAt && r.tableHasColumn(table, "updated_at") {
-		updateData["updated_at"] = "CURRENT_TIMESTAMP"
+		updateData["updated_at"] = sqlExpression("CURRENT_TIMESTAMP")
 	}
 
 	// Build SET clause
 	setClauses := []string{}
 	updateBindings := []interface{}{}
 
-	for colName, value := range updateData {
-		// Check if value is a SQL function
-		if strVal, ok := value.(string); ok && isSQLFunction(strVal) {
-			setClauses = append(setClauses, fmt.Sprintf("%s = %s", quoteIdentifier(colName), strVal))
+	for _, colName := range sortedMapKeys(updateData) {
+		value := updateData[colName]
+		if expression, ok := value.(sqlExpression); ok {
+			setClauses = append(setClauses, fmt.Sprintf("%s = %s", quoteIdentifier(colName), expression))
 		} else {
 			setClauses = append(setClauses, fmt.Sprintf("%s = ?", quoteIdentifier(colName)))
 			updateBindings = append(updateBindings, value)
@@ -64,30 +68,19 @@ func (r *Runtime) executeUpdateMethod(instance *Instance, args []interface{}) in
 	query := fmt.Sprintf("UPDATE %s SET %s", table, strings.Join(setClauses, ", "))
 
 	// Add WHERE clause if present
-	if len(wheres) > 0 {
-		query += " WHERE " + buildWhereClause(wheres)
-		// Append where bindings after update bindings
-		updateBindings = append(updateBindings, bindings...)
-	} else {
-		fmt.Println("[GranDB] Warning: update() without WHERE clause will update all rows")
-	}
-
-	fmt.Printf("[GranDB] Update Query: %s\n", query)
-	fmt.Printf("[GranDB] Bindings: %v\n", updateBindings)
+	query += " WHERE " + buildWhereClause(wheres)
+	// Append where bindings after update bindings
+	updateBindings = append(updateBindings, bindings...)
 
 	// Reset state before execution
 	instance.Fields["_wheres"] = []string{}
 	instance.Fields["_bindings"] = []interface{}{}
 
 	// Execute query
-	result, err := r.databaseExecutor().Exec(query, updateBindings...)
+	_, err := r.databaseExecutor().Exec(query, updateBindings...)
 	if err != nil {
 		panic(fmt.Sprintf("GranDB Error en update: %v", err))
 	}
-
-	// Get affected rows
-	rowsAffected, _ := result.RowsAffected()
-	fmt.Printf("[GranDB] Rows updated: %d\n", rowsAffected)
 
 	return true
 }
@@ -100,7 +93,7 @@ func (r *Runtime) tableHasColumn(table, column string) bool {
 		return false
 	}
 
-	rows, err := r.databaseExecutor().Query(fmt.Sprintf("SELECT * FROM %s LIMIT 0", table))
+	rows, err := r.databaseExecutor().Query(dialectFor(r.Env["DB"]).columnProbe(table))
 	if err != nil {
 		fmt.Printf("[GranDB] No se pudo inspeccionar columnas de %s: %v\n", table, err)
 		return false
@@ -117,6 +110,113 @@ func (r *Runtime) tableHasColumn(table, column string) bool {
 		}
 	}
 	return false
+}
+
+// executeUpsertMethod performs an atomic dialect-specific upsert. Its public
+// contract is upsert(rows, uniqueBy, updateColumns = []). rows accepts a map or
+// an array of maps; every row must have the same columns.
+func (r *Runtime) executeUpsertMethod(instance *Instance, args []interface{}) interface{} {
+	if r.GetDB() == nil {
+		panic("GranDB Error: No hay conexión a la base de datos configurada")
+	}
+	if len(args) < 2 {
+		panic("GranDB Error: upsert requiere filas y clave única")
+	}
+
+	rows := mapsFromArgument(args[0])
+	uniqueBy := stringsFromArgument(args[1])
+	var updateColumns []string
+	if len(args) >= 3 {
+		updateColumns = stringsFromArgument(args[2])
+	}
+	if len(rows) == 0 {
+		return int64(0)
+	}
+	columnCount := len(rows[0])
+	if columnCount == 0 {
+		panic("GranDB Error: upsert no acepta filas vacías")
+	}
+	dialect := dialectFor(r.Env["DB"])
+	batchSize := dialect.parameterLimit() / columnCount
+	if batchSize < 1 {
+		panic("GranDB Error: una fila excede el límite de parámetros del motor")
+	}
+
+	createdTx := r.activeTx == nil && len(rows) > batchSize
+	if createdTx {
+		tx, err := r.GetDB().Begin()
+		if err != nil {
+			panic(fmt.Sprintf("GranDB Error: no se pudo iniciar upsert: %v", err))
+		}
+		r.activeTx = tx
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				_ = tx.Rollback()
+				r.activeTx = nil
+				panic(recovered)
+			}
+		}()
+	}
+
+	var affected int64
+	for start := 0; start < len(rows); start += batchSize {
+		end := start + batchSize
+		if end > len(rows) {
+			end = len(rows)
+		}
+		query, bindings, err := dialect.compileUpsert(r.getTable(instance), rows[start:end], uniqueBy, updateColumns)
+		if err != nil {
+			panic(fmt.Sprintf("GranDB Error: %v", err))
+		}
+		result, err := r.databaseExecutor().Exec(query, bindings...)
+		if err != nil {
+			panic(fmt.Sprintf("GranDB Error en upsert: %v", err))
+		}
+		if count, err := result.RowsAffected(); err == nil {
+			affected += count
+		}
+	}
+	if createdTx {
+		tx := r.activeTx
+		if err := tx.Commit(); err != nil {
+			_ = tx.Rollback()
+			r.activeTx = nil
+			panic(fmt.Sprintf("GranDB Error: no se pudo confirmar upsert: %v", err))
+		}
+		r.activeTx = nil
+	}
+	return affected
+}
+
+func mapsFromArgument(value interface{}) []map[string]interface{} {
+	if row, ok := value.(map[string]interface{}); ok {
+		return []map[string]interface{}{row}
+	}
+	items, ok := value.([]interface{})
+	if !ok {
+		panic("GranDB Error: upsert requiere un mapa o array de mapas")
+	}
+	rows := make([]map[string]interface{}, 0, len(items))
+	for _, item := range items {
+		row, ok := item.(map[string]interface{})
+		if !ok {
+			panic("GranDB Error: cada fila de upsert debe ser un mapa")
+		}
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+func stringsFromArgument(value interface{}) []string {
+	if text, ok := value.(string); ok {
+		return []string{text}
+	}
+	items := toInterfaceSlice(value)
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		result = append(result, fmt.Sprint(item))
+	}
+	return result
 }
 
 // executeIncrementMethod handles atomic .increment() and .decrement()

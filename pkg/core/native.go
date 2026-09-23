@@ -140,14 +140,16 @@ func (r *Runtime) RegisterNativeClasses() {
 		"whereTime", "wheretime", "orWhereTime", "orwheretime", "whereJsonContains", "wherejsoncontains", "orWhereJsonContains", "orwherejsoncontains",
 		"join", "innerJoin", "leftJoin", "rightJoin", "crossJoin", "crossjoin",
 		"get", "first", "firstOrFail", "firstofail", "firstWhere", "firstwhere", "sole", "find", "findMany", "findmany", "findOrFail", "findorfail",
-		"value", "pluck", "exists", "doesntExist", "paginate", "chunk",
+		"value", "pluck", "exists", "doesntExist", "paginate", "simplePaginate", "simplepaginate", "cursorPaginate", "cursorpaginate", "chunk", "chunkById", "chunkbyid",
 		"count", "sum", "avg", "min", "max",
-		"insert", "insertGetId", "insertgetid", "update", "updateOrInsert", "updateorinsert", "upsert", "delete", "deleteAll", "truncate", "increment", "decrement", "touch",
+		"insert", "insertMany", "insertmany", "insertGetId", "insertgetid", "update", "updateOrInsert", "updateorinsert", "upsert", "delete", "deleteAll", "truncate", "increment", "decrement", "touch",
 		"orderBy", "orderby", "orderByDesc", "orderbydesc", "orderByAsc", "orderbyasc", "latest", "oldest", "inRandomOrder", "reorder", "limit", "take", "offset", "skip", "forPage", "forpage",
 		"groupBy", "groupby", "having", "orHaving", "orhaving",
-		"when", "unless", "transaction", "toSql", "tosql", "getBindings", "getbindings", "dump", "dd",
+		"when", "unless", "transaction", "toSql", "tosql", "getBindings", "getbindings", "explain", "dump", "dd",
 	}
 	r.registerNative("GranDB", granDBMethods, (*Runtime).executeGranDBMethod)
+	modelMethods := append([]string{"query", "all", "create", "fill", "forceFill", "save", "refresh", "isDirty", "isClean", "wasChanged", "getOriginal", "getChanges", "toMap", "toJSON", "belongsTo", "hasOne", "hasMany", "with", "load", "loadMissing"}, granDBMethods...)
+	r.registerNative("Model", modelMethods, (*Runtime).executeModelMethod)
 
 	// Auth
 	r.registerNative("Auth", []string{"hash", "complete2FA", "verify2FAChallenge", "login", "create", "attempt", "check", "verify", "forgotPassword", "resetPassword", "resendVerification", "verificationStatus", "user", "guest", "hasRole", "id", "refresh", "update", "delete", "logout", "validateToken"}, (*Runtime).executeAuthMethod)

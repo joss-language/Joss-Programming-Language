@@ -66,6 +66,7 @@ que ya conozcas otro lenguaje.
 - [Guía de contribución](CONTRIBUIR.md)
 - [Auditoría de documentación](DOCUMENTATION_AUDIT.md)
 - [Auditoría del lenguaje Joss 2026](JOSS_LANGUAGE_AUDIT_2026.md)
+- [Auditoría del ORM GranDB 2026](GRANDB_ORM_AUDIT_2026.md)
 - [Auditoría técnica de 2026](AUDITORIA_TECNICA_2026.md)
 - [Auditoría de optimización runtime](RUNTIME_OPTIMIZATION_AUDIT.md)
 - [Novedades históricas 3.6.7](NOVEDADES_367.md)

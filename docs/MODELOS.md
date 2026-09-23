@@ -6,7 +6,76 @@ Una base de datos conserva registros organizados en tablas. Cada fila representa
 un registro; cada columna, un dato como nombre o precio. GranDB construye SQL
 mediante llamadas encadenadas: los filtros preparan la consulta y una operación
 como `get()` la ejecuta. Su API se inspira en query builders conocidos; **no
-es una implementación completa de Laravel Eloquent**.
+es una implementación completa de Laravel Eloquent**. Cuando una clase hereda
+`Model`, la misma infraestructura hidrata instancias con estado y casts.
+
+## Model ORM
+
+Un modelo declara configuración mediante propiedades protegidas con valores
+literales. La metadata se calcula una vez por clase. Por seguridad, la asignación
+masiva queda bloqueada por defecto: declara `fillable` o configura `guarded`.
+
+<!-- joss-check: requiere tabla users y conexión configurada -->
+```joss
+public class User extends Model {
+    protected string $table = "users"
+    protected string $primaryKey = "uuid"
+    protected string $keyType = "string"
+    protected bool $incrementing = false
+    protected bool $timestamps = false
+    protected array $fillable = ["uuid", "name", "active", "profile"]
+    protected array $hidden = ["password"]
+    protected map $casts = {"active": "bool", "profile": "json"}
+
+    public func posts(): mixed {
+        return $this->hasMany("Post", "user_uuid", "uuid")
+    }
+}
+```
+
+`User::find(valor)`, `first()` y `get()` retornan `User` o arrays de modelos.
+Las consultas iniciadas directamente con `GranDB::table()` continúan retornando
+mapas. Se admiten casts `int`, `float`, `decimal`, `string`, `bool`, `date`,
+`datetime`, `json`, `array` y `object`; un `NULL` SQL permanece `null`.
+
+<!-- joss-check: CRUD de Model requiere tabla users -->
+```joss
+public class User extends Model {
+    protected string $table = "users"
+    protected string $primaryKey = "uuid"
+    protected bool $incrementing = false
+    protected array $fillable = ["uuid", "name", "active"]
+}
+$user = User::create({"uuid": "u-1", "name": "Ada", "active": true})
+$user->name = "Grace"
+$dirty = $user->isDirty("name")
+$user->save()
+$user->refresh()
+```
+
+`save()` elige INSERT para un modelo nuevo y UPDATE parcial para uno hidratado.
+Un modelo limpio no ejecuta UPDATE. `getOriginal()`, `getChanges()`, `isClean()`,
+`isDirty()` y `wasChanged()` exponen el estado. `forceFill()` omite la protección
+de asignación masiva y debe reservarse para datos internos ya validados.
+
+Las relaciones disponibles son `belongsTo`, `hasOne` y `hasMany`, incluidas
+claves personalizadas. `with("posts")` las carga en lote y
+`with("posts.comments")` admite rutas anidadas. `load()` y `loadMissing()` usan
+el mismo cargador. Una relación cargada vacía se distingue de una no cargada.
+
+<!-- joss-check: eager loading requiere modelos User/Post y sus tablas -->
+```joss
+public class User extends Model {
+    protected string $table = "users"
+    public func posts(): mixed {
+        return $this->hasMany("Post", "user_id", "id")
+    }
+}
+$users = User::query()->with("posts")->orderBy("name", "asc")->get()
+```
+
+Todavía no forman parte del contrato: `belongsToMany`, pivot, `attach`,
+`detach`, `sync`, lazy loading automático, scopes, soft deletes y eventos.
 
 ## Primera consulta
 
@@ -49,8 +118,8 @@ registrados están enumerados en el [catálogo](CATALOGO_NATIVO.md).
 | `whereIn(col,array)`, `whereNotIn`, variantes OR | Pertenencia; IN vacío es falso y NOT IN vacío verdadero. |
 | `whereNull(col)`, `whereNotNull`, variantes OR | Ausencia/presencia SQL. |
 | `whereBetween(col,[min,max])`, `whereNotBetween`, variantes OR | Intervalos inclusivos SQL. |
-| `whereDate/Year/Month/Day/Time(col,valor)`, variantes OR | Genera funciones SQL del componente. Su portabilidad depende del motor. |
-| `whereJsonContains(col,valor)`, `orWhereJsonContains` | Genera JSON_CONTAINS; no garantiza soporte en todos los motores. |
+| `whereDate/Year/Month/Day/Time(col,valor)`, variantes OR | Compila la extracción de fecha para cada dialecto. SQLite normaliza año/mes/día numéricos al texto producido por `strftime`. |
+| `whereJsonContains(col,valor)`, `orWhereJsonContains` | Busca un escalar en un array JSON mediante JSON1, JSON_CONTAINS, jsonb u OPENJSON según el motor. Estructuras anidadas requieren una consulta explícita. |
 | `join/innerJoin/leftJoin/rightJoin(tabla,a,op,b)` | Unión de tablas con condición de columnas. |
 | `crossJoin(tabla)` | Producto de filas; puede multiplicar mucho el resultado. |
 | `groupBy(columnas...)`, `having(col,op,valor)`, `orHaving` | Agrupación y filtros sobre grupos. |
@@ -91,21 +160,37 @@ $query = GranDB::table("users")
 | `count()`, `sum(col)`, `avg(col)`, `min(col)`, `max(col)` | Agregados; no reemplazan una comprobación de error SQL. |
 | `paginate(tamaño,pagina)` | Map con filas y metadatos de paginación. |
 | `chunk(tamaño,callback)` | Procesa lotes; callback recibe array de filas. |
+| `simplePaginate(tamaño,pagina)` | Página offset sin consulta COUNT; incluye `has_more`. |
+| `cursorPaginate(tamaño,cursor,[columna])` | Página estable ascendente por clave; retorna `next_cursor`. |
+| `chunkById(tamaño,callback,[columna])` | Lotes por clave creciente, resistentes a desplazamientos por cambios previos. |
 | `toSql()`, `getBindings()` | SQL construido y array de valores ligados. |
+| `explain()` | Filas del plan de SQLite, MySQL o PostgreSQL sin consumir el builder. SQL Server falla explícitamente hasta disponer de un batch SHOWPLAN seguro. |
 | `dump()` | Imprime consulta y bindings. |
 | `dd()` | Interrumpe mediante panic recuperable, no salida incondicional del proceso. |
 
-El alias registrado `firstofail` no coincide con el selector `firstorfail`
-del handler; usa `firstOrFail`, no la grafía abreviada. No se publican como APIs
-los cases internos que no estén registrados (por ejemplo `from`).
+`firstOrFail` y su alias histórico `firstofail` alcanzan el mismo handler. No se
+publican como APIs los cases internos que no estén registrados (por ejemplo
+`from`).
 
 ## Escrituras
 
 `insert(mapa)` e `insertGetId(mapa)` reciben un único mapa de columnas y valores.
 El primero informa éxito y el segundo devuelve el ID según el motor.
+`insertMany(arrayDeMapas)` exige las mismas columnas en cada fila, usa orden de
+columnas determinista, divide el trabajo según el límite de parámetros del motor
+y envuelve todos los lotes en una transacción cuando no existe otra activa.
 `update(mapa)` modifica las filas filtradas; `updateOrInsert(busqueda,valores)`
-busca antes de actualizar o insertar. `upsert` es una operación separada:
-consulta su implementación y claves únicas antes de asumir atomicidad.
+busca antes de actualizar o insertar y no promete atomicidad. `update` sin
+`where` se rechaza; una actualización total debe expresarse mediante una API
+masiva explícita cuando exista.
+
+`upsert(filas, clavesUnicas, [columnasAActualizar])` acepta un mapa o un array de
+mapas homogéneos. Compila `ON CONFLICT` en SQLite/PostgreSQL,
+`ON DUPLICATE KEY UPDATE` en MySQL/MariaDB y `MERGE` en SQL Server. Requiere que
+la base de datos tenga el constraint único correspondiente. Actualmente SQLite
+posee prueba de integración local; los otros tres dialectos tienen pruebas de
+compilación y deben validarse en la suite de integración antes de afirmar
+compatibilidad completa.
 
 `increment(col,[cantidad])`, `decrement(col,[cantidad])` construyen actualización
 del contador; `touch()` actualiza la marca temporal. `delete()` sin where se
@@ -118,6 +203,12 @@ Fragmento que requiere tabla products:
 $id = GranDB::table("products")->insertGetId({"name": "Cuaderno", "active": true})
 GranDB::table("products")->where("id", $id)->update({"name": "Cuaderno azul"})
 ```
+
+Las tablas, columnas y operadores pasan validación estructural. Los valores,
+incluidos textos como `CURRENT_TIMESTAMP`, se envían como bindings. Las
+expresiones internas del ORM no se confunden con strings de usuario. `select`
+continúa aceptando una expresión SQL de confianza por compatibilidad; no debe
+recibir texto procedente de una petición.
 
 ## Transacciones
 

@@ -96,6 +96,10 @@ func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 			}
 		}
 	}
+	if meta != nil && meta.Model != nil {
+		instance.model = newModelState(meta.Model, false, false)
+		removeModelConfigurationFields(instance.Fields)
+	}
 
 	capturedRuntime := r.Fork()
 	runtime.SetFinalizer(instance, func(inst *Instance) {

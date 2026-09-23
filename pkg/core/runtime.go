@@ -536,6 +536,7 @@ func (i *Instance) Clone() *Instance {
 	for k, v := range i.Constants {
 		newI.Constants[k] = v
 	}
+	newI.model = i.model.clone()
 	return newI
 }
 
