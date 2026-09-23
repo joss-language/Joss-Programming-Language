@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -200,7 +201,7 @@ func main() {
 func packagedSourceUnits(files map[string][]byte) ([]semanticanalyzer.SourceUnit, error) {
 	normalizedFiles := make(map[string][]byte, len(files))
 	for name, data := range files {
-		normalizedFiles[filepath.ToSlash(name)] = data
+		normalizedFiles[canonicalPackagedPath(name)] = data
 	}
 	mainData, exists := normalizedFiles["main.joss"]
 	if !exists {
@@ -208,7 +209,7 @@ func packagedSourceUnits(files map[string][]byte) ([]semanticanalyzer.SourceUnit
 	}
 	paths := make([]string, 0, len(files))
 	for name := range normalizedFiles {
-		normalized := filepath.ToSlash(name)
+		normalized := canonicalPackagedPath(name)
 		if normalized == "main.joss" || !parser.IsJossSourceFile(normalized) {
 			continue
 		}
@@ -241,6 +242,10 @@ func packagedSourceUnits(files map[string][]byte) ([]semanticanalyzer.SourceUnit
 		units = append(units, semanticanalyzer.SourceUnit{Path: name, Program: program})
 	}
 	return units, nil
+}
+
+func canonicalPackagedPath(name string) string {
+	return path.Clean(strings.ReplaceAll(name, `\`, "/"))
 }
 
 func waitForSignal() {

@@ -1,7 +1,7 @@
 package analyzer
 
 import (
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
@@ -38,7 +38,11 @@ type SymbolFact struct {
 }
 
 func symbolFact(kind, name string, valueType typesystem.Type, file string) SymbolFact {
-	return SymbolFact{ID: kind + ":" + filepath.ToSlash(file) + ":" + name, Name: name, Kind: kind, Type: valueType, File: file}
+	return SymbolFact{ID: kind + ":" + canonicalSourcePath(file) + ":" + name, Name: name, Kind: kind, Type: valueType, File: file}
+}
+
+func canonicalSourcePath(sourcePath string) string {
+	return path.Clean(strings.ReplaceAll(sourcePath, `\`, "/"))
 }
 
 // NewAnalysisFacts constructs an initialized facts container.
@@ -151,9 +155,9 @@ func (p *PreparedProgram) Program(path string) *parser.Program {
 	if p == nil {
 		return nil
 	}
-	wanted := filepath.ToSlash(filepath.Clean(path))
+	wanted := canonicalSourcePath(path)
 	for _, unit := range p.Units {
-		candidate := filepath.ToSlash(filepath.Clean(unit.Path))
+		candidate := canonicalSourcePath(unit.Path)
 		if strings.EqualFold(candidate, wanted) {
 			return unit.Program
 		}

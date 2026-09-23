@@ -2,7 +2,6 @@ package analyzer
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
@@ -81,7 +80,7 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 				}
 				a.checkCall(callable, call.Arguments, current, member.Property.Token)
 				qualified := receiver.Name + "::" + member.Property.Value
-				a.recordResolvedCall(call, "method:"+filepath.ToSlash(callable.File)+":"+qualified, "method", callable.ReturnType)
+				a.recordResolvedCall(call, "method:"+canonicalSourcePath(callable.File)+":"+qualified, "method", callable.ReturnType)
 				if nullable && member.NullSafe {
 					return nullableType(callable.ReturnType)
 				}
