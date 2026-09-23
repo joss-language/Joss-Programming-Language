@@ -24,6 +24,8 @@ type modelMetadata struct {
 	Timestamps   bool
 	CreatedAt    string
 	UpdatedAt    string
+	DeletedAt    string
+	SoftDeletes  bool
 	Fillable     map[string]struct{}
 	Guarded      map[string]struct{}
 	Hidden       map[string]struct{}
@@ -44,16 +46,20 @@ type modelState struct {
 }
 
 type modelRelation struct {
-	kind       string
-	parent     *Instance
-	foreignKey string
-	localKey   string
+	kind            string
+	parent          *Instance
+	foreignKey      string
+	localKey        string
+	pivotTable      string
+	foreignPivotKey string
+	relatedPivotKey string
+	relatedKey      string
 }
 
 var modelConfigurationFields = map[string]struct{}{
 	"table": {}, "primaryKey": {}, "keyType": {}, "incrementing": {},
 	"timestamps": {}, "createdAt": {}, "updatedAt": {}, "fillable": {},
-	"guarded": {}, "hidden": {}, "visible": {}, "casts": {},
+	"guarded": {}, "hidden": {}, "visible": {}, "casts": {}, "softDeletes": {}, "deletedAt": {},
 }
 
 func buildModelMetadata(class *classMetadata, chain []*parser.ClassStatement) *modelMetadata {
@@ -74,7 +80,7 @@ func buildModelMetadata(class *classMetadata, chain []*parser.ClassStatement) *m
 	metadata := &modelMetadata{
 		Class: class.Class, ClassName: name, Table: strings.ToLower(pluralizeWord(name)),
 		PrimaryKey: "id", KeyType: "int", Incrementing: true, Timestamps: true,
-		CreatedAt: "created_at", UpdatedAt: "updated_at",
+		CreatedAt: "created_at", UpdatedAt: "updated_at", DeletedAt: "deleted_at",
 		Fillable: map[string]struct{}{}, Guarded: map[string]struct{}{"*": {}},
 		Hidden: map[string]struct{}{}, Visible: map[string]struct{}{}, Casts: map[string]string{},
 	}
@@ -101,10 +107,14 @@ func buildModelMetadata(class *classMetadata, chain []*parser.ClassStatement) *m
 			metadata.CreatedAt = requireModelString(name, property, value)
 		case "updatedAt":
 			metadata.UpdatedAt = requireModelString(name, property, value)
+		case "deletedAt":
+			metadata.DeletedAt = requireModelString(name, property, value)
 		case "incrementing":
 			metadata.Incrementing = requireModelBool(name, property, value)
 		case "timestamps":
 			metadata.Timestamps = requireModelBool(name, property, value)
+		case "softDeletes":
+			metadata.SoftDeletes = requireModelBool(name, property, value)
 		case "fillable":
 			metadata.Fillable = stringSet(name, property, value)
 		case "guarded":
@@ -408,6 +418,18 @@ func (r *Runtime) executeModelMethod(instance *Instance, method string, args []i
 	}
 	lower := strings.ToLower(method)
 	switch lower {
+	case "get":
+		if instance.model != nil && instance.model.relation != nil && instance.model.relation.kind == "belongstomany" {
+			return r.getBelongsToMany(instance)
+		}
+	case "first":
+		if instance.model != nil && instance.model.relation != nil && instance.model.relation.kind == "belongstomany" {
+			items := r.getBelongsToMany(instance)
+			if len(items) > 0 {
+				return items[0]
+			}
+			return nil
+		}
 	case "query":
 		return r.newModelQuery(metadata)
 	case "all":
@@ -424,6 +446,8 @@ func (r *Runtime) executeModelMethod(instance *Instance, method string, args []i
 		r.fillModel(created, attributes, false)
 		r.saveModel(created)
 		return created
+	case "firstornew", "firstorcreate", "updateorcreate":
+		return r.firstOrWriteModel(metadata, lower, args)
 	case "fill", "forcefill":
 		if len(args) != 1 {
 			panic(&JossError{Type: "ModelError", Message: method + "() requiere un map de atributos"})
@@ -442,12 +466,36 @@ func (r *Runtime) executeModelMethod(instance *Instance, method string, args []i
 		if instance.model != nil && !instance.model.query {
 			return r.deleteModel(instance)
 		}
+	case "restore":
+		r.ensureModelState(instance, metadata)
+		return r.restoreModel(instance)
+	case "forcedelete":
+		r.ensureModelState(instance, metadata)
+		return r.forceDeleteModel(instance)
+	case "withtrashed", "onlytrashed", "withouttrashed":
+		query := instance
+		if instance.model == nil || !instance.model.query {
+			query = r.newModelQuery(metadata)
+		}
+		r.configureSoftDeleteScope(query, lower)
+		return query
+	case "scope":
+		query := instance
+		if instance.model == nil || !instance.model.query {
+			query = r.newModelQuery(metadata)
+		}
+		return r.applyLocalModelScope(query, args)
 	case "refresh":
 		r.ensureModelState(instance, metadata)
 		return r.refreshModel(instance)
-	case "belongsto", "hasone", "hasmany":
+	case "belongsto", "hasone", "hasmany", "belongstomany":
 		r.ensureModelState(instance, metadata)
 		return r.newRelationQuery(instance, lower, args)
+	case "attach", "detach", "sync":
+		if instance.model == nil || instance.model.relation == nil || instance.model.relation.kind != "belongstomany" {
+			panic(&JossError{Type: "InvalidRelation", Message: method + "() requiere belongsToMany"})
+		}
+		return r.executePivotMutation(instance.model.relation, lower, args)
 	case "with":
 		query := instance
 		if instance.model == nil || !instance.model.query {
@@ -510,6 +558,46 @@ func (r *Runtime) executeModelMethod(instance *Instance, method string, args []i
 	return r.executeGranDBMethod(query, method, args)
 }
 
+func (r *Runtime) firstOrWriteModel(metadata *modelMetadata, operation string, args []interface{}) *Instance {
+	if len(args) == 0 {
+		panic(&JossError{Type: "ModelError", Message: operation + "() requiere atributos de búsqueda"})
+	}
+	attributes, ok := args[0].(map[string]interface{})
+	if !ok || len(attributes) == 0 {
+		panic(&JossError{Type: "ModelError", Message: operation + "() requiere un map no vacío"})
+	}
+	values := map[string]interface{}{}
+	if len(args) > 1 {
+		var valid bool
+		values, valid = args[1].(map[string]interface{})
+		if !valid {
+			panic(&JossError{Type: "ModelError", Message: operation + "() requiere un segundo map"})
+		}
+	}
+	query := r.newModelQuery(metadata)
+	for _, name := range sortedMapKeys(attributes) {
+		r.executeGranDBMethod(query, "where", []interface{}{name, attributes[name]})
+	}
+	found := r.executeFirstMethod(query, nil)
+	if model, ok := found.(*Instance); ok {
+		if operation == "updateorcreate" && len(values) > 0 {
+			r.fillModel(model, values, false)
+			r.saveModel(model)
+		}
+		return model
+	}
+	model := &Instance{Class: metadata.Class, Fields: map[string]interface{}{}, Constants: map[string]bool{}, model: newModelState(metadata, false, false)}
+	combined := cloneValueMap(attributes)
+	for name, value := range values {
+		combined[name] = value
+	}
+	r.fillModel(model, combined, false)
+	if operation != "firstornew" {
+		r.saveModel(model)
+	}
+	return model
+}
+
 func (r *Runtime) ensureModelState(instance *Instance, metadata *modelMetadata) {
 	if instance.model == nil {
 		instance.model = newModelState(metadata, false, false)
@@ -519,6 +607,9 @@ func (r *Runtime) ensureModelState(instance *Instance, metadata *modelMetadata) 
 func (r *Runtime) newModelQuery(metadata *modelMetadata) *Instance {
 	query := &Instance{Class: metadata.Class, Fields: map[string]interface{}{}, Constants: map[string]bool{}, model: newModelState(metadata, false, true)}
 	r.executeGranDBMethod(query, "table", []interface{}{metadata.Table})
+	if metadata.SoftDeletes {
+		r.configureSoftDeleteScope(query, "withouttrashed")
+	}
 	return query
 }
 func (r *Runtime) fillModel(instance *Instance, attributes map[string]interface{}, force bool) {
@@ -552,6 +643,17 @@ func (r *Runtime) saveModel(instance *Instance) bool {
 	if state.exists && len(changes) == 0 {
 		state.lastChanges = map[string]interface{}{}
 		return true
+	}
+	creating := !state.exists
+	if !r.runModelHook(instance, "saving") {
+		return false
+	}
+	if creating {
+		if !r.runModelHook(instance, "creating") {
+			return false
+		}
+	} else if !r.runModelHook(instance, "updating") {
+		return false
 	}
 	data := make(map[string]interface{})
 	if state.exists {
@@ -599,6 +701,12 @@ func (r *Runtime) saveModel(instance *Instance) bool {
 		state.lastChanges = cloneValueMap(instance.Fields)
 	}
 	state.original = cloneValueMap(instance.Fields)
+	if creating {
+		r.runModelHook(instance, "created")
+	} else {
+		r.runModelHook(instance, "updated")
+	}
+	r.runModelHook(instance, "saved")
 	return true
 }
 func modelDatabaseValue(metadata *modelMetadata, name string, value interface{}) interface{} {
@@ -652,18 +760,147 @@ func (r *Runtime) deleteModel(instance *Instance) bool {
 	if state == nil || !state.exists || state.deleted {
 		return false
 	}
+	if !r.runModelHook(instance, "deleting") {
+		return false
+	}
 	key, ok := instance.Fields[state.metadata.PrimaryKey]
 	if !ok || key == nil {
 		panic(&JossError{Type: "ModelStateError", Message: "delete() requiere primary key"})
 	}
 	query := r.newModelQuery(state.metadata)
+	if state.metadata.SoftDeletes {
+		now := time.Now().UTC().Format("2006-01-02 15:04:05")
+		r.configureSoftDeleteScope(query, "withtrashed")
+		r.executeGranDBMethod(query, "where", []interface{}{state.metadata.PrimaryKey, key})
+		if result := r.executeUpdateMethod(query, []interface{}{map[string]interface{}{state.metadata.DeletedAt: now}}); result != true {
+			return false
+		}
+		instance.Fields[state.metadata.DeletedAt] = now
+		state.original = cloneValueMap(instance.Fields)
+		state.deleted = true
+		r.runModelHook(instance, "deleted")
+		return true
+	}
 	r.executeGranDBMethod(query, "where", []interface{}{state.metadata.PrimaryKey, key})
 	if result := r.executeDeleteMethod(query); result != true {
 		return false
 	}
 	state.deleted = true
 	state.exists = false
+	r.runModelHook(instance, "deleted")
 	return true
+}
+
+func (r *Runtime) forceDeleteModel(instance *Instance) bool {
+	state := instance.model
+	if state == nil {
+		return false
+	}
+	key := instance.Fields[state.metadata.PrimaryKey]
+	if key == nil {
+		return false
+	}
+	if !r.runModelHook(instance, "deleting") {
+		return false
+	}
+	query := r.newModelQuery(state.metadata)
+	r.configureSoftDeleteScope(query, "withtrashed")
+	r.executeGranDBMethod(query, "where", []interface{}{state.metadata.PrimaryKey, key})
+	if result := r.executeDeleteMethod(query); result != true {
+		return false
+	}
+	state.deleted = true
+	state.exists = false
+	r.runModelHook(instance, "deleted")
+	return true
+}
+func (r *Runtime) restoreModel(instance *Instance) bool {
+	state := instance.model
+	if state == nil || !state.metadata.SoftDeletes || !state.exists {
+		return false
+	}
+	key := instance.Fields[state.metadata.PrimaryKey]
+	if key == nil {
+		return false
+	}
+	if !r.runModelHook(instance, "restoring") {
+		return false
+	}
+	query := r.newModelQuery(state.metadata)
+	r.configureSoftDeleteScope(query, "withtrashed")
+	r.executeGranDBMethod(query, "where", []interface{}{state.metadata.PrimaryKey, key})
+	if result := r.executeUpdateMethod(query, []interface{}{map[string]interface{}{state.metadata.DeletedAt: nil}}); result != true {
+		return false
+	}
+	instance.Fields[state.metadata.DeletedAt] = nil
+	state.original = cloneValueMap(instance.Fields)
+	state.deleted = false
+	r.runModelHook(instance, "restored")
+	return true
+}
+
+func (r *Runtime) runModelHook(instance *Instance, name string) bool {
+	if instance == nil || instance.Class == nil || instance.Class.Name == nil {
+		return true
+	}
+	meta := r.lookupClassMetadata(instance.Class.Name.Value)
+	if meta == nil {
+		return true
+	}
+	info := meta.Methods[name]
+	if info == nil || info.Method.Body == nil {
+		return true
+	}
+	result := r.CallMethodEvaluated(info.Method, instance, nil)
+	if allowed, ok := result.(bool); ok {
+		return allowed
+	}
+	return true
+}
+func (r *Runtime) configureSoftDeleteScope(query *Instance, mode string) {
+	if query == nil || query.model == nil || !query.model.metadata.SoftDeletes {
+		return
+	}
+	column := query.model.metadata.DeletedAt
+	quoted := quoteIdentifier(column)
+	wheres, _ := query.Fields["_wheres"].([]string)
+	filtered := wheres[:0]
+	for _, where := range wheres {
+		if where != quoted+" IS NULL" && where != quoted+" IS NOT NULL" {
+			filtered = append(filtered, where)
+		}
+	}
+	query.Fields["_wheres"] = filtered
+	switch mode {
+	case "withouttrashed":
+		r.executeGranDBMethod(query, "whereNull", []interface{}{column})
+	case "onlytrashed":
+		r.executeGranDBMethod(query, "whereNotNull", []interface{}{column})
+	}
+}
+func (r *Runtime) applyLocalModelScope(query *Instance, args []interface{}) *Instance {
+	if len(args) == 0 {
+		panic(&JossError{Type: "ModelScopeError", Message: "scope() requiere un nombre"})
+	}
+	name := fmt.Sprint(args[0])
+	if name == "" {
+		panic(&JossError{Type: "ModelScopeError", Message: "scope() no acepta un nombre vacío"})
+	}
+	methodName := "scope" + strings.ToUpper(name[:1]) + name[1:]
+	meta := r.lookupClassMetadata(query.model.metadata.ClassName)
+	info := meta.Methods[methodName]
+	if info == nil || info.Method.Body == nil {
+		panic(&JossError{Type: "ModelScopeError", Message: fmt.Sprintf("El scope %s::%s no existe", meta.Class.Name.Value, name)})
+	}
+	scopeArgs := []interface{}{query}
+	if len(args) > 1 {
+		scopeArgs = append(scopeArgs, args[1:]...)
+	}
+	result := r.CallMethodEvaluated(info.Method, query, scopeArgs)
+	if scoped, ok := result.(*Instance); ok {
+		return scoped
+	}
+	return query
 }
 
 func (r *Runtime) newRelationQuery(parent *Instance, kind string, args []interface{}) *Instance {
@@ -709,9 +946,43 @@ func (r *Runtime) newRelationQuery(parent *Instance, kind string, args []interfa
 			panic(&JossError{Type: "InvalidRelation", Message: "El modelo padre no tiene local key"})
 		}
 		r.executeGranDBMethod(query, "where", []interface{}{foreign, value})
+	case "belongstomany":
+		local = parent.model.metadata.PrimaryKey
+		relatedKey := related.PrimaryKey
+		pivot := defaultPivotTable(parent.model.metadata.ClassName, related.ClassName)
+		foreignPivot := snakeCase(parent.model.metadata.ClassName) + "_id"
+		relatedPivot := snakeCase(related.ClassName) + "_id"
+		if len(args) > 1 {
+			pivot = fmt.Sprint(args[1])
+		}
+		if len(args) > 2 {
+			foreignPivot = fmt.Sprint(args[2])
+		}
+		if len(args) > 3 {
+			relatedPivot = fmt.Sprint(args[3])
+		}
+		if len(args) > 4 {
+			local = fmt.Sprint(args[4])
+		}
+		if len(args) > 5 {
+			relatedKey = fmt.Sprint(args[5])
+		}
+		if parent.Fields[local] == nil {
+			panic(&JossError{Type: "InvalidRelation", Message: "El modelo padre no tiene local key"})
+		}
+		query.model.relation = &modelRelation{kind: kind, parent: parent, localKey: local, relatedKey: relatedKey, pivotTable: pivot, foreignPivotKey: foreignPivot, relatedPivotKey: relatedPivot}
+		return query
 	}
 	query.model.relation = &modelRelation{kind: kind, parent: parent, foreignKey: foreign, localKey: local}
 	return query
+}
+
+func defaultPivotTable(left, right string) string {
+	names := []string{snakeCase(left), snakeCase(right)}
+	if names[0] > names[1] {
+		names[0], names[1] = names[1], names[0]
+	}
+	return names[0] + "_" + names[1]
 }
 
 func relationNames(args []interface{}) []string {
@@ -779,6 +1050,13 @@ func (r *Runtime) eagerLoadModels(parents []*Instance, names []string, missingOn
 			panic(&JossError{Type: "InvalidRelation", Message: fmt.Sprintf("%s::%s no retorna una relación", meta.Class.Name.Value, name)})
 		}
 		relation := relationQuery.model.relation
+		if relation.kind == "belongstomany" {
+			children := r.eagerLoadBelongsToMany(pending, name, relationQuery)
+			if len(nested) > 0 {
+				r.eagerLoadModels(children, nested, missingOnly)
+			}
+			continue
+		}
 		keys := []interface{}{}
 		seen := map[string]bool{}
 		keyName := relation.localKey

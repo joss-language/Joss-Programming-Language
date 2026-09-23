@@ -503,7 +503,7 @@ compilación antes de reducir round trips tendría poco impacto en lecturas gran
 ### Suite cross database
 
 `TestGranDBCrossDatabaseContract` ejecuta siempre SQLite y comparte CRUD,
-bindings, bulk y upsert con los otros motores. MySQL, PostgreSQL y SQL Server se
+bindings, bulk, upsert y el ciclo Model create/hydrate/dirty update con los otros motores. MySQL, PostgreSQL y SQL Server se
 activan mediante `JOSS_TEST_MYSQL_DSN`, `JOSS_TEST_POSTGRES_DSN` y
 `JOSS_TEST_SQLSERVER_DSN`. Un skip sin DSN significa “no verificado”, no éxito de
 compatibilidad.
@@ -528,6 +528,12 @@ compatibilidad.
   concreta y primary keys personalizadas. GranDB directo conserva mapas.
 - `belongsTo`, `hasOne`, `hasMany`, `with`, eager loading anidado, `load` y
   `loadMissing`, usando consultas por lote e índices por clave.
+- `belongsToMany` con metadata pivot separada, eager loading, `attach`, `detach`
+  y `sync` transaccional con rollback comprobado.
+- Scopes locales explícitos, soft deletes, restore/forceDelete y filtros de
+  registros eliminados removibles.
+- Eventos de persistencia cancelables antes de SQL y hooks posteriores a éxito.
+- `firstOrNew`, `firstOrCreate` y `updateOrCreate` sobre la misma ruta de save.
 - Serialización con `hidden`/`visible` y protección de ciclos indirecta al
   incluir únicamente relaciones que fueron cargadas explícitamente.
 
@@ -558,10 +564,10 @@ estado mutable; la metadata compartida pertenece al ciclo de vida del runtime.
 | belongsTo | Sí | Sí | No verificado | No verificado | No verificado |
 | hasOne | Sí | Cobertura de infraestructura | No verificado | No verificado | No verificado |
 | hasMany | Sí | Sí | No verificado | No verificado | No verificado |
-| belongsToMany | No | No | No | No | No |
+| belongsToMany | Sí | Sí | No verificado | No verificado | No verificado |
 | Eager Loading | Sí | Sí | No verificado | No verificado | No verificado |
 | Nested Eager | Sí | Cobertura funcional compartida | No verificado | No verificado | No verificado |
-| attach / detach / sync | No | No | No | No | No |
+| attach / detach / sync | Sí | Sí, incluido rollback | No verificado | No verificado | No verificado |
 
 ### Seguridad y semántica
 
@@ -590,9 +596,8 @@ y agrupa en mapas; evita el algoritmo padres por relacionados.
 
 ### Limitaciones explícitas
 
-- Pivot, `belongsToMany`, `attach`, `detach` y `sync` siguen pendientes.
 - No hay lazy loading automático ni modo `preventLazyLoading`.
-- Scopes, soft deletes, accessors, mutators y eventos siguen pendientes.
+- Accessors, mutators y scopes globales personalizados siguen pendientes.
 - Timestamps de DB se apoyan todavía en las reglas del builder; el modelo no
   refresca automáticamente valores generados por el servidor después de INSERT.
 - MySQL, PostgreSQL y SQL Server requieren sus DSN para validar esta capa en

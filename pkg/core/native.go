@@ -148,7 +148,7 @@ func (r *Runtime) RegisterNativeClasses() {
 		"when", "unless", "transaction", "toSql", "tosql", "getBindings", "getbindings", "explain", "dump", "dd",
 	}
 	r.registerNative("GranDB", granDBMethods, (*Runtime).executeGranDBMethod)
-	modelMethods := append([]string{"query", "all", "create", "fill", "forceFill", "save", "refresh", "isDirty", "isClean", "wasChanged", "getOriginal", "getChanges", "toMap", "toJSON", "belongsTo", "hasOne", "hasMany", "with", "load", "loadMissing"}, granDBMethods...)
+	modelMethods := append([]string{"query", "all", "create", "firstOrNew", "firstOrCreate", "updateOrCreate", "fill", "forceFill", "save", "refresh", "delete", "restore", "forceDelete", "withTrashed", "onlyTrashed", "withoutTrashed", "scope", "isDirty", "isClean", "wasChanged", "getOriginal", "getChanges", "toMap", "toJSON", "belongsTo", "hasOne", "hasMany", "belongsToMany", "attach", "detach", "sync", "with", "load", "loadMissing"}, granDBMethods...)
 	r.registerNative("Model", modelMethods, (*Runtime).executeModelMethod)
 
 	// Auth

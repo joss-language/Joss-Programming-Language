@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"testing"
+
+	"github.com/jossecurity/joss/pkg/parser"
 )
 
 // TestGranDBCrossDatabaseContract is always exercised with SQLite. The same
@@ -77,6 +79,22 @@ func TestGranDBCrossDatabaseContract(t *testing.T) {
 			if toInt64(row["active"]) != 0 {
 				t.Fatalf("upserted active = %v, want 0", row["active"])
 			}
+
+			modelClass := &parser.ClassStatement{Name: &parser.Identifier{Value: "ContractModel"}, Body: &parser.BlockStatement{}}
+			metadata := &modelMetadata{Class: modelClass, ClassName: "ContractModel", Table: table, PrimaryKey: "id", KeyType: "int", Incrementing: false, Fillable: map[string]struct{}{"id": {}, "name": {}, "active": {}}, Guarded: map[string]struct{}{}, Hidden: map[string]struct{}{}, Visible: map[string]struct{}{}, Casts: map[string]string{"active": "bool"}}
+			created := &Instance{Class: modelClass, Fields: map[string]interface{}{}, Constants: map[string]bool{}, model: newModelState(metadata, false, false)}
+			r.fillModel(created, map[string]interface{}{"id": int64(3), "name": "Model", "active": true}, false)
+			if !r.saveModel(created) {
+				t.Fatal("model insert failed")
+			}
+			found := r.executeFindMethod(r.newModelQuery(metadata), []interface{}{int64(3)}).(*Instance)
+			if found.Fields["active"] != true || !found.model.exists {
+				t.Fatalf("hydrated model=%#v", found.Fields)
+			}
+			found.Fields["name"] = "Model Updated"
+			if !r.saveModel(found) || len(modelChanges(found)) != 0 {
+				t.Fatal("model dirty update failed")
+			}
 			query = builder()
 			r.executeGranDBMethod(query, "where", []interface{}{"id", int64(2)})
 			if updated := r.executeGranDBMethod(query, "update", []interface{}{map[string]interface{}{"active": int64(0)}}); updated != true {
@@ -87,8 +105,8 @@ func TestGranDBCrossDatabaseContract(t *testing.T) {
 			if deleted := r.executeGranDBMethod(query, "delete", nil); deleted != true {
 				t.Fatalf("delete returned %v", deleted)
 			}
-			if count := r.executeGranDBMethod(builder(), "count", nil); toInt64(count) != 1 {
-				t.Fatalf("final count = %v, want 1", count)
+			if count := r.executeGranDBMethod(builder(), "count", nil); toInt64(count) != 2 {
+				t.Fatalf("final count = %v, want 2", count)
 			}
 		})
 	}

@@ -181,6 +181,9 @@ Las reglas arquitectónicas negativas siguen vigentes: analyzer no importa core;
 - `save()` usa el estado explícito `exists`, compara atributos actuales con `original`, omite UPDATE sin cambios y sincroniza el estado solo después de SQL exitoso.
 - Consultas de `Model` componen el builder de GranDB. El builder directo conserva mapas; el builder de modelo hidrata instancias.
 - `belongsTo`, `hasOne` y `hasMany` producen la misma consulta de modelo. `with`, `load` y `loadMissing` comparten un cargador eager por lotes e indexan resultados por clave.
+- `belongsToMany` conserva atributos pivot fuera de los atributos relacionados. `sync` calcula attach/detach y toda escritura relacional compuesta reutiliza `Runtime.activeTx`; arrays vacíos nunca se convierten en borrado global.
+- Soft delete es un scope de query removible y opt in mediante metadata. `forceDelete` es la única ruta de borrado físico para una instancia soft deleted.
+- Hooks de modelo previos pueden cancelar retornando `false`; hooks posteriores se ejecutan únicamente después de SQL exitoso. No añada buses de eventos paralelos.
 
 ## Reglas de evolución de GranDB
 

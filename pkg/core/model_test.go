@@ -247,6 +247,208 @@ $name = $user->name
 	}
 }
 
+func TestBelongsToManyAttachDetachSyncEagerAndRollback(t *testing.T) {
+	database, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	_, err = database.Exec(`
+CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
+CREATE TABLE roles (id INTEGER PRIMARY KEY, name TEXT);
+CREATE TABLE role_user (user_id INTEGER, role_id INTEGER, assigned_by TEXT, UNIQUE(user_id, role_id));
+INSERT INTO users VALUES (1,'Ada');
+INSERT INTO roles VALUES (1,'admin'),(2,'editor'),(3,'blocked');`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := NewRuntime()
+	defer runtime.Free()
+	runtime.DB = database
+	runtime.Env = map[string]string{"DB": "sqlite", "PREFIX": ""}
+	source := `
+public class User extends Model {
+    protected string $table = "users"
+    public func roles(): mixed { return $this->belongsToMany("Role", "role_user", "user_id", "role_id", "id", "id") }
+}
+public class Role extends Model { protected string $table = "roles" }
+`
+	runtime.Execute(parser.NewParser(parser.NewLexer(source)).ParseProgram())
+	user := runtime.executeFindMethod(runtime.newModelQuery(runtime.lookupModelMetadata("User")), []interface{}{int64(1)}).(*Instance)
+	relation := runtime.CallMethodEvaluated(runtime.lookupClassMetadata("User").Methods["roles"].Method, user, nil).(*Instance)
+	if attached := runtime.executeModelMethod(relation, "attach", []interface{}{int64(1), map[string]interface{}{"assigned_by": "system"}}); attached != int64(1) {
+		t.Fatalf("attach=%v", attached)
+	}
+	if duplicate := runtime.executeModelMethod(relation, "attach", []interface{}{int64(1)}); duplicate != int64(0) {
+		t.Fatalf("duplicate attach=%v", duplicate)
+	}
+	items := runtime.executeModelMethod(relation, "get", nil).([]interface{})
+	if len(items) != 1 || items[0].(*Instance).Fields["pivot"].(map[string]interface{})["assigned_by"] != "system" {
+		t.Fatalf("pivot items=%#v", items)
+	}
+	if detached := runtime.executeModelMethod(relation, "detach", []interface{}{[]interface{}{}}); detached != int64(0) {
+		t.Fatalf("empty detach=%v", detached)
+	}
+	result := runtime.executeModelMethod(relation, "sync", []interface{}{[]interface{}{int64(1), int64(2)}}).(map[string]interface{})
+	if result["attached"] != int64(1) || result["detached"] != int64(0) {
+		t.Fatalf("sync=%#v", result)
+	}
+	result = runtime.executeModelMethod(relation, "sync", []interface{}{map[string]interface{}{"1": map[string]interface{}{"assigned_by": "owner"}, "2": map[string]interface{}{"assigned_by": "owner"}}}).(map[string]interface{})
+	if result["updated"] != int64(2) {
+		t.Fatalf("sync pivot update=%#v", result)
+	}
+	var assigned string
+	if err := database.QueryRow(`SELECT assigned_by FROM role_user WHERE user_id=1 AND role_id=2`).Scan(&assigned); err != nil || assigned != "owner" {
+		t.Fatalf("pivot update assigned=%q err=%v", assigned, err)
+	}
+	query := runtime.newModelQuery(runtime.lookupModelMetadata("User"))
+	query.Fields["_with"] = []string{"roles"}
+	loaded := runtime.executeGetMethod(query, nil).([]interface{})[0].(*Instance)
+	if len(loaded.Fields["roles"].([]interface{})) != 2 {
+		t.Fatalf("eager roles=%#v", loaded.Fields["roles"])
+	}
+	if _, err := database.Exec(`CREATE TRIGGER reject_blocked BEFORE INSERT ON role_user WHEN NEW.role_id = 3 BEGIN SELECT RAISE(ABORT,'blocked'); END;`); err != nil {
+		t.Fatal(err)
+	}
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("sync should fail and roll back")
+			}
+		}()
+		runtime.executeModelMethod(relation, "sync", []interface{}{[]interface{}{int64(3)}})
+	}()
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM role_user WHERE user_id=1 AND role_id IN (1,2)`).Scan(&count); err != nil || count != 2 {
+		t.Fatalf("rollback count=%d err=%v", count, err)
+	}
+	if detached := runtime.executeModelMethod(relation, "detach", nil); detached != int64(2) {
+		t.Fatalf("detach all=%v", detached)
+	}
+}
+
+func TestModelSoftDeletesAndExplicitLocalScope(t *testing.T) {
+	database, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	if _, err := database.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, deleted_at TEXT); INSERT INTO users VALUES (1,'Ada',NULL),(2,'Grace','2026-01-01 00:00:00')`); err != nil {
+		t.Fatal(err)
+	}
+	runtime := NewRuntime()
+	defer runtime.Free()
+	runtime.DB = database
+	runtime.Env = map[string]string{"DB": "sqlite", "PREFIX": ""}
+	source := `
+public class User extends Model {
+    protected string $table = "users"
+    protected bool $softDeletes = true
+    public func scopeNamed(mixed $query, string $name): mixed { return $query->where("name", $name) }
+}`
+	runtime.Execute(parser.NewParser(parser.NewLexer(source)).ParseProgram())
+	metadata := runtime.lookupModelMetadata("User")
+	if rows := runtime.executeGetMethod(runtime.newModelQuery(metadata), nil).([]interface{}); len(rows) != 1 {
+		t.Fatalf("default soft-delete scope returned %d", len(rows))
+	}
+	allQuery := runtime.executeModelMethod(&Instance{Class: metadata.Class, Fields: map[string]interface{}{}}, "withTrashed", nil).(*Instance)
+	if rows := runtime.executeGetMethod(allQuery, nil).([]interface{}); len(rows) != 2 {
+		t.Fatalf("withTrashed returned %d", len(rows))
+	}
+	onlyQuery := runtime.executeModelMethod(&Instance{Class: metadata.Class, Fields: map[string]interface{}{}}, "onlyTrashed", nil).(*Instance)
+	if rows := runtime.executeGetMethod(onlyQuery, nil).([]interface{}); len(rows) != 1 || rows[0].(*Instance).Fields["name"] != "Grace" {
+		t.Fatalf("onlyTrashed=%#v", rows)
+	}
+	scopeQuery := runtime.executeModelMethod(&Instance{Class: metadata.Class, Fields: map[string]interface{}{}}, "scope", []interface{}{"named", "Ada"}).(*Instance)
+	user := runtime.executeFirstMethod(scopeQuery, nil).(*Instance)
+	if !runtime.deleteModel(user) || !user.model.deleted {
+		t.Fatal("soft delete failed")
+	}
+	if rows := runtime.executeGetMethod(runtime.newModelQuery(metadata), nil).([]interface{}); len(rows) != 0 {
+		t.Fatalf("deleted model remained visible: %d", len(rows))
+	}
+	if !runtime.restoreModel(user) || user.model.deleted {
+		t.Fatal("restore failed")
+	}
+	if !runtime.deleteModel(user) || !runtime.forceDeleteModel(user) {
+		t.Fatal("forceDelete failed")
+	}
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM users WHERE id=1`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("forceDelete count=%d err=%v", count, err)
+	}
+}
+
+func TestModelEventsRunInOrderAndCanCancelWrite(t *testing.T) {
+	database, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	if _, err := database.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, saving_seen INTEGER)`); err != nil {
+		t.Fatal(err)
+	}
+	runtime := NewRuntime()
+	defer runtime.Free()
+	runtime.DB = database
+	runtime.Env = map[string]string{"DB": "sqlite", "PREFIX": ""}
+	source := `
+public class User extends Model {
+    protected string $table = "users"
+    protected array $fillable = ["name"]
+    public func saving(): bool { $this->saving_seen = true return true }
+    public func creating(): bool { return $this->name != "blocked" }
+    public func created(): bool { $this->created_seen = true return true }
+}`
+	runtime.Execute(parser.NewParser(parser.NewLexer(source)).ParseProgram())
+	metadata := runtime.lookupModelMetadata("User")
+	created := &Instance{Class: metadata.Class, Fields: map[string]interface{}{"name": "Ada"}, Constants: map[string]bool{}, model: newModelState(metadata, false, false)}
+	if !runtime.saveModel(created) || created.Fields["saving_seen"] != true || created.Fields["created_seen"] != true {
+		t.Fatalf("events=%#v", created.Fields)
+	}
+	blocked := &Instance{Class: metadata.Class, Fields: map[string]interface{}{"name": "blocked"}, Constants: map[string]bool{}, model: newModelState(metadata, false, false)}
+	if runtime.saveModel(blocked) {
+		t.Fatal("creating=false did not cancel insert")
+	}
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("event cancellation count=%d err=%v", count, err)
+	}
+}
+
+func TestModelFirstOrCreateAndUpdateOrCreate(t *testing.T) {
+	database, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	if _, err := database.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, name TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	runtime := NewRuntime()
+	defer runtime.Free()
+	runtime.DB = database
+	runtime.Env = map[string]string{"DB": "sqlite", "PREFIX": ""}
+	runtime.Execute(parser.NewParser(parser.NewLexer(`public class User extends Model { protected string $table = "users" protected array $fillable = ["email","name"] }`)).ParseProgram())
+	metadata := runtime.lookupModelMetadata("User")
+	created := runtime.firstOrWriteModel(metadata, "firstorcreate", []interface{}{map[string]interface{}{"email": "ada@example.test"}, map[string]interface{}{"name": "Ada"}})
+	if !created.model.exists {
+		t.Fatal("firstOrCreate returned new state")
+	}
+	same := runtime.firstOrWriteModel(metadata, "firstorcreate", []interface{}{map[string]interface{}{"email": "ada@example.test"}, map[string]interface{}{"name": "Ignored"}})
+	if same.Fields["name"] != "Ada" {
+		t.Fatalf("firstOrCreate updated existing row: %#v", same.Fields)
+	}
+	updated := runtime.firstOrWriteModel(metadata, "updateorcreate", []interface{}{map[string]interface{}{"email": "ada@example.test"}, map[string]interface{}{"name": "Grace"}})
+	if updated.Fields["name"] != "Grace" {
+		t.Fatalf("updateOrCreate=%#v", updated.Fields)
+	}
+	pending := runtime.firstOrWriteModel(metadata, "firstornew", []interface{}{map[string]interface{}{"email": "new@example.test"}, map[string]interface{}{"name": "New"}})
+	if pending.model.exists {
+		t.Fatal("firstOrNew persisted model")
+	}
+}
+
 func containsJSONKey(encoded []byte, key string) bool {
 	var value map[string]interface{}
 	_ = json.Unmarshal(encoded, &value)

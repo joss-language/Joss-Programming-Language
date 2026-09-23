@@ -63,6 +63,27 @@ claves personalizadas. `with("posts")` las carga en lote y
 `with("posts.comments")` admite rutas anidadas. `load()` y `loadMissing()` usan
 el mismo cargador. Una relación cargada vacía se distingue de una no cargada.
 
+`belongsToMany(clase, pivot, clavePadrePivot, claveRelacionadaPivot,
+clavePadre, claveRelacionada)` conserva columnas adicionales en el atributo
+separado `pivot`. La relación ofrece `attach`, `detach` y `sync`. Un array vacío
+en `detach([])` no borra nada; `detach()` sin argumentos elimina explícitamente
+todas las asociaciones del padre. `sync()` calcula el delta y ejecuta todas sus
+operaciones en una transacción con rollback completo.
+
+Los modelos con `protected bool $softDeletes = true` reciben el filtro
+`deleted_at IS NULL`. `withTrashed()`, `onlyTrashed()`, `withoutTrashed()`,
+`restore()` y `forceDelete()` controlan ese scope. `scope("named", valor)` llama
+de forma explícita a un método `scopeNamed(query, valor)` del modelo.
+
+Los hooks `saving`, `creating`, `created`, `updating`, `updated`, `saved`,
+`deleting`, `deleted`, `restoring` y `restored` se ejecutan alrededor de la
+persistencia. Un hook previo que retorna `false` cancela la operación. Los hooks
+posteriores solo se ejecutan después de SQL exitoso.
+
+`firstOrNew`, `firstOrCreate` y `updateOrCreate` reutilizan hydration y `save`.
+La base de datos debe tener una constraint única para resolver carreras entre
+la búsqueda y el INSERT; estos helpers no prometen atomicidad por sí solos.
+
 <!-- joss-check: eager loading requiere modelos User/Post y sus tablas -->
 ```joss
 public class User extends Model {
@@ -74,8 +95,8 @@ public class User extends Model {
 $users = User::query()->with("posts")->orderBy("name", "asc")->get()
 ```
 
-Todavía no forman parte del contrato: `belongsToMany`, pivot, `attach`,
-`detach`, `sync`, lazy loading automático, scopes, soft deletes y eventos.
+Todavía no forman parte del contrato: lazy loading automático, accessors,
+mutators, scopes globales personalizados y guardado automático de grafos.
 
 ## Primera consulta
 

@@ -423,13 +423,15 @@ Clase base registrada sin métodos nativos propios.
 
 ## Model
 
-Implementación: [executeModelMethod](../pkg/core/model.go#L401).
+Implementación: [executeModelMethod](../pkg/core/model.go#L411).
 
 | Método | Retorno publicado al analizador |
 |---|---|
 | `all` | `mixed` |
+| `attach` | `mixed` |
 | `avg` | `mixed` |
 | `belongsTo` | `mixed` |
+| `belongsToMany` | `mixed` |
 | `changeDB` | `mixed` |
 | `changedb` | `mixed` |
 | `chunk` | `mixed` |
@@ -446,6 +448,7 @@ Implementación: [executeModelMethod](../pkg/core/model.go#L401).
 | `decrement` | `mixed` |
 | `delete` | `mixed` |
 | `deleteAll` | `mixed` |
+| `detach` | `mixed` |
 | `distinct` | `mixed` |
 | `doesntExist` | `mixed` |
 | `dump` | `mixed` |
@@ -458,11 +461,14 @@ Implementación: [executeModelMethod](../pkg/core/model.go#L401).
 | `findmany` | `mixed` |
 | `findorfail` | `mixed` |
 | `first` | `mixed` |
+| `firstOrCreate` | `mixed` |
 | `firstOrFail` | `mixed` |
+| `firstOrNew` | `mixed` |
 | `firstWhere` | `mixed` |
 | `firstofail` | `mixed` |
 | `firstwhere` | `mixed` |
 | `forPage` | `mixed` |
+| `forceDelete` | `mixed` |
 | `forceFill` | `mixed` |
 | `forpage` | `mixed` |
 | `get` | `mixed` |
@@ -495,6 +501,7 @@ Implementación: [executeModelMethod](../pkg/core/model.go#L401).
 | `min` | `mixed` |
 | `offset` | `mixed` |
 | `oldest` | `mixed` |
+| `onlyTrashed` | `mixed` |
 | `orHaving` | `mixed` |
 | `orWhere` | `mixed` |
 | `orWhereBetween` | `mixed` |
@@ -540,14 +547,17 @@ Implementación: [executeModelMethod](../pkg/core/model.go#L401).
 | `query` | `mixed` |
 | `refresh` | `mixed` |
 | `reorder` | `mixed` |
+| `restore` | `mixed` |
 | `rightJoin` | `mixed` |
 | `save` | `mixed` |
+| `scope` | `mixed` |
 | `select` | `mixed` |
 | `simplePaginate` | `mixed` |
 | `simplepaginate` | `mixed` |
 | `skip` | `mixed` |
 | `sole` | `mixed` |
 | `sum` | `mixed` |
+| `sync` | `mixed` |
 | `table` | `mixed` |
 | `take` | `mixed` |
 | `toJSON` | `mixed` |
@@ -559,6 +569,7 @@ Implementación: [executeModelMethod](../pkg/core/model.go#L401).
 | `truncate` | `mixed` |
 | `unless` | `mixed` |
 | `update` | `mixed` |
+| `updateOrCreate` | `mixed` |
 | `updateOrInsert` | `mixed` |
 | `updateorinsert` | `mixed` |
 | `upsert` | `mixed` |
@@ -598,6 +609,8 @@ Implementación: [executeModelMethod](../pkg/core/model.go#L401).
 | `wheretime` | `mixed` |
 | `whereyear` | `mixed` |
 | `with` | `mixed` |
+| `withTrashed` | `mixed` |
+| `withoutTrashed` | `mixed` |
 
 ## Mutex
 
@@ -1120,4 +1133,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 54 clases, 646 métodos y 126 built-ins.
+Total: 54 clases, 659 métodos y 126 built-ins.
