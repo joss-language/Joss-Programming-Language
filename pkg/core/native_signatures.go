@@ -18,8 +18,14 @@ type NativeMethodDefinition struct {
 	Name       string
 	ReturnType typesystem.Type
 	Parameters []NativeParameterDefinition
+	Effects    []string
 	ArityKnown bool
 	Variadic   bool
+}
+
+func withNativeEffects(definition NativeMethodDefinition, effects ...string) NativeMethodDefinition {
+	definition.Effects = append([]string(nil), effects...)
+	return definition
 }
 
 func nativeMethod(name, returnName string) NativeMethodDefinition {
@@ -73,7 +79,7 @@ var migratedNativeMethods = map[string][]NativeMethodDefinition{
 	},
 	"Markdown": {
 		nativeMethodWithArity("toHtml", "string", nativeParam("markdown", "string")),
-		nativeMethodWithArity("readFile", "string", nativeParam("path", "string")),
+		withNativeEffects(nativeMethodWithArity("readFile", "string", nativeParam("path", "string")), "fs", "io", "blocking"),
 	},
 	"Str": {
 		nativeMethodWithArity("length", "int", nativeParam("str", "string")),
@@ -112,12 +118,12 @@ var migratedNativeMethods = map[string][]NativeMethodDefinition{
 		nativeMethodWithArity("log", "void", nativeOptionalParam("value", "mixed")),
 	},
 	"Zip": {
-		nativeMethodWithArity("extract", "bool", nativeParam("src", "string"), nativeParam("dest", "string")),
+		withNativeEffects(nativeMethodWithArity("extract", "bool", nativeParam("src", "string"), nativeParam("dest", "string")), "fs", "io", "blocking"),
 	},
 	"FileStream": {
-		nativeMethodWithArity("open", "FileStream", nativeParam("path", "string"), nativeParam("mode", "string")),
-		nativeMethodWithArity("read", "string", nativeParam("length", "int")),
-		nativeMethodWithArity("write", "int", nativeParam("data", "string")),
+		withNativeEffects(nativeMethodWithArity("open", "FileStream", nativeParam("path", "string"), nativeParam("mode", "string")), "fs", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("read", "string", nativeParam("length", "int")), "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("write", "int", nativeParam("data", "string")), "io", "blocking"),
 		nativeMethodWithArity("seek", "int", nativeParam("offset", "int"), nativeParam("whence", "int")),
 		nativeMethodWithArity("size", "int"),
 		nativeMethodWithArity("flush", "void"),
@@ -137,12 +143,12 @@ var migratedNativeMethods = map[string][]NativeMethodDefinition{
 		nativeMethodWithArity("close", "void"),
 	},
 	"Socket": {
-		nativeMethodWithArity("tcp", "Socket", nativeParam("host", "string"), nativeParam("port", "string")),
-		nativeMethodWithArity("connect", "Socket", nativeParam("host", "string"), nativeParam("port", "string")),
-		nativeMethodWithArity("listen", "Socket", nativeParam("host", "string"), nativeParam("port", "string")),
-		nativeMethodWithArity("accept", "Socket"),
-		nativeMethodWithArity("send", "int", nativeParam("data", "string")),
-		nativeMethodWithArity("receive", "string", nativeParam("maxBytes", "int")),
+		withNativeEffects(nativeMethodWithArity("tcp", "Socket", nativeParam("host", "string"), nativeParam("port", "string")), "network", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("connect", "Socket", nativeParam("host", "string"), nativeParam("port", "string")), "network", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("listen", "Socket", nativeParam("host", "string"), nativeParam("port", "string")), "network", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("accept", "Socket"), "network", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("send", "int", nativeParam("data", "string")), "network", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("receive", "string", nativeParam("maxBytes", "int")), "network", "io", "blocking"),
 		nativeMethodWithArity("port", "int"),
 		nativeMethodWithArity("close", "void"),
 	},

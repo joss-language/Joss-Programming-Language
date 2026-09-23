@@ -15,6 +15,7 @@ import (
 // semantic analyzer. Consumers must not maintain parallel string lists.
 type AnalysisReport struct {
 	Diagnostics []diagnostics.Diagnostic
+	Prepared    *semanticanalyzer.PreparedProgram
 }
 
 func (ar *AnalysisReport) HasIssues() bool { return len(ar.Diagnostics) > 0 }
@@ -58,8 +59,8 @@ func AnalyzeProgram(program *parser.Program) *AnalysisReport {
 // AnalyzeSourceUnits performs project-aware, cross-file semantic analysis.
 func AnalyzeSourceUnits(units []semanticanalyzer.SourceUnit) *AnalysisReport {
 	environment := buildAnalysisEnvironment()
-	items := semanticanalyzer.Analyze(units, environment)
-	return AnalysisReportFromDiagnostics(items)
+	prepared := semanticanalyzer.PrepareProgram(units, environment)
+	return &AnalysisReport{Diagnostics: append([]diagnostics.Diagnostic(nil), prepared.Diagnostics...), Prepared: prepared}
 }
 
 func AnalysisReportFromDiagnostics(items []diagnostics.Diagnostic) *AnalysisReport {
@@ -130,7 +131,7 @@ func buildAnalysisEnvironment() semanticanalyzer.Environment {
 			for _, parameter := range definition.Parameters {
 				parameters = append(parameters, semanticanalyzer.Parameter{Name: parameter.Name, Type: parameter.Type, HasDefault: parameter.HasDefault, ByReference: parameter.ByReference})
 			}
-			class.Methods[definition.Name] = semanticanalyzer.Callable{Name: definition.Name, Parameters: parameters, ReturnType: definition.ReturnType, Variadic: definition.Variadic || !definition.ArityKnown, Owner: className}
+			class.Methods[definition.Name] = semanticanalyzer.Callable{Name: definition.Name, Parameters: parameters, ReturnType: definition.ReturnType, Effects: append([]string(nil), definition.Effects...), Variadic: definition.Variadic || !definition.ArityKnown, Owner: className}
 		}
 		environment.Classes[className] = class
 	}

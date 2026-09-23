@@ -86,6 +86,7 @@ Unlike generic error messages from older tools, each Joss diagnostic is designed
 |---|---|---|---|
 | `JOSS-FLOW-001` | Warning | Unreachable code (*dead code*): Instructions written after an unconditional `return`. | Move the instructions before `return` or delete them. |
 | `JOSS-FLOW-002` | Warning | Non-exhaustive match on enum: a `match` expression on an enum does not cover all possible cases and does not declare a `default` arm. | Add the missing enum cases or include a `default => ...` branch. |
+| `JOSS-FLOW-003` | Warning | Member access on a value whose type still includes `null`. | Check the value against `null` or use the safe `?->` operator. |
 | `JOSS-LINT-001` | Warning | Local variable declared but never read into the body. | Use the variable or remove it to keep the code clean. |
 | `JOSS-SYNTAX-001` | Error | Syntax error captured during the linter parsing phase. | Correct the punctuation or structure indicated by the parser. |
 | `JOSS-LINT-002` | Error | Parameter without explicit type reported by the linter. | Add the corresponding type annotation (`int`, `string`, `mixed`). |
@@ -255,3 +256,26 @@ print(describir(Estado::Activo))
 Now that you know all the diagnostics and how to resolve them, you can dive deeper into how the semantic analyzer examines the abstract syntax tree to output these codes:
 
 Continue with: [AST Static Analyzer](ANALIZADOR.md).
+
+---
+
+### Potentially null access (`JOSS-FLOW-003`)
+
+<!-- joss-error: JOSS-FLOW-003 -->
+```joss-invalid
+public class Usuario { public string $nombre = "Ada" }
+public func nombre(Usuario|null $usuario): string {
+    return $usuario->nombre
+}
+```
+
+Corrected case using safe access:
+
+<!-- joss-run: ["sin usuario"] -->
+```joss
+public class Usuario { public string $nombre = "Ada" }
+public func nombre(Usuario|null $usuario): string {
+	return $usuario == null ? "sin usuario" : $usuario->nombre
+}
+print(nombre(null))
+```

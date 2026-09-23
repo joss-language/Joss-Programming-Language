@@ -2,6 +2,6 @@ package version
 
 const Name = "Joss"
 
-const Version = "3.6.7.6"
+const Version = "3.6.7.7"
 
-const NameVersion = "Hello mobile"
+const NameVersion = "performance language " + Name + " version " + Version

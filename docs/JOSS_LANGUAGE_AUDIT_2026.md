@@ -2,7 +2,11 @@
 
 [Índice](README.md) · [Arquitectura](ARQUITECTURA.md) · [Tipos](SISTEMA_TIPOS.md) · [Diagnósticos](DIAGNOSTICOS.md)
 
-**Alcance y método.** Revisión del árbol actual del repositorio, no de la tesis ni de auditorías históricas como autoridad. Se contrastaron parser, AST, analyzer, typesystem, runtime, servidor, CLI, VM, bytecode, plugins, móvil, herramientas, pruebas, benchmarks, documentación y el proyecto web de ejemplo. `go test ./...` terminó con código 0 durante esta auditoría. Las observaciones que dependen de una ruta de código se indican como tales; no se atribuyen mediciones de rendimiento ni explotación de seguridad sin una prueba específica. Este informe es una evaluación y un plan: **no implementa las mejoras**.
+**Alcance y método.** Revisión del árbol actual del repositorio, no de la tesis ni de auditorías históricas como autoridad. Se contrastaron parser, AST, analyzer, typesystem, runtime, servidor, CLI, VM, bytecode, plugins, móvil, herramientas, pruebas, benchmarks, documentación y el proyecto web de ejemplo. `go test ./...` terminó con código 0 durante esta auditoría. Las observaciones que dependen de una ruta de código se indican como tales; no se atribuyen mediciones de rendimiento ni explotación de seguridad sin una prueba específica. El informe conserva el diagnóstico original y registra debajo los avances comprobados del roadmap.
+
+**Estado de implementación al 22 de septiembre de 2026.** Los P0 reproducibles de transacciones, ownership de forks, operaciones de canales y timeout móvil ya tienen correcciones y regresiones. `PreparedProgram` conserva AST validado y hechos semánticos reales; CLI y mobile ejecutan su entrypoint, mientras server/runner todavía requieren converger. El analyzer añadió definite assignment conservador en bucles y aviso `JOSS-FLOW-003` para acceso directo a receptores nullable. Las APIs nativas principales de filesystem, red y proceso respetan capacidades del host, incluidas funciones globales, streams, almacenamiento de usuario y `run`. Este estado no declara terminados typed IR, IDs semánticos universales, CFG completo, soundness final de colecciones, cancelación dura de nativos bloqueantes ni expansión de VM.
+
+**Cierre del roadmap ejecutable.** CLI, mobile, runner empaquetado y hot reload ya pasan por preparación semántica antes de ejecutar; hot reload construye un runtime candidato y conserva el anterior ante fallos. `AnalysisFacts` publica IDs estables, tipos por nodo, llamadas resueltas y efectos nativos declarativos. Las colecciones mutables parametrizadas son invariantes y SQL usa el contexto cancelable del runtime. Typed IR, optimizaciones de dispatch y expansión de VM quedan como líneas experimentales condicionadas por equivalencia diferencial y benchmarks; no son garantías publicadas ni se declaran implementadas artificialmente.
 
 ## 1. Executive Summary
 
@@ -129,7 +133,7 @@ El CLI implementa `run`, `build`, `check`, `analyze`, `test`, `format`, `lint`, 
 ## 12. Technical Debt
 
 1. **HIGH:** contratos de colecciones mutables y `Unknown/Mixed` dejan huecos de soundness; `typesystem.Assignable` y `runtimeTypeOf` necesitan pruebas de aliasing y política explícita.
-2. **HIGH:** rutas de entrada no comparten un `PreparedProgram` con análisis y metadata persistida; CLI, mobile, runner y server orquestan análisis/registro de forma distinta.
+2. **HIGH:** CLI y mobile ya consumen el AST validado de `PreparedProgram`, pero runner y server aún orquestan análisis/registro de forma distinta; los hechos todavía no incluyen IDs semánticos ni planes completos.
 3. **HIGH:** ownership de forks fuera de HTTP no está expresado en tipos/API y permite olvidos.
 4. **MEDIUM:** metadatos nativos publican retornos confiables, pero `ArityKnown=false` en muchas APIs; el analyzer no puede anticipar aridad/tipos.
 5. **MEDIUM:** metadata de métodos/clases y resolución de plugin aún usan strings/maps y scans en rutas potencialmente frecuentes.
@@ -242,7 +246,7 @@ Las prioridades son P0 (fallo de seguridad/correctitud), P1 (garantía central),
 
 | Tarea | Prioridad | Problema / solución | Archivos afectados | Compatibilidad | Riesgo / beneficio | Tests necesarios |
 |---|---|---|---|---|---|---|
-| AnalysisFacts/PreparedProgram | P2 | análisis y planes no persistidos uniformemente; sidecar inmutable, IDs, fuentes | analyzer, runtime/plan, core, CLI/mobile | compatible interno | riesgo alto; predictibilidad alta | diferencial ruta previa/nueva, invalidación |
+| AnalysisFacts/PreparedProgram | P2, parcial | AST validado y tipos por nodo ya persisten para CLI/mobile; completar IDs, planes y consumo por runner/server | analyzer, runtime/plan, core, CLI/mobile/server | compatible interno | riesgo alto; predictibilidad alta | diferencial ruta previa/nueva, invalidación |
 | VM selectiva | P3 | VM cubre subset; ampliar sólo después de corpus diferencial | `pkg/vm` | experimental | riesgo alto; potencial rendimiento | diferencial, fuzz, bench |
 
 ### Phase 6 — Language Features

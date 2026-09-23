@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -12,13 +13,43 @@ type sqlQueryExecutor interface {
 	QueryRow(string, ...interface{}) *sql.Row
 }
 
+type contextSQLTarget interface {
+	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
+	QueryContext(context.Context, string, ...interface{}) (*sql.Rows, error)
+	QueryRowContext(context.Context, string, ...interface{}) *sql.Row
+}
+
+type contextSQLExecutor struct {
+	ctx    context.Context
+	target contextSQLTarget
+}
+
+func (e contextSQLExecutor) Exec(query string, args ...interface{}) (sql.Result, error) {
+	return e.target.ExecContext(e.ctx, query, args...)
+}
+
+func (e contextSQLExecutor) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	return e.target.QueryContext(e.ctx, query, args...)
+}
+
+func (e contextSQLExecutor) QueryRow(query string, args ...interface{}) *sql.Row {
+	return e.target.QueryRowContext(e.ctx, query, args...)
+}
+
 // databaseExecutor routes GranDB operations through the transaction owned by
 // the current callback. Other runtimes keep using their own DB connection.
 func (r *Runtime) databaseExecutor() sqlQueryExecutor {
-	if r.activeTx != nil {
-		return r.activeTx
+	ctx := r.executionContext
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	return r.GetDB()
+	if r.activeTx != nil {
+		return contextSQLExecutor{ctx: ctx, target: r.activeTx}
+	}
+	if db := r.GetDB(); db != nil {
+		return contextSQLExecutor{ctx: ctx, target: db}
+	}
+	return nil
 }
 
 // rowsToMap converts SQL rows to []map[string]interface{}

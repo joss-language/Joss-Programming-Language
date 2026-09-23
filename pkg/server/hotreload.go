@@ -8,12 +8,15 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
 )
@@ -248,6 +251,13 @@ func reloadApp(changedFile string) {
 		return
 	}
 
+	if changedFile == "" || strings.HasSuffix(changedFile, ".joss") {
+		if reloadPreparedJossRuntime() {
+			notifyClients()
+		}
+		return
+	}
+
 	// 3. Runtime Logic
 	if currentRuntime == nil {
 		currentRuntime = core.NewRuntime()
@@ -385,6 +395,109 @@ func reloadApp(changedFile string) {
 
 		notifyClients()
 	}
+}
+
+func reloadPreparedJossRuntime() bool {
+	report := prepareHotReloadProject()
+	if report.HasIssues() {
+		report.PrintReport()
+	}
+	if report.HasErrors() || report.Prepared == nil {
+		fmt.Println("[HotReload] Recarga rechazada; el runtime anterior permanece activo.")
+		return false
+	}
+
+	candidate := core.NewRuntime()
+	candidate.LoadEnv(GlobalFileSystem)
+	succeeded := false
+	defer func() {
+		if !succeeded {
+			candidate.Free()
+		}
+	}()
+	if candidate.Env["SESSION_DRIVER"] == "redis" {
+		if err := initializeRedisSessions(candidate.Env); err != nil {
+			fmt.Printf("[Security] %v\n", err)
+			return false
+		}
+	}
+	for _, unit := range report.Prepared.Units {
+		candidate.CurrentSource = unit.Path
+		completed := func() (ok bool) {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					fmt.Printf("[HotReload] Error ejecutando %s: %v\n", unit.Path, recovered)
+				}
+			}()
+			candidate.Execute(unit.Program)
+			return true
+		}()
+		if !completed {
+			fmt.Println("[HotReload] Recarga abortada; el runtime anterior permanece activo.")
+			return false
+		}
+	}
+
+	previous := currentRuntime
+	currentRuntime = candidate
+	succeeded = true
+	if previous != nil {
+		previous.Free()
+	}
+	return true
+}
+
+func prepareHotReloadProject() *core.AnalysisReport {
+	paths := make([]string, 0)
+	seen := make(map[string]bool)
+	add := func(sourcePath string) {
+		normalized := filepath.ToSlash(sourcePath)
+		if !seen[normalized] {
+			seen[normalized] = true
+			paths = append(paths, normalized)
+		}
+	}
+	walkFn := func(sourcePath string, info os.FileInfo, err error) error {
+		if err == nil && info != nil && !info.IsDir() && parser.IsJossSourceFile(sourcePath) {
+			add(sourcePath)
+		}
+		return nil
+	}
+	if GlobalFileSystem != nil {
+		_ = vfsWalk(GlobalFileSystem, "app", walkFn)
+	} else {
+		_ = filepath.Walk("app", walkFn)
+	}
+	for _, sourcePath := range []string{"routes.joss", "api.joss", "config/cron.joss"} {
+		if existsFile(sourcePath) {
+			add(sourcePath)
+		}
+	}
+	sort.Strings(paths)
+
+	units := make([]semanticanalyzer.SourceUnit, 0, len(paths))
+	parseIssues := make([]diagnostics.Diagnostic, 0)
+	for _, sourcePath := range paths {
+		content, err := vfsReadFile(sourcePath)
+		if err != nil {
+			parseIssues = append(parseIssues, diagnostics.Diagnostic{Code: "JOSS-IO-001", Severity: diagnostics.SeverityError, File: sourcePath, Message: err.Error()})
+			continue
+		}
+		p := parser.NewParser(parser.NewLexer(string(content)))
+		program := p.ParseProgram()
+		if items := p.Diagnostics(); len(items) > 0 {
+			for _, item := range items {
+				item.File = sourcePath
+				parseIssues = append(parseIssues, item)
+			}
+			continue
+		}
+		units = append(units, semanticanalyzer.SourceUnit{Path: sourcePath, Program: program})
+	}
+	if len(parseIssues) > 0 {
+		return core.AnalysisReportFromDiagnostics(parseIssues)
+	}
+	return core.AnalyzeSourceUnits(units)
 }
 
 func existsFile(path string) bool {

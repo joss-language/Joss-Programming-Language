@@ -68,6 +68,42 @@ public func compute(bool $cond): int {
 	}
 }
 
+func TestDefiniteAssignmentDoesNotEscapeZeroIterationLoops(t *testing.T) {
+	whileItems := analyzeSource(t, `
+public func compute(bool $condition): int {
+    int $value
+    while ($condition) { $value = 1 }
+    return $value
+}
+`, NewEnvironment())
+	if !hasCode(whileItems, "JOSS-SYM-001") {
+		t.Fatalf("while body may execute zero times: %#v", whileItems)
+	}
+
+	foreachItems := analyzeSource(t, `
+public func first(array<int> $items): int {
+    int $value
+    foreach ($items as $item) { $value = $item }
+    return $value
+}
+`, NewEnvironment())
+	if !hasCode(foreachItems, "JOSS-SYM-001") {
+		t.Fatalf("foreach body may execute zero times: %#v", foreachItems)
+	}
+}
+
+func TestForeachBindingsDoNotEscapeLoopScope(t *testing.T) {
+	items := analyzeSource(t, `
+public func invalid(array<int> $items): mixed {
+    foreach ($items as $item) { echo $item }
+    return $item
+}
+`, NewEnvironment())
+	if !hasCode(items, "JOSS-SYM-001") {
+		t.Fatalf("foreach binding escaped its loop: %#v", items)
+	}
+}
+
 func TestNarrowingInvalidationOnReassignment(t *testing.T) {
 	items := analyzeSource(t, `
 public func testNarrowing(string|null $val): string {

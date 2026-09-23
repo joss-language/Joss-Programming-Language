@@ -4,14 +4,18 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+	"fmt"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
+	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/bytecode"
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/crypto"
@@ -109,39 +113,30 @@ func main() {
 		server.GlobalFileSystem = memFS
 		core.SetFileSystem(memFS)
 
+		units, prepareErr := packagedSourceUnits(files)
+		if prepareErr != nil {
+			log.Printf("Program preparation failed: %v", prepareErr)
+			return
+		}
+		report := core.AnalyzeSourceUnits(units)
+		if report.HasIssues() {
+			report.PrintReport()
+		}
+		if report.HasErrors() {
+			log.Printf("Program preparation rejected the packaged application")
+			return
+		}
+
 		r := core.NewRuntime()
+		defer r.Free()
 		r.LoadEnv(memFS)
-		r.PreloadVFSAppFiles(memFS, "app")
-
-		// Execute main.joss
-		content, err := memFS.Open("main.joss")
-		if err == nil {
-			stat, _ := content.Stat()
-			data := make([]byte, stat.Size())
-			content.Read(data)
-			content.Close()
-
-			var program *parser.Program
-			if bytecode.IsBytecode(data) {
-				prog, bcErr := bytecode.Decode(data)
-				if bcErr == nil {
-					program = prog
-				} else {
-					log.Printf("Bytecode decode error in main.joss: %v", bcErr)
-				}
+		for _, unit := range report.Prepared.Units[1:] {
+			if strings.HasPrefix(filepath.ToSlash(unit.Path), "app/") {
+				r.Execute(unit.Program)
 			}
-			if program == nil {
-				l := parser.NewLexer(string(data))
-				p := parser.NewParser(l)
-				program = p.ParseProgram()
-				if len(p.Errors()) > 0 {
-					log.Printf("Parser Errors in main.joss: %v", p.Errors())
-					program = nil
-				}
-			}
-			if program != nil {
-				r.Execute(program)
-			}
+		}
+		if program := report.Prepared.Entrypoint(); program != nil {
+			r.Execute(program)
 		} else {
 			// Fallback: Start server directly
 			server.Start(memFS)
@@ -200,6 +195,52 @@ func main() {
 	// Wait for resolved port, or fallback to default
 	finalPort := waitForPortOrPort(port, "8000")
 	runGUIOrWait(finalPort)
+}
+
+func packagedSourceUnits(files map[string][]byte) ([]semanticanalyzer.SourceUnit, error) {
+	normalizedFiles := make(map[string][]byte, len(files))
+	for name, data := range files {
+		normalizedFiles[filepath.ToSlash(name)] = data
+	}
+	mainData, exists := normalizedFiles["main.joss"]
+	if !exists {
+		return nil, fmt.Errorf("main.joss is missing")
+	}
+	paths := make([]string, 0, len(files))
+	for name := range normalizedFiles {
+		normalized := filepath.ToSlash(name)
+		if normalized == "main.joss" || !parser.IsJossSourceFile(normalized) {
+			continue
+		}
+		if strings.HasPrefix(normalized, "app/") || normalized == "routes.joss" || normalized == "api.joss" || normalized == "config/cron.joss" {
+			paths = append(paths, normalized)
+		}
+	}
+	sort.Strings(paths)
+	ordered := append([]string{"main.joss"}, paths...)
+	units := make([]semanticanalyzer.SourceUnit, 0, len(ordered))
+	for _, name := range ordered {
+		data := normalizedFiles[name]
+		if name == "main.joss" {
+			data = mainData
+		}
+		var program *parser.Program
+		if bytecode.IsBytecode(data) {
+			decoded, err := bytecode.Decode(data)
+			if err != nil {
+				return nil, fmt.Errorf("decode %s: %w", name, err)
+			}
+			program = decoded
+		} else {
+			p := parser.NewParser(parser.NewLexer(string(data)))
+			program = p.ParseProgram()
+			if len(p.Diagnostics()) > 0 {
+				return nil, fmt.Errorf("parse %s: %s", name, p.Diagnostics()[0].Message)
+			}
+		}
+		units = append(units, semanticanalyzer.SourceUnit{Path: name, Program: program})
+	}
+	return units, nil
 }
 
 func waitForSignal() {

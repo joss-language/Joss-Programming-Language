@@ -23,6 +23,20 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 	if val, ok := r.Env["STORAGE"]; ok {
 		storageType = val
 	}
+	if method != "path" {
+		if storageType == "OCI" {
+			if err := r.RequireCapability("network"); err != nil {
+				panic(err)
+			}
+			// OCI authentication reads the configured private key from disk. getToFile
+			// additionally writes the downloaded object to the local filesystem.
+			if err := r.RequireCapability("fs"); err != nil {
+				panic(err)
+			}
+		} else if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
+	}
 
 	// Get Prefix and Table Names
 	prefix := "js_"

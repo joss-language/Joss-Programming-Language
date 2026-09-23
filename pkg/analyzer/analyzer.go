@@ -30,9 +30,16 @@ type Analyzer struct {
 	currentReturnType typesystem.Type
 	currentTypeParams map[string]bool
 	suppressUndefined int
+	facts             *AnalysisFacts
 }
 
 func Analyze(units []SourceUnit, environment Environment) []diagnostics.Diagnostic {
+	items, _ := analyzeWithFacts(units, environment)
+	return items
+}
+
+func analyzeWithFacts(units []SourceUnit, environment Environment) ([]diagnostics.Diagnostic, *AnalysisFacts) {
+	facts := NewAnalysisFacts()
 	a := &Analyzer{
 		environment:       environment,
 		functions:         make(map[string]functionDeclaration),
@@ -44,6 +51,7 @@ func Analyze(units []SourceUnit, environment Environment) []diagnostics.Diagnost
 		enumTokens:        make(map[string]functionDeclaration),
 		currentReturnType: typesystem.Type{Kind: typesystem.Unknown},
 		currentTypeParams: make(map[string]bool),
+		facts:             facts,
 	}
 	for name, class := range environment.Classes {
 		a.classes[name] = class
@@ -58,6 +66,7 @@ func Analyze(units []SourceUnit, environment Environment) []diagnostics.Diagnost
 	global := a.projectScope()
 	a.validateNominalContracts(units, global)
 	a.analyzeSourceBodies(units, global)
+	a.collectAnalysisFacts(global)
 	items := a.diagnostics.Items()
 	sort.SliceStable(items, func(i, j int) bool {
 		if items[i].File != items[j].File {
@@ -71,7 +80,7 @@ func Analyze(units []SourceUnit, environment Environment) []diagnostics.Diagnost
 		}
 		return items[i].Code < items[j].Code
 	})
-	return items
+	return items, facts
 }
 
 func (a *Analyzer) withSourceFile(file string, analyze func()) {

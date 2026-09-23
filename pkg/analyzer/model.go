@@ -24,6 +24,7 @@ type Callable struct {
 	Name       string
 	Parameters []Parameter
 	ReturnType typesystem.Type
+	Effects    []string
 	Variadic   bool
 	Visibility string
 	Owner      string

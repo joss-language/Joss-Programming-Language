@@ -94,6 +94,24 @@ func TestNativeMethodDefinitionsProjectToRuntimeAndAnalyzer(t *testing.T) {
 	}
 }
 
+func TestNativeEffectsProjectIntoPreparedProgramFacts(t *testing.T) {
+	p := parser.NewParser(parser.NewLexer(`Markdown::readFile("README.md")`))
+	report := AnalyzeProgram(p.ParseProgram())
+	if report.HasErrors() {
+		t.Fatalf("unexpected analysis errors: %#v", report.Diagnostics)
+	}
+	effects := report.Prepared.Facts.Effects["Markdown::readFile"]
+	want := []string{"fs", "io", "blocking"}
+	if len(effects) != len(want) {
+		t.Fatalf("effects = %#v, want %#v", effects, want)
+	}
+	for index := range want {
+		if effects[index] != want[index] {
+			t.Fatalf("effects = %#v, want %#v", effects, want)
+		}
+	}
+}
+
 func TestMigratedNativeSignaturesPublishReliableOptionalArity(t *testing.T) {
 	definitions := GetNativeMethodDefinitions()
 	checks := map[string]struct {

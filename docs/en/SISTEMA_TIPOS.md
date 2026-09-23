@@ -133,6 +133,8 @@ print($inventario["pan"])
 - `Result<T, E>`: Canonical type for operation outcomes that can succeed with a value of type `T` or fail with an error of type `E`.
 - `Clase<T>`: Classes with formal generic type parameters (e.g. `Caja<T>`).
 
+`array<T>`, `map<K, V>` and `channel<T>` are mutable, so their parameters are **invariant**. For example, `array<int>` cannot be reused as `array<float>`, even though one `int` value can be promoted to `float`: that alias would allow a later `float` insertion to become visible through a reference that promises only `int` values. Unparameterized collections remain transition-compatible, but crossing into a typed collection emits `JOSS-TYPE-012` because another alias can still mutate it without preserving the type.
+
 When indexing a parameterized collection (for example `$cantidades[0]`), the parser immediately infers that the result is of type `int`, ensuring safety in the rest of the code.
 
 ---

@@ -7,7 +7,6 @@
 *.dylib
 /build/
 /runner
-runner
 runner.exe
 /dist/
 /.joss-release-work/

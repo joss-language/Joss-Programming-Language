@@ -195,7 +195,7 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 	case *parser.WhileStatement:
 		a.inferExpression(node.Condition, current)
 		if node.Body != nil {
-			a.analyzeBlock(node.Body, current)
+			a.analyzeBlock(node.Body, newScope(current))
 		}
 	case *parser.DoWhileStatement:
 		if node.Body != nil {
@@ -204,30 +204,31 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 		a.inferExpression(node.Condition, current)
 	case *parser.ForeachStatement:
 		a.inferExpression(node.Iterable, current)
+		loopScope := newScope(current)
 		if node.Key != "" {
 			keyName := cleanName(node.Key)
-			if existing, exists := current.local(keyName); exists {
+			if existing, exists := loopScope.local(keyName); exists {
 				existing.Type = typesystem.Type{Kind: typesystem.Unknown}
 				existing.Kind = symbolIteration
 				existing.Initialized = true
-				current.markInitialized(keyName)
+				loopScope.markInitialized(keyName)
 			} else {
-				current.put(&symbol{Name: keyName, Type: typesystem.Type{Kind: typesystem.Unknown}, Kind: symbolIteration, Token: node.Token, File: a.file, Inferred: true, Initialized: true})
+				loopScope.put(&symbol{Name: keyName, Type: typesystem.Type{Kind: typesystem.Unknown}, Kind: symbolIteration, Token: node.Token, File: a.file, Inferred: true, Initialized: true})
 			}
 		}
 		name := cleanName(node.Value)
-		if existing, exists := current.local(name); exists {
+		if existing, exists := loopScope.local(name); exists {
 			// Reusing the iteration binding in a later foreach is assignment-like
 			// in the runtime and does not redeclare a typed local.
 			existing.Type = typesystem.Type{Kind: typesystem.Unknown}
 			existing.Kind = symbolIteration
 			existing.Initialized = true
-			current.markInitialized(name)
+			loopScope.markInitialized(name)
 		} else {
-			current.put(&symbol{Name: name, Type: typesystem.Type{Kind: typesystem.Unknown}, Kind: symbolIteration, Token: node.Token, File: a.file, Inferred: true, Initialized: true})
+			loopScope.put(&symbol{Name: name, Type: typesystem.Type{Kind: typesystem.Unknown}, Kind: symbolIteration, Token: node.Token, File: a.file, Inferred: true, Initialized: true})
 		}
 		if node.Body != nil {
-			a.analyzeBlock(node.Body, current)
+			a.analyzeBlock(node.Body, loopScope)
 		}
 	case *parser.DeferStatement:
 		if node.Body != nil {

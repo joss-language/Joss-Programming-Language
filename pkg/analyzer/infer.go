@@ -11,6 +11,14 @@ import (
 )
 
 func (a *Analyzer) inferExpression(expression parser.Expression, current *scope) typesystem.Type {
+	inferred := a.inferExpressionNode(expression, current)
+	if expression != nil && a.facts != nil {
+		a.facts.InferredTypes[expression] = inferred
+	}
+	return inferred
+}
+
+func (a *Analyzer) inferExpressionNode(expression parser.Expression, current *scope) typesystem.Type {
 	if expression == nil {
 		return typesystem.Type{Kind: typesystem.Unknown}
 	}
@@ -413,7 +421,7 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 		return typesystem.Type{Kind: typesystem.Map}
 	}
 	if member, ok := assignment.Left.(*parser.MemberExpression); ok && member.Property != nil {
-		receiver := a.memberReceiverType(member, current)
+		receiver, _ := a.resolvedMemberReceiver(member, current)
 		if receiver.Kind == typesystem.Class {
 			if field, exists := a.lookupField(receiver.Name, member.Property.Value); exists {
 				if !a.canAccess(field.Visibility, field.Owner) {

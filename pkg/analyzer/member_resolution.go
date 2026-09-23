@@ -44,7 +44,7 @@ func (a *Analyzer) inferMember(expression *parser.MemberExpression, current *sco
 	if expression == nil {
 		return typesystem.Type{Kind: typesystem.Unknown}
 	}
-	receiver := a.memberReceiverType(expression, current)
+	receiver, nullable := a.resolvedMemberReceiver(expression, current)
 	if receiver.Kind == typesystem.Class && expression.Property != nil {
 		if enumDef, isEnum := a.enums[receiver.Name]; isEnum {
 			if caseType, ok := enumDef.Cases[expression.Property.Value]; ok {
@@ -55,10 +55,44 @@ func (a *Analyzer) inferMember(expression *parser.MemberExpression, current *sco
 			if !a.canAccess(field.Visibility, field.Owner) {
 				a.accessError(expression.Property.Token, field.Visibility, field.Owner, expression.Property.Value)
 			}
+			if nullable && expression.NullSafe {
+				return nullableType(field.Type)
+			}
 			return field.Type
 		}
 	}
 	return typesystem.Type{Kind: typesystem.Unknown}
+}
+
+func (a *Analyzer) resolvedMemberReceiver(expression *parser.MemberExpression, current *scope) (typesystem.Type, bool) {
+	receiver := a.memberReceiverType(expression, current)
+	if receiver.Kind != typesystem.Union || !hasTypeKind(receiver, typesystem.Null) {
+		return receiver, false
+	}
+	nonNull := receiver.Without(typesystem.Null)
+	if !expression.NullSafe {
+		a.add("JOSS-FLOW-003", diagnostics.SeverityWarning, a.file, expression.Token,
+			fmt.Sprintf("Member access may dereference nullable value `%s`.", receiver.String()),
+			"The value can be null on a path that reaches this access.",
+			"Check the value against null first or use the null-safe `?->` operator.")
+	}
+	return nonNull, true
+}
+
+func hasTypeKind(valueType typesystem.Type, kind typesystem.Kind) bool {
+	for _, member := range valueType.Members() {
+		if member.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func nullableType(valueType typesystem.Type) typesystem.Type {
+	if valueType.Kind == typesystem.Null || hasTypeKind(valueType, typesystem.Null) {
+		return valueType
+	}
+	return typesystem.Parse(valueType.String() + "|null")
 }
 
 // memberReceiverType preserves lexical shadowing for instance access while

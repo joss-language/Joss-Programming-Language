@@ -388,24 +388,6 @@ func analyzeScript(filename string) {
 }
 
 func executeScript(filename string) {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		fmt.Println(i18n.Tr("cliReadFileError", i18n.M{"error": err.Error()}))
-		return
-	}
-
-	l := parser.NewLexer(string(data))
-	p := parser.NewParser(l)
-	program := p.ParseProgram()
-
-	if len(p.Errors()) != 0 {
-		fmt.Println(i18n.Tr("cliParseErrorsTitle"))
-		for _, msg := range p.Errors() {
-			fmt.Printf("\t%s\n", msg)
-		}
-		os.Exit(1)
-	}
-
 	// Analyze the same project surface that the runtime will preload. Semantic
 	// errors are blocking; warnings remain visible but do not prevent execution.
 	units, parseDiagnostics := semanticanalyzer.LoadProject(filename, "app")
@@ -419,6 +401,11 @@ func executeScript(filename string) {
 	}
 	if report.HasErrors() {
 		os.Exit(1)
+	}
+	program := report.Prepared.Entrypoint()
+	if program == nil {
+		fmt.Println(i18n.Tr("cliReadFileError", i18n.M{"error": "entrypoint was not prepared"}))
+		return
 	}
 
 	rt := core.NewRuntime()

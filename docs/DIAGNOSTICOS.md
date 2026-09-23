@@ -86,6 +86,7 @@ A diferencia de los mensajes de error genéricos de herramientas antiguas, cada 
 |---|---|---|---|
 | `JOSS-FLOW-001` | Warning | Código inalcanzable (*dead code*): instrucciones escritas después de un `return` incondicional. | Mover las instrucciones antes del `return` o eliminarlas. |
 | `JOSS-FLOW-002` | Warning | Match no exhaustivo en enum: una expresión `match` sobre un enum no cubre todos los casos posibles ni declara un brazo `default`. | Agregar los casos de enum faltantes o incluir una rama `default => ...`. |
+| `JOSS-FLOW-003` | Warning | Acceso a miembro sobre un valor cuyo tipo todavía incluye `null`. | Comprobar el valor contra `null` o usar el operador seguro `?->`. |
 | `JOSS-LINT-001` | Warning | Variable local declarada pero nunca leída en el cuerpo. | Utilizar la variable o retirarla para mantener el código limpio. |
 | `JOSS-SYNTAX-001` | Error | Error sintáctico capturado durante la fase de análisis del linter. | Corregir la puntuación o estructura señalada por el parser. |
 | `JOSS-LINT-002` | Error | Parámetro sin tipo explícito reportado por el linter. | Añadir la anotación de tipo correspondiente (`int`, `string`, `mixed`). |
@@ -255,3 +256,26 @@ print(describir(Estado::Activo))
 Ahora que conoces todos los diagnósticos y cómo resolverlos, puedes profundizar en cómo el analizador semántico examina el árbol de sintaxis abstracta para emitir estos códigos:
 
 Continúa con: [Analizador estático AST](ANALIZADOR.md).
+
+---
+
+### Acceso potencialmente nulo (`JOSS-FLOW-003`)
+
+<!-- joss-error: JOSS-FLOW-003 -->
+```joss-invalid
+public class Usuario { public string $nombre = "Ada" }
+public func nombre(Usuario|null $usuario): string {
+    return $usuario->nombre
+}
+```
+
+Caso corregido mediante acceso seguro:
+
+<!-- joss-run: ["sin usuario"] -->
+```joss
+public class Usuario { public string $nombre = "Ada" }
+public func nombre(Usuario|null $usuario): string {
+	return $usuario == null ? "sin usuario" : $usuario->nombre
+}
+print(nombre(null))
+```

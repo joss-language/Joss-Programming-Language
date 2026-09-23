@@ -133,6 +133,8 @@ print($inventario["pan"])
 - `Result<T, E>`: Tipo canônico para resultados de operações que podem ter sucesso com um valor do tipo `T` ou falhar com um erro do tipo `E`.
 - `Clase<T>`: Classes com parâmetros formais de tipo genérico (ex. `Caja<T>`).
 
+`array<T>`, `map<K, V>` e `channel<T>` são mutáveis, portanto seus parâmetros são **invariantes**. Por exemplo, `array<int>` não pode ser reutilizado como `array<float>`, embora um valor `int` individual possa ser promovido a `float`: esse alias permitiria inserir depois um `float` visível por uma referência que promete apenas valores `int`. Coleções sem parâmetro continuam compatíveis durante a transição, mas cruzar para uma coleção tipada emite `JOSS-TYPE-012`, pois outro alias ainda pode alterá-la sem preservar o tipo.
+
 Ao indexar uma coleção parametrizada (por exemplo `$cantidades[0]`), o analisador infere imediatamente que o resultado é do tipo `int`, garantindo segurança no restante do código.
 
 ---

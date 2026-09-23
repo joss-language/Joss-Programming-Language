@@ -57,6 +57,9 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		return r.executeResponseMethod(nil, "redirect", args), true
 
 	case "file_exists":
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
 		if len(args) == 1 {
 			if path, ok := args[0].(string); ok {
 				_, err := os.Stat(path)
@@ -98,6 +101,9 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		return false, true
 
 	case "unlink", "file_delete":
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
 		if len(args) > 0 {
 			path := fmt.Sprintf("%v", args[0])
 			err := os.Remove(path)
@@ -106,6 +112,9 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		return false, true
 
 	case "mkdir":
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
 		if len(args) > 0 {
 			path := fmt.Sprintf("%v", args[0])
 			err := os.MkdirAll(path, 0755)
@@ -114,6 +123,9 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		return false, true
 
 	case "is_dir":
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
 		if len(args) > 0 {
 			path := fmt.Sprintf("%v", args[0])
 			fi, err := os.Stat(path)
@@ -122,6 +134,9 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		return false, true
 
 	case "is_file":
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
 		if len(args) > 0 {
 			path := fmt.Sprintf("%v", args[0])
 			fi, err := os.Stat(path)
@@ -152,6 +167,9 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		return false, true
 
 	case "hive_read_box":
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
 		if len(args) < 1 {
 			return nil, true
 		}
@@ -169,6 +187,9 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 
 	case "run":
 		if len(args) > 0 {
+			if err := r.RequireCapability("process"); err != nil {
+				panic(err)
+			}
 			scriptPath, ok := args[0].(string)
 			if !ok {
 				return "", true

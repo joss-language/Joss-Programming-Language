@@ -127,6 +127,18 @@ func TestTypedCollectionsAndNarrowing(t *testing.T) {
 	}
 }
 
+func TestMutableGenericTypesAreInvariant(t *testing.T) {
+	for _, pair := range [][2]string{
+		{"array<float>", "array<int>"},
+		{"map<string, float>", "map<string, int>"},
+		{"channel<float>", "channel<int>"},
+	} {
+		if Assignable(Parse(pair[0]), Parse(pair[1])) || Assignable(Parse(pair[1]), Parse(pair[0])) {
+			t.Fatalf("mutable generic types must be invariant: %s / %s", pair[0], pair[1])
+		}
+	}
+}
+
 func TestNumericClassificationIsCanonical(t *testing.T) {
 	for _, name := range []string{"int", "float", "decimal", "int|float"} {
 		if !Parse(name).IsNumeric() {

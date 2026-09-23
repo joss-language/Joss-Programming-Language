@@ -129,6 +129,59 @@ func TestFSCapabilityDeniedWhenDisabled(t *testing.T) {
 	}
 }
 
+func TestAllFileBuiltinsRespectFilesystemCapability(t *testing.T) {
+	for _, source := range []string{
+		`$ok = file_exists("missing.txt")`,
+		`$ok = file_get_contents("missing.txt")`,
+		`$ok = file_put_contents("missing.txt", "data")`,
+		`$ok = file_delete("missing.txt")`,
+		`$ok = mkdir("missing")`,
+		`$ok = is_dir("missing")`,
+		`$ok = is_file("missing")`,
+		`$box = hive_read_box("missing.hive")`,
+	} {
+		r := NewRuntime()
+		r.Capabilities.AllowFS = false
+		got := parseAndRunSource(r, source)
+		r.Free()
+		jerr, ok := got.(*JossError)
+		if !ok || jerr.Type != "SecurityError" {
+			t.Fatalf("source %q bypassed filesystem capability: %#v", source, got)
+		}
+	}
+}
+
+func TestBuiltinRunRespectsRestrictedMode(t *testing.T) {
+	r := NewRuntime()
+	r.RestrictedMode = true
+	r.Env["ALLOW_SYSTEM_RUN"] = "true"
+	got := parseAndRunSource(r, `run("script.py")`)
+	r.Free()
+	jerr, ok := got.(*JossError)
+	if !ok || jerr.Type != "SecurityError" {
+		t.Fatalf("run bypassed process capability: %#v", got)
+	}
+}
+
+func TestUserStorageRespectsHostCapabilitiesBeforeSideEffects(t *testing.T) {
+	t.Run("local", func(t *testing.T) {
+		r := NewRuntime()
+		defer r.Free()
+		r.Capabilities.AllowFS = false
+		defer expectSecurityPanic(t)
+		r.executeUserStorageMethod(nil, "put", []interface{}{"user", "file.txt", "data"})
+	})
+
+	t.Run("oci-network", func(t *testing.T) {
+		r := NewRuntime()
+		defer r.Free()
+		r.Env["STORAGE"] = "OCI"
+		r.Capabilities.AllowNetwork = false
+		defer expectSecurityPanic(t)
+		r.executeUserStorageMethod(nil, "get", []interface{}{"user", "file.txt"})
+	})
+}
+
 func TestCapabilitiesPropagateToFork(t *testing.T) {
 	r := NewRuntime()
 	defer r.Free()

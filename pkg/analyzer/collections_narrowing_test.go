@@ -23,6 +23,14 @@ array<int> $_nums = ["hello"]
 	}
 }
 
+func TestMutableCollectionAliasesDoNotApplyNumericCovariance(t *testing.T) {
+	issues := analyzeSource(t, `array<int> $ints = [1]
+array<float> $floats = $ints`, NewEnvironment())
+	if !hasCode(issues, "JOSS-TYPE-002") {
+		t.Fatalf("expected invariant mutable collection error, got %#v", issues)
+	}
+}
+
 func TestTypeNarrowingInTernaryBlocks(t *testing.T) {
 	items := analyzeSource(t, `
 public class User {
@@ -123,5 +131,37 @@ mixed $dynamic = $typed
 `, NewEnvironment())
 	if hasCode(items, "JOSS-TYPE-012") {
 		t.Fatalf("unexpected narrowing warning: %#v", items)
+	}
+}
+
+func TestNullableMemberAccessWarnsAndStillResolvesMemberType(t *testing.T) {
+	items := analyzeSource(t, `
+public class User {
+    public string $name = "Ada"
+    public func label(): string { return $this->name }
+}
+public func unsafe(User|null $user): string {
+    return $user->label()
+}
+`, NewEnvironment())
+	if !hasCode(items, "JOSS-FLOW-003") {
+		t.Fatalf("expected nullable dereference warning, got %#v", items)
+	}
+	if hasCode(items, "JOSS-TYPE-008") || hasCode(items, "JOSS-MEMBER-001") {
+		t.Fatalf("nullable receiver should still resolve its member type, got %#v", items)
+	}
+}
+
+func TestNullSafeMemberAccessProducesNullableResultWithoutWarning(t *testing.T) {
+	items := analyzeSource(t, `
+public class User {
+    public string $name = "Ada"
+}
+public func safe(User|null $user): string|null {
+    return $user?->name
+}
+`, NewEnvironment())
+	if hasCode(items, "JOSS-FLOW-003") || hasCode(items, "JOSS-TYPE-008") {
+		t.Fatalf("null-safe access should produce string|null, got %#v", items)
 	}
 }

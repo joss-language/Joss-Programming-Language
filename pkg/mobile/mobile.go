@@ -191,6 +191,10 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 			Diagnostics: items,
 		}
 	}
+	preparedProgram := report.Prepared.Entrypoint()
+	if preparedProgram == nil {
+		return &ExecutionResult{Success: false, Error: "semantic analysis did not prepare an entrypoint", DurationMs: time.Since(start).Milliseconds()}
+	}
 
 	// 4. Thread-safe execution with isolated output buffers and timeout guard
 	execMutex.Lock()
@@ -224,7 +228,7 @@ func RunDirect(source string, timeoutMs int) *ExecutionResult {
 			rt.Free()
 			close(done)
 		}()
-		rt.Execute(program)
+		rt.Execute(preparedProgram)
 	}()
 
 	timedOut := false

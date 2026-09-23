@@ -366,19 +366,19 @@ func Assignable(destination, source Type) bool {
 			if destination.Element == nil || source.Element == nil {
 				return true
 			}
-			return Assignable(*destination.Element, *source.Element)
+			return invariantlyAssignable(*destination.Element, *source.Element)
 		}
 		if destination.Kind == Array {
 			if destination.Element == nil || source.Element == nil {
 				return true
 			}
-			return Assignable(*destination.Element, *source.Element)
+			return invariantlyAssignable(*destination.Element, *source.Element)
 		}
 		if destination.Kind == Map {
 			if destination.Key == nil || destination.Element == nil || source.Key == nil || source.Element == nil {
 				return true
 			}
-			return Assignable(*destination.Key, *source.Key) && Assignable(*destination.Element, *source.Element)
+			return invariantlyAssignable(*destination.Key, *source.Key) && invariantlyAssignable(*destination.Element, *source.Element)
 		}
 		return true
 	}
@@ -395,6 +395,12 @@ func Assignable(destination, source Type) bool {
 		return true
 	}
 	return false
+}
+
+// invariantlyAssignable protects mutable generic containers from aliases that
+// could later insert a value accepted by one view and rejected by another.
+func invariantlyAssignable(left, right Type) bool {
+	return Assignable(left, right) && Assignable(right, left)
 }
 
 // MergeInference keeps the first concrete inferred type. Null/unknown

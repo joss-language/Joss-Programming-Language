@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
@@ -13,6 +14,7 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 		name := identifier.Value
 		if builtin, exists := a.environment.Builtins[name]; exists {
 			a.checkCall(builtin, call.Arguments, current, identifier.Token)
+			a.recordResolvedCall(call, "builtin::"+name, "builtin", builtin.ReturnType)
 			if name == "send" && len(call.Arguments) >= 2 {
 				chanType := a.inferExpression(call.Arguments[0], current)
 				valType := a.inferExpression(call.Arguments[1], current)
@@ -37,6 +39,7 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 					"Private project declarations are visible only in their source file.", "Make the function public or call it from its declaring file.")
 			}
 			a.checkCall(function.callable, call.Arguments, current, identifier.Token)
+			a.recordResolvedCall(call, symbolFact("function", name, function.callable.ReturnType, function.file).ID, "function", function.callable.ReturnType)
 			return function.callable.ReturnType
 		}
 		if variable, exists := current.resolve(name); exists {
@@ -55,7 +58,7 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 		return typesystem.Type{Kind: typesystem.Unknown}
 	}
 	if member, ok := call.Function.(*parser.MemberExpression); ok {
-		receiver := a.memberReceiverType(member, current)
+		receiver, nullable := a.resolvedMemberReceiver(member, current)
 		if receiver.Kind == typesystem.Class && member.Property != nil {
 			if _, isEnum := a.enums[receiver.Name]; isEnum {
 				switch member.Property.Value {
@@ -77,6 +80,11 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 					a.accessError(member.Property.Token, callable.Visibility, callable.Owner, member.Property.Value)
 				}
 				a.checkCall(callable, call.Arguments, current, member.Property.Token)
+				qualified := receiver.Name + "::" + member.Property.Value
+				a.recordResolvedCall(call, "method:"+filepath.ToSlash(callable.File)+":"+qualified, "method", callable.ReturnType)
+				if nullable && member.NullSafe {
+					return nullableType(callable.ReturnType)
+				}
 				return callable.ReturnType
 			}
 			a.add("JOSS-MEMBER-001", diagnostics.SeverityError, a.file, member.Property.Token,
@@ -85,6 +93,7 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 		}
 		if member.Property != nil {
 			if primType, isPrim := a.inferPrimitiveMethod(receiver, member.Property.Value, call, current); isPrim {
+				a.recordResolvedCall(call, "primitive::"+receiver.String()+"::"+member.Property.Value, "primitive", primType)
 				return primType
 			}
 		}
