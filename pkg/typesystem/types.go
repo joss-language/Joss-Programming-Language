@@ -5,6 +5,7 @@ package typesystem
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 )
@@ -23,20 +24,22 @@ const (
 )
 
 const (
-	Unknown Kind = "unknown"
-	Mixed   Kind = "mixed"
-	Null    Kind = "null"
-	Int     Kind = "int"
-	Float   Kind = "float"
-	Decimal Kind = "decimal"
-	String  Kind = "string"
-	Bool    Kind = "bool"
-	Array   Kind = "array"
-	Map     Kind = "map"
-	Object  Kind = "object"
-	Channel Kind = "channel"
-	Class   Kind = "class"
-	Union   Kind = "union"
+	Unknown  Kind = "unknown"
+	Void     Kind = "void"
+	Mixed    Kind = "mixed"
+	Null     Kind = "null"
+	Int      Kind = "int"
+	Float    Kind = "float"
+	Decimal  Kind = "decimal"
+	String   Kind = "string"
+	Bool     Kind = "bool"
+	Array    Kind = "array"
+	Map      Kind = "map"
+	Object   Kind = "object"
+	Channel  Kind = "channel"
+	Class    Kind = "class"
+	Union    Kind = "union"
+	Callable Kind = "callable"
 )
 
 // Type represents a semantic type. Name is populated for class types.
@@ -48,6 +51,13 @@ type Type struct {
 }
 
 func (t Type) String() string {
+	if t.Kind == Callable {
+		returned := Type{Kind: Unknown}
+		if t.Element != nil {
+			returned = *t.Element
+		}
+		return fmt.Sprintf("func(%s): %s", t.Name, returned.String())
+	}
 	if t.Kind == Class && t.Name == "Result" && t.Key != nil && t.Element != nil {
 		return fmt.Sprintf("Result<%s, %s>", t.Key.String(), t.Element.String())
 	}
@@ -76,6 +86,29 @@ func (t Type) String() string {
 		return string(Unknown)
 	}
 	return string(t.Kind)
+}
+
+// NewCallable constructs the semantic type of a closure without introducing a
+// second callable model. Parameter types are stored canonically in Name and the
+// return contract in Element so Type remains compact and comparable.
+func NewCallable(parameters []Type, returned Type) Type {
+	names := make([]string, 0, len(parameters))
+	for _, parameter := range parameters {
+		names = append(names, parameter.String())
+	}
+	return Type{Kind: Callable, Name: strings.Join(names, ","), Element: &returned}
+}
+
+func (t Type) CallableParameters() []Type {
+	if t.Kind != Callable || strings.TrimSpace(t.Name) == "" {
+		return nil
+	}
+	parts := splitGenericArgs(t.Name)
+	result := make([]Type, 0, len(parts))
+	for _, part := range parts {
+		result = append(result, Parse(part))
+	}
+	return result
 }
 
 func (t Type) IsKnown() bool {
@@ -220,6 +253,8 @@ func Parse(name string) Type {
 		return Type{Kind: Unknown}
 	case "mixed":
 		return Type{Kind: Mixed}
+	case "void":
+		return Type{Kind: Void}
 	case "null", "nil":
 		return Type{Kind: Null}
 	case "int":
@@ -382,19 +417,22 @@ func Assignable(destination, source Type) bool {
 		}
 		return true
 	}
-	// Integer values are accepted by float variables per the language's numeric
-	// assignment rules. Note that integer values exceeding 2^53 (e.g. 9007199254740993)
-	// cannot be represented exactly in IEEE 754 float64 and incur precision loss.
-	if destination.Kind == Float && source.Kind == Int {
-		return true
-	}
-	if destination.Kind == Decimal && (source.Kind == Int || source.Kind == Float) {
+	// int -> decimal is the only implicit cross-kind numeric assignment because
+	// it is exact. Potentially lossy conversions must be explicit.
+	if destination.Kind == Decimal && source.Kind == Int {
 		return true
 	}
 	if destination.Kind == Object && source.Kind == Class {
 		return true
 	}
 	return false
+}
+
+// IntExactlyRepresentableAsFloat64 reports whether converting value to IEEE
+// 754 binary64 preserves it exactly.
+func IntExactlyRepresentableAsFloat64(value int64) bool {
+	converted, accuracy := big.NewFloat(float64(value)).Int64()
+	return accuracy == big.Exact && converted == value
 }
 
 // invariantlyAssignable protects mutable generic containers from aliases that
@@ -519,5 +557,5 @@ func CheckedIntNegate(value int64) (int64, ArithmeticFault) {
 // SourceTypeNames returns the supported source-level type spellings used by
 // editor/tooling catalog generation.
 func SourceTypeNames() []string {
-	return []string{"array", "bool", "channel", "decimal", "float", "int", "map", "mixed", "object", "string", "var"}
+	return []string{"array", "bool", "channel", "decimal", "float", "int", "map", "mixed", "object", "string", "var", "void"}
 }

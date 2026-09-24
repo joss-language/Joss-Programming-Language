@@ -112,17 +112,24 @@ print($cantidad ?? "sin dato")
 ¿Cuándo puede un valor de tipo origen asignarse a una variable de tipo destino?
 
 ```text
-       int ──────────► float ──────────► decimal
-(Exacto 64 bits)    (Binario IEEE)     (Base 10 exacta)
+int ──────────► decimal
+    promoción exacta
 ```
 
 1. **Mismo tipo**: Siempre permitido.
-2. **`int → float`**: Permitido automáticamente. Un entero puede promoverse a flotante.
-3. **`int → decimal` o `float → decimal`**: Permitido automáticamente. Joss convierte el valor a la representación decimal exacta.
+2. **`int → decimal`**: Permitido automáticamente porque conserva el valor exacto.
+3. **`int → float` y `float → decimal`**: Requieren conversión explícita. La primera puede perder enteros grandes y la segunda sólo puede conservar la aproximación binaria que ya existe.
 4. **`Clase → object`**: Cualquier instancia de clase es compatible con el tipo universal `object`.
 5. **`Subclase → Superclase`**: Una clase derivada que extiende a una clase base es aceptada donde se espere la clase base.
 6. **`Clase → Interfaz`**: Una clase que implementa una interfaz (`implements`) es compatible donde se declare dicha interfaz como tipo.
 7. **`mixed`**: Es universalmente compatible en ambas direcciones.
+
+Las operaciones que mezclan `int` con `float`, o `float` con `decimal`, también
+requieren convertir deliberadamente uno de los operandos. La división de dos
+enteros produce `float`; si un operando no puede representarse exactamente, el
+analyzer emite `JOSS-ARITH-003` cuando lo conoce y el runtime mantiene la misma
+defensa. Para importes, porcentajes e impuestos usa literales `decimal` y evita
+pasar primero por `float`.
 
 Cualquier otra mezcla (como intentar meter un `string` en un `int` o un `bool` en un `array`) será bloqueada por el analizador con `JOSS-TYPE-001` (Type Mismatch).
 

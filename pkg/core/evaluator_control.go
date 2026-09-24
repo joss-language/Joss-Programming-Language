@@ -1,7 +1,6 @@
 package core
 
 import (
-	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
 )
 
@@ -36,30 +35,10 @@ func (r *Runtime) evaluateTernary(expression *parser.TernaryExpression) interfac
 	return result
 }
 
-// evaluateNullCoalescing preserves Joss's recovery contract: lookup/type errors
-// on the left mean null, while control-flow and arithmetic failures propagate.
+// evaluateNullCoalescing handles absence only. Errors raised while evaluating
+// the left operand remain errors and must never be converted into null.
 func (r *Runtime) evaluateNullCoalescing(expression *parser.InfixExpression) interface{} {
-	var left interface{}
-	func() {
-		defer func() {
-			if recovered := recover(); recovered != nil {
-				switch runtimeValue := recovered.(type) {
-				case *ReturnPanic, *BreakPanic, *ContinuePanic:
-					panic(recovered)
-				case *JossError:
-					if runtimeValue.Type == "ArithmeticError" || runtimeValue.Code == diagnostics.CodeDivisionByZero || runtimeValue.Code == diagnostics.CodeArithmeticOverflow {
-						panic(recovered)
-					}
-					left = nil
-				case *Instance:
-					panic(recovered)
-				default:
-					left = nil
-				}
-			}
-		}()
-		left = r.evaluateExpression(expression.Left)
-	}()
+	left := r.evaluateExpression(expression.Left)
 	if left != nil {
 		return left
 	}

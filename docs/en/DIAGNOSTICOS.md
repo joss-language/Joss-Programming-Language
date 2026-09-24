@@ -60,6 +60,7 @@ Unlike generic error messages from older tools, each Joss diagnostic is designed
 | `JOSS-TYPE-010` | Types | Function with annotated return type may terminate without executing a `return` or `throw`. | `public func f(int $n): string {`<br>`    $n > 0 ? { return "si" } : {}`<br>`}` | Ensure that all possible routes return a value of the promised type. |
 | `JOSS-TYPE-011` | Types | A parameter without an explicit type was declared. | `public func f($x) {}` | In Joss all parameters must declare their type:<br>`public func f(int $x) {}` or `public func f(mixed $x) {}` |
 | `JOSS-TYPE-012` | Warning | An unparameterized mutable collection is used as a typed collection. Its original alias could insert incompatible values. | `array $origen = [1]`<br>`array<int> $numeros = $origen` | Keep the source typed, or validate and copy at the boundary: `array<int> $origen = [1]`. |
+| `JOSS-ARITH-003` | Arithmetic | An operation requires an implicit numeric conversion that can lose precision. | `9007199254740993 / 1`<br>`1 + 0.5`<br>`0.1 + 1.00m` | Use operands of the same type and convert explicitly; keep money in `decimal`. |
 | `JOSS-CALL-001` | Calls | Incorrect number of arguments regarding known signature parameters. | `public func f(int $a, int $b) {}`<br>`f(1)` | Provide all mandatory arguments required by the function. |
 | `JOSS-MEMBER-001` | Members | An attempt is made to invoke a method that does not exist in the resolved receiving class. | `$usuario->metodoInexistente()` | Check the method name in the class definition or native catalog. |
 | `JOSS-ACCESS-001` | Visibility | An attempt is made to use a class or function declared as `private` from another file. | Call a private function from another file. | Declare the function or class as `public` if it must be shared in the project. |
@@ -211,6 +212,23 @@ public func signo(int $n): string {
     return $n > 0 ? "positivo" : "no positivo"
 }
 print(signo(0))
+```
+
+---
+
+### Lossy numeric conversion (`JOSS-ARITH-003`)
+
+<!-- joss-error: JOSS-ARITH-003 -->
+```joss-invalid
+var $resultado = 9007199254740993 / 1
+```
+
+Corrected case preserving decimal precision:
+
+<!-- joss-run: ["9007199254740993"] -->
+```joss
+decimal $resultado = 9007199254740993m / 1m
+print($resultado)
 ```
 
 ---

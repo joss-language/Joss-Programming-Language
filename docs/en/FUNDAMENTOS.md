@@ -284,6 +284,7 @@ print((2 + 3) * 4) // Da 20 (2 + 3 = 5, luego * 4)
 On conventional 64-bit systems, if you add 1 to the largest possible integer, the number becomes a huge negative value without warning you. Joss prevents this at its core:
 - If an integer operation exceeds the 64-bit signed range (−9,223,372,036,854,775,808 to 9,223,372,036,854,775,807), Joss stops execution immediately with the structured error `JOSS-ARITH-001` (Arithmetic Overflow).
 - If you try to divide by zero (`$x / 0`), Joss stops it with `JOSS-ARITH-002` (Division by Zero).
+- If an implicit promotion would lose numeric precision, analyzer or runtime rejects it with `JOSS-ARITH-003`. Convert explicitly when approximation is deliberate; use `decimal` for money.
 
 ---
 
@@ -405,7 +406,7 @@ To put into practice everything you learned in this guide (variables, types, mat
 $subtotal = 50.0
 $propina = $subtotal * 0.15
 $total = $subtotal + $propina
-$porPersona = $total / 2
+$porPersona = $total / 2.0
 
 // 2. Mostrar resumen en pantalla
 print("Subtotal: " . $subtotal)
@@ -418,7 +419,7 @@ print("Por persona: " . $porPersona)
 1. `$subtotal = 50.0`: We save the account amount as a decimal number (`float`).
 2. `$propina = $subtotal * 0.15`: We calculate 15% by multiplying by `0.15`.
 3. `$total = $subtotal + $propina`: We add the cost of consumption and the tip.
-4. `$porPersona = $total / 2`: We divide the bill equally between two people.
+4. `$porPersona = $total / 2.0`: We divide the bill equally between two people.
 5. Calls to `print(...)`: Join the long text with the numeric value using the dot concatenation operator `.`.
 
 ---
@@ -427,7 +428,7 @@ print("Por persona: " . $porPersona)
 
 1. **Temperature converter**:
    - Declare a variable `$celsius = 25.0`.
-   - Apply the formula to convert to Fahrenheit: `$fahrenheit = ($celsius * 9 / 5) + 32`.
+   - Apply the formula to convert to Fahrenheit: `$fahrenheit = ($celsius * 9.0 / 5.0) + 32.0`.
    - Print the concatenated result: `print($celsius . " °C equivalen a " . $fahrenheit . " °F")`.
 2. **Quick Assign Game Scoreboard**:
    - Starts with `$puntos = 0`.

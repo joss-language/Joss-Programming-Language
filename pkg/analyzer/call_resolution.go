@@ -43,6 +43,18 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 		}
 		if variable, exists := current.resolve(name); exists {
 			variable.Used = true
+			if variable.Type.Kind == typesystem.Callable {
+				parameters := variable.Type.CallableParameters()
+				callable := Callable{Name: name, ReturnType: typesystem.Type{Kind: typesystem.Unknown}}
+				if variable.Type.Element != nil {
+					callable.ReturnType = *variable.Type.Element
+				}
+				for index, parameterType := range parameters {
+					callable.Parameters = append(callable.Parameters, Parameter{Name: fmt.Sprintf("arg%d", index+1), Type: parameterType})
+				}
+				a.checkCall(callable, call.Arguments, current, identifier.Token)
+				return callable.ReturnType
+			}
 			for _, argument := range call.Arguments {
 				a.inferExpression(argument, current)
 			}
@@ -102,6 +114,18 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 		return typesystem.Type{Kind: typesystem.Unknown}
 	}
 	functionType := a.inferExpression(call.Function, current)
+	if functionType.Kind == typesystem.Callable {
+		parameters := functionType.CallableParameters()
+		callable := Callable{Name: "closure", ReturnType: typesystem.Type{Kind: typesystem.Unknown}}
+		if functionType.Element != nil {
+			callable.ReturnType = *functionType.Element
+		}
+		for index, parameterType := range parameters {
+			callable.Parameters = append(callable.Parameters, Parameter{Name: fmt.Sprintf("arg%d", index+1), Type: parameterType})
+		}
+		a.checkCall(callable, call.Arguments, current, tokenOfExpression(call.Function))
+		return callable.ReturnType
+	}
 	for _, argument := range call.Arguments {
 		a.inferExpression(argument, current)
 	}

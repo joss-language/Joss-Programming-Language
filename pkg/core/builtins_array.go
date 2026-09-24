@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jossecurity/joss/pkg/diagnostics"
+	"github.com/jossecurity/joss/pkg/typesystem"
 	"github.com/shopspring/decimal"
 )
 
@@ -654,28 +656,70 @@ func (r *Runtime) callBuiltinArray(name string, args []interface{}) (interface{}
 		var intSum int64
 		var floatSum float64
 		isFloat := false
+		decimalSum := decimal.Zero
+		isDecimal := false
 		for _, item := range list {
 			switch v := item.(type) {
 			case int:
+				if isDecimal {
+					decimalSum = decimalSum.Add(decimal.NewFromInt(int64(v)))
+					continue
+				}
 				if isFloat {
+					if !typesystem.IntExactlyRepresentableAsFloat64(int64(v)) {
+						panic(&JossError{Code: diagnostics.CodePrecisionLoss, Type: "ArithmeticError", Message: "sum requiere convertir un entero no representable exactamente a float"})
+					}
 					floatSum += float64(v)
 				} else {
-					intSum += int64(v)
+					var fault typesystem.ArithmeticFault
+					intSum, fault = typesystem.CheckedIntBinary("+", intSum, int64(v))
+					if fault != typesystem.ArithmeticOK {
+						panic(&JossError{Code: diagnostics.CodeArithmeticOverflow, Type: "ArithmeticError", Message: "Overflow entero en sum"})
+					}
 				}
 			case int64:
+				if isDecimal {
+					decimalSum = decimalSum.Add(decimal.NewFromInt(v))
+					continue
+				}
 				if isFloat {
+					if !typesystem.IntExactlyRepresentableAsFloat64(v) {
+						panic(&JossError{Code: diagnostics.CodePrecisionLoss, Type: "ArithmeticError", Message: "sum requiere convertir un entero no representable exactamente a float"})
+					}
 					floatSum += float64(v)
 				} else {
-					intSum += v
+					var fault typesystem.ArithmeticFault
+					intSum, fault = typesystem.CheckedIntBinary("+", intSum, v)
+					if fault != typesystem.ArithmeticOK {
+						panic(&JossError{Code: diagnostics.CodeArithmeticOverflow, Type: "ArithmeticError", Message: "Overflow entero en sum"})
+					}
 				}
 			case float64:
+				if isDecimal {
+					panic(&JossError{Code: diagnostics.CodePrecisionLoss, Type: "ArithmeticError", Message: "sum no mezcla float y decimal implícitamente"})
+				}
 				if !isFloat {
 					isFloat = true
+					if !typesystem.IntExactlyRepresentableAsFloat64(intSum) {
+						panic(&JossError{Code: diagnostics.CodePrecisionLoss, Type: "ArithmeticError", Message: "sum requiere convertir un entero no representable exactamente a float"})
+					}
 					floatSum = float64(intSum) + v
 				} else {
 					floatSum += v
 				}
+			case decimal.Decimal:
+				if isFloat {
+					panic(&JossError{Code: diagnostics.CodePrecisionLoss, Type: "ArithmeticError", Message: "sum no mezcla float y decimal implícitamente"})
+				}
+				if !isDecimal {
+					isDecimal = true
+					decimalSum = decimal.NewFromInt(intSum)
+				}
+				decimalSum = decimalSum.Add(v)
 			}
+		}
+		if isDecimal {
+			return decimalSum, true
 		}
 		if isFloat {
 			return floatSum, true

@@ -75,7 +75,7 @@ func (l *Linter) LintSource(filename, src string) ([]LintIssue, error) {
 	}
 
 	// 2. Semantic Analysis integration
-	report := core.AnalyzeSourceUnits([]semanticanalyzer.SourceUnit{{Path: filename, Program: prog}})
+	report := core.AnalyzeSourceUnitsForMigration([]semanticanalyzer.SourceUnit{{Path: filename, Program: prog}})
 	issues = append(issues, lintIssuesFromDiagnostics(report.Diagnostics, filename)...)
 
 	// 3. Static AST Lint Rules
@@ -148,7 +148,7 @@ func (l *Linter) LintPath(targetPath string) ([]LintIssue, error) {
 		return nil, err
 	}
 
-	report := core.AnalyzeSourceUnits(units)
+	report := core.AnalyzeSourceUnitsForMigration(units)
 	allIssues = append(lintIssuesFromDiagnostics(report.Diagnostics, targetPath), allIssues...)
 
 	return allIssues, nil

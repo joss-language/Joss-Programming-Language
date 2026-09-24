@@ -25,6 +25,9 @@ func (r *Runtime) evaluateNumericInfix(expression *parser.InfixExpression, left,
 			if rightInteger == 0 {
 				panic(r.integerArithmeticError(expression, typesystem.ArithmeticDivisionByZero, leftInteger, rightInteger))
 			}
+			if !typesystem.IntExactlyRepresentableAsFloat64(leftInteger) || !typesystem.IntExactlyRepresentableAsFloat64(rightInteger) {
+				panic(r.precisionLossError(expression, "integer division requires an inexact float conversion"))
+			}
 			return float64(leftInteger) / float64(rightInteger), true
 		case "<":
 			return leftInteger < rightInteger, true
@@ -44,6 +47,12 @@ func (r *Runtime) evaluateNumericInfix(expression *parser.InfixExpression, left,
 	_, leftIsDecimal := left.(decimal.Decimal)
 	_, rightIsDecimal := right.(decimal.Decimal)
 	if leftIsDecimal || rightIsDecimal {
+		if _, isFloat := left.(float64); isFloat {
+			panic(r.precisionLossError(expression, "float cannot be promoted implicitly to decimal"))
+		}
+		if _, isFloat := right.(float64); isFloat {
+			panic(r.precisionLossError(expression, "float cannot be promoted implicitly to decimal"))
+		}
 		leftDecimal, leftOK := runtimeDecimal(left)
 		rightDecimal, rightOK := runtimeDecimal(right)
 		if leftOK && rightOK {
@@ -107,6 +116,12 @@ func (r *Runtime) evaluateNumericInfix(expression *parser.InfixExpression, left,
 	_, leftWasFloat := left.(float64)
 	_, rightWasFloat := right.(float64)
 	if leftWasFloat || rightWasFloat {
+		if integer, ok := runtimeInteger(left); ok && !typesystem.IntExactlyRepresentableAsFloat64(integer) {
+			panic(r.precisionLossError(expression, "integer cannot be promoted exactly to float"))
+		}
+		if integer, ok := runtimeInteger(right); ok && !typesystem.IntExactlyRepresentableAsFloat64(integer) {
+			panic(r.precisionLossError(expression, "integer cannot be promoted exactly to float"))
+		}
 		switch expression.Operator {
 		case "+":
 			return leftFloat + rightFloat, true
@@ -210,6 +225,9 @@ func (r *Runtime) evaluateSlotIntegerInfix(expression *parser.InfixExpression) (
 		if right == 0 {
 			panic(r.integerArithmeticError(expression, typesystem.ArithmeticDivisionByZero, left, right))
 		}
+		if !typesystem.IntExactlyRepresentableAsFloat64(left) || !typesystem.IntExactlyRepresentableAsFloat64(right) {
+			panic(r.precisionLossError(expression, "integer division requires an inexact float conversion"))
+		}
 		return float64(left) / float64(right), true
 	case "<":
 		return left < right, true
@@ -266,4 +284,8 @@ func (r *Runtime) integerArithmeticError(expression *parser.InfixExpression, fau
 
 func (r *Runtime) divisionByZeroError(expression *parser.InfixExpression) *JossError {
 	return &JossError{Code: diagnostics.CodeDivisionByZero, Type: "ArithmeticError", Message: "División entre cero", File: r.CurrentFile, Line: expression.Token.Line, Column: expression.Token.Column}
+}
+
+func (r *Runtime) precisionLossError(expression *parser.InfixExpression, detail string) *JossError {
+	return &JossError{Code: diagnostics.CodePrecisionLoss, Type: "ArithmeticError", Message: "Conversión numérica insegura: " + detail, File: r.CurrentFile, Line: expression.Token.Line, Column: expression.Token.Column}
 }

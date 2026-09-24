@@ -254,6 +254,13 @@ func (a *Analyzer) analyzeClassBody(classNode *parser.ClassStatement, global *sc
 	for _, member := range classNode.Body.Statements {
 		switch node := member.(type) {
 		case *parser.MethodStatement:
+			a.warnMissingNamedReturn(node)
+			if a.environment.MigrationWarnings && node.Name != nil && node.Name.Value == "Init" {
+				a.add("JOSS-DECL-009", diagnostics.SeverityWarning, a.file, node.Name.Token,
+					"`Init` as a method name is a deprecated constructor alias.",
+					"Classes should expose one constructor spelling.",
+					"Rename it to `public func constructor(...): void`.")
+			}
 			for _, tp := range node.TypeParameters {
 				if tp != nil {
 					a.currentTypeParams[tp.Value] = true
@@ -264,6 +271,12 @@ func (a *Analyzer) analyzeClassBody(classNode *parser.ClassStatement, global *sc
 			a.validateDeclaredType(returnType, node.ReturnType, "return annotation")
 			a.analyzeCallable(node.Parameters, node.Body, classScope, classNode.Name.Value, returnType, node.Name.Value == "Init")
 		case *parser.InitStatement:
+			if a.environment.MigrationWarnings && node.Name != nil && node.Name.Value == "constructor" {
+				a.add("JOSS-DECL-008", diagnostics.SeverityWarning, a.file, node.Name.Token,
+					"`Init constructor(...)` is deprecated.",
+					"Modern Joss uses a regular named callable with an explicit void contract.",
+					"Replace it with `public func constructor(...): void`.")
+			}
 			a.analyzeCallable(node.Parameters, node.Body, classScope, classNode.Name.Value, typesystem.Type{Kind: typesystem.Unknown}, true)
 		case *parser.LetStatement:
 			a.analyzeDeclaration(node, classScope, false)

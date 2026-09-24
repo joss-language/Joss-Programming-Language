@@ -12,14 +12,15 @@ const (
 	ASSIGNMENT  // =
 	TERNARY     // ? :
 	COALESCE    // ??
-	LOGICAL     // && or ||
+	PIPE_OP     // |>
+	LOGICAL_OR  // ||
+	LOGICAL_AND // &&
 	EQUALS      // ==
 	LESSGREATER // > or <
-	PIPE_OP     // |>
-	SUM         // +
 	SHIFT       // << or >>
-	PRODUCT     // *
-	MODULO      // %
+	RANGE_OP    // ..
+	SUM         // + or -
+	PRODUCT     // *, / or %
 	PREFIX      // -X or !X
 	CALL        // myFunction(X)
 	INDEX       // array[index]
@@ -38,12 +39,12 @@ var precedences = map[TokenType]int{
 	PLUS:                 SUM,
 	MINUS:                SUM,
 	DOT:                  SUM,
-	RANGE:                LESSGREATER,
+	RANGE:                RANGE_OP,
 	SLASH:                PRODUCT,
 	ASTERISK:             PRODUCT,
-	PERCENT:              MODULO,
-	AND:                  LOGICAL,
-	OR:                   LOGICAL,
+	PERCENT:              PRODUCT,
+	AND:                  LOGICAL_AND,
+	OR:                   LOGICAL_OR,
 	LT:                   LESSGREATER,
 	GT:                   LESSGREATER,
 	EQ:                   EQUALS,

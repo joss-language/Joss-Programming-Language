@@ -60,6 +60,7 @@ A diferencia de los mensajes de error genéricos de herramientas antiguas, cada 
 | `JOSS-TYPE-010` | Tipos | Función con tipo de retorno anotado puede terminar sin ejecutar un `return` o `throw`. | `public func f(int $n): string {`<br>`    $n > 0 ? { return "si" } : {}`<br>`}` | Garantizar que todas las rutas posibles retornen un valor del tipo prometido. |
 | `JOSS-TYPE-011` | Tipos | Se declaró un parámetro sin tipo explícito. | `public func f($x) {}` | En Joss todos los parámetros deben declarar su tipo:<br>`public func f(int $x) {}` o `public func f(mixed $x) {}` |
 | `JOSS-TYPE-012` | Warning | Una colección mutable sin parámetros se usa como colección tipada. El alias original podría insertar valores incompatibles. | `array $origen = [1]`<br>`array<int> $numeros = $origen` | Mantener el tipo desde la declaración o validar y copiar en el límite: `array<int> $origen = [1]`. |
+| `JOSS-ARITH-003` | Aritmética | Una operación exige una conversión numérica implícita que puede perder precisión. | `9007199254740993 / 1`<br>`1 + 0.5`<br>`0.1 + 1.00m` | Usar operandos del mismo tipo y convertir explícitamente; para dinero, conservar toda la operación en `decimal`. |
 | `JOSS-CALL-001` | Llamadas | Cantidad incorrecta de argumentos respecto a los parámetros de la firma conocida. | `public func f(int $a, int $b) {}`<br>`f(1)` | Proporcionar todos los argumentos obligatorios requeridos por la función. |
 | `JOSS-MEMBER-001` | Miembros | Se intenta invocar un método que no existe en la clase receptora resuelta. | `$usuario->metodoInexistente()` | Comprobar el nombre del método en la definición de la clase o en el catálogo nativo. |
 | `JOSS-ACCESS-001` | Visibilidad | Se intenta usar una clase o función declarada como `private` desde otro archivo. | Llamar a una función privada de otro archivo. | Declarar la función o clase como `public` si debe ser compartida en el proyecto. |
@@ -211,6 +212,23 @@ public func signo(int $n): string {
     return $n > 0 ? "positivo" : "no positivo"
 }
 print(signo(0))
+```
+
+---
+
+### Conversión numérica con pérdida (`JOSS-ARITH-003`)
+
+<!-- joss-error: JOSS-ARITH-003 -->
+```joss-invalid
+var $resultado = 9007199254740993 / 1
+```
+
+Caso corregido conservando precisión decimal:
+
+<!-- joss-run: ["9007199254740993"] -->
+```joss
+decimal $resultado = 9007199254740993m / 1m
+print($resultado)
 ```
 
 ---

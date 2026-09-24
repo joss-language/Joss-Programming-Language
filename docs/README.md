@@ -10,7 +10,7 @@ avanzar en orden y una persona experimentada encuentre reglas concretas.
 - [English](en/README.md)
 - [Português](pt/README.md)
 
-Los 49 documentos mantienen el mismo nombre en cada idioma para que los enlaces
+Los 50 documentos mantienen el mismo nombre en cada idioma para que los enlaces
 relativos funcionen igual. Después de editar el español, ejecuta
 `go run ./tools/docsi18n -translate -sync` para actualizar traducciones y espejo
 web; `go run ./tools/docsi18n -check` detecta archivos ausentes, traducciones
@@ -67,6 +67,7 @@ que ya conozcas otro lenguaje.
 - [Auditoría de documentación](DOCUMENTATION_AUDIT.md)
 - [Auditoría del lenguaje Joss 2026](JOSS_LANGUAGE_AUDIT_2026.md)
 - [Evaluación crítica y comparativa de Joss 2026](JOSS_LANGUAGE_REVIEW_2026.md)
+- [Evolución de Joss 2026: fases 0 y 1](JOSS_EVOLUTION_PHASE_0_1_2026.md)
 - [Auditoría del ORM GranDB 2026](GRANDB_ORM_AUDIT_2026.md)
 - [Auditoría técnica de 2026](AUDITORIA_TECNICA_2026.md)
 - [Auditoría de optimización runtime](RUNTIME_OPTIMIZATION_AUDIT.md)

@@ -78,6 +78,38 @@ func TestRuntimeDivisionByZeroIsStructured(t *testing.T) {
 	safetyExpression(t, `1 / 0`)
 }
 
+func TestRuntimeLossyIntegerDivisionIsStructured(t *testing.T) {
+	defer func() {
+		recovered := recover()
+		err, ok := recovered.(*JossError)
+		if !ok || err.Type != "ArithmeticError" || err.Code != diagnostics.CodePrecisionLoss {
+			t.Fatalf("expected structured precision error, got %#v", recovered)
+		}
+	}()
+	safetyExpression(t, `9007199254740993 / 1`)
+}
+
+func TestRuntimeRejectsImplicitFloatDecimalMix(t *testing.T) {
+	defer func() {
+		recovered := recover()
+		err, ok := recovered.(*JossError)
+		if !ok || err.Code != diagnostics.CodePrecisionLoss {
+			t.Fatalf("expected structured precision error, got %#v", recovered)
+		}
+	}()
+	safetyExpression(t, `0.1 + 1.00m`)
+}
+
+func TestRuntimeRejectsImplicitFloatToDecimalAssignment(t *testing.T) {
+	defer func() {
+		if recovered := recover(); recovered == nil {
+			t.Fatal("runtime accepted implicit float to decimal assignment")
+		}
+	}()
+	parser := parser.NewParser(parser.NewLexer(`decimal $amount = 0.1`))
+	benchmarkRuntimeInstance().Execute(parser.ParseProgram())
+}
+
 func TestRuntimeTypedCollectionValidation(t *testing.T) {
 	runtime := benchmarkPreparedRuntime(t, `
 public func takeInts(array<int> $items): int {

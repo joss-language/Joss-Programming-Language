@@ -284,6 +284,9 @@ print((2 + 3) * 4) // Da 20 (2 + 3 = 5, luego * 4)
 En sistemas de 64 bits convencionales, si sumas 1 al entero más grande posible, el número se convierte en un valor negativo enorme sin avisarte. Joss previene esto en su núcleo:
 - Si una operación entera supera el rango con signo de 64 bits (−9,223,372,036,854,775,808 a 9,223,372,036,854,775,807), Joss detiene la ejecución inmediatamente con el error estructurado `JOSS-ARITH-001` (Arithmetic Overflow).
 - Si intentas dividir por cero (`$x / 0`), Joss lo detiene con `JOSS-ARITH-002` (Division by Zero).
+- Si una promoción implícita perdería precisión numérica, el analyzer o el
+  runtime la rechazan con `JOSS-ARITH-003`. Convierte de forma explícita cuando
+  la aproximación sea deliberada; usa `decimal` para dinero.
 
 ---
 
@@ -405,7 +408,7 @@ Para poner en práctica todo lo aprendido en esta guía (variables, tipos, opera
 $subtotal = 50.0
 $propina = $subtotal * 0.15
 $total = $subtotal + $propina
-$porPersona = $total / 2
+$porPersona = $total / 2.0
 
 // 2. Mostrar resumen en pantalla
 print("Subtotal: " . $subtotal)
@@ -418,7 +421,7 @@ print("Por persona: " . $porPersona)
 1. `$subtotal = 50.0`: Guardamos el importe de la cuenta como número decimal (`float`).
 2. `$propina = $subtotal * 0.15`: Calculamos el 15% multiplicando por `0.15`.
 3. `$total = $subtotal + $propina`: Sumamos el costo de los consumos y la propina.
-4. `$porPersona = $total / 2`: Dividimos la cuenta equitativamente entre dos personas.
+4. `$porPersona = $total / 2.0`: Dividimos la cuenta equitativamente entre dos personas.
 5. Las llamadas a `print(...)`: Unen el texto explicativo con el valor numérico usando el operador de concatenación punto `.`.
 
 ---
@@ -427,7 +430,7 @@ print("Por persona: " . $porPersona)
 
 1. **Convertidor de temperatura**:
    - Declara una variable `$celsius = 25.0`.
-   - Aplica la fórmula para convertir a Fahrenheit: `$fahrenheit = ($celsius * 9 / 5) + 32`.
+   - Aplica la fórmula para convertir a Fahrenheit: `$fahrenheit = ($celsius * 9.0 / 5.0) + 32.0`.
    - Imprime el resultado concatenado: `print($celsius . " °C equivalen a " . $fahrenheit . " °F")`.
 2. **Marcador de juego con asignación rápida**:
    - Comienza con `$puntos = 0`.

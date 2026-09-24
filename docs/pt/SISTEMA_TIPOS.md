@@ -103,16 +103,18 @@ print($cantidad ?? "sin dato")
 ## 4. Compatibilidade e regras de atribuição
 
 Quando um valor do tipo origem pode ser atribuído a uma variável do tipo destino?```text
-       int ──────────► float ──────────► decimal
-(Exacto 64 bits)    (Binario IEEE)     (Base 10 exacta)
+int ──────────► decimal
+    promoción exacta
 ```
 1. **Mesmo tipo**: Sempre permitido.
-2. **`int → float`**: Permitido automaticamente. Um número inteiro pode ser promovido para flutuante.
-3. **`int → decimal` ou `float → decimal`**: Permitido automaticamente. Joss converte o valor para a representação decimal exata.
+2. **`int → decimal`**: Permitido automaticamente porque conserva o valor exato.
+3. **`int → float` e `float → decimal`**: Exigem conversão explícita porque podem conservar apenas uma aproximação.
 4. **`Clase → object`**: Qualquer instância de classe é compatível com o tipo universal `object`.
 5. **`Subclase → Superclase`**: Uma classe derivada que estende uma classe base é aceita onde quer que a classe base seja esperada.
 6. **`Clase → Interfaz`**: Uma classe que implementa uma interface (`implements`) é compatível onde a referida interface é declarada como um tipo.
 7. **`mixed`**: É universalmente compatível em ambas as direções.
+
+Operações que misturam `int` com `float`, ou `float` com `decimal`, também exigem conversão deliberada. A divisão inteira produz `float`; analyzer e runtime informam `JOSS-ARITH-003` quando um operando não é exatamente representável. Mantenha dinheiro, percentuais e impostos em `decimal`. Evite passar primeiro por `float`.
 
 Qualquer outra mixagem (como tentar colocar uma `string` em um `int` ou um `bool` em um `array`) será bloqueada pelo analisador com `JOSS-TYPE-001` (Type Mismatch).
 

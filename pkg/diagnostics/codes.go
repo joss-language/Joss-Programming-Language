@@ -6,6 +6,7 @@ package diagnostics
 const (
 	CodeArithmeticOverflow = "JOSS-ARITH-001"
 	CodeDivisionByZero     = "JOSS-ARITH-002"
+	CodePrecisionLoss      = "JOSS-ARITH-003"
 	CodeIndexOutOfRange    = "JOSS-INDEX-001"
 	CodeInvalidIndexType   = "JOSS-INDEX-002"
 	CodeChannelClosed      = "JOSS-CHANNEL-001"

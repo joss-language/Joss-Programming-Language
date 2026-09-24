@@ -15,22 +15,23 @@ type functionDeclaration struct {
 }
 
 type Analyzer struct {
-	environment       Environment
-	diagnostics       diagnostics.Bag
-	functions         map[string]functionDeclaration
-	classes           map[string]Class
-	classTokens       map[string]functionDeclaration
-	interfaces        map[string]Interface
-	interfaceTokens   map[string]functionDeclaration
-	enums             map[string]Enum
-	enumTokens        map[string]functionDeclaration
-	file              string
-	currentClass      string
-	inConstructor     bool
-	currentReturnType typesystem.Type
-	currentTypeParams map[string]bool
-	suppressUndefined int
-	facts             *AnalysisFacts
+	environment        Environment
+	diagnostics        diagnostics.Bag
+	functions          map[string]functionDeclaration
+	classes            map[string]Class
+	classTokens        map[string]functionDeclaration
+	interfaces         map[string]Interface
+	interfaceTokens    map[string]functionDeclaration
+	enums              map[string]Enum
+	enumTokens         map[string]functionDeclaration
+	file               string
+	currentClass       string
+	inConstructor      bool
+	currentReturnType  typesystem.Type
+	currentReturnTypes []typesystem.Type
+	currentTypeParams  map[string]bool
+	suppressUndefined  int
+	facts              *AnalysisFacts
 }
 
 func Analyze(units []SourceUnit, environment Environment) []diagnostics.Diagnostic {

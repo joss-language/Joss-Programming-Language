@@ -13,7 +13,17 @@ type LetStatement struct {
 	IsConst    bool
 	Visibility string // "public", "private", "protected"
 	IsStatic   bool
+	// DeclarationStyle preserves source syntax for migration diagnostics and
+	// codemods. Runtime semantics continue to use the canonical Token type.
+	DeclarationStyle DeclarationStyle
 }
+
+type DeclarationStyle string
+
+const (
+	DeclarationCanonical DeclarationStyle = "canonical"
+	DeclarationLegacyLet DeclarationStyle = "legacy-let"
+)
 
 func (ls *LetStatement) statementNode()       {}
 func (ls *LetStatement) TokenLiteral() string { return ls.Token.Literal }

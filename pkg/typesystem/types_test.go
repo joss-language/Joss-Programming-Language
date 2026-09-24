@@ -8,14 +8,14 @@ func TestCanonicalNamesAndCompatibility(t *testing.T) {
 			t.Fatalf("removed alias %q resolved as %s, want unresolved class type", removedAlias, got.String())
 		}
 	}
-	if !Assignable(Type{Kind: Float}, Type{Kind: Int}) {
-		t.Fatal("int should be assignable to float")
+	if Assignable(Type{Kind: Float}, Type{Kind: Int}) {
+		t.Fatal("int must require an explicit conversion before assignment to float")
 	}
 	if !Assignable(Type{Kind: Decimal}, Type{Kind: Int}) {
 		t.Fatal("int should be assignable to decimal")
 	}
-	if !Assignable(Type{Kind: Decimal}, Type{Kind: Float}) {
-		t.Fatal("float should be assignable to decimal")
+	if Assignable(Type{Kind: Decimal}, Type{Kind: Float}) {
+		t.Fatal("float must require an explicit conversion before assignment to decimal")
 	}
 	if Assignable(Type{Kind: Int}, Type{Kind: Decimal}) {
 		t.Fatal("decimal must not be assignable to int")
@@ -25,6 +25,19 @@ func TestCanonicalNamesAndCompatibility(t *testing.T) {
 	}
 	if !Assignable(Type{Kind: Mixed}, Type{Kind: String}) {
 		t.Fatal("mixed is the explicit dynamic escape hatch")
+	}
+}
+
+func TestExactFloatRepresentationOfIntegers(t *testing.T) {
+	for _, value := range []int64{0, 1, -1, 1 << 53, 1 << 54} {
+		if !IntExactlyRepresentableAsFloat64(value) {
+			t.Errorf("%d should be exactly representable", value)
+		}
+	}
+	for _, value := range []int64{(1 << 53) + 1, -((1 << 53) + 1), 9223372036854775807} {
+		if IntExactlyRepresentableAsFloat64(value) {
+			t.Errorf("%d should not be exactly representable", value)
+		}
 	}
 }
 

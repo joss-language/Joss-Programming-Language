@@ -14,6 +14,9 @@ func (r *Runtime) checkType(val interface{}, typeName string) bool {
 }
 
 func (r *Runtime) checkParsedType(val interface{}, destination typesystem.Type) bool {
+	if destination.Kind == typesystem.Void {
+		return val == nil
+	}
 	if destination.Kind == typesystem.Array && destination.Element != nil {
 		list, ok := val.([]interface{})
 		if !ok {
@@ -206,28 +209,46 @@ func (r *Runtime) safeEvaluate(exp parser.Expression) (result interface{}) {
 }
 
 func isFalsy(val interface{}) bool {
-	if val == nil {
+	switch value := val.(type) {
+	case nil:
 		return true
+	case bool:
+		return !value
+	case string:
+		return value == ""
+	case int:
+		return value == 0
+	case int8:
+		return value == 0
+	case int16:
+		return value == 0
+	case int32:
+		return value == 0
+	case int64:
+		return value == 0
+	case uint:
+		return value == 0
+	case uint8:
+		return value == 0
+	case uint16:
+		return value == 0
+	case uint32:
+		return value == 0
+	case uint64:
+		return value == 0
+	case float32:
+		return value == 0
+	case float64:
+		return value == 0
+	case decimal.Decimal:
+		return value.IsZero()
+	case []interface{}:
+		return len(value) == 0
+	case map[string]interface{}:
+		return len(value) == 0
+	default:
+		return false
 	}
-	if _, ok := val.(*Instance); ok {
-		return false // Instances are always Truthy
-	}
-	if d, ok := val.(decimal.Decimal); ok {
-		return d.IsZero()
-	}
-	if b, ok := val.(bool); ok {
-		return !b
-	}
-	if s, ok := val.(string); ok {
-		return s == "" || s == "0"
-	}
-	if i, ok := val.(int64); ok {
-		return i == 0
-	}
-	if list, ok := val.([]interface{}); ok {
-		return len(list) == 0
-	}
-	return false
 }
 
 func isTruthy(val interface{}) bool {
@@ -252,10 +273,6 @@ func (r *Runtime) coerceToParsedType(val interface{}, destination typesystem.Typ
 			return decimal.NewFromInt(v)
 		case int:
 			return decimal.NewFromInt(int64(v))
-		case float64:
-			return decimal.NewFromFloat(v)
-		case float32:
-			return decimal.NewFromFloat(float64(v))
 		case string:
 			clean := strings.TrimRight(strings.TrimSpace(v), "mMdD")
 			if d, err := decimal.NewFromString(clean); err == nil {

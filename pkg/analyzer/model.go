@@ -72,6 +72,9 @@ type Environment struct {
 	Interfaces map[string]Interface
 	Enums      map[string]Enum
 	Globals    map[string]typesystem.Type
+	// MigrationWarnings enables diagnostics for syntax accepted only during the
+	// finite transition to the next major language semantics.
+	MigrationWarnings bool
 }
 
 func NewEnvironment() Environment {

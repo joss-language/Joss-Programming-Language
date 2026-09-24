@@ -72,6 +72,23 @@ Al modificar invocación u operadores:
 - `ref T $x` y `call(ref $valor)` crean una referencia mutable temporal, estrictamente invariante y no escapable. Solo acepta variables no constantes; no admite defaults, campos, índices, almacenamiento en variables, retorno ni paso a llamadas nativas o `async`.
 - Clases y funciones globales exigen `public` o `private`; métodos y propiedades exigen `public`, `protected` o `private`. `static` nunca añade visibilidad implícita. `Init` y closures no llevan modificador.
 
+### Semántica estabilizada en FASE 1
+
+- La precedencia canónica vive en `pkg/parser/parser.go`: `*`, `/` y `%`
+  comparten nivel; `&&` tiene mayor precedencia que `||`; suma tiene mayor
+  precedencia que shifts. Toda modificación exige tests de la tabla completa.
+- `??` sólo maneja `null`. Nunca debe recuperar panics, excepciones, errores de
+  tipo, índice o aritmética.
+- Truthiness falsa: `null`, `false`, cero de cualquier tipo numérico, string
+  vacío, array vacío y map vacío. `"0"` es verdadero.
+- La única promoción numérica implícita entre tipos distintos es
+  `int → decimal`. `int → float`, `float → decimal` y sus operaciones mixtas
+  requieren conversión explícita. Analyzer y runtime usan `JOSS-ARITH-003`
+  como defensa contra pérdida de precisión.
+- `sum` conserva `decimal`, comprueba overflow entero y rechaza mezclas
+  `float`/`decimal` o enteros no representables exactamente al promover a
+  `float`.
+
 ---
 
 ## 5. Reglas obligatorias para nuevas funcionalidades

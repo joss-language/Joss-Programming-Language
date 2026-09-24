@@ -64,6 +64,48 @@ string $name = 42`, NewEnvironment())
 	}
 }
 
+func TestModernDeclarationMigrationDiagnostics(t *testing.T) {
+	environment := NewEnvironment()
+	environment.MigrationWarnings = true
+	items := analyzeSource(t, `let $dynamic = 1
+$implicit = 2
+echo $dynamic
+echo $implicit`, environment)
+	if !hasCode(items, "JOSS-DECL-006") || !hasCode(items, "JOSS-DECL-007") {
+		t.Fatalf("expected legacy declaration warnings, got %#v", items)
+	}
+}
+
+func TestNamedCallableReturnContractAndVoid(t *testing.T) {
+	environment := NewEnvironment()
+	environment.MigrationWarnings = true
+	missing := analyzeSource(t, `public func oldStyle() { return; }`, environment)
+	if !hasCode(missing, "JOSS-TYPE-014") {
+		t.Fatalf("expected omitted return warning, got %#v", missing)
+	}
+
+	valid := analyzeSource(t, `public func save(): void { return; }`, NewEnvironment())
+	if hasCode(valid, "JOSS-TYPE-008") || hasCode(valid, "JOSS-TYPE-010") || hasCode(valid, "JOSS-TYPE-009") {
+		t.Fatalf("valid void callable produced diagnostics: %#v", valid)
+	}
+
+	invalid := analyzeSource(t, `public func save(): void { return 10; }`, NewEnvironment())
+	if !hasCode(invalid, "JOSS-TYPE-008") {
+		t.Fatalf("expected value-return-from-void error, got %#v", invalid)
+	}
+}
+
+func TestClosureInfersCallableReturnAndChecksArguments(t *testing.T) {
+	items := analyzeSource(t, `var $format = func(User $user) { return $user }
+User $user = new User()
+User $same = $format($user)`, Environment{Classes: map[string]Class{"User": {Name: "User", Methods: map[string]Callable{}, Fields: map[string]Field{}}}, Builtins: map[string]Callable{}, Interfaces: map[string]Interface{}, Enums: map[string]Enum{}, Globals: map[string]typesystem.Type{}})
+	for _, code := range []string{"JOSS-TYPE-002", "JOSS-TYPE-003", "JOSS-SYM-003"} {
+		if hasCode(items, code) {
+			t.Fatalf("closure contract produced %s: %#v", code, items)
+		}
+	}
+}
+
 func TestTypedNumericStringLiteralUsesRuntimeCoercionPolicy(t *testing.T) {
 	items := analyzeSource(t, `int $age = "20"
 echo $age`, NewEnvironment())

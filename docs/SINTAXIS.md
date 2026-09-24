@@ -60,32 +60,32 @@ ordinarios agrupan a la izquierda; la asignación analiza toda su derecha.
 | 1 | `=`, `+=`, `-=`, `*=`, `/=`, `??=` (derecha) |
 | 2 | `? :`, `?:` |
 | 3 | `??` |
-| 4 | `&&`, `\|\|` |
-| 5 | `==`, `!=`, `===`, `!==`, `<=>` |
-| 6 | `<`, `>`, `<=`, `>=`, `..`, `is`, `instanceof` |
-| 7 | `\|>` |
-| 8 | `+`, `-`, `.` |
+| 4 | `\|>` |
+| 5 | `\|\|` |
+| 6 | `&&` |
+| 7 | `==`, `!=`, `===`, `!==`, `<=>` |
+| 8 | `<`, `>`, `<=`, `>=`, `is`, `instanceof` |
 | 9 | `<<`, `>>` |
-| 10 | `*`, `/` |
-| 11 | `%` |
-| 12 | Prefijos `-`, `!`, `ref`, `...` |
-| 13 | Llamada `()` |
-| 14 | Índice `[]`, miembros `->`, `?->`, `::`, postfix `++`, `--` |
+| 10 | `..` |
+| 11 | `+`, `-`, `.` |
+| 12 | `*`, `/`, `%` |
+| 13 | Prefijos `-`, `!`, `ref`, `...` |
+| 14 | Llamada `()` |
+| 15 | Índice `[]`, miembros `->`, `?->`, `::`, postfix `++`, `--` |
 
-Consecuencias: `%` liga más fuerte que multiplicación y división, mientras
-`&&` y `||` comparten nivel. Usa paréntesis para expresar tu intención.
+Los operadores aritméticos y lógicos siguen su jerarquía convencional: `%`,
+`*` y `/` comparten nivel, y `&&` liga más fuerte que `||`.
 Los brazos del ternario se parsean como expresiones completas; parentetiza
 ternarios anidados en vez de trasladar la asociatividad de otro lenguaje.
 
-<!-- joss-run: ["16", "false", "true"] -->
+<!-- joss-run: ["1", "true", "true"] -->
 ```joss
 print(8 * 5 % 3)
 print(true || false && false)
 print(true || (false && false))
 ```
 
-Da `16`, `false` y `true`. La primera expresión es `8 * (5 % 3)`.
-No es una tabla de precedencia de PHP o Go.
+Da `1`, `true` y `true`. La primera expresión es `(8 * 5) % 3`.
 
 ## Evaluación
 
@@ -112,8 +112,8 @@ No es una tabla de precedencia de PHP o Go.
   numéricas internas de Go antes de comparar.
 - `<=>`: retorna `-1`, `0` o `1`; compara números, strings, nulos y
   finalmente representaciones textuales.
-- `??`: evalúa la derecha sólo si la izquierda es nula. **Actualmente recupera
-  cualquier panic de la izquierda** y lo trata como nulo.
+- `??`: evalúa la derecha sólo si la izquierda produce `null`. Los errores al
+  evaluar la izquierda se propagan y deben manejarse con `try`/`catch`.
 - `?:` (Elvis): conserva la izquierda si es verdadera según truthiness.
 - Ternario completo y de una sola rama: `cond ? expr : expr` y `(cond) ? { cuerpo }`
   (permite omitir la rama `: {}` cuando no se requiere alternativa falsa).
@@ -128,11 +128,11 @@ No es una tabla de precedencia de PHP o Go.
 
 ## Verdad de valores
 
-`isFalsy` considera falsos: `null`, `false`, `int64(0)`, decimal cero,
-`""`, `"0"` y array vacío. Considera verdaderas las instancias.
-**El caso float cero y el mapa vacío no se comprueban y resultan verdaderos**.
-Por eso conviene escribir condiciones bool explícitas. `empty` usa esa misma
-interpretación tras comprobar existencia, no una regla universal de «sin datos».
+Joss conserva una truthiness pequeña y uniforme. Son falsos: `null`, `false`,
+cero de cualquier tipo numérico, string vacío, array vacío y map vacío. Todo
+valor restante es verdadero; en particular, `"0"` es verdadero porque es un
+string no vacío. `empty` usa esta misma interpretación después de comprobar la
+existencia del valor.
 
 ## Declaraciones y ámbitos
 

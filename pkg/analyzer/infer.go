@@ -152,8 +152,16 @@ func (a *Analyzer) inferExpressionNode(expression parser.Expression, current *sc
 	case *parser.FunctionLiteral:
 		returnType := typeFromToken(node.ReturnType)
 		a.validateDeclaredType(returnType, node.ReturnType, "return annotation")
-		a.analyzeCallable(node.Parameters, node.Body, current, "", returnType, false)
-		return typesystem.Type{Kind: typesystem.Object}
+		returnType = a.analyzeCallable(node.Parameters, node.Body, current, "", returnType, false)
+		parameters := make([]typesystem.Type, 0, len(node.Parameters))
+		for _, parameter := range node.Parameters {
+			parameterType := typesystem.Type{Kind: typesystem.Mixed}
+			if parameter != nil && parameter.Type.Literal != "" && parameter.Type.Type != parser.VAR {
+				parameterType = typesystem.Parse(parameter.Type.Literal)
+			}
+			parameters = append(parameters, parameterType)
+		}
+		return typesystem.NewCallable(parameters, returnType)
 	case *parser.IssetExpression:
 		a.suppressUndefined++
 		for _, argument := range node.Arguments {
@@ -337,6 +345,12 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 			return existing.Type
 		}
 		inferredType := typesystem.MergeInference(typesystem.Type{Kind: typesystem.Unknown}, valueType)
+		if a.environment.MigrationWarnings {
+			a.add("JOSS-DECL-007", diagnostics.SeverityWarning, a.file, identifier.Token,
+				fmt.Sprintf("`$%s` is declared implicitly by assignment.", name),
+				"An assignment should update a binding whose declaration is already visible.",
+				fmt.Sprintf("Declare it explicitly with `var $%s = ...`; implicit declarations will be removed in the next major language version.", name))
+		}
 		current.put(&symbol{Name: name, Type: inferredType, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true, Initialized: true})
 		return inferredType
 	}
@@ -474,7 +488,15 @@ func (a *Analyzer) inferInfix(expression *parser.InfixExpression, current *scope
 	switch expression.Operator {
 	case ".":
 		return typesystem.Type{Kind: typesystem.String}
-	case "==", "!=", "===", "!==", "<", ">", "<=", ">=", "&&", "||":
+	case "==", "!=", "<", ">", "<=", ">=":
+		if unsafeImplicitNumericMix(left, right) {
+			a.add(diagnostics.CodePrecisionLoss, diagnostics.SeverityError, a.file, expression.Token,
+				fmt.Sprintf("Numeric comparison `%s %s %s` requires a potentially lossy implicit conversion.", left.String(), expression.Operator, right.String()),
+				"Numeric comparison follows the same exact-conversion policy as arithmetic.",
+				"Convert deliberately so both operands have the same numeric type.")
+		}
+		return typesystem.Type{Kind: typesystem.Bool}
+	case "===", "!==", "&&", "||":
 		return typesystem.Type{Kind: typesystem.Bool}
 	case "<=>":
 		return typesystem.Type{Kind: typesystem.Int}
@@ -487,6 +509,13 @@ func (a *Analyzer) inferInfix(expression *parser.InfixExpression, current *scope
 		}
 		if right.IsKnown() && !right.IsNumeric() {
 			a.invalidOperator(expression.Token, expression.Operator, left, right)
+			return typesystem.Type{Kind: typesystem.Unknown}
+		}
+		if unsafeImplicitNumericMix(left, right) {
+			a.add(diagnostics.CodePrecisionLoss, diagnostics.SeverityError, a.file, expression.Token,
+				fmt.Sprintf("Numeric operation `%s %s %s` requires a potentially lossy implicit conversion.", left.String(), expression.Operator, right.String()),
+				"Joss only promotes `int` to `decimal` implicitly because that conversion is exact.",
+				"Convert deliberately with `floatval(...)` or `decimal(...)` before the operation.")
 			return typesystem.Type{Kind: typesystem.Unknown}
 		}
 		if left.Kind == typesystem.Decimal || right.Kind == typesystem.Decimal {
@@ -506,6 +535,13 @@ func (a *Analyzer) inferInfix(expression *parser.InfixExpression, current *scope
 	}
 }
 
+func unsafeImplicitNumericMix(left, right typesystem.Type) bool {
+	if !left.IsKnown() || !right.IsKnown() || !left.IsNumeric() || !right.IsNumeric() || left.Kind == right.Kind {
+		return false
+	}
+	return left.Kind == typesystem.Float || right.Kind == typesystem.Float
+}
+
 func (a *Analyzer) checkConstantIntegerOperation(expression *parser.InfixExpression) {
 	left, leftOK := constantInteger(expression.Left)
 	right, rightOK := constantInteger(expression.Right)
@@ -516,6 +552,12 @@ func (a *Analyzer) checkConstantIntegerOperation(expression *parser.InfixExpress
 	if expression.Operator == "/" {
 		if right == 0 {
 			fault = typesystem.ArithmeticDivisionByZero
+		} else if !typesystem.IntExactlyRepresentableAsFloat64(left) || !typesystem.IntExactlyRepresentableAsFloat64(right) {
+			a.add(diagnostics.CodePrecisionLoss, diagnostics.SeverityError, a.file, expression.Token,
+				fmt.Sprintf("Integer division `%d / %d` cannot produce a float without losing operand precision.", left, right),
+				"The `/` operator produces `float`; large integers may not be exactly representable as IEEE 754 values.",
+				"Use `decimal(...)` operands for exact division, or convert to float explicitly if approximation is intended.")
+			return
 		}
 	} else {
 		_, fault = typesystem.CheckedIntBinary(expression.Operator, left, right)

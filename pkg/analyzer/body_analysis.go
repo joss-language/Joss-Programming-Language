@@ -50,6 +50,7 @@ func (a *Analyzer) analyzeSourceBodies(units []SourceUnit, global *scope) {
 				case *parser.InterfaceStatement:
 					continue
 				case *parser.MethodStatement:
+					a.warnMissingNamedReturn(node)
 					for _, tp := range node.TypeParameters {
 						if tp != nil {
 							a.currentTypeParams[tp.Value] = true
@@ -68,10 +69,25 @@ func (a *Analyzer) analyzeSourceBodies(units []SourceUnit, global *scope) {
 	}
 }
 
-func (a *Analyzer) analyzeCallable(parameters []*parser.Parameter, body *parser.BlockStatement, parent *scope, className string, returnType typesystem.Type, inConstructor bool) {
+func (a *Analyzer) warnMissingNamedReturn(node *parser.MethodStatement) {
+	if !a.environment.MigrationWarnings || node == nil || node.Name == nil || node.ReturnType.Literal != "" {
+		return
+	}
+	a.add("JOSS-TYPE-014", diagnostics.SeverityWarning, a.file, node.Name.Token,
+		fmt.Sprintf("Named callable `%s` omits its return type.", node.Name.Value),
+		"An omitted return currently leaves the public contract unknown.",
+		"Declare the returned type explicitly, or write `: void` when the callable deliberately returns no value. This becomes an error in the next major language version.")
+}
+
+func (a *Analyzer) analyzeCallable(parameters []*parser.Parameter, body *parser.BlockStatement, parent *scope, className string, returnType typesystem.Type, inConstructor bool) typesystem.Type {
 	previousReturnType := a.currentReturnType
+	previousReturnTypes := a.currentReturnTypes
 	a.currentReturnType = returnType
-	defer func() { a.currentReturnType = previousReturnType }()
+	a.currentReturnTypes = nil
+	defer func() {
+		a.currentReturnType = previousReturnType
+		a.currentReturnTypes = previousReturnTypes
+	}()
 	previousInConstructor := a.inConstructor
 	a.inConstructor = inConstructor
 	defer func() { a.inConstructor = previousInConstructor }()
@@ -112,7 +128,7 @@ func (a *Analyzer) analyzeCallable(parameters []*parser.Parameter, body *parser.
 	}
 	if body != nil {
 		a.analyzeBlock(body, local)
-		if returnType.Kind != typesystem.Unknown && !blockTerminatesCallable(body) {
+		if returnType.Kind != typesystem.Unknown && returnType.Kind != typesystem.Void && !blockTerminatesCallable(body) {
 			a.add("JOSS-TYPE-010", diagnostics.SeverityError, a.file, body.Token,
 				fmt.Sprintf("Not every control-flow path returns the declared type `%s`.", returnType.String()),
 				"A callable with an explicit return type must return or throw on every reachable path.",
@@ -120,6 +136,18 @@ func (a *Analyzer) analyzeCallable(parameters []*parser.Parameter, body *parser.
 		}
 	}
 	a.reportUnused(local)
+	if returnType.Kind != typesystem.Unknown {
+		return returnType
+	}
+	inferred := typesystem.Type{Kind: typesystem.Void}
+	for _, observed := range a.currentReturnTypes {
+		if inferred.Kind == typesystem.Void {
+			inferred = observed
+		} else {
+			inferred = commonType(inferred, observed)
+		}
+	}
+	return inferred
 }
 
 func (a *Analyzer) analyzeBlock(block *parser.BlockStatement, current *scope) bool {
@@ -164,10 +192,11 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 	case *parser.EchoStatement:
 		a.inferExpression(node.Value, current)
 	case *parser.ReturnStatement:
-		actualType := typesystem.Type{Kind: typesystem.Null}
+		actualType := typesystem.Type{Kind: typesystem.Void}
 		if node.ReturnValue != nil {
 			actualType = a.inferExpression(node.ReturnValue, current)
 		}
+		a.currentReturnTypes = append(a.currentReturnTypes, actualType)
 		if a.currentReturnType.Kind != typesystem.Unknown && !a.assignableExpression(a.currentReturnType, actualType, node.ReturnValue) {
 			a.add("JOSS-TYPE-008", diagnostics.SeverityError, a.file, node.Token,
 				fmt.Sprintf("Return value has type `%s`; callable requires `%s`.", actualType.String(), a.currentReturnType.String()),
@@ -273,6 +302,16 @@ func (a *Analyzer) analyzeDeclaration(node *parser.LetStatement, current *scope,
 		return
 	}
 	name := cleanName(node.Name.Value)
+	if a.environment.MigrationWarnings && node.DeclarationStyle == parser.DeclarationLegacyLet {
+		replacement := node.Token.Literal
+		if strings.EqualFold(replacement, "var") {
+			replacement = "mixed"
+		}
+		a.add("JOSS-DECL-006", diagnostics.SeverityWarning, a.file, node.Token,
+			"`let` declarations are deprecated.",
+			"Modern Joss uses one declaration form per intent.",
+			fmt.Sprintf("Replace `let` with `%s`; `joss fix` can apply this migration.", replacement))
+	}
 	if _, exists := current.local(name); exists {
 		a.redeclaration(name, node.Name.Token)
 		return

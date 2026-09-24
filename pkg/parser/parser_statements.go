@@ -230,7 +230,11 @@ func (p *Parser) parseStatement() Statement {
 		}
 		if p.peekToken.Type == IDENT {
 			p.nextToken() // move to type (e.g. int, string)
-			return p.parseLetStatement()
+			statement := p.parseLetStatement()
+			if declaration, ok := statement.(*LetStatement); ok {
+				declaration.DeclarationStyle = DeclarationLegacyLet
+			}
+			return statement
 		}
 		if p.peekToken.Type == VAR {
 			typeTok := Token{Type: IDENT, Literal: "mixed", Line: p.curToken.Line}
@@ -245,7 +249,7 @@ func (p *Parser) parseStatement() Statement {
 				p.nextToken()
 				value = p.parseExpression(LOWEST)
 			}
-			stmt := &LetStatement{Token: typeTok, Name: name, Value: value}
+			stmt := &LetStatement{Token: typeTok, Name: name, Value: value, DeclarationStyle: DeclarationLegacyLet}
 			if p.peekToken.Type == SEMICOLON || p.peekToken.Type == NEWLINE {
 				p.nextToken()
 			}
@@ -770,7 +774,7 @@ func (p *Parser) parseLetStatement() Statement {
 		return p.parseMultiLetStatement(typeToken, name, value)
 	}
 
-	stmt := &LetStatement{Token: typeToken, Name: name, Value: value}
+	stmt := &LetStatement{Token: typeToken, Name: name, Value: value, DeclarationStyle: DeclarationCanonical}
 
 	if p.peekToken.Type == SEMICOLON || p.peekToken.Type == NEWLINE {
 		p.nextToken()

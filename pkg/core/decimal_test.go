@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/jossecurity/joss/pkg/parser"
@@ -14,6 +15,63 @@ func evalDecimalSource(source string) *Runtime {
 	rt := NewRuntime()
 	rt.Execute(program)
 	return rt
+}
+
+func TestDecimalRepeatedSumsTaxesAndDivisionRemainExact(t *testing.T) {
+	source := `
+decimal $repeated = 0.10m + 0.10m + 0.10m + 0.10m + 0.10m + 0.10m + 0.10m + 0.10m + 0.10m + 0.10m
+decimal $tax = 19.99m * 0.16m
+decimal $share = 57.50m / 2m
+decimal $aggregated = sum([0.10m, 0.20m, 1, 2.70m])
+`
+	runtime := evalDecimalSource(source)
+	tests := map[string]string{
+		"repeated":   "1.00",
+		"tax":        "3.1984",
+		"share":      "28.75",
+		"aggregated": "4.00",
+	}
+	for name, expected := range tests {
+		value, ok := runtime.Variables[name].(decimal.Decimal)
+		if !ok || !value.Equal(decimal.RequireFromString(expected)) {
+			t.Errorf("%s = %#v, want exact decimal %s", name, runtime.Variables[name], expected)
+		}
+	}
+}
+
+func TestDecimalJSONSerializationPreservesDecimalDigits(t *testing.T) {
+	runtime := benchmarkRuntimeInstance()
+	encoded, handled := runtime.callBuiltin("json_encode", []interface{}{map[string]interface{}{
+		"amount": decimal.RequireFromString("9007199254740993.01"),
+	}})
+	if !handled {
+		t.Fatal("json_encode was not handled")
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(encoded.(string)), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(raw["amount"]); got != `"9007199254740993.01"` {
+		t.Fatalf("serialized decimal = %s, want quoted exact digits", got)
+	}
+}
+
+func TestSumRejectsOverflowAndMixedFloatDecimal(t *testing.T) {
+	runtime := benchmarkRuntimeInstance()
+	for _, values := range [][]interface{}{
+		{int64(9223372036854775807), int64(1)},
+		{decimal.RequireFromString("0.10"), float64(0.2)},
+		{int64(9007199254740993), float64(1)},
+	} {
+		func() {
+			defer func() {
+				if recovered := recover(); recovered == nil {
+					t.Fatalf("sum(%#v) should fail safely", values)
+				}
+			}()
+			runtime.callBuiltin("sum", []interface{}{values})
+		}()
+	}
 }
 
 func TestDecimalExactArithmetic(t *testing.T) {

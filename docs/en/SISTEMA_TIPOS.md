@@ -103,16 +103,18 @@ print($cantidad ?? "sin dato")
 ## 4. Compatibility and assignment rules
 
 When can a value of type source be assigned to a variable of type destination?```text
-       int ──────────► float ──────────► decimal
-(Exacto 64 bits)    (Binario IEEE)     (Base 10 exacta)
+int ──────────► decimal
+    promoción exacta
 ```
 1. **Same type**: Always allowed.
-2. **`int → float`**: Automatically allowed. An integer can be promoted to float.
-3. **`int → decimal` or `float → decimal`**: Automatically allowed. Joss converts the value to the exact decimal representation.
+2. **`int → decimal`**: Automatically allowed because it preserves the exact value.
+3. **`int → float` and `float → decimal`**: Require explicit conversion because they can preserve only an approximation.
 4. **`Clase → object`**: Any class instance is compatible with the universal type `object`.
 5. **`Subclase → Superclase`**: A derived class that extends a base class is accepted wherever the base class is expected.
 6. **`Clase → Interfaz`**: A class that implements an interface (`implements`) is compatible where said interface is declared as a type.
 7. **`mixed`**: It is universally compatible in both directions.
+
+Operations mixing `int` with `float`, or `float` with `decimal`, also require deliberate conversion. Integer division produces `float`; analyzer and runtime report `JOSS-ARITH-003` when an operand is not exactly representable. Keep money, percentages, and taxes in `decimal`. Avoid passing through `float` first.
 
 Any other mixing (such as trying to put a `string` in an `int` or a `bool` in an `array`) will be blocked by the parser with `JOSS-TYPE-001` (Type Mismatch).
 

@@ -599,22 +599,31 @@ public func testSafeCoalesce(): int {
 		t.Fatalf("expected 42, got %v", resSafe)
 	}
 
-	// 2. Division by zero should panic and NOT be silenced by ??
-	srcDivZero := `
+	tests := []string{`
 public func testDivZero(): int {
     int $zero = 0
     return (100 / $zero) ?? 999
 }
-`
-	rtDiv := benchmarkPreparedRuntime(t, srcDivZero)
-	fnDiv := rtDiv.Functions["testDivZero"]
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatalf("expected division by zero panic, but it was silenced by ??")
-		}
-	}()
-	rtDiv.CallMethodEvaluated(fnDiv, nil, nil)
+`, `
+public func testDivZero(): string {
+    array $items = []
+    return $items[1] ?? "fallback"
+}
+`}
+	for _, source := range tests {
+		func() {
+			defer func() {
+				if recovered := recover(); recovered == nil {
+					t.Fatalf("expected runtime error, but it was silenced by ??: %s", source)
+				}
+			}()
+			runtime := benchmarkPreparedRuntime(t, source)
+			for _, function := range runtime.Functions {
+				runtime.CallMethodEvaluated(function, nil, nil)
+				break
+			}
+		}()
+	}
 }
 
 func TestGuardStatementExecution(t *testing.T) {

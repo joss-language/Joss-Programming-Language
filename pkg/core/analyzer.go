@@ -58,7 +58,18 @@ func AnalyzeProgram(program *parser.Program) *AnalysisReport {
 
 // AnalyzeSourceUnits performs project-aware, cross-file semantic analysis.
 func AnalyzeSourceUnits(units []semanticanalyzer.SourceUnit) *AnalysisReport {
+	return analyzeSourceUnits(units, false)
+}
+
+// AnalyzeSourceUnitsForMigration includes finite deprecation diagnostics used
+// by `joss check` and editor tooling while normal execution remains compatible.
+func AnalyzeSourceUnitsForMigration(units []semanticanalyzer.SourceUnit) *AnalysisReport {
+	return analyzeSourceUnits(units, true)
+}
+
+func analyzeSourceUnits(units []semanticanalyzer.SourceUnit, migrationWarnings bool) *AnalysisReport {
 	environment := buildAnalysisEnvironment()
+	environment.MigrationWarnings = migrationWarnings
 	prepared := semanticanalyzer.PrepareProgram(units, environment)
 	return &AnalysisReport{Diagnostics: append([]diagnostics.Diagnostic(nil), prepared.Diagnostics...), Prepared: prepared}
 }
