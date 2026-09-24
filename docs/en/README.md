@@ -10,7 +10,7 @@ move forward in order and an experienced person finds concrete rules.
 - English: this directory.
 - [Português](../pt/README.md)
 
-All 46 documents use the same filename in every language, so relative links
+All 49 documents use the same filename in every language, so relative links
 work consistently. After editing the Spanish source, run
 `go run ./tools/docsi18n -translate -sync` to update translations and mirror
 the web copy; `go run ./tools/docsi18n -check` detects missing files, stale
@@ -65,6 +65,7 @@ that you already know another language.
 - [Language architecture](ARQUITECTURA.md)
 - [Contribution Guide](CONTRIBUIR.md)- [Documentation audit](DOCUMENTATION_AUDIT.md)
 - [Joss Language Audit 2026](JOSS_LANGUAGE_AUDIT_2026.md)
+- [Critical and Comparative Joss Review 2026](JOSS_LANGUAGE_REVIEW_2026.md)
 - [GranDB ORM Audit 2026](GRANDB_ORM_AUDIT_2026.md)
 - [Technical audit of 2026](AUDITORIA_TECNICA_2026.md)
 - [Runtime Optimization Audit](RUNTIME_OPTIMIZATION_AUDIT.md)

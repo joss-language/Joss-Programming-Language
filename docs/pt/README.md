@@ -10,7 +10,7 @@ avança em ordem e uma pessoa experiente encontra regras concretas.
 - [English](README.md)
 - Português: este diretório.
 
-Todos os 46 documentos usam o mesmo nome de arquivo em cada idioma, para que
+Todos os 49 documentos usam o mesmo nome de arquivo em cada idioma, para que
 os links relativos funcionem de forma consistente. Depois de editar a fonte em espanhol, execute
 `go run ./tools/docsi18n -translate -sync` para atualizar traduções e espelhar
 a cópia web; `go run ./tools/docsi18n -check` detecta arquivos ausentes,
@@ -65,6 +65,7 @@ que você já conhece outro idioma.
 - [Arquitetura de linguagem](ARQUITECTURA.md)
 - [Guia de Contribuição](CONTRIBUIR.md)- [Auditoria de documentação](DOCUMENTATION_AUDIT.md)
 - [Auditoria de linguagem Joss 2026](JOSS_LANGUAGE_AUDIT_2026.md)
+- [Avaliação crítica e comparativa do Joss 2026](JOSS_LANGUAGE_REVIEW_2026.md)
 - [Auditoria do ORM GranDB 2026](GRANDB_ORM_AUDIT_2026.md)
 - [Auditoria técnica de 2026](AUDITORIA_TECNICA_2026.md)
 - [Auditoria de otimização de tempo de execução](RUNTIME_OPTIMIZATION_AUDIT.md)
