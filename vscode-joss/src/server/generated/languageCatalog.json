@@ -61,7 +61,8 @@
     "mixed",
     "object",
     "string",
-    "var"
+    "var",
+    "void"
   ],
   "builtins": [
     "__",
