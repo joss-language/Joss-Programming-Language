@@ -473,15 +473,16 @@ La primera etapa aplicada a partir de este informe incluye:
 - orden determinista de columnas en escrituras;
 - dialecto central para random, introspección de columnas y límites de parámetros;
 - extracción de fecha y contención escalar JSON compiladas por dialecto;
-- `upsert` real para los cuatro dialectos, con ejecución SQLite y golden tests para los otros tres;
+- `upsert` real para los cuatro dialectos, con ejecución SQLite, MySQL y PostgreSQL y golden tests para SQL Server;
 - `insertMany` con batching y rollback atómico comprobado en SQLite;
 - `simplePaginate`, `cursorPaginate` y `chunkById` sin consumir el builder original;
 - `explain()` para SQLite/MySQL/PostgreSQL, con límite SQL Server explícito;
 - reset seguro de `sqlite_sequence` mediante binding.
 
-Persisten como trabajo planificado QuerySpec completo, tests con servidores reales,
-metadata de modelos, hidratación, casts, relaciones, eager loading, scopes, soft
-deletes y streaming. No se consideran implementados por aparecer en este roadmap.
+Persisten como trabajo posterior QuerySpec inmutable completo, streaming real y
+validación contra servidores externos. Metadata, hidratación, casts, relaciones,
+eager loading, scopes y soft deletes se implementaron en la Phase 2 documentada
+a continuación; su presencia está respaldada por pruebas de ejecución.
 
 ### Baseline de rendimiento
 
@@ -503,8 +504,8 @@ compilación antes de reducir round trips tendría poco impacto en lecturas gran
 ### Suite cross database
 
 `TestGranDBCrossDatabaseContract` ejecuta siempre SQLite y comparte CRUD,
-bindings, bulk, upsert y el ciclo Model create/hydrate/dirty update con los otros motores. MySQL, PostgreSQL y SQL Server se
-activan mediante `JOSS_TEST_MYSQL_DSN`, `JOSS_TEST_POSTGRES_DSN` y
+bindings, bulk, upsert y el ciclo Model create/hydrate/dirty update con los otros motores. MySQL, PostgreSQL y SQL Server pasaron este contrato contra servidores reales el
+24 de septiembre de 2026. Los tres servidores se activan mediante `JOSS_TEST_MYSQL_DSN`, `JOSS_TEST_POSTGRES_DSN` y
 `JOSS_TEST_SQLSERVER_DSN`. Un skip sin DSN significa “no verificado”, no éxito de
 compatibilidad.
 
@@ -530,10 +531,12 @@ compatibilidad.
   `loadMissing`, usando consultas por lote e índices por clave.
 - `belongsToMany` con metadata pivot separada, eager loading, `attach`, `detach`
   y `sync` transaccional con rollback comprobado.
-- Scopes locales explícitos, soft deletes, restore/forceDelete y filtros de
-  registros eliminados removibles.
+- Scopes locales y globales explícitos, exclusión de scopes globales, soft
+  deletes, restore/forceDelete y filtros de registros eliminados removibles.
 - Eventos de persistencia cancelables antes de SQL y hooks posteriores a éxito.
 - `firstOrNew`, `firstOrCreate` y `updateOrCreate` sobre la misma ruta de save.
+- Accessors y mutators explícitos con orden probado entre asignación, lectura,
+  dirty tracking y serialización.
 - Serialización con `hidden`/`visible` y protección de ciclos indirecta al
   incluir únicamente relaciones que fueron cargadas explícitamente.
 
@@ -585,21 +588,52 @@ Intel i5-10300H, `-benchtime=100ms`:
 
 | Filas | ns/op | B/op | allocs/op |
 |---:|---:|---:|---:|
-| 1 | 7,140 | 1,498 | 21 |
-| 100 | 818,021 | 150,063 | 2,001 |
-| 1000 | 6,162,125 | 1,498,866 | 20,004 |
+| 1 | 2,610 | 1,497 | 21 |
+| 100 | 267,330 | 150,081 | 2,001 |
+| 1000 | 3,005,029 | 1,499,789 | 20,005 |
 
 Estas cifras son un baseline del host, no una promesa portable. El benchmark
 reproducible es la evidencia canónica.
 El eager loader extrae claves únicas, usa una consulta `WHERE IN` por relación
-y agrupa en mapas; evita el algoritmo padres por relacionados.
+y agrupa en mapas. `BenchmarkModelRelationLoading` fija el costo observable: con
+cinco padres, la carga individual ejecutó 6 consultas, 248,327 ns/op y 595
+allocs/op; eager loading ejecutó 2 consultas, 119,673 ns/op y 345 allocs/op. Son
+mediciones del mismo host y escenario, útiles como regresión y no como promesa.
 
 ### Limitaciones explícitas
 
-- No hay lazy loading automático ni modo `preventLazyLoading`.
-- Accessors, mutators y scopes globales personalizados siguen pendientes.
+- No hay lazy loading automático: las relaciones requieren carga explícita, por
+  lo que no existe SQL oculto que `preventLazyLoading` deba bloquear.
+- Los scopes globales dependen de métodos `scopeNombre` y deben excluirse antes
+  de que la consulta se compile.
 - Timestamps de DB se apoyan todavía en las reglas del builder; el modelo no
   refresca automáticamente valores generados por el servidor después de INSERT.
-- MySQL, PostgreSQL y SQL Server requieren sus DSN para validar esta capa en
-  servidores reales; compilación no se presenta como verificación runtime.
+- MySQL, PostgreSQL y SQL Server pasaron el contrato común de builder y ciclo
+  básico de Model. Las relaciones avanzadas no se ejecutaron aún en esos
+  servidores.
 - La serialización evita exponer campos ocultos, pero no sustituye autorización.
+
+
+## 16. Cierre de la evolución dentro del repositorio
+
+El alcance local de la segunda fase queda completo: metadata, persistencia,
+relaciones, pivot, eager loading, scopes locales/globales, soft deletes, eventos,
+accessors/mutators, serialización, observación de consultas, pruebas y benchmarks
+comparten las rutas reales de GranDB. No se añadió lazy loading implícito ni
+guardado mágico de grafos porque introducirían SQL y persistencia no visibles.
+
+MySQL, PostgreSQL y SQL Server pasaron `TestGranDBCrossDatabaseContract` contra
+servidores reales: creación y borrado de tabla temporal, bulk insert, count,
+upsert, lectura, hidratación, INSERT/UPDATE de Model, update y delete. Junto con
+SQLite, los cuatro motores soportados quedan verificados para el contrato común.
+Las relaciones avanzadas continúan verificadas por integración SQLite y por la
+compilación compartida.
+
+**Verificación de cierre (24 de septiembre de 2026):** `go test ./...`,
+`go vet ./...`, `go build ./...`, `go test -race ./pkg/parser
+./pkg/typesystem ./pkg/analyzer ./pkg/core`, los checks de `cataloggen`, `docgen`
+y `docsi18n`, los contratos de documentación, `git diff --check`, `npm ci` y
+`npm run compile` finalizaron correctamente. `npm audit` reportó cero
+vulnerabilidades. Las copias en inglés y portugués de los archivos modificados
+se aceptaron temporalmente con el contenido canónico en español porque el
+proveedor automático devolvió HTTP 400; su paridad estructural sí está validada.

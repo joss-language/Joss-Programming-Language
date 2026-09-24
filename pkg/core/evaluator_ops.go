@@ -348,6 +348,11 @@ func (r *Runtime) setInstanceField(instance *Instance, name string, value interf
 			Line:    line,
 		})
 	}
+	if instance.model != nil && !instance.model.query {
+		if mutator := r.lookupModelAttributeMethod(instance, "set", name); mutator != nil {
+			value = r.CallMethodEvaluated(mutator, instance, []interface{}{value})
+		}
+	}
 	if declaration, owner := r.lookupInstanceFieldOwner(instance, name); declaration != nil {
 		r.requireMemberAccess(declaration.Visibility, owner, name, line)
 		declaredType := declaration.Token.Literal

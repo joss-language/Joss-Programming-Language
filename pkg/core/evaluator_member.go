@@ -415,6 +415,11 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 	if instance.Fields == nil {
 		instance.Fields = make(map[string]interface{})
 	}
+	if instance.model != nil && !instance.model.query {
+		if accessor := r.lookupModelAttributeMethod(instance, "get", propName); accessor != nil {
+			return r.CallMethodEvaluated(accessor, instance, []interface{}{instance.Fields[propName]})
+		}
+	}
 
 	if val, ok := instance.Fields[propName]; ok {
 		if declaration, owner := r.lookupInstanceFieldOwner(instance, propName); declaration != nil {

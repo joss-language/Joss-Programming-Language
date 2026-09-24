@@ -351,6 +351,11 @@ public class User extends Model {
 	if rows := runtime.executeGetMethod(runtime.newModelQuery(metadata), nil).([]interface{}); len(rows) != 1 {
 		t.Fatalf("default soft-delete scope returned %d", len(rows))
 	}
+	reused := runtime.newModelQuery(metadata)
+	_ = runtime.executeGetMethod(reused, nil)
+	if rows := runtime.executeGetMethod(reused, nil).([]interface{}); len(rows) != 1 {
+		t.Fatalf("reused query lost soft-delete scope: %d", len(rows))
+	}
 	allQuery := runtime.executeModelMethod(&Instance{Class: metadata.Class, Fields: map[string]interface{}{}}, "withTrashed", nil).(*Instance)
 	if rows := runtime.executeGetMethod(allQuery, nil).([]interface{}); len(rows) != 2 {
 		t.Fatalf("withTrashed returned %d", len(rows))
@@ -446,6 +451,115 @@ func TestModelFirstOrCreateAndUpdateOrCreate(t *testing.T) {
 	pending := runtime.firstOrWriteModel(metadata, "firstornew", []interface{}{map[string]interface{}{"email": "new@example.test"}, map[string]interface{}{"name": "New"}})
 	if pending.model.exists {
 		t.Fatal("firstOrNew persisted model")
+	}
+}
+
+func TestModelGlobalScopesAreDeferredAndRemovable(t *testing.T) {
+	database, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	if _, err := database.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, active INTEGER); INSERT INTO users VALUES (1,'Ada',1),(2,'Grace',0)`); err != nil {
+		t.Fatal(err)
+	}
+	runtime := NewRuntime()
+	defer runtime.Free()
+	runtime.DB = database
+	runtime.Env = map[string]string{"DB": "sqlite", "PREFIX": ""}
+	source := `
+public class User extends Model {
+    protected string $table = "users"
+    protected array $globalScopes = ["active"]
+    public func scopeActive(mixed $query): mixed { return $query->where("active", 1) }
+}`
+	runtime.Execute(parser.NewParser(parser.NewLexer(source)).ParseProgram())
+	metadata := runtime.lookupModelMetadata("User")
+	if rows := runtime.executeGetMethod(runtime.newModelQuery(metadata), nil).([]interface{}); len(rows) != 1 || rows[0].(*Instance).Fields["name"] != "Ada" {
+		t.Fatalf("global scope rows=%#v", rows)
+	}
+	reused := runtime.newModelQuery(metadata)
+	if first := runtime.executeGetMethod(reused, nil).([]interface{}); len(first) != 1 {
+		t.Fatalf("first execution rows=%d", len(first))
+	}
+	if second := runtime.executeGetMethod(reused, nil).([]interface{}); len(second) != 1 {
+		t.Fatalf("reused query lost global scope: rows=%d", len(second))
+	}
+	query := runtime.executeModelMethod(&Instance{Class: metadata.Class, Fields: map[string]interface{}{}}, "withoutGlobalScope", []interface{}{"active"}).(*Instance)
+	if rows := runtime.executeGetMethod(query, nil).([]interface{}); len(rows) != 2 {
+		t.Fatalf("withoutGlobalScope rows=%d", len(rows))
+	}
+	query = runtime.executeModelMethod(&Instance{Class: metadata.Class, Fields: map[string]interface{}{}}, "withoutGlobalScopes", nil).(*Instance)
+	if rows := runtime.executeGetMethod(query, nil).([]interface{}); len(rows) != 2 {
+		t.Fatalf("withoutGlobalScopes rows=%d", len(rows))
+	}
+}
+
+func TestModelEagerLoadingAvoidsNPlusOneQueries(t *testing.T) {
+	database, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	if _, err := database.Exec(`
+CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
+CREATE TABLE posts (id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT);
+INSERT INTO users VALUES (1,'Ada'),(2,'Grace'),(3,'Linus');
+INSERT INTO posts VALUES (1,1,'One'),(2,1,'Two'),(3,2,'Three');`); err != nil {
+		t.Fatal(err)
+	}
+	runtime := NewRuntime()
+	defer runtime.Free()
+	runtime.DB = database
+	runtime.Env = map[string]string{"DB": "sqlite", "PREFIX": ""}
+	runtime.Execute(parser.NewParser(parser.NewLexer(`
+public class User extends Model {
+    protected string $table = "users"
+    public func posts(): mixed { return $this->hasMany("Post", "user_id", "id") }
+}
+public class Post extends Model { protected string $table = "posts" }
+`)).ParseProgram())
+	userMetadata := runtime.lookupModelMetadata("User")
+	postsMethod := runtime.lookupClassMetadata("User").Methods["posts"].Method
+	runtime.startQueryCounting()
+	users := runtime.executeGetMethod(runtime.newModelQuery(userMetadata), nil).([]interface{})
+	for _, value := range users {
+		relation := runtime.CallMethodEvaluated(postsMethod, value.(*Instance), nil).(*Instance)
+		_ = runtime.executeGetMethod(relation, nil)
+	}
+	if count := runtime.stopQueryCounting(); count != 4 {
+		t.Fatalf("lazy loading queries=%d, want 4", count)
+	}
+	runtime.startQueryCounting()
+	query := runtime.newModelQuery(userMetadata)
+	query.Fields["_with"] = []string{"posts"}
+	users = runtime.executeGetMethod(query, nil).([]interface{})
+	if count := runtime.stopQueryCounting(); count != 2 || len(users) != 3 {
+		t.Fatalf("eager loading queries=%d users=%d, want 2 and 3", count, len(users))
+	}
+}
+
+func TestModelAccessorsMutatorsAndSerializationOrder(t *testing.T) {
+	runtime := NewRuntime()
+	defer runtime.Free()
+	source := `
+public class User extends Model {
+    protected bool $timestamps = false
+    public func setNameAttribute(string $value): string { return $value->lower() }
+    public func getNameAttribute(mixed $value): string { return "Hello " . $value }
+}
+$user = new User()
+$user->name = "ADA"
+$display = $user->name
+`
+	runtime.Execute(parser.NewParser(parser.NewLexer(source)).ParseProgram())
+	user := runtime.Variables["user"].(*Instance)
+	if user.Fields["name"] != "ada" || runtime.Variables["display"] != "Hello ada" {
+		t.Fatalf("attribute order raw=%#v display=%#v", user.Fields["name"], runtime.Variables["display"])
+	}
+	serialized := runtime.serializeModel(user)
+	if serialized["name"] != "Hello ada" {
+		t.Fatalf("serialized accessor=%#v", serialized)
 	}
 }
 

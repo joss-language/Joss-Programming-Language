@@ -73,12 +73,21 @@ operaciones en una transacción con rollback completo.
 Los modelos con `protected bool $softDeletes = true` reciben el filtro
 `deleted_at IS NULL`. `withTrashed()`, `onlyTrashed()`, `withoutTrashed()`,
 `restore()` y `forceDelete()` controlan ese scope. `scope("named", valor)` llama
-de forma explícita a un método `scopeNamed(query, valor)` del modelo.
+de forma explícita a un método `scopeNamed(query, valor)` del modelo. Los nombres
+de `protected array $globalScopes = ["active"]` se aplican al compilar cada
+consulta mediante su método `scopeActive(query)`. `withoutGlobalScope("active")`
+y `withoutGlobalScopes()` los excluyen antes de ejecutar la consulta.
 
 Los hooks `saving`, `creating`, `created`, `updating`, `updated`, `saved`,
 `deleting`, `deleted`, `restoring` y `restored` se ejecutan alrededor de la
 persistencia. Un hook previo que retorna `false` cancela la operación. Los hooks
 posteriores solo se ejecutan después de SQL exitoso.
+
+Los métodos `setNombreAttribute(valor)` y `getNombreAttribute(valor)` actúan
+como mutator y accessor para `nombre`; los segmentos con `_` se convierten a
+StudlyCase. El orden es asignación → mutator → valor actual → dirty tracking →
+cast de escritura. Al leer o ejecutar `toMap`/`toJSON`, el accessor recibe el
+valor actual ya hidratado. Un accessor no debe ejecutar SQL silenciosamente.
 
 `firstOrNew`, `firstOrCreate` y `updateOrCreate` reutilizan hydration y `save`.
 La base de datos debe tener una constraint única para resolver carreras entre
@@ -95,8 +104,10 @@ public class User extends Model {
 $users = User::query()->with("posts")->orderBy("name", "asc")->get()
 ```
 
-Todavía no forman parte del contrato: lazy loading automático, accessors,
-mutators, scopes globales personalizados y guardado automático de grafos.
+El acceso a una relación no ejecuta SQL automáticamente: la carga es explícita
+mediante la consulta de relación, `with`, `load` o `loadMissing`. Esta decisión
+evita consultas ocultas y hace innecesario un modo separado `preventLazyLoading`.
+El guardado automático de grafos todavía no forma parte del contrato.
 
 ## Primera consulta
 
@@ -208,10 +219,8 @@ masiva explícita cuando exista.
 `upsert(filas, clavesUnicas, [columnasAActualizar])` acepta un mapa o un array de
 mapas homogéneos. Compila `ON CONFLICT` en SQLite/PostgreSQL,
 `ON DUPLICATE KEY UPDATE` en MySQL/MariaDB y `MERGE` en SQL Server. Requiere que
-la base de datos tenga el constraint único correspondiente. Actualmente SQLite
-posee prueba de integración local; los otros tres dialectos tienen pruebas de
-compilación y deben validarse en la suite de integración antes de afirmar
-compatibilidad completa.
+la base de datos tenga el constraint único correspondiente. SQLite, MySQL, PostgreSQL y SQL Server poseen prueba de integración ejecutada
+para este contrato común.
 
 `increment(col,[cantidad])`, `decrement(col,[cantidad])` construyen actualización
 del contador; `touch()` actualiza la marca temporal. `delete()` sin where se

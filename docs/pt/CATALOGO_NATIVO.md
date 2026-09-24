@@ -423,7 +423,7 @@ Clase base registrada sin métodos nativos propios.
 
 ## Model
 
-Implementación: [executeModelMethod](../pkg/core/model.go#L411).
+Implementación: [executeModelMethod](../pkg/core/model.go#L433).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -610,6 +610,8 @@ Implementación: [executeModelMethod](../pkg/core/model.go#L411).
 | `whereyear` | `mixed` |
 | `with` | `mixed` |
 | `withTrashed` | `mixed` |
+| `withoutGlobalScope` | `mixed` |
+| `withoutGlobalScopes` | `mixed` |
 | `withoutTrashed` | `mixed` |
 
 ## Mutex
@@ -1133,4 +1135,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 54 clases, 659 métodos y 126 built-ins.
+Total: 54 clases, 661 métodos y 126 built-ins.

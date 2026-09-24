@@ -45,8 +45,12 @@ func TestGranDBCrossDatabaseContract(t *testing.T) {
 			}
 
 			const table = "joss_grandb_contract"
+			booleanType := "BOOLEAN"
+			if test.driver == "sqlserver" {
+				booleanType = "BIT"
+			}
 			_, _ = db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
-			if _, err := db.Exec(fmt.Sprintf("CREATE TABLE %s (id INTEGER PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE, active INTEGER NOT NULL)", table)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf("CREATE TABLE %s (id INTEGER PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE, active %s NOT NULL)", table, booleanType)); err != nil {
 				t.Fatal(err)
 			}
 			defer db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
@@ -61,8 +65,8 @@ func TestGranDBCrossDatabaseContract(t *testing.T) {
 			}
 
 			rows := []interface{}{
-				map[string]interface{}{"id": int64(1), "name": "Ada", "active": int64(1)},
-				map[string]interface{}{"id": int64(2), "name": "Lin", "active": int64(1)},
+				map[string]interface{}{"id": int64(1), "name": "Ada", "active": true},
+				map[string]interface{}{"id": int64(2), "name": "Lin", "active": true},
 			}
 			if affected := r.executeGranDBMethod(builder(), "insertMany", []interface{}{rows}).(int64); affected < 1 {
 				t.Fatalf("insertMany affected %d rows", affected)
@@ -70,13 +74,13 @@ func TestGranDBCrossDatabaseContract(t *testing.T) {
 			if count := r.executeGranDBMethod(builder(), "count", nil); toInt64(count) != 2 {
 				t.Fatalf("count = %v, want 2", count)
 			}
-			if affected := r.executeGranDBMethod(builder(), "upsert", []interface{}{map[string]interface{}{"id": int64(1), "name": "Ada", "active": int64(0)}, "id", []interface{}{"active"}}).(int64); affected < 1 {
+			if affected := r.executeGranDBMethod(builder(), "upsert", []interface{}{map[string]interface{}{"id": int64(1), "name": "Ada", "active": false}, "id", []interface{}{"active"}}).(int64); affected < 1 {
 				t.Fatalf("upsert affected %d rows", affected)
 			}
 			query := builder()
 			r.executeGranDBMethod(query, "where", []interface{}{"id", int64(1)})
 			row := r.executeGranDBMethod(query, "first", nil).(map[string]interface{})
-			if toInt64(row["active"]) != 0 {
+			if castModelValue(&modelMetadata{Casts: map[string]string{"active": "bool"}}, "active", row["active"]) != false {
 				t.Fatalf("upserted active = %v, want 0", row["active"])
 			}
 
@@ -97,7 +101,7 @@ func TestGranDBCrossDatabaseContract(t *testing.T) {
 			}
 			query = builder()
 			r.executeGranDBMethod(query, "where", []interface{}{"id", int64(2)})
-			if updated := r.executeGranDBMethod(query, "update", []interface{}{map[string]interface{}{"active": int64(0)}}); updated != true {
+			if updated := r.executeGranDBMethod(query, "update", []interface{}{map[string]interface{}{"active": false}}); updated != true {
 				t.Fatalf("update returned %v", updated)
 			}
 			query = builder()

@@ -710,6 +710,8 @@
       "whereyear",
       "with",
       "withTrashed",
+      "withoutGlobalScope",
+      "withoutGlobalScopes",
       "withoutTrashed"
     ],
     "Mutex": [

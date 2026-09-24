@@ -31,6 +31,7 @@ type modelMetadata struct {
 	Hidden       map[string]struct{}
 	Visible      map[string]struct{}
 	Casts        map[string]string
+	GlobalScopes []string
 }
 
 type modelState struct {
@@ -59,7 +60,7 @@ type modelRelation struct {
 var modelConfigurationFields = map[string]struct{}{
 	"table": {}, "primaryKey": {}, "keyType": {}, "incrementing": {},
 	"timestamps": {}, "createdAt": {}, "updatedAt": {}, "fillable": {},
-	"guarded": {}, "hidden": {}, "visible": {}, "casts": {}, "softDeletes": {}, "deletedAt": {},
+	"guarded": {}, "hidden": {}, "visible": {}, "casts": {}, "softDeletes": {}, "deletedAt": {}, "globalScopes": {},
 }
 
 func buildModelMetadata(class *classMetadata, chain []*parser.ClassStatement) *modelMetadata {
@@ -125,6 +126,8 @@ func buildModelMetadata(class *classMetadata, chain []*parser.ClassStatement) *m
 			metadata.Visible = stringSet(name, property, value)
 		case "casts":
 			metadata.Casts = castMap(name, value)
+		case "globalScopes":
+			metadata.GlobalScopes = stringList(name, property, value)
 		}
 	}
 	return metadata
@@ -209,6 +212,25 @@ func stringSet(className, property string, value interface{}) map[string]struct{
 			panic(&JossError{Type: "ModelMetadataError", Message: fmt.Sprintf("%s::%s debe contener solo string", className, property)})
 		}
 		result[text] = struct{}{}
+	}
+	return result
+}
+func stringList(className, property string, value interface{}) []string {
+	items, ok := value.([]interface{})
+	if !ok {
+		panic(&JossError{Type: "ModelMetadataError", Message: fmt.Sprintf("%s::%s debe ser array de string", className, property)})
+	}
+	result := make([]string, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		text, ok := item.(string)
+		if !ok || strings.TrimSpace(text) == "" {
+			panic(&JossError{Type: "ModelMetadataError", Message: fmt.Sprintf("%s::%s debe contener solo string no vacío", className, property)})
+		}
+		if _, duplicate := seen[text]; !duplicate {
+			seen[text] = struct{}{}
+			result = append(result, text)
+		}
 	}
 	return result
 }
@@ -485,6 +507,30 @@ func (r *Runtime) executeModelMethod(instance *Instance, method string, args []i
 			query = r.newModelQuery(metadata)
 		}
 		return r.applyLocalModelScope(query, args)
+	case "withoutglobalscope", "withoutglobalscopes":
+		query := instance
+		if instance.model == nil || !instance.model.query {
+			query = r.newModelQuery(metadata)
+		}
+		if query.Fields["_globalScopesApplied"] == true {
+			panic(&JossError{Type: "ModelScopeError", Message: method + "() debe ejecutarse antes de compilar la consulta"})
+		}
+		excluded, _ := query.Fields["_excludedGlobalScopes"].(map[string]bool)
+		if excluded == nil {
+			excluded = map[string]bool{}
+			query.Fields["_excludedGlobalScopes"] = excluded
+		}
+		if lower == "withoutglobalscopes" {
+			for _, name := range metadata.GlobalScopes {
+				excluded[name] = true
+			}
+			return query
+		}
+		if len(args) != 1 || strings.TrimSpace(fmt.Sprint(args[0])) == "" {
+			panic(&JossError{Type: "ModelScopeError", Message: "withoutGlobalScope() requiere un nombre"})
+		}
+		excluded[fmt.Sprint(args[0])] = true
+		return query
 	case "refresh":
 		r.ensureModelState(instance, metadata)
 		return r.refreshModel(instance)
@@ -542,10 +588,10 @@ func (r *Runtime) executeModelMethod(instance *Instance, method string, args []i
 		return modelChanges(instance)
 	case "tomap":
 		r.ensureModelState(instance, metadata)
-		return instance.model.serializable(instance.Fields)
+		return r.serializeModel(instance)
 	case "tojson":
 		r.ensureModelState(instance, metadata)
-		encoded, err := json.Marshal(instance.model.serializable(instance.Fields))
+		encoded, err := json.Marshal(r.serializeModel(instance))
 		if err != nil {
 			panic(&JossError{Type: "ModelSerializationError", Message: err.Error()})
 		}
@@ -556,6 +602,46 @@ func (r *Runtime) executeModelMethod(instance *Instance, method string, args []i
 		query = r.newModelQuery(metadata)
 	}
 	return r.executeGranDBMethod(query, method, args)
+}
+
+func (r *Runtime) lookupModelAttributeMethod(instance *Instance, prefix, attribute string) *parser.MethodStatement {
+	if instance == nil || instance.Class == nil || instance.Class.Name == nil || attribute == "" {
+		return nil
+	}
+	meta := r.lookupClassMetadata(instance.Class.Name.Value)
+	if meta == nil {
+		return nil
+	}
+	methodName := prefix + studlyCase(attribute) + "Attribute"
+	info := meta.Methods[methodName]
+	if info == nil || info.Method.Body == nil {
+		return nil
+	}
+	return info.Method
+}
+func studlyCase(value string) string {
+	parts := strings.FieldsFunc(value, func(char rune) bool { return char == '_' || char == '-' })
+	var result strings.Builder
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		result.WriteString(strings.ToUpper(part[:1]))
+		result.WriteString(part[1:])
+	}
+	return result.String()
+}
+func (r *Runtime) serializeModel(instance *Instance) map[string]interface{} {
+	result := instance.model.serializable(instance.Fields)
+	for name, value := range result {
+		if _, relation := instance.model.relations[name]; relation {
+			continue
+		}
+		if accessor := r.lookupModelAttributeMethod(instance, "get", name); accessor != nil {
+			result[name] = r.CallMethodEvaluated(accessor, instance, []interface{}{value})
+		}
+	}
+	return result
 }
 
 func (r *Runtime) firstOrWriteModel(metadata *modelMetadata, operation string, args []interface{}) *Instance {
@@ -607,10 +693,25 @@ func (r *Runtime) ensureModelState(instance *Instance, metadata *modelMetadata) 
 func (r *Runtime) newModelQuery(metadata *modelMetadata) *Instance {
 	query := &Instance{Class: metadata.Class, Fields: map[string]interface{}{}, Constants: map[string]bool{}, model: newModelState(metadata, false, true)}
 	r.executeGranDBMethod(query, "table", []interface{}{metadata.Table})
+	query.Fields["_globalScopes"] = append([]string(nil), metadata.GlobalScopes...)
 	if metadata.SoftDeletes {
 		r.configureSoftDeleteScope(query, "withouttrashed")
 	}
 	return query
+}
+
+func (r *Runtime) applyPendingGlobalScopes(query *Instance) {
+	if query == nil || query.model == nil || !query.model.query || query.Fields["_globalScopesApplied"] == true {
+		return
+	}
+	query.Fields["_globalScopesApplied"] = true
+	names, _ := query.Fields["_globalScopes"].([]string)
+	excluded, _ := query.Fields["_excludedGlobalScopes"].(map[string]bool)
+	for _, name := range names {
+		if !excluded[name] {
+			r.applyLocalModelScope(query, []interface{}{name})
+		}
+	}
 }
 func (r *Runtime) fillModel(instance *Instance, attributes map[string]interface{}, force bool) {
 	metadata := instance.model.metadata

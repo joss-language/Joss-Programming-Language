@@ -13,6 +13,7 @@ func (r *Runtime) executeUpdateMethod(instance *Instance, args []interface{}) in
 		panic("GranDB Error: No hay conexión a la base de datos configurada")
 	}
 
+	r.applyPendingGlobalScopes(instance)
 	// Get table and where conditions
 	table := r.getTable(instance)
 	wheres := instance.Fields["_wheres"].([]string)
@@ -73,8 +74,7 @@ func (r *Runtime) executeUpdateMethod(instance *Instance, args []interface{}) in
 	updateBindings = append(updateBindings, bindings...)
 
 	// Reset state before execution
-	instance.Fields["_wheres"] = []string{}
-	instance.Fields["_bindings"] = []interface{}{}
+	resetReadState(instance)
 
 	// Execute query
 	_, err := r.databaseExecutor().Exec(query, updateBindings...)

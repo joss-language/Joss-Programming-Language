@@ -184,6 +184,7 @@ Las reglas arquitectónicas negativas siguen vigentes: analyzer no importa core;
 - `belongsToMany` conserva atributos pivot fuera de los atributos relacionados. `sync` calcula attach/detach y toda escritura relacional compuesta reutiliza `Runtime.activeTx`; arrays vacíos nunca se convierten en borrado global.
 - Soft delete es un scope de query removible y opt in mediante metadata. `forceDelete` es la única ruta de borrado físico para una instancia soft deleted.
 - Hooks de modelo previos pueden cancelar retornando `false`; hooks posteriores se ejecutan únicamente después de SQL exitoso. No añada buses de eventos paralelos.
+- Accessors y mutators usan exclusivamente `get{Studly}Attribute(value)` y `set{Studly}Attribute(value)`. Hydration no ejecuta mutators; asignación explícita sí. Accessors no deben iniciar consultas ni alterar el valor raw usado por dirty tracking.
 
 ## Reglas de evolución de GranDB
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync/atomic"
 )
 
 type sqlQueryExecutor interface {
@@ -23,6 +24,26 @@ type contextSQLTarget interface {
 type contextSQLExecutor struct {
 	ctx    context.Context
 	target contextSQLTarget
+}
+
+type countingSQLExecutor struct {
+	next  sqlQueryExecutor
+	count *atomic.Int64
+}
+
+func (e countingSQLExecutor) Exec(query string, args ...interface{}) (sql.Result, error) {
+	e.count.Add(1)
+	return e.next.Exec(query, args...)
+}
+
+func (e countingSQLExecutor) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	e.count.Add(1)
+	return e.next.Query(query, args...)
+}
+
+func (e countingSQLExecutor) QueryRow(query string, args ...interface{}) *sql.Row {
+	e.count.Add(1)
+	return e.next.QueryRow(query, args...)
 }
 
 func (e contextSQLExecutor) Exec(query string, args ...interface{}) (sql.Result, error) {
@@ -44,13 +65,26 @@ func (r *Runtime) databaseExecutor() sqlQueryExecutor {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	var executor sqlQueryExecutor
 	if r.activeTx != nil {
-		return contextSQLExecutor{ctx: ctx, target: r.activeTx}
+		executor = contextSQLExecutor{ctx: ctx, target: r.activeTx}
+	} else if db := r.GetDB(); db != nil {
+		executor = contextSQLExecutor{ctx: ctx, target: db}
 	}
-	if db := r.GetDB(); db != nil {
-		return contextSQLExecutor{ctx: ctx, target: db}
+	if executor != nil && r.queryCounting.Load() {
+		return countingSQLExecutor{next: executor, count: &r.queryCount}
 	}
-	return nil
+	return executor
+}
+
+func (r *Runtime) startQueryCounting() {
+	r.queryCount.Store(0)
+	r.queryCounting.Store(true)
+}
+
+func (r *Runtime) stopQueryCounting() int64 {
+	r.queryCounting.Store(false)
+	return r.queryCount.Load()
 }
 
 // rowsToMap converts SQL rows to []map[string]interface{}
@@ -178,6 +212,9 @@ func toInterfaceSlice(value interface{}) []interface{} {
 func resetReadState(instance *Instance) {
 	instance.Fields["_wheres"] = []string{}
 	instance.Fields["_bindings"] = []interface{}{}
+	if instance.model != nil && instance.model.query && instance.model.metadata.SoftDeletes {
+		instance.Fields["_wheres"] = []string{quoteIdentifier(instance.model.metadata.DeletedAt) + " IS NULL"}
+	}
 	instance.Fields["_select"] = "*"
 	instance.Fields["_joins"] = []string{}
 	delete(instance.Fields, "_distinct")
@@ -186,9 +223,11 @@ func resetReadState(instance *Instance) {
 	delete(instance.Fields, "_order")
 	delete(instance.Fields, "_limit")
 	delete(instance.Fields, "_offset")
+	delete(instance.Fields, "_globalScopesApplied")
 }
 
 func (r *Runtime) buildSelectQuery(instance *Instance, sel string) (string, []interface{}) {
+	r.applyPendingGlobalScopes(instance)
 	table := r.getTable(instance)
 	wheres := instance.Fields["_wheres"].([]string)
 	bindings := instance.Fields["_bindings"].([]interface{})

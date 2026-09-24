@@ -61,6 +61,10 @@ type Runtime struct {
 	ProjectRoot       string
 	pluginASTEngines  map[string]*PluginASTEngine
 	freed             atomic.Bool
+	// Query observation is execution-local: Fork starts disabled at zero and
+	// Free resets both fields before this Runtime returns to the pool.
+	queryCounting atomic.Bool
+	queryCount    atomic.Int64
 
 	// SEO & Sitemap & IndexNow
 	SEO                *SEOData

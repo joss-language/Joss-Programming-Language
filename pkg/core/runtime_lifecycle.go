@@ -186,6 +186,8 @@ func (r *Runtime) Free() {
 	r.topDefers = r.topDefers[:0]
 	r.activeTx = nil
 	r.executionContext = nil
+	r.queryCounting.Store(false)
+	r.queryCount.Store(0)
 
 	runtimePool.Put(r)
 }
