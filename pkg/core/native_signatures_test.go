@@ -87,6 +87,12 @@ func TestNativeMethodDefinitionsProjectToRuntimeAndAnalyzer(t *testing.T) {
 			if !definition.ArityKnown && !callable.Variadic {
 				t.Fatalf("unknown arity for %s::%s was published as exact", className, definition.Name)
 			}
+			if definition.ContractStatus == "" {
+				t.Fatalf("%s::%s has no metadata completeness classification", className, definition.Name)
+			}
+			if definition.ArityKnown && definition.ContractStatus != NativeContractComplete {
+				t.Fatalf("%s::%s has known arity but incomplete contract status", className, definition.Name)
+			}
 		}
 		if runtime.NativeHandlers[className] == nil {
 			t.Fatalf("migrated native class %s has no runtime implementation", className)

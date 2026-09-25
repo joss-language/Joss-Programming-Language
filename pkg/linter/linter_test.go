@@ -31,6 +31,27 @@ func TestLinterDetectsUntypedParams(t *testing.T) {
 	}
 }
 
+func TestLinterReportsFiniteMigrationWarnings(t *testing.T) {
+	issues, err := NewLinter().LintSource("legacy.joss", "let $value = nil\n$other = 1\npublic func old() { return; }")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{"JOSS-DECL-006": false, "JOSS-DECL-007": false, "JOSS-DECL-010": false, "JOSS-TYPE-014": false}
+	for _, issue := range issues {
+		if _, ok := want[issue.RuleID]; ok {
+			if issue.Severity != diagnostics.SeverityWarning {
+				t.Fatalf("%s severity = %s", issue.RuleID, issue.Severity)
+			}
+			want[issue.RuleID] = true
+		}
+	}
+	for code, found := range want {
+		if !found {
+			t.Fatalf("missing %s in %#v", code, issues)
+		}
+	}
+}
+
 func TestLintPathAnalyzesDirectoryAsOneProject(t *testing.T) {
 	project := t.TempDir()
 	files := map[string]string{

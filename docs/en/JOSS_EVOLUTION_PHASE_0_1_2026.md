@@ -81,7 +81,23 @@ pipeline, coalescence and ternary pipeline.
 - Conceptual void equality between arrays and maps.
 - Static rejection and runtime defense of known precision losses.
 
-## 5. Surfaces prepared for phase 2
+## 5. Phase 2 — contracts and syntax migration
+
+Phase 2 establishes compatible pieces for the next major version:
+
+- `void` is a canonical type. A `: void` callable may use `return;` or end
+  naturally, while `return value` emits `JOSS-TYPE-008`.
+- Closures infer a callable type and retain known parameter and return contracts.
+- `joss check` reports migration warnings for `let`, implicit declarations,
+  legacy constructors and omitted named-callable returns. `joss fix` safely
+  migrates unambiguous `let`, `nil` and `Init constructor` occurrences.
+- `null` is canonical; the fixer never rewrites text literals or comments.
+- `async` creates a cancellable child context; `Future.Cancel()` propagates
+  cooperative cancellation to its forked runtime.
+
+`const` remains binding immutability, not deep object or collection immutability.
+
+## 6. Surfaces prepared for later phases
 
 The next phase will consolidate `var` , explicit type, `mixed` and `const` , with
 finite deprecation of`let` and implied statements.Before modifying the
@@ -93,7 +109,7 @@ Also inventoried for later phases: mandatory returns and
 namespaces, canonical constructor, structured concurrency and
 profiles capabilities.None alter PHASE 1.
 
-## 6. Open risks
+## 7. Open risks
 
 - `floatval` expresses deliberate acceptance of approach;Your callers must
 decide if the domain allows that loss.

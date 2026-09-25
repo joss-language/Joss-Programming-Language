@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
@@ -11,16 +12,26 @@ func (r *Runtime) callBuiltinAsync(name string, args []interface{}) (interface{}
 	switch name {
 	case "async":
 		if len(args) == 1 {
+			parentContext := r.executionContext
+			if parentContext == nil {
+				parentContext = context.Background()
+			}
+			childContext, cancel := context.WithCancel(parentContext)
 			future := &Future{
-				done: make(chan bool),
+				done:   make(chan bool),
+				cancel: cancel,
 			}
 			argVal := args[0]
 			newR := r.Fork() // Fork BEFORE starting the goroutine to avoid race
+			newR.SetExecutionContext(childContext)
 			go func() {
 				defer func() {
+					cancel()
 					if p := recover(); p != nil {
 						if rp, ok := p.(*ReturnPanic); ok {
 							future.result = rp.Value
+						} else if runtimeError, ok := p.(*JossError); ok && runtimeError.Type == "ExecutionCancelled" {
+							future.err = runtimeError
 						} else {
 							fmt.Printf("[ASYNC PANIC] %v\n", p)
 							future.err = fmt.Errorf("%v", p)

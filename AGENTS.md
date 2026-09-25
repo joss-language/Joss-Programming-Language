@@ -89,6 +89,21 @@ Al modificar invocación u operadores:
   `float`/`decimal` o enteros no representables exactamente al promover a
   `float`.
 
+### Contratos y migración de FASE 2
+
+- `void` es un tipo canónico: sólo acepta una terminación sin valor. Las
+  callables nombradas deben migrar a un retorno explícito; `JOSS-TYPE-014` es
+  advertencia de transición y `: void` expresa intención deliberada.
+- Las closures tienen un tipo callable inferido. Cuando sus parámetros y
+  retorno se conocen, el analyzer debe conservarlos; no los degrade a
+  `unknown`.
+- `let`, `nil`, `Init constructor` y declaraciones implícitas se mantienen
+  sólo durante la transición. Los diagnósticos `JOSS-DECL-006` a
+  `JOSS-DECL-008` explican la forma moderna. `joss fix` sólo automatiza
+  transformaciones léxicamente seguras y nunca reescribe strings o comentarios.
+- Un `Future` es dueño de un contexto hijo cancelable. `Fork` propaga el
+  contexto padre y `Free` nunca conserva una tarea o contexto de ejecución.
+
 ---
 
 ## 5. Reglas obligatorias para nuevas funcionalidades

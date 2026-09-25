@@ -84,6 +84,9 @@ func cloneNativeMethodDefinitions(source []NativeMethodDefinition) []NativeMetho
 	for index, definition := range source {
 		result[index] = definition
 		result[index].Parameters = append([]NativeParameterDefinition(nil), definition.Parameters...)
+		result[index].Effects = append([]string(nil), definition.Effects...)
+		result[index].FailureModes = append([]string(nil), definition.FailureModes...)
+		result[index].Capabilities = append([]string(nil), definition.Capabilities...)
 	}
 	return result
 }

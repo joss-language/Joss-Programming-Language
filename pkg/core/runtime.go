@@ -63,6 +63,7 @@ func (r *Runtime) Fork() *Runtime {
 		Out:                r.Out,
 		ErrOut:             r.ErrOut,
 		Capabilities:       r.Capabilities,
+		Profile:            r.Profile,
 		RestrictedMode:     r.RestrictedMode,
 	}
 	if r.PluginRegistry != nil {

@@ -15,13 +15,26 @@ type NativeParameterDefinition struct {
 // method. ArityKnown distinguishes an intentionally unknown signature from a
 // method that reliably accepts zero parameters.
 type NativeMethodDefinition struct {
-	Name       string
-	ReturnType typesystem.Type
-	Parameters []NativeParameterDefinition
-	Effects    []string
-	ArityKnown bool
-	Variadic   bool
+	Name           string
+	ReturnType     typesystem.Type
+	Parameters     []NativeParameterDefinition
+	Effects        []string
+	FailureModes   []string
+	Capabilities   []string
+	Async          bool
+	ArityKnown     bool
+	Variadic       bool
+	ContractStatus NativeContractStatus
 }
+
+// NativeContractStatus makes incomplete metadata visible instead of treating
+// it as an ordinary variadic signature. New public APIs must be Complete.
+type NativeContractStatus string
+
+const (
+	NativeContractComplete         NativeContractStatus = "complete"
+	NativeContractLegacyIncomplete NativeContractStatus = "legacy-incomplete"
+)
 
 func withNativeEffects(definition NativeMethodDefinition, effects ...string) NativeMethodDefinition {
 	definition.Effects = append([]string(nil), effects...)
@@ -29,15 +42,16 @@ func withNativeEffects(definition NativeMethodDefinition, effects ...string) Nat
 }
 
 func nativeMethod(name, returnName string) NativeMethodDefinition {
-	return NativeMethodDefinition{Name: name, ReturnType: typesystem.Parse(returnName)}
+	return NativeMethodDefinition{Name: name, ReturnType: typesystem.Parse(returnName), ContractStatus: NativeContractLegacyIncomplete}
 }
 
 func nativeMethodWithArity(name, returnName string, params ...NativeParameterDefinition) NativeMethodDefinition {
 	return NativeMethodDefinition{
-		Name:       name,
-		ReturnType: typesystem.Parse(returnName),
-		Parameters: params,
-		ArityKnown: true,
+		Name:           name,
+		ReturnType:     typesystem.Parse(returnName),
+		Parameters:     params,
+		ArityKnown:     true,
+		ContractStatus: NativeContractComplete,
 	}
 }
 

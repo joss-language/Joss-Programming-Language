@@ -81,7 +81,31 @@ paréntesis, comparaciones o conversiones.
 - Igualdad conceptual de vacío entre arrays y maps.
 - Rechazo estático y defensa runtime de pérdidas de precisión conocidas.
 
-## 5. Superficies preparadas para fase 2
+## 5. Fase 2 — contratos y migración de sintaxis
+
+La Fase 2 ya establece las piezas compatibles para la siguiente versión mayor:
+
+- `void` es un tipo canónico. Una callable `: void` puede usar `return;` o
+  finalizar naturalmente, pero `return valor` emite `JOSS-TYPE-008`.
+- Las closures infieren un tipo callable (`func(parámetros): retorno`) y las
+  llamadas a una closure almacenada conservan el retorno y los parámetros
+  conocidos para el analyzer.
+- `joss check` expone advertencias de migración: `let` (`JOSS-DECL-006`),
+  declaración implícita por asignación (`JOSS-DECL-007`), constructor
+  `Init constructor` (`JOSS-DECL-008`) y retorno omitido en una callable con
+  nombre (`JOSS-TYPE-014`). Ejecutar `joss fix` transforma de forma segura
+  `let`, `nil` y `Init constructor` cuando el patrón es inequívoco; no intenta
+  adivinar si una asignación implícita declara o reasigna.
+- `null` es la ortografía canónica. El fixer nunca cambia textos ni comentarios.
+- `async` ahora crea un contexto hijo cancelable: `Future.Cancel()` propaga
+  cancelación cooperativa al runtime forkeado y `await` conserva la propagación
+  de errores.
+
+`const` sigue siendo inmutabilidad del binding. Un array, map u objeto guardado
+en una constante puede cambiar a través de sus propias APIs; no se promete
+inmutabilidad profunda.
+
+## 6. Superficies preparadas para fases posteriores
 
 La siguiente fase consolidará `var`, tipo explícito, `mixed` y `const`, con
 deprecación finita de `let` y declaraciones implícitas. Antes de modificar el
@@ -93,7 +117,7 @@ También quedan inventariados para fases posteriores: retornos obligatorios y
 namespaces, constructor canónico, concurrencia estructurada y perfiles de
 capacidades. Ninguno altera la FASE 1.
 
-## 6. Riesgos abiertos
+## 7. Riesgos abiertos
 
 - `floatval` expresa aceptación deliberada de aproximación; sus callers deben
   decidir si el dominio permite esa pérdida.

@@ -142,7 +142,7 @@ func buildAnalysisEnvironment() semanticanalyzer.Environment {
 			for _, parameter := range definition.Parameters {
 				parameters = append(parameters, semanticanalyzer.Parameter{Name: parameter.Name, Type: parameter.Type, HasDefault: parameter.HasDefault, ByReference: parameter.ByReference})
 			}
-			class.Methods[definition.Name] = semanticanalyzer.Callable{Name: definition.Name, Parameters: parameters, ReturnType: definition.ReturnType, Effects: append([]string(nil), definition.Effects...), Variadic: definition.Variadic || !definition.ArityKnown, Owner: className}
+			class.Methods[definition.Name] = semanticanalyzer.Callable{Name: definition.Name, Parameters: parameters, ReturnType: definition.ReturnType, Effects: append([]string(nil), definition.Effects...), FailureModes: append([]string(nil), definition.FailureModes...), Capabilities: append([]string(nil), definition.Capabilities...), Async: definition.Async, Variadic: definition.Variadic || !definition.ArityKnown, Owner: className}
 		}
 		environment.Classes[className] = class
 	}

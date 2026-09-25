@@ -422,7 +422,16 @@ func reloadPreparedJossRuntime() bool {
 		}
 	}
 	for _, unit := range report.Prepared.Units {
-		candidate.CurrentSource = unit.Path
+		cleanPath := filepath.ToSlash(unit.Path)
+		if cleanPath == "routes.joss" || strings.HasSuffix(cleanPath, "/routes.joss") {
+			candidate.CurrentSource = "routes"
+		} else if cleanPath == "api.joss" || strings.HasSuffix(cleanPath, "/api.joss") {
+			candidate.CurrentSource = "api"
+		} else if cleanPath == "config/cron.joss" || strings.HasSuffix(cleanPath, "/config/cron.joss") {
+			candidate.CurrentSource = "cron"
+		} else {
+			candidate.CurrentSource = unit.Path
+		}
 		completed := func() (ok bool) {
 			defer func() {
 				if recovered := recover(); recovered != nil {

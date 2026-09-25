@@ -59,6 +59,11 @@ Unlike generic error messages from older tools, each Joss diagnostic is designed
 | `JOSS-TYPE-009` | Types | Non-existent data type or class (includes deleted aliases such as `integer`, `double`, `boolean`, `any`, `list`). | `integer $x = 10`<br>`boolean $flag = true` | Use Joss canonical types:<br>`int $x = 10`<br>`bool $flag = true` |
 | `JOSS-TYPE-010` | Types | Function with annotated return type may terminate without executing a `return` or `throw`. | `public func f(int $n): string {`<br>`    $n > 0 ? { return "si" } : {}`<br>`}` | Ensure that all possible routes return a value of the promised type. |
 | `JOSS-TYPE-011` | Types | A parameter without an explicit type was declared. | `public func f($x) {}` | In Joss all parameters must declare their type:<br>`public func f(int $x) {}` or `public func f(mixed $x) {}` |
+| `JOSS-TYPE-014` | Migration | A named callable omitted its return contract. | `public func save() {}` | Declare `: Type` or `: void`. |
+| `JOSS-DECL-006` | Migration | Historical `let` declaration. | `let $value = 1` | Use `mixed` or an explicit type; `joss fix` handles safe cases. |
+| `JOSS-DECL-007` | Migration | Assignment created an implicit variable. | `$value = 1` | Declare it with `var`, an explicit type, `mixed`, or `const`. |
+| `JOSS-DECL-008` | Migration | `Init constructor` was used. | `Init constructor() {}` | Migrate to `public func constructor(): void {}`. |
+| `JOSS-DECL-010` | Migration | Historical `nil` spelling. | `var $value = nil` | Use `null`; `joss fix` does not touch strings or comments. |
 | `JOSS-TYPE-012` | Warning | An unparameterized mutable collection is used as a typed collection. Its original alias could insert incompatible values. | `array $origen = [1]`<br>`array<int> $numeros = $origen` | Keep the source typed, or validate and copy at the boundary: `array<int> $origen = [1]`. |
 | `JOSS-ARITH-003` | Arithmetic | An operation requires an implicit numeric conversion that can lose precision. | `9007199254740993 / 1`<br>`1 + 0.5`<br>`0.1 + 1.00m` | Use operands of the same type and convert explicitly; keep money in `decimal`. |
 | `JOSS-CALL-001` | Calls | Incorrect number of arguments regarding known signature parameters. | `public func f(int $a, int $b) {}`<br>`f(1)` | Provide all mandatory arguments required by the function. |

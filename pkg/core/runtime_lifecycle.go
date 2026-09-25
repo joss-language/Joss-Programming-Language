@@ -37,6 +37,7 @@ func newRuntimeState() interface{} {
 		pluginASTEngines:   make(map[string]*PluginASTEngine),
 		MaxCallDepth:       DefaultMaxCallDepth,
 		Capabilities:       DefaultHostCapabilities(),
+		Profile:            RuntimeProfileFull,
 	}
 	r.registerCanonicalHostState()
 	return r
@@ -55,6 +56,15 @@ func NewRuntime() *Runtime {
 	r.AutoloadPlugins(".")
 	r.markCurrentVariablesAsHostGlobals()
 	return r
+}
+
+// NewRuntimeWithProfile acquires the normal Joss runtime and applies a
+// capability profile. Core, server and full therefore share one interpreter,
+// type system and metadata catalog.
+func NewRuntimeWithProfile(profile RuntimeProfile) *Runtime {
+	runtime := NewRuntime()
+	runtime.ConfigureProfile(profile)
+	return runtime
 }
 
 func (r *Runtime) ensureLifecycleMaps() {
@@ -178,6 +188,7 @@ func (r *Runtime) Free() {
 	r.cinReader = nil
 	r.cinTokens = r.cinTokens[:0]
 	r.Capabilities = DefaultHostCapabilities()
+	r.Profile = RuntimeProfileFull
 	r.RestrictedMode = false
 	r.Out = nil
 	r.ErrOut = nil

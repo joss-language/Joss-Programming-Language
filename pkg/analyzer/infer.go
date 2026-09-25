@@ -34,6 +34,12 @@ func (a *Analyzer) inferExpressionNode(expression parser.Expression, current *sc
 	case *parser.Boolean:
 		return typesystem.Type{Kind: typesystem.Bool}
 	case *parser.NullLiteral:
+		if a.environment.MigrationWarnings && node.Token.Type == parser.NIL {
+			a.add("JOSS-DECL-010", diagnostics.SeverityWarning, a.file, node.Token,
+				"`nil` is a deprecated spelling of `null`.",
+				"Joss has one canonical absence value so nullability and coalescing stay predictable.",
+				"Replace `nil` with `null`; `joss fix` performs this lexical migration safely.")
+		}
 		return typesystem.Type{Kind: typesystem.Null}
 	case *parser.Identifier:
 		return a.inferIdentifier(node, current)

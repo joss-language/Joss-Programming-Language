@@ -93,6 +93,7 @@ type Runtime struct {
 	Out                io.Writer
 	ErrOut             io.Writer
 	Capabilities       HostCapabilities
+	Profile            RuntimeProfile
 	RestrictedMode     bool
 }
 
@@ -101,6 +102,35 @@ type HostCapabilities struct {
 	AllowProcess bool
 	AllowFS      bool
 	AllowNetwork bool
+}
+
+// RuntimeProfile selects a capability policy for the same Joss runtime. It
+// does not create separate language variants or change the parser/analyzer.
+type RuntimeProfile string
+
+const (
+	RuntimeProfileFull   RuntimeProfile = "full"
+	RuntimeProfileServer RuntimeProfile = "server"
+	RuntimeProfileCore   RuntimeProfile = "core"
+)
+
+func CapabilitiesForProfile(profile RuntimeProfile) HostCapabilities {
+	switch profile {
+	case RuntimeProfileCore:
+		return HostCapabilities{}
+	case RuntimeProfileServer:
+		return HostCapabilities{AllowFS: true, AllowNetwork: true}
+	default:
+		return DefaultHostCapabilities()
+	}
+}
+
+func (r *Runtime) ConfigureProfile(profile RuntimeProfile) {
+	if profile == "" {
+		profile = RuntimeProfileFull
+	}
+	r.Profile = profile
+	r.Capabilities = CapabilitiesForProfile(profile)
 }
 
 // DefaultHostCapabilities returns the standard permissive capability set.
@@ -296,6 +326,7 @@ type Future struct {
 	done   chan bool
 	result interface{}
 	err    error
+	cancel context.CancelFunc
 }
 
 // EnumValue represents an individual case instance of an enum
@@ -354,6 +385,15 @@ func (f *Future) Wait() interface{} {
 		panic(f.err)
 	}
 	return f.result
+}
+
+// Cancel requests cooperative cancellation of this task. Cancellation is
+// inherited by the task runtime and is observable by loops, I/O adapters and
+// await/select operations that already honor execution contexts.
+func (f *Future) Cancel() {
+	if f != nil && f.cancel != nil {
+		f.cancel()
+	}
 }
 
 // Cout represents standard output stream

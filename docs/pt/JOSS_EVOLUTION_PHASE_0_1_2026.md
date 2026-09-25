@@ -81,7 +81,24 @@ paréntesis, comparaciones o conversiones.
 - Igualdad conceptual de vacío entre arrays y maps.
 - Rechazo estático y defensa runtime de pérdidas de precisión conocidas.
 
-## 5. Superficies preparadas para fase 2
+## 5. Fase 2 — contratos e migração de sintaxe
+
+A Fase 2 estabelece peças compatíveis para a próxima versão maior:
+
+- `void` é um tipo canônico. Uma callable `: void` pode usar `return;` ou
+  finalizar naturalmente; `return valor` emite `JOSS-TYPE-008`.
+- Closures inferem um tipo callable e preservam contratos conhecidos de
+  parâmetros e retorno.
+- `joss check` informa advertências de migração para `let`, declarações
+  implícitas, construtores legados e retorno omitido. `joss fix` migra casos
+  inequívocos de `let`, `nil` e `Init constructor`.
+- `null` é a ortografia canônica; o fixer não altera literais de texto ou comentários.
+- `async` cria um contexto filho cancelável; `Future.Cancel()` propaga o
+  cancelamento cooperativo para o runtime forkeado.
+
+`const` permanece imutabilidade do binding, e não imutabilidade profunda.
+
+## 6. Superfícies preparadas para fases posteriores
 
 La siguiente fase consolidará `var`, tipo explícito, `mixed` y `const`, con
 deprecación finita de `let` y declaraciones implícitas. Antes de modificar el
@@ -93,7 +110,7 @@ También quedan inventariados para fases posteriores: retornos obligatorios y
 namespaces, constructor canónico, concurrencia estructurada y perfiles de
 capacidades. Ninguno altera la FASE 1.
 
-## 6. Riesgos abiertos
+## 7. Riesgos abertos
 
 - `floatval` expresa aceptación deliberada de aproximación; sus callers deben
   decidir si el dominio permite esa pérdida.

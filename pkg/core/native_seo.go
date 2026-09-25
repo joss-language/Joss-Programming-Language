@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"html"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -266,7 +267,8 @@ func (r *Runtime) GenerateSitemapXML(baseUrl string) string {
 				source, _ := info["source"].(string)
 				middleware, _ := info["middleware"].([]string)
 
-				if source == "routes" && len(middleware) == 0 {
+				isRoutesSource := source == "routes" || source == "routes.joss" || strings.HasSuffix(filepath.ToSlash(source), "routes.joss")
+				if isRoutesSource && len(middleware) == 0 {
 					if !strings.Contains(path, ":") && !strings.Contains(path, "{") {
 						if !isExcluded(path) {
 							r.writeSitemapEntry(&sb, path, "", "weekly", 0.8, baseUrl)

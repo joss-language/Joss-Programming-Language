@@ -86,6 +86,7 @@ func PrepareProgram(units []SourceUnit, env Environment) *PreparedProgram {
 
 func cloneEnvironment(source Environment) Environment {
 	clone := NewEnvironment()
+	clone.MigrationWarnings = source.MigrationWarnings
 	for name, callable := range source.Builtins {
 		clone.Builtins[name] = cloneCallable(callable)
 	}
@@ -127,6 +128,8 @@ func cloneCallables(source map[string]Callable) map[string]Callable {
 func cloneCallable(callable Callable) Callable {
 	callable.Parameters = append([]Parameter(nil), callable.Parameters...)
 	callable.Effects = append([]string(nil), callable.Effects...)
+	callable.FailureModes = append([]string(nil), callable.FailureModes...)
+	callable.Capabilities = append([]string(nil), callable.Capabilities...)
 	return callable
 }
 
