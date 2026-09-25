@@ -242,60 +242,71 @@ func (r *Runtime) GenerateSitemapXML(baseUrl string) string {
 	sb.WriteString("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n")
 
 	isExcluded := func(p string) bool {
+		clean := strings.TrimSpace(p)
 		for _, excl := range r.SitemapExclusions {
-			if excl == p {
+			excl = strings.TrimSpace(excl)
+			if excl == clean {
 				return true
 			}
 			if strings.HasSuffix(excl, "*") {
 				prefix := strings.TrimSuffix(excl, "*")
-				if strings.HasPrefix(p, prefix) {
+				if strings.HasPrefix(clean, prefix) {
 					return true
 				}
 			}
 		}
 		// Default system exclusions
-		if strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/admin/") || strings.HasPrefix(p, "/.") {
+		if strings.HasPrefix(clean, "/api/") || strings.HasPrefix(clean, "/admin/") || strings.HasPrefix(clean, "/.") {
+			return true
+		}
+		if clean == "/sitemap" || clean == "/sitemap.xml" || clean == "/sitemap.xsl" || clean == "/ads.txt" {
+			return true
+		}
+		if strings.HasSuffix(clean, ".json") || strings.HasSuffix(clean, ".ps1") || strings.HasSuffix(clean, ".sh") {
 			return true
 		}
 		return false
 	}
 
-	// 1. Automatic Routes from routes.joss
-	if getRoutes, ok := r.Routes["GET"]; ok {
-		for path, infoVal := range getRoutes {
-			if info, ok := infoVal.(map[string]interface{}); ok {
-				source, _ := info["source"].(string)
-				middleware, _ := info["middleware"].([]string)
-
-				isRoutesSource := source == "routes" || source == "routes.joss" || strings.HasSuffix(filepath.ToSlash(source), "routes.joss")
-				if isRoutesSource && len(middleware) == 0 {
-					if !strings.Contains(path, ":") && !strings.Contains(path, "{") {
-						if !isExcluded(path) {
-							r.writeSitemapEntry(&sb, path, "", "weekly", 0.8, baseUrl)
-						}
-					}
+	normalizePath := func(raw string) string {
+		trimmed := strings.TrimSpace(raw)
+		if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") {
+			if idx := strings.Index(trimmed, "://"); idx != -1 {
+				rest := trimmed[idx+3:]
+				if slashIdx := strings.Index(rest, "/"); slashIdx != -1 {
+					trimmed = rest[slashIdx:]
+				} else {
+					trimmed = "/"
 				}
 			}
 		}
-	}
-
-	// 2. Manual Entries
-	for _, entry := range r.SitemapEntries {
-		if !isExcluded(entry.URL) {
-			r.writeSitemapEntry(&sb, entry.URL, entry.LastMod, entry.ChangeFreq, entry.Priority, baseUrl)
+		if !strings.HasPrefix(trimmed, "/") {
+			trimmed = "/" + trimmed
 		}
+		if len(trimmed) > 1 && strings.HasSuffix(trimmed, "/") {
+			trimmed = strings.TrimSuffix(trimmed, "/")
+		}
+		return trimmed
 	}
 
-	// 3. Dynamic Providers (Closures registered via Sitemap::provider(func() { ... }))
+	visited := make(map[string]bool)
+
+	addEntry := func(urlStr, lastMod, changeFreq string, priority float64) {
+		norm := normalizePath(urlStr)
+		if isExcluded(norm) || visited[norm] {
+			return
+		}
+		visited[norm] = true
+		r.writeSitemapEntry(&sb, urlStr, lastMod, changeFreq, priority, baseUrl)
+	}
+
+	// 1. Dynamic Providers (Closures registered via Sitemap::provider(func() { ... }))
 	for _, provider := range r.SitemapProviders {
 		res := r.callCapturedFunction(provider, []interface{}{})
 		if list, ok := res.([]interface{}); ok {
 			for _, item := range list {
 				if m, ok := item.(map[string]interface{}); ok {
 					urlStr := fmt.Sprintf("%v", m["url"])
-					if isExcluded(urlStr) {
-						continue
-					}
 					lastMod := ""
 					if val, exists := m["lastmod"]; exists && val != nil {
 						lastMod = fmt.Sprintf("%v", val)
@@ -315,7 +326,38 @@ func (r *Runtime) GenerateSitemapXML(baseUrl string) string {
 							priority = float64(pv)
 						}
 					}
-					r.writeSitemapEntry(&sb, urlStr, lastMod, changeFreq, priority, baseUrl)
+					addEntry(urlStr, lastMod, changeFreq, priority)
+				}
+			}
+		}
+	}
+
+	// 2. Manual Entries (Registered via Sitemap::add)
+	for _, entry := range r.SitemapEntries {
+		addEntry(entry.URL, entry.LastMod, entry.ChangeFreq, entry.Priority)
+	}
+
+	// 3. Automatic Routes from routes.joss (Auto-discovery for any remaining public GET pages)
+	if getRoutes, ok := r.Routes["GET"]; ok {
+		for path, infoVal := range getRoutes {
+			if info, ok := infoVal.(map[string]interface{}); ok {
+				source, _ := info["source"].(string)
+				middleware, _ := info["middleware"].([]string)
+
+				isRoutesSource := source == "routes" || source == "routes.joss" || strings.HasSuffix(filepath.ToSlash(source), "routes.joss")
+				if isRoutesSource && len(middleware) == 0 {
+					if !strings.Contains(path, ":") && !strings.Contains(path, "{") {
+						p := 0.8
+						freq := "weekly"
+						if path == "/" {
+							p = 1.0
+							freq = "daily"
+						} else if path == "/blog" || path == "/shop" || path == "/pub" {
+							p = 0.9
+							freq = "daily"
+						}
+						addEntry(path, "", freq, p)
+					}
 				}
 			}
 		}

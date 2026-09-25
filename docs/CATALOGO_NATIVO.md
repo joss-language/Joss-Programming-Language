@@ -163,7 +163,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L377).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L380).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -756,7 +756,7 @@ Implementación: [executeRouterMethod](../pkg/core/router.go#L12).
 
 ## SEO
 
-Implementación: [executeSEOMethod](../pkg/core/native_seo.go#L13).
+Implementación: [executeSEOMethod](../pkg/core/native_seo.go#L14).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -815,7 +815,7 @@ Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L78).
 
 ## Sitemap
 
-Implementación: [executeSitemapMethod](../pkg/core/native_seo.go#L128).
+Implementación: [executeSitemapMethod](../pkg/core/native_seo.go#L129).
 
 | Método | Retorno publicado al analizador |
 |---|---|
