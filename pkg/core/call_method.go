@@ -224,5 +224,9 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 		}
 	}
 
-	return r.executeBlock(method.Body)
+	res := r.executeBlock(method.Body)
+	if compiled != nil && compiled.ReturnTypeName == "void" {
+		return nil
+	}
+	return res
 }
