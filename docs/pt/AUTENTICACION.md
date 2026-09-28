@@ -18,7 +18,7 @@ do usuário atual para um controlador com sessão já validada:
 
 <!-- joss-check: requiere contexto autenticado -->
 ```joss
-$usuario = Auth::user()
+var $usuario = Auth::user()
 $usuario != null ? {
     print($usuario->email)
 } : {

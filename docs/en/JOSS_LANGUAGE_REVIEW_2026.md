@@ -177,7 +177,7 @@ todo el control condicional.
 <!-- joss-check: ejemplo conceptual de la evaluación -->
 ```joss
 var $a = 1       // infiere int fijo
-$b = 1           // también infiere int fijo
+var $b = 1       // también infiere int fijo
 let $c = 1       // mixed, puede cambiar de tipo
 mixed $d = 1     // mixed explícito
 const $e = 1     // binding inmutable

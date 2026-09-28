@@ -18,7 +18,7 @@ Fragment for a controller with already validated session:
 
 <!-- joss-check: requiere contexto autenticado -->
 ```joss
-$usuario = Auth::user()
+var $usuario = Auth::user()
 $usuario != null ? {
     print($usuario->email)
 } : {
@@ -91,7 +91,7 @@ are not presented as cryptographic guarantees of the framework.
 `SmtpClient` is a separate native class.`auth(usuario,contraseña)` ,
 `secure(bool)` and `timeout(segundos)` configure and return your instance;
 `send(destinatario,asunto,cuerpo)` returns bool and `lastError()` returns
-the last textual error.Requires SMTP server and MAIL_* configuration according to
+the last textual error.Requires SMTP server and MAIL_* configuration as per
 [smtp_native.go](../../pkg/core/smtp_native.go) .Creating a token does not send that email.
 
 Sources: [Auth](../../pkg/core/auth.go) , [JWT](../../pkg/core/auth_jwt.go) ,

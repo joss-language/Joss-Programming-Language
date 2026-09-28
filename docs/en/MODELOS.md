@@ -46,9 +46,9 @@ public class User extends Model {
     protected bool $incrementing = false
     protected array $fillable = ["uuid", "name", "active"]
 }
-$user = User::create({"uuid": "u-1", "name": "Ada", "active": true})
+var $user = User::create({"uuid": "u-1", "name": "Ada", "active": true})
 $user->name = "Grace"
-$dirty = $user->isDirty("name")
+var $dirty = $user->isDirty("name")
 $user->save()
 $user->refresh()
 ```
@@ -101,7 +101,7 @@ public class User extends Model {
         return $this->hasMany("Post", "user_id", "id")
     }
 }
-$users = User::query()->with("posts")->orderBy("name", "asc")->get()
+var $users = User::query()->with("posts")->orderBy("name", "asc")->get()
 ```
 
 El acceso a una relación no ejecuta SQL automáticamente: la carga es explícita
@@ -116,7 +116,7 @@ las columnas indicadas. No crea la tabla; para hacerlo lee Schema Builder.
 
 <!-- joss-check: requiere tabla products -->
 ```joss
-$products = GranDB::table("products")
+var $products = GranDB::table("products")
     ->where("active", true)
     ->orderByDesc("id")
     ->get()
@@ -167,8 +167,8 @@ Los valores ligados no convierten las partes estructurales de SQL en seguras.
 
 <!-- joss-check: construcción de consulta con parámetros tipados -->
 ```joss
-$roleFilter = "editor"
-$query = GranDB::table("users")
+var $roleFilter = "editor"
+var $query = GranDB::table("users")
     ->when($roleFilter, func(GranDB $q, mixed $valor) {
         $q->where("role", $valor)
     })
@@ -230,7 +230,7 @@ Fragmento que requiere tabla products:
 
 <!-- joss-check: escritura contextual -->
 ```joss
-$id = GranDB::table("products")->insertGetId({"name": "Cuaderno", "active": true})
+var $id = GranDB::table("products")->insertGetId({"name": "Cuaderno", "active": true})
 GranDB::table("products")->where("id", $id)->update({"name": "Cuaderno azul"})
 ```
 
@@ -258,6 +258,6 @@ cada función SQL, índice o migración. Prueba la consulta con el motor objetiv
 `GranDB::connection(motor,opciones)`, `changeDB` y `use` seleccionan conexión
 según el handler; `System::change_db` **no está registrado**.
 
-Fuentes: [builder](../pkg/core/database.go),
-[lecturas](../pkg/core/database_read.go), [inserts](../pkg/core/database_insert.go),
-[updates](../pkg/core/database_update.go), [borrados](../pkg/core/database_delete.go).
+Fuentes: [builder](../../pkg/core/database.go),
+[lecturas](../../pkg/core/database_read.go), [inserts](../../pkg/core/database_insert.go),
+[updates](../../pkg/core/database_update.go), [borrados](../../pkg/core/database_delete.go).

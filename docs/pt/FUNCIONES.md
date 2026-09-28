@@ -99,7 +99,7 @@ public func sumarTres(int $a, int $b, int $c): int {
     return $a + $b + $c
 }
 
-$numeros = [2, 3, 5]
+var $numeros = [2, 3, 5]
 print(sumarTres(...$numeros))
 ```
 ---
@@ -137,7 +137,7 @@ public func duplicar(int $valor): int {
     $valor = $valor * 2
     return $valor
 }
-$numero = 10
+var $numero = 10
 print(duplicar($numero))
 print($numero)
 ```
@@ -151,8 +151,8 @@ Uma função nem sempre precisa de um nome global. Você pode criar uma função
 
 Quando uma função anônima usa variáveis ​​que foram criadas no bloco externo ao seu redor, ela se torna um **fechamento**: "capture" e lembra dessas variáveis ​​para uso posterior, mesmo que o bloco externo já tenha terminado:<!-- joss-run: ["Hola, Ada"] -->
 ```joss
-$prefijo = "Hola, "
-$saludar = func(string $nombre): string {
+var $prefijo = "Hola, "
+var $saludar = func(string $nombre): string {
     return $prefijo . $nombre
 }
 print($saludar("Ada"))
@@ -172,7 +172,7 @@ public func incrementar(ref int $valor): int {
     $valor = $valor + 1
     return $valor
 }
-$contador = 1
+var $contador = 1
 incrementar(ref $contador)
 print($contador)
 ```

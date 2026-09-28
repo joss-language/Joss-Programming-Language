@@ -144,7 +144,7 @@ Nem todos os problemas devem ser resolvidos com `try / catch`. Na biblioteca pad
 
 Por exemplo, lendo um arquivo que não existe:<!-- joss-run: ["No se pudo leer el archivo"] -->
 ```joss
-$contenido = file_get_contents("archivo-que-no-existe.txt")
+var $contenido = file_get_contents("archivo-que-no-existe.txt")
 ($contenido == null) ? {
     print("No se pudo leer el archivo")
 } : {

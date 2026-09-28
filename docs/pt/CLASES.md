@@ -41,7 +41,7 @@ public class Contador {
         return $this->valor
     }
 }
-$contador = new Contador()
+var $contador = new Contador()
 print($contador->incrementar())
 print($contador->incrementar())
 ```
@@ -73,7 +73,7 @@ public class Persona {
         return "Hola, " . $this->nombre
     }
 }
-$persona = new Persona("Ada")
+var $persona = new Persona("Ada")
 print($persona->saludar())
 ```
 Quando você digita `new Persona("Ada")`, Joss automaticamente chama o construtor, dando-lhe o argumento `"Ada"`, que é armazenado com segurança dentro da propriedade privada `$this->nombre`.
@@ -92,7 +92,7 @@ public class Usuario {
     ) {}
 }
 
-$u = new Usuario("Ada")
+var $u = new Usuario("Ada")
 print($u->nombre)
 print($u->edad)
 ```
@@ -155,7 +155,7 @@ public class Mensaje {
     public func texto(): string { return "hola" }
 }
 public class Aviso extends Mensaje {}
-$aviso = new Aviso()
+var $aviso = new Aviso()
 print($aviso->texto())
 ```
 - A classe `Mensaje` é a **classe base** (ou superclasse).
@@ -215,8 +215,8 @@ public func imprimirArea(IFigura $figura): int {
     return $figura->calcularArea()
 }
 
-$r = new Rectangulo(5, 10)
-$c = new Cuadrado(6)
+var $r = new Rectangulo(5, 10)
+var $c = new Cuadrado(6)
 print(imprimirArea($r))
 print(imprimirArea($c))
 ```
@@ -244,7 +244,7 @@ public class Perro extends Animal {
     }
 }
 
-$perro = new Perro()
+var $perro = new Perro()
 print($perro->hablar())
 ```
 ---
@@ -256,7 +256,7 @@ Para verificar em tempo de execução se um objeto pertence a uma classe especí
 public interface IMovible {}
 public class Auto implements IMovible {}
 
-$auto = new Auto()
+var $auto = new Auto()
 print($auto is Auto)
 print($auto is IMovible)
 print($auto instanceof string)
@@ -329,7 +329,7 @@ public class SesionSegura {
     }
 }
 
-$s = new SesionSegura()
+var $s = new SesionSegura()
 $s->destructor()
 ```
 ---

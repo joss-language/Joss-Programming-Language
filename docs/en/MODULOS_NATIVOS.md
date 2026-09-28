@@ -43,7 +43,7 @@ parameter metadata in part of the library.
 ```joss
 print(Str::trim(" abc "))
 print(Str::indexOf("casa", "a"))
-$pila = new Stack()
+var $pila = new Stack()
 $pila->push("uno")
 $pila->push("dos")
 print($pila->pop())
@@ -70,7 +70,7 @@ gives status 0 and error, not a successful HTTP response.
 
 Contextual Fragment: Requires a server listening at that address.<!-- joss-check: necesita servicio HTTP local -->
 ```joss
-$respuesta = Http::request("GET", "http://127.0.0.1:8080/saludo/Ana", {"timeout": 3})
+var $respuesta = Http::request("GET", "http://127.0.0.1:8080/saludo/Ana", {"timeout": 3})
 $respuesta["success"] ? {
     print($respuesta["body"])
 } : {

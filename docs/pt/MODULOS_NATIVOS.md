@@ -42,7 +42,7 @@ metadados de parâmetro em parte da biblioteca.
 ```joss
 print(Str::trim(" abc "))
 print(Str::indexOf("casa", "a"))
-$pila = new Stack()
+var $pila = new Stack()
 $pila->push("uno")
 $pila->push("dos")
 print($pila->pop())
@@ -69,7 +69,7 @@ fornece status 0 e erro, não uma resposta HTTP bem-sucedida.
 
 Fragmento Contextual: Requer um servidor escutando nesse endereço.<!-- joss-check: necesita servicio HTTP local -->
 ```joss
-$respuesta = Http::request("GET", "http://127.0.0.1:8080/saludo/Ana", {"timeout": 3})
+var $respuesta = Http::request("GET", "http://127.0.0.1:8080/saludo/Ana", {"timeout": 3})
 $respuesta["success"] ? {
     print($respuesta["body"])
 } : {

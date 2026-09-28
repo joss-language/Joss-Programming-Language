@@ -207,7 +207,7 @@ A program that only displays fixed text is not very interactive. Actual programs
 
 Modify your `hola.joss` file to contain:<!-- joss-run: ["Hola, Ada", "Bienvenida a Joss"] -->
 ```joss
-$nombre = "Ada"
+var $nombre = "Ada"
 print("Hola, " . $nombre)
 print("Bienvenida a Joss")
 ```
@@ -220,8 +220,9 @@ Bienvenida a Joss
 ```
 ### What has changed here?
 
-1. `$nombre = "Ada"`:
-   - The `$` symbol at the beginning indicates that we are declaring or using a variable. In Joss, **all variables start with `$`**.
+1. `var $nombre = "Ada"`:
+   - The word `var` declares the variable with type inference.
+   - The `$` symbol at the beginning indicates that we are using a variable. In Joss, **all variables start with `$`**.
    - The `=` sign is called **assignment operator**. It takes the value on the right (`"Ada"`) and stores it in the memory "box" identified by the name `$nombre`.
    - Joss automatically infers that `$nombre` stores text (`string`).
 2. `"Hola, " . $nombre`:

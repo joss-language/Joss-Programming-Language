@@ -10,7 +10,7 @@ de contratos y el handler enlazado. `mixed` no certifica aislamiento ni ausencia
 
 ## Auth
 
-Implementación: [executeAuthMethod](../pkg/core/auth.go#L14).
+Implementación: [executeAuthMethod](../../pkg/core/auth.go#L14).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -38,7 +38,7 @@ Implementación: [executeAuthMethod](../pkg/core/auth.go#L14).
 
 ## AuthLoginResult
 
-Implementación: [executeAuthLoginResultMethod](../pkg/core/auth_fluent.go#L18).
+Implementación: [executeAuthLoginResultMethod](../../pkg/core/auth_fluent.go#L18).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -50,7 +50,7 @@ Implementación: [executeAuthLoginResultMethod](../pkg/core/auth_fluent.go#L18).
 
 ## Blueprint
 
-Implementación: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L34).
+Implementación: [executeBlueprintMethod](../../pkg/core/schema_blueprint.go#L41).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -98,7 +98,7 @@ Implementación: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L34).
 
 ## Cache
 
-Implementación: [executeCacheMethod](../pkg/core/native_cache.go#L18).
+Implementación: [executeCacheMethod](../../pkg/core/native_cache.go#L18).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -125,7 +125,7 @@ Implementación: [executeCacheMethod](../pkg/core/native_cache.go#L18).
 
 ## Cron
 
-Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
+Implementación: [executeCronMethod](../../pkg/core/cron.go#L11).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -163,7 +163,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L377).
+Implementación: [executeExceptionMethod](../../pkg/core/native.go#L380).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -185,7 +185,7 @@ Implementación: [executeExceptionMethod](../pkg/core/native.go#L377).
 
 ## GranDB
 
-Implementación: [executeGranDBMethod](../pkg/core/database.go#L11).
+Implementación: [executeGranDBMethod](../../pkg/core/database.go#L11).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -343,7 +343,7 @@ Implementación: [executeGranDBMethod](../pkg/core/database.go#L11).
 
 ## Http
 
-Implementación: [executeHttpMethod](../pkg/core/http_client.go#L14).
+Implementación: [executeHttpMethod](../../pkg/core/http_client.go#L14).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -359,7 +359,7 @@ Implementación: [executeHttpMethod](../pkg/core/http_client.go#L14).
 
 ## IndexNow
 
-Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
+Implementación: [executeIndexNowMethod](../../pkg/core/native_indexnow.go#L158).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -388,7 +388,7 @@ Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
 
 ## MFA
 
-Implementación: [executeMFAMethod](../pkg/core/auth_fluent.go#L99).
+Implementación: [executeMFAMethod](../../pkg/core/auth_fluent.go#L99).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -423,7 +423,7 @@ Clase base registrada sin métodos nativos propios.
 
 ## Model
 
-Implementación: [executeModelMethod](../pkg/core/model.go#L433).
+Implementación: [executeModelMethod](../../pkg/core/model.go#L433).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -624,7 +624,7 @@ Implementación: [executeModelMethod](../pkg/core/model.go#L433).
 
 ## Plugin
 
-Implementación: [executePluginMethod](../pkg/core/native_plugin.go#L49).
+Implementación: [executePluginMethod](../../pkg/core/native_plugin.go#L49).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -635,7 +635,7 @@ Implementación: [executePluginMethod](../pkg/core/native_plugin.go#L49).
 
 ## Process
 
-Implementación: [executeProcessMethod](../pkg/core/native_process.go#L13).
+Implementación: [executeProcessMethod](../../pkg/core/native_process.go#L13).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -667,7 +667,7 @@ Implementación: [executeProcessMethod](../pkg/core/native_process.go#L13).
 
 ## Redirect
 
-Implementación: [executeRedirectMethod](../pkg/core/response.go#L177).
+Implementación: [executeRedirectMethod](../../pkg/core/response.go#L177).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -675,7 +675,7 @@ Implementación: [executeRedirectMethod](../pkg/core/response.go#L177).
 
 ## Redis
 
-Implementación: [executeRedisMethod](../pkg/core/redis.go#L96).
+Implementación: [executeRedisMethod](../../pkg/core/redis.go#L96).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -690,7 +690,7 @@ Implementación: [executeRedisMethod](../pkg/core/redis.go#L96).
 
 ## Request
 
-Implementación: [executeRequestMethod](../pkg/core/request.go#L9).
+Implementación: [executeRequestMethod](../../pkg/core/request.go#L9).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -719,7 +719,7 @@ Implementación: [executeRequestMethod](../pkg/core/request.go#L9).
 
 ## Response
 
-Implementación: [executeResponseMethod](../pkg/core/response.go#L10).
+Implementación: [executeResponseMethod](../../pkg/core/response.go#L10).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -733,7 +733,7 @@ Implementación: [executeResponseMethod](../pkg/core/response.go#L10).
 
 ## Router
 
-Implementación: [executeRouterMethod](../pkg/core/router.go#L12).
+Implementación: [executeRouterMethod](../../pkg/core/router.go#L12).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -756,7 +756,7 @@ Implementación: [executeRouterMethod](../pkg/core/router.go#L12).
 
 ## SEO
 
-Implementación: [executeSEOMethod](../pkg/core/native_seo.go#L13).
+Implementación: [executeSEOMethod](../../pkg/core/native_seo.go#L14).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -770,7 +770,7 @@ Implementación: [executeSEOMethod](../pkg/core/native_seo.go#L13).
 
 ## SQLite
 
-Implementación: [executeSQLiteMethod](../pkg/core/native_sqlite.go#L16).
+Implementación: [executeSQLiteMethod](../../pkg/core/native_sqlite.go#L16).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -780,7 +780,7 @@ Implementación: [executeSQLiteMethod](../pkg/core/native_sqlite.go#L16).
 
 ## Schema
 
-Implementación: [executeSchemaMethod](../pkg/core/schema.go#L119).
+Implementación: [executeSchemaMethod](../../pkg/core/schema.go#L119).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -794,7 +794,7 @@ Implementación: [executeSchemaMethod](../pkg/core/schema.go#L119).
 
 ## Server
 
-Implementación: [executeServerControlMethod](../pkg/core/native_server_control.go#L15).
+Implementación: [executeServerControlMethod](../../pkg/core/native_server_control.go#L15).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -803,7 +803,7 @@ Implementación: [executeServerControlMethod](../pkg/core/native_server_control.
 
 ## Session
 
-Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L78).
+Implementación: [executeSessionMethod](../../pkg/core/native_extensions.go#L78).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -815,7 +815,7 @@ Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L78).
 
 ## Sitemap
 
-Implementación: [executeSitemapMethod](../pkg/core/native_seo.go#L128).
+Implementación: [executeSitemapMethod](../../pkg/core/native_seo.go#L129).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -827,7 +827,7 @@ Implementación: [executeSitemapMethod](../pkg/core/native_seo.go#L128).
 
 ## SmtpClient
 
-Implementación: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
+Implementación: [executeSmtpClientMethod](../../pkg/core/smtp_native.go#L12).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -876,7 +876,7 @@ Implementación: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 
 ## Stream
 
-Implementación: [executeStreamMethod](../pkg/core/native_stream.go#L311).
+Implementación: [executeStreamMethod](../../pkg/core/native_stream.go#L311).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -904,7 +904,7 @@ Implementación: [executeStreamMethod](../pkg/core/native_stream.go#L311).
 
 ## System
 
-Implementación: [executeSystemMethod](../pkg/core/system.go#L14).
+Implementación: [executeSystemMethod](../../pkg/core/system.go#L14).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -918,7 +918,7 @@ Implementación: [executeSystemMethod](../pkg/core/system.go#L14).
 
 ## Task
 
-Implementación: [executeTaskMethod](../pkg/core/task.go#L10).
+Implementación: [executeTaskMethod](../../pkg/core/task.go#L10).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -926,7 +926,7 @@ Implementación: [executeTaskMethod](../pkg/core/task.go#L10).
 
 ## TwoFactor
 
-Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L168).
+Implementación: [executeTwoFactorMethod](../../pkg/core/auth_fluent.go#L168).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -942,7 +942,7 @@ Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L168).
 
 ## UserStorage
 
-Implementación: [executeUserStorageMethod](../pkg/core/lib_storage.go#L20).
+Implementación: [executeUserStorageMethod](../../pkg/core/lib_storage.go#L20).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -954,7 +954,7 @@ Implementación: [executeUserStorageMethod](../pkg/core/lib_storage.go#L20).
 
 ## View
 
-Implementación: [executeViewMethod](../pkg/core/view.go#L61).
+Implementación: [executeViewMethod](../../pkg/core/view.go#L61).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -972,7 +972,7 @@ Implementación: [executeViewMethod](../pkg/core/view.go#L61).
 
 ## WebResponse
 
-Implementación: [executeWebResponseMethod](../pkg/core/response.go#L132).
+Implementación: [executeWebResponseMethod](../../pkg/core/response.go#L132).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -983,7 +983,7 @@ Implementación: [executeWebResponseMethod](../pkg/core/response.go#L132).
 
 ## WebSocket
 
-Implementación: [executeWebSocketMethod](../pkg/core/websocket.go#L60).
+Implementación: [executeWebSocketMethod](../../pkg/core/websocket.go#L60).
 
 | Método | Retorno publicado al analizador |
 |---|---|

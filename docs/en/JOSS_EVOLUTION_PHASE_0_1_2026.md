@@ -85,15 +85,19 @@ pipeline, coalescence and ternary pipeline.
 
 Phase 2 establishes compatible pieces for the next major version:
 
-- `void` is a canonical type. A `: void` callable may use `return;` or end
-  naturally, while `return value` emits `JOSS-TYPE-008`.
-- Closures infer a callable type and retain known parameter and return contracts.
-- `joss check` reports migration warnings for `let`, implicit declarations,
-  legacy constructors and omitted named-callable returns. `joss fix` safely
-  migrates unambiguous `let`, `nil` and `Init constructor` occurrences.
-- `null` is canonical; the fixer never rewrites text literals or comments.
-- `async` creates a cancellable child context; `Future.Cancel()` propagates
-  cooperative cancellation to its forked runtime.
+- `void` is a canonical type. A callable `: void` may use `return;` or end
+  naturally, but `return valor` emits `JOSS-TYPE-008`.
+- Closures infer a callable type (`func(parámetros): retorno`) and calls to a
+  stored closure retain the known return and parameter contracts for the analyzer.
+- `joss check` exposes migration warnings: `let` (`JOSS-DECL-006`),
+  implicit declaration by assignment (`JOSS-DECL-007`), `Init constructor`
+  (`JOSS-DECL-008`) and omitted return in a named callable (`JOSS-TYPE-014`).
+  Running `joss fix` safely transforms `let`, `nil` and `Init constructor`
+  when the pattern is unambiguous; it never guesses whether an implicit
+  assignment declares or reassigns.
+- `null` is the canonical spelling. The fixer never rewrites text literals or comments.
+- `async` now creates a cancellable child context: `Future.Cancel()` propagates
+  cooperative cancellation to the forked runtime and `await` retains error propagation.
 
 `const` remains binding immutability, not deep object or collection immutability.
 

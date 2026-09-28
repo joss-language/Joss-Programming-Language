@@ -69,16 +69,16 @@ Let's look at a minimal example:
 
 <!-- joss-run: ["21"] -->
 ```joss
-$edad = 20
+var $edad = 20
 $edad = $edad + 1
 print($edad)
 ```
 
 ### What happens step by step in this program?
 
-1. `$edad = 20`:
+1. `var $edad = 20`:
    - The sign `=` is the **assignment operator**. It evaluates what is to its right (`20`) and deposits it in the variable `$edad`.
-   - As this is the first time that `$edad` appears in the program, Joss automatically **infers** that `$edad` is of type `int`.
+   - With `var`, Joss automatically **infers** that `$edad` is of type `int`.
 2. `$edad = $edad + 1`:
    - The computer evaluates the right side first: it looks for the current value of `$edad` (which is `20`), adds `1` to it, resulting in `21`.
    - Then, the `=` operator saves that new value `21` to `$edad`, overwriting the previous `20`.
@@ -91,20 +91,20 @@ print($edad)
 
 In Joss you have complete control over how strict or flexible you want the typing of your variables to be:
 
-### 1. Fixed automatic inference: `$x = valor` (or `var $x = valor`)
+### 1. Fixed canonical inference: `var $x = valor`
 It is the fastest and recommended way for everyday life. Joss deduces the type in the first assignment and from that moment on the variable is protected:
 
 ```joss
-$contador = 0       // Infiere int
-$titulo = "Reporte" // Infiere string
-var $peso = 72.5    // 'var' solicita inferencia explícita; también fija float
+var $contador = 0       // Infiere int
+var $titulo = "Reporte" // Infiere string
+var $peso = 72.5        // Infiere float
 ```
 
 If you later try to put text inside an integer, the semantic analyzer will stop the program with the code `JOSS-TYPE-001`:
 
 <!-- joss-error: JOSS-TYPE-001 -->
 ```joss-invalid
-$cantidad = 2
+var $cantidad = 2
 $cantidad = "muchas"
 ```
 
@@ -164,7 +164,7 @@ In Joss you can write text strings using double quotes (`"..."`) or single quote
 <!-- joss-run: ["Hola, Ada", "Primera línea", "Segunda línea"] -->
 ```joss
 // Este comentario explica el código; no se ejecuta.
-$nombre = 'Ada'
+var $nombre = 'Ada'
 print("Hola, " . $nombre)
 /* Un comentario también puede
    ocupar varias líneas. */
@@ -186,8 +186,8 @@ Many languages ​​use `+` to join text, which causes serious errors when numb
 - The dot operator `.` is used **exclusively to concatenate text**.
 
 ```joss
-$a = "10"
-$b = "20"
+var $a = "10"
+var $b = "20"
 print($a . $b) // Imprime "1020" (unión de textos)
 ```
 
@@ -197,8 +197,8 @@ Instead of chaining multiple fragments together with the dot operator (`"Hola " 
 
 <!-- joss-run: ["Hola Ada, tienes 21 años", "El doble es 42"] -->
 ```joss
-$nombre = "Ada"
-$edad = 21
+var $nombre = "Ada"
+var $edad = 21
 print("Hola ${nombre}, tienes ${edad} años")
 print("El doble es ${$edad * 2}")
 ```
@@ -212,8 +212,8 @@ print("El doble es ${$edad * 2}")
 When you need to put together messages with numerical variables and texts in exact positions without chaining many points, use `printf`:
 
 ```joss
-$item = "Teclado"
-$cantidad = 2
+var $item = "Teclado"
+var $cantidad = 2
 printf("Producto: %s | Cantidad: %d\n", $item, $cantidad)
 ```
 - `%s` is replaced by a string (`string`).
@@ -249,7 +249,7 @@ When you want to modify the value that a variable already has (for example, addi
 
 <!-- joss-run: ["15", "12", "24", "Invitado"] -->
 ```joss
-$puntos = 10
+var $puntos = 10
 $puntos += 5
 print($puntos)
 
@@ -259,7 +259,7 @@ print($puntos)
 $puntos *= 2
 print($puntos)
 
-$nombre = null
+var $nombre = null
 $nombre = $nombre ?? "Invitado"
 print($nombre)
 ```
@@ -358,7 +358,7 @@ If a variable has value `null` or has not yet been initialized, you can assign i
 
 <!-- joss-run: ["oscuro", "oscuro"] -->
 ```joss
-$tema = null
+var $tema = null
 $tema ??= "oscuro"
 print($tema)
 $tema ??= "claro" // No sobreescribe porque ya tiene "oscuro"
@@ -390,9 +390,9 @@ If you receive data as text (for example `"25"`) and you need to add a quantity 
 |---|---|---|
 | Use `+` to join texts | `print("Total: " + $precio)` | Always use the period for text: `print("Total: " . $precio)`. |
 | Forget the `$` in a variable | `edad = 20` | All variables must have `$`: `$edad = 20`. |
-| Change type of an inferred variable | `$x = 10; $x = "hola"` (`JOSS-TYPE-001`) | If you need it to change type, declare it as `mixed $x = 10`. |
+| Change type of an inferred variable | `var $x = 10; $x = "hola"` (`JOSS-TYPE-001`) | If you need it to change type, declare it as `mixed $x = 10`. |
 | Forget the suffix `m` in financial amounts | `0.10 + 0.20` | Use `0.10m + 0.20m` to ensure monetary accuracy. |
-| Reassign a constant | `const $A = 1; $A = 2` (`JOSS-SYM-006`) | If the value must change, do not use `const`; use `$A = 1`. |
+| Reassign a constant | `const $A = 1; $A = 2` (`JOSS-SYM-006`) | If the value must change, do not use `const`; use `var $A = 1`. |
 
 ---
 
@@ -403,10 +403,10 @@ To put into practice everything you learned in this guide (variables, types, mat
 <!-- joss-run: ["Subtotal: 50", "Propina: 7.5", "Total: 57.5", "Por persona: 28.75"] -->
 ```joss
 // 1. Datos iniciales
-$subtotal = 50.0
-$propina = $subtotal * 0.15
-$total = $subtotal + $propina
-$porPersona = $total / 2.0
+var $subtotal = 50.0
+var $propina = $subtotal * 0.15
+var $total = $subtotal + $propina
+var $porPersona = $total / 2.0
 
 // 2. Mostrar resumen en pantalla
 print("Subtotal: " . $subtotal)
@@ -416,10 +416,10 @@ print("Por persona: " . $porPersona)
 ```
 
 ### Step by step explanation:
-1. `$subtotal = 50.0`: We save the account amount as a decimal number (`float`).
-2. `$propina = $subtotal * 0.15`: We calculate 15% by multiplying by `0.15`.
-3. `$total = $subtotal + $propina`: We add the cost of consumption and the tip.
-4. `$porPersona = $total / 2.0`: We divide the bill equally between two people.
+1. `var $subtotal = 50.0`: We save the account amount as a decimal number (`float`).
+2. `var $propina = $subtotal * 0.15`: We calculate 15% by multiplying by `0.15`.
+3. `var $total = $subtotal + $propina`: We add the cost of consumption and the tip.
+4. `var $porPersona = $total / 2.0`: We divide the bill equally between two people.
 5. Calls to `print(...)`: Join the long text with the numeric value using the dot concatenation operator `.`.
 
 ---

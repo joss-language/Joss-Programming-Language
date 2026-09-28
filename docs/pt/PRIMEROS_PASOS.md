@@ -207,7 +207,7 @@ Um programa que exibe apenas texto fixo não é muito interativo. Os programas r
 
 Modifique seu arquivo `hola.joss` para conter:<!-- joss-run: ["Hola, Ada", "Bienvenida a Joss"] -->
 ```joss
-$nombre = "Ada"
+var $nombre = "Ada"
 print("Hola, " . $nombre)
 print("Bienvenida a Joss")
 ```
@@ -220,8 +220,9 @@ Bienvenida a Joss
 ```
 ### O que mudou aqui?
 
-1. `$nombre = "Ada"`:
-   - O símbolo `$` no início indica que estamos declarando ou usando uma variável. Em Joss, **todas as variáveis ​​começam com `$`**.
+1. `var $nombre = "Ada"`:
+   - A palavra `var` declara a variável com inferência de tipo.
+   - O símbolo `$` no início indica que estamos usando uma variável. Em Joss, **todas as variáveis ​​começam com `$`**.
    - O sinal `=` é chamado de **operador de atribuição**. Ele pega o valor da direita (`"Ada"`) e o armazena na "caixa" de memória identificada pelo nome `$nombre`.
    - Joss infere automaticamente que `$nombre` armazena texto (`string`).
 2. `"Hola, " . $nombre`:

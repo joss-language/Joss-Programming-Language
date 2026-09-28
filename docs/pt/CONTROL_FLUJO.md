@@ -29,7 +29,7 @@ Neste guia você aprenderá:
 
 Uma **condição** é qualquer expressão que o computador avalia para obter uma resposta lógica do tipo booleano (`bool`): é verdadeira (`true`) ou falsa (`false`).<!-- joss-run: ["true", "Entrada permitida"] -->
 ```joss
-$edad = 20
+var $edad = 20
 print($edad >= 18)
 print(($edad >= 18) ? "Entrada permitida" : "Debes esperar")
 ```
@@ -67,7 +67,7 @@ A estrutura básica do ternário é:```text
 
 Quando você precisar executar várias linhas de código em uma das ramificações, basta colocar um bloco entre chaves `{` e `}`:<!-- joss-run: ["Hay existencias", "Preparando pedido"] -->
 ```joss
-$existencias = 4
+var $existencias = 4
 ($existencias > 0) ? {
     print("Hay existencias")
     print("Preparando pedido")
@@ -79,7 +79,7 @@ $existencias = 4
 
 Se você quiser fazer algo apenas quando a condição for verdadeira e não precisar de uma alternativa falsa, você pode pular o ramo `: { ... }` completamente:<!-- joss-run: ["Bienvenido de nuevo"] -->
 ```joss
-$usuarioAutenticado = true
+var $usuarioAutenticado = true
 ($usuarioAutenticado) ? {
     print("Bienvenido de nuevo")
 }
@@ -139,8 +139,8 @@ Quando uma variável pode ter muitos valores possíveis (por exemplo, o status d
 
 Para estes casos, Joss oferece a expressão **`match`**:<!-- joss-run: ["En camino"] -->
 ```joss
-$estado = "enviado"
-$mensaje = match ($estado) {
+var $estado = "enviado"
+var $mensaje = match ($estado) {
     "nuevo" => "Preparando",
     "enviado", "reparto" => "En camino",
     default => "Consulta el pedido"
@@ -151,7 +151,7 @@ print($mensaje)
 - **Múltiplos braços**: Cada linha é composta por um ou mais padrões, seguidos por uma seta grossa `=>` e o valor ou bloco resultante.
 - **Suporte para blocos de instruções**: os braços podem conter blocos multilinhas entre colchetes `{ ... }` para executar várias instruções consecutivas ou atualizar o estado do programa:<!-- joss-run: ["Opción 1 ejecutada"] -->
 ```joss
-$opcion = 1
+var $opcion = 1
 match ($opcion) {
     1 => {
         print("Opción 1 ejecutada")
@@ -175,7 +175,7 @@ Um **loop** (ou ciclo) diz ao computador para executar um bloco de código repet
 
 O loop `while` avalia a condição **antes** de entrar no corpo do loop. Se a condição for falsa desde o início, o corpo não será executado nem uma vez:<!-- joss-run: ["1", "2", "3"] -->
 ```joss
-$numero = 1
+var $numero = 1
 while ($numero <= 3) {
     print($numero)
     $numero++
@@ -189,7 +189,7 @@ while ($numero <= 3) {
 
 Ao contrário de `while`, o loop `do ... while` executa o corpo **primeiro** e verifica a condição no final. Isso garante que as instruções serão executadas pelo menos uma vez, independente da condição inicial:<!-- joss-run: ["Intento 1"] -->
 ```joss
-$intento = 0
+var $intento = 0
 do {
     $intento++
     print("Intento " . $intento)
@@ -201,7 +201,7 @@ do {
 
 Quando você tem uma lista de dados (como um `array` de nomes ou produtos), você não precisa gerenciar manualmente um contador numérico: você usa **`foreach`**.<!-- joss-run: ["pan", "leche"] -->
 ```joss
-$compras = ["pan", "leche"]
+var $compras = ["pan", "leche"]
 foreach ($compras as $producto) {
     print($producto)
 }

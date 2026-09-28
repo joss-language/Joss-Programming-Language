@@ -87,14 +87,18 @@ A Fase 2 estabelece peças compatíveis para a próxima versão maior:
 
 - `void` é um tipo canônico. Uma callable `: void` pode usar `return;` ou
   finalizar naturalmente; `return valor` emite `JOSS-TYPE-008`.
-- Closures inferem um tipo callable e preservam contratos conhecidos de
-  parâmetros e retorno.
-- `joss check` informa advertências de migração para `let`, declarações
-  implícitas, construtores legados e retorno omitido. `joss fix` migra casos
-  inequívocos de `let`, `nil` e `Init constructor`.
-- `null` é a ortografia canônica; o fixer não altera literais de texto ou comentários.
-- `async` cria um contexto filho cancelável; `Future.Cancel()` propaga o
-  cancelamento cooperativo para o runtime forkeado.
+- Closures inferem um tipo callable (`func(parámetros): retorno`) e chamadas a
+  uma closure armazenada preservam os contratos de retorno e parâmetros
+  conhecidos para o analyzer.
+- `joss check` expõe avisos de migração: `let` (`JOSS-DECL-006`),
+  declaração implícita por atribuição (`JOSS-DECL-007`), `Init constructor`
+  (`JOSS-DECL-008`) e retorno omitido em callable com nome (`JOSS-TYPE-014`).
+  Executar `joss fix` transforma de forma segura `let`, `nil` e `Init constructor`
+  quando o padrão é inequívoco; não tenta adivinhar se uma atribuição implícita
+  declara ou reatribui.
+- `null` é a ortografia canônica. O fixer nunca reescreve literais de texto ou comentários.
+- `async` cria agora um contexto filho cancelável: `Future.Cancel()` propaga
+  cancelamento cooperativo para o runtime forkeado e `await` preserva a propagação de erros.
 
 `const` permanece imutabilidade do binding, e não imutabilidade profunda.
 

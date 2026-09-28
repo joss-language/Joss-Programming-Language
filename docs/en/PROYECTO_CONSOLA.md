@@ -40,19 +40,19 @@ public func totalizar(array $compras): decimal {
     return $total
 }
 
-$compras = [
+var $compras = [
     {"nombre": "Cuaderno", "precio": "12.50", "cantidad": 2},
     {"nombre": "Lapiz", "precio": "3.50", "cantidad": 5}
 ]
 
-$guardado = file_put_contents("compras.json", json_encode($compras))
+var $guardado = file_put_contents("compras.json", json_encode($compras))
 $guardado ? {} : { throw "No se pudo guardar compras.json" }
 
-$texto = file_get_contents("compras.json")
+var $texto = file_get_contents("compras.json")
 $texto == null ? { throw "No se pudo leer compras.json" } : {}
 json_verify($texto) ? {} : { throw "El archivo no contiene JSON valido" }
 
-$leidas = json_decode($texto)
+var $leidas = json_decode($texto)
 print("Articulos: " . count($leidas))
 print("Total: " . totalizar($leidas))
 print("Archivo guardado")
