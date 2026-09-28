@@ -31,7 +31,7 @@ func TestCaptureBufferSnapshotIgnoresLateConcurrentWrites(t *testing.T) {
 func TestRunTimeoutInterruptsSocketAccept(t *testing.T) {
 	started := time.Now()
 	result := RunDirect(`
-$server = new Socket()
+var $server = new Socket()
 $server->listen("127.0.0.1", "0")
 $server->accept()
 `, 30)

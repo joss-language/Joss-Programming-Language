@@ -34,8 +34,8 @@ public func configurar(string $host, int $puerto = 8080, bool $ssl = false): str
 
 public class Main {
     Init main() {
-        $c1 = configurar(host: "localhost");
-        $c2 = configurar(host: "127.0.0.1", ssl: true, puerto: 443);
+        var $c1 = configurar(host: "localhost");
+        var $c2 = configurar(host: "127.0.0.1", ssl: true, puerto: 443);
         echo($c1);
         echo($c2);
     }

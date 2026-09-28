@@ -34,12 +34,6 @@ func (a *Analyzer) inferExpressionNode(expression parser.Expression, current *sc
 	case *parser.Boolean:
 		return typesystem.Type{Kind: typesystem.Bool}
 	case *parser.NullLiteral:
-		if a.environment.MigrationWarnings && node.Token.Type == parser.NIL {
-			a.add("JOSS-DECL-010", diagnostics.SeverityWarning, a.file, node.Token,
-				"`nil` is a deprecated spelling of `null`.",
-				"Joss has one canonical absence value so nullability and coalescing stay predictable.",
-				"Replace `nil` with `null`; `joss fix` performs this lexical migration safely.")
-		}
 		return typesystem.Type{Kind: typesystem.Null}
 	case *parser.Identifier:
 		return a.inferIdentifier(node, current)
@@ -350,13 +344,13 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 			}
 			return existing.Type
 		}
-		inferredType := typesystem.MergeInference(typesystem.Type{Kind: typesystem.Unknown}, valueType)
-		if a.environment.MigrationWarnings {
-			a.add("JOSS-DECL-007", diagnostics.SeverityWarning, a.file, identifier.Token,
-				fmt.Sprintf("`$%s` is declared implicitly by assignment.", name),
-				"An assignment should update a binding whose declaration is already visible.",
-				fmt.Sprintf("Declare it explicitly with `var $%s = ...`; implicit declarations will be removed in the next major language version.", name))
+		if a.suppressUndefined == 0 {
+			a.add("JOSS-SYM-001", diagnostics.SeverityError, a.file, identifier.Token,
+				fmt.Sprintf("Variable `$%s` is not declared.", name),
+				"Variables must be declared with `var`, an explicit type, `mixed` or `const` before assignment.",
+				fmt.Sprintf("Declare the variable with `var $%s = ...` or specify its type.", name))
 		}
+		inferredType := typesystem.MergeInference(typesystem.Type{Kind: typesystem.Unknown}, valueType)
 		current.put(&symbol{Name: name, Type: inferredType, Kind: symbolVariable, Token: identifier.Token, File: a.file, Inferred: true, Initialized: true})
 		return inferredType
 	}

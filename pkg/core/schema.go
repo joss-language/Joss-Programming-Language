@@ -148,12 +148,16 @@ func (r *Runtime) executeSchemaMethod(instance *Instance, method string, args []
 			var definitions []string
 			var commands []schemaCommand
 
-			fnLit, ok := args[1].(*parser.FunctionLiteral)
-			if !ok {
+			var fnBlueprint interface{}
+			if fnLit, ok := args[1].(*parser.FunctionLiteral); ok {
+				fnBlueprint = fnLit
+			} else if captured, ok := args[1].(*CapturedFunction); ok {
+				fnBlueprint = captured
+			} else {
 				fmt.Println("[Schema] Error: El segundo argumento debe ser una función de blueprint.")
 				return nil
 			}
-			blueprint := r.runBlueprint(fnLit)
+			blueprint := r.runBlueprint(fnBlueprint)
 			if blueprint == nil {
 				return false
 			}
@@ -219,8 +223,14 @@ func (r *Runtime) executeSchemaMethod(instance *Instance, method string, args []
 				return false
 			}
 
+			var fnBlueprint interface{}
 			if fnLit, ok := args[1].(*parser.FunctionLiteral); ok {
-				blueprint := r.runBlueprint(fnLit)
+				fnBlueprint = fnLit
+			} else if captured, ok := args[1].(*CapturedFunction); ok {
+				fnBlueprint = captured
+			}
+			if fnBlueprint != nil {
+				blueprint := r.runBlueprint(fnBlueprint)
 				if blueprint == nil {
 					return false
 				}

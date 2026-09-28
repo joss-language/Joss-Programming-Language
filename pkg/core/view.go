@@ -134,6 +134,9 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 			data["auth_user"] = ""
 			data["auth_role"] = ""
 			data["auth_email"] = ""
+			if _, ok := data["title"]; !ok {
+				data["title"] = ""
+			}
 			if _, ok := data["error"]; !ok {
 				data["error"] = ""
 			}

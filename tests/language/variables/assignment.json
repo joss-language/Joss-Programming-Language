@@ -1,6 +1,6 @@
 {
   "name": "variables_assignment",
-  "source": "public func main(): int {\n  $a = 10\n  $b = 20\n  $a = 30\n  return $a + $b\n}",
+  "source": "public func main(): int {\n  var $a = 10\n  var $b = 20\n  $a = 30\n  return $a + $b\n}",
   "expected_diagnostics": [],
   "expected_runtime_int": 50
 }

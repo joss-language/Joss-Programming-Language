@@ -1,6 +1,6 @@
 {
   "name": "async_await_channels",
-  "source": "public func main(): int {\n  $ch = make_chan(1)\n  send($ch, 99)\n  return recv($ch)\n}",
+  "source": "public func main(): int {\n  var $ch = make_chan(1)\n  send($ch, 99)\n  return recv($ch)\n}",
   "expected_diagnostics": [],
   "expected_runtime_int": 99
 }

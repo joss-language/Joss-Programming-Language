@@ -20,7 +20,7 @@ public func optionalTotal(bool $available): int? {
 
 public class Main {
     Init main() {
-        $value = total(2, 3)
+        var $value = total(2, 3)
         echo $value
         echo factorial(5)
         echo optionalTotal(true)

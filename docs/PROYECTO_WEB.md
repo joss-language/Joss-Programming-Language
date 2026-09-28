@@ -103,7 +103,7 @@ Crea el archivo `app/controllers/SaludoController.joss` con el siguiente código
 ```joss
 public class SaludoController {
     public func show(string $nombre) {
-        $nombreLimpio = trim($nombre)
+        var $nombreLimpio = trim($nombre)
         return view("saludo", {"nombre": $nombreLimpio})
     }
 }

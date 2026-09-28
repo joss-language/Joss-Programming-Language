@@ -147,7 +147,7 @@ public func logMessage(IWriter $writer, string $msg): string {
 }
 
 public func test(): string {
-    $w = new ConsoleWriter();
+    var $w = new ConsoleWriter();
     return logMessage($w, "hello");
 }
 `

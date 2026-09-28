@@ -3,6 +3,8 @@ package core
 import (
 	"database/sql"
 	"testing"
+
+	"github.com/jossecurity/joss/pkg/parser"
 )
 
 func TestSchemaCommandsExecuteOnSQLite(t *testing.T) {
@@ -142,5 +144,57 @@ func TestSQLiteCanAddForeignKeyByRebuildingTable(t *testing.T) {
 	defer rows.Close()
 	if !rows.Next() {
 		t.Fatal("foreign key was not added")
+	}
+}
+
+func TestSchemaCreateWithCapturedFunction(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	r := NewRuntime()
+	r.DB = db
+	r.Env = map[string]string{"DB": "sqlite", "PREFIX": "app_"}
+
+	fn := &parser.FunctionLiteral{
+		Parameters: []*parser.Parameter{{Name: &parser.Identifier{Value: "$table"}, Type: parser.Token{Literal: "mixed"}}},
+		Body: &parser.BlockStatement{
+			Statements: []parser.Statement{
+				&parser.ExpressionStatement{
+					Expression: &parser.CallExpression{
+						Function: &parser.MemberExpression{
+							Left:     &parser.Identifier{Value: "$table"},
+							Property: &parser.Identifier{Value: "id"},
+							Token:    parser.Token{Type: parser.ARROW, Literal: "->"},
+						},
+						Arguments: []parser.Expression{},
+					},
+				},
+				&parser.ExpressionStatement{
+					Expression: &parser.CallExpression{
+						Function: &parser.MemberExpression{
+							Left:     &parser.Identifier{Value: "$table"},
+							Property: &parser.Identifier{Value: "string"},
+							Token:    parser.Token{Type: parser.ARROW, Literal: "->"},
+						},
+						Arguments: []parser.Expression{
+							&parser.StringLiteral{Value: "name"},
+						},
+					},
+				},
+			},
+		},
+	}
+	captured := r.captureFunction(fn)
+	result := r.executeSchemaMethod(nil, "create", []interface{}{"products", captured})
+	if result != true {
+		t.Fatalf("Schema::create returned %v, want true", result)
+	}
+	if exists := r.executeSchemaMethod(nil, "hasTable", []interface{}{"products"}); exists != true {
+		t.Fatalf("Schema::hasTable('products') = false, want true")
+	}
+	if exists := r.executeSchemaMethod(nil, "hasColumn", []interface{}{"products", "name"}); exists != true {
+		t.Fatalf("Schema::hasColumn('products', 'name') = false, want true")
 	}
 }

@@ -96,3 +96,19 @@ func IsIgnoredDirectory(dirName string) bool {
 func IsJossSourceFile(path string) bool {
 	return strings.EqualFold(filepath.Ext(path), ".joss") && !IsIgnoredSourceFile(path)
 }
+
+// IsTestSourceFile returns true if path represents a test file (*_test.joss or within a tests directory).
+func IsTestSourceFile(path string) bool {
+	clean := filepath.Clean(path)
+	base := strings.ToLower(filepath.Base(clean))
+	if strings.HasSuffix(base, "_test.joss") {
+		return true
+	}
+	parts := strings.Split(filepath.ToSlash(clean), "/")
+	for _, part := range parts {
+		if strings.EqualFold(part, "tests") || strings.EqualFold(part, "test") {
+			return true
+		}
+	}
+	return false
+}

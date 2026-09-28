@@ -36,7 +36,7 @@ En Joss (y en la inmensa mayoría de lenguajes modernos), **los índices comienz
 
 <!-- joss-run: ["pan", "3", "fruta"] -->
 ```joss
-$compras = ["pan", "leche"]
+var $compras = ["pan", "leche"]
 print($compras[0])
 $compras[] = "fruta"
 print(count($compras))
@@ -82,8 +82,8 @@ Puedes expandir los elementos de un array existente dentro de otro nuevo array a
 
 <!-- joss-run: ["1", "2", "3", "4"] -->
 ```joss
-$primeros = [2, 3]
-$todos = [1, ...$primeros, 4]
+var $primeros = [2, 3]
+var $todos = [1, ...$primeros, 4]
 print($todos[0])
 print($todos[1])
 print($todos[2])
@@ -100,7 +100,7 @@ Para eso existen los **maps** (también conocidos como diccionarios, tablas hash
 
 <!-- joss-run: ["Ada", "21", "sin teléfono"] -->
 ```joss
-$persona = {"nombre": "Ada", "edad": 20}
+var $persona = {"nombre": "Ada", "edad": 20}
 print($persona["nombre"])
 $persona["edad"] = 21
 print($persona["edad"])
@@ -120,7 +120,7 @@ Joss admite tanto la notación clásica de llaves `{}` con dos puntos `:` como l
 
 <!-- joss-run: ["JosSecurity", "v1.0", "Ada"] -->
 ```joss
-$config = [
+var $config = [
     "app" => "JosSecurity",
     "version" => "v1.0",
     "autor" => ["nombre" => "Ada"]
@@ -136,8 +136,8 @@ Al igual que en arrays, puedes expandir y fusionar pares clave-valor de un mapa 
 
 <!-- joss-run: ["localhost", "8080", "true"] -->
 ```joss
-$base = ["host" => "localhost", "puerto" => "8080"]
-$completo = [...$base, "seguro" => "true"]
+var $base = ["host" => "localhost", "puerto" => "8080"]
+var $completo = [...$base, "seguro" => "true"]
 print($completo["host"])
 print($completo["puerto"])
 print($completo["seguro"])
@@ -151,12 +151,12 @@ Puedes recorrer arrays y mapas asociativos accediendo directamente a la clave (o
 
 <!-- joss-run: ["0: manzana", "1: pera", "a => alfa", "b => beta"] -->
 ```joss
-$frutas = ["manzana", "pera"]
+var $frutas = ["manzana", "pera"]
 foreach ($frutas as $indice => $fruta) {
     print($indice . ": " . $fruta)
 }
 
-$letras = ["a" => "alfa", "b" => "beta"]
+var $letras = ["a" => "alfa", "b" => "beta"]
 foreach ($letras as $k => $v) {
     print($k . " => " . $v)
 }
@@ -173,11 +173,11 @@ Joss incluye funciones integradas para transformar y filtrar colecciones en esti
 
 <!-- joss-run: ["60", "20", "true"] -->
 ```joss
-$numeros = [1, 2, 3, 4, 5]
-$pares = $numeros |> filter(func(int $x): bool { return $x % 2 == 0; })
-$escalados = $pares |> map(func(int $x): int { return $x * 10; })
+var $numeros = [1, 2, 3, 4, 5]
+var $pares = $numeros |> filter(func(int $x): bool { return $x % 2 == 0; })
+var $escalados = $pares |> map(func(int $x): int { return $x * 10; })
 print(sum($escalados))
-$encontrado = $numeros |> find(func(int $x): bool { return $x == 2; })
+var $encontrado = $numeros |> find(func(int $x): bool { return $x == 2; })
 print($encontrado * 10)
 print($numeros |> any(func(int $x): bool { return $x == 3; }))
 ```
@@ -188,14 +188,14 @@ Además del operador pipeline, Joss permite invocar métodos fluidos directament
 
 <!-- joss-run: ["hola-mundo", "6, 8", "a-b"] -->
 ```joss
-$txt = "  Hola Mundo  "
+var $txt = "  Hola Mundo  "
 print($txt->trim()->lower()->replace(" ", "-"))
 
-$nums = [1, 2, 3, 4]
-$filtrados = $nums->map(func(int $n, int $i): int { return $n * 2; })->filter(func(int $n, int $i): bool { return $n > 4; })
+var $nums = [1, 2, 3, 4]
+var $filtrados = $nums->map(func(int $n, int $i): int { return $n * 2; })->filter(func(int $n, int $i): bool { return $n > 4; })
 print($filtrados->join(", "))
 
-$mapa = {"a": 1, "b": 2}
+var $mapa = {"a": 1, "b": 2}
 print($mapa->keys()->join("-"))
 ```
 
@@ -212,12 +212,12 @@ Si asignas un array o map existente a una nueva variable, **ambas variables apun
 
 <!-- joss-run: ["9", "nuevo"] -->
 ```joss
-$original = [1, 2]
-$copia = $original
+var $original = [1, 2]
+var $copia = $original
 $copia[0] = 9
 print($original[0])
-$datos = {"estado": "inicial"}
-$alias = $datos
+var $datos = {"estado": "inicial"}
+var $alias = $datos
 $alias["estado"] = "nuevo"
 print($datos["estado"])
 ```
@@ -240,7 +240,7 @@ Algunas funciones para manipular arrays tienen contratos específicos en Joss qu
 
 <!-- joss-run: ["2", "2", "3"] -->
 ```joss
-$numeros = [1, 2]
+var $numeros = [1, 2]
 print(array_pop($numeros))
 print(count($numeros))
 $numeros = array_push($numeros, 3)
@@ -263,7 +263,7 @@ En Joss:
 
 <!-- joss-run: ["3", "2", "é"] -->
 ```joss
-$texto = "é"
+var $texto = "é"
 print(len($texto))
 print(strlen($texto))
 print($texto[0])
@@ -289,12 +289,12 @@ En Joss puedes serializar y deserializar JSON utilizando tanto la notación de *
 ### Con mapas usando llaves `{}`:
 <!-- joss-run: ["Ada", "Joss"] -->
 ```joss
-$perfil = {
+var $perfil = {
     "nombre": "Ada",
     "lenguajes": ["Joss", "Go"]
 }
-$jsonMapa = json_encode($perfil)
-$datosMapa = json_decode($jsonMapa)
+var $jsonMapa = json_encode($perfil)
+var $datosMapa = json_decode($jsonMapa)
 print($datosMapa["nombre"])
 print($datosMapa["lenguajes"][0])
 ```
@@ -302,12 +302,12 @@ print($datosMapa["lenguajes"][0])
 ### Con arreglos asociativos usando corchetes `[]` y `=>`:
 <!-- joss-run: ["Carlos", "admin"] -->
 ```joss
-$usuario = [
+var $usuario = [
     "nombre" => "Carlos",
     "roles" => ["admin", "editor"]
 ]
-$jsonArray = json_encode($usuario)
-$datosArray = json_decode($jsonArray)
+var $jsonArray = json_encode($usuario)
+var $datosArray = json_decode($jsonArray)
 print($datosArray["nombre"])
 print($datosArray["roles"][0])
 ```

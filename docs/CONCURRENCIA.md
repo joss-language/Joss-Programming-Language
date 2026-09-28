@@ -43,11 +43,11 @@ En Joss, cuando quieres que un bloque de código se ejecute en segundo plano sin
 
 <!-- joss-run: ["Preparando resultado", "42"] -->
 ```joss
-$futuro = async {
+var $futuro = async {
     return 20 + 22
 }
 print("Preparando resultado")
-$resultado = await($futuro)
+var $resultado = await($futuro)
 print($resultado)
 ```
 
@@ -85,10 +85,10 @@ Para lograr un verdadero beneficio de rendimiento cuando tienes tareas independi
 
 <!-- joss-run: ["30"] -->
 ```joss
-$uno = async { return 10 }
-$dos = async { return 20 }
-$a = await($uno)
-$b = await($dos)
+var $uno = async { return 10 }
+var $dos = async { return 20 }
+var $a = await($uno)
+var $b = await($dos)
 print($a + $b)
 ```
 
@@ -127,7 +127,7 @@ La solución canónica y segura de Joss son los **canales (`channel`)**. Un cana
 
 <!-- joss-run: ["hola"] -->
 ```joss
-$canal = make_chan(1)
+var $canal = make_chan(1)
 send($canal, "hola")
 print(recv($canal))
 close($canal)
@@ -154,8 +154,8 @@ Una de las características más elegantes del lenguaje es que puedes utilizar u
 
 <!-- joss-run: ["10", "20"] -->
 ```joss
-$canal = make_chan()
-$productor = async {
+var $canal = make_chan()
+var $productor = async {
     send($canal, 10)
     send($canal, 20)
     close($canal)
@@ -183,7 +183,7 @@ La sentencia **`select`** permite esperar y reaccionar ante múltiples operacion
 
 <!-- joss-run: ["recibido: listo"] -->
 ```joss
-$ch = make_chan(1)
+var $ch = make_chan(1)
 send($ch, "listo")
 
 select {
@@ -214,7 +214,7 @@ public func contar(): mixed {
     yield 30
 }
 
-$gen = contar()
+var $gen = contar()
 foreach ($gen as $k => $v) {
     print($k . ": " . $v)
 }

@@ -5,6 +5,6 @@ public class Repository {
 }
 
 public func loadRepository() {
-    $repository = new Repository()
+    var $repository = new Repository()
     return $repository->find(1)
 }

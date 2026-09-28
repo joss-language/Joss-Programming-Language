@@ -31,7 +31,7 @@ Una **condición** es cualquier expresión que la computadora evalúa para obten
 
 <!-- joss-run: ["true", "Entrada permitida"] -->
 ```joss
-$edad = 20
+var $edad = 20
 print($edad >= 18)
 print(($edad >= 18) ? "Entrada permitida" : "Debes esperar")
 ```
@@ -76,7 +76,7 @@ Cuando necesitas ejecutar varias líneas de código en una de las ramas, simplem
 
 <!-- joss-run: ["Hay existencias", "Preparando pedido"] -->
 ```joss
-$existencias = 4
+var $existencias = 4
 ($existencias > 0) ? {
     print("Hay existencias")
     print("Preparando pedido")
@@ -91,7 +91,7 @@ Si solo quieres hacer algo cuando la condición sea verdadera y no necesitas una
 
 <!-- joss-run: ["Bienvenido de nuevo"] -->
 ```joss
-$usuarioAutenticado = true
+var $usuarioAutenticado = true
 ($usuarioAutenticado) ? {
     print("Bienvenido de nuevo")
 }
@@ -166,8 +166,8 @@ Para estos casos, Joss ofrece la expresión **`match`**:
 
 <!-- joss-run: ["En camino"] -->
 ```joss
-$estado = "enviado"
-$mensaje = match ($estado) {
+var $estado = "enviado"
+var $mensaje = match ($estado) {
     "nuevo" => "Preparando",
     "enviado", "reparto" => "En camino",
     default => "Consulta el pedido"
@@ -181,7 +181,7 @@ print($mensaje)
 
 <!-- joss-run: ["Opción 1 ejecutada"] -->
 ```joss
-$opcion = 1
+var $opcion = 1
 match ($opcion) {
     1 => {
         print("Opción 1 ejecutada")
@@ -207,7 +207,7 @@ El ciclo `while` evalúa la condición **antes** de entrar al cuerpo del ciclo. 
 
 <!-- joss-run: ["1", "2", "3"] -->
 ```joss
-$numero = 1
+var $numero = 1
 while ($numero <= 3) {
     print($numero)
     $numero++
@@ -224,7 +224,7 @@ A diferencia de `while`, el ciclo `do ... while` ejecuta el cuerpo **primero** y
 
 <!-- joss-run: ["Intento 1"] -->
 ```joss
-$intento = 0
+var $intento = 0
 do {
     $intento++
     print("Intento " . $intento)
@@ -239,7 +239,7 @@ Cuando tienes una lista de datos (como un `array` de nombres o productos), no ne
 
 <!-- joss-run: ["pan", "leche"] -->
 ```joss
-$compras = ["pan", "leche"]
+var $compras = ["pan", "leche"]
 foreach ($compras as $producto) {
     print($producto)
 }

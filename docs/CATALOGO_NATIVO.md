@@ -50,7 +50,7 @@ Implementación: [executeAuthLoginResultMethod](../pkg/core/auth_fluent.go#L18).
 
 ## Blueprint
 
-Implementación: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L34).
+Implementación: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L41).
 
 | Método | Retorno publicado al analizador |
 |---|---|

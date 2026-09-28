@@ -176,9 +176,9 @@ public enum Estado {
     case Rechazado
 }
 
-$e = Estado::Pendiente
+var $e = Estado::Pendiente
 print($e->name)
-$e2 = Estado::Aprobado
+var $e2 = Estado::Aprobado
 print($e2->name)
 ```
 
@@ -193,16 +193,16 @@ public enum Rol: string {
     case Lector = "lector"
 }
 
-$r = Rol::Admin
+var $r = Rol::Admin
 print($r->value)
 
 // Instanciar desde valor escalar con from() o tryFrom()
-$desdeValor = Rol::from("admin")
+var $desdeValor = Rol::from("admin")
 print($desdeValor->value)
 print($desdeValor->name)
 
 // Obtener todos los casos con cases()
-$todos = Rol::cases()
+var $todos = Rol::cases()
 print(count($todos))
 ```
 
@@ -214,8 +214,8 @@ El operador **`is`** (y su alias **`instanceof`**) permite consultar en tiempo d
 
 <!-- joss-run: ["true", "true", "true"] -->
 ```joss
-$numero = 42
-$texto = "hola"
+var $numero = 42
+var $texto = "hola"
 print($numero is int)
 print($texto is string)
 print($numero instanceof int)

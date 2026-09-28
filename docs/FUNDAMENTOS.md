@@ -69,16 +69,16 @@ Veamos un ejemplo mínimo:
 
 <!-- joss-run: ["21"] -->
 ```joss
-$edad = 20
+var $edad = 20
 $edad = $edad + 1
 print($edad)
 ```
 
 ### ¿Qué sucede paso a paso en este programa?
 
-1. `$edad = 20`:
+1. `var $edad = 20`:
    - El signo `=` es el **operador de asignación**. Evalúa lo que está a su derecha (`20`) y lo deposita en la variable `$edad`.
-   - Como es la primera vez que `$edad` aparece en el programa, Joss **infiere** automáticamente que `$edad` es de tipo `int`.
+   - Con `var`, Joss **infiere** automáticamente que `$edad` es de tipo `int`.
 2. `$edad = $edad + 1`:
    - La computadora evalúa primero el lado derecho: busca el valor actual de `$edad` (que es `20`), le suma `1`, dando como resultado `21`.
    - Luego, el operador `=` guarda ese nuevo valor `21` en `$edad`, sobreescribiendo el `20` anterior.
@@ -91,20 +91,20 @@ print($edad)
 
 En Joss tienes total control sobre cuán estricto o flexible quieres que sea el tipado de tus variables:
 
-### 1. Inferencia automática fija: `$x = valor` (o `var $x = valor`)
-Es la forma más rápida y recomendada para el día a día. Joss deduce el tipo en la primera asignación y a partir de ese momento la variable queda protegida:
+### 1. Inferencia canónica fija: `var $x = valor`
+Es la forma canónica para inferir el tipo. Joss deduce el tipo en la inicialización y a partir de ese momento la variable queda protegida:
 
 ```joss
-$contador = 0       // Infiere int
-$titulo = "Reporte" // Infiere string
-var $peso = 72.5    // 'var' solicita inferencia explícita; también fija float
+var $contador = 0       // Infiere int
+var $titulo = "Reporte" // Infiere string
+var $peso = 72.5        // Infiere float
 ```
 
 Si más adelante intentas meter un texto dentro de un entero, el analizador semántico detendrá el programa con el código `JOSS-TYPE-001`:
 
 <!-- joss-error: JOSS-TYPE-001 -->
 ```joss-invalid
-$cantidad = 2
+var $cantidad = 2
 $cantidad = "muchas"
 ```
 
@@ -164,7 +164,7 @@ En Joss puedes escribir cadenas de texto usando comillas dobles (`"..."`) o comi
 <!-- joss-run: ["Hola, Ada", "Primera línea", "Segunda línea"] -->
 ```joss
 // Este comentario explica el código; no se ejecuta.
-$nombre = 'Ada'
+var $nombre = 'Ada'
 print("Hola, " . $nombre)
 /* Un comentario también puede
    ocupar varias líneas. */
@@ -186,8 +186,8 @@ En muchos lenguajes se usa `+` para unir texto, lo cual genera errores graves cu
 - El operador punto `.` se utiliza **exclusivamente para concatenar texto**.
 
 ```joss
-$a = "10"
-$b = "20"
+var $a = "10"
+var $b = "20"
 print($a . $b) // Imprime "1020" (unión de textos)
 ```
 
@@ -197,8 +197,8 @@ En lugar de encadenar múltiples fragmentos con el operador punto (`"Hola " . $n
 
 <!-- joss-run: ["Hola Ada, tienes 21 años", "El doble es 42"] -->
 ```joss
-$nombre = "Ada"
-$edad = 21
+var $nombre = "Ada"
+var $edad = 21
 print("Hola ${nombre}, tienes ${edad} años")
 print("El doble es ${$edad * 2}")
 ```
@@ -212,8 +212,8 @@ print("El doble es ${$edad * 2}")
 Cuando necesitas armar mensajes con variables numéricas y textos en posiciones exactas sin encadenar muchos puntos, utiliza `printf`:
 
 ```joss
-$item = "Teclado"
-$cantidad = 2
+var $item = "Teclado"
+var $cantidad = 2
 printf("Producto: %s | Cantidad: %d\n", $item, $cantidad)
 ```
 - `%s` se reemplaza por una cadena (`string`).
@@ -249,7 +249,7 @@ Cuando quieres modificar el valor que ya tiene una variable (por ejemplo, sumar 
 
 <!-- joss-run: ["15", "12", "24", "Invitado"] -->
 ```joss
-$puntos = 10
+var $puntos = 10
 $puntos += 5
 print($puntos)
 
@@ -259,7 +259,7 @@ print($puntos)
 $puntos *= 2
 print($puntos)
 
-$nombre = null
+var $nombre = null
 $nombre = $nombre ?? "Invitado"
 print($nombre)
 ```
@@ -360,7 +360,7 @@ Si una variable tiene valor `null` o aún no ha sido inicializada, puedes asigna
 
 <!-- joss-run: ["oscuro", "oscuro"] -->
 ```joss
-$tema = null
+var $tema = null
 $tema ??= "oscuro"
 print($tema)
 $tema ??= "claro" // No sobreescribe porque ya tiene "oscuro"
@@ -392,9 +392,9 @@ Si recibes un dato como texto (por ejemplo `"25"`) y necesitas sumarle una canti
 |---|---|---|
 | Usar `+` para unir textos | `print("Total: " + $precio)` | Usa siempre el punto para texto: `print("Total: " . $precio)`. |
 | Olvidar el `$` en una variable | `edad = 20` | Todas las variables deben llevar `$`: `$edad = 20`. |
-| Cambiar de tipo una variable inferida | `$x = 10; $x = "hola"` (`JOSS-TYPE-001`) | Si necesitas que cambie de tipo, declárala como `mixed $x = 10`. |
+| Cambiar de tipo una variable inferida | `var $x = 10; $x = "hola"` (`JOSS-TYPE-001`) | Si necesitas que cambie de tipo, declárala como `mixed $x = 10`. |
 | Olvidar el sufijo `m` en importes financieros | `0.10 + 0.20` | Usa `0.10m + 0.20m` para garantizar exactitud monetaria. |
-| Reasignar una constante | `const $A = 1; $A = 2` (`JOSS-SYM-006`) | Si el valor debe cambiar, no uses `const`; usa `$A = 1`. |
+| Reasignar una constante | `const $A = 1; $A = 2` (`JOSS-SYM-006`) | Si el valor debe cambiar, no uses `const`; usa `var $A = 1`. |
 
 ---
 
@@ -405,10 +405,10 @@ Para poner en práctica todo lo aprendido en esta guía (variables, tipos, opera
 <!-- joss-run: ["Subtotal: 50", "Propina: 7.5", "Total: 57.5", "Por persona: 28.75"] -->
 ```joss
 // 1. Datos iniciales
-$subtotal = 50.0
-$propina = $subtotal * 0.15
-$total = $subtotal + $propina
-$porPersona = $total / 2.0
+var $subtotal = 50.0
+var $propina = $subtotal * 0.15
+var $total = $subtotal + $propina
+var $porPersona = $total / 2.0
 
 // 2. Mostrar resumen en pantalla
 print("Subtotal: " . $subtotal)
@@ -418,10 +418,10 @@ print("Por persona: " . $porPersona)
 ```
 
 ### Explicación paso a paso:
-1. `$subtotal = 50.0`: Guardamos el importe de la cuenta como número decimal (`float`).
-2. `$propina = $subtotal * 0.15`: Calculamos el 15% multiplicando por `0.15`.
-3. `$total = $subtotal + $propina`: Sumamos el costo de los consumos y la propina.
-4. `$porPersona = $total / 2.0`: Dividimos la cuenta equitativamente entre dos personas.
+1. `var $subtotal = 50.0`: Guardamos el importe de la cuenta como número decimal (`float`).
+2. `var $propina = $subtotal * 0.15`: Calculamos el 15% multiplicando por `0.15`.
+3. `var $total = $subtotal + $propina`: Sumamos el costo de los consumos y la propina.
+4. `var $porPersona = $total / 2.0`: Dividimos la cuenta equitativamente entre dos personas.
 5. Las llamadas a `print(...)`: Unen el texto explicativo con el valor numérico usando el operador de concatenación punto `.`.
 
 ---

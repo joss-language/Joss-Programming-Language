@@ -248,7 +248,7 @@ Modifica tu archivo `hola.joss` para que contenga:
 
 <!-- joss-run: ["Hola, Ada", "Bienvenida a Joss"] -->
 ```joss
-$nombre = "Ada"
+var $nombre = "Ada"
 print("Hola, " . $nombre)
 print("Bienvenida a Joss")
 ```
@@ -268,8 +268,9 @@ Bienvenida a Joss
 
 ### ¿Qué ha cambiado aquí?
 
-1. `$nombre = "Ada"`:
-   - El símbolo `$` al principio indica que estamos declarando o usando una variable. En Joss, **todas las variables empiezan con `$`**.
+1. `var $nombre = "Ada"`:
+   - La palabra `var` declara la variable por inferencia de tipo.
+   - El símbolo `$` al principio indica que estamos usando una variable. En Joss, **todas las variables empiezan con `$`**.
    - El signo `=` se llama **operador de asignación**. Toma el valor que está a la derecha (`"Ada"`) y lo guarda en la "caja" de memoria identificada con el nombre `$nombre`.
    - Joss infiere automáticamente que `$nombre` guarda texto (`string`).
 2. `"Hola, " . $nombre`:

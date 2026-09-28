@@ -145,14 +145,15 @@ func TestDocumentationNavigationAndPublicMirror(t *testing.T) {
 		if bytes.Count(menu, []byte(`data-page="`+name+`"`)) != 1 {
 			t.Errorf("public menu must contain %s exactly once", name)
 		}
-		if bytes.Count(controller, []byte(`"`+name+`":`)) != 1 {
+		if bytes.Count(controller, []byte(`"`+name+`":`)) != 1 && bytes.Count(controller, []byte(`"`+name+`" :`)) != 1 {
 			t.Errorf("DocsController titles must contain %s exactly once", name)
 		}
 	}
 	if got := len(regexp.MustCompile(`data-page="[A-Z0-9_]+"`).FindAll(menu, -1)); got != len(docs) {
 		t.Errorf("public menu has %d page entries; want %d", got, len(docs))
 	}
-	if got := len(regexp.MustCompile(`(?m)^\s{12}"[A-Z0-9_]+"\s*:`).FindAll(controller, -1)); got != len(docs) {
+	titlePattern := regexp.MustCompile(`(?m)^\s*(?: {4,12})?"[A-Z0-9_]+"\s*:`)
+	if got := len(titlePattern.FindAll(controller, -1)); got != len(docs) {
 		t.Errorf("DocsController has %d title entries; want %d", got, len(docs))
 	}
 }

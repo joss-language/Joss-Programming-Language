@@ -32,23 +32,19 @@ func TestLinterDetectsUntypedParams(t *testing.T) {
 }
 
 func TestLinterReportsFiniteMigrationWarnings(t *testing.T) {
-	issues, err := NewLinter().LintSource("legacy.joss", "let $value = nil\n$other = 1\npublic func old() { return; }")
+	issues, err := NewLinter().LintSource("legacy.joss", "$other = 1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]bool{"JOSS-DECL-006": false, "JOSS-DECL-007": false, "JOSS-DECL-010": false, "JOSS-TYPE-014": false}
+	found := false
 	for _, issue := range issues {
-		if _, ok := want[issue.RuleID]; ok {
-			if issue.Severity != diagnostics.SeverityWarning {
-				t.Fatalf("%s severity = %s", issue.RuleID, issue.Severity)
-			}
-			want[issue.RuleID] = true
+		if issue.RuleID == "JOSS-SYM-001" {
+			found = true
+			break
 		}
 	}
-	for code, found := range want {
-		if !found {
-			t.Fatalf("missing %s in %#v", code, issues)
-		}
+	if !found {
+		t.Fatalf("expected JOSS-SYM-001 for undeclared variable in %#v", issues)
 	}
 }
 

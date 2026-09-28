@@ -1,4 +1,4 @@
-﻿<p align="center">
+<p align="center">
   <img src="assets/logo.png" alt="Logo de Joss Language" width="150" height="150">
 </p>
 
@@ -95,7 +95,7 @@ public func saludar(string $nombre): string {
     return "Hola, " . $nombre
 }
 
-$edad = 20
+var $edad = 20
 print(saludar("Ada"))
 print(($edad >= 18) ? "Puedes participar" : "Aún debes esperar")
 ```
@@ -104,7 +104,7 @@ print(($edad >= 18) ? "Puedes participar" : "Aún debes esperar")
 1. **Prefijo `$` en variables**: Todas las variables inician obligatoriamente con el signo `$`.
 2. **Delimitación por saltos de línea**: Una sentencia por línea no requiere punto y coma (`;`). Si necesitas escribir múltiples sentencias en una misma línea, sepáralas explícitamente con `;`.
 3. **Inferencia y tipado**:
-   - Inferencia fija: `$total = 100` (infiere y fija el tipo `int`).
+   - Inferencia canónica: `var $total = 100` (infiere y fija el tipo `int`).
    - Declaración explícita: `int $contador = 0` o `string $mensaje = "Hola"`.
    - Dinamismo explícito: `mixed $variable = "dinámico"` (permite cambiar de tipo posteriormente).
    - Constantes inmutables: `const $pi = 3.1416` o `const int $max = 100`.

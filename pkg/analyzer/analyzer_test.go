@@ -66,13 +66,10 @@ string $name = 42`, NewEnvironment())
 
 func TestModernDeclarationMigrationDiagnostics(t *testing.T) {
 	environment := NewEnvironment()
-	environment.MigrationWarnings = true
-	items := analyzeSource(t, `let $dynamic = 1
-$implicit = 2
-echo $dynamic
+	items := analyzeSource(t, `$implicit = 2
 echo $implicit`, environment)
-	if !hasCode(items, "JOSS-DECL-006") || !hasCode(items, "JOSS-DECL-007") {
-		t.Fatalf("expected legacy declaration warnings, got %#v", items)
+	if !hasCode(items, "JOSS-SYM-001") {
+		t.Fatalf("expected JOSS-SYM-001 for undeclared variable, got %#v", items)
 	}
 }
 
@@ -116,8 +113,8 @@ echo $age`, NewEnvironment())
 
 func TestCallableScopesDoNotLeak(t *testing.T) {
 	items := analyzeSource(t, `public class Example {
-  public func first(mixed $value) { $local = $value echo $local }
-  public func second(mixed $value) { $local = $value echo $local }
+  public func first(mixed $value) { var $local = $value echo $local }
+  public func second(mixed $value) { var $local = $value echo $local }
 }`, NewEnvironment())
 	if hasCode(items, "JOSS-SYM-002") || hasCode(items, "JOSS-SYM-001") {
 		t.Fatalf("method-local symbols leaked across scopes: %#v", items)

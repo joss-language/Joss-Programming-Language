@@ -78,8 +78,8 @@ public class Perro extends Animal {
 
 public class Main {
     Init main() {
-        $p = new Perro();
-        $str = $p->hablar();
+        var $p = new Perro();
+        var $str = $p->hablar();
     }
 }
 `)
@@ -102,8 +102,8 @@ public enum Status {
 
 public class Main {
     Init main() {
-        $s = Status::Pending;
-        $arr = Status::cases();
+        var $s = Status::Pending;
+        var $arr = Status::cases();
     }
 }
 `)

@@ -302,16 +302,6 @@ func (a *Analyzer) analyzeDeclaration(node *parser.LetStatement, current *scope,
 		return
 	}
 	name := cleanName(node.Name.Value)
-	if a.environment.MigrationWarnings && node.DeclarationStyle == parser.DeclarationLegacyLet {
-		replacement := node.Token.Literal
-		if strings.EqualFold(replacement, "var") {
-			replacement = "mixed"
-		}
-		a.add("JOSS-DECL-006", diagnostics.SeverityWarning, a.file, node.Token,
-			"`let` declarations are deprecated.",
-			"Modern Joss uses one declaration form per intent.",
-			fmt.Sprintf("Replace `let` with `%s`; `joss fix` can apply this migration.", replacement))
-	}
 	if _, exists := current.local(name); exists {
 		a.redeclaration(name, node.Name.Token)
 		return

@@ -18,7 +18,7 @@ Fragmento para un controlador con sesión ya validada:
 
 <!-- joss-check: requiere contexto autenticado -->
 ```joss
-$usuario = Auth::user()
+var $usuario = Auth::user()
 $usuario != null ? {
     print($usuario->email)
 } : {

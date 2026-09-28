@@ -18,16 +18,23 @@ func (r *Runtime) newBlueprint() *Instance {
 	}}
 }
 
-func (r *Runtime) runBlueprint(fn *parser.FunctionLiteral) *Instance {
+func (r *Runtime) runBlueprint(fn interface{}) *Instance {
 	blueprint := r.newBlueprint()
 	if blueprint == nil {
 		return nil
 	}
-	r.Variables["$table"] = blueprint
-	if len(fn.Parameters) > 0 {
-		r.Variables[fn.Parameters[0].Name.Value] = blueprint
+	switch f := fn.(type) {
+	case *parser.FunctionLiteral:
+		r.Variables["$table"] = blueprint
+		if len(f.Parameters) > 0 {
+			r.Variables[f.Parameters[0].Name.Value] = blueprint
+		}
+		r.executeBlock(f.Body)
+	case *CapturedFunction:
+		r.applyFunction(f, []interface{}{blueprint})
+	default:
+		return nil
 	}
-	r.executeBlock(fn.Body)
 	return blueprint
 }
 

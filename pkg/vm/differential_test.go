@@ -20,12 +20,12 @@ func TestInterpreterAndVMSupportedDifferentialFeatures(t *testing.T) {
 		name, source string
 		want         interface{}
 	}{
-		{name: "integer arithmetic", source: `$result = 1 + 2 * 3`, want: int64(7)},
-		{name: "integer comparison", source: `$result = 3 >= 2`, want: true},
-		{name: "integer prefix", source: `$result = -4 + 10`, want: int64(6)},
-		{name: "local assignment", source: "int $a = 10\n$result = $a + 5", want: int64(15)},
-		{name: "equality comparison", source: `$result = 10 == 10`, want: true},
-		{name: "while loop", source: "int $i = 0\nint $sum = 0\nwhile ($i < 5) {\n    $sum = $sum + $i\n    $i++\n}\n$result = $sum", want: int64(10)},
+		{name: "integer arithmetic", source: `var $result = 1 + 2 * 3`, want: int64(7)},
+		{name: "integer comparison", source: `var $result = 3 >= 2`, want: true},
+		{name: "integer prefix", source: `var $result = -4 + 10`, want: int64(6)},
+		{name: "local assignment", source: "int $a = 10\nvar $result = $a + 5", want: int64(15)},
+		{name: "equality comparison", source: `var $result = 10 == 10`, want: true},
+		{name: "while loop", source: "int $i = 0\nint $sum = 0\nwhile ($i < 5) {\n    $sum = $sum + $i\n    $i++\n}\nvar $result = $sum", want: int64(10)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -126,10 +126,10 @@ func createCRUDController(modelName, tableName string, cols []ColumnSchema, rela
 
 	// Build Index Query with Joins
 	// Note: GranDB now handles prefixes automatically for select() and joins()
-	indexLogic := fmt.Sprintf(`$%s = new %s()`, strings.ToLower(modelName), modelName)
+	indexLogic := fmt.Sprintf(`var $%s = new %s()`, strings.ToLower(modelName), modelName)
 
 	if len(relations) > 0 {
-		indexLogic += fmt.Sprintf("\n        $data = $%s", strings.ToLower(modelName))
+		indexLogic += fmt.Sprintf("\n        var $data = $%s", strings.ToLower(modelName))
 
 		// Selects
 		// Use base table names, ORM will prefix them
@@ -151,7 +151,7 @@ func createCRUDController(modelName, tableName string, cols []ColumnSchema, rela
 		}
 		indexLogic += "->get()"
 	} else {
-		indexLogic += fmt.Sprintf("\n        $data = $%s->get()", strings.ToLower(modelName))
+		indexLogic += fmt.Sprintf("\n        var $data = $%s->get()", strings.ToLower(modelName))
 	}
 
 	// Build Create Logic (Fetch relations)
@@ -167,8 +167,8 @@ func createCRUDController(modelName, tableName string, cols []ColumnSchema, rela
 			relModel = strings.TrimPrefix(relModel, camelPrefix)
 			relModel = strings.Title(singularize(relModel))
 			varName := strings.ToLower(pluralize(relModel)) // roles
-			createLogic += fmt.Sprintf("\n        $%sModel = new %s()", strings.ToLower(relModel), relModel)
-			createLogic += fmt.Sprintf("\n        $%s = $%sModel->get()", varName, strings.ToLower(relModel))
+			createLogic += fmt.Sprintf("\n        var $%sModel = new %s()", strings.ToLower(relModel), relModel)
+			createLogic += fmt.Sprintf("\n        var $%s = $%sModel->get()", varName, strings.ToLower(relModel))
 			createVars += fmt.Sprintf(", \"%s\": $%s", varName, varName)
 		}
 	}
@@ -178,46 +178,47 @@ func createCRUDController(modelName, tableName string, cols []ColumnSchema, rela
     
     public func index() {
         %s
-        return view("%s.index", {"items": $data})
+        return view("%s.index", {"title": "%s", "items": $data})
     }
 
     public func create() {
         %s
-        return view("%s.create", {%s})
+        return view("%s.create", {"title": "Crear %s"%s})
     }
 
     public func store() {
-        $model = new %s()
-        $data = %s
+        var $model = new %s()
+        var $data = %s
         $model->insert($data)
         return redirect("/%s")->with("success", "%s creado correctamente.")
     }
 
     public func edit(mixed $id) {
-        $model = new %s()
-        $item = $model->where("id", $id)->first()
+        var $model = new %s()
+        var $item = $model->where("id", $id)->first()
         (!$item) ? {
             return redirect("/%s")->with("error", "Registro no encontrado.")
         }
         %s
-        return view("%s.edit", {"item": $item%s})
+        return view("%s.edit", {"title": "Editar %s", "item": $item%s})
     }
 
     public func update(mixed $id) {
-        $model = new %s()
-        $data = %s
+        var $model = new %s()
+        var $data = %s
         $model->where("id", $id)->update($data)
         return redirect("/%s")->with("success", "%s actualizado correctamente.")
     }
 
     public func delete(mixed $id) {
-        $model = new %s()
+        var $model = new %s()
         $model->where("id", $id)->delete()
         return redirect("/%s")->with("success", "%s eliminado correctamente.")
     }
-}`, modelName, indexLogic, viewPrefix, createLogic, viewPrefix, strings.TrimPrefix(createVars, ", "),
+}`, modelName, indexLogic, viewPrefix, modelName,
+		createLogic, viewPrefix, modelName, createVars,
 		modelName, requestData, viewPrefix, modelName,
-		modelName, viewPrefix, createLogic, viewPrefix, createVars,
+		modelName, viewPrefix, createLogic, viewPrefix, modelName, createVars,
 		modelName, requestData, viewPrefix, modelName,
 		modelName, viewPrefix, modelName)
 

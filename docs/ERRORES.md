@@ -161,7 +161,7 @@ Por ejemplo, leer un archivo que no existe:
 
 <!-- joss-run: ["No se pudo leer el archivo"] -->
 ```joss
-$contenido = file_get_contents("archivo-que-no-existe.txt")
+var $contenido = file_get_contents("archivo-que-no-existe.txt")
 ($contenido == null) ? {
     print("No se pudo leer el archivo")
 } : {

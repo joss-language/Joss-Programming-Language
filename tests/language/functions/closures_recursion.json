@@ -1,6 +1,6 @@
 {
   "name": "functions_closures_recursion",
-  "source": "public func makeMultiplier(int $factor) {\n  return func(int $x): int {\n    return $x * $factor\n  }\n}\npublic func main(): int {\n  $triple = makeMultiplier(3)\n  return $triple(15)\n}",
+  "source": "public func makeMultiplier(int $factor) {\n  return func(int $x): int {\n    return $x * $factor\n  }\n}\npublic func main(): int {\n  var $triple = makeMultiplier(3)\n  return $triple(15)\n}",
   "expected_diagnostics": [],
   "expected_runtime_int": 45
 }

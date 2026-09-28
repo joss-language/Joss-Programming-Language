@@ -45,7 +45,7 @@ metadatos de parámetros en parte de la biblioteca.
 ```joss
 print(Str::trim(" abc "))
 print(Str::indexOf("casa", "a"))
-$pila = new Stack()
+var $pila = new Stack()
 $pila->push("uno")
 $pila->push("dos")
 print($pila->pop())
@@ -75,7 +75,7 @@ Fragmento contextual: requiere un servidor escuchando en esa dirección.
 
 <!-- joss-check: necesita servicio HTTP local -->
 ```joss
-$respuesta = Http::request("GET", "http://127.0.0.1:8080/saludo/Ana", {"timeout": 3})
+var $respuesta = Http::request("GET", "http://127.0.0.1:8080/saludo/Ana", {"timeout": 3})
 $respuesta["success"] ? {
     print($respuesta["body"])
 } : {

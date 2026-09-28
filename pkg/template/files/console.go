@@ -167,14 +167,14 @@ public class ExampleController {
         print("Ejecutando ExampleController...")
         
         // Tu lógica aquí
-        $resultado = $this->procesarDatos()
+        var $resultado = $this->procesarDatos()
         
         return $resultado
     }
     
     public func procesarDatos() {
         // Ejemplo de procesamiento
-        $datos = ["item1", "item2", "item3"]
+        var $datos = ["item1", "item2", "item3"]
         
         foreach ($datos as $item) {
             print("Procesando: " . $item)

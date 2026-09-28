@@ -139,7 +139,11 @@ func (l *Linter) LintPath(targetPath string) ([]LintIssue, error) {
 				}
 				return nil
 			}
-			units = append(units, semanticanalyzer.SourceUnit{Path: path, Program: program})
+			// Test files (*_test.joss or under tests/) use test runner globals (test, assertTrue, assertEqual, etc.)
+			// that are not part of regular app-level semantic compilation units.
+			if !parser.IsTestSourceFile(path) {
+				units = append(units, semanticanalyzer.SourceUnit{Path: path, Program: program})
+			}
 			allIssues = append(allIssues, checkASTRules(path, program, string(data))...)
 		}
 		return nil
