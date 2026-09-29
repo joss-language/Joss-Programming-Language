@@ -945,7 +945,7 @@ Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L146).
 
 ## UserStorage
 
-Implementación: [executeUserStorageMethod](../pkg/core/lib_storage.go#L20).
+Implementación: [executeUserStorageMethod](../pkg/core/lib_storage.go#L21).
 
 | Método | Retorno publicado al analizador |
 |---|---|
