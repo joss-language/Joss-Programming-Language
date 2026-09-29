@@ -57,11 +57,10 @@ Al modificar invocación u operadores:
 
 ## 4. Reglas semánticas de variables y tipos
 
-- `$x = 1`: La primera asignación declara e infiere `int`; las siguientes deben ser compatibles.
-- `var $x = 1`: Inferencia explícita, también fija.
-- `int $x = 1` o `let int $x = 1`: Tipo explícito.
-- `let $x = 1`: `mixed` explícito; permite cambiar de tipo (no significa constante).
-- `mixed $x = 1`: Dinamismo explícito equivalente; no existe un modo de tipado en `joss.yaml`.
+- `var $x = 1`: Declaración canónica por inferencia estricta y fija.
+- `$x = 1`: La asignación directa sin declaración previa está en deprecación; emite `JOSS-DECL-007` y en modo estricto o fuera de contextos históricos es rechazada como variable no declarada (`JOSS-SYM-001`). Toda variable debe declararse previamente con `var`, tipo explícito, `mixed` o `const`.
+- `int $x = 1`: Tipo explícito. `let int $x = 1` y `let $x = 1` son sintaxis histórica en transición (`JOSS-DECL-006`); use `mixed $x = 1` para dinamismo explícito voluntario.
+- `mixed $x = 1`: Dinamismo explícito voluntario; permite cambiar de tipo en reasignaciones. No existe un modo dinámico global en `joss.yaml`.
 - **Todo parámetro fuente debe declarar un tipo explícito**. Usa `mixed $x` si es dinámico; `$x` sin tipo ya no es válido (`JOSS-TYPE-011`).
 - Los antiguos aliases `integer`, `double`, `boolean`, `dynamic`, `any` y `list` fueron retirados. Usarlos emite `JOSS-TYPE-009`. No deben reintroducirse accidentalmente.
 - Una inicialización con `nil`/`null` pospone la inferencia hasta la asignación de un valor concreto.
@@ -171,6 +170,9 @@ go build ./...
 # Pruebas de documentación y contratos de snippets
 go test ./pkg/core -run TestDocumentation -v
 
+# Verificación y sincronización de documentación internacionalizada (i18n)
+go run ./tools/docsi18n --check
+
 # Validación de la extensión VS Code
 cd vscode-joss
 npm ci
@@ -227,6 +229,24 @@ Las reglas arquitectónicas negativas siguen vigentes: analyzer no importa core;
 - Un método GranDB solo puede publicarse en `native.go` cuando el dispatcher tiene una ruta alcanzable, el retorno está proyectado al analyzer y existe al menos una prueba positiva. La compatibilidad de un motor solo se declara cuando una prueba de integración se ejecuta contra ese motor; los golden tests de SQL demuestran compilación, no ejecución.
 - `update` y `delete` requieren filtros. Las variantes que afecten toda una tabla deben tener un nombre explícito y pruebas que demuestren la intención destructiva.
 - Logging SQL es opt in. Nunca imprima bindings automáticamente; cualquier observer futuro debe admitir redacción y documentar su lifetime en `Runtime`, `Fork` y `Free`.
+
+## Séptima fase de arquitectura — Septiembre de 2026
+
+- **Clases Genéricas y Records Inmutables**:
+  - `public class Box<T>` permite parámetros formales de tipo analizados en contratos nominales y constructores (`Init`).
+  - `public record Nombre(Tipo $campo1, Tipo $campo2)` genera una clase sellada cuyos campos son constantes inmutables post-inicialización, con constructor canónico auto-generado si no se declara uno explícito.
+- **Canales Tipados y Concurrencia**:
+  - Se soportan canales con tipo `channel<T>`.
+  - Operaciones sobre canales cerrados (`JOSS-CHANNEL-001`) o capacidades inválidas (`JOSS-CHANNEL-002`) emiten diagnósticos runtime precisos.
+  - La expresión `await` suspende y propaga errores cooperativamente con cancelaciones de contexto (`Future.Cancel()`).
+- **Aislamiento de Archivos de Prueba en Linter y Analyzer**:
+  - Los archivos de prueba (`*_test.joss` o dentro de carpetas `test/` y `tests/`) se detectan con `parser.IsTestSourceFile()`.
+  - `joss check` y el linter excluyen automáticamente los archivos de prueba del análisis semántico estricto de proyecto para evitar falsos positivos por variables libres o mocks de prueba.
+- **IndexNow, SEO y Sitemap**:
+  - Integración nativa de `IndexNow` (generación automática de claves y endpoints de verificación).
+  - `/sitemap.xml` dinámico en vivo con soporte de exclusiones configurables y formato de fecha canónico.
+- **Soporte Móvil (Android/Termux e iOS)**:
+  - Runtimes con buffers de salida aislados y wrappers defensivos para ejecución multiplataforma y captura segura de salida tardía.
 
 ---
 
