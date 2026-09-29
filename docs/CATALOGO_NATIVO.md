@@ -783,7 +783,7 @@ Implementación: [executeSQLiteMethod](../pkg/core/native_sqlite.go#L16).
 
 ## Schema
 
-Implementación: [executeSchemaMethod](../pkg/core/schema.go#L119).
+Implementación: [executeSchemaMethod](../pkg/core/schema.go#L125).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -1138,4 +1138,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 54 clases, 663 métodos y 126 built-ins.
+Total: 54 clases, 664 métodos y 126 built-ins.

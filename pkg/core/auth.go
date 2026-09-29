@@ -884,4 +884,3 @@ func (r *Runtime) createAuthLoginResultForUser(userId int) (*Instance, error) {
 		Fields: resFields,
 	}, nil
 }
-
