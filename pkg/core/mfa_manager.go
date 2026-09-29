@@ -47,4 +47,17 @@ func (r *Runtime) EnsureMFATables() {
 	}); err != nil {
 		fmt.Printf("[MFA] Error creando security_logs: %v\n", err)
 	}
+
+	// 4. Create MFA Challenges Table (for Email OTP and session challenges)
+	if err := r.ensureInternalSchemaTable("user_mfa_challenges", []schemaColumn{
+		{name: "id", definition: "increments"},
+		{name: "user_id", definition: "bigInteger"},
+		{name: "method_type", definition: "string(50)"},
+		{name: "code_hash", definition: "string(255)"},
+		{name: "expires_at", definition: "timestamp|nullable"},
+		{name: "used", definition: "boolean|default(0)"},
+		{name: "created_at", definition: "timestamp|nullable"},
+	}); err != nil {
+		fmt.Printf("[MFA] Error creando user_mfa_challenges: %v\n", err)
+	}
 }

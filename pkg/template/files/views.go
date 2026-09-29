@@ -204,6 +204,21 @@ func GetViewFiles(path string) map[string]string {
         </div>
         <button type="submit" class="w-full py-3 px-4 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-500/20 transition duration-150">Entrar</button>
     </form>
+
+    {{ ($socialProviders) ? {
+    <div class="relative flex py-4 items-center">
+        <div class="flex-grow border-t border-gray-100 dark:border-gray-700"></div>
+        <span class="flex-shrink mx-4 text-xs text-gray-400 uppercase">o inicia sesión con</span>
+        <div class="flex-grow border-t border-gray-100 dark:border-gray-700"></div>
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+        @foreach($socialProviders as $sp)
+        <a href="/auth/{{ $sp }}/redirect" class="flex items-center justify-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+            <span class="capitalize">{{ $sp }}</span>
+        </a>
+        @endforeach
+    </div>
+    } }}
     
     <div class="mt-6 text-center text-sm border-t border-gray-100 dark:border-gray-700 pt-5">
         <p class="text-gray-400">¿No tienes cuenta? <a href="/register" class="text-blue-500 hover:underline">Regístrate aquí</a></p>
@@ -256,6 +271,21 @@ func GetViewFiles(path string) map[string]string {
         </div>
         <button type="submit" class="w-full py-3 px-4 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-500/20 transition duration-150">Crear Cuenta</button>
     </form>
+
+    {{ ($socialProviders) ? {
+    <div class="relative flex py-4 items-center">
+        <div class="flex-grow border-t border-gray-100 dark:border-gray-700"></div>
+        <span class="flex-shrink mx-4 text-xs text-gray-400 uppercase">o regístrate con</span>
+        <div class="flex-grow border-t border-gray-100 dark:border-gray-700"></div>
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+        @foreach($socialProviders as $sp)
+        <a href="/auth/{{ $sp }}/redirect" class="flex items-center justify-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+            <span class="capitalize">{{ $sp }}</span>
+        </a>
+        @endforeach
+    </div>
+    } }}
     
     <div class="mt-6 text-center text-sm border-t border-gray-100 dark:border-gray-700 pt-5">
         <p class="text-gray-400">¿Ya tienes cuenta? <a href="/login" class="text-blue-500 hover:underline">Inicia sesión</a></p>

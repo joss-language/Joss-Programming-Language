@@ -113,12 +113,18 @@ func GetControllerFiles(path string) map[string]string {
 		filepath.Join(path, "app", "controllers", "auth", "AuthController.joss"): `public class AuthController {
     public func showLogin() {
         (!Auth::guest()) ? { return redirect("/dashboard") }
-        return view("auth.login", {"title": "Iniciar Sesión"})
+        return view("auth.login", {
+            "title": "Iniciar Sesión",
+            "socialProviders": Auth::enabledSocialProviders()
+        })
     }
     
     public func showRegister() {
         (!Auth::guest()) ? { return redirect("/dashboard") }
-        return view("auth.register", {"title": "Crear Cuenta"})
+        return view("auth.register", {
+            "title": "Crear Cuenta",
+            "socialProviders": Auth::enabledSocialProviders()
+        })
     }
     
     public func doLogin() {
@@ -126,7 +132,6 @@ func GetControllerFiles(path string) map[string]string {
         var $password = request("password")
         
         var $loginResult = Auth::login($email, $password)
-        $loginResult->require2FA()
         
         return $loginResult->onSuccess(func(mixed $jwt) {
             return redirect("/dashboard")->withCookie("joss_token", $jwt)
@@ -221,6 +226,43 @@ func GetControllerFiles(path string) map[string]string {
     public func logout() {
         Auth::logout()
         return redirect("/login")->withCookie("joss_token", "")
+    }
+
+    public func socialRedirect(mixed $provider) {
+        var $redirectUri = Request::root() . "/auth/" . $provider . "/callback"
+        var $state = Str::random(16)
+        Session::put("oauth_state", $state)
+        var $url = Auth::socialRedirect($provider, $redirectUri, $state)
+        (!$url) ? {
+            return redirect("/login")->with("error", "Proveedor no disponible o no configurado.")
+        }
+        return redirect($url)
+    }
+
+    public func socialCallback(mixed $provider) {
+        var $code = request("code")
+        var $state = request("state")
+        var $savedState = Session::get("oauth_state")
+        Session::forget("oauth_state")
+        ($state != $savedState) ? {
+            return redirect("/login")->with("error", "Estado OAuth inválido.")
+        }
+        (!$code) ? {
+            return redirect("/login")->with("error", "No se recibió código de autorización.")
+        }
+        var $redirectUri = Request::root() . "/auth/" . $provider . "/callback"
+        var $loginResult = Auth::socialCallback($provider, $code, $redirectUri)
+        (!$loginResult) ? {
+            return redirect("/login")->with("error", "Error al autenticar con " . $provider . ".")
+        }
+        return $loginResult->onSuccess(func(mixed $jwt) {
+            return redirect("/dashboard")->withCookie("joss_token", $jwt)
+        })->onChallenge(func(mixed $tempToken) {
+            Session::put("temp_2fa_token", $tempToken)
+            return redirect("/2fa/verify")
+        })->onFail(func(mixed $error) {
+            return redirect("/login")->with("error", "Error de autenticación social: " . $error)
+        })->response()
     }
     
     // API JWT Login

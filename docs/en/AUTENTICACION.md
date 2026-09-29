@@ -50,25 +50,25 @@ in the entire instance.
 |`resendVerification(email)` |verification token or false;message delivery is up to the application.|
 |`forgotPassword(email)` |Recovery token or false;It is not SMTP sending confirmation.|
 |`resetPassword(token,nueva)` |true or error text: invalid_token, weak_password, database_error, used_token, expired_token.Compare with true, not just truthiness of the text.|
-|`verify2FAChallenge(token,codigo)` |JWT final or false after verifying challenge and code.|
+|`verify2FAChallenge(token,codigo)` |JWT final or false after verifying challenge and code (supports TOTP App and Email OTP).|
 |`complete2FA(id)` |Generates JWT after searching for user;**does not check a TOTP code itself**.Do not expose as a public endpoint with an ID provided by the client.|
+|`enabledSocialProviders()` |Array of OAuth providers enabled in current env (`google`, `apple`, `facebook`, `x`, `github`, `twitch`, `yahoo`, `microsoft`).|
+|`socialRedirect(provider,redirectUrl)` |OAuth redirect URL for the given provider.|
+|`socialCallback(provider,code,redirectUrl)` |AuthLoginResult processed after exchanging authorization code and linking/registering user.|
 
 ## Smooth result and callbacks
 
-`AuthLoginResult` preserves success, error, user, and response.Each
-method returns the same instance except response():
+`AuthLoginResult` preserves success, error, user, and response. Two-factor authentication (2FA) is automatically evaluated in `Auth::login` (detecting both TOTP authenticator apps and Email OTP):
 
 |Method |When to call callback |Parameter |
 |---|---|---|
-|`require2FA()` |Check active MFA methods and check requirements.|No callback.|
 |`onSuccess(callback)` |Correct credentials and no challenge required.|JWT.|
-|`onChallenge(callback)` |Correct credentials and challenge required.|Challenge temporary JWT.|
+|`onChallenge(callback)` |Correct credentials and challenge required (TOTP App or Email OTP).|Challenge temporary JWT.|
 |`onFail(callback)` |Incorrect credentials.|Error message.|
 |`response()` |Returns result of the executed callback or null.|None.|
 
 Source callbacks must type their parameters, for example
 `func(mixed $token) { return Response::json({"token": $token}) }` .
-Register require2FA before onSuccess when the flow requires second factor.
 Do not show a final token before finishing the challenge.
 
 ## MFA and TwoFactor
@@ -94,5 +94,29 @@ are not presented as cryptographic guarantees of the framework.
 the last textual error.Requires SMTP server and MAIL_* configuration as per
 [smtp_native.go](../../pkg/core/smtp_native.go) .Creating a token does not send that email.
 
-Sources: [Auth](../../pkg/core/auth.go) , [JWT](../../pkg/core/auth_jwt.go) ,
+## Social Authentication (OAuth 2.0)
+
+Joss natively supports social login and account linking with 8 OAuth providers. Each provider is enabled **automatically** when you set both environment variables in your `.env` or `env.joss` file:
+
+| Provider | Client ID Variable | Client Secret Variable |
+|---|---|---|
+| Google | `GOOGLE_CLIENT_ID` | `GOOGLE_CLIENT_SECRET` |
+| GitHub | `GITHUB_CLIENT_ID` | `GITHUB_CLIENT_SECRET` |
+| Microsoft | `MICROSOFT_CLIENT_ID` | `MICROSOFT_CLIENT_SECRET` |
+| X (Twitter) | `X_CLIENT_ID` | `X_CLIENT_SECRET` |
+| Facebook | `FACEBOOK_CLIENT_ID` | `FACEBOOK_CLIENT_SECRET` |
+| Apple | `APPLE_CLIENT_ID` | `APPLE_CLIENT_SECRET` |
+| Twitch | `TWITCH_CLIENT_ID` | `TWITCH_CLIENT_SECRET` |
+| Yahoo | `YAHOO_CLIENT_ID` | `YAHOO_CLIENT_SECRET` |
+
+The callback redirect URL registered in each developer console must point to:
+```text
+https://your-domain.com/auth/{provider}/callback
+```
+
+- `Auth::enabledSocialProviders()` returns only the list of providers whose credentials are set.
+- `Auth::socialRedirect(provider, redirectUrl)` generates the secure OAuth URL with anti-CSRF `state` parameter.
+- `Auth::socialCallback(provider, code, redirectUrl)` exchanges the authorization code, retrieves user profile, links in `user_social_accounts`, and returns an `AuthLoginResult`.
+
+Sources: [Auth](../../pkg/core/auth.go) , [OAuth Social](../../pkg/core/auth_social.go) , [JWT](../../pkg/core/auth_jwt.go) ,
 [MFA flow](../../pkg/core/auth_fluent.go) , [tables](../../pkg/core/auth_tables.go) .

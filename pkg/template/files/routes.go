@@ -16,6 +16,10 @@ Router::get("/verify/{token}", "AuthController@verify")
 Router::get("/2fa/verify", "AuthController@showVerify2FA")
 Router::post("/2fa/verify", "AuthController@doVerify2FA")
 
+// Social Login (OAuth)
+Router::get("/auth/{provider}/redirect", "AuthController@socialRedirect")
+Router::get("/auth/{provider}/callback", "AuthController@socialCallback")
+
 // Password Recovery
 Router::get("/password/forgot", "PasswordController@showForgot")
 Router::post("/password/email", "PasswordController@sendResetLink")

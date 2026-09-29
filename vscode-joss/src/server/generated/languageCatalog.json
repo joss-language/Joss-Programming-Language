@@ -199,6 +199,7 @@
       "complete2FA",
       "create",
       "delete",
+      "enabledSocialProviders",
       "forgotPassword",
       "guest",
       "hasRole",
@@ -209,6 +210,8 @@
       "refresh",
       "resendVerification",
       "resetPassword",
+      "socialCallback",
+      "socialRedirect",
       "update",
       "user",
       "validateToken",
@@ -220,7 +223,6 @@
       "onChallenge",
       "onFail",
       "onSuccess",
-      "require2FA",
       "response"
     ],
     "Blueprint": [

@@ -63,6 +63,20 @@ func (r *Runtime) ensureAuthTables(usersTable, rolesTable, prefix string) {
 		return
 	}
 
+	// 4. Tabla de Cuentas Sociales (OAuth) con Schema::create
+	if err := r.ensureInternalSchemaTable("user_social_accounts", []schemaColumn{
+		{name: "id", definition: "bigIncrements"},
+		{name: "user_id", definition: "bigInteger"},
+		{name: "provider", definition: "string(50)"},
+		{name: "provider_user_id", definition: "string(191)"},
+		{name: "avatar", definition: "text|nullable"},
+		{name: "created_at", definition: "timestamp|nullable"},
+		{name: "updated_at", definition: "timestamp|nullable"},
+	}); err != nil {
+		fmt.Printf("[Auth] Error creando tabla user_social_accounts: %v\n", err)
+		return
+	}
+
 	// 4. Auto-Patching de columnas en tablas existentes usando Schema::hasColumn y Schema::table
 	patchColumns := map[string]string{
 		"username":         "string(50)|nullable",

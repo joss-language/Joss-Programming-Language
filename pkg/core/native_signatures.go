@@ -227,7 +227,7 @@ var fluentNativeClasses = map[string]bool{
 }
 
 var fluentNativeMethods = nameSet(
-	"AuthLoginResult::require2FA", "AuthLoginResult::onSuccess", "AuthLoginResult::onChallenge", "AuthLoginResult::onFail",
+	"AuthLoginResult::onSuccess", "AuthLoginResult::onChallenge", "AuthLoginResult::onFail",
 	"GranDB::table", "GranDB::select", "GranDB::changeDB", "GranDB::changedb", "GranDB::connection", "GranDB::use", "GranDB::distinct",
 	"GranDB::where", "GranDB::orWhere", "GranDB::orwhere", "GranDB::whereLike", "GranDB::wherelike",
 	"GranDB::orWhereLike", "GranDB::orwherelike", "GranDB::whereColumn", "GranDB::wherecolumn", "GranDB::orWhereColumn", "GranDB::orwherecolumn",
@@ -246,11 +246,13 @@ var fluentNativeMethods = nameSet(
 )
 
 var preciseNativeReturns = map[string]string{
-	"Auth::check":                "bool",
-	"Auth::guest":                "bool",
-	"Auth::hasRole":              "bool",
-	"Auth::verify":               "bool",
-	"Cache::has":                 "bool",
+	"Auth::check":                  "bool",
+	"Auth::guest":                  "bool",
+	"Auth::hasRole":                "bool",
+	"Auth::verify":                 "bool",
+	"Auth::enabledSocialProviders": "array",
+	"Auth::socialRedirect":         "string",
+	"Cache::has":                   "bool",
 	"Exception::getCode":         "int",
 	"Exception::getMessage":      "string",
 	"GranDB::avg":                "float|null",

@@ -10,7 +10,7 @@ de contratos y el handler enlazado. `mixed` no certifica aislamiento ni ausencia
 
 ## Auth
 
-Implementación: [executeAuthMethod](../pkg/core/auth.go#L14).
+Implementación: [executeAuthMethod](../pkg/core/auth.go#L15).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -19,6 +19,7 @@ Implementación: [executeAuthMethod](../pkg/core/auth.go#L14).
 | `complete2FA` | `mixed` |
 | `create` | `mixed` |
 | `delete` | `mixed` |
+| `enabledSocialProviders` | `array` |
 | `forgotPassword` | `mixed` |
 | `guest` | `bool` |
 | `hasRole` | `bool` |
@@ -29,6 +30,8 @@ Implementación: [executeAuthMethod](../pkg/core/auth.go#L14).
 | `refresh` | `mixed` |
 | `resendVerification` | `mixed` |
 | `resetPassword` | `mixed` |
+| `socialCallback` | `mixed` |
+| `socialRedirect` | `string` |
 | `update` | `mixed` |
 | `user` | `mixed` |
 | `validateToken` | `mixed` |
@@ -45,7 +48,6 @@ Implementación: [executeAuthLoginResultMethod](../pkg/core/auth_fluent.go#L18).
 | `onChallenge` | `AuthLoginResult` |
 | `onFail` | `AuthLoginResult` |
 | `onSuccess` | `AuthLoginResult` |
-| `require2FA` | `AuthLoginResult` |
 | `response` | `mixed` |
 
 ## Blueprint
@@ -388,7 +390,7 @@ Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
 
 ## MFA
 
-Implementación: [executeMFAMethod](../pkg/core/auth_fluent.go#L99).
+Implementación: [executeMFAMethod](../pkg/core/auth_fluent.go#L77).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -926,7 +928,7 @@ Implementación: [executeTaskMethod](../pkg/core/task.go#L10).
 
 ## TwoFactor
 
-Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L168).
+Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L146).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -1135,4 +1137,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 54 clases, 661 métodos y 126 built-ins.
+Total: 54 clases, 663 métodos y 126 built-ins.

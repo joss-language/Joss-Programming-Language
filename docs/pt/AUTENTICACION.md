@@ -50,25 +50,25 @@ em toda a instância.
 | `resendVerification(email)` | token de verificação ou falso; a entrega da mensagem fica por conta do aplicativo. |
 | `forgotPassword(email)` | Token de recuperação ou falso; Não é confirmação de envio SMTP. |
 | `resetPassword(token,nueva)` | texto verdadeiro ou de erro: invalid_token, fraca_password, database_error, used_token, expired_token. Compare com a verdade, não apenas com a veracidade do texto. |
-| `verify2FAChallenge(token,codigo)` | JWT final ou falso após verificar o desafio e o código. |
+| `verify2FAChallenge(token,codigo)` | JWT final ou falso após verificar o desafio e o código (suporta App TOTP e Email OTP). |
 | `complete2FA(id)` | Gera JWT após busca pelo usuário; **não verifica um código TOTP em si**. Não exponha como um endpoint público com um ID fornecido pelo cliente. |
+| `enabledSocialProviders()` | Array de provedores OAuth habilitados no ambiente atual (`google`, `apple`, `facebook`, `x`, `github`, `twitch`, `yahoo`, `microsoft`). |
+| `socialRedirect(provedor,urlRetorno)` | URL de redirecionamento OAuth para o provedor indicado. |
+| `socialCallback(provedor,codigo,urlRetorno)` | AuthLoginResult processado após a troca do código e registro/vinculação do usuário. |
 
 ## Resultado suave e retornos de chamada
 
-`AuthLoginResult` preserva sucesso, erro, usuário e resposta. Cada método
-retorna a mesma instância, exceto response():
+`AuthLoginResult` preserva sucesso, erro, usuário e resposta. A avaliação de dois fatores (2FA) é realizada automaticamente em `Auth::login` (detectando aplicativos autenticadores TOTP e OTP por e-mail):
 
 | Método | Quando ligar para retorno de chamada | Parâmetro |
 |---|---|---|
-| `require2FA()` | Verifique os métodos de MFA ativos e verifique os requisitos. | Sem retorno de chamada. |
 | `onSuccess(callback)` | Credenciais corretas e nenhum desafio necessário. | JWT. |
-| `onChallenge(callback)` | Credenciais corretas e desafio necessário. | Desafie o JWT temporário. |
+| `onChallenge(callback)` | Credenciais corretas e desafio necessário (App TOTP ou Email OTP). | Desafie o JWT temporário. |
 | `onFail(callback)` | Credenciais incorretas. | Mensagem de erro. |
 | `response()` | Retorna o resultado do retorno de chamada executado ou nulo. | Nenhum. |
 
 Os retornos de chamada de origem devem digitar seus parâmetros, por exemplo
 `func(mixed $token) { return Response::json({"token": $token}) }` .
-Registra require2FA antes de onSuccess quando o fluxo requer o segundo fator.
 Não mostre um token final antes de terminar o desafio.
 
 ## MFA e TwoFactor
@@ -94,5 +94,29 @@ não são apresentados como garantias criptográficas do framework.
 o último erro textual. Requer servidor SMTP e configuração MAIL_* de acordo com
 [smtp_native.go](../../pkg/core/smtp_native.go) . A criação de um token não envia esse email.
 
-Fontes: [Auth](../../pkg/core/auth.go) , [JWT](../../pkg/core/auth_jwt.go) ,
+## Autenticação Social (OAuth 2.0)
+
+O Joss oferece suporte nativo para login e vinculação de contas com 8 provedores OAuth. Cada provedor é ativado **automaticamente** quando você define suas duas variáveis de ambiente no arquivo `.env` ou `env.joss`:
+
+| Provedor | Variável Client ID | Variável Client Secret |
+|---|---|---|
+| Google | `GOOGLE_CLIENT_ID` | `GOOGLE_CLIENT_SECRET` |
+| GitHub | `GITHUB_CLIENT_ID` | `GITHUB_CLIENT_SECRET` |
+| Microsoft | `MICROSOFT_CLIENT_ID` | `MICROSOFT_CLIENT_SECRET` |
+| X (Twitter) | `X_CLIENT_ID` | `X_CLIENT_SECRET` |
+| Facebook | `FACEBOOK_CLIENT_ID` | `FACEBOOK_CLIENT_SECRET` |
+| Apple | `APPLE_CLIENT_ID` | `APPLE_CLIENT_SECRET` |
+| Twitch | `TWITCH_CLIENT_ID` | `TWITCH_CLIENT_SECRET` |
+| Yahoo | `YAHOO_CLIENT_ID` | `YAHOO_CLIENT_SECRET` |
+
+A URL de redirecionamento (callback) registrada no console de desenvolvedor deve apontar para:
+```text
+https://seu-dominio.com/auth/{provedor}/callback
+```
+
+- `Auth::enabledSocialProviders()` retorna apenas a lista de provedores com credenciais configuradas.
+- `Auth::socialRedirect(provedor, urlRetorno)` gera a URL segura para o provedor OAuth com proteção `state` anti-CSRF.
+- `Auth::socialCallback(provedor, codigo, urlRetorno)` troca o código, recupera o perfil, vincula em `user_social_accounts` e retorna um `AuthLoginResult`.
+
+Fontes: [Auth](../../pkg/core/auth.go) , [OAuth Social](../../pkg/core/auth_social.go) , [JWT](../../pkg/core/auth_jwt.go) ,
 [Fluxo MFA](../../pkg/core/auth_fluent.go) , Tabelas [../pkg/core/auth_tables.go](../../pkg/core/auth_tables.go) .

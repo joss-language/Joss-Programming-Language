@@ -17,28 +17,6 @@ import (
 // executeAuthLoginResultMethod handles the fluent login builder methods
 func (r *Runtime) executeAuthLoginResultMethod(instance *Instance, method string, args []interface{}) interface{} {
 	switch method {
-	case "require2FA":
-		userId, okId := instance.Fields["user_id"].(int)
-		success, okSuccess := instance.Fields["success"].(bool)
-
-		if okId && okSuccess && success {
-			prefix := r.dbPrefix()
-			mfaMethodsTable := prefix + "user_mfa_methods"
-
-			// Check if any MFA method is active for the user
-			var count int
-			query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE user_id = ? AND is_active = 1", mfaMethodsTable)
-			err := r.databaseExecutor().QueryRow(query, userId).Scan(&count)
-			if err == nil && count > 0 {
-				instance.Fields["requires_2fa"] = true
-			} else {
-				instance.Fields["requires_2fa"] = false
-			}
-		} else {
-			instance.Fields["requires_2fa"] = false
-		}
-		return instance
-
 	case "onSuccess":
 		if len(args) > 0 {
 			success, _ := instance.Fields["success"].(bool)
@@ -192,16 +170,38 @@ func (r *Runtime) executeTwoFactorMethod(instance *Instance, method string, args
 			code := fmt.Sprintf("%v", args[1])
 
 			prefix := r.dbPrefix()
-			mfaMethodsTable := prefix + "user_mfa_methods"
 
-			// Get active TOTP secret
+			// 1. Check user_mfa_challenges for Email OTP
+			challengesTable := prefix + "user_mfa_challenges"
+			rows, err := r.databaseExecutor().Query(fmt.Sprintf("SELECT id, code_hash FROM %s WHERE user_id = ? AND used = 0 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", challengesTable), userId)
+			if err == nil {
+				defer rows.Close()
+				for rows.Next() {
+					var chId int
+					var codeHash string
+					if rows.Scan(&chId, &codeHash) == nil {
+						if bcrypt.CompareHashAndPassword([]byte(codeHash), []byte(code)) == nil {
+							r.databaseExecutor().Exec(fmt.Sprintf("UPDATE %s SET used = 1 WHERE id = ?", challengesTable), chId)
+							return true
+						}
+					}
+				}
+			}
+
+			// 2. Check active TOTP secret
+			mfaMethodsTable := prefix + "user_mfa_methods"
 			var secret string
 			query := fmt.Sprintf("SELECT secret FROM %s WHERE user_id = ? AND method_type = 'totp' AND is_active = 1 LIMIT 1", mfaMethodsTable)
-			err := r.databaseExecutor().QueryRow(query, userId).Scan(&secret)
+			err = r.databaseExecutor().QueryRow(query, userId).Scan(&secret)
 			if err == nil && secret != "" {
-				// Criptografía: Desencriptar secreto usando APP_KEY
-				// Para simplificar por ahora, validemos directamente
-				return verifyTOTPCode(secret, code)
+				if verifyTOTPCode(secret, code) {
+					return true
+				}
+			}
+
+			// 3. Check recovery codes as fallback
+			if r.executeMFAMethod(nil, "verifyRecoveryCode", []interface{}{userId, code}) == true {
+				return true
 			}
 		}
 		return false

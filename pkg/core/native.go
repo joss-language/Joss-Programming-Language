@@ -155,11 +155,11 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.registerNative("Model", modelMethods, (*Runtime).executeModelMethod)
 
 	// Auth
-	r.registerNative("Auth", []string{"hash", "complete2FA", "verify2FAChallenge", "login", "create", "attempt", "check", "verify", "forgotPassword", "resetPassword", "resendVerification", "verificationStatus", "user", "guest", "hasRole", "id", "refresh", "update", "delete", "logout", "validateToken"}, (*Runtime).executeAuthMethod)
+	r.registerNative("Auth", []string{"hash", "complete2FA", "verify2FAChallenge", "login", "create", "attempt", "check", "verify", "forgotPassword", "resetPassword", "resendVerification", "verificationStatus", "user", "guest", "hasRole", "id", "refresh", "update", "delete", "logout", "validateToken", "enabledSocialProviders", "socialRedirect", "socialCallback"}, (*Runtime).executeAuthMethod)
 	r.Variables["Auth"] = &Instance{Class: r.Classes["Auth"], Fields: make(map[string]interface{})}
 
 	// AuthLoginResult
-	r.registerNative("AuthLoginResult", []string{"require2FA", "onSuccess", "onChallenge", "onFail", "response"}, (*Runtime).executeAuthLoginResultMethod)
+	r.registerNative("AuthLoginResult", []string{"onSuccess", "onChallenge", "onFail", "response"}, (*Runtime).executeAuthLoginResultMethod)
 
 	// MFA
 	r.registerNative("MFA", []string{"generateTOTP", "verifyTOTP", "generateRecoveryCodes", "verifyRecoveryCode"}, (*Runtime).executeMFAMethod)

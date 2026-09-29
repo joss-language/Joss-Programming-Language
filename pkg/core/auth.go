@@ -3,6 +3,7 @@ package core
 import (
 	"database/sql"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -85,10 +86,40 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			if userId <= 0 {
 				return false
 			}
-			verified := r.executeTwoFactorMethod(nil, "verify", []interface{}{userId, code})
-			if verified != true {
+
+			// Validate code against active 2FA methods (email OTP challenge or TOTP)
+			verified := false
+
+			// 1. Check user_mfa_challenges for pending Email OTP
+			challengesTable := prefix + "user_mfa_challenges"
+			rows, err := r.databaseExecutor().Query(fmt.Sprintf("SELECT id, code_hash FROM %s WHERE user_id = ? AND used = 0 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", challengesTable), userId)
+			if err == nil {
+				defer rows.Close()
+				for rows.Next() {
+					var chId int
+					var codeHash string
+					if rows.Scan(&chId, &codeHash) == nil {
+						if bcrypt.CompareHashAndPassword([]byte(codeHash), []byte(code)) == nil {
+							r.databaseExecutor().Exec(fmt.Sprintf("UPDATE %s SET used = 1 WHERE id = ?", challengesTable), chId)
+							verified = true
+							break
+						}
+					}
+				}
+			}
+
+			// 2. If not verified by email challenge, check TOTP app / recovery code
+			if !verified {
+				verifiedVal := r.executeTwoFactorMethod(nil, "verify", []interface{}{userId, code})
+				if vBool, ok := verifiedVal.(bool); ok && vBool {
+					verified = true
+				}
+			}
+
+			if !verified {
 				return false
 			}
+
 			challengeID := strings.TrimSpace(fmt.Sprintf("%v", claims["jti"]))
 			if challengeID == "" {
 				return false
@@ -120,6 +151,21 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 				err := r.databaseExecutor().QueryRow(query, email).Scan(&userId)
 				if err == nil {
 					resultFields["user_id"] = userId
+
+					// Automated 2FA check
+					r.EnsureMFATables()
+					mfaMethodsTable := prefix + "user_mfa_methods"
+					var mfaType string
+					mfaErr := r.databaseExecutor().QueryRow(fmt.Sprintf("SELECT method_type FROM %s WHERE user_id = ? AND is_active = 1 LIMIT 1", mfaMethodsTable), userId).Scan(&mfaType)
+					if mfaErr == nil && mfaType != "" {
+						resultFields["requires_2fa"] = true
+						resultFields["mfa_type"] = mfaType
+
+						// If 2FA method is email, generate OTP and dispatch email
+						if mfaType == "email" {
+							r.sendEmailOTPChallenge(userId, email)
+						}
+					}
 				}
 			} else {
 				resultFields["success"] = false
@@ -687,6 +733,155 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			}
 			return false
 		}
+
+	case "enabledSocialProviders":
+		return r.EnabledSocialProviders()
+
+	case "socialRedirect":
+		if len(args) >= 2 {
+			provider := fmt.Sprintf("%v", args[0])
+			redirectURI := fmt.Sprintf("%v", args[1])
+			state := ""
+			if len(args) >= 3 {
+				state = fmt.Sprintf("%v", args[2])
+			}
+			urlStr, err := r.GenerateSocialAuthURL(provider, redirectURI, state)
+			if err != nil {
+				LogError("[Auth] Error generating social redirect: %v", err)
+				return ""
+			}
+			return urlStr
+		}
+		return ""
+
+	case "socialCallback":
+		if len(args) >= 3 {
+			provider := fmt.Sprintf("%v", args[0])
+			code := fmt.Sprintf("%v", args[1])
+			redirectURI := fmt.Sprintf("%v", args[2])
+			res, err := r.HandleSocialCallback(provider, code, redirectURI)
+			if err != nil {
+				LogError("[Auth] Error handling social callback: %v", err)
+				resFields := make(map[string]interface{})
+				resFields["success"] = false
+				resFields["error"] = err.Error()
+				resFields["runtime"] = r
+				resFields["requires_2fa"] = false
+				return &Instance{
+					Class:  r.Classes["AuthLoginResult"],
+					Fields: resFields,
+				}
+			}
+			return res
+		}
+		return nil
 	}
 	return nil
 }
+
+// sendEmailOTPChallenge generates a 6-digit OTP, stores it in user_mfa_challenges and dispatches via SmtpClient
+func (r *Runtime) sendEmailOTPChallenge(userId int, email string) bool {
+	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+	if err != nil {
+		return false
+	}
+
+	prefix := r.dbPrefix()
+	challengesTable := prefix + "user_mfa_challenges"
+	expiresAt := time.Now().UTC().Add(10 * time.Minute).Format("2006-01-02 15:04:05")
+
+	insertData := map[string]interface{}{
+		"user_id":     userId,
+		"method_type": "email",
+		"code_hash":   string(hashedBytes),
+		"expires_at":  expiresAt,
+		"used":        0,
+	}
+
+	r.insertFromMap(challengesTable, insertData, false)
+
+	// Send OTP email
+	subject := "Tu código de verificación de seguridad"
+	body := fmt.Sprintf(`<h2>Código de verificación</h2>
+<p>Tu código de seguridad temporal para iniciar sesión es:</p>
+<h1 style="letter-spacing: 5px; font-size: 32px; color: #4F46E5;">%s</h1>
+<p>Este código expira en 10 minutos. Si no intentaste iniciar sesión, ignora este mensaje.</p>`, code)
+
+	smtpInst, _ := r.Variables["SmtpClient"].(*Instance)
+	if smtpInst == nil {
+		smtpInst = &Instance{Class: r.Classes["SmtpClient"], Fields: make(map[string]interface{})}
+	}
+
+	go func() {
+		// Non-blocking email dispatch
+		r.sendSmtpClientMail(smtpInst, email, subject, body)
+	}()
+
+	return true
+}
+
+// createAuthLoginResultForUser generates an AuthLoginResult instance for a known user ID (used for OAuth social login)
+func (r *Runtime) createAuthLoginResultForUser(userId int) (*Instance, error) {
+	prefix := r.dbPrefix()
+	usersTable := prefix + "users"
+	rolesTable := prefix + "roles"
+
+	var email, username, roleName sql.NullString
+	query := fmt.Sprintf(`
+		SELECT u.email, u.username, r.name 
+		FROM %s u 
+		LEFT JOIN %s r ON u.role_id = r.id 
+		WHERE u.id = ?`, usersTable, rolesTable)
+
+	err := r.databaseExecutor().QueryRow(query, userId).Scan(&email, &username, &roleName)
+	if err != nil {
+		return nil, fmt.Errorf("User with ID %d not found: %w", userId, err)
+	}
+
+	resFields := make(map[string]interface{})
+	resFields["user_id"] = userId
+	resFields["email"] = email.String
+	resFields["runtime"] = r
+	resFields["success"] = true
+	resFields["requires_2fa"] = false
+
+	// Check if user has active 2FA
+	r.EnsureMFATables()
+	mfaMethodsTable := prefix + "user_mfa_methods"
+	var mfaType string
+	mfaErr := r.databaseExecutor().QueryRow(fmt.Sprintf("SELECT method_type FROM %s WHERE user_id = ? AND is_active = 1 LIMIT 1", mfaMethodsTable), userId).Scan(&mfaType)
+	if mfaErr == nil && mfaType != "" {
+		resFields["requires_2fa"] = true
+		resFields["mfa_type"] = mfaType
+		if mfaType == "email" {
+			r.sendEmailOTPChallenge(userId, email.String)
+		}
+	} else {
+		// Generate standard JWT and establish session
+		jwtVal := r.generateJWT(userId, email.String, username.String, roleName.String, false)
+		resFields["jwt"] = fmt.Sprintf("%v", jwtVal)
+
+		if sessVal, ok := r.Variables["$__session"]; ok {
+			if sessInst, ok := sessVal.(*Instance); ok {
+				sessInst.Fields["user_id"] = userId
+				sessInst.Fields["user_name"] = username.String
+				sessInst.Fields["user_email"] = email.String
+				sessInst.Fields["user_role"] = roleName.String
+				sessInst.Fields["last_login_at"] = time.Now().Format("2006-01-02 15:04:05")
+			}
+		}
+
+		updateQuery := fmt.Sprintf("UPDATE %s SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", usersTable)
+		if val, ok := r.Env["DB"]; ok && val == "mysql" {
+			updateQuery = fmt.Sprintf("UPDATE %s SET last_login_at = NOW() WHERE id = ?", usersTable)
+		}
+		r.databaseExecutor().Exec(updateQuery, userId)
+	}
+
+	return &Instance{
+		Class:  r.Classes["AuthLoginResult"],
+		Fields: resFields,
+	}, nil
+}
+
