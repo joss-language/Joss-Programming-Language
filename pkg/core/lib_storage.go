@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -49,19 +50,53 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 	// Ensure DB tables exist
 	r.ensureStorageTable(storageTable)
 
-	// extractToken: JOSS may pass the full user Instance instead of a plain token string.
-	// If args[0] is an *Instance, extract the "user_token" field from its Fields map.
-	extractToken := func(arg interface{}) string {
+	// extractIdentifier: Extract storage prefix and numeric user ID.
+	// Primary: user_id (numeric). Secondary fallback: user_token (if non-numeric string).
+	extractIdentifier := func(arg interface{}) (string, int) {
 		if inst, ok := arg.(*Instance); ok {
-			if tok, exists := inst.Fields["user_token"]; exists {
-				return fmt.Sprintf("%v", tok)
+			if idVal, exists := inst.Fields["id"]; exists {
+				if idInt, err := strconv.Atoi(fmt.Sprintf("%v", idVal)); err == nil && idInt > 0 {
+					return strconv.Itoa(idInt), idInt
+				}
 			}
-			// Fallback: try "token" field
-			if tok, exists := inst.Fields["token"]; exists {
-				return fmt.Sprintf("%v", tok)
+			if tok, exists := inst.Fields["user_token"]; exists {
+				tokStr := fmt.Sprintf("%v", tok)
+				if tokStr != "" {
+					uid := r.getUserIdFromToken(usersTable, tokStr)
+					if uid > 0 {
+						return strconv.Itoa(uid), uid
+					}
+					return tokStr, 0
+				}
 			}
 		}
-		return fmt.Sprintf("%v", arg)
+
+		switch v := arg.(type) {
+		case int:
+			if v > 0 {
+				return strconv.Itoa(v), v
+			}
+		case int64:
+			if v > 0 {
+				return strconv.FormatInt(v, 10), int(v)
+			}
+		case float64:
+			if v > 0 {
+				iv := int(v)
+				return strconv.Itoa(iv), iv
+			}
+		}
+
+		strVal := fmt.Sprintf("%v", arg)
+		if idInt, err := strconv.Atoi(strVal); err == nil && idInt > 0 {
+			return strVal, idInt
+		}
+		// If string is a token (UUID/hex), resolve user_id from DB
+		uid := r.getUserIdFromToken(usersTable, strVal)
+		if uid > 0 {
+			return strconv.Itoa(uid), uid
+		}
+		return strVal, 0
 	}
 
 	switch method {
@@ -78,44 +113,41 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 		if len(args) < 3 {
 			return false
 		}
-		userToken := extractToken(args[0])
+		storagePrefix, userId := extractIdentifier(args[0])
 		fileName := fmt.Sprintf("%v", args[1]) // Can be "photos/my_pic.jpg"
 		content := fmt.Sprintf("%v", args[2])
-		fullPath, pathErr := safeUserStoragePath(basePath, userToken, fileName)
+		fullPath, pathErr := safeUserStoragePath(basePath, storagePrefix, fileName)
 		if pathErr != nil {
 			fmt.Printf("[Storage] Ruta rechazada: %v\n", pathErr)
 			return false
 		}
 
 		// DB Registry Logic (Common for both)
-		if r.GetDB() != nil {
-			userId := r.getUserIdFromToken(usersTable, userToken)
-			if userId > 0 {
-				// Check if exists
-				var existingId int
-				check := fmt.Sprintf("SELECT id FROM %s WHERE user_id = ? AND path = ?", storageTable)
-				err := r.databaseExecutor().QueryRow(check, userId, fileName).Scan(&existingId)
+		if r.GetDB() != nil && userId > 0 {
+			// Check if exists
+			var existingId int
+			check := fmt.Sprintf("SELECT id FROM %s WHERE user_id = ? AND path = ?", storageTable)
+			err := r.databaseExecutor().QueryRow(check, userId, fileName).Scan(&existingId)
 
-				if err == sql.ErrNoRows {
-					// Insert
-					insert := fmt.Sprintf("INSERT INTO %s (user_id, path, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", storageTable)
-					if val, ok := r.Env["DB"]; ok && val == "mysql" {
-						insert = fmt.Sprintf("INSERT INTO %s (user_id, path, created_at, updated_at) VALUES (?, ?, NOW(), NOW())", storageTable)
-					}
-					r.databaseExecutor().Exec(insert, userId, fileName)
-				} else {
-					// Update timestamp
-					update := fmt.Sprintf("UPDATE %s SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", storageTable)
-					if val, ok := r.Env["DB"]; ok && val == "mysql" {
-						update = fmt.Sprintf("UPDATE %s SET updated_at = NOW() WHERE id = ?", storageTable)
-					}
-					r.databaseExecutor().Exec(update, existingId)
+			if err == sql.ErrNoRows {
+				// Insert
+				insert := fmt.Sprintf("INSERT INTO %s (user_id, path, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", storageTable)
+				if val, ok := r.Env["DB"]; ok && val == "mysql" {
+					insert = fmt.Sprintf("INSERT INTO %s (user_id, path, created_at, updated_at) VALUES (?, ?, NOW(), NOW())", storageTable)
 				}
+				r.databaseExecutor().Exec(insert, userId, fileName)
+			} else {
+				// Update timestamp
+				update := fmt.Sprintf("UPDATE %s SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", storageTable)
+				if val, ok := r.Env["DB"]; ok && val == "mysql" {
+					update = fmt.Sprintf("UPDATE %s SET updated_at = NOW() WHERE id = ?", storageTable)
+				}
+				r.databaseExecutor().Exec(update, existingId)
 			}
 		}
 
 		if storageType == "OCI" {
-			return r.ociPut(userToken, fileName, content)
+			return r.ociPut(storagePrefix, fileName, content)
 		} else {
 			// LOCAL STORAGE
 			dir := filepath.Dir(fullPath)
@@ -135,15 +167,15 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 		if len(args) < 2 {
 			return nil
 		}
-		userToken := extractToken(args[0])
+		storagePrefix, _ := extractIdentifier(args[0])
 		fileName := fmt.Sprintf("%v", args[1])
-		fullPath, pathErr := safeUserStoragePath(basePath, userToken, fileName)
+		fullPath, pathErr := safeUserStoragePath(basePath, storagePrefix, fileName)
 		if pathErr != nil {
 			return nil
 		}
 
 		if storageType == "OCI" {
-			return r.ociGet(userToken, fileName)
+			return r.ociGet(storagePrefix, fileName)
 		} else {
 			content, err := os.ReadFile(fullPath)
 			if err != nil {
@@ -156,16 +188,16 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 		if len(args) < 3 {
 			return false
 		}
-		userToken := extractToken(args[0])
+		storagePrefix, _ := extractIdentifier(args[0])
 		fileName := fmt.Sprintf("%v", args[1])
 		destPath := fmt.Sprintf("%v", args[2])
-		srcPath, pathErr := safeUserStoragePath(basePath, userToken, fileName)
+		srcPath, pathErr := safeUserStoragePath(basePath, storagePrefix, fileName)
 		if pathErr != nil {
 			return false
 		}
 
 		if storageType == "OCI" {
-			return r.ociGetToFile(userToken, fileName, destPath)
+			return r.ociGetToFile(storagePrefix, fileName, destPath)
 		} else {
 			// Local: just copy the file
 			content, err := os.ReadFile(srcPath)
@@ -182,24 +214,21 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 		if len(args) < 2 {
 			return false
 		}
-		userToken := extractToken(args[0])
+		storagePrefix, userId := extractIdentifier(args[0])
 		fileName := fmt.Sprintf("%v", args[1])
-		fullPath, pathErr := safeUserStoragePath(basePath, userToken, fileName)
+		fullPath, pathErr := safeUserStoragePath(basePath, storagePrefix, fileName)
 		if pathErr != nil {
 			return false
 		}
 
 		// DB Registry Delete
-		if r.GetDB() != nil {
-			userId := r.getUserIdFromToken(usersTable, userToken)
-			if userId > 0 {
-				query := fmt.Sprintf("DELETE FROM %s WHERE user_id = ? AND path = ?", storageTable)
-				r.databaseExecutor().Exec(query, userId, fileName)
-			}
+		if r.GetDB() != nil && userId > 0 {
+			query := fmt.Sprintf("DELETE FROM %s WHERE user_id = ? AND path = ?", storageTable)
+			r.databaseExecutor().Exec(query, userId, fileName)
 		}
 
 		if storageType == "OCI" {
-			return r.ociDelete(userToken, fileName)
+			return r.ociDelete(storagePrefix, fileName)
 		} else {
 			if err := os.Remove(fullPath); err != nil {
 				return false
