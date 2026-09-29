@@ -217,7 +217,7 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.Variables["Schema"] = &Instance{Class: r.Classes["Schema"], Fields: make(map[string]interface{})}
 
 	// Blueprint
-	blueprintMethods := []string{"id", "increments", "integer", "tinyInteger", "smallInteger", "mediumInteger", "bigInteger", "unsignedInteger", "unsignedBigInteger", "float", "double", "decimal", "char", "string", "text", "mediumText", "longText", "date", "dateTime", "time", "timestamp", "timestamps", "softDeletes", "boolean", "json", "enum", "nullable", "unsigned", "unique", "default", "comment", "dropColumn", "renameColumn", "index", "uniqueIndex", "dropIndex", "foreign", "references", "on", "onDelete", "onUpdate"}
+	blueprintMethods := []string{"id", "increments", "integer", "tinyInteger", "smallInteger", "mediumInteger", "bigInteger", "unsignedInteger", "unsignedBigInteger", "float", "double", "decimal", "char", "string", "text", "mediumText", "longText", "date", "dateTime", "time", "timestamp", "timestamps", "softDeletes", "boolean", "json", "enum", "nullable", "unsigned", "unique", "default", "comment", "dropColumn", "renameColumn", "index", "uniqueIndex", "dropIndex", "foreign", "references", "on", "onDelete", "onUpdate", "dropForeign"}
 	r.registerNative("Blueprint", blueprintMethods, (*Runtime).executeBlueprintMethod)
 
 	// Redis

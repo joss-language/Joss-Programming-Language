@@ -41,5 +41,6 @@ Comandos de tabela:
 - `unique($columns, $name=nil)` ou `uniqueIndex(...)`
 - `dropIndex($name)`
 - `foreign($columns, $name=nil)->references($columns)->on($table)->onDelete($action)->onUpdate($action)`
+- `dropForeign($name)`
 
 SQLite reconstrói a tabela transacionalmente quando uma chave estrangeira é adicionada usando `Schema::table()`, preservando dados, índices e gatilhos explícitos. PostgreSQL usa `SERIAL`/`BIGSERIAL`, `JSONB` e tipos equivalentes. O SQL Server usa delimitadores `IDENTITY(1,1) PRIMARY KEY`, `NVARCHAR(MAX)`, `DATETIME2` e `[...]`.

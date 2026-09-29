@@ -257,6 +257,12 @@ func (r *Runtime) executeBlueprintMethod(instance *Instance, method string, args
 				addCommand(schemaCommand{"type": "dropIndex", "name": name})
 			}
 		}
+	case "dropForeign":
+		if len(args) > 0 {
+			if name, ok := args[0].(string); ok {
+				addCommand(schemaCommand{"type": "dropForeign", "name": name})
+			}
+		}
 	case "foreign":
 		if len(args) > 0 {
 			columns := schemaStringList(args[0])

@@ -66,6 +66,7 @@ Implementación: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L41).
 | `default` | `Blueprint` |
 | `double` | `Blueprint` |
 | `dropColumn` | `Blueprint` |
+| `dropForeign` | `Blueprint` |
 | `dropIndex` | `Blueprint` |
 | `enum` | `Blueprint` |
 | `float` | `Blueprint` |

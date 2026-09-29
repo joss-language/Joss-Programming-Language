@@ -60,9 +60,15 @@ func quoteSchemaList(values []string, driver string) ([]string, error) {
 }
 
 func schemaIndexName(table string, columns []string, suffix string) string {
-	name := table + "_" + strings.Join(columns, "_") + "_" + suffix
+	cleanTable := strings.TrimPrefix(table, "jr_")
+	cleanTable = strings.TrimPrefix(cleanTable, "js_")
+	name := cleanTable + "_" + strings.Join(columns, "_") + "_" + suffix
 	if len(name) > 60 {
-		name = name[:60]
+		h := 0
+		for _, c := range name {
+			h = (h*31 + int(c)) & 0xffffff
+		}
+		name = fmt.Sprintf("%s_%s_%06x", cleanTable[:min(len(cleanTable), 25)], suffix, h)
 	}
 	return name
 }
@@ -496,6 +502,18 @@ func (r *Runtime) executeSchemaCommand(quotedTable, tableName, driver string, co
 			return err
 		}
 		_, err = r.databaseExecutor().Exec(fmt.Sprintf("ALTER TABLE %s ADD %s", quotedTable, constraint))
+		return err
+	case "dropForeign":
+		name, _ := command["name"].(string)
+		quotedName, err := quoteSchemaIdentifier(name, driver)
+		if err != nil {
+			return err
+		}
+		if driver == "mysql" {
+			_, err = r.databaseExecutor().Exec(fmt.Sprintf("ALTER TABLE %s DROP FOREIGN KEY %s", quotedTable, quotedName))
+		} else if driver == "postgres" || driver == "sqlserver" {
+			_, err = r.databaseExecutor().Exec(fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s", quotedTable, quotedName))
+		}
 		return err
 	}
 	return nil

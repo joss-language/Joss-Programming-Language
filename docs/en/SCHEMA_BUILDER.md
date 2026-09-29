@@ -41,5 +41,6 @@ Table commands:
 - `unique($columns, $name=nil)` or `uniqueIndex(...)`
 - `dropIndex($name)`
 - `foreign($columns, $name=nil)->references($columns)->on($table)->onDelete($action)->onUpdate($action)`
+- `dropForeign($name)`
 
 SQLite rebuilds the table transactionally when a foreign key is added using `Schema::table()`, preserving data, indexes, and explicit triggers. PostgreSQL uses `SERIAL`/`BIGSERIAL`, `JSONB` and equivalent types. SQL Server uses `IDENTITY(1,1) PRIMARY KEY`, `NVARCHAR(MAX)`, `DATETIME2`, and `[...]` delimiters.

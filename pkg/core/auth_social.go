@@ -189,6 +189,9 @@ func (r *Runtime) HandleSocialCallback(provider, code, redirectURI string) (*Ins
 	socialTable := prefix + "user_social_accounts"
 	r.ensureAuthTables(usersTable, prefix+"roles", prefix)
 
+	// Check if a user is currently logged in (linking flow from profile or settings)
+	loggedInUserId := r.currentSessionUserId()
+
 	// Check if this social account is already linked
 	var existingUserId int
 	checkSocialQuery := fmt.Sprintf("SELECT user_id FROM %s WHERE provider = ? AND provider_user_id = ? LIMIT 1", socialTable)
@@ -196,10 +199,26 @@ func (r *Runtime) HandleSocialCallback(provider, code, redirectURI string) (*Ins
 
 	if err == nil && existingUserId > 0 {
 		// Existing user found by social account
+		if loggedInUserId > 0 && existingUserId != loggedInUserId {
+			return nil, fmt.Errorf("Esta cuenta de %s ya está vinculada a otro usuario.", norm)
+		}
 		return r.createAuthLoginResultForUser(existingUserId)
 	}
 
-	// Not linked yet. Check if a user with the same email already exists
+	// If the user is currently logged in, link the social account directly to their account
+	// (regardless of whether the social email matches the user email)
+	if loggedInUserId > 0 {
+		insertSocial := map[string]interface{}{
+			"user_id":          loggedInUserId,
+			"provider":         norm,
+			"provider_user_id": userInfo.ProviderUserID,
+			"avatar":           userInfo.Avatar,
+		}
+		r.insertFromMap(socialTable, insertSocial, false)
+		return r.createAuthLoginResultForUser(loggedInUserId)
+	}
+
+	// Not logged in and not linked yet. Check if a user with the same email already exists
 	if userInfo.Email != "" {
 		var emailUserId int
 		checkEmailQuery := fmt.Sprintf("SELECT id FROM %s WHERE email = ? LIMIT 1", usersTable)
@@ -664,4 +683,16 @@ func generateRandomState() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+// currentSessionUserId returns the user_id of the currently authenticated session, or 0 if guest
+func (r *Runtime) currentSessionUserId() int {
+	if sessVal, ok := r.Variables["$__session"]; ok {
+		if sessInst, ok := sessVal.(*Instance); ok {
+			if uid, ok := sessInst.Fields["user_id"]; ok {
+				return toInt(uid)
+			}
+		}
+	}
+	return 0
 }

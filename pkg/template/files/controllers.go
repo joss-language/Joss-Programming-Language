@@ -240,28 +240,29 @@ func GetControllerFiles(path string) map[string]string {
     }
 
     public func socialCallback(mixed $provider) {
+        var $isLoggedIn = (!Auth::guest()) ? true : false
         var $code = request("code")
         var $state = request("state")
         var $savedState = Session::get("oauth_state")
         Session::forget("oauth_state")
         ($state != $savedState) ? {
-            return redirect("/login")->with("error", "Estado OAuth inválido.")
+            return ($isLoggedIn) ? redirect("/profile")->with("error", "Estado OAuth inválido.") : redirect("/login")->with("error", "Estado OAuth inválido.")
         }
         (!$code) ? {
-            return redirect("/login")->with("error", "No se recibió código de autorización.")
+            return ($isLoggedIn) ? redirect("/profile")->with("error", "No se recibió código de autorización.") : redirect("/login")->with("error", "No se recibió código de autorización.")
         }
         var $redirectUri = Request::root() . "/auth/" . $provider . "/callback"
         var $loginResult = Auth::socialCallback($provider, $code, $redirectUri)
         (!$loginResult) ? {
-            return redirect("/login")->with("error", "Error al autenticar con " . $provider . ".")
+            return ($isLoggedIn) ? redirect("/profile")->with("error", "Error al autenticar con " . $provider . ".") : redirect("/login")->with("error", "Error al autenticar con " . $provider . ".")
         }
         return $loginResult->onSuccess(func(mixed $jwt) {
-            return redirect("/dashboard")->withCookie("joss_token", $jwt)
+            return ($isLoggedIn) ? redirect("/profile")->withCookie("joss_token", $jwt)->with("success", "Cuenta de " . $provider . " vinculada correctamente.") : redirect("/dashboard")->withCookie("joss_token", $jwt)
         })->onChallenge(func(mixed $tempToken) {
             Session::put("temp_2fa_token", $tempToken)
             return redirect("/2fa/verify")
         })->onFail(func(mixed $error) {
-            return redirect("/login")->with("error", "Error de autenticación social: " . $error)
+            return ($isLoggedIn) ? redirect("/profile")->with("error", "Error de autenticación social: " . $error) : redirect("/login")->with("error", "Error de autenticación social: " . $error)
         })->response()
     }
     
