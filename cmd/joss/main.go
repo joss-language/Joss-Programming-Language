@@ -166,35 +166,27 @@ func main() {
 			target = os.Args[2]
 		}
 		switch target {
-		case "native":
+		case "native", "program":
 			targetOS, targetArch := "", ""
 			enableGUI := false
 			for _, arg := range os.Args[3:] {
 				if arg == "--gui" {
 					enableGUI = true
-				} else if targetOS == "" {
+				} else if strings.HasPrefix(arg, "--target=") {
+					parts := strings.Split(strings.TrimPrefix(arg, "--target="), "-")
+					if len(parts) == 2 {
+						targetOS, targetArch = parts[0], parts[1]
+					}
+				} else if targetOS == "" && !strings.HasPrefix(arg, "--") {
 					targetOS = arg
-				} else if targetArch == "" {
+				} else if targetArch == "" && !strings.HasPrefix(arg, "--") {
 					targetArch = arg
 				}
 			}
-			buildNative(targetOS, targetArch, enableGUI)
-		case "program":
-			targetOS, targetArch := "", ""
-			enableGUI := false
-			for _, arg := range os.Args[3:] {
-				if arg == "--gui" {
-					enableGUI = true
-				} else if targetOS == "" {
-					targetOS = arg
-				} else if targetArch == "" {
-					targetArch = arg
-				}
-			}
-			if targetOS != "" {
-				buildNative(targetOS, targetArch, enableGUI)
-			} else {
+			if target == "program" && targetOS == "" {
 				buildProgram()
+			} else {
+				buildNative(targetOS, targetArch, enableGUI)
 			}
 		case "package":
 			if len(os.Args) < 4 {
@@ -202,8 +194,27 @@ func main() {
 				return
 			}
 			buildPackage(os.Args[3])
-		default:
+		case "web":
 			buildWeb()
+		default:
+			// Si el usuario pasa joss build --release, joss build --target windows-amd64, etc.
+			if strings.HasPrefix(target, "--") {
+				targetOS, targetArch := "", ""
+				enableGUI := false
+				for _, arg := range os.Args[2:] {
+					if arg == "--gui" {
+						enableGUI = true
+					} else if strings.HasPrefix(arg, "--target=") {
+						parts := strings.Split(strings.TrimPrefix(arg, "--target="), "-")
+						if len(parts) == 2 {
+							targetOS, targetArch = parts[0], parts[1]
+						}
+					}
+				}
+				buildNative(targetOS, targetArch, enableGUI)
+			} else {
+				buildWeb()
+			}
 		}
 	case "make:controller":
 		if len(os.Args) < 3 {

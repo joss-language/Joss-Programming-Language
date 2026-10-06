@@ -105,7 +105,7 @@ func buildWeb() {
 				// The previous code copied specific root files.
 				// User said "anexe todas las carpetas". He didn't specify files, but implied "everything".
 				// Let's copy all root files except specific ignores
-				if name == "joss.exe" || strings.HasSuffix(name, ".log") || strings.HasSuffix(name, ".enc") {
+				if name == "joss.exe" || strings.HasSuffix(name, ".log") || strings.HasSuffix(name, ".enc") || parser.IsEnvFile(name) {
 					continue
 				}
 				copyFile(name, filepath.Join(buildDir, name))

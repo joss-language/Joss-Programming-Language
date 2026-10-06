@@ -19,8 +19,9 @@ joss server start
 joss program start
 joss analyze [archivo.joss]
 joss update [-f|--canary|--stable]
-joss build [web|program|native|package]
-joss build native [os] [arch] [--gui]
+joss build [web|program|native|package] [--target=os-arch] [--gui]
+joss build --release
+joss build --debug
 ```
 
 - `run [archivo]`: Ejecuta un script `.joss` después de analizar el proyecto. Los errores semánticos bloquean la ejecución; los warnings no.
@@ -28,7 +29,8 @@ joss build native [os] [arch] [--gui]
 - `server start`: Requiere el punto de entrada `main.joss` e inicia el servidor HTTP multinivel de alto rendimiento. Presiona `q` para detenerlo de manera segura.
 - `program start`: Inicia la aplicación en modo escritorio.
 - `analyze [archivo]`: Analiza la entrada (por defecto `main.joss`) y `app/**/*.joss`. No incluye automáticamente `routes.joss`, `api.joss` ni otros hermanos. Devuelve código distinto de cero si existen errores y conserva archivo/línea/columna. Consulte [ANALIZADOR.md](ANALIZADOR.md).
-- `build native [os] [arch]`: Genera un binario independiente para `windows`, `linux` o `darwin`; empaqueta el AST serializado y el runner Go. No es un backend LLVM/AOT del programa Joss. Usa `--gui` para aplicaciones con interfaz de escritorio.
+- `build native [os] [arch]` / `build [--target=os-arch]`: Compilación nativa, modular y autocontenida. Realiza un análisis estático de alcance (*Reachability Analysis* en `pkg/analyzer`), descartando archivos huérfanos y métodos muertos (*Dead Code Elimination* y *AST Shaking*), empaqueta el bytecode binario optimizado `JOSSBC2Z` cifrado en RAM y vincula un runner especializado según las capacidades requeridas (`cli`, `gui` o `server`). Genera el reporte de trazabilidad en `.joss/cache/build-manifest.json`. Usa `--gui` para aplicaciones de escritorio.
+- `build package [ruta]`: Empaqueta extensiones y plugins en paquetes `.jp` (v2) firmados con Ed25519 conteniendo bytecode puro.
 - `update`: Usa el actualizador implementado por el CLI y puede requerir red/permisos del sistema. Comprueba sus canales y artefactos reales antes de prometer que una distribución contiene SDK o editor.
 
 ---

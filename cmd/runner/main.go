@@ -21,7 +21,6 @@ import (
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/crypto"
 	"github.com/jossecurity/joss/pkg/parser"
-	"github.com/jossecurity/joss/pkg/server"
 	"github.com/jossecurity/joss/pkg/vfs"
 )
 
@@ -98,9 +97,11 @@ func main() {
 
 	// 4. Handle Arguments (Support for self-spawned "server start")
 	if len(os.Args) >= 3 && os.Args[1] == "server" && os.Args[2] == "start" {
-		server.Start(memFS)
+		startServerHandler(memFS)
 		return
 	}
+
+	cliDone := make(chan struct{})
 
 	// 5. Normal Startup: Execute main.joss and Open WebView
 	go func() {
@@ -108,10 +109,11 @@ func main() {
 			if r := recover(); r != nil {
 				log.Printf("Recovered from panic in runtime: %v", r)
 			}
+			close(cliDone)
 		}()
 
 		// Set Global FileSystem for Server::start() native calls
-		server.GlobalFileSystem = memFS
+		initServerFS(memFS)
 		core.SetFileSystem(memFS)
 
 		units, prepareErr := packagedSourceUnits(files)
@@ -119,30 +121,55 @@ func main() {
 			log.Printf("Program preparation failed: %v", prepareErr)
 			return
 		}
-		report := core.AnalyzeSourceUnits(units)
-		if report.HasIssues() {
-			report.PrintReport()
-		}
-		if report.HasErrors() {
-			log.Printf("Program preparation rejected the packaged application")
-			return
-		}
-
 		r := core.NewRuntime()
 		defer r.Free()
 		r.LoadEnv(memFS)
-		for _, unit := range report.Prepared.Units[1:] {
-			if strings.HasPrefix(filepath.ToSlash(unit.Path), "app/") {
-				r.Execute(unit.Program)
+
+		// Autoload plugins packaged in VFS
+		for k, data := range files {
+			cleanKey := filepath.ToSlash(k)
+			if strings.HasPrefix(cleanKey, "plugins/") && strings.HasSuffix(cleanKey, ".jp") {
+				_ = r.LoadPluginBytes(data)
 			}
 		}
-		if program := report.Prepared.Entrypoint(); program != nil {
-			r.Execute(program)
-		} else {
-			// Fallback: Start server directly
-			server.Start(memFS)
+
+		// Preload application domain classes
+		for _, u := range units {
+			if strings.HasPrefix(filepath.ToSlash(u.Path), "app/") && u.Program != nil {
+				r.Execute(u.Program)
+			}
+		}
+
+		// Execute entrypoint (main.joss)
+		if len(units) > 0 && units[0].Program != nil {
+			r.Execute(units[0].Program)
+		}
+		isServerApp := len(r.Routes) > 0 || os.Getenv("JOSS_SERVER") == "true"
+		for k := range files {
+			if strings.HasSuffix(k, "routes.joss") || strings.HasSuffix(k, "api.joss") {
+				isServerApp = true
+				break
+			}
+		}
+
+		if !isServerApp && os.Getenv("JOSS_GUI") != "true" {
+			// Pure CLI execution: exit process with code 0 once execution completes
+			os.Exit(0)
 		}
 	}()
+
+	// If GUI is not requested and no server routes exist, wait for CLI execution to finish
+	isServer := false
+	for k := range files {
+		if strings.HasSuffix(k, "routes.joss") || strings.HasSuffix(k, "api.joss") {
+			isServer = true
+			break
+		}
+	}
+	if os.Getenv("JOSS_GUI") != "true" && !isServer && os.Getenv("JOSS_SERVER") != "true" {
+		<-cliDone
+		return
+	}
 
 	// Determine port from env (loaded from VFS or defaults)
 	port := os.Getenv("PORT")

@@ -62,10 +62,16 @@ func printTopicHelpCore(cmd string) bool {
 		fmt.Printf("  program                        %s\n", i18n.Tr("helpTopicBuildModeProgram"))
 		fmt.Printf("  native [os] [arch] [--gui]     %s\n", i18n.Tr("helpTopicBuildModeNative"))
 		fmt.Printf("  package <ruta>                 %s\n", i18n.Tr("helpTopicBuildModePackage"))
+		fmt.Println(helpHeaderOptions)
+		fmt.Println("  --target=<os>-<arch>           Objetivo de compilación cruzada (ej. windows-amd64, linux-arm64)")
+		fmt.Println("  --release                      Compilación optimizada sin símbolos de depuración")
+		fmt.Println("  --debug                        Compilación con información de depuración")
+		fmt.Println("  --gui                          Habilita subsistema de interfaz gráfica de escritorio")
 		fmt.Println(helpHeaderExamples)
-		fmt.Println("  joss build web")
+		fmt.Println("  joss build --release")
+		fmt.Println("  joss build --target=linux-amd64")
 		fmt.Println("  joss build native windows amd64 --gui")
-		fmt.Println("  joss build native linux arm64")
+		fmt.Println("  joss build web")
 		return true
 
 	case "version":

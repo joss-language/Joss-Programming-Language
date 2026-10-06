@@ -328,36 +328,51 @@ func (r *Runtime) registerPluginSymbols(plugin *pluginruntime.Plugin) {
 	}
 }
 
-// AutoloadPlugins escanea y carga automaticamente plugins .jp presentes en el proyecto.
+// AutoloadPlugins escanea y carga automaticamente plugins .jp presentes en el proyecto o en GlobalFileSystem (VFS).
 func (r *Runtime) AutoloadPlugins(projectRoot string) {
 	if projectRoot == "" {
 		projectRoot = "."
 	}
 
 	pluginsDir := filepath.Join(projectRoot, "plugins")
-	if _, err := os.Stat(pluginsDir); os.IsNotExist(err) {
+	if _, err := os.Stat(pluginsDir); err == nil {
+		_ = filepath.Walk(pluginsDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info == nil {
+				return nil
+			}
+			if info.IsDir() {
+				if info.Name() == ".backup" {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if strings.EqualFold(filepath.Ext(path), ".jp") {
+				if err := r.LoadPluginPackage(path); err != nil {
+					if !strings.Contains(err.Error(), "ya registrado") {
+						fmt.Printf("[Plugin Autoload] Error cargando %s: %v\n", path, err)
+					}
+				} else {
+					fmt.Printf("[Plugin Autoload] Plugin cargado desde %s\n", path)
+				}
+			}
+			return nil
+		})
 		return
 	}
 
-	_ = filepath.Walk(pluginsDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info == nil {
-			return nil
+	// Si no está en disco físico, intentar cargar desde GlobalFileSystem (VFS)
+	if GlobalFileSystem != nil {
+		type vfsFileMap interface {
+			GetFiles() map[string][]byte
 		}
-		if info.IsDir() {
-			if info.Name() == ".backup" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if strings.EqualFold(filepath.Ext(path), ".jp") {
-			if err := r.LoadPluginPackage(path); err != nil {
-				if !strings.Contains(err.Error(), "ya registrado") {
-					fmt.Printf("[Plugin Autoload] Error cargando %s: %v\n", path, err)
+		// MemFS duck-typing sin acoplamiento circular
+		if mem, ok := GlobalFileSystem.(interface{ GetFiles() map[string][]byte }); ok {
+			for k, data := range mem.GetFiles() {
+				cleanKey := filepath.ToSlash(k)
+				if strings.HasPrefix(cleanKey, "plugins/") && strings.HasSuffix(cleanKey, ".jp") {
+					_ = r.LoadPluginBytes(data)
 				}
-			} else {
-				fmt.Printf("[Plugin Autoload] Plugin cargado desde %s\n", path)
 			}
 		}
-		return nil
-	})
+	}
 }

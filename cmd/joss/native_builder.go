@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/jossecurity/joss/pkg/buildmanifest"
 	"github.com/jossecurity/joss/pkg/bytecode"
 	"github.com/jossecurity/joss/pkg/crypto"
 	"github.com/jossecurity/joss/pkg/i18n"
@@ -63,14 +64,14 @@ func buildNative(targetOS, targetArch string, enableGUI bool) {
 	}
 
 	fmt.Println(i18n.Tr("nativeBuildPackagingAssets"))
-	encryptedAssets, buildKey, err := collectAndEncryptAssets(enableGUI)
+	encryptedAssets, buildKey, detectedCaps, err := collectAndEncryptAssets(enableGUI)
 	if err != nil {
 		fmt.Println(i18n.Tr("nativeBuildAssetsError", i18n.M{"error": err.Error()}))
 		os.Exit(1)
 	}
 
 	fmt.Println(i18n.Tr("nativeBuildCompilingRunner"))
-	runnerBytes, err := compileRunnerBinary(tOS, tArch, enableGUI)
+	runnerBytes, err := compileRunnerBinary(tOS, tArch, enableGUI, detectedCaps)
 	if err != nil {
 		fmt.Println(i18n.Tr("nativeBuildRunnerError", i18n.M{"error": err.Error()}))
 		os.Exit(1)
@@ -122,10 +123,10 @@ func validateBuildTarget(targetOS, targetArch string) (string, string, bool) {
 	return tOS, tArch, false
 }
 
-func collectAndEncryptAssets(enableGUI bool) ([]byte, []byte, error) {
+func collectAndEncryptAssets(enableGUI bool) ([]byte, []byte, map[string]bool, error) {
 	buildKey := make([]byte, 32)
 	if _, err := rand.Read(buildKey); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	files := make(map[string][]byte)
@@ -134,13 +135,57 @@ func collectAndEncryptAssets(enableGUI bool) ([]byte, []byte, error) {
 		"node_modules": true, ".gemini": true, ".codex": true, ".agents": true, ".github": true,
 	}
 
+	// 1. Run reachability analysis starting from main.joss
+	bCfg := LoadProjectBuildConfig()
+	reachGraph, units, reachErr := AnalyzeProjectReachability("main.joss", bCfg.KeepClasses, bCfg.KeepSymbols)
+	if reachErr != nil {
+		fmt.Printf("⚠️  [Build Warning] Reachability analysis fallback: %v\n", reachErr)
+	}
+
 	compiledCount := 0
+	var allDiscoveredFiles []string
+
 	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+		if err != nil || path == "." {
+			return nil
+		}
+		parts := strings.Split(path, string(os.PathSeparator))
+		if len(parts) > 0 && ignoredDirs[parts[0]] {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		allDiscoveredFiles = append(allDiscoveredFiles, filepath.ToSlash(path))
 		return processSingleWalkFile(path, info, err, files, ignoredDirs, &compiledCount)
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
+	}
+
+	// 2. Prune dead Joss files and methods from the VFS map if reachability was computed
+	if reachGraph != nil {
+		prunedUnits := FilterProjectFiles(allDiscoveredFiles, reachGraph, units, bCfg.PruneMethods)
+		for filePath, fileBytes := range files {
+			if strings.HasSuffix(filePath, ".joss") {
+				if bCfg.PruneFiles && !reachGraph.IsFileReachable(filePath) {
+					// Drop dead file entirely from packaged VFS!
+					delete(files, filePath)
+					continue
+				}
+				// If pruned AST is available, re-encode to optimized bytecode
+				if prunedUnit, exists := prunedUnits[filePath]; exists && prunedUnit.Program != nil {
+					if bc, bcErr := bytecode.Encode(prunedUnit.Program); bcErr == nil {
+						files[filePath] = bc
+					}
+				}
+			}
+			_ = fileBytes
+		}
 	}
 
 	fmt.Printf("⚡ %s\n", i18n.Tr("nativeBuildPrecompiledFiles", i18n.M{"count": compiledCount}))
@@ -149,11 +194,26 @@ func collectAndEncryptAssets(enableGUI bool) ([]byte, []byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	if err := enc.Encode(files); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	encryptedAssets, err := crypto.EncryptAES(buf.Bytes(), buildKey)
-	return encryptedAssets, buildKey, err
+	if err == nil && reachGraph != nil {
+		manifest := buildmanifest.GenerateManifest(
+			"main.joss", bCfg.Mode, runtime.GOOS, runtime.GOARCH, bCfg.Profile,
+			filepath.Join("build", "app"), allDiscoveredFiles, reachGraph, int64(len(encryptedAssets)),
+		)
+		_ = manifest.SaveToFile(filepath.Join(".joss", "cache", "build-manifest.json"))
+	}
+
+	capsMap := make(map[string]bool)
+	if reachGraph != nil {
+		for cap, active := range reachGraph.RuntimeCapabilities {
+			capsMap[string(cap)] = active
+		}
+	}
+
+	return encryptedAssets, buildKey, capsMap, err
 }
 
 func processSingleWalkFile(path string, info os.FileInfo, err error, files map[string][]byte, ignoredDirs map[string]bool, compiledCount *int) error {
@@ -236,7 +296,7 @@ func encryptProjectEnvironment(files map[string][]byte, enableGUI bool) {
 	}
 }
 
-func compileRunnerBinary(targetOS, targetArch string, enableGUI bool) ([]byte, error) {
+func compileRunnerBinary(targetOS, targetArch string, enableGUI bool, detectedCaps map[string]bool) ([]byte, error) {
 	tempRunnerDir, err := os.MkdirTemp("", "joss-build-*")
 	if err != nil {
 		return nil, err
@@ -257,7 +317,19 @@ func compileRunnerBinary(targetOS, targetArch string, enableGUI bool) ([]byte, e
 	if targetOS == "windows" && enableGUI {
 		ldflags += " -H=windowsgui"
 	}
-	cmd := exec.Command("go", "build", "-ldflags="+ldflags, "-o", tempRunnerBin, runnerPkg)
+
+	var tags []string
+	if detectedCaps != nil && !detectedCaps["server"] && !detectedCaps["http"] && !enableGUI {
+		tags = append(tags, "cli")
+	}
+
+	args := []string{"build", "-ldflags=" + ldflags}
+	if len(tags) > 0 {
+		args = append(args, "-tags="+strings.Join(tags, ","))
+	}
+	args = append(args, "-o", tempRunnerBin, runnerPkg)
+
+	cmd := exec.Command("go", args...)
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+targetOS, "GOARCH="+targetArch)
 
 	out, err := cmd.CombinedOutput()

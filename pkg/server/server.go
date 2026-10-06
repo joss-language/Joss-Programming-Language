@@ -53,11 +53,14 @@ func Start(fileSystem http.FileSystem) {
 	}
 
 	port := "8000"
-	if val, ok := currentRuntime.Env["PORT"]; ok && val != "" {
-		port = val
-	} else if val, ok := currentRuntime.Env["JOSS_PORT"]; ok && val != "" {
-		port = val
-	} else if envPort := os.Getenv("PORT"); envPort != "" {
+	if currentRuntime != nil && currentRuntime.Env != nil {
+		if val, ok := currentRuntime.Env["PORT"]; ok && val != "" {
+			port = val
+		} else if val, ok := currentRuntime.Env["JOSS_PORT"]; ok && val != "" {
+			port = val
+		}
+	}
+	if envPort := os.Getenv("PORT"); envPort != "" {
 		port = envPort
 	}
 

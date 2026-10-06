@@ -22,6 +22,14 @@ func NewMemFS() *MemFS {
 	}
 }
 
+// GetFiles returns the raw underlying files map.
+func (fs *MemFS) GetFiles() map[string][]byte {
+	if fs == nil {
+		return nil
+	}
+	return fs.Files
+}
+
 func (fs *MemFS) Open(name string) (http.File, error) {
 	// Clean path and remove leading slash
 	name = strings.TrimPrefix(path.Clean(name), "/")

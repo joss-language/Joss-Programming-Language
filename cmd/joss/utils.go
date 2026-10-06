@@ -48,7 +48,7 @@ func printHelp(topics ...string) {
 	fmt.Printf("  server start                   %s\n", i18n.Tr("cliCmdServer"))
 	fmt.Printf("  program start                  %s\n", i18n.Tr("startProgramDesktop"))
 	fmt.Printf("  build [web|program|native]     %s\n", i18n.Tr("cliCmdBuild"))
-	fmt.Println("    build native [os] [arch] [--gui]")
+	fmt.Println("    build [--release|--debug] [--target=os-arch] [--gui]")
 	fmt.Println()
 	fmt.Println(i18n.Tr("cliSectionQuality"))
 	fmt.Printf("  check [ruta]                   %s\n", i18n.Tr("cliCmdCheck"))

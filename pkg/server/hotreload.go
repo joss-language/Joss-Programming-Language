@@ -15,10 +15,12 @@ import (
 
 	"github.com/gorilla/websocket"
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
+	"github.com/jossecurity/joss/pkg/bytecode"
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/pkg/vfs"
 )
 
 var (
@@ -281,15 +283,25 @@ func reloadApp(changedFile string) {
 			fmt.Printf("[HotReload] Error leyendo %s: %v\n", path, err)
 			return
 		}
-		l := parser.NewLexer(string(content))
-		p := parser.NewParser(l)
-		program := p.ParseProgram()
-		if len(p.Errors()) > 0 {
-			fmt.Printf("[HotReload] Errores de parseo en %s — no se ejecutará código roto:\n", path)
-			for _, msg := range p.Errors() {
-				fmt.Printf("\t%s\n", msg)
+		var program *parser.Program
+		if bytecode.IsBytecode(content) {
+			decoded, decodeErr := bytecode.Decode(content)
+			if decodeErr != nil {
+				fmt.Printf("[HotReload] Error decodificando bytecode en %s: %v\n", path, decodeErr)
+				return
 			}
-			return // DO NOT execute a broken AST
+			program = decoded
+		} else {
+			l := parser.NewLexer(string(content))
+			p := parser.NewParser(l)
+			program = p.ParseProgram()
+			if len(p.Errors()) > 0 {
+				fmt.Printf("[HotReload] Errores de parseo en %s — no se ejecutará código roto:\n", path)
+				for _, msg := range p.Errors() {
+					fmt.Printf("\t%s\n", msg)
+				}
+				return // DO NOT execute a broken AST
+			}
 		}
 		currentRuntime.Execute(program)
 	}
@@ -402,13 +414,14 @@ func reloadPreparedJossRuntime() bool {
 	if report.HasIssues() {
 		report.PrintReport()
 	}
-	if report.HasErrors() || report.Prepared == nil {
+	if report.Prepared == nil || (report.HasErrors() && GlobalFileSystem == nil) {
 		fmt.Println("[HotReload] Recarga rechazada; el runtime anterior permanece activo.")
 		return false
 	}
 
 	candidate := core.NewRuntime()
 	candidate.LoadEnv(GlobalFileSystem)
+	autoloadPluginsFromVFS(candidate, GlobalFileSystem)
 	succeeded := false
 	defer func() {
 		if !succeeded {
@@ -492,14 +505,24 @@ func prepareHotReloadProject() *core.AnalysisReport {
 			parseIssues = append(parseIssues, diagnostics.Diagnostic{Code: "JOSS-IO-001", Severity: diagnostics.SeverityError, File: sourcePath, Message: err.Error()})
 			continue
 		}
-		p := parser.NewParser(parser.NewLexer(string(content)))
-		program := p.ParseProgram()
-		if items := p.Diagnostics(); len(items) > 0 {
-			for _, item := range items {
-				item.File = sourcePath
-				parseIssues = append(parseIssues, item)
+		var program *parser.Program
+		if bytecode.IsBytecode(content) {
+			decoded, decodeErr := bytecode.Decode(content)
+			if decodeErr != nil {
+				parseIssues = append(parseIssues, diagnostics.Diagnostic{Code: "JOSS-BC-001", Severity: diagnostics.SeverityError, File: sourcePath, Message: decodeErr.Error()})
+				continue
 			}
-			continue
+			program = decoded
+		} else {
+			p := parser.NewParser(parser.NewLexer(string(content)))
+			program = p.ParseProgram()
+			if items := p.Diagnostics(); len(items) > 0 {
+				for _, item := range items {
+					item.File = sourcePath
+					parseIssues = append(parseIssues, item)
+				}
+				continue
+			}
 		}
 		units = append(units, semanticanalyzer.SourceUnit{Path: sourcePath, Program: program})
 	}
@@ -507,6 +530,32 @@ func prepareHotReloadProject() *core.AnalysisReport {
 		return core.AnalysisReportFromDiagnostics(parseIssues)
 	}
 	return core.AnalyzeSourceUnits(units)
+}
+
+func autoloadPluginsFromVFS(r *core.Runtime, fs http.FileSystem) {
+	if r == nil || fs == nil {
+		return
+	}
+	if mem, ok := fs.(*vfs.MemFS); ok && mem != nil {
+		for k, data := range mem.Files {
+			cleanKey := filepath.ToSlash(k)
+			if strings.HasPrefix(cleanKey, "plugins/") && strings.HasSuffix(cleanKey, ".jp") {
+				_ = r.LoadPluginBytes(data)
+			}
+		}
+		return
+	}
+	_ = vfsWalk(fs, "plugins", func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil || info.IsDir() {
+			return nil
+		}
+		if strings.EqualFold(filepath.Ext(path), ".jp") {
+			if data, err := vfsReadFile(path); err == nil {
+				_ = r.LoadPluginBytes(data)
+			}
+		}
+		return nil
+	})
 }
 
 func existsFile(path string) bool {
