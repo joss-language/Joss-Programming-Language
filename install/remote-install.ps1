@@ -378,12 +378,16 @@ function Ensure-VSCode {
 # 1. Descarga y Extracción
 function Download-File {
     param($Url, $Dest)
+    $previousProgress = $ProgressPreference
     try {
+        $ProgressPreference = 'SilentlyContinue'
         Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing
         return $true
     } catch {
         Write-Log "[X] Download failed ($Url): $($_.Exception.Message)" "ERROR"
         return $false
+    } finally {
+        $ProgressPreference = $previousProgress
     }
 }
 
