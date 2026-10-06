@@ -41,17 +41,17 @@ type VFSMetrics struct {
 
 // BuildManifest stores the complete internal metadata for a joss build execution.
 type BuildManifest struct {
-	CompilerVersion     string                 `json:"compiler_version"`
-	LanguageVersion     string                 `json:"language_version"`
-	BuildTimestamp      string                 `json:"build_timestamp"`
-	Mode                string                 `json:"mode"` // "release", "debug"
-	Entrypoint          string                 `json:"entrypoint"`
-	Target              TargetInfo             `json:"target"`
-	Reachability        ReachabilitySummary    `json:"reachability"`
-	RuntimeCapabilities map[string]bool        `json:"runtime_capabilities"`
-	VFS                 VFSMetrics             `json:"vfs"`
-	OutputBinary        string                 `json:"output_binary"`
-	BuildHash           string                 `json:"build_hash"`
+	CompilerVersion     string              `json:"compiler_version"`
+	LanguageVersion     string              `json:"language_version"`
+	BuildTimestamp      string              `json:"build_timestamp"`
+	Mode                string              `json:"mode"` // "release", "debug"
+	Entrypoint          string              `json:"entrypoint"`
+	Target              TargetInfo          `json:"target"`
+	Reachability        ReachabilitySummary `json:"reachability"`
+	RuntimeCapabilities map[string]bool     `json:"runtime_capabilities"`
+	VFS                 VFSMetrics          `json:"vfs"`
+	OutputBinary        string              `json:"output_binary"`
+	BuildHash           string              `json:"build_hash"`
 }
 
 // GenerateManifest constructs a canonical build manifest from graph results and compilation settings.
