@@ -1,16 +1,22 @@
 package main
 
 import (
+	"archive/tar"
+	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/jossecurity/joss/pkg/buildmanifest"
 	"github.com/jossecurity/joss/pkg/bytecode"
@@ -337,7 +343,8 @@ func compileRunnerBinary(targetOS, targetArch string, enableGUI bool, detectedCa
 		return nil, fmt.Errorf("%v: %s", err, string(out))
 	}
 
-	if upxPath, err := exec.LookPath("upx"); err == nil {
+	if upxPath := resolveOrDownloadUPX(); upxPath != "" {
+		fmt.Printf("⚡ Optimizando runtime nativo con UPX...\n")
 		upxCmd := exec.Command(upxPath, "--best", "--lzma", tempRunnerBin)
 		_ = upxCmd.Run()
 	}
@@ -346,10 +353,146 @@ func compileRunnerBinary(targetOS, targetArch string, enableGUI bool, detectedCa
 }
 
 func compressFinalExecutableWithUPX(outPath string) {
-	if upxPath, err := exec.LookPath("upx"); err == nil {
+	if upxPath := resolveOrDownloadUPX(); upxPath != "" {
 		upxCmd := exec.Command(upxPath, "--best", "--lzma", outPath)
 		_ = upxCmd.Run()
 	}
+}
+
+// resolveOrDownloadUPX ensures a functional UPX executable is available.
+// It checks PATH, Joss tools directory, and automatically downloads a standalone binary if missing.
+func resolveOrDownloadUPX() string {
+	// 1. Check system PATH first
+	if p, err := exec.LookPath("upx"); err == nil {
+		return p
+	}
+
+	// 2. Check Joss local tools directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		homeDir = os.TempDir()
+	}
+
+	toolsDir := filepath.Join(homeDir, ".joss", "tools")
+	exeName := "upx"
+	if runtime.GOOS == "windows" {
+		exeName = "upx.exe"
+	}
+	cachedUPX := filepath.Join(toolsDir, exeName)
+	if fi, err := os.Stat(cachedUPX); err == nil && !fi.IsDir() {
+		return cachedUPX
+	}
+
+	// Also check next to running joss binary
+	if selfExe, err := os.Executable(); err == nil {
+		sibling := filepath.Join(filepath.Dir(selfExe), exeName)
+		if fi, err := os.Stat(sibling); err == nil && !fi.IsDir() {
+			return sibling
+		}
+	}
+
+	// 3. Attempt automated download for host platform
+	_ = os.MkdirAll(toolsDir, 0755)
+	if downloaded := downloadUPXForHost(cachedUPX); downloaded {
+		return cachedUPX
+	}
+
+	return ""
+}
+
+func downloadUPXForHost(destPath string) bool {
+	archiveURL, innerFile := getUPXDownloadURL()
+	if archiveURL == "" {
+		return false
+	}
+
+	fmt.Printf("⚡ Descargando optimizador binario nativo (UPX) para %s/%s...\n", runtime.GOOS, runtime.GOARCH)
+
+	client := &http.Client{Timeout: 45 * time.Second}
+	resp, err := client.Get(archiveURL)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			resp.Body.Close()
+		}
+		return false
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false
+	}
+
+	if strings.HasSuffix(archiveURL, ".zip") {
+		zr, err := zip.NewReader(bytes.NewReader(bodyBytes), int64(len(bodyBytes)))
+		if err != nil {
+			return false
+		}
+		for _, f := range zr.File {
+			if filepath.Base(f.Name) == innerFile {
+				rc, err := f.Open()
+				if err != nil {
+					return false
+				}
+				defer rc.Close()
+				out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+				if err != nil {
+					return false
+				}
+				defer out.Close()
+				_, err = io.Copy(out, rc)
+				return err == nil
+			}
+		}
+	} else if strings.HasSuffix(archiveURL, ".tar.xz") || strings.HasSuffix(archiveURL, ".tar.gz") {
+		// For tar.gz or simple archives, extract the upx binary
+		gzr, err := gzip.NewReader(bytes.NewReader(bodyBytes))
+		if err == nil {
+			defer gzr.Close()
+			tr := tar.NewReader(gzr)
+			for {
+				hdr, err := tr.Next()
+				if err != nil {
+					break
+				}
+				if filepath.Base(hdr.Name) == innerFile {
+					out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+					if err != nil {
+						return false
+					}
+					defer out.Close()
+					_, err = io.Copy(out, tr)
+					return err == nil
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func getUPXDownloadURL() (string, string) {
+	// Standard release: UPX 5.2.1
+	const version = "5.2.1"
+	switch runtime.GOOS {
+	case "windows":
+		switch runtime.GOARCH {
+		case "amd64":
+			return fmt.Sprintf("https://github.com/upx/upx/releases/download/v%s/upx-%s-win64.zip", version, version), "upx.exe"
+		case "386":
+			return fmt.Sprintf("https://github.com/upx/upx/releases/download/v%s/upx-%s-win32.zip", version, version), "upx.exe"
+		}
+	case "linux":
+		switch runtime.GOARCH {
+		case "amd64":
+			return fmt.Sprintf("https://github.com/upx/upx/releases/download/v%s/upx-%s-amd64_linux.tar.xz", version, version), "upx"
+		case "arm64":
+			return fmt.Sprintf("https://github.com/upx/upx/releases/download/v%s/upx-%s-arm64_linux.tar.xz", version, version), "upx"
+		case "arm":
+			return fmt.Sprintf("https://github.com/upx/upx/releases/download/v%s/upx-%s-arm_linux.tar.xz", version, version), "upx"
+		}
+	}
+	return "", ""
 }
 
 func assembleFinalExecutable(buildDir, targetOS string, runnerBytes, encryptedAssets, buildKey []byte) (string, error) {
