@@ -508,17 +508,66 @@ function Show-MainMenu {
         "0" { Write-Log "Operation cancelled."; return }
         default { Write-Log "Invalid option" "ERROR" }
     }
-
     Write-Host ""
     Write-Log "Cleaning up temp directory..."
     Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
     Write-Log "Operation finished. Log: $LogFile" "SUCCESS"
 }
 
-if ($env:JOSS_INSTALLER_SKIP_MENU -ne "1") {
-    if (-not (Test-Administrator)) {
-        Write-Host "WARNING: Not running as Administrator. PATH changes or installation to 'Program Files' may fail." -ForegroundColor Yellow
-        Write-Host "Run as Administrator for full functionality." -ForegroundColor Yellow
+function Try-LaunchGuiInstaller {
+    # If the user or environment specifically asked for CLI, skip GUI
+    if ($env:JOSS_INSTALLER_CLI -eq "1" -or $env:CI -eq "true") {
+        return $false
     }
-    Show-MainMenu
+
+    try {
+        Write-Host "Comprobando instalador visual para Windows..." -ForegroundColor Cyan
+
+        $candidateUrls = @(
+            "https://api.github.com/repos/joss-language/Joss-Programming-Language-installer-windows/releases/latest",
+            "https://api.github.com/repos/$RepoOwner/$RepoName/releases/latest"
+        )
+
+        foreach ($apiUrl in $candidateUrls) {
+            try {
+                $rel = Invoke-RestMethod -Uri $apiUrl -Headers @{ "User-Agent" = "Joss-Installer-Script" } -ErrorAction SilentlyContinue
+                if ($rel -and $rel.assets) {
+                    $asset = @($rel.assets | Where-Object { 
+                        $_.name -match '^joss-installer-windows.*\.exe$' -or 
+                        $_.name -match '^Joss.*installer.*\.exe$' -or 
+                        $_.name -eq 'joss-setup-windows.exe'
+                    } | Select-Object -First 1)
+
+                    if ($asset.Count -gt 0 -and $asset[0].browser_download_url) {
+                        $guiUrl = $asset[0].browser_download_url
+                        $guiExeName = $asset[0].name
+                        $guiDest = "$env:TEMP\$guiExeName"
+
+                        Write-Host "Descargando instalador grafico ($guiExeName)..." -ForegroundColor Green
+                        if (Download-File -Url $guiUrl -Dest $guiDest) {
+                            Write-Host "Iniciando instalador de Joss..." -ForegroundColor Green
+                            Start-Process -FilePath $guiDest
+                            return $true
+                        }
+                    }
+                }
+            } catch {
+                # Continue searching next candidate URL
+            }
+        }
+    } catch {
+        # Fall back to CLI menu
+    }
+    return $false
+}
+
+if ($env:JOSS_INSTALLER_SKIP_MENU -ne "1") {
+    # Intenta lanzar el instalador GUI primero si esta disponible en la release
+    if (-not (Try-LaunchGuiInstaller)) {
+        if (-not (Test-Administrator)) {
+            Write-Host "WARNING: Not running as Administrator. PATH changes or installation to 'Program Files' may fail." -ForegroundColor Yellow
+            Write-Host "Run as Administrator for full functionality." -ForegroundColor Yellow
+        }
+        Show-MainMenu
+    }
 }
