@@ -237,7 +237,7 @@
     "@types/vscode": "^1.75.0",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
-    "@vscode/vsce": "^3.9.2",
+    "@vscode/vsce": "^4.0.0",
     "eslint": "^8.0.0",
     "typescript": "^5.0.0"
   },
@@ -251,7 +251,9 @@
   },
   "overrides": {
     "js-yaml": "4.3.2",
-    "qs": "6.16.0"
+    "qs": "6.16.0",
+    "braces": "^3.0.3",
+    "micromatch": "^4.0.8"
   },
   "repository": {
     "type": "git",
