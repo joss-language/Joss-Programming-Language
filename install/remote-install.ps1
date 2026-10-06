@@ -532,10 +532,9 @@ function Try-LaunchGuiInstaller {
             try {
                 $rel = Invoke-RestMethod -Uri $apiUrl -Headers @{ "User-Agent" = "Joss-Installer-Script" } -ErrorAction SilentlyContinue
                 if ($rel -and $rel.assets) {
+                    $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
                     $asset = @($rel.assets | Where-Object { 
-                        $_.name -match '^joss-installer-windows.*\.exe$' -or 
-                        $_.name -match '^Joss.*installer.*\.exe$' -or 
-                        $_.name -eq 'joss-setup-windows.exe'
+                        $_.name -eq "joss-installer-windows-$arch.exe"
                     } | Select-Object -First 1)
 
                     if ($asset.Count -gt 0 -and $asset[0].browser_download_url) {
@@ -546,8 +545,12 @@ function Try-LaunchGuiInstaller {
                         Write-Host "Descargando instalador grafico ($guiExeName)..." -ForegroundColor Green
                         if (Download-File -Url $guiUrl -Dest $guiDest) {
                             Write-Host "Iniciando instalador de Joss..." -ForegroundColor Green
-                            Start-Process -FilePath $guiDest
-                            return $true
+                            try {
+                                Start-Process -FilePath $guiDest -ErrorAction Stop
+                                return $true
+                            } catch {
+                                Write-Host "No se pudo iniciar el instalador grafico, usando menu de consola." -ForegroundColor Yellow
+                            }
                         }
                     }
                 }
