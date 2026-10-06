@@ -537,23 +537,56 @@ function Try-LaunchGuiInstaller {
                 $rel = Invoke-RestMethod -Uri $apiUrl -Headers @{ "User-Agent" = "Joss-Installer-Script" } -ErrorAction SilentlyContinue
                 if ($rel -and $rel.assets) {
                     $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
+                    # Primero buscar paquete ZIP optimizado de arranque rápido, o fallback a EXE
                     $asset = @($rel.assets | Where-Object { 
-                        $_.name -eq "joss-installer-windows-$arch.exe"
+                        $_.name -eq "joss-installer-windows-$arch.zip"
                     } | Select-Object -First 1)
+
+                    if (-not $asset -or $asset.Count -eq 0) {
+                        $asset = @($rel.assets | Where-Object { 
+                            $_.name -eq "joss-installer-windows-$arch.exe"
+                        } | Select-Object -First 1)
+                    }
 
                     if ($asset.Count -gt 0 -and $asset[0].browser_download_url) {
                         $guiUrl = $asset[0].browser_download_url
-                        $guiExeName = $asset[0].name
-                        $guiDest = "$env:TEMP\$guiExeName"
+                        $guiAssetName = $asset[0].name
+                        $isZip = $guiAssetName.EndsWith(".zip", [System.StringComparison]::OrdinalIgnoreCase)
 
-                        Write-Host "Descargando instalador grafico ($guiExeName)..." -ForegroundColor Green
-                        if (Download-File -Url $guiUrl -Dest $guiDest) {
-                            Write-Host "Iniciando instalador de Joss..." -ForegroundColor Green
-                            try {
-                                Start-Process -FilePath $guiDest -ErrorAction Stop
-                                return $true
-                            } catch {
-                                Write-Host "No se pudo iniciar el instalador grafico, usando menu de consola." -ForegroundColor Yellow
+                        if ($isZip) {
+                            $zipDest = "$env:TEMP\$guiAssetName"
+                            $extractDir = "$env:TEMP\joss-installer-app"
+
+                            Write-Host "Descargando instalador grafico ($guiAssetName)..." -ForegroundColor Green
+                            if (Download-File -Url $guiUrl -Dest $zipDest) {
+                                Write-Host "Descomprimiendo instalador..." -ForegroundColor Cyan
+                                if (Test-Path $extractDir) {
+                                    Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+                                }
+                                Expand-Archive -Path $zipDest -DestinationPath $extractDir -Force
+                                
+                                $exePath = Join-Path $extractDir "Joss-Programming-Language-installer.exe"
+                                if (Test-Path $exePath) {
+                                    Write-Host "Iniciando instalador de Joss..." -ForegroundColor Green
+                                    try {
+                                        Start-Process -FilePath $exePath -ErrorAction Stop
+                                        return $true
+                                    } catch {
+                                        Write-Host "No se pudo iniciar el instalador grafico, usando menu de consola." -ForegroundColor Yellow
+                                    }
+                                }
+                            }
+                        } else {
+                            $guiDest = "$env:TEMP\$guiAssetName"
+                            Write-Host "Descargando instalador grafico ($guiAssetName)..." -ForegroundColor Green
+                            if (Download-File -Url $guiUrl -Dest $guiDest) {
+                                Write-Host "Iniciando instalador de Joss..." -ForegroundColor Green
+                                try {
+                                    Start-Process -FilePath $guiDest -ErrorAction Stop
+                                    return $true
+                                } catch {
+                                    Write-Host "No se pudo iniciar el instalador grafico, usando menu de consola." -ForegroundColor Yellow
+                                }
                             }
                         }
                     }
