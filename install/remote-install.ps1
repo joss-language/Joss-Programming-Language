@@ -563,7 +563,18 @@ function Try-LaunchGuiInstaller {
                                 if (Test-Path $extractDir) {
                                     Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
                                 }
-                                Expand-Archive -Path $zipDest -DestinationPath $extractDir -Force
+                                
+                                $oldProgress = $ProgressPreference
+                                try {
+                                    $ProgressPreference = 'SilentlyContinue'
+                                    Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+                                    [System.IO.Compression.ZipFile]::ExtractToDirectory($zipDest, $extractDir)
+                                } catch {
+                                    # Fallback nativo de PowerShell si falla ZipFile
+                                    Expand-Archive -Path $zipDest -DestinationPath $extractDir -Force
+                                } finally {
+                                    $ProgressPreference = $oldProgress
+                                }
                                 
                                 $exePath = Join-Path $extractDir "Joss-Programming-Language-installer.exe"
                                 if (Test-Path $exePath) {
