@@ -101,9 +101,52 @@ func main() {
 		return
 	}
 
+	// 5. Pre-parse embedded environment configuration (env.joss, .env, env.enc)
+	envConfig := make(map[string]string)
+	var envData []byte
+	if data, ok := files["env.joss"]; ok {
+		envData = data
+	} else if data, ok := files[".env"]; ok {
+		envData = data
+	} else if envEnc, ok := files["env.enc"]; ok {
+		if len(envEnc) > 16 {
+			salt := envEnc[:16]
+			ciphertext := envEnc[16:]
+			masterSecret := []byte("JOSSECURITY_MASTER_SECRET_2025")
+			key := crypto.DeriveKey(masterSecret, salt)
+			decrypted, err := crypto.DecryptAES(ciphertext, key)
+			if err == nil {
+				envData = decrypted
+			}
+		}
+	}
+
+	if len(envData) > 0 {
+		lines := bytes.Split(envData, []byte("\n"))
+		for _, line := range lines {
+			s := bytes.TrimSpace(line)
+			if bytes.HasPrefix(s, []byte("#")) {
+				continue
+			}
+			parts := bytes.SplitN(s, []byte("="), 2)
+			if len(parts) == 2 {
+				k := string(bytes.ToUpper(bytes.TrimSpace(parts[0])))
+				val := bytes.TrimSpace(parts[1])
+				val = bytes.Trim(val, "\"")
+				val = bytes.Trim(val, "'")
+				envConfig[k] = string(val)
+			}
+		}
+	}
+
+	isGUIMode := os.Getenv("JOSS_GUI") == "true" || envConfig["JOSS_GUI"] == "true"
+	if isGUIMode {
+		_ = os.Setenv("JOSS_GUI", "true")
+	}
+
 	cliDone := make(chan struct{})
 
-	// 5. Normal Startup: Execute main.joss and Open WebView
+	// 6. Normal Startup: Execute main.joss and start backend
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -152,7 +195,7 @@ func main() {
 			}
 		}
 
-		if !isServerApp && os.Getenv("JOSS_GUI") != "true" {
+		if !isServerApp && !isGUIMode {
 			// Pure CLI execution: exit process with code 0 once execution completes
 			os.Exit(0)
 		}
@@ -166,7 +209,7 @@ func main() {
 			break
 		}
 	}
-	if os.Getenv("JOSS_GUI") != "true" && !isServer && os.Getenv("JOSS_SERVER") != "true" {
+	if !isGUIMode && !isServer && os.Getenv("JOSS_SERVER") != "true" {
 		<-cliDone
 		return
 	}
@@ -176,46 +219,14 @@ func main() {
 	if port == "" {
 		port = os.Getenv("JOSS_PORT")
 	}
-
-	var envData []byte
-	if data, ok := files["env.joss"]; ok {
-		envData = data
-	} else if data, ok := files[".env"]; ok {
-		envData = data
-	} else if envEnc, ok := files["env.enc"]; ok {
-		if len(envEnc) > 16 {
-			salt := envEnc[:16]
-			ciphertext := envEnc[16:]
-			masterSecret := []byte("JOSSECURITY_MASTER_SECRET_2025")
-			key := crypto.DeriveKey(masterSecret, salt)
-			decrypted, err := crypto.DecryptAES(ciphertext, key)
-			if err == nil {
-				envData = decrypted
+	if port == "" {
+		for _, candidate := range []string{"PORT", "JOSS_PORT", "APP_PORT", "SERVER_PORT"} {
+			if val := envConfig[candidate]; val != "" {
+				port = val
+				break
 			}
 		}
 	}
-
-	if port == "" && len(envData) > 0 {
-		lines := bytes.Split(envData, []byte("\n"))
-		for _, line := range lines {
-			s := bytes.TrimSpace(line)
-			if bytes.HasPrefix(s, []byte("#")) {
-				continue
-			}
-			parts := bytes.SplitN(s, []byte("="), 2)
-			if len(parts) == 2 {
-				key := string(bytes.ToUpper(bytes.TrimSpace(parts[0])))
-				if key == "PORT" || key == "JOSS_PORT" || key == "APP_PORT" || key == "SERVER_PORT" {
-					val := bytes.TrimSpace(parts[1])
-					val = bytes.Trim(val, "\"")
-					val = bytes.Trim(val, "'")
-					port = string(val)
-					break
-				}
-			}
-		}
-	}
-
 	if port == "" {
 		port = "8000"
 	}

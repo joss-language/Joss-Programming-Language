@@ -31,4 +31,5 @@ func runGUIOrWait(finalPort string) {
 	w.SetSize(1024, 768, webview2.HintNone)
 	w.Navigate("http://localhost:" + finalPort)
 	w.Run()
+	os.Exit(0)
 }

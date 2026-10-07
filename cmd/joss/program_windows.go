@@ -84,6 +84,7 @@ func launchGUIWindow(host string) {
 	w.SetSize(1024, 768, webview2.HintNone)
 	w.Navigate("http://" + host)
 	w.Run()
+	os.Exit(0)
 }
 
 func waitForServer(address string) {
