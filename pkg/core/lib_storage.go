@@ -265,7 +265,7 @@ func safeUserStoragePath(basePath, userToken, fileName string) (string, error) {
 
 func (r *Runtime) getOCIClient() (objectstorage.ObjectStorageClient, context.Context, error) {
 	privateKeyPath := r.Env["OCI_PRIVATE_KEY_PATH"]
-	privateKey, err := os.ReadFile(privateKeyPath)
+	privateKey, err := ReadFileBytes(privateKeyPath)
 	if err != nil {
 		return objectstorage.ObjectStorageClient{}, nil, err
 	}

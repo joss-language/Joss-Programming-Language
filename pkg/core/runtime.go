@@ -33,6 +33,19 @@ func SetFileSystem(fs http.FileSystem) {
 	GlobalFileSystem = fs
 }
 
+// ReadFileBytes attempts to read a file from GlobalFileSystem (VFS) if available,
+// falling back to reading from local filesystem disk.
+func ReadFileBytes(filePath string) ([]byte, error) {
+	if GlobalFileSystem != nil {
+		clean := strings.TrimPrefix(filepath.ToSlash(filePath), "/")
+		if f, err := GlobalFileSystem.Open(clean); err == nil {
+			defer f.Close()
+			return io.ReadAll(f)
+		}
+	}
+	return os.ReadFile(filePath)
+}
+
 // Fork creates a lightweight copy of the runtime for request isolation
 func (r *Runtime) Fork() *Runtime {
 	// fmt.Printf("[RUNTIME] Forking from %p\n", r)

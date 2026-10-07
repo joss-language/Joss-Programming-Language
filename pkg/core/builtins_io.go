@@ -74,7 +74,7 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		}
 		if len(args) == 1 {
 			if path, ok := args[0].(string); ok {
-				content, err := os.ReadFile(path)
+				content, err := ReadFileBytes(path)
 				if err != nil {
 					return nil, true
 				}

@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -82,8 +81,8 @@ func readMarkdownFile(path string) string {
 		return ""
 	}
 
-	// Read file
-	content, err := os.ReadFile(cleanPath)
+	// Read file from VFS or disk
+	content, err := ReadFileBytes(cleanPath)
 	if err != nil {
 		fmt.Printf("Error al leer archivo markdown: %v\n", err)
 		return ""
