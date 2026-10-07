@@ -263,7 +263,8 @@ func shouldSkipFileByName(name string) bool {
 	return strings.HasSuffix(name, ".exe") || strings.HasSuffix(name, ".log") ||
 		strings.HasSuffix(name, ".enc") || strings.HasSuffix(name, ".dll") ||
 		strings.HasSuffix(name, ".so") || strings.HasSuffix(name, ".dylib") ||
-		name == "runner" || name == "joss"
+		name == "runner" || name == "joss" ||
+		name == ".env" || name == "env.joss" || name == ".env.joss"
 }
 
 func tryCompileJossBytecode(data []byte) ([]byte, bool) {

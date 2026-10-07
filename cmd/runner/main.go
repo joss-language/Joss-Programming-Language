@@ -101,14 +101,10 @@ func main() {
 		return
 	}
 
-	// 5. Pre-parse embedded environment configuration (env.joss, .env, env.enc)
+	// 5. Pre-parse embedded environment configuration (env.enc prioritario, fallback .env / env.joss)
 	envConfig := make(map[string]string)
 	var envData []byte
-	if data, ok := files["env.joss"]; ok {
-		envData = data
-	} else if data, ok := files[".env"]; ok {
-		envData = data
-	} else if envEnc, ok := files["env.enc"]; ok {
+	if envEnc, ok := files["env.enc"]; ok {
 		if len(envEnc) > 16 {
 			salt := envEnc[:16]
 			ciphertext := envEnc[16:]
@@ -119,6 +115,10 @@ func main() {
 				envData = decrypted
 			}
 		}
+	} else if data, ok := files["env.joss"]; ok {
+		envData = data
+	} else if data, ok := files[".env"]; ok {
+		envData = data
 	}
 
 	if len(envData) > 0 {
