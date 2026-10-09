@@ -55,23 +55,24 @@ func printTopicHelpCore(cmd string) bool {
 		return true
 
 	case "build":
-		fmt.Printf("%s joss build [web|program|native|package] [opciones]\n", i18n.Tr("cliUsageLabel"))
+		fmt.Printf("%s joss build [archivo.joss] [opciones]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicBuild"))
-		fmt.Println("\nModos:")
-		fmt.Printf("  web                            %s\n", i18n.Tr("helpTopicBuildModeWeb"))
-		fmt.Printf("  program                        %s\n", i18n.Tr("helpTopicBuildModeProgram"))
-		fmt.Printf("  native [os] [arch] [--gui]     %s\n", i18n.Tr("helpTopicBuildModeNative"))
-		fmt.Printf("  package <ruta>                 %s\n", i18n.Tr("helpTopicBuildModePackage"))
 		fmt.Println(helpHeaderOptions)
-		fmt.Println("  --target=<os>-<arch>           Objetivo de compilación cruzada (ej. windows-amd64, linux-arm64)")
-		fmt.Println("  --release                      Compilación optimizada sin símbolos de depuración")
-		fmt.Println("  --debug                        Compilación con información de depuración")
-		fmt.Println("  --gui                          Habilita subsistema de interfaz gráfica de escritorio")
+		fmt.Println("  -o <salida>          Nombre o ruta del ejecutable nativo de salida")
+		fmt.Println("  --target=<os>-<arch> Objetivo de compilación cruzada (ej. windows-amd64, linux-amd64)")
+		fmt.Println("  --release            Compilación optimizada sin símbolos de depuración")
+		fmt.Println("  --debug              Compilación con información de depuración")
+		fmt.Println("  --trace              Emite y conserva artefactos intermedios (.ir, .ll, .standalone.go)")
+		fmt.Println("\nSubcomandos auxiliares:")
+		fmt.Printf("  package <ruta>       %s\n", i18n.Tr("helpTopicBuildModePackage"))
+		fmt.Printf("  web                  %s\n", i18n.Tr("helpTopicBuildModeWeb"))
 		fmt.Println(helpHeaderExamples)
-		fmt.Println("  joss build --release")
-		fmt.Println("  joss build --target=linux-amd64")
-		fmt.Println("  joss build native windows amd64 --gui")
-		fmt.Println("  joss build web")
+		fmt.Println("  joss build")
+		fmt.Println("  joss build main.joss")
+		fmt.Println("  joss build main.joss -o mi_programa.exe")
+		fmt.Println("  joss build main.joss --release")
+		fmt.Println("  joss build main.joss --target=linux-amd64 -o servidor_linux")
+		fmt.Println("  joss build package app/plugins/mi_paquete")
 		return true
 
 	case "version":
@@ -143,6 +144,14 @@ func printTopicHelpTools(cmd string) bool {
 		fmt.Println(i18n.Tr("helpTopicCheck"))
 		fmt.Println(helpHeaderExamples)
 		fmt.Println("  joss check .")
+		return true
+
+	case "emit-ir":
+		fmt.Printf("%s joss emit-ir [archivo.joss] [-o salida.ir]\n", i18n.Tr("cliUsageLabel"))
+		fmt.Println("Genera la representación intermedia (Joss Native IR) a partir del análisis semántico.")
+		fmt.Println(helpHeaderExamples)
+		fmt.Println("  joss emit-ir main.joss")
+		fmt.Println("  joss emit-ir script.joss -o script.ir")
 		return true
 
 	case "test":

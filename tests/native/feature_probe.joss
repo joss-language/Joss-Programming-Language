@@ -1,0 +1,16 @@
+// Feature Probe: "Feature Once, Execute Anywhere"
+// Demostración canónica de cómo una feature de Joss viaja por:
+// Source -> Parser -> Semantic Analyzer -> PreparedProgram -> Interpreter & Native Lowering -> Native Executable
+// produciendo resultados byte-a-byte idénticos.
+
+public func compareNumbers(int $a, int $b): int {
+    return $a <=> $b;
+}
+
+int $res1 = compareNumbers(15, 30);
+int $res2 = compareNumbers(42, 42);
+int $res3 = compareNumbers(100, 50);
+
+echo $res1;
+echo $res2;
+echo $res3;

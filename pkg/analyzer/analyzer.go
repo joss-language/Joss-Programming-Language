@@ -35,11 +35,11 @@ type Analyzer struct {
 }
 
 func Analyze(units []SourceUnit, environment Environment) []diagnostics.Diagnostic {
-	items, _ := analyzeWithFacts(units, environment)
+	items, _, _ := analyzeWithFacts(units, environment)
 	return items
 }
 
-func analyzeWithFacts(units []SourceUnit, environment Environment) ([]diagnostics.Diagnostic, *AnalysisFacts) {
+func analyzeWithFacts(units []SourceUnit, environment Environment) ([]diagnostics.Diagnostic, *AnalysisFacts, Environment) {
 	facts := NewAnalysisFacts()
 	a := &Analyzer{
 		environment:       environment,
@@ -81,7 +81,7 @@ func analyzeWithFacts(units []SourceUnit, environment Environment) ([]diagnostic
 		}
 		return items[i].Code < items[j].Code
 	})
-	return items, facts
+	return items, facts, a.environment
 }
 
 func (a *Analyzer) withSourceFile(file string, analyze func()) {

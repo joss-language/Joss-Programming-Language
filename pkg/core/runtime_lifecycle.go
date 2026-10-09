@@ -173,6 +173,8 @@ func (r *Runtime) Free() {
 
 	r.CurrentMiddleware = r.CurrentMiddleware[:0]
 	r.ProjectRoot = ""
+	r.PreparedProgram = nil
+	r.AnalysisFacts = nil
 	r.CurrentSource = ""
 	r.CurrentFile = ""
 	r.callDepth = 0

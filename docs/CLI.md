@@ -17,20 +17,26 @@ joss run archivo.joss
 joss repl
 joss server start
 joss program start
+joss build [archivo.joss] [opciones]
+joss emit-ir [archivo.joss] [-o salida.ir]
 joss analyze [archivo.joss]
 joss update [-f|--canary|--stable]
-joss build [web|program|native|package] [--target=os-arch] [--gui]
-joss build --release
-joss build --debug
 ```
 
-- `run [archivo]`: Ejecuta un script `.joss` después de analizar el proyecto. Los errores semánticos bloquean la ejecución; los warnings no.
+- `run [archivo]`: Ejecuta un script `.joss` después de analizar el proyecto con el intérprete de Joss. Los errores semánticos bloquean la ejecución; los warnings no.
 - `repl`: Inicia la consola interactiva (Read-Eval-Print Loop) para evaluar expresiones, probar funciones y experimentar con código en tiempo real. Escribe `exit` o presiona `Ctrl+C` para salir.
-- `server start`: Requiere el punto de entrada `main.joss` e inicia el servidor HTTP multinivel de alto rendimiento. Presiona `q` para detenerlo de manera segura.
+- `server start`: Requiere el punto de entrada `main.joss` e inicia el servidor HTTP multinivel de alto rendimiento interpretado por el runtime de servidor. Presiona `q` para detenerlo de manera segura.
 - `program start`: Inicia la aplicación en modo escritorio.
+- `build [archivo.joss]`: **Compilador nativo oficial de Joss**. Compila el programa a un ejecutable binario nativo real autocontenido (PE `.exe` en Windows, ELF en Linux, Mach-O en macOS). Realiza análisis semántico exhaustivo (`PreparedProgram`), análisis de alcance (*Reachability Analysis*), lowering a Joss Native IR (`pkg/ir`), verificación de IR y generación de código nativo a través de LLVM o el backend de compilación directa (`pkg/backend/native`), sin empaquetar AST ni depender del runtime de Go.
+  - `-o <salida>`: Nombre o ruta del binario ejecutable final.
+  - `--target=<os>-<arch>`: Objetivo de compilación cruzada (ej. `windows-amd64`, `linux-amd64`, `darwin-arm64`).
+  - `--release`: Compilación optimizada para producción sin símbolos de depuración.
+  - `--debug`: Compilación con información de depuración.
+  - `--trace`: Emite y conserva artefactos intermedios del pipeline nativo (`.ir`, `.ll`, `.standalone.go`).
+  - `build package [ruta]`: Empaqueta extensiones y plugins en paquetes `.jp` (v2) firmados con Ed25519 conteniendo bytecode puro.
+  - `build web`: Prepara assets y distribución estática para despliegue web.
+- `emit-ir [archivo.joss] [-o salida.ir]`: Emite la representación intermedia canónica (Joss Native IR) en formato textual determinista tras el análisis semántico y lowering.
 - `analyze [archivo]`: Analiza la entrada (por defecto `main.joss`) y `app/**/*.joss`. No incluye automáticamente `routes.joss`, `api.joss` ni otros hermanos. Devuelve código distinto de cero si existen errores y conserva archivo/línea/columna. Consulte [ANALIZADOR.md](ANALIZADOR.md).
-- `build native [os] [arch]` / `build [--target=os-arch]`: Compilación nativa, modular y autocontenida. Realiza un análisis estático de alcance (*Reachability Analysis* en `pkg/analyzer`), descartando archivos huérfanos y métodos muertos (*Dead Code Elimination* y *AST Shaking*), empaqueta el bytecode binario optimizado `JOSSBC2Z` cifrado en RAM y vincula un runner especializado según las capacidades requeridas (`cli`, `gui` o `server`). Genera el reporte de trazabilidad en `.joss/cache/build-manifest.json`. Usa `--gui` para aplicaciones de escritorio.
-- `build package [ruta]`: Empaqueta extensiones y plugins en paquetes `.jp` (v2) firmados con Ed25519 conteniendo bytecode puro.
 - `update`: Usa el actualizador implementado por el CLI y puede requerir red/permisos del sistema. Comprueba sus canales y artefactos reales antes de prometer que una distribución contiene SDK o editor.
 
 ---

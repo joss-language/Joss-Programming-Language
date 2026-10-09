@@ -13,8 +13,10 @@ import (
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	_ "modernc.org/sqlite"
 
+	"github.com/jossecurity/joss/pkg/backend/native"
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/i18n"
+	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/mobile"
 	"github.com/jossecurity/joss/pkg/parser"
 	_ "github.com/jossecurity/joss/pkg/server"
@@ -121,6 +123,20 @@ func main() {
 		handleTestCommand(os.Args[2:])
 	case "check":
 		handleCheckCommand(os.Args[2:])
+	case "emit-ir":
+		filename := "main.joss"
+		outFile := ""
+		for i := 2; i < len(os.Args); i++ {
+			if strings.HasPrefix(os.Args[i], "-o=") {
+				outFile = strings.TrimPrefix(os.Args[i], "-o=")
+			} else if os.Args[i] == "-o" && i+1 < len(os.Args) {
+				outFile = os.Args[i+1]
+				i++
+			} else if !strings.HasPrefix(os.Args[i], "-") {
+				filename = os.Args[i]
+			}
+		}
+		emitIRCommand(filename, outFile)
 	case "analyze":
 		filename := "main.joss"
 		if len(os.Args) >= 3 {
@@ -161,61 +177,7 @@ func main() {
 		runRepl()
 
 	case "build":
-		target := "web"
-		if len(os.Args) >= 3 {
-			target = os.Args[2]
-		}
-		switch target {
-		case "native", "program":
-			targetOS, targetArch := "", ""
-			enableGUI := false
-			for _, arg := range os.Args[3:] {
-				if arg == "--gui" {
-					enableGUI = true
-				} else if strings.HasPrefix(arg, "--target=") {
-					parts := strings.Split(strings.TrimPrefix(arg, "--target="), "-")
-					if len(parts) == 2 {
-						targetOS, targetArch = parts[0], parts[1]
-					}
-				} else if targetOS == "" && !strings.HasPrefix(arg, "--") {
-					targetOS = arg
-				} else if targetArch == "" && !strings.HasPrefix(arg, "--") {
-					targetArch = arg
-				}
-			}
-			if target == "program" && targetOS == "" {
-				buildProgram()
-			} else {
-				buildNative(targetOS, targetArch, enableGUI)
-			}
-		case "package":
-			if len(os.Args) < 4 {
-				fmt.Printf("%s joss build package [ruta_del_paquete]\n", i18n.Tr("cliUsageLabel"))
-				return
-			}
-			buildPackage(os.Args[3])
-		case "web":
-			buildWeb()
-		default:
-			// Si el usuario pasa joss build --release, joss build --target windows-amd64, etc.
-			if strings.HasPrefix(target, "--") {
-				targetOS, targetArch := "", ""
-				enableGUI := false
-				for _, arg := range os.Args[2:] {
-					if arg == "--gui" {
-						enableGUI = true
-					} else if strings.HasPrefix(arg, "--target=") {
-						parts := strings.Split(strings.TrimPrefix(arg, "--target="), "-")
-						if len(parts) == 2 {
-							targetOS, targetArch = parts[0], parts[1]
-						}
-					}
-				}
-				buildNative(targetOS, targetArch, enableGUI)
-			} else {
-				buildWeb()
-			}
-		}
+		handleBuildCommand(os.Args[2:])
 	case "make:controller":
 		if len(os.Args) < 3 {
 			fmt.Printf("%s joss make:controller [Nombre]\n", i18n.Tr("cliUsageLabel"))
@@ -398,6 +360,263 @@ func analyzeScript(filename string) {
 	}
 }
 
+func emitIRCommand(filename, outFile string) {
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		fmt.Printf("Error: archivo '%s' no encontrado.\n", filename)
+		os.Exit(1)
+	}
+
+	units, parseDiagnostics := semanticanalyzer.LoadProject(filename, "app")
+	if len(parseDiagnostics) > 0 {
+		report := core.AnalysisReportFromDiagnostics(parseDiagnostics)
+		report.PrintReport()
+		os.Exit(1)
+	}
+
+	report := core.AnalyzeSourceUnits(units)
+	if report.HasErrors() {
+		report.PrintReport()
+		os.Exit(1)
+	}
+
+	lowerer := ir.NewLowerer(report.Prepared, nil)
+	progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
+	irProg, err := lowerer.LowerProgram(progName)
+	if err != nil {
+		fmt.Printf("Error generando IR: %v\n", err)
+		os.Exit(1)
+	}
+
+	verifier := ir.NewVerifier()
+	if err := verifier.Verify(irProg); err != nil {
+		fmt.Printf("Error de verificación IR: %v\n", err)
+		os.Exit(1)
+	}
+
+	dump := irProg.Dump()
+	if outFile != "" {
+		if err := os.WriteFile(outFile, []byte(dump), 0644); err != nil {
+			fmt.Printf("Error escribiendo archivo IR '%s': %v\n", outFile, err)
+			os.Exit(1)
+		}
+		fmt.Printf("✓ IR generado exitosamente en: %s\n", outFile)
+	} else {
+		fmt.Print(dump)
+	}
+}
+
+func handleBuildCommand(args []string) {
+	if len(args) == 0 {
+		if _, err := os.Stat("main.joss"); err == nil {
+			buildNativeProgram("main.joss", "", "", false, false, false, "auto")
+			return
+		}
+		fmt.Printf("%s joss build [archivo.joss] [opciones]\n", i18n.Tr("cliUsageLabel"))
+		fmt.Println("\nOpciones:")
+		fmt.Println("  -o <salida>          Nombre o ruta del binario nativo de salida")
+		fmt.Println("  --target=<os>-<arch> Objetivo de compilación cruzada (ej. windows-amd64, linux-amd64)")
+		fmt.Println("  --release            Compilación optimizada sin símbolos de depuración")
+		fmt.Println("  --debug              Compilación con información de depuración")
+		fmt.Println("  --trace              Emite y conserva artefactos intermedios (.ir, .ll, .standalone.go)")
+		fmt.Println("\nSubcomandos de distribución:")
+		fmt.Println("  package <ruta>       Empaquetar librería o plugin en formato .jp")
+		fmt.Println("  web                  Preparar bundle de archivos y assets para despliegue web")
+		return
+	}
+
+	first := args[0]
+	// Subcomandos de paquetes y bundles existentes
+	if first == "package" {
+		if len(args) < 2 {
+			fmt.Printf("%s joss build package [ruta_del_paquete]\n", i18n.Tr("cliUsageLabel"))
+			return
+		}
+		buildPackage(args[1])
+		return
+	}
+	if first == "web" {
+		buildWeb()
+		return
+	}
+
+	// Subcomandos históricos en deprecación redirigidos de forma transparente
+	shift := 0
+	if first == "native-backend" || first == "native" {
+		fmt.Println("[aviso] 'joss build native' y 'joss build native-backend' están en deprecación. Usa directamente 'joss build [archivo.joss]'")
+		shift = 1
+	} else if first == "program" {
+		fmt.Println("[aviso] 'joss build program' está en deprecación. Usa directamente 'joss build [archivo.joss]'")
+		shift = 1
+	}
+
+	remaining := args[shift:]
+	filename := ""
+	outExe := ""
+	targetStr := ""
+	release := false
+	debug := false
+	trace := false
+	backendName := "auto"
+
+	for i := 0; i < len(remaining); i++ {
+		arg := remaining[i]
+		if strings.HasPrefix(arg, "-o=") {
+			outExe = strings.TrimPrefix(arg, "-o=")
+		} else if arg == "-o" && i+1 < len(remaining) {
+			outExe = remaining[i+1]
+			i++
+		} else if strings.HasPrefix(arg, "--target=") {
+			targetStr = strings.TrimPrefix(arg, "--target=")
+		} else if arg == "--target" && i+1 < len(remaining) {
+			targetStr = remaining[i+1]
+			i++
+		} else if arg == "--release" {
+			release = true
+		} else if arg == "--debug" {
+			debug = true
+		} else if arg == "--trace" {
+			trace = true
+		} else if strings.HasPrefix(arg, "--backend=") {
+			backendName = strings.TrimPrefix(arg, "--backend=")
+		} else if !strings.HasPrefix(arg, "-") {
+			if filename == "" {
+				filename = arg
+			}
+		}
+	}
+
+	if filename == "" {
+		if _, err := os.Stat("main.joss"); err == nil {
+			filename = "main.joss"
+		} else {
+			fmt.Printf("Error: debes especificar un archivo fuente para compilar (ej. 'joss build main.joss')\n")
+			os.Exit(1)
+		}
+	}
+
+	buildNativeProgram(filename, outExe, targetStr, release, debug, trace, backendName)
+}
+
+func buildNativeProgram(filename, outExe, targetStr string, release, debug, trace bool, backendName string) {
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		fmt.Printf("Error: archivo '%s' no encontrado.\n", filename)
+		os.Exit(1)
+	}
+
+	target, err := native.ParseTarget(targetStr)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if outExe == "" {
+		base := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
+		if base == "" {
+			base = "app"
+		}
+		if target.OS == "windows" {
+			outExe = base + ".exe"
+		} else {
+			outExe = base
+		}
+	} else if target.OS == "windows" && !strings.HasSuffix(strings.ToLower(outExe), ".exe") {
+		outExe += ".exe"
+	}
+
+	fmt.Printf("🔨 Compilando nativamente: %s -> %s (target: %s)\n", filename, outExe, target.DashString())
+	if trace {
+		fmt.Println("  [trace] 1. Analizando código fuente con frontend...")
+	}
+	units, parseDiagnostics := semanticanalyzer.LoadProject(filename, "app")
+	if len(parseDiagnostics) > 0 {
+		core.AnalysisReportFromDiagnostics(parseDiagnostics).PrintReport()
+		os.Exit(1)
+	}
+
+	report := core.AnalyzeSourceUnits(units)
+	if report.HasErrors() {
+		report.PrintReport()
+		os.Exit(1)
+	}
+
+	if trace {
+		fmt.Println("  [trace] 2. Generando Joss Native IR (Lowering)...")
+	}
+	lowerer := ir.NewLowerer(report.Prepared, nil)
+	progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
+	irProg, err := lowerer.LowerProgram(progName)
+	if err != nil {
+		if trace {
+			fmt.Printf("  [trace] El proyecto contiene subsistemas de aplicación completa (%v).\n", err)
+			fmt.Println("  [trace] Compilando ejecutable nativo autocontenido de aplicación...")
+		}
+		_, _ = buildNativeWithOutput(target.OS, target.Arch, false, outExe)
+		return
+	}
+
+	if trace {
+		fmt.Println("  [trace] 3. Verificando integridad de CFG y tipos en IR...")
+	}
+	verifier := ir.NewVerifier()
+	if err := verifier.Verify(irProg); err != nil {
+		if trace {
+			fmt.Printf("  [trace] Verificación de IR delegando a pipeline de aplicación (%v).\n", err)
+		}
+		_, _ = buildNativeWithOutput(target.OS, target.Arch, false, outExe)
+		return
+	}
+
+	bKind := native.BackendAuto
+	switch strings.ToLower(backendName) {
+	case "llvm":
+		bKind = native.BackendLLVM
+	case "standalone":
+		bKind = native.BackendStandalone
+	default:
+		bKind = native.BackendAuto
+	}
+
+	if trace {
+		fmt.Printf("  [trace] 4. Ejecutando backend nativo (solicitado: %s)...\n", bKind)
+	}
+
+	res, err := native.BuildProgram(irProg, native.BuildOptions{
+		Target:     target,
+		Backend:    bKind,
+		OutputPath: outExe,
+		Trace:      trace,
+		Debug:      debug,
+		Release:    release,
+	})
+	if err != nil {
+		fmt.Printf("Error generando ejecutable nativo: %v\n", err)
+		os.Exit(1)
+	}
+
+	sizeKB := float64(res.ExecutableSize) / 1024.0
+	if res.IsBootstrap {
+		fmt.Printf("  [bootstrap] %s\n", res.ToolchainNotice)
+		fmt.Printf("✓ Ejecutable generado con éxito (bootstrap): %s (%.1f KB) [target: %s]\n", outExe, sizeKB, res.Target.DashString())
+	} else {
+		fmt.Printf("✓ Ejecutable nativo real generado con éxito: %s (%.1f KB) [backend: %s, target: %s]\n", outExe, sizeKB, res.BackendUsed, res.Target.DashString())
+	}
+	if trace {
+		if res.IRDumpPath != "" {
+			fmt.Printf("  [trace] Artefacto IR: %s\n", res.IRDumpPath)
+		}
+		if res.LLVMPath != "" {
+			fmt.Printf("  [trace] Artefacto LLVM: %s\n", res.LLVMPath)
+		}
+		if res.BootstrapPath != "" {
+			fmt.Printf("  [trace] Artefacto Bootstrap: %s\n", res.BootstrapPath)
+		}
+	}
+}
+
+func buildNativeBackend(filename, outExe string, backendName string, trace bool) {
+	buildNativeProgram(filename, outExe, "", false, false, trace, backendName)
+}
+
 func executeScript(filename string) {
 	// Analyze the same project surface that the runtime will preload. Semantic
 	// errors are blocking; warnings remain visible but do not prevent execution.
@@ -423,11 +642,6 @@ func executeScript(filename string) {
 	rt.CurrentFile = filename
 	rt.LoadEnv(nil)
 
-	// Preload all .joss files in app/ and subfolders (controllers, models, services, middleware, etc.)
-	if _, err := os.Stat("app"); err == nil {
-		rt.PreloadAppFiles("app")
-	}
-
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Printf("\n[Error de Ejecución JOSS]\n%s\n", core.FormatPanicAsError(r))
@@ -435,7 +649,7 @@ func executeScript(filename string) {
 		}
 	}()
 
-	rt.Execute(program)
+	rt.ExecutePrepared(report.Prepared)
 }
 
 func executeEval(source string, asJSON bool) {

@@ -12,7 +12,7 @@ versión descargada previamente.
 | Tipos | int64, float64, decimal, strings, arrays, maps, object, channel, clases, uniones y nullable. Análisis y defensa runtime con diferencias registradas. | [Tipos](SISTEMA_TIPOS.md) |
 | Concurrencia | Goroutines mediante async, Future, espera bloqueante y channels. La ejecución móvil admite cancelación cooperativa y captura segura de salida tardía; una llamada nativa bloqueante puede seguir tras el timeout. No existe cancelación estructurada general ni aislamiento profundo. | [Concurrencia](CONCURRENCIA.md) |
 | Analizador | Declaraciones, scopes, asignabilidad, miembros conocidos, retornos y diagnósticos; narrowing local en ternarios, guard y comparaciones con null. No existe CFG general ni prueba de terminación completa. | [Analizador](ANALIZADOR.md) |
-| Ejecución principal | AST interpretado con planes de callable, frames y caches. Build nativo empaqueta AST comprimido JOSSBC2Z con runner Go. | [Arquitectura](ARQUITECTURA.md) |
+| Ejecución principal | Doble vía unificada: Intérprete para scripting (`joss run`) y servidor web (`joss server start`); Compilador nativo oficial (`joss build`) mediante Joss Native IR y backend nativo LLVM / Standalone. | [Arquitectura](ARQUITECTURA.md) |
 | VM experimental | pkg/vm contiene compilador y VM independientes; no es backend por defecto de CLI/core. | [Internos](ARQUITECTURA.md) |
 | Web | Router HTTP/WS, vistas, Request/Response, sesión, CSRF, CORS, TLS y límites configurables. | [Proyecto web](PROYECTO_WEB.md) |
 | SQL | Adaptadores SQLite/MySQL/PostgreSQL/SQL Server, builder, Schema y migraciones. Portabilidad parcial por operación; las consultas SQL ordinarias del runtime durante GranDB::transaction usan el Tx activo. Transacciones anidadas no están soportadas. | [Modelos](MODELOS.md) |
@@ -21,10 +21,11 @@ versión descargada previamente.
 | Herramientas | CLI con REPL, formatter, linter/fix, runner de tests y extensión VS Code con catálogo generado. No hay debugger integrado. | [CLI](CLI.md) |
 
 No existen ownership general, inmutabilidad por defecto, punteros generales,
-traits, protocolos, generics de funciones, finally,
-ni backend LLVM/Cranelift. Las anotaciones de colecciones no equivalen a generics
-universales ni garantizan que cada mutación revalide elementos. Las clases
-genéricas existen, pero sus parámetros aún necesitan garantías más fuertes.
+traits, protocolos, generics de funciones, finally ni backend Cranelift
+(el backend nativo oficial genera código ejecutable vía LLVM IR y standalone bootstrap).
+Las anotaciones de colecciones no equivalen a generics universales ni garantizan
+que cada mutación revalide elementos. Las clases genéricas existen, pero sus
+parámetros aún necesitan garantías más fuertes.
 
 La ausencia de imports/exports/namespaces fuente es una decisión permanente,
 no una función pendiente. La modularidad de ALIM utiliza capacidades integradas,

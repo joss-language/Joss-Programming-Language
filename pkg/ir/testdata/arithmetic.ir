@@ -1,0 +1,15 @@
+; Joss Native IR: arithmetic
+
+func @main() -> i64 {
+entry:
+    %0_a_ptr = alloca i64
+    store 10, %0_a_ptr
+    %1_b_ptr = alloca i64
+    store 20, %1_b_ptr
+    %2_a = load %0_a_ptr
+    %3_b = load %1_b_ptr
+    %4_binop = add %2_a, %3_b
+    return %4_binop
+dead1:
+    return 0
+}

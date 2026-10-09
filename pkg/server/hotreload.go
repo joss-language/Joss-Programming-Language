@@ -421,6 +421,10 @@ func reloadPreparedJossRuntime() bool {
 
 	candidate := core.NewRuntime()
 	candidate.LoadEnv(GlobalFileSystem)
+	candidate.PreparedProgram = report.Prepared
+	if report.Prepared.Facts != nil {
+		candidate.AnalysisFacts = report.Prepared.Facts
+	}
 	autoloadPluginsFromVFS(candidate, GlobalFileSystem)
 	succeeded := false
 	defer func() {

@@ -40,6 +40,10 @@ var supportedTargets = map[string][]string{
 
 // buildNative orchestrates self-contained native binary compilation.
 func buildNative(targetOS, targetArch string, enableGUI bool) {
+	_, _ = buildNativeWithOutput(targetOS, targetArch, enableGUI, "")
+}
+
+func buildNativeWithOutput(targetOS, targetArch string, enableGUI bool, outExe string) (string, error) {
 	tOS, tArch, valid := validateBuildTarget(targetOS, targetArch)
 	if !valid {
 		os.Exit(1)
@@ -91,15 +95,25 @@ func buildNative(targetOS, targetArch string, enableGUI bool) {
 
 	copyDatabaseFiles(buildDir)
 
+	if outExe != "" && outExe != outPath {
+		if data, err := os.ReadFile(outPath); err == nil {
+			_ = os.WriteFile(outExe, data, 0755)
+		}
+	}
+
 	stat, _ := os.Stat(outPath)
 	sizeMB := float64(stat.Size()) / (1024 * 1024)
 
 	fmt.Printf("\n%s\n", i18n.Tr("nativeBuildSuccessTitle"))
 	fmt.Printf(" %s : %s\n", i18n.Tr("nativeBuildOutputFile"), outPath)
+	if outExe != "" && outExe != outPath {
+		fmt.Printf(" %s (destino) : %s\n", i18n.Tr("nativeBuildOutputFile"), outExe)
+	}
 	fmt.Printf(" %s   : %.2f MB\n", i18n.Tr("nativeBuildBinarySize"), sizeMB)
 	fmt.Printf(" %s           : %s/%s\n", i18n.Tr("nativeBuildTarget"), tOS, tArch)
 	fmt.Printf(" %s              : %s\n", i18n.Tr("nativeBuildMode"), modeStr)
 	fmt.Printf(" %s\n\n", i18n.Tr("nativeBuildInstructions", map[string]interface{}{"path": outPath, "os": strings.ToUpper(tOS)}))
+	return outPath, nil
 }
 
 func validateBuildTarget(targetOS, targetArch string) (string, string, bool) {
@@ -315,8 +329,28 @@ func compileRunnerBinary(targetOS, targetArch string, enableGUI bool, detectedCa
 		tempRunnerBin += ".exe"
 	}
 
+	repoRoot := ""
+	for check := "."; ; check = filepath.Join("..", check) {
+		absCheck, err := filepath.Abs(check)
+		if err != nil {
+			break
+		}
+		if _, err := os.Stat(filepath.Join(absCheck, "go.mod")); err == nil {
+			if _, err := os.Stat(filepath.Join(absCheck, "cmd", "runner")); err == nil {
+				repoRoot = absCheck
+				break
+			}
+		}
+		parent := filepath.Dir(absCheck)
+		if parent == absCheck {
+			break
+		}
+	}
+
 	runnerPkg := "github.com/jossecurity/joss/cmd/runner"
-	if _, err := os.Stat("cmd/runner"); err == nil {
+	if repoRoot != "" {
+		runnerPkg = "./cmd/runner"
+	} else if _, err := os.Stat("cmd/runner"); err == nil {
 		runnerPkg = "./cmd/runner"
 	}
 
@@ -337,6 +371,9 @@ func compileRunnerBinary(targetOS, targetArch string, enableGUI bool, detectedCa
 	args = append(args, "-o", tempRunnerBin, runnerPkg)
 
 	cmd := exec.Command("go", args...)
+	if repoRoot != "" {
+		cmd.Dir = repoRoot
+	}
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+targetOS, "GOARCH="+targetArch)
 
 	out, err := cmd.CombinedOutput()

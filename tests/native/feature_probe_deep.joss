@@ -1,0 +1,29 @@
+// Feature Probe Profundo: Resolución semántica, clases estáticas, bucles y llamadas cruzadas.
+// Demuestra que el contrato unificado funciona para características semánticas ricas
+// y produce resultados idénticos byte a byte en Intérprete y Compilador Nativo.
+
+public class MathEngine {
+    public static func power(int $base, int $exp): int {
+        int $result = 1;
+        int $i = 0;
+        while ($i < $exp) {
+            $result = $result * $base;
+            $i = $i + 1;
+        }
+        return $result;
+    }
+}
+
+public func evaluateComparison(int $val, int $target): int {
+    int $sq = MathEngine::power($val, 2);
+    int $cmp = $sq <=> $target;
+    return $cmp;
+}
+
+int $t1 = evaluateComparison(3, 10);
+int $t2 = evaluateComparison(4, 16);
+int $t3 = evaluateComparison(5, 20);
+
+echo $t1;
+echo $t2;
+echo $t3;

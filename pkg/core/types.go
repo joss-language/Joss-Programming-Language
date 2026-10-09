@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/pluginruntime"
 	runtimeerrors "github.com/jossecurity/joss/pkg/runtime/errors"
@@ -59,6 +60,8 @@ type Runtime struct {
 	NativeDrivers     map[string]*NativeDriverDefinition
 	PluginRegistry    *pluginruntime.PluginRegistry
 	ProjectRoot       string
+	PreparedProgram   *semanticanalyzer.PreparedProgram
+	AnalysisFacts     *semanticanalyzer.AnalysisFacts
 	pluginASTEngines  map[string]*PluginASTEngine
 	freed             atomic.Bool
 	// Query observation is execution-local: Fork starts disabled at zero and

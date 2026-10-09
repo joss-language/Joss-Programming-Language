@@ -4,9 +4,98 @@ import (
 	"fmt"
 	"sort"
 
+	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/parser"
 	runtimeplan "github.com/jossecurity/joss/pkg/runtime/plan"
 )
+
+// ExecutePrepared runs a fully validated PreparedProgram produced by the semantic analyzer.
+// All declarations across all project source units are registered directly from the semantic model,
+// avoiding duplicate file scans or re-parsing.
+func (r *Runtime) ExecutePrepared(prep *semanticanalyzer.PreparedProgram) {
+	if prep == nil {
+		return
+	}
+	r.PreparedProgram = prep
+	if prep.Facts != nil {
+		r.AnalysisFacts = prep.Facts
+	}
+
+	defer func() {
+		for i := len(r.topDefers) - 1; i >= 0; i-- {
+			d := r.topDefers[i]
+			if d != nil && d.Body != nil {
+				r.executeStatement(d.Body)
+			}
+		}
+		r.topDefers = nil
+	}()
+
+	if len(r.Env) == 0 {
+		r.LoadEnv(nil)
+	}
+
+	// Register declarations across all units in the semantic model
+	for _, unit := range prep.Units {
+		if unit.Program == nil {
+			continue
+		}
+		for _, stmt := range unit.Program.Statements {
+			if classStmt, ok := stmt.(*parser.ClassStatement); ok {
+				r.registerClass(classStmt)
+			}
+			if ifaceStmt, ok := stmt.(*parser.InterfaceStatement); ok {
+				r.RegisterInterface(ifaceStmt)
+			}
+			if enumStmt, ok := stmt.(*parser.EnumStatement); ok {
+				r.RegisterEnum(enumStmt)
+			}
+			if methodStmt, ok := stmt.(*parser.MethodStatement); ok {
+				r.Functions[methodStmt.Name.Value] = methodStmt
+				r.planForMethod(methodStmt)
+			}
+		}
+	}
+
+	// Execute entrypoint
+	entry := prep.Entrypoint()
+	if entry == nil {
+		return
+	}
+
+	hasClasses := false
+	for _, stmt := range entry.Statements {
+		if _, ok := stmt.(*parser.ClassStatement); ok {
+			hasClasses = true
+			break
+		}
+	}
+
+	if hasClasses {
+		hasMain := false
+		for _, stmt := range entry.Statements {
+			if s, ok := stmt.(*parser.ClassStatement); ok && s.Name.Value == "Main" {
+				hasMain = true
+				break
+			}
+		}
+		if hasMain {
+			r.executeMain(entry)
+		} else {
+			for _, stmt := range entry.Statements {
+				if _, ok := stmt.(*parser.ClassStatement); !ok {
+					if _, ok := stmt.(*parser.InterfaceStatement); !ok {
+						r.executeStatement(stmt)
+					}
+				}
+			}
+		}
+	} else {
+		for _, stmt := range entry.Statements {
+			r.executeStatement(stmt)
+		}
+	}
+}
 
 // Execute runs the parsed program
 func (r *Runtime) Execute(program *parser.Program) {

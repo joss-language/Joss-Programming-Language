@@ -149,6 +149,8 @@ func (r *Runtime) Fork() *Runtime {
 	}
 
 	newR.IndexNowKey = r.IndexNowKey
+	newR.PreparedProgram = r.PreparedProgram
+	newR.AnalysisFacts = r.AnalysisFacts
 
 	return newR
 }

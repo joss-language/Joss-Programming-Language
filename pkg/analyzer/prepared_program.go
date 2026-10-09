@@ -74,11 +74,11 @@ type PreparedProgram struct {
 
 // PrepareProgram analyzes the provided source units and packages them into an immutable PreparedProgram.
 func PrepareProgram(units []SourceUnit, env Environment) *PreparedProgram {
-	diags, facts := analyzeWithFacts(units, env)
+	diags, facts, resolvedEnv := analyzeWithFacts(units, env)
 
 	return &PreparedProgram{
 		Units:       append([]SourceUnit(nil), units...),
-		Environment: cloneEnvironment(env),
+		Environment: cloneEnvironment(resolvedEnv),
 		Diagnostics: diags,
 		Facts:       facts,
 	}
@@ -89,6 +89,9 @@ func cloneEnvironment(source Environment) Environment {
 	clone.MigrationWarnings = source.MigrationWarnings
 	for name, callable := range source.Builtins {
 		clone.Builtins[name] = cloneCallable(callable)
+	}
+	for name, callable := range source.Functions {
+		clone.Functions[name] = cloneCallable(callable)
 	}
 	for name, class := range source.Classes {
 		class.Interfaces = append([]string(nil), class.Interfaces...)
@@ -168,13 +171,108 @@ func (p *PreparedProgram) Program(path string) *parser.Program {
 	return nil
 }
 
+// Classes returns the canonical class declarations resolved by the semantic model.
+func (p *PreparedProgram) Classes() map[string]Class {
+	if p == nil {
+		return nil
+	}
+	return p.Environment.Classes
+}
+
+// Functions returns the canonical named functions resolved by the semantic model.
+func (p *PreparedProgram) Functions() map[string]Callable {
+	if p == nil {
+		return nil
+	}
+	return p.Environment.Functions
+}
+
+// Interfaces returns the canonical interface definitions in the semantic model.
+func (p *PreparedProgram) Interfaces() map[string]Interface {
+	if p == nil {
+		return nil
+	}
+	return p.Environment.Interfaces
+}
+
+// Enums returns the canonical enumeration definitions in the semantic model.
+func (p *PreparedProgram) Enums() map[string]Enum {
+	if p == nil {
+		return nil
+	}
+	return p.Environment.Enums
+}
+
+// Builtins returns the available global native built-in signatures.
+func (p *PreparedProgram) Builtins() map[string]Callable {
+	if p == nil {
+		return nil
+	}
+	return p.Environment.Builtins
+}
+
+// Globals returns the global variable types known to the environment.
+func (p *PreparedProgram) Globals() map[string]typesystem.Type {
+	if p == nil {
+		return nil
+	}
+	return p.Environment.Globals
+}
+
+// Modules returns the list of analyzed source units.
+func (p *PreparedProgram) Modules() []SourceUnit {
+	if p == nil {
+		return nil
+	}
+	return p.Units
+}
+
+// InferredType queries sidecar type inference for a specific AST node.
+func (p *PreparedProgram) InferredType(node parser.Node) (typesystem.Type, bool) {
+	if p == nil || p.Facts == nil {
+		return typesystem.Type{}, false
+	}
+	t, ok := p.Facts.InferredTypes[node]
+	return t, ok
+}
+
+// ResolvedCall queries sidecar call resolution for a specific call expression.
+func (p *PreparedProgram) ResolvedCall(call *parser.CallExpression) (ResolvedCallFact, bool) {
+	if p == nil || p.Facts == nil {
+		return ResolvedCallFact{}, false
+	}
+	f, ok := p.Facts.ResolvedCalls[call]
+	return f, ok
+}
+
+// Symbol queries sidecar symbol metadata for an identifier or qualified name.
+func (p *PreparedProgram) Symbol(name string) (SymbolFact, bool) {
+	if p == nil || p.Facts == nil {
+		return SymbolFact{}, false
+	}
+	s, ok := p.Facts.Symbols[name]
+	return s, ok
+}
 func (a *Analyzer) collectAnalysisFacts(global *scope) {
 	if a.facts == nil {
 		return
 	}
+	if a.environment.Functions == nil {
+		a.environment.Functions = make(map[string]Callable)
+	}
+	if a.environment.Classes == nil {
+		a.environment.Classes = make(map[string]Class)
+	}
+	if a.environment.Interfaces == nil {
+		a.environment.Interfaces = make(map[string]Interface)
+	}
+	if a.environment.Enums == nil {
+		a.environment.Enums = make(map[string]Enum)
+	}
 	for name, declaration := range a.functions {
 		a.facts.CallableTypes[name] = declaration.callable.ReturnType
 		a.facts.Symbols[name] = symbolFact("function", name, declaration.callable.ReturnType, declaration.file)
+		a.environment.Functions[name] = declaration.callable
 	}
 	for name, callable := range a.environment.Builtins {
 		if len(callable.Effects) > 0 {
@@ -184,6 +282,7 @@ func (a *Analyzer) collectAnalysisFacts(global *scope) {
 	for name, class := range a.classes {
 		classType := typesystem.Type{Kind: typesystem.Class, Name: name}
 		a.facts.Symbols[name] = symbolFact("class", name, classType, class.File)
+		a.environment.Classes[name] = class
 		for methodName, callable := range class.Methods {
 			qualified := name + "::" + methodName
 			a.facts.CallableTypes[qualified] = callable.ReturnType
@@ -195,9 +294,11 @@ func (a *Analyzer) collectAnalysisFacts(global *scope) {
 	}
 	for name, iface := range a.interfaces {
 		a.facts.Symbols[name] = symbolFact("interface", name, typesystem.Type{Kind: typesystem.Class, Name: name}, iface.File)
+		a.environment.Interfaces[name] = iface
 	}
 	for name, enum := range a.enums {
 		a.facts.Symbols[name] = symbolFact("enum", name, typesystem.Type{Kind: typesystem.Class, Name: name}, enum.File)
+		a.environment.Enums[name] = enum
 	}
 	for name, resolved := range global.symbols {
 		if _, exists := a.facts.Symbols[name]; !exists {

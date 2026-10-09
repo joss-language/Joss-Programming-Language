@@ -11,22 +11,32 @@ fuentes .joss
   → AST (`pkg/parser/ast*.go`)
   → análisis semántico (`pkg/analyzer`)
   → diagnósticos (`pkg/diagnostics`)
-  → intérprete AST (`pkg/core/evaluator*.go`, `executor.go`)
-  → runtime integrado (`pkg/core`, `pkg/server`)
+  → PreparedProgram
+  ┌───────────────────────┴───────────────────────┐
+  ▼                                               ▼
+Ruta Interpretada                               Ruta Compilación Nativa
+  → Intérprete AST (`pkg/core`)                    → Joss Native IR (`pkg/ir`)
+  → Runtime integrado (`pkg/core`, `pkg/server`)   → IR Verifier
+                                                   → Native Backend (`pkg/backend/native`)
+                                                     (LLVM IR / Standalone Bootstrap)
+                                                   → Ejecutable Nativo (.exe, ELF, Mach-O)
 ```
 
 ```mermaid
-flowchart LR
+flowchart TD
     S[Fuente .joss] --> L[Lexer]
     L --> T[Tokens]
     T --> P[Parser Pratt]
     P --> A[AST]
     A --> N[Analyzer]
-    N -->|sin errores| E[Intérprete core]
     N --> D[Diagnósticos]
+    N -->|sin errores| PP[PreparedProgram]
+    PP -->|joss run / server| E[Intérprete core]
     E --> R[Runtime y servicios]
-    A --> B[JOSSBC2Z para build]
-    B --> E
+    PP -->|joss build| IR[Joss Native IR]
+    IR --> V[IR Verifier]
+    V --> NB[Native Backend]
+    NB --> EXE[Ejecutable nativo real]
 ```
 
 `joss analyze` conserva cada archivo como una `analyzer.SourceUnit`; no concatena ASTs perdiendo el origen. Primero registra declaraciones globales de funciones y clases, después analiza cada método con un scope léxico independiente. Las clases nativas provienen de `Runtime.RegisterNativeClasses`; los plugins aportan sus índices de símbolos JP v2.
@@ -44,9 +54,11 @@ flowchart LR
 | `pkg/runtime/value` | Semántica de valores independiente del evaluator, incluida indexación Unicode. |
 | `pkg/runtime/plan`, `pkg/runtime/frame` | Planes de callables, slots y representación etiquetada usados para acelerar resolución local; no forman bytecode portable. |
 | `pkg/pluginruntime`, `pkg/pluginpkg` | Carga aislada, verificación y resolución de símbolos de plugins JP v2. |
-| `pkg/bytecode` | Serialización comprimida del AST. No es código máquina ni LLVM IR. |
+| `pkg/bytecode` | Serialización comprimida del AST (formato histórico `JOSSBC2Z` para plugins). |
+| `pkg/ir` | Joss Native IR canónico: CFG, bloques básicos, instrucciones tipadas, lowerer y verifier. |
+| `pkg/backend/native` | Backend de compilación nativa: generador LLVM IR y standalone bootstrap para binarios nativos reales. |
 | `pkg/vm` | Compilador/VM experimental independientes. El CLI y `pkg/core` no los usan como ruta predeterminada. |
-| `cmd/joss` | CLI, análisis de proyecto, ejecución, build y administración. |
+| `cmd/joss` | CLI, análisis de proyecto, ejecución (`run`), servidor (`server start`), compilación nativa (`build`) y herramientas. |
 | `vscode-joss` | LSP/editor. Consume el catálogo generado del núcleo. |
 
 ## Fuentes de verdad
@@ -88,7 +100,7 @@ los ternarios/match, un límite registrado en la auditoría.
 
 Las referencias seguras no exponen punteros de Go: `core.VariableReference` conserva el binding de valor/tipo/constancia durante una llamada y el evaluator desreferencia automáticamente. Una referencia no es un valor Joss almacenable ni cruza fronteras async/plugin.
 
-`pkg/bytecode` codifica el AST con `gob` y compresión bajo la única cabecera aceptada `JOSSBC2Z`. Los builds nativos empaquetan ese bytecode junto con el runner Go; actualmente no existe un backend LLVM/Cranelift ni traducción AOT del programa Joss a código máquina. El compilador de plugins sí posee un IR JPBC separado; no debe confundirse con el pipeline del lenguaje principal.
+La compilación nativa oficial (`joss build`) transforma el `PreparedProgram` analizado y validado hacia **Joss Native IR** (`pkg/ir`), con CFG, basic blocks e instrucciones de tipado estricto. Tras la verificación formal (`ir.VerifyProgram`), el **Native Backend** (`pkg/backend/native`) emite LLVM IR y compila ejecutables nativos reales autocontenidos (PE `.exe`, ELF, Mach-O) de tamaño reducido (~1.6 MB) sin empaquetar AST ni depender del runtime de Go. El formato `JOSSBC2Z` de `pkg/bytecode` se conserva únicamente para empaquetado de plugins `.jp`.
 
 El árbol `pkg/vm` contiene opcodes y una VM experimental. Su aritmética y sus
 errores no definen la semántica publicada mientras no esté conectado al pipeline
