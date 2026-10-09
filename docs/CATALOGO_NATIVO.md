@@ -773,7 +773,7 @@ Implementación: [executeSEOMethod](../pkg/core/native_seo.go#L14).
 
 ## SQLite
 
-Implementación: [executeSQLiteMethod](../pkg/core/native_sqlite.go#L16).
+Implementación: [executeSQLiteMethod](../pkg/core/native_sqlite.go#L15).
 
 | Método | Retorno publicado al analizador |
 |---|---|

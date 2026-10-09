@@ -12,12 +12,10 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
 	runtimeplan "github.com/jossecurity/joss/pkg/runtime/plan"
 	"github.com/jossecurity/joss/pkg/version"
-	_ "modernc.org/sqlite"
 )
 
 var (

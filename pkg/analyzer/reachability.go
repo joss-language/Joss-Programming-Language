@@ -191,6 +191,13 @@ func BuildReachabilityGraph(prepared *PreparedProgram, opts ReachabilityOptions)
 	}
 
 	if entryUnit.Program != nil {
+		for _, stmt := range entryUnit.Program.Statements {
+			if cs, ok := stmt.(*parser.ClassStatement); ok && cs.Name != nil {
+				graph.markClassLive(cs.Name.Value, unitByClass, classDeclMap)
+				graph.markMethodLive(cs.Name.Value, "Init", unitByClass, classDeclMap)
+				graph.markMethodLive(cs.Name.Value, "main", unitByClass, classDeclMap)
+			}
+		}
 		graph.scanASTStatements(entryUnit.Program.Statements, unitByClass, classDeclMap)
 	}
 
@@ -371,6 +378,7 @@ func (g *ReachabilityGraph) scanASTNode(node parser.Node, unitByClass map[string
 		}
 	case *parser.NewExpression:
 		if n.Class != nil {
+			g.detectNativeCapability(n.Class.Value, "Init")
 			g.markClassLive(n.Class.Value, unitByClass, classDeclMap)
 			g.markMethodLive(n.Class.Value, "Init", unitByClass, classDeclMap)
 		}
@@ -448,7 +456,7 @@ func (g *ReachabilityGraph) inspectCall(call *parser.CallExpression, unitByClass
 
 func (g *ReachabilityGraph) detectNativeCapability(className, methodName string) {
 	switch className {
-	case "GranDB", "Database", "DB", "Schema":
+	case "GranDB", "Database", "DB", "Schema", "SQLite":
 		g.RuntimeCapabilities[CapDatabase] = true
 		g.RuntimeCapabilities[CapSQLite] = true
 	case "Server", "Router", "Response", "Request":
@@ -491,6 +499,16 @@ func (g *ReachabilityGraph) expandTransitiveDependencies(unitByClass map[string]
 					if ms, ok := member.(*parser.MethodStatement); ok && ms.Name != nil && ms.Name.Value == mName {
 						if ms.Body != nil {
 							g.scanASTNode(ms.Body, unitByClass, classDeclMap)
+						}
+					} else if initStmt, ok := member.(*parser.InitStatement); ok {
+						initName := "Init"
+						if initStmt.Name != nil {
+							initName = initStmt.Name.Value
+						}
+						if mName == "Init" || mName == initName || mName == "main" {
+							if initStmt.Body != nil {
+								g.scanASTNode(initStmt.Body, unitByClass, classDeclMap)
+							}
 						}
 					}
 				}

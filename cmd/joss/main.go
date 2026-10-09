@@ -408,7 +408,7 @@ func emitIRCommand(filename, outFile string) {
 func handleBuildCommand(args []string) {
 	if len(args) == 0 {
 		if _, err := os.Stat("main.joss"); err == nil {
-			buildNativeProgram("main.joss", "", "", false, false, false, "auto")
+			buildNativeProgram("main.joss", "", "", false, false, false, false, "auto")
 			return
 		}
 		fmt.Printf("%s joss build [archivo.joss] [opciones]\n", i18n.Tr("cliUsageLabel"))
@@ -458,6 +458,8 @@ func handleBuildCommand(args []string) {
 	trace := false
 	backendName := "auto"
 
+	enableGUI := false
+
 	for i := 0; i < len(remaining); i++ {
 		arg := remaining[i]
 		if strings.HasPrefix(arg, "-o=") {
@@ -476,6 +478,8 @@ func handleBuildCommand(args []string) {
 			debug = true
 		} else if arg == "--trace" {
 			trace = true
+		} else if arg == "--gui" {
+			enableGUI = true
 		} else if strings.HasPrefix(arg, "--backend=") {
 			backendName = strings.TrimPrefix(arg, "--backend=")
 		} else if !strings.HasPrefix(arg, "-") {
@@ -494,10 +498,10 @@ func handleBuildCommand(args []string) {
 		}
 	}
 
-	buildNativeProgram(filename, outExe, targetStr, release, debug, trace, backendName)
+	buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName)
 }
 
-func buildNativeProgram(filename, outExe, targetStr string, release, debug, trace bool, backendName string) {
+func buildNativeProgram(filename, outExe, targetStr string, release, debug, trace, enableGUI bool, backendName string) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		fmt.Printf("Error: archivo '%s' no encontrado.\n", filename)
 		os.Exit(1)
@@ -550,7 +554,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 			fmt.Printf("  [trace] El proyecto contiene subsistemas de aplicación completa (%v).\n", err)
 			fmt.Println("  [trace] Compilando ejecutable nativo autocontenido de aplicación...")
 		}
-		_, _ = buildNativeWithOutput(target.OS, target.Arch, false, outExe)
+		_, _ = buildNativeWithOutput(target.OS, target.Arch, enableGUI, outExe)
 		return
 	}
 
@@ -562,7 +566,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		if trace {
 			fmt.Printf("  [trace] Verificación de IR delegando a pipeline de aplicación (%v).\n", err)
 		}
-		_, _ = buildNativeWithOutput(target.OS, target.Arch, false, outExe)
+		_, _ = buildNativeWithOutput(target.OS, target.Arch, enableGUI, outExe)
 		return
 	}
 
@@ -614,7 +618,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 }
 
 func buildNativeBackend(filename, outExe string, backendName string, trace bool) {
-	buildNativeProgram(filename, outExe, "", false, false, trace, backendName)
+	buildNativeProgram(filename, outExe, "", false, false, trace, false, backendName)
 }
 
 func executeScript(filename string) {

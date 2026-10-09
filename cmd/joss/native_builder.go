@@ -23,6 +23,7 @@ import (
 	"github.com/jossecurity/joss/pkg/crypto"
 	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/pkg/server"
 )
 
 const (
@@ -71,6 +72,10 @@ func buildNativeWithOutput(targetOS, targetArch string, enableGUI bool, outExe s
 	if err := os.MkdirAll(filepath.Join(buildDir, "Storage"), 0755); err != nil {
 		fmt.Println(i18n.Tr("nativeBuildDirError", i18n.M{"error": err.Error()}))
 		os.Exit(1)
+	}
+
+	if _, err := os.Stat("assets/css"); err == nil {
+		server.CompileStyles()
 	}
 
 	fmt.Println(i18n.Tr("nativeBuildPackagingAssets"))
@@ -143,12 +148,7 @@ func validateBuildTarget(targetOS, targetArch string) (string, string, bool) {
 	return tOS, tArch, false
 }
 
-func collectAndEncryptAssets(enableGUI bool) ([]byte, []byte, map[string]bool, error) {
-	buildKey := make([]byte, 32)
-	if _, err := rand.Read(buildKey); err != nil {
-		return nil, nil, nil, err
-	}
-
+func collectProjectFiles(enableGUI bool) (map[string][]byte, map[string]bool, error) {
 	files := make(map[string][]byte)
 	ignoredDirs := map[string]bool{
 		".git": true, ".vscode": true, ".idea": true, "build": true, "vendor": true,
@@ -184,13 +184,13 @@ func collectAndEncryptAssets(enableGUI bool) ([]byte, []byte, map[string]bool, e
 	})
 
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	// 2. Prune dead Joss files and methods from the VFS map if reachability was computed
 	if reachGraph != nil {
 		prunedUnits := FilterProjectFiles(allDiscoveredFiles, reachGraph, units, bCfg.PruneMethods)
-		for filePath, fileBytes := range files {
+		for filePath := range files {
 			if strings.HasSuffix(filePath, ".joss") {
 				if bCfg.PruneFiles && !reachGraph.IsFileReachable(filePath) {
 					// Drop dead file entirely from packaged VFS!
@@ -204,24 +204,16 @@ func collectAndEncryptAssets(enableGUI bool) ([]byte, []byte, map[string]bool, e
 					}
 				}
 			}
-			_ = fileBytes
 		}
 	}
 
 	fmt.Printf("⚡ %s\n", i18n.Tr("nativeBuildPrecompiledFiles", i18n.M{"count": compiledCount}))
 	encryptProjectEnvironment(files, enableGUI)
 
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(files); err != nil {
-		return nil, nil, nil, err
-	}
-
-	encryptedAssets, err := crypto.EncryptAES(buf.Bytes(), buildKey)
-	if err == nil && reachGraph != nil {
+	if reachGraph != nil {
 		manifest := buildmanifest.GenerateManifest(
 			"main.joss", bCfg.Mode, runtime.GOOS, runtime.GOARCH, bCfg.Profile,
-			filepath.Join("build", "app"), allDiscoveredFiles, reachGraph, int64(len(encryptedAssets)),
+			filepath.Join("build", "app"), allDiscoveredFiles, reachGraph, 0,
 		)
 		_ = manifest.SaveToFile(filepath.Join(".joss", "cache", "build-manifest.json"))
 	}
@@ -232,7 +224,33 @@ func collectAndEncryptAssets(enableGUI bool) ([]byte, []byte, map[string]bool, e
 			capsMap[string(cap)] = active
 		}
 	}
+	if _, err := os.Stat("routes.joss"); err == nil {
+		capsMap["server"] = true
+		capsMap["http"] = true
+	}
+	if _, err := os.Stat("api.joss"); err == nil {
+		capsMap["server"] = true
+		capsMap["http"] = true
+	}
 
+	return files, capsMap, nil
+}
+
+func collectAndEncryptAssets(enableGUI bool) ([]byte, []byte, map[string]bool, error) {
+	files, capsMap, err := collectProjectFiles(enableGUI)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	buildKey := make([]byte, 32)
+	if _, err := rand.Read(buildKey); err != nil {
+		return nil, nil, nil, err
+	}
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(files); err != nil {
+		return nil, nil, nil, err
+	}
+	encryptedAssets, err := crypto.EncryptAES(buf.Bytes(), buildKey)
 	return encryptedAssets, buildKey, capsMap, err
 }
 
@@ -362,6 +380,9 @@ func compileRunnerBinary(targetOS, targetArch string, enableGUI bool, detectedCa
 	var tags []string
 	if detectedCaps != nil && !detectedCaps["server"] && !detectedCaps["http"] && !enableGUI {
 		tags = append(tags, "cli")
+	}
+	if detectedCaps != nil && !detectedCaps["database"] && !detectedCaps["sqlite"] {
+		tags = append(tags, "nodb")
 	}
 
 	args := []string{"build", "-ldflags=" + ldflags}
@@ -575,8 +596,6 @@ func assembleFinalExecutable(buildDir, targetOS string, runnerBytes, encryptedAs
 	if targetOS != "windows" {
 		os.Chmod(outPath, 0755)
 	}
-
-	compressFinalExecutableWithUPX(outPath)
 
 	return outPath, nil
 }

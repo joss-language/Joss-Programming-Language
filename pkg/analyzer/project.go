@@ -28,6 +28,13 @@ func LoadProject(entrypoint string, sourceDirs ...string) ([]SourceUnit, []diagn
 				seen[filepath.Clean(absolute)] = true
 			}
 		}
+		apiPath := filepath.Join(filepath.Dir(entrypoint), "api.joss")
+		if info, err := os.Stat(apiPath); err == nil && !info.IsDir() {
+			paths = append(paths, apiPath)
+			if absolute, err := filepath.Abs(apiPath); err == nil {
+				seen[filepath.Clean(absolute)] = true
+			}
+		}
 	}
 
 	for _, sourceDir := range sourceDirs {

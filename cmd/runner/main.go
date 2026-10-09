@@ -16,7 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/bytecode"
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/crypto"
@@ -236,7 +235,12 @@ func main() {
 	runGUIOrWait(finalPort)
 }
 
-func packagedSourceUnits(files map[string][]byte) ([]semanticanalyzer.SourceUnit, error) {
+type runnerSourceUnit struct {
+	Path    string
+	Program *parser.Program
+}
+
+func packagedSourceUnits(files map[string][]byte) ([]runnerSourceUnit, error) {
 	normalizedFiles := make(map[string][]byte, len(files))
 	for name, data := range files {
 		normalizedFiles[canonicalPackagedPath(name)] = data
@@ -257,7 +261,7 @@ func packagedSourceUnits(files map[string][]byte) ([]semanticanalyzer.SourceUnit
 	}
 	sort.Strings(paths)
 	ordered := append([]string{"main.joss"}, paths...)
-	units := make([]semanticanalyzer.SourceUnit, 0, len(ordered))
+	units := make([]runnerSourceUnit, 0, len(ordered))
 	for _, name := range ordered {
 		data := normalizedFiles[name]
 		if name == "main.joss" {
@@ -277,7 +281,7 @@ func packagedSourceUnits(files map[string][]byte) ([]semanticanalyzer.SourceUnit
 				return nil, fmt.Errorf("parse %s: %s", name, p.Diagnostics()[0].Message)
 			}
 		}
-		units = append(units, semanticanalyzer.SourceUnit{Path: name, Program: program})
+		units = append(units, runnerSourceUnit{Path: name, Program: program})
 	}
 	return units, nil
 }

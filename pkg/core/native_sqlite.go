@@ -3,7 +3,6 @@ package core
 import (
 	"database/sql"
 	"fmt"
-	_ "modernc.org/sqlite"
 )
 
 // SQLite Native Class Implementation

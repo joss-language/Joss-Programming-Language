@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -76,6 +77,10 @@ func (b *StandaloneBuilder) BuildNativeExecutableWithOptions(prog *ir.Program, o
 			targetDesc = HostTarget().String()
 		}
 		return fmt.Errorf("fallo compilación de binario nativo para %s: %v\nSalida: %s", targetDesc, err, string(out))
+	}
+
+	if opts.Release {
+		optimizeExecutableWithUPX(outputPath, opts.Target.OS)
 	}
 
 	return nil
@@ -366,4 +371,39 @@ func formatGoVal(val ir.Value) string {
 
 func cleanName(name string) string {
 	return strings.TrimPrefix(name, "$")
+}
+
+func optimizeExecutableWithUPX(filePath, targetOS string) {
+	upxPath := resolveUPXPath()
+	if upxPath != "" {
+		fmt.Printf("⚡ Optimizando ejecutable nativo con UPX...\n")
+		cmd := exec.Command(upxPath, "--best", "--lzma", filePath)
+		_ = cmd.Run()
+	}
+}
+
+func resolveUPXPath() string {
+	if p, err := exec.LookPath("upx"); err == nil {
+		return p
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		homeDir = os.TempDir()
+	}
+	toolsDir := filepath.Join(homeDir, ".joss", "tools")
+	exeName := "upx"
+	if runtime.GOOS == "windows" {
+		exeName = "upx.exe"
+	}
+	cachedUPX := filepath.Join(toolsDir, exeName)
+	if fi, err := os.Stat(cachedUPX); err == nil && !fi.IsDir() {
+		return cachedUPX
+	}
+	if selfExe, err := os.Executable(); err == nil {
+		sibling := filepath.Join(filepath.Dir(selfExe), exeName)
+		if fi, err := os.Stat(sibling); err == nil && !fi.IsDir() {
+			return sibling
+		}
+	}
+	return ""
 }

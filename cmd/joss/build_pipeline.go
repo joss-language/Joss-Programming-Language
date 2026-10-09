@@ -26,10 +26,12 @@ type ProjectBuildConfig struct {
 // LoadProjectBuildConfig parses joss.yaml if present for build directives.
 func LoadProjectBuildConfig() ProjectBuildConfig {
 	cfg := ProjectBuildConfig{
-		Mode:       "release",
-		TargetOS:   "",
-		TargetArch: "",
-		Profile:    "cli",
+		Mode:         "release",
+		TargetOS:     "",
+		TargetArch:   "",
+		Profile:      "cli",
+		PruneFiles:   true,
+		PruneMethods: true,
 	}
 
 	data, err := os.ReadFile("joss.yaml")
@@ -40,6 +42,10 @@ func LoadProjectBuildConfig() ProjectBuildConfig {
 	content := string(data)
 	if mode := packageManifestValue(content, "build", "mode"); mode != "" {
 		cfg.Mode = mode
+		if mode == "debug" {
+			cfg.PruneFiles = false
+			cfg.PruneMethods = false
+		}
 	}
 	if target := packageManifestValue(content, "build", "target"); target != "" {
 		parts := strings.Split(target, "-")
@@ -51,11 +57,11 @@ func LoadProjectBuildConfig() ProjectBuildConfig {
 	if profile := packageManifestValue(content, "build", "profile"); profile != "" {
 		cfg.Profile = profile
 	}
-	if prune := packageManifestValue(content, "build", "prune_methods"); prune == "true" {
-		cfg.PruneMethods = true
+	if prune := packageManifestValue(content, "build", "prune_methods"); prune != "" {
+		cfg.PruneMethods = prune == "true"
 	}
-	if pruneFiles := packageManifestValue(content, "build", "prune_files"); pruneFiles == "true" {
-		cfg.PruneFiles = true
+	if pruneFiles := packageManifestValue(content, "build", "prune_files"); pruneFiles != "" {
+		cfg.PruneFiles = pruneFiles == "true"
 	}
 
 	cfg.KeepClasses = parseManifestStringList(content, "keep_classes")

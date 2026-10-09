@@ -63,7 +63,7 @@ func (am *AssetManager) Initialize() {
 func (am *AssetManager) LoadGlobalCSS() {
 	// We look for public/css/app.css which is the result of SCSS compilation
 	path := filepath.Join("public", "css", "app.css")
-	data, err := os.ReadFile(path)
+	data, err := ReadFileBytes(path)
 	if err == nil {
 		am.CacheMutex.Lock()
 		am.GlobalCSS = string(data)
