@@ -1,8 +1,7 @@
-//go:build !nodb
+//go:build !nodb && !nomysql
 
 package core
 
 import (
 	_ "github.com/go-sql-driver/mysql"
-	_ "modernc.org/sqlite"
 )

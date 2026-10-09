@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -86,7 +88,16 @@ func main() {
 
 	// 3. Hydrate VFS
 	var files map[string][]byte
-	decDecoder := gob.NewDecoder(bytes.NewReader(decryptedData))
+	var decReader io.Reader = bytes.NewReader(decryptedData)
+	if len(decryptedData) >= 2 && decryptedData[0] == 0x1f && decryptedData[1] == 0x8b {
+		zr, err := gzip.NewReader(bytes.NewReader(decryptedData))
+		if err != nil {
+			log.Fatalf("Error decompressing assets: %v", err)
+		}
+		defer zr.Close()
+		decReader = zr
+	}
+	decDecoder := gob.NewDecoder(decReader)
 	if err := decDecoder.Decode(&files); err != nil {
 		log.Fatalf("Error decoding assets: %v", err)
 	}

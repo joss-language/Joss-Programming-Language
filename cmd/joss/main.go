@@ -453,7 +453,7 @@ func handleBuildCommand(args []string) {
 	filename := ""
 	outExe := ""
 	targetStr := ""
-	release := false
+	release := true
 	debug := false
 	trace := false
 	backendName := "auto"
@@ -476,6 +476,7 @@ func handleBuildCommand(args []string) {
 			release = true
 		} else if arg == "--debug" {
 			debug = true
+			release = false
 		} else if arg == "--trace" {
 			trace = true
 		} else if arg == "--gui" {

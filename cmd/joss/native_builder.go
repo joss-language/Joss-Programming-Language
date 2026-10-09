@@ -245,12 +245,19 @@ func collectAndEncryptAssets(enableGUI bool) ([]byte, []byte, map[string]bool, e
 	if _, err := rand.Read(buildKey); err != nil {
 		return nil, nil, nil, err
 	}
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
+	var compBuf bytes.Buffer
+	gw, err := gzip.NewWriterLevel(&compBuf, gzip.BestCompression)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	enc := gob.NewEncoder(gw)
 	if err := enc.Encode(files); err != nil {
 		return nil, nil, nil, err
 	}
-	encryptedAssets, err := crypto.EncryptAES(buf.Bytes(), buildKey)
+	if err := gw.Close(); err != nil {
+		return nil, nil, nil, err
+	}
+	encryptedAssets, err := crypto.EncryptAES(compBuf.Bytes(), buildKey)
 	return encryptedAssets, buildKey, capsMap, err
 }
 
@@ -295,6 +302,7 @@ func shouldSkipFileByName(name string) bool {
 	return strings.HasSuffix(name, ".exe") || strings.HasSuffix(name, ".log") ||
 		strings.HasSuffix(name, ".enc") || strings.HasSuffix(name, ".dll") ||
 		strings.HasSuffix(name, ".so") || strings.HasSuffix(name, ".dylib") ||
+		strings.HasSuffix(name, ".scss") || strings.HasSuffix(name, ".map") ||
 		name == "runner" || name == "joss" ||
 		name == ".env" || name == "env.joss" || name == ".env.joss"
 }
@@ -383,9 +391,16 @@ func compileRunnerBinary(targetOS, targetArch string, enableGUI bool, detectedCa
 	}
 	if detectedCaps != nil && !detectedCaps["database"] && !detectedCaps["sqlite"] {
 		tags = append(tags, "nodb")
+	} else {
+		if detectedCaps != nil && !detectedCaps["mysql"] {
+			tags = append(tags, "nomysql")
+		}
+		if detectedCaps != nil && !detectedCaps["sqlite"] {
+			tags = append(tags, "nosqlite")
+		}
 	}
 
-	args := []string{"build", "-ldflags=" + ldflags}
+	args := []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=" + ldflags}
 	if len(tags) > 0 {
 		args = append(args, "-tags="+strings.Join(tags, ","))
 	}

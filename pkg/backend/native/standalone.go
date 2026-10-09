@@ -52,7 +52,7 @@ func (b *StandaloneBuilder) BuildNativeExecutableWithOptions(prog *ir.Program, o
 		return err
 	}
 
-	buildArgs := []string{"build"}
+	buildArgs := []string{"build", "-trimpath"}
 	if opts.Debug {
 		buildArgs = append(buildArgs, "-gcflags=all=-N -l")
 	} else {
