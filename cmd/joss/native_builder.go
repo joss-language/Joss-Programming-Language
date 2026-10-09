@@ -23,6 +23,7 @@ import (
 	"github.com/jossecurity/joss/pkg/crypto"
 	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/pkg/pluginpkg"
 	"github.com/jossecurity/joss/pkg/server"
 )
 
@@ -203,6 +204,14 @@ func collectProjectFiles(enableGUI bool) (map[string][]byte, map[string]bool, er
 						files[filePath] = bc
 					}
 				}
+			} else if strings.HasSuffix(filePath, ".jp") {
+				// Tree-shake JP plugin archive based on reachGraph.LivePluginSymbols
+				baseName := strings.TrimSuffix(filepath.Base(filePath), ".jp")
+				if usedSyms, hasUsed := reachGraph.LivePluginSymbols[baseName]; hasUsed && len(usedSyms) > 0 {
+					if prunedJP, didPrune, pruneErr := pluginpkg.PruneArchive(files[filePath], usedSyms); pruneErr == nil && didPrune {
+						files[filePath] = prunedJP
+					}
+				}
 			}
 		}
 	}
@@ -231,6 +240,23 @@ func collectProjectFiles(enableGUI bool) (map[string][]byte, map[string]bool, er
 	if _, err := os.Stat("api.joss"); err == nil {
 		capsMap["server"] = true
 		capsMap["http"] = true
+	}
+
+	envPath := GetEnvFile()
+	if envData, err := os.ReadFile(envPath); err == nil {
+		content := string(envData)
+		if strings.Contains(content, "DB=mysql") || strings.Contains(content, "DB=\"mysql\"") || strings.Contains(content, "DB_HOST") {
+			capsMap["mysql"] = true
+			capsMap["database"] = true
+		}
+		if strings.Contains(content, "DB=sqlite") || strings.Contains(content, "DB=\"sqlite\"") || strings.Contains(content, "database.sqlite") {
+			capsMap["sqlite"] = true
+			capsMap["database"] = true
+		}
+	}
+	if capsMap["database"] && !capsMap["mysql"] && !capsMap["sqlite"] {
+		capsMap["sqlite"] = true
+		capsMap["mysql"] = true
 	}
 
 	return files, capsMap, nil

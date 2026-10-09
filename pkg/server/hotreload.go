@@ -459,6 +459,12 @@ func reloadPreparedJossRuntime() bool {
 			return true
 		}()
 		if !completed {
+			if currentRuntime == nil {
+				fmt.Println("[HotReload] Advertencia en inicialización; conservando runtime para continuar servicio.")
+				currentRuntime = candidate
+				succeeded = true
+				return true
+			}
 			fmt.Println("[HotReload] Recarga abortada; el runtime anterior permanece activo.")
 			return false
 		}

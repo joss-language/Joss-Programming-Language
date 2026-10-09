@@ -41,9 +41,11 @@ type ReachabilityGraph struct {
 	Entrypoint          string
 	LiveFiles           map[string]bool
 	LiveClasses         map[string]bool
+	InstantiatedClasses map[string]bool
 	LiveMethods         map[string]map[string]bool // className -> methodName -> true
 	LiveFunctions       map[string]bool
 	LiveSymbols         map[string]bool
+	LivePluginSymbols   map[string]map[string]bool // pluginName -> symbolName -> true
 	RuntimeCapabilities map[RuntimeCapability]bool
 }
 
@@ -53,9 +55,11 @@ func NewReachabilityGraph(entrypoint string) *ReachabilityGraph {
 		Entrypoint:          canonicalSourcePath(entrypoint),
 		LiveFiles:           make(map[string]bool),
 		LiveClasses:         make(map[string]bool),
+		InstantiatedClasses: make(map[string]bool),
 		LiveMethods:         make(map[string]map[string]bool),
 		LiveFunctions:       make(map[string]bool),
 		LiveSymbols:         make(map[string]bool),
+		LivePluginSymbols:   make(map[string]map[string]bool),
 		RuntimeCapabilities: map[RuntimeCapability]bool{CapCore: true},
 	}
 }
@@ -96,6 +100,33 @@ func (g *ReachabilityGraph) IsFunctionReachable(funcName string) bool {
 	return g.LiveFunctions[funcName]
 }
 
+// RecordPluginSymbolUse notes that a plugin symbol is referenced.
+func (g *ReachabilityGraph) RecordPluginSymbolUse(pluginName, symbolName string) {
+	if g == nil {
+		return
+	}
+	if g.LivePluginSymbols == nil {
+		g.LivePluginSymbols = make(map[string]map[string]bool)
+	}
+	if g.LivePluginSymbols[pluginName] == nil {
+		g.LivePluginSymbols[pluginName] = make(map[string]bool)
+	}
+	g.LivePluginSymbols[pluginName][symbolName] = true
+	g.LiveSymbols[pluginName] = true
+	g.LiveSymbols[symbolName] = true
+}
+
+// IsPluginSymbolReachable returns true if a specific plugin symbol is needed.
+func (g *ReachabilityGraph) IsPluginSymbolReachable(pluginName, symbolName string) bool {
+	if g == nil {
+		return true
+	}
+	if symbols, exists := g.LivePluginSymbols[pluginName]; exists {
+		return symbols[symbolName]
+	}
+	return g.LiveSymbols[pluginName]
+}
+
 // HasCapability checks whether a specific runtime subsystem is required.
 func (g *ReachabilityGraph) HasCapability(cap RuntimeCapability) bool {
 	if g == nil {
@@ -133,10 +164,16 @@ func BuildReachabilityGraph(prepared *PreparedProgram, opts ReachabilityOptions)
 		graph.LiveFiles[canonicalSourcePath(f)] = true
 	}
 
-	// Index source units by path and class definitions
+	// Index source units by path, class definitions, and top-level functions
 	unitByPath := make(map[string]SourceUnit, len(prepared.Units))
-	unitByClass := make(map[string]string)
-	classDeclMap := make(map[string]*parser.ClassStatement)
+	ctx := &reachabilityContext{
+		graph:           graph,
+		unitByClass:     make(map[string]string),
+		classDeclMap:    make(map[string]*parser.ClassStatement),
+		unitByFunc:      make(map[string]string),
+		funcDeclMap:     make(map[string]*parser.MethodStatement),
+		seenMethodCalls: make(map[string]bool),
+	}
 
 	for _, unit := range prepared.Units {
 		cPath := canonicalSourcePath(unit.Path)
@@ -146,19 +183,23 @@ func BuildReachabilityGraph(prepared *PreparedProgram, opts ReachabilityOptions)
 		}
 		for _, stmt := range unit.Program.Statements {
 			if cs, ok := stmt.(*parser.ClassStatement); ok && cs.Name != nil {
-				unitByClass[cs.Name.Value] = cPath
-				classDeclMap[cs.Name.Value] = cs
+				ctx.unitByClass[cs.Name.Value] = cPath
+				ctx.classDeclMap[cs.Name.Value] = cs
+			}
+			if ms, ok := stmt.(*parser.MethodStatement); ok && ms.Name != nil {
+				ctx.unitByFunc[ms.Name.Value] = cPath
+				ctx.funcDeclMap[ms.Name.Value] = ms
 			}
 		}
 	}
 
 	// Mark explicitly kept classes and symbols
 	for _, c := range opts.KeepClasses {
-		graph.markClassLive(c, unitByClass, classDeclMap)
+		ctx.markClassLive(c)
 	}
 	for _, s := range opts.KeepSymbols {
 		graph.LiveSymbols[s] = true
-		graph.LiveFunctions[s] = true
+		ctx.markFunctionLive(s)
 	}
 
 	// Inspect route files if provided or matching routes.joss / api.joss
@@ -175,9 +216,9 @@ func BuildReachabilityGraph(prepared *PreparedProgram, opts ReachabilityOptions)
 			graph.LiveFiles[cPath] = true
 			graph.RuntimeCapabilities[CapServer] = true
 			graph.RuntimeCapabilities[CapHTTP] = true
-			graph.scanRouteUnit(unit, unitByClass, classDeclMap)
+			ctx.scanRouteUnit(unit)
 			if unit.Program != nil {
-				graph.scanASTStatements(unit.Program.Statements, unitByClass, classDeclMap)
+				ctx.scanStatements(unit.Program.Statements)
 			}
 		}
 	}
@@ -193,41 +234,56 @@ func BuildReachabilityGraph(prepared *PreparedProgram, opts ReachabilityOptions)
 	if entryUnit.Program != nil {
 		for _, stmt := range entryUnit.Program.Statements {
 			if cs, ok := stmt.(*parser.ClassStatement); ok && cs.Name != nil {
-				graph.markClassLive(cs.Name.Value, unitByClass, classDeclMap)
-				graph.markMethodLive(cs.Name.Value, "Init", unitByClass, classDeclMap)
-				graph.markMethodLive(cs.Name.Value, "main", unitByClass, classDeclMap)
+				ctx.markClassLive(cs.Name.Value)
+				ctx.markMethodLive(cs.Name.Value, "Init")
+				ctx.markMethodLive(cs.Name.Value, "main")
+			}
+			if ms, ok := stmt.(*parser.MethodStatement); ok && ms.Name != nil {
+				if ms.Name.Value == "main" || ms.Name.Value == "Main" {
+					ctx.markFunctionLive(ms.Name.Value)
+				}
 			}
 		}
-		graph.scanASTStatements(entryUnit.Program.Statements, unitByClass, classDeclMap)
+		ctx.scanStatements(entryUnit.Program.Statements)
 	}
 
-	// Transitive expansion for all marked classes
-	graph.expandTransitiveDependencies(unitByClass, classDeclMap)
+	// Transitive expansion for all marked classes and functions
+	ctx.expandTransitive()
 
 	return graph
 }
 
-func (g *ReachabilityGraph) markClassLive(className string, unitByClass map[string]string, classDeclMap map[string]*parser.ClassStatement) {
-	if g.LiveClasses[className] {
+type reachabilityContext struct {
+	graph           *ReachabilityGraph
+	unitByClass     map[string]string
+	classDeclMap    map[string]*parser.ClassStatement
+	unitByFunc      map[string]string
+	funcDeclMap     map[string]*parser.MethodStatement
+	seenMethodCalls map[string]bool
+	currentClass    string
+}
+
+func (ctx *reachabilityContext) markClassLive(className string) {
+	if ctx.graph.LiveClasses[className] {
 		return
 	}
-	g.LiveClasses[className] = true
-	if path, found := unitByClass[className]; found {
-		g.LiveFiles[path] = true
+	ctx.graph.LiveClasses[className] = true
+	if path, found := ctx.unitByClass[className]; found {
+		ctx.graph.LiveFiles[path] = true
 	}
-	if g.LiveMethods[className] == nil {
-		g.LiveMethods[className] = make(map[string]bool)
+	if ctx.graph.LiveMethods[className] == nil {
+		ctx.graph.LiveMethods[className] = make(map[string]bool)
 	}
 
-	// If class extends Model or other special framework class, activate capabilities
-	if decl, found := classDeclMap[className]; found {
+	// If class extends Model or other framework class, activate capabilities
+	if decl, found := ctx.classDeclMap[className]; found {
 		if decl.SuperClass != nil {
 			parentName := decl.SuperClass.Value
 			if parentName == "Model" {
-				g.RuntimeCapabilities[CapDatabase] = true
-				g.RuntimeCapabilities[CapSQLite] = true
+				ctx.graph.RuntimeCapabilities[CapDatabase] = true
+				ctx.graph.RuntimeCapabilities[CapSQLite] = true
 			}
-			g.markClassLive(parentName, unitByClass, classDeclMap)
+			ctx.markClassLive(parentName)
 		}
 		// In models, keep accessors, mutators and hooks live
 		if decl.Body != nil {
@@ -236,7 +292,7 @@ func (g *ReachabilityGraph) markClassLive(className string, unitByClass map[stri
 					mName := ms.Name.Value
 					if strings.HasPrefix(mName, "get") || strings.HasPrefix(mName, "set") ||
 						mName == "beforeSave" || mName == "afterSave" || mName == "beforeCreate" || mName == "afterCreate" {
-						g.LiveMethods[className][mName] = true
+						ctx.graph.LiveMethods[className][mName] = true
 					}
 				}
 			}
@@ -244,15 +300,38 @@ func (g *ReachabilityGraph) markClassLive(className string, unitByClass map[stri
 	}
 }
 
-func (g *ReachabilityGraph) markMethodLive(className, methodName string, unitByClass map[string]string, classDeclMap map[string]*parser.ClassStatement) {
-	g.markClassLive(className, unitByClass, classDeclMap)
-	if g.LiveMethods[className] == nil {
-		g.LiveMethods[className] = make(map[string]bool)
+func (ctx *reachabilityContext) markClassInstantiated(className string) {
+	ctx.markClassLive(className)
+	if ctx.graph.InstantiatedClasses == nil {
+		ctx.graph.InstantiatedClasses = make(map[string]bool)
 	}
-	g.LiveMethods[className][methodName] = true
+	ctx.graph.InstantiatedClasses[className] = true
+	ctx.markMethodLive(className, "Init")
+	ctx.markMethodLive(className, "constructor")
+	if decl, found := ctx.classDeclMap[className]; found && decl.SuperClass != nil {
+		ctx.markClassInstantiated(decl.SuperClass.Value)
+	}
 }
 
-func (g *ReachabilityGraph) scanRouteUnit(unit SourceUnit, unitByClass map[string]string, classDeclMap map[string]*parser.ClassStatement) {
+func (ctx *reachabilityContext) markMethodLive(className, methodName string) {
+	ctx.markClassLive(className)
+	if ctx.graph.LiveMethods[className] == nil {
+		ctx.graph.LiveMethods[className] = make(map[string]bool)
+	}
+	ctx.graph.LiveMethods[className][methodName] = true
+}
+
+func (ctx *reachabilityContext) markFunctionLive(fnName string) {
+	if ctx.graph.LiveFunctions[fnName] {
+		return
+	}
+	ctx.graph.LiveFunctions[fnName] = true
+	if path, found := ctx.unitByFunc[fnName]; found {
+		ctx.graph.LiveFiles[path] = true
+	}
+}
+
+func (ctx *reachabilityContext) scanRouteUnit(unit SourceUnit) {
 	if unit.Program == nil {
 		return
 	}
@@ -272,151 +351,152 @@ func (g *ReachabilityGraph) scanRouteUnit(unit SourceUnit, unitByClass map[strin
 					parts := strings.SplitN(strLit.Value, "@", 2)
 					ctrl := parts[0]
 					action := parts[1]
-					g.markMethodLive(ctrl, action, unitByClass, classDeclMap)
+					ctx.markClassInstantiated(ctrl)
+					ctx.markMethodLive(ctrl, action)
 				}
 			}
 		}
 	}
 }
 
-func (g *ReachabilityGraph) scanASTStatements(stmts []parser.Statement, unitByClass map[string]string, classDeclMap map[string]*parser.ClassStatement) {
+func (ctx *reachabilityContext) scanStatements(stmts []parser.Statement) {
 	for _, stmt := range stmts {
-		g.scanASTNode(stmt, unitByClass, classDeclMap)
+		ctx.scanNode(stmt)
 	}
 }
 
-func (g *ReachabilityGraph) scanASTNode(node parser.Node, unitByClass map[string]string, classDeclMap map[string]*parser.ClassStatement) {
+func (ctx *reachabilityContext) scanNode(node parser.Node) {
 	if node == nil {
 		return
 	}
 
 	switch n := node.(type) {
 	case *parser.ExpressionStatement:
-		g.scanASTNode(n.Expression, unitByClass, classDeclMap)
+		ctx.scanNode(n.Expression)
 	case *parser.EchoStatement:
-		g.RuntimeCapabilities[CapIO] = true
+		ctx.graph.RuntimeCapabilities[CapIO] = true
 		if n.Value != nil {
-			g.scanASTNode(n.Value, unitByClass, classDeclMap)
+			ctx.scanNode(n.Value)
 		}
 	case *parser.LetStatement:
-		g.scanASTNode(n.Value, unitByClass, classDeclMap)
+		ctx.scanNode(n.Value)
 	case *parser.MultiLetStatement:
 		for _, decl := range n.Declarations {
 			if decl.Value != nil {
-				g.scanASTNode(decl.Value, unitByClass, classDeclMap)
+				ctx.scanNode(decl.Value)
 			}
 		}
 	case *parser.ReturnStatement:
-		g.scanASTNode(n.ReturnValue, unitByClass, classDeclMap)
+		ctx.scanNode(n.ReturnValue)
 	case *parser.BlockStatement:
 		for _, s := range n.Statements {
-			g.scanASTNode(s, unitByClass, classDeclMap)
+			ctx.scanNode(s)
 		}
 	case *parser.BlockExpression:
 		if n.Block != nil {
-			g.scanASTNode(n.Block, unitByClass, classDeclMap)
+			ctx.scanNode(n.Block)
 		}
 	case *parser.GuardStatement:
-		g.scanASTNode(n.Condition, unitByClass, classDeclMap)
+		ctx.scanNode(n.Condition)
 		if n.Body != nil {
-			g.scanASTNode(n.Body, unitByClass, classDeclMap)
+			ctx.scanNode(n.Body)
 		}
 	case *parser.ForeachStatement:
-		g.scanASTNode(n.Iterable, unitByClass, classDeclMap)
+		ctx.scanNode(n.Iterable)
 		if n.Body != nil {
-			g.scanASTNode(n.Body, unitByClass, classDeclMap)
+			ctx.scanNode(n.Body)
 		}
 	case *parser.WhileStatement:
-		g.scanASTNode(n.Condition, unitByClass, classDeclMap)
+		ctx.scanNode(n.Condition)
 		if n.Body != nil {
-			g.scanASTNode(n.Body, unitByClass, classDeclMap)
+			ctx.scanNode(n.Body)
 		}
 	case *parser.DoWhileStatement:
-		g.scanASTNode(n.Condition, unitByClass, classDeclMap)
+		ctx.scanNode(n.Condition)
 		if n.Body != nil {
-			g.scanASTNode(n.Body, unitByClass, classDeclMap)
+			ctx.scanNode(n.Body)
 		}
 	case *parser.TryCatchStatement:
 		if n.TryBlock != nil {
-			g.scanASTNode(n.TryBlock, unitByClass, classDeclMap)
+			ctx.scanNode(n.TryBlock)
 		}
 		if n.CatchBlock != nil {
-			g.scanASTNode(n.CatchBlock, unitByClass, classDeclMap)
+			ctx.scanNode(n.CatchBlock)
 		}
 	case *parser.ThrowStatement:
-		g.scanASTNode(n.Value, unitByClass, classDeclMap)
+		ctx.scanNode(n.Value)
 	case *parser.DeferStatement:
-		g.scanASTNode(n.Body, unitByClass, classDeclMap)
+		ctx.scanNode(n.Body)
 	case *parser.DestructureStatement:
-		g.scanASTNode(n.Value, unitByClass, classDeclMap)
+		ctx.scanNode(n.Value)
 	case *parser.InitStatement:
 		if n.Body != nil {
-			g.scanASTNode(n.Body, unitByClass, classDeclMap)
+			ctx.scanNode(n.Body)
 		}
 	case *parser.AssignExpression:
-		g.scanASTNode(n.Left, unitByClass, classDeclMap)
-		g.scanASTNode(n.Value, unitByClass, classDeclMap)
+		ctx.scanNode(n.Left)
+		ctx.scanNode(n.Value)
 	case *parser.IndexExpression:
-		g.scanASTNode(n.Left, unitByClass, classDeclMap)
-		g.scanASTNode(n.Index, unitByClass, classDeclMap)
+		ctx.scanNode(n.Left)
+		ctx.scanNode(n.Index)
 	case *parser.MatchExpression:
-		g.scanASTNode(n.Subject, unitByClass, classDeclMap)
+		ctx.scanNode(n.Subject)
 		for _, arm := range n.Arms {
 			for _, k := range arm.Keys {
-				g.scanASTNode(k, unitByClass, classDeclMap)
+				ctx.scanNode(k)
 			}
-			g.scanASTNode(arm.Value, unitByClass, classDeclMap)
+			ctx.scanNode(arm.Value)
 		}
 	case *parser.TernaryExpression:
-		g.scanASTNode(n.Condition, unitByClass, classDeclMap)
-		g.scanASTNode(n.True, unitByClass, classDeclMap)
-		g.scanASTNode(n.False, unitByClass, classDeclMap)
+		ctx.scanNode(n.Condition)
+		ctx.scanNode(n.True)
+		ctx.scanNode(n.False)
 	case *parser.CallExpression:
-		g.inspectCall(n, unitByClass, classDeclMap)
+		ctx.inspectCall(n)
+		ctx.scanNode(n.Function)
 		for _, arg := range n.Arguments {
-			g.scanASTNode(arg, unitByClass, classDeclMap)
+			ctx.scanNode(arg)
 		}
 	case *parser.NewExpression:
 		if n.Class != nil {
-			g.detectNativeCapability(n.Class.Value, "Init")
-			g.markClassLive(n.Class.Value, unitByClass, classDeclMap)
-			g.markMethodLive(n.Class.Value, "Init", unitByClass, classDeclMap)
+			ctx.graph.detectNativeCapability(n.Class.Value, "Init")
+			ctx.markClassInstantiated(n.Class.Value)
 		}
 		for _, arg := range n.Arguments {
-			g.scanASTNode(arg, unitByClass, classDeclMap)
+			ctx.scanNode(arg)
 		}
 	case *parser.MemberExpression:
-		g.scanASTNode(n.Left, unitByClass, classDeclMap)
+		ctx.scanNode(n.Left)
 	case *parser.InfixExpression:
-		g.scanASTNode(n.Left, unitByClass, classDeclMap)
-		g.scanASTNode(n.Right, unitByClass, classDeclMap)
+		ctx.scanNode(n.Left)
+		ctx.scanNode(n.Right)
 	case *parser.PrefixExpression:
-		g.scanASTNode(n.Right, unitByClass, classDeclMap)
+		ctx.scanNode(n.Right)
 	case *parser.PostfixExpression:
-		g.scanASTNode(n.Left, unitByClass, classDeclMap)
+		ctx.scanNode(n.Left)
 	case *parser.ArrayLiteral:
 		for _, el := range n.Elements {
-			g.scanASTNode(el, unitByClass, classDeclMap)
+			ctx.scanNode(el)
 		}
 	case *parser.MapLiteral:
 		for k, v := range n.Pairs {
-			g.scanASTNode(k, unitByClass, classDeclMap)
-			g.scanASTNode(v, unitByClass, classDeclMap)
+			ctx.scanNode(k)
+			ctx.scanNode(v)
 		}
 	case *parser.ClassStatement:
 		// Scanned when marked live
 	case *parser.MethodStatement:
 		if n.Body != nil {
-			g.scanASTNode(n.Body, unitByClass, classDeclMap)
+			ctx.scanNode(n.Body)
 		}
 	case *parser.FunctionLiteral:
 		if n.Body != nil {
-			g.scanASTNode(n.Body, unitByClass, classDeclMap)
+			ctx.scanNode(n.Body)
 		}
 	}
 }
 
-func (g *ReachabilityGraph) inspectCall(call *parser.CallExpression, unitByClass map[string]string, classDeclMap map[string]*parser.ClassStatement) {
+func (ctx *reachabilityContext) inspectCall(call *parser.CallExpression) {
 	if call == nil {
 		return
 	}
@@ -431,25 +511,75 @@ func (g *ReachabilityGraph) inspectCall(call *parser.CallExpression, unitByClass
 					methodName = member.Property.Value
 				}
 				if className == "Plugin" && (methodName == "call" || methodName == "stream") {
+					if len(call.Arguments) >= 2 {
+						pName := ""
+						sName := ""
+						if lit, ok := call.Arguments[0].(*parser.StringLiteral); ok {
+							pName = lit.Value
+						}
+						if lit, ok := call.Arguments[1].(*parser.StringLiteral); ok {
+							sName = lit.Value
+						}
+						if pName != "" && sName != "" {
+							ctx.graph.RecordPluginSymbolUse(pName, sName)
+						}
+					}
 					for _, arg := range call.Arguments {
 						if lit, ok := arg.(*parser.StringLiteral); ok {
-							g.LiveSymbols[lit.Value] = true
+							ctx.graph.LiveSymbols[lit.Value] = true
 						}
 					}
 				}
-				g.detectNativeCapability(className, methodName)
-				g.markMethodLive(className, methodName, unitByClass, classDeclMap)
+				ctx.graph.detectNativeCapability(className, methodName)
+				ctx.markMethodLive(className, methodName)
 				return
+			}
+		} else if member.Token.Literal == "->" {
+			methodName := ""
+			if member.Property != nil {
+				methodName = member.Property.Value
+			}
+			if methodName != "" {
+				// Record this instance method call name for transitive resolution
+				ctx.seenMethodCalls[methodName] = true
+
+				// A. Direct new expression: (new ClassName())->method(...)
+				if newExpr, ok := member.Left.(*parser.NewExpression); ok && newExpr.Class != nil {
+					targetClass := newExpr.Class.Value
+					ctx.markClassInstantiated(targetClass)
+					ctx.markMethodLive(targetClass, methodName)
+					return
+				}
+
+				// B. $this->method(...)
+				if ident, ok := member.Left.(*parser.Identifier); ok && (ident.Value == "$this" || ident.Value == "this") {
+					if ctx.currentClass != "" {
+						ctx.markMethodLive(ctx.currentClass, methodName)
+						return
+					}
+				}
+
+				// C. Instance call: $var->method(...)
+				// Match against any live class that declares this method
+				for cName := range ctx.graph.LiveClasses {
+					if decl, ok := ctx.classDeclMap[cName]; ok && decl.Body != nil {
+						for _, m := range decl.Body.Statements {
+							if ms, ok := m.(*parser.MethodStatement); ok && ms.Name != nil && ms.Name.Value == methodName {
+								ctx.markMethodLive(cName, methodName)
+							}
+						}
+					}
+				}
 			}
 		}
 	}
 
-	// 2. Global function: print(...), die(...), etc.
+	// 2. Global function: print(...), helper(...), etc.
 	if ident, ok := call.Function.(*parser.Identifier); ok {
 		fnName := ident.Value
-		g.LiveFunctions[fnName] = true
+		ctx.markFunctionLive(fnName)
 		if fnName == "print" || fnName == "println" || fnName == "printf" {
-			g.RuntimeCapabilities[CapIO] = true
+			ctx.graph.RuntimeCapabilities[CapIO] = true
 		}
 	}
 }
@@ -459,6 +589,9 @@ func (g *ReachabilityGraph) detectNativeCapability(className, methodName string)
 	case "GranDB", "Database", "DB", "Schema", "SQLite":
 		g.RuntimeCapabilities[CapDatabase] = true
 		g.RuntimeCapabilities[CapSQLite] = true
+	case "MySQL":
+		g.RuntimeCapabilities[CapDatabase] = true
+		g.RuntimeCapabilities[CapMySQL] = true
 	case "Server", "Router", "Response", "Request":
 		g.RuntimeCapabilities[CapServer] = true
 		g.RuntimeCapabilities[CapHTTP] = true
@@ -476,14 +609,17 @@ func (g *ReachabilityGraph) detectNativeCapability(className, methodName string)
 	}
 }
 
-func (g *ReachabilityGraph) expandTransitiveDependencies(unitByClass map[string]string, classDeclMap map[string]*parser.ClassStatement) {
-	// Repeatedly scan bodies of newly live methods until fixpoint
+func (ctx *reachabilityContext) expandTransitive() {
+	// Repeatedly scan bodies of newly live methods and functions until fixpoint
 	scannedMethods := make(map[string]bool)
+	scannedFunctions := make(map[string]bool)
 
 	for {
 		newWork := false
-		for className, methods := range g.LiveMethods {
-			decl, ok := classDeclMap[className]
+
+		// 1. Expand class methods
+		for className, methods := range ctx.graph.LiveMethods {
+			decl, ok := ctx.classDeclMap[className]
 			if !ok || decl.Body == nil {
 				continue
 			}
@@ -495,10 +631,11 @@ func (g *ReachabilityGraph) expandTransitiveDependencies(unitByClass map[string]
 				scannedMethods[key] = true
 				newWork = true
 
+				ctx.currentClass = className
 				for _, member := range decl.Body.Statements {
 					if ms, ok := member.(*parser.MethodStatement); ok && ms.Name != nil && ms.Name.Value == mName {
 						if ms.Body != nil {
-							g.scanASTNode(ms.Body, unitByClass, classDeclMap)
+							ctx.scanNode(ms.Body)
 						}
 					} else if initStmt, ok := member.(*parser.InitStatement); ok {
 						initName := "Init"
@@ -507,13 +644,44 @@ func (g *ReachabilityGraph) expandTransitiveDependencies(unitByClass map[string]
 						}
 						if mName == "Init" || mName == initName || mName == "main" {
 							if initStmt.Body != nil {
-								g.scanASTNode(initStmt.Body, unitByClass, classDeclMap)
+								ctx.scanNode(initStmt.Body)
 							}
+						}
+					}
+				}
+				ctx.currentClass = ""
+			}
+		}
+
+		// 2. Expand top-level functions (dead code elimination for library functions)
+		for fnName := range ctx.graph.LiveFunctions {
+			if scannedFunctions[fnName] {
+				continue
+			}
+			scannedFunctions[fnName] = true
+			if decl, ok := ctx.funcDeclMap[fnName]; ok && decl.Body != nil {
+				newWork = true
+				ctx.scanNode(decl.Body)
+			}
+		}
+
+		// 3. Match any seen method calls against current live classes
+		for methodName := range ctx.seenMethodCalls {
+			for cName := range ctx.graph.LiveClasses {
+				if ctx.graph.LiveMethods[cName] != nil && ctx.graph.LiveMethods[cName][methodName] {
+					continue
+				}
+				if decl, ok := ctx.classDeclMap[cName]; ok && decl.Body != nil {
+					for _, m := range decl.Body.Statements {
+						if ms, ok := m.(*parser.MethodStatement); ok && ms.Name != nil && ms.Name.Value == methodName {
+							ctx.markMethodLive(cName, methodName)
+							newWork = true
 						}
 					}
 				}
 			}
 		}
+
 		if !newWork {
 			break
 		}
@@ -527,17 +695,14 @@ func PruneProgramAST(unit SourceUnit, graph *ReachabilityGraph) SourceUnit {
 	}
 
 	cPath := canonicalSourcePath(unit.Path)
-	// Entrypoint statements remain preserved
-	if cPath == graph.Entrypoint {
-		return unit
-	}
+	isEntrypoint := (cPath == graph.Entrypoint)
 
 	var prunedStmts []parser.Statement
 
 	for _, stmt := range unit.Program.Statements {
 		switch s := stmt.(type) {
 		case *parser.ClassStatement:
-			if s.Name != nil && !graph.IsClassReachable(s.Name.Value) {
+			if !isEntrypoint && s.Name != nil && !graph.IsClassReachable(s.Name.Value) {
 				// Entire class is dead, drop it
 				continue
 			}
@@ -550,8 +715,8 @@ func PruneProgramAST(unit SourceUnit, graph *ReachabilityGraph) SourceUnit {
 					for _, member := range s.Body.Statements {
 						if ms, ok := member.(*parser.MethodStatement); ok && ms.Name != nil {
 							mName := ms.Name.Value
-							// Retain Init constructor and marked live methods
-							if mName == "Init" || liveMethods[mName] {
+							// Retain Init / constructor and marked live methods
+							if mName == "Init" || mName == "constructor" || liveMethods[mName] {
 								retainedBody = append(retainedBody, member)
 							}
 						} else {
@@ -565,7 +730,11 @@ func PruneProgramAST(unit SourceUnit, graph *ReachabilityGraph) SourceUnit {
 			prunedStmts = append(prunedStmts, s)
 
 		case *parser.MethodStatement:
-			if s.Name != nil && !graph.IsFunctionReachable(s.Name.Value) {
+			if s.Name != nil {
+				if s.Name.Value == "main" || s.Name.Value == "Main" || graph.IsFunctionReachable(s.Name.Value) {
+					prunedStmts = append(prunedStmts, s)
+				}
+				// Unreferenced function dropped
 				continue
 			}
 			prunedStmts = append(prunedStmts, s)

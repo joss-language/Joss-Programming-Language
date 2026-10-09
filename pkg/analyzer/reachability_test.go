@@ -129,3 +129,89 @@ public class UserController {
 		t.Errorf("Server capability must be active due to Router::get")
 	}
 }
+
+func TestReachabilityGraphPrunesDeadFunctions(t *testing.T) {
+	entrySrc := `
+var $res = helper_1()
+Plugin::call("joss_bg_remover", "preload", [])
+print($res)
+`
+	// libSrc defines 12 functions, but only helper_1 is used
+	libSrc := `
+public func helper_1(): string {
+    return "one"
+}
+public func helper_2(): string {
+    return "two"
+}
+public func helper_3(): string {
+    return "three"
+}
+public func helper_4(): string {
+    return "four"
+}
+public func helper_5(): string {
+    return "five"
+}
+public func helper_6(): string {
+    return "six"
+}
+public func helper_7(): string {
+    return "seven"
+}
+public func helper_8(): string {
+    return "eight"
+}
+public func helper_9(): string {
+    return "nine"
+}
+public func helper_10(): string {
+    return "ten"
+}
+public func helper_11(): string {
+    return "eleven"
+}
+public func helper_12(): string {
+    return "twelve"
+}
+`
+	units := []SourceUnit{
+		parseReachUnit("main.joss", entrySrc),
+		parseReachUnit("lib/helpers.joss", libSrc),
+	}
+
+	prep := PrepareProgram(units, NewEnvironment())
+	graph := BuildReachabilityGraph(prep, ReachabilityOptions{Entrypoint: "main.joss"})
+
+	// Verify helper_1 is live
+	if !graph.IsFunctionReachable("helper_1") {
+		t.Fatalf("expected helper_1 to be reachable")
+	}
+
+	// Verify helper_2 through helper_12 are dead
+	for i := 2; i <= 12; i++ {
+		fnName := "helper_" + string(rune('0'+i))
+		if i >= 10 {
+			fnName = "helper_1" + string(rune('0'+i-10))
+		}
+		if graph.IsFunctionReachable(fnName) {
+			t.Errorf("expected %s to be dead, but was marked reachable", fnName)
+		}
+	}
+
+	// Verify Plugin symbol tracking
+	if !graph.IsPluginSymbolReachable("joss_bg_remover", "preload") {
+		t.Errorf("expected joss_bg_remover::preload to be recorded as reachable")
+	}
+
+	// Prune lib/helpers.joss
+	prunedLib := PruneProgramAST(units[1], graph)
+	if len(prunedLib.Program.Statements) != 1 {
+		t.Fatalf("expected exactly 1 function retained in pruned library, got %d", len(prunedLib.Program.Statements))
+	}
+
+	fnStmt, ok := prunedLib.Program.Statements[0].(*parser.MethodStatement)
+	if !ok || fnStmt.Name.Value != "helper_1" {
+		t.Fatalf("expected retained function to be helper_1")
+	}
+}

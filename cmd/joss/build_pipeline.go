@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
+	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
 )
 
@@ -115,7 +117,28 @@ func AnalyzeProjectReachability(entrypoint string, keepClasses, keepSymbols []st
 		return nil, nil, fmt.Errorf("error cargando fuentes del proyecto: %s", strings.Join(msgs, "; "))
 	}
 
-	prep := semanticanalyzer.PrepareProgram(units, semanticanalyzer.NewEnvironment())
+	report := core.AnalyzeSourceUnits(units)
+	prep := report.Prepared
+	if report.HasErrors() {
+		fmt.Println("\nJoss static analysis")
+		fmt.Println("------------------------------------------------------------")
+		errCount := 0
+		warnCount := 0
+		for _, d := range report.Diagnostics {
+			if d.Severity == diagnostics.SeverityError {
+				fmt.Println(d.String())
+				if d.Suggestion != "" {
+					fmt.Printf("  suggestion: %s\n", d.Suggestion)
+				}
+				errCount++
+			} else {
+				warnCount++
+			}
+		}
+		fmt.Println("------------------------------------------------------------")
+		fmt.Printf("%d error(s), %d warning(s)\n\n", errCount, warnCount)
+		return nil, nil, fmt.Errorf("se encontraron errores en el análisis estático")
+	}
 
 	routeFiles := []string{}
 	if _, err := os.Stat("routes.joss"); err == nil {

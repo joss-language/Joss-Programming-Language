@@ -248,7 +248,17 @@ func checkASTRules(filename string, prog *parser.Program, src string) []LintIssu
 	lines := strings.Split(src, "\n")
 	for idx, line := range lines {
 		lower := strings.ToLower(line)
-		if (strings.Contains(lower, "password = \"") || strings.Contains(lower, "secret = \"") || strings.Contains(lower, "apikey = \"")) && !strings.Contains(line, "System::env") && !strings.Contains(line, "Env::") {
+		hasCredAssign := false
+		for _, kw := range []string{"password", "secret", "apikey"} {
+			if strings.Contains(lower, kw+" = \"") || strings.Contains(lower, kw+" = '") {
+				// Avoid false positives for empty string initializations like var $secret = ""
+				if !strings.Contains(lower, kw+" = \"\"") && !strings.Contains(lower, kw+" = ''") {
+					hasCredAssign = true
+					break
+				}
+			}
+		}
+		if hasCredAssign && !strings.Contains(line, "System::env") && !strings.Contains(line, "Env::") {
 			issues = append(issues, LintIssue{
 				RuleID:      "JOSS-SEC-001",
 				Category:    CategorySecurity,
