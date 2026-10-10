@@ -175,9 +175,9 @@ La Matriz de Capacidades (`pkg/analyzer/capability_matrix.go`) **no** define dos
 | **ConsoleIO** (echo, print) | Soportado | Soportado | Soportado | Soportado |
 | **StaticClassMethods** (`Class::method`) | Soportado | Soportado | Soportado | Soportado |
 | **SpaceshipOperator** (`<=>`) | Soportado | Soportado | Soportado | Soportado |
-| **DynamicClasses** (instanciación `new`) | Soportado | Soportado | Soportado | *En roadmap* (`JOSS-NATIVE-001`) |
-| **DynamicArrays** (literales `[]`) | Soportado | Soportado | Soportado | *En roadmap* (`JOSS-NATIVE-001`) |
-| **DynamicMaps** (literales `{}`) | Soportado | Soportado | Soportado | *En roadmap* (`JOSS-NATIVE-001`) |
+| **DynamicClasses** (instanciación `new`, props, métodos) | Soportado | Soportado | Soportado | Soportado |
+| **DynamicArrays** (literales `[]`, indexación) | Soportado | Soportado | Soportado | Soportado |
+| **DynamicMaps** (literales `{}`, indexación clave) | Soportado | Soportado | Soportado | Soportado |
 | **Exceptions** (try / catch / throw) | Soportado | Soportado | Soportado | *En roadmap* (`JOSS-NATIVE-001`) |
 | **Interfaces** (contratos nominales) | Soportado | Soportado | Soportado | *En roadmap* (`JOSS-NATIVE-001`) |
 | **Channels & Concurrency** (`channel<T>`) | Soportado | Soportado | Soportado | *En roadmap* (`JOSS-NATIVE-001`) |

@@ -24,7 +24,7 @@ To compile the Joss CLI or a self-contained Joss project for Android:
 
 ```bash
 # Compilar un script o proyecto para Android arm64
-joss build native android arm64
+joss build main.joss --target=android-arm64
 
 # O compilar el CLI completo directamente con Go
 CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build ./cmd/joss

@@ -1,6 +1,9 @@
 package ir
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Opcode identifica la operación realizada por una instrucción o terminador.
 type Opcode string
@@ -43,6 +46,25 @@ const (
 
 	// Conversión de tipos
 	OpCast Opcode = "cast"
+
+	// Objetos y Clases Dinámicas en Heap
+	OpNewObject  Opcode = "new_object"
+	OpLoadField  Opcode = "load_field"
+	OpStoreField Opcode = "store_field"
+
+	// Arrays y Colecciones
+	OpNewArray Opcode = "new_array"
+	OpArrayGet Opcode = "array_get"
+	OpArraySet Opcode = "array_set"
+
+	// Mapas Asociativos
+	OpNewMap Opcode = "new_map"
+	OpMapGet Opcode = "map_get"
+	OpMapSet Opcode = "map_set"
+
+	// Excepciones y Control de Flujo Avanzado
+	OpThrow    Opcode = "throw"
+	OpTryCatch Opcode = "try_catch"
 
 	// Terminadores de Bloque Básico
 	OpReturn      Opcode = "return"
@@ -216,6 +238,172 @@ func (i *CastInst) Operands() []Value  { return []Value{i.Val} }
 func (i *CastInst) String() string {
 	return fmt.Sprintf("%s = cast %s to %s", i.Dest, i.Val, i.TargetType)
 }
+
+// -------------------------------------------------------------
+// Instrucciones de Objetos, Arrays y Mapas
+// -------------------------------------------------------------
+
+// NewObjectInst: %dst = new_object "ClassName"
+type NewObjectInst struct {
+	Dest      *TempValue
+	ClassName string
+}
+
+func (i *NewObjectInst) Opcode() Opcode     { return OpNewObject }
+func (i *NewObjectInst) Result() *TempValue { return i.Dest }
+func (i *NewObjectInst) Operands() []Value  { return nil }
+func (i *NewObjectInst) String() string {
+	return fmt.Sprintf("%s = new_object %q", i.Dest, i.ClassName)
+}
+
+// LoadFieldInst: %dst = load_field %obj, "fieldName"
+type LoadFieldInst struct {
+	Dest      *TempValue
+	Obj       Value
+	FieldName string
+}
+
+func (i *LoadFieldInst) Opcode() Opcode     { return OpLoadField }
+func (i *LoadFieldInst) Result() *TempValue { return i.Dest }
+func (i *LoadFieldInst) Operands() []Value  { return []Value{i.Obj} }
+func (i *LoadFieldInst) String() string {
+	return fmt.Sprintf("%s = load_field %s, %q", i.Dest, i.Obj, i.FieldName)
+}
+
+// StoreFieldInst: store_field %val, %obj, "fieldName"
+type StoreFieldInst struct {
+	Val       Value
+	Obj       Value
+	FieldName string
+}
+
+func (i *StoreFieldInst) Opcode() Opcode     { return OpStoreField }
+func (i *StoreFieldInst) Result() *TempValue { return nil }
+func (i *StoreFieldInst) Operands() []Value  { return []Value{i.Val, i.Obj} }
+func (i *StoreFieldInst) String() string {
+	return fmt.Sprintf("store_field %s, %s, %q", i.Val, i.Obj, i.FieldName)
+}
+
+// NewArrayInst: %dst = new_array (elements...)
+type NewArrayInst struct {
+	Dest     *TempValue
+	ElemType Type
+	Elements []Value
+}
+
+func (i *NewArrayInst) Opcode() Opcode     { return OpNewArray }
+func (i *NewArrayInst) Result() *TempValue { return i.Dest }
+func (i *NewArrayInst) Operands() []Value  { return i.Elements }
+func (i *NewArrayInst) String() string {
+	elemStrs := make([]string, len(i.Elements))
+	for idx, e := range i.Elements {
+		elemStrs[idx] = e.String()
+	}
+	return fmt.Sprintf("%s = new_array<%s> [%s]", i.Dest, i.ElemType, strings.Join(elemStrs, ", "))
+}
+
+// ArrayGetInst: %dst = array_get %arr, %idx
+type ArrayGetInst struct {
+	Dest  *TempValue
+	Array Value
+	Index Value
+}
+
+func (i *ArrayGetInst) Opcode() Opcode     { return OpArrayGet }
+func (i *ArrayGetInst) Result() *TempValue { return i.Dest }
+func (i *ArrayGetInst) Operands() []Value  { return []Value{i.Array, i.Index} }
+func (i *ArrayGetInst) String() string {
+	return fmt.Sprintf("%s = array_get %s[%s]", i.Dest, i.Array, i.Index)
+}
+
+// ArraySetInst: array_set %val, %arr, %idx
+type ArraySetInst struct {
+	Val   Value
+	Array Value
+	Index Value
+}
+
+func (i *ArraySetInst) Opcode() Opcode     { return OpArraySet }
+func (i *ArraySetInst) Result() *TempValue { return nil }
+func (i *ArraySetInst) Operands() []Value  { return []Value{i.Val, i.Array, i.Index} }
+func (i *ArraySetInst) String() string {
+	return fmt.Sprintf("array_set %s[%s] = %s", i.Array, i.Index, i.Val)
+}
+
+// NewMapInst: %dst = new_map (keyValues...)
+type NewMapInst struct {
+	Dest  *TempValue
+	Pairs [][2]Value // [key, value]
+}
+
+func (i *NewMapInst) Opcode() Opcode     { return OpNewMap }
+func (i *NewMapInst) Result() *TempValue { return i.Dest }
+func (i *NewMapInst) Operands() []Value {
+	var ops []Value
+	for _, p := range i.Pairs {
+		ops = append(ops, p[0], p[1])
+	}
+	return ops
+}
+func (i *NewMapInst) String() string {
+	pairStrs := make([]string, len(i.Pairs))
+	for idx, p := range i.Pairs {
+		pairStrs[idx] = fmt.Sprintf("%s: %s", p[0], p[1])
+	}
+	return fmt.Sprintf("%s = new_map {%s}", i.Dest, strings.Join(pairStrs, ", "))
+}
+
+// MapGetInst: %dst = map_get %map, %key
+type MapGetInst struct {
+	Dest *TempValue
+	Map  Value
+	Key  Value
+}
+
+func (i *MapGetInst) Opcode() Opcode     { return OpMapGet }
+func (i *MapGetInst) Result() *TempValue { return i.Dest }
+func (i *MapGetInst) Operands() []Value  { return []Value{i.Map, i.Key} }
+func (i *MapGetInst) String() string {
+	return fmt.Sprintf("%s = map_get %s[%s]", i.Dest, i.Map, i.Key)
+}
+
+// MapSetInst: map_set %val, %map, %key
+type MapSetInst struct {
+	Val Value
+	Map Value
+	Key Value
+}
+
+func (i *MapSetInst) Opcode() Opcode     { return OpMapSet }
+func (i *MapSetInst) Result() *TempValue { return nil }
+func (i *MapSetInst) Operands() []Value  { return []Value{i.Val, i.Map, i.Key} }
+func (i *MapSetInst) String() string {
+	return fmt.Sprintf("map_set %s[%s] = %s", i.Map, i.Key, i.Val)
+}
+
+// ThrowInst: throw %val
+type ThrowInst struct {
+	Val Value
+}
+
+func (i *ThrowInst) Opcode() Opcode     { return OpThrow }
+func (i *ThrowInst) Result() *TempValue { return nil }
+func (i *ThrowInst) Operands() []Value  { return []Value{i.Val} }
+func (i *ThrowInst) String() string     { return fmt.Sprintf("throw %s", i.Val) }
+
+// TryCatchInst: bloque estructurado try-catch
+type TryCatchInst struct {
+	ID          int
+	TryBlocks   []*BasicBlock
+	CatchVar    string
+	CatchVarPtr Value
+	CatchBlocks []*BasicBlock
+}
+
+func (i *TryCatchInst) Opcode() Opcode     { return OpTryCatch }
+func (i *TryCatchInst) Result() *TempValue { return nil }
+func (i *TryCatchInst) Operands() []Value  { return nil }
+func (i *TryCatchInst) String() string     { return fmt.Sprintf("try_catch #%d ($%s)", i.ID, i.CatchVar) }
 
 // -------------------------------------------------------------
 // Terminadores

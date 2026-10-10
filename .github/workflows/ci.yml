@@ -39,8 +39,12 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Architectural Contract Gate
+        run: go test -v -count=1 ./tests/architecture
+
       - name: Test
         run: go test ./...
+
 
       - name: Race-sensitive core tests
         run: go test -race ./pkg/parser ./pkg/typesystem ./pkg/analyzer ./pkg/core
@@ -72,8 +76,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - run: go test -v -count=1 ./tests/architecture
       - run: go test ./...
       - run: go build ./...
+
 
   vscode:
     name: VS Code language tooling

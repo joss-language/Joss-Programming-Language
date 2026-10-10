@@ -297,8 +297,8 @@ func BenchmarkJossCollections(b *testing.B) {
 	runtime := benchmarkRuntimeInstance()
 	runtime.Variables["items"] = []interface{}{int64(1), int64(2), int64(3), int64(4)}
 	runtime.VarTypes["items"] = "array"
-	runtime.Variables["record"] = map[string]interface{}{"id": int64(7), "name": "joss"}
-	runtime.VarTypes["record"] = "map"
+	runtime.Variables["data"] = map[string]interface{}{"id": int64(7), "name": "joss"}
+	runtime.VarTypes["data"] = "map"
 
 	benchExpression := func(name, source string) {
 		b.Run(name, func(b *testing.B) {
@@ -319,8 +319,8 @@ func BenchmarkJossCollections(b *testing.B) {
 	benchExpression("ArrayWrite", `$items[2] = 9`)
 	benchExpression("ArrayGrowth", `$items[] = 9`)
 	benchExpression("MapConstruct", `{"id": 7, "name": "joss", "active": true}`)
-	benchExpression("MapRead", `$record["name"]`)
-	benchExpression("MapWrite", `$record["name"] = "runtime"`)
+	benchExpression("MapRead", `$data["name"]`)
+	benchExpression("MapWrite", `$data["name"] = "runtime"`)
 
 	b.Run("Iteration", func(b *testing.B) {
 		program := benchmarkParse(b, `foreach ($items as $item) { $last = $item }`)

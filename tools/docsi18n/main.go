@@ -366,9 +366,9 @@ func translateMarkdown(source, locale string, translator translateFunc) (string,
 			continue
 		}
 		// Protected UUID markers expand dense Markdown tables considerably. Keep
-		// source batches small enough to stay below the provider's 5,000-character
-		// request limit after links, inline code and line breaks are masked.
-		if prose.Len()+len(line) > 700 {
+		// source batches small enough to stay below the provider's request limit
+		// after links, inline code and line breaks are masked.
+		if prose.Len()+len(line) > 350 {
 			if err := flush(); err != nil {
 				return "", err
 			}
@@ -387,7 +387,7 @@ func translateProse(original, locale string, translator translateFunc) (string, 
 	}
 	masked, protected := maskTranslationSyntax(original)
 	requestText := encodeTranslationHTML(masked, protected)
-	if len(requestText) > 3500 {
+	if len(requestText) > 1800 {
 		splitAt := proseSplitIndex(original)
 		if splitAt <= 0 || splitAt >= len(original) {
 			return "", fmt.Errorf("unable to split oversized translation block")

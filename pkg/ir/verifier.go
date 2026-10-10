@@ -113,6 +113,50 @@ func (v *IRVerifier) verifyInstruction(fn *Function, block *BasicBlock, inst Ins
 		if i.Ptr == nil {
 			v.addError("load en %s tiene puntero nulo", block.Label)
 		}
+	case *NewObjectInst:
+		if i.Dest == nil || i.ClassName == "" {
+			v.addError("new_object en %s tiene destino o nombre de clase inválido", block.Label)
+		}
+	case *LoadFieldInst:
+		if i.Dest == nil || i.Obj == nil || i.FieldName == "" {
+			v.addError("load_field en %s tiene operandos inválidos", block.Label)
+		}
+	case *StoreFieldInst:
+		if i.Obj == nil || i.Val == nil || i.FieldName == "" {
+			v.addError("store_field en %s tiene operandos inválidos", block.Label)
+		}
+	case *NewArrayInst:
+		if i.Dest == nil {
+			v.addError("new_array en %s tiene destino nulo", block.Label)
+		}
+	case *ArrayGetInst:
+		if i.Dest == nil || i.Array == nil || i.Index == nil {
+			v.addError("array_get en %s tiene operandos inválidos", block.Label)
+		}
+	case *ArraySetInst:
+		if i.Array == nil || i.Index == nil || i.Val == nil {
+			v.addError("array_set en %s tiene operandos inválidos", block.Label)
+		}
+	case *NewMapInst:
+		if i.Dest == nil {
+			v.addError("new_map en %s tiene destino nulo", block.Label)
+		}
+	case *MapGetInst:
+		if i.Dest == nil || i.Map == nil || i.Key == nil {
+			v.addError("map_get en %s tiene operandos inválidos", block.Label)
+		}
+	case *MapSetInst:
+		if i.Map == nil || i.Key == nil || i.Val == nil {
+			v.addError("map_set en %s tiene operandos inválidos", block.Label)
+		}
+	case *ThrowInst:
+		if i.Val == nil {
+			v.addError("throw en %s tiene valor nulo", block.Label)
+		}
+	case *TryCatchInst:
+		if i.CatchVar == "" {
+			v.addError("try_catch en %s tiene nombre de variable catch vacío", block.Label)
+		}
 	}
 }
 

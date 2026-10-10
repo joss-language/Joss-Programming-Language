@@ -17,18 +17,26 @@ joss run archivo.joss
 joss repl
 joss server start
 joss program start
+joss build [archivo.joss] [opciones]
+joss emit-ir [archivo.joss] [-o salida.ir]
 joss analyze [archivo.joss]
 joss update [-f|--canary|--stable]
-joss build [web|program|native|package]
-joss build native [os] [arch] [--gui]
 ```
 
 - `run [archivo]`: Run a script `.joss` after analyzing the project. Semantic errors block execution; the warnings do not.
 - `repl`: Launches the interactive console (Read-Eval-Print Loop) to evaluate expressions, test functions, and experiment with code in real time. Type `exit` or press `Ctrl+C` to exit.
 - `server start`: Requires the entry point `main.joss` and starts the high-performance multi-level HTTP server. Press `q` to stop it safely.
 - `program start`: Start the application in desktop mode.
+- `build [archivo.joss]`: **Official Joss Native Compiler**. Compiles the program into a real self-contained native binary executable (PE `.exe` on Windows, ELF on Linux, Mach-O on macOS). Performs exhaustive semantic analysis (`PreparedProgram`), reachability analysis (*Reachability Analysis*), lowering to Joss Native IR (`pkg/ir`), IR verification, and native code generation via LLVM or the direct compilation backend (`pkg/backend/native`), without packaging AST or depending on the Go runtime.
+  - `-o <salida>`: Name or path of the final executable binary.
+  - `--target=<os>-<arch>`: Cross-compilation target (e.g. `windows-amd64`, `linux-amd64`, `darwin-arm64`).
+  - `--release`: Production-optimized compilation without debug symbols.
+  - `--debug`: Compilation with debugging information.
+  - `--trace`: Emits and preserves intermediate artifacts of the native pipeline (`.ir`, `.ll`, `.standalone.go`).
+  - `build package [ruta]`: Packages extensions and plugins into `.jp` (v2) packages signed with Ed25519 containing pure bytecode.
+  - `build web`: Prepares assets and static distribution for web deployment.
+- `emit-ir [archivo.joss] [-o salida.ir]`: Emits the canonical intermediate representation (Joss Native IR) in deterministic textual format after semantic analysis and lowering.
 - `analyze [archivo]`: Parse the input (by default `main.joss`) and `app/**/*.joss`. Does not automatically include `routes.joss`, `api.joss` or other siblings. Returns non-zero code if errors exist and preserves file/line/column. See [ANALYZER.md](ANALIZADOR.md).
-- `build native [os] [arch]`: Generate a standalone binary for `windows`, `linux` or `darwin`; packages the serialized AST and the Go runner. It is not an LLVM/AOT backend of the Joss program. Use `--gui` for applications with a desktop interface.
 - `update`: Uses the updater implemented by the CLI and may require network/system permissions. Check their actual channels and artifacts before promising that a distribution contains an SDK or editor.
 
 ---

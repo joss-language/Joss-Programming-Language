@@ -27,8 +27,13 @@ func MapLLVMType(t ir.Type) string {
 		return "double"
 	case ir.TypeKindString:
 		return "i8*"
+	case ir.TypeKindStruct, ir.TypeKindArray:
+		return "i8*"
 	case ir.TypeKindPtr:
 		if t.Elem == nil {
+			return "i8*"
+		}
+		if t.Elem.Kind == ir.TypeKindStruct || t.Elem.Kind == ir.TypeKindArray {
 			return "i8*"
 		}
 		return fmt.Sprintf("%s*", MapLLVMType(*t.Elem))

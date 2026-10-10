@@ -53,8 +53,8 @@ em toda a instância.
 | `verify2FAChallenge(token,codigo)` | JWT final ou falso após verificar o desafio e o código (suporta App TOTP e Email OTP). |
 | `complete2FA(id)` | Gera JWT após busca pelo usuário; **não verifica um código TOTP em si**. Não exponha como um endpoint público com um ID fornecido pelo cliente. |
 | `enabledSocialProviders()` | Array de provedores OAuth habilitados no ambiente atual (`google`, `apple`, `facebook`, `x`, `github`, `twitch`, `yahoo`, `microsoft`). |
-| `socialRedirect(provedor,urlRetorno)` | URL de redirecionamento OAuth para o provedor indicado. |
-| `socialCallback(provedor,codigo,urlRetorno)` | AuthLoginResult processado após a troca do código e registro/vinculação do usuário. |
+| `socialRedirect(proveedor,urlRetorno)` | URL de redirecionamento OAuth para o provedor indicado. |
+| `socialCallback(proveedor,codigo,urlRetorno)` | AuthLoginResult processado após a troca do código e registro/vinculação do usuário. |
 
 ## Resultado suave e retornos de chamada
 
@@ -111,12 +111,12 @@ O Joss oferece suporte nativo para login e vinculação de contas com 8 provedor
 
 A URL de redirecionamento (callback) registrada no console de desenvolvedor deve apontar para:
 ```text
-https://seu-dominio.com/auth/{provedor}/callback
+https://tu-dominio.com/auth/{proveedor}/callback
 ```
 
 - `Auth::enabledSocialProviders()` retorna apenas a lista de provedores com credenciais configuradas.
-- `Auth::socialRedirect(provedor, urlRetorno)` gera a URL segura para o provedor OAuth com proteção `state` anti-CSRF.
-- `Auth::socialCallback(provedor, codigo, urlRetorno)` troca o código, recupera o perfil, vincula em `user_social_accounts` e retorna um `AuthLoginResult`.
+- `Auth::socialRedirect(proveedor, urlRetorno)` gera a URL segura para o provedor OAuth com proteção `state` anti-CSRF.
+- `Auth::socialCallback(proveedor, codigo, urlRetorno)` troca o código, recupera o perfil, vincula em `user_social_accounts` e retorna um `AuthLoginResult`.
 
 Fontes: [Auth](../../pkg/core/auth.go) , [OAuth Social](../../pkg/core/auth_social.go) , [JWT](../../pkg/core/auth_jwt.go) ,
 [Fluxo MFA](../../pkg/core/auth_fluent.go) , Tabelas [../pkg/core/auth_tables.go](../../pkg/core/auth_tables.go) .

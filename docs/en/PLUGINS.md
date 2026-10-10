@@ -57,9 +57,9 @@ bytecode input. The runtime detects two different formats:
 | `JOSSBC2Z` | `pkg/core` AST Adapter | Serialized and compressed Joss tree, interpreted. |
 | `JPBC` | `pkg/pluginruntime.JPBCVM` | Plugin-specific instructions machine. |
 
-None convert the main program to LLVM/Cranelift machine code.
-The experimental VM in `pkg/vm` is a third component and is not the executor
-default of `joss run` or `joss build native`.
+None of these plugin formats replace the main program's native compilation performed by `joss build` (which uses Joss Native IR and the native backend).
+The experimental VM in `pkg/vm` is an independent component and is not the default
+executor of `joss run` nor `joss build`.
 
 ## Compilation from other languages: state and limits
 

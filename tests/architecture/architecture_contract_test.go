@@ -237,3 +237,71 @@ func TestArchitecture_CapabilityMatrixReconciliationAndOwnership(t *testing.T) {
 		}
 	}
 }
+
+// TestArchitecture_CoreLanguageImplementedFeaturesMustExecuteEverywhere ensures that
+// any feature belonging to the Core Language category marked as StateFullyComplete
+// is physically supported in Native and does not emit JOSS-NATIVE-001.
+// Furthermore, any feature in Core Language supported in Interpreter/Server but not in Native
+// must be explicitly documented with State < StateFullyComplete and tracked with diagnostic JOSS-NATIVE-001.
+func TestArchitecture_CoreLanguageImplementedFeaturesMustExecuteEverywhere(t *testing.T) {
+	for _, entry := range analyzer.CanonicalCapabilityMatrix {
+		if entry.Category == analyzer.CategoryCoreLanguage {
+			if entry.State == analyzer.StateFullyComplete {
+				if entry.Native != analyzer.Supported {
+					t.Fatalf("ARCHITECTURAL VIOLATION: Core Language feature '%s' is marked FullyComplete but Native is %s",
+						entry.Feature, entry.Native)
+				}
+				if entry.DiagnosticCode == "JOSS-NATIVE-001" {
+					t.Fatalf("ARCHITECTURAL VIOLATION: Core Language feature '%s' is FullyComplete but retains JOSS-NATIVE-001 diagnostic",
+						entry.Feature)
+				}
+			}
+			// Verify that dynamic classes, dynamic arrays, dynamic maps, exceptions and interfaces are fully materialized across all backends
+			if entry.Feature == "DynamicClasses" || entry.Feature == "DynamicArrays" || entry.Feature == "DynamicMaps" || entry.Feature == "Exceptions" || entry.Feature == "Interfaces" {
+				if entry.Native != analyzer.Supported || entry.State != analyzer.StateFullyComplete {
+					t.Fatalf("ARCHITECTURAL VIOLATION: Mandatory feature '%s' is not FullyComplete in Native", entry.Feature)
+				}
+			}
+		}
+	}
+}
+
+// TestArchitecture_EveryCoreLanguageFeatureExecutesEverywhere enforces that every
+// feature classified under Core Language that is implemented in the interpreter
+// also compiles and executes in native without JOSS-NATIVE-001.
+func TestArchitecture_EveryCoreLanguageFeatureExecutesEverywhere(t *testing.T) {
+	for _, entry := range analyzer.CanonicalCapabilityMatrix {
+		if entry.Category == analyzer.CategoryCoreLanguage && entry.State == analyzer.StateFullyComplete {
+			if entry.Native != analyzer.Supported {
+				t.Fatalf("Core Language feature '%s' is not supported in Native", entry.Feature)
+			}
+			if entry.DiagnosticCode != "" {
+				t.Fatalf("Core Language feature '%s' emits diagnostic code '%s' in Native", entry.Feature, entry.DiagnosticCode)
+			}
+		}
+	}
+}
+
+// TestArchitecture_LanguageFeatureMustBeImplementedOnceAndExecuteEverywhere enforces
+// that features cannot diverge semantically between execution backends.
+func TestArchitecture_LanguageFeatureMustBeImplementedOnceAndExecuteEverywhere(t *testing.T) {
+	for _, entry := range analyzer.CanonicalCapabilityMatrix {
+		if entry.Language == analyzer.Supported && entry.State == analyzer.StateFullyComplete {
+			if entry.Interpreter != analyzer.Supported || entry.Server != analyzer.Supported || entry.Native != analyzer.Supported {
+				t.Fatalf("FullyComplete feature '%s' does not execute in all backends", entry.Feature)
+			}
+		}
+	}
+}
+
+// TestArchitecture_Regression_InterpreterSupportedNativeUnsupportedRejected ensures
+// that no feature marked as StateFullyComplete has Interpreter=Supported and Native=Unsupported.
+func TestArchitecture_Regression_InterpreterSupportedNativeUnsupportedRejected(t *testing.T) {
+	for _, entry := range analyzer.CanonicalCapabilityMatrix {
+		if entry.State == analyzer.StateFullyComplete {
+			if entry.Interpreter == analyzer.Supported && entry.Native == analyzer.Unsupported {
+				t.Fatalf("REGRESSION: Feature '%s' is marked FullyComplete with Interpreter Supported but Native Unsupported", entry.Feature)
+			}
+		}
+	}
+}

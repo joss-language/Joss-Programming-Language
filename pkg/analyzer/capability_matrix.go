@@ -32,23 +32,39 @@ type FeatureOwnership struct {
 	DifferentialTest        string // Test suite verifying byte-by-byte behavioral equivalence (e.g. "tests/native")
 }
 
+// FeatureCategory classifies a capability into its proper architectural layer.
+type FeatureCategory string
+
+const (
+	CategoryCoreLanguage    FeatureCategory = "CORE LANGUAGE"
+	CategoryLanguageRuntime FeatureCategory = "LANGUAGE RUNTIME"
+	CategoryStandardLibrary FeatureCategory = "STANDARD LIBRARY"
+	CategoryWebRuntime      FeatureCategory = "WEB RUNTIME"
+	CategoryDatabaseORM     FeatureCategory = "DATABASE/ORM"
+	CategoryPackaging       FeatureCategory = "PACKAGING"
+	CategoryTooling         FeatureCategory = "TOOLING"
+)
+
 // CapabilityEntry represents the support status and architectural ownership of a Joss language feature across all tiers.
 type CapabilityEntry struct {
-	Feature       string
-	Language      SupportStatus // Semantic model / language specification
-	SemanticModel SupportStatus // Analyzer / PreparedProgram
-	Interpreter   SupportStatus // Interpreter backend (pkg/core)
-	Server        SupportStatus // Server backend (pkg/server)
-	Native        SupportStatus // Native compiler backend (pkg/backend/native)
-	Description   string
-	Ownership     FeatureOwnership
-	State         CompletionState
+	Feature        string
+	Category       FeatureCategory
+	Language       SupportStatus // Semantic model / language specification
+	SemanticModel  SupportStatus // Analyzer / PreparedProgram
+	Interpreter    SupportStatus // Interpreter backend (pkg/core)
+	Server         SupportStatus // Server backend (pkg/server)
+	Native         SupportStatus // Native compiler backend (pkg/backend/native)
+	DiagnosticCode string        // Diagnostic emitted if unsupported in native (e.g. "JOSS-NATIVE-001")
+	Description    string
+	Ownership      FeatureOwnership
+	State          CompletionState
 }
 
 // CanonicalCapabilityMatrix contains the authoritative matrix of features across all execution forms.
 var CanonicalCapabilityMatrix = []CapabilityEntry{
 	{
 		Feature:       "Functions",
+		Category:      CategoryCoreLanguage,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
@@ -67,6 +83,7 @@ var CanonicalCapabilityMatrix = []CapabilityEntry{
 	},
 	{
 		Feature:       "Primitives",
+		Category:      CategoryCoreLanguage,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
@@ -85,6 +102,7 @@ var CanonicalCapabilityMatrix = []CapabilityEntry{
 	},
 	{
 		Feature:       "ControlFlow",
+		Category:      CategoryCoreLanguage,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
@@ -103,6 +121,7 @@ var CanonicalCapabilityMatrix = []CapabilityEntry{
 	},
 	{
 		Feature:       "Recursion",
+		Category:      CategoryCoreLanguage,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
@@ -121,6 +140,7 @@ var CanonicalCapabilityMatrix = []CapabilityEntry{
 	},
 	{
 		Feature:       "ConsoleIO",
+		Category:      CategoryStandardLibrary,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
@@ -139,6 +159,7 @@ var CanonicalCapabilityMatrix = []CapabilityEntry{
 	},
 	{
 		Feature:       "StaticClassMethods",
+		Category:      CategoryCoreLanguage,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
@@ -157,6 +178,7 @@ var CanonicalCapabilityMatrix = []CapabilityEntry{
 	},
 	{
 		Feature:       "SpaceshipOperator",
+		Category:      CategoryCoreLanguage,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
@@ -175,102 +197,111 @@ var CanonicalCapabilityMatrix = []CapabilityEntry{
 	},
 	{
 		Feature:       "DynamicClasses",
+		Category:      CategoryCoreLanguage,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
 		Server:        Supported,
-		Native:        Unsupported,
-		Description:   "Instanciación dinámica en heap (new), herencia polimórfica y despacho dinámico vtable",
+		Native:        Supported,
+		Description:   "Instanciación dinámica en heap (new), propiedades, métodos de instancia y mutación de estado",
 		Ownership: FeatureOwnership{
 			SemanticOwner:           "pkg/analyzer",
 			CanonicalRepresentation: "PreparedProgram.Environment.Classes",
 			InterpreterOwner:        "pkg/core/evaluator_member.go (Instance)",
 			ServerOwner:             "pkg/server",
-			NativeOwner:             "pkg/ir/lower.go (JOSS-NATIVE-001)",
-			DifferentialTest:        "tests/native/differential_test.go (Rejection test)",
+			NativeOwner:             "pkg/ir/lower.go (NewObjectInst, LoadFieldInst, StoreFieldInst)",
+			DifferentialTest:        "tests/native/differential_test.go",
 		},
-		State: StateInterpreterComplete,
+		State: StateFullyComplete,
 	},
 	{
 		Feature:       "DynamicArrays",
+		Category:      CategoryCoreLanguage,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
 		Server:        Supported,
-		Native:        Unsupported,
-		Description:   "Literales de arrays dinámicos heterogéneos ([]) y mutaciones en runtime",
+		Native:        Supported,
+		Description:   "Literales de arrays dinámicos ([]), indexación y mutaciones en runtime",
 		Ownership: FeatureOwnership{
 			SemanticOwner:           "pkg/analyzer",
 			CanonicalRepresentation: "PreparedProgram.Units (*parser.ArrayLiteral)",
 			InterpreterOwner:        "pkg/core/builtins_array.go",
 			ServerOwner:             "pkg/server",
-			NativeOwner:             "pkg/ir/lower.go (JOSS-NATIVE-001)",
-			DifferentialTest:        "tests/native/differential_test.go (Rejection test)",
+			NativeOwner:             "pkg/ir/lower.go (NewArrayInst, ArrayGetInst, ArraySetInst)",
+			DifferentialTest:        "tests/native/differential_test.go",
 		},
-		State: StateInterpreterComplete,
+		State: StateFullyComplete,
 	},
 	{
 		Feature:       "DynamicMaps",
+		Category:      CategoryCoreLanguage,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
 		Server:        Supported,
-		Native:        Unsupported,
-		Description:   "Literales de mapas asociativos ({}) y acceso dinámico por clave",
+		Native:        Supported,
+		Description:   "Literales de mapas asociativos ({}), indexación por clave y mutaciones en runtime",
 		Ownership: FeatureOwnership{
 			SemanticOwner:           "pkg/analyzer",
 			CanonicalRepresentation: "PreparedProgram.Units (*parser.MapLiteral)",
 			InterpreterOwner:        "pkg/core/builtins_array.go",
 			ServerOwner:             "pkg/server",
-			NativeOwner:             "pkg/ir/lower.go (JOSS-NATIVE-001)",
-			DifferentialTest:        "tests/native/differential_test.go (Rejection test)",
+			NativeOwner:             "pkg/ir/lower.go (NewMapInst, MapGetInst, MapSetInst)",
+			DifferentialTest:        "tests/native/differential_test.go",
 		},
-		State: StateInterpreterComplete,
+		State: StateFullyComplete,
 	},
 	{
-		Feature:       "Exceptions",
-		Language:      Supported,
-		SemanticModel: Supported,
-		Interpreter:   Supported,
-		Server:        Supported,
-		Native:        Unsupported,
-		Description:   "Manejo estructurado de excepciones (try, catch, throw)",
+		Feature:        "Exceptions",
+		Category:       CategoryCoreLanguage,
+		Language:       Supported,
+		SemanticModel:  Supported,
+		Interpreter:    Supported,
+		Server:         Supported,
+		Native:         Supported,
+		DiagnosticCode: "",
+		Description:    "Manejo estructurado de excepciones (try, catch, throw)",
 		Ownership: FeatureOwnership{
 			SemanticOwner:           "pkg/analyzer",
-			CanonicalRepresentation: "PreparedProgram.Units (*parser.TryCatchStatement)",
-			InterpreterOwner:        "pkg/core/evaluator_control.go",
+			CanonicalRepresentation: "PreparedProgram.Units (*parser.TryCatchStatement, *parser.ThrowStatement)",
+			InterpreterOwner:        "pkg/core/executor.go",
 			ServerOwner:             "pkg/server",
-			NativeOwner:             "pkg/ir/lower.go (JOSS-NATIVE-001)",
-			DifferentialTest:        "tests/native/differential_test.go (Rejection test)",
+			NativeOwner:             "pkg/ir/lower.go (TryCatchInst, ThrowInst), pkg/backend/native/standalone.go",
+			DifferentialTest:        "tests/native/differential_test.go",
 		},
-		State: StateInterpreterComplete,
+		State: StateFullyComplete,
 	},
 	{
-		Feature:       "Interfaces",
-		Language:      Supported,
-		SemanticModel: Supported,
-		Interpreter:   Supported,
-		Server:        Supported,
-		Native:        Unsupported,
-		Description:   "Contratos nominales de interfaces con despacho dinámico",
+		Feature:        "Interfaces",
+		Category:       CategoryCoreLanguage,
+		Language:       Supported,
+		SemanticModel:  Supported,
+		Interpreter:    Supported,
+		Server:         Supported,
+		Native:         Supported,
+		DiagnosticCode: "",
+		Description:    "Contratos nominales de interfaces con validación estática y despacho uniforme",
 		Ownership: FeatureOwnership{
 			SemanticOwner:           "pkg/analyzer",
 			CanonicalRepresentation: "PreparedProgram.Environment.Interfaces",
 			InterpreterOwner:        "pkg/core/nominal_contracts.go",
 			ServerOwner:             "pkg/server",
-			NativeOwner:             "pkg/ir/lower.go (JOSS-NATIVE-001)",
-			DifferentialTest:        "tests/native/differential_test.go (Rejection test)",
+			NativeOwner:             "pkg/ir/lower.go",
+			DifferentialTest:        "tests/native/differential_test.go",
 		},
-		State: StateInterpreterComplete,
+		State: StateFullyComplete,
 	},
 	{
-		Feature:       "Channels",
-		Language:      Supported,
-		SemanticModel: Supported,
-		Interpreter:   Supported,
-		Server:        Supported,
-		Native:        Unsupported,
-		Description:   "Canales tipados de concurrencia y select",
+		Feature:        "Channels",
+		Category:       CategoryLanguageRuntime,
+		Language:       Supported,
+		SemanticModel:  Supported,
+		Interpreter:    Supported,
+		Server:         Supported,
+		Native:         Unsupported,
+		DiagnosticCode: "JOSS-NATIVE-001",
+		Description:    "Canales tipados de concurrencia y select",
 		Ownership: FeatureOwnership{
 			SemanticOwner:           "pkg/analyzer",
 			CanonicalRepresentation: "PreparedProgram.Units (*parser.SelectStatement)",
@@ -282,13 +313,15 @@ var CanonicalCapabilityMatrix = []CapabilityEntry{
 		State: StateInterpreterComplete,
 	},
 	{
-		Feature:       "Defer",
-		Language:      Supported,
-		SemanticModel: Supported,
-		Interpreter:   Supported,
-		Server:        Supported,
-		Native:        Unsupported,
-		Description:   "Ejecución diferida de sentencias (defer)",
+		Feature:        "Defer",
+		Category:       CategoryCoreLanguage,
+		Language:       Supported,
+		SemanticModel:  Supported,
+		Interpreter:    Supported,
+		Server:         Supported,
+		Native:         Unsupported,
+		DiagnosticCode: "JOSS-NATIVE-001",
+		Description:    "Ejecución diferida de sentencias (defer)",
 		Ownership: FeatureOwnership{
 			SemanticOwner:           "pkg/analyzer",
 			CanonicalRepresentation: "PreparedProgram.Units (*parser.DeferStatement)",
@@ -301,6 +334,7 @@ var CanonicalCapabilityMatrix = []CapabilityEntry{
 	},
 	{
 		Feature:       "RoutesAndMVC",
+		Category:      CategoryWebRuntime,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
@@ -319,6 +353,7 @@ var CanonicalCapabilityMatrix = []CapabilityEntry{
 	},
 	{
 		Feature:       "GranDBORM",
+		Category:      CategoryDatabaseORM,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,
@@ -337,6 +372,7 @@ var CanonicalCapabilityMatrix = []CapabilityEntry{
 	},
 	{
 		Feature:       "WebSockets",
+		Category:      CategoryWebRuntime,
 		Language:      Supported,
 		SemanticModel: Supported,
 		Interpreter:   Supported,

@@ -1,7 +1,6 @@
 package native_test
 
 import (
-	"errors"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -197,50 +196,24 @@ func TestDifferential_StringsAndMultiplePrints(t *testing.T) {
 	assertDifferential(t, "strings_echo", source)
 }
 
-func TestDifferential_CapabilityContract_ClassesRejectedByCompiler(t *testing.T) {
-	// Las clases están soportadas en el intérprete pero no en el backend nativo mínimo.
-	// El compilador debe rechazar la compilación con UnsupportedCapabilityError y sugerir joss run.
+func TestDifferential_ClassesAndFields(t *testing.T) {
 	source := `
 		public class Persona {
 			public string $nombre = "Joss";
+			public int $edad = 30;
+			public func celebrar(): int {
+				$this->edad = $this->edad + 1;
+				return $this->edad;
+			}
 		}
+
 		var $p = new Persona();
 		echo $p->nombre;
+		echo $p->edad;
+		int $nuevaEdad = $p->celebrar();
+		echo $nuevaEdad;
 	`
-
-	// 1. El intérprete debe ser capaz de ejecutarlo
-	interpOut, interpOk, interpErr := runInterpreter(t, source)
-	if !interpOk || interpOut != "Joss" {
-		t.Fatalf("el intérprete debería ejecutar la clase: out=%q, ok=%v, err=%s", interpOut, interpOk, interpErr)
-	}
-
-	// 2. El compilador nativo debe rechazarlo explícitamente sin fallbacks silenciosos
-	_, _, err := compileAndRunNative(t, source, "class_rejection")
-	if err == nil {
-		t.Fatalf("se esperaba que joss build rechazara la clase con UnsupportedCapabilityError, pero no falló")
-	}
-
-	var capErr *ir.UnsupportedCapabilityError
-	if !errors.As(err, &capErr) {
-		t.Fatalf("se esperaba *ir.UnsupportedCapabilityError, se obtuvo: %T (%v)", err, err)
-	}
-
-	errStr := err.Error()
-	if !strings.Contains(errStr, "[JOSS-NATIVE-CAPABILITY]") {
-		t.Errorf("el mensaje de error no contiene el tag [JOSS-NATIVE-CAPABILITY]: %s", errStr)
-	}
-	if !strings.Contains(errStr, "Language:\n    supported") {
-		t.Errorf("el mensaje no contiene Language: supported: %s", errStr)
-	}
-	if !strings.Contains(errStr, "Interpreter:\n    supported") {
-		t.Errorf("el mensaje no contiene Interpreter: supported: %s", errStr)
-	}
-	if !strings.Contains(errStr, "Native compiler:\n    not currently supported") {
-		t.Errorf("el mensaje no contiene Native compiler: not currently supported: %s", errStr)
-	}
-	if !strings.Contains(errStr, "joss run") {
-		t.Errorf("el mensaje de error no sugiere usar 'joss run': %s", errStr)
-	}
+	assertDifferential(t, "class_properties_methods", source)
 }
 
 func TestDifferential_LogicalAndRelational(t *testing.T) {
@@ -274,29 +247,24 @@ func TestDifferential_NestedFunctionCalls(t *testing.T) {
 	assertDifferential(t, "nested_calls", source)
 }
 
-func TestDifferential_CapabilityContract_DynamicArrayRejected(t *testing.T) {
-	// Arrays dinámicos literales funcionan en el intérprete pero no en el backend nativo mínimo.
+func TestDifferential_ArraysAndMaps(t *testing.T) {
 	source := `
-		var $arr = [1, 2, 3];
+		var $arr = [10, 20, 30];
 		echo $arr[0];
+		echo $arr[1];
+		echo $arr[2];
+
+		$arr[1] = 99;
+		echo $arr[1];
+
+		var $map = {"clave": "valor", "otro": "mundo"};
+		echo $map["clave"];
+		echo $map["otro"];
+
+		$map["clave"] = "nuevo";
+		echo $map["clave"];
 	`
-
-	// 1. Intérprete lo ejecuta
-	interpOut, interpOk, _ := runInterpreter(t, source)
-	if !interpOk || interpOut != "1" {
-		t.Fatalf("intérprete falló ejecutando array literal: out=%q", interpOut)
-	}
-
-	// 2. Compilador nativo lo rechaza estrictamente
-	_, _, err := compileAndRunNative(t, source, "array_rejection")
-	if err == nil {
-		t.Fatalf("se esperaba que joss build rechazara array literal, pero compiló")
-	}
-
-	var capErr *ir.UnsupportedCapabilityError
-	if !errors.As(err, &capErr) {
-		t.Fatalf("se esperaba *ir.UnsupportedCapabilityError, se obtuvo %T (%v)", err, err)
-	}
+	assertDifferential(t, "arrays_and_maps", source)
 }
 
 func TestDifferential_ClassMethodsAndSemanticBridge(t *testing.T) {
@@ -377,4 +345,116 @@ func TestDifferential_FeatureProbe_Deep(t *testing.T) {
 		echo $t3;
 	`
 	assertDifferential(t, "feature_probe_deep", source)
+}
+
+func TestDifferential_AcceptanceFullParity(t *testing.T) {
+	source := `
+		public class Item {
+			public string $title = "Default";
+			public int $quantity = 1;
+
+			public func totalCost(int $price): int {
+				return $this->quantity * $price;
+			}
+		}
+
+		public class Order {
+			public string $customer = "Cliente";
+			public int $status = 0;
+
+			public func process(): string {
+				$this->status = 1;
+				return "Procesada";
+			}
+		}
+
+		var $item = new Item();
+		$item->title = "Laptop";
+		$item->quantity = 3;
+
+		int $cost = $item->totalCost(500);
+		echo $item->title;
+		echo $cost;
+
+		var $order = new Order();
+		string $res = $order->process();
+		echo $res;
+		echo $order->status;
+
+		var $items = ["Laptop", "Mouse", "Teclado"];
+		echo $items[0];
+		echo $items[1];
+		echo $items[2];
+
+		$items[1] = "Monitor";
+		echo $items[1];
+
+		var $metadata = {"categoria": "Tech", "region": "LATAM"};
+		echo $metadata["categoria"];
+		echo $metadata["region"];
+
+		$metadata["region"] = "Global";
+		echo $metadata["region"];
+	`
+	assertDifferential(t, "acceptance_full_parity", source)
+}
+
+func TestDifferential_Interfaces(t *testing.T) {
+	source := `
+		public interface Greeter {
+			public func greet(string $target): string;
+		}
+
+		public class SpanishGreeter implements Greeter {
+			public func greet(string $target): string {
+				return "Hola, " . $target;
+			}
+		}
+
+		public class EnglishGreeter implements Greeter {
+			public func greet(string $target): string {
+				return "Hello, " . $target;
+			}
+		}
+
+		var $g1 = new SpanishGreeter();
+		var $g2 = new EnglishGreeter();
+		echo $g1->greet("Mundo");
+		echo $g2->greet("World");
+	`
+	assertDifferential(t, "interfaces_parity", source)
+}
+
+func TestDifferential_Exceptions_TryCatch(t *testing.T) {
+	source := `
+		public func fail(): string {
+			throw "boom";
+		}
+
+		public func computeSafe(int $val): string {
+			try {
+				guard ($val != 0) else {
+					throw "cero no permitido";
+				}
+				return "safe";
+			} catch ($e) {
+				return "caught: " . $e;
+			}
+		}
+
+		string $r1 = computeSafe(10);
+		string $r2 = computeSafe(0);
+		echo $r1;
+		echo $r2;
+
+		try {
+			echo "intentando directo";
+			throw "error directo";
+			echo "nunca";
+		} catch ($err) {
+			echo "recuperado: " . $err;
+		}
+		echo "continuando flujo";
+	`
+	assertDifferential(t, "exceptions_try_catch_parity", source)
 }

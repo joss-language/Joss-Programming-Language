@@ -74,7 +74,26 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare void @joss_print_f64(double)\n")
 	buf.WriteString("declare void @joss_print_bool(i1)\n")
 	buf.WriteString("declare void @joss_print_string(i8*)\n")
-	buf.WriteString("declare void @joss_panic(i8*)\n\n")
+	buf.WriteString("declare void @joss_panic(i8*)\n")
+	buf.WriteString("declare i8* @joss_str_concat(i8*, i8*)\n")
+	buf.WriteString("declare i8* @joss_obj_new(i8*)\n")
+	buf.WriteString("declare void @joss_obj_set_field_i64(i8*, i8*, i64)\n")
+	buf.WriteString("declare i64 @joss_obj_get_field_i64(i8*, i8*)\n")
+	buf.WriteString("declare void @joss_obj_set_field_str(i8*, i8*, i8*)\n")
+	buf.WriteString("declare i8* @joss_obj_get_field_str(i8*, i8*)\n")
+	buf.WriteString("declare i8* @joss_arr_new(i64)\n")
+	buf.WriteString("declare void @joss_arr_push_i64(i8*, i64)\n")
+	buf.WriteString("declare void @joss_arr_push_str(i8*, i8*)\n")
+	buf.WriteString("declare i64 @joss_arr_get_i64(i8*, i64)\n")
+	buf.WriteString("declare i8* @joss_arr_get_str(i8*, i64)\n")
+	buf.WriteString("declare void @joss_arr_set_i64(i8*, i64, i64)\n")
+	buf.WriteString("declare void @joss_arr_set_str(i8*, i64, i8*)\n")
+	buf.WriteString("declare i64 @joss_arr_len(i8*)\n")
+	buf.WriteString("declare i8* @joss_map_new()\n")
+	buf.WriteString("declare void @joss_map_set_i64(i8*, i8*, i64)\n")
+	buf.WriteString("declare i64 @joss_map_get_i64(i8*, i8*)\n")
+	buf.WriteString("declare void @joss_map_set_str(i8*, i8*, i8*)\n")
+	buf.WriteString("declare i8* @joss_map_get_str(i8*, i8*)\n\n")
 
 	// Emitir funciones de usuario
 	fnNames := make([]string, 0, len(prog.Functions))
@@ -222,6 +241,93 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 			return fmt.Sprintf("%s = call %s @%s(%s)", e.formatValue(i.Dest), destType, rtFunc, argsJoined), nil
 		}
 		return fmt.Sprintf("call void @%s(%s)", rtFunc, argsJoined), nil
+
+	case *ir.NewObjectInst:
+		clsSym := e.registerString(i.ClassName)
+		escaped, length := formatLLVMStringLiteral(i.ClassName)
+		_ = escaped
+		destVal := e.formatValue(i.Dest)
+		return fmt.Sprintf("%s = call i8* @joss_obj_new(i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", destVal, length, length, clsSym), nil
+
+	case *ir.LoadFieldInst:
+		fieldSym := e.registerString(i.FieldName)
+		_, length := formatLLVMStringLiteral(i.FieldName)
+		destVal := e.formatValue(i.Dest)
+		objVal := e.formatValue(i.Obj)
+		if i.Dest.Type().Kind == ir.TypeKindString {
+			return fmt.Sprintf("%s = call i8* @joss_obj_get_field_str(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", destVal, objVal, length, length, fieldSym), nil
+		}
+		return fmt.Sprintf("%s = call i64 @joss_obj_get_field_i64(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", destVal, objVal, length, length, fieldSym), nil
+
+	case *ir.StoreFieldInst:
+		fieldSym := e.registerString(i.FieldName)
+		_, length := formatLLVMStringLiteral(i.FieldName)
+		objVal := e.formatValue(i.Obj)
+		valVal := e.formatValue(i.Val)
+		if i.Val.Type().Kind == ir.TypeKindString {
+			return fmt.Sprintf("call void @joss_obj_set_field_str(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i8* %s)", objVal, length, length, fieldSym, valVal), nil
+		}
+		return fmt.Sprintf("call void @joss_obj_set_field_i64(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i64 %s)", objVal, length, length, fieldSym, valVal), nil
+
+	case *ir.NewArrayInst:
+		lines := []string{fmt.Sprintf("%s = call i8* @joss_arr_new(i64 %d)", e.formatValue(i.Dest), len(i.Elements))}
+		for _, el := range i.Elements {
+			if el.Type().Kind == ir.TypeKindString {
+				lines = append(lines, fmt.Sprintf("call void @joss_arr_push_str(i8* %s, i8* %s)", e.formatValue(i.Dest), e.formatValue(el)))
+			} else {
+				lines = append(lines, fmt.Sprintf("call void @joss_arr_push_i64(i8* %s, i64 %s)", e.formatValue(i.Dest), e.formatValue(el)))
+			}
+		}
+		return strings.Join(lines, "\n\t"), nil
+
+	case *ir.ArrayGetInst:
+		destVal := e.formatValue(i.Dest)
+		arrVal := e.formatValue(i.Array)
+		idxVal := e.formatValue(i.Index)
+		if i.Dest.Type().Kind == ir.TypeKindString {
+			return fmt.Sprintf("%s = call i8* @joss_arr_get_str(i8* %s, i64 %s)", destVal, arrVal, idxVal), nil
+		}
+		return fmt.Sprintf("%s = call i64 @joss_arr_get_i64(i8* %s, i64 %s)", destVal, arrVal, idxVal), nil
+
+	case *ir.ArraySetInst:
+		arrVal := e.formatValue(i.Array)
+		idxVal := e.formatValue(i.Index)
+		valVal := e.formatValue(i.Val)
+		if i.Val.Type().Kind == ir.TypeKindString {
+			return fmt.Sprintf("call void @joss_arr_set_str(i8* %s, i64 %s, i8* %s)", arrVal, idxVal, valVal), nil
+		}
+		return fmt.Sprintf("call void @joss_arr_set_i64(i8* %s, i64 %s, i64 %s)", arrVal, idxVal, valVal), nil
+
+	case *ir.NewMapInst:
+		lines := []string{fmt.Sprintf("%s = call i8* @joss_map_new()", e.formatValue(i.Dest))}
+		for _, p := range i.Pairs {
+			keyVal := e.formatValue(p[0])
+			valVal := e.formatValue(p[1])
+			if p[1].Type().Kind == ir.TypeKindString {
+				lines = append(lines, fmt.Sprintf("call void @joss_map_set_str(i8* %s, i8* %s, i8* %s)", e.formatValue(i.Dest), keyVal, valVal))
+			} else {
+				lines = append(lines, fmt.Sprintf("call void @joss_map_set_i64(i8* %s, i8* %s, i64 %s)", e.formatValue(i.Dest), keyVal, valVal))
+			}
+		}
+		return strings.Join(lines, "\n\t"), nil
+
+	case *ir.MapGetInst:
+		destVal := e.formatValue(i.Dest)
+		mapVal := e.formatValue(i.Map)
+		keyVal := e.formatValue(i.Key)
+		if i.Dest.Type().Kind == ir.TypeKindString {
+			return fmt.Sprintf("%s = call i8* @joss_map_get_str(i8* %s, i8* %s)", destVal, mapVal, keyVal), nil
+		}
+		return fmt.Sprintf("%s = call i64 @joss_map_get_i64(i8* %s, i8* %s)", destVal, mapVal, keyVal), nil
+
+	case *ir.MapSetInst:
+		mapVal := e.formatValue(i.Map)
+		keyVal := e.formatValue(i.Key)
+		valVal := e.formatValue(i.Val)
+		if i.Val.Type().Kind == ir.TypeKindString {
+			return fmt.Sprintf("call void @joss_map_set_str(i8* %s, i8* %s, i8* %s)", mapVal, keyVal, valVal), nil
+		}
+		return fmt.Sprintf("call void @joss_map_set_i64(i8* %s, i8* %s, i64 %s)", mapVal, keyVal, valVal), nil
 	}
 
 	return "", fmt.Errorf("llvm emitter: instrucción no soportada %s", inst)

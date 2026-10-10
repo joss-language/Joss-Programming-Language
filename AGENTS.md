@@ -14,26 +14,51 @@ No asuma que un comentario, un archivo histórico o una tesis describe el compor
 
 ---
 
-## 2. El Pipeline Real de Joss
+## 2. El Pipeline Real de Joss: Un solo lenguaje, Múltiples Modos
 
 ```text
-.joss → lexer → parser Pratt → AST → semantic analyzer → diagnostics
-                                      ↓ (si no hay errores)
-                                 intérprete / runtime Go
+                                  JOSS SOURCE (.joss)
+                                           │
+                                           ▼
+                                 lexer → parser Pratt
+                                           │
+                                           ▼
+                                          AST
+                                           │
+                                           ▼
+                             Semantic Analyzer Pipeline
+                     (collectDeclarations → projectScope →
+                      validateNominalContracts → analyzeSourceBodies)
+                                           │
+                                           ▼
+                              PreparedProgram (Canónico)
+                                           │
+                    ┌──────────────────────┼──────────────────────┐
+                    ▼                      ▼                      ▼
+               `joss run`             `joss server`          `joss build`
+               Intérprete            Servidor HTTP         Native Compiler
+              (`pkg/core`)           (`pkg/server`)           (`pkg/ir` →
+                   │                      │              `pkg/backend/native`)
+                   ▼                      ▼                       ▼
+             Salida Consola        Respuesta HTTP        Binario Standalone (.exe/ELF)
 ```
 
-- `pkg/parser`: Tokens, lexer, parser Pratt con tabla de precedencias y AST.
+- `pkg/parser`: Tokens, lexer, parser Pratt con tabla de precedencias canónicas y AST.
 - `pkg/typesystem`: Tipos canónicos, compatibilidad de asignación (`Assignable`), inferencia (`MergeInference`) y coerción explícita (`CoerceString`).
-- `pkg/analyzer`: Unidades fuente (`SourceUnit`), scopes léxicos, tablas de símbolos, firmas, comprobación de tipos y flujo alcanzable exhaustivo. No debe importar `pkg/core`.
+- `pkg/analyzer`: Unidades fuente (`SourceUnit`), scopes léxicos, tablas de símbolos, firmas, comprobación de tipos y generación inmutable de `PreparedProgram`. **Nunca** debe importar `pkg/core`.
 - `pkg/diagnostics`: Modelo de errores y advertencias (`Diagnostic`) con código estable, severidad, rango, explicación y sugerencia.
-- `pkg/core`: Evaluador de AST, runtime Go, frames léxicos, slots, built-ins globales y clases nativas integradas; adapta sus registros al analyzer.
-- `pkg/bytecode`: Serialización comprimida del AST (`JOSSBC2Z`), no código máquina ni LLVM IR.
+- `pkg/core`: Evaluador de AST, runtime Go, frames léxicos, slots, built-ins globales y clases nativas integradas; consume directamente `PreparedProgram`.
+- `pkg/ir`: Representación intermedia canónica (*Joss Native IR*), lowering de `PreparedProgram`, instrucciones SSA/3AC y verificador de tipos de bajo nivel (`ir.Verifier`).
+- `pkg/backend/native`: Generadores de código nativo para compilación AOT standalone y emisión LLVM; genera ejecutables independientes de máquina real sin AST serializado ni runtime Go embebido.
+- `pkg/server`: Runtime HTTP multinivel, multiplexor, WebSockets y controladores MVC basados en el mismo modelo semántico.
+- `pkg/bytecode`: Serialización comprimida del AST (`JOSSBC2Z`) para plugins `.jp`, no para ejecutables nativos AOT.
 - `pkg/pluginruntime`, `pkg/pluginpkg`, `pkg/plugincompiler`: Runtime, paquetes y JPBC de plugins.
-- `cmd/joss`: CLI y orquestación del proyecto.
+- `cmd/joss`: CLI y orquestación unificada del proyecto (`run`, `server`, `program`, `build`, `analyze`, `emit-ir`, `repl`).
 - `vscode-joss`: Servidor de lenguaje (LSP) y extensión de editor.
 
 La dirección estricta de dependencias es:
-`parser / typesystem / diagnostics → analyzer → core adapter`. `pkg/analyzer` **nunca** debe importar `pkg/core`.
+`parser / typesystem / diagnostics → analyzer → ir → backend/native`
+`analyzer → core / server`. `pkg/analyzer` **nunca** debe importar `pkg/core`.
 
 ---
 
@@ -130,6 +155,16 @@ Al modificar invocación u operadores:
      - `<!-- joss-check: descripción -->` para fragmentos que requieren servidor, base de datos o contexto externo.
      - `<!-- joss-error: JOSS-CODIGO -->` para verificar la emisión del diagnóstico.
    - Estos marcadores son validados automáticamente por `pkg/core.TestDocumentationContracts`.
+6. **Tests obligatorios de compilación nativa y paridad diferencial**:
+   - **Toda nueva funcionalidad que se integre al lenguaje debe incluir obligatoriamente pruebas de compilación nativa.**
+   - No es suficiente con implementar y probar el intérprete: se debe implementar el lowering en `pkg/ir/lower.go`, la verificación en `pkg/ir/verifier.go` y la emisión en `pkg/backend/native`.
+   - Se debe crear o ampliar un test diferencial en `tests/native/differential_test.go` que compile el programa a un ejecutable nativo real (`joss build`), lo ejecute y verifique que la salida (stdout, stderr y exit code) coincide byte a byte con la ejecución interpretada (`joss run`).
+   - Ninguna característica del lenguaje se considera completa sin su correspondiente test de compilación nativa exitoso.
+7. **Actualización obligatoria de documentación e internacionalización**:
+   - **Siempre que se agregue o modifique una funcionalidad, sintaxis, API o comportamiento del lenguaje, es obligatorio actualizar la documentación correspondiente en `docs/`.**
+   - No se aceptan cambios de código que dejen la documentación obsoleta, incompleta o desfasada.
+   - Si se introducen nuevos conceptos o archivos en `docs/`, deben actualizarse sus traducciones en `docs/en/` y `docs/pt/` mediante `go run ./tools/docsi18n --accept-current` y sincronizarse con el mirror público mediante `go run ./tools/docsi18n --sync`.
+   - El comando `go run ./tools/docsi18n --check` debe pasar con código 0 antes de dar por finalizada la tarea.
 
 ---
 
@@ -285,3 +320,49 @@ Para mantener la consistencia entre los 30 idiomas soportados y evitar que los m
 5. **Protección absoluta de códigos de diagnóstico y nombres canónicos**:
    * Los códigos estables de diagnóstico (`JOSS-SYM-008`, `JOSS-TYPE-011`, `JOSS-PARSE-001`, `JOSS-CALL-001`, etc.) son invariantes arquitectónicas del compilador, analizador y linter. **Bajo ninguna circunstancia se deben borrar, traducir, alterar o reemplazar**.
    * Nombres de archivos de configuración técnica (`joss.yaml`) y nombres de propiedades canónicas (`name, version, repository`) se mantienen estrictamente literales en todos los idiomas sin traducir ni añadir sufijos gramaticales de otros idiomas.
+
+---
+
+## 9. Principio de Paridad Total de Lenguaje (Feature Once, Execute Everywhere)
+
+A partir de la consolidación de la arquitectura unificada de compilación y ejecución:
+
+> **One Language. One Semantics. Multiple Execution Modes.**  
+> **Feature Once, Execute Everywhere.**  
+> **Semantics Once. Materialization Per Backend.**
+
+### Invariantes Obligatorias para Agentes y Desarrolladores:
+
+1. **Un solo lenguaje:**
+   * Joss **NO** tiene un “lenguaje interpretado” y un “lenguaje compilado”. Existe un único lenguaje Joss.
+   * `joss run`, `joss server`, `joss program` y `joss build` son diferentes modos de ejecutar el **mismo lenguaje** con la **misma semántica**.
+2. **Prohibición de `JOSS-NATIVE-001` en Core Language:**
+   * Toda característica clasificada en la categoría `CORE LANGUAGE` (`Variables`, `Primitives`, `ControlFlow`, `Recursion`, `Functions`, `Classes`, `StaticClassMethods`, `SpaceshipOperator`, `DynamicArrays`, `DynamicMaps`, `Exceptions`, `Interfaces`, `Enums`, `Generics`) debe tener paridad completa de materialización en el compilador nativo (`pkg/ir` y `pkg/backend/native`).
+   * No se permite marcar una funcionalidad del Core Language como completa o soportada en el intérprete si produce `JOSS-NATIVE-001` al compilarse con `joss build`.
+3. **Obligatoriedad de Tests de Compilación Nativa:**
+   * **Siempre que se integre cualquier funcionalidad o cambio semántico al lenguaje, es obligatorio crear pruebas de compilación nativa.**
+   * Toda adición exige un test en `tests/native/differential_test.go` que compruebe que el código compila limpiamente a binario ejecutable (`joss build`), se ejecuta sin errores y produce idéntica salida que el intérprete (`joss run`).
+   * Ningún PR o cambio de lenguaje puede cerrarse con sólo pruebas de intérprete o analizador.
+4. **Prohibición de Embeber Intérprete o Serializar AST en Binarios Nativos:**
+   * `joss build` debe generar código nativo real AOT (PE `.exe`, ELF, Mach-O).
+   * Queda estrictamente prohibido empaquetar el contenedor de AST serializado `JOSSBC2Z`, marcadores como `JOSS_RUNNER_DATA`, o el runtime completo de Go como un falso binario nativo. Las pruebas en `tests/architecture/architecture_contract_test.go` protegen este invariante.
+5. **`PreparedProgram` como Autoridad Semántica Exclusiva:**
+   * El Native Lowerer (`pkg/ir/lower.go`) consume directamente `PreparedProgram` y sus hechos de análisis (`ResolvedCalls`, `InferredTypes`, `Environment`).
+   * El backend nativo **nunca** debe intentar re-inferir tipos, re-resolver sobrecargas de funciones o re-descubrir símbolos por separado.
+6. **Autonomía del Toolchain:**
+   * El usuario final de Joss sólo necesita instalar el binario `joss` para programar, ejecutar y compilar sus aplicaciones con `joss build`. No se debe requerir la instalación manual de toolchains externos (Go, GCC, Clang, LLVM, CMake) para las operaciones oficialmente soportadas.
+
+---
+
+## 10. Contratos de Arquitectura y Verificación Continua (CI Gates)
+
+Todo cambio arquitectónico en el analizador, lowering o backend nativo debe satisfacer y mantener en estado verde los siguientes tests permanentes en `tests/architecture/architecture_contract_test.go`:
+
+* `TestArchitecture_SemanticIntegrityAndSharedPreparedProgramReuse`: Garantiza que una misma instancia inmutable de `PreparedProgram` puede ser ejecutada por el intérprete, bajada a IR/compilada a nativo, y reejecutada sin mutaciones de estado interno.
+* `TestArchitecture_NativeLoweringNeverResolvesTypesOrCallsIndependently`: Valida que el Lowerer nativo respete exclusivamente las decisiones del análisis semántico.
+* `TestArchitecture_NoASTSerializationOrMonolithicRuntimeInNative`: Verifica a nivel binario que no se introduzcan artefactos de AST serializado ni runtimes Go en los binarios compilados.
+* `TestArchitecture_CoreLanguageImplementedFeaturesMustExecuteEverywhere`: Exige que ninguna característica de `CORE LANGUAGE` en estado `StateFullyComplete` tenga `Native != Supported` o emita `JOSS-NATIVE-001`.
+* `TestArchitecture_EveryCoreLanguageFeatureExecutesEverywhere`: Asegura paridad total y universal.
+* `TestArchitecture_LanguageFeatureMustBeImplementedOnceAndExecuteEverywhere`: Prohíbe divergencias de soporte entre backends para características completas.
+* `TestArchitecture_Regression_InterpreterSupportedNativeUnsupportedRejected`: Falla de inmediato si una característica del Core Language se declara soportada en el intérprete pero no en el backend nativo.
+

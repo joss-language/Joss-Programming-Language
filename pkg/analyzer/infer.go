@@ -39,22 +39,26 @@ func (a *Analyzer) inferExpressionNode(expression parser.Expression, current *sc
 		return a.inferIdentifier(node, current)
 	case *parser.ArrayLiteral:
 		var elemType *typesystem.Type
+		heterogeneous := false
 		for _, element := range node.Elements {
 			t := a.inferExpression(element, current)
-			if t.IsKnown() {
+			if t.IsKnown() && !heterogeneous {
 				if elemType == nil {
 					elemCopy := t
 					elemType = &elemCopy
 				} else if *elemType != t {
 					elemType = nil
+					heterogeneous = true
 				}
 			}
 		}
-		if elemType != nil {
+		if elemType != nil && !heterogeneous {
 			return typesystem.Type{Kind: typesystem.Array, Element: elemType}
 		}
 		return typesystem.Type{Kind: typesystem.Array}
 	case *parser.MapLiteral:
+		var elemType *typesystem.Type
+		heterogeneous := false
 		for key, value := range node.Pairs {
 			if _, isSpread := key.(*parser.SpreadExpression); isSpread {
 				a.inferExpression(key, current)
@@ -66,9 +70,22 @@ func (a *Analyzer) inferExpressionNode(expression parser.Expression, current *sc
 					fmt.Sprintf("Map key has type `%s`; Joss maps require `string` keys.", keyType.String()),
 					"The runtime indexes maps by string.", "Convert the key to string.")
 			}
-			a.inferExpression(value, current)
+			valType := a.inferExpression(value, current)
+			if valType.IsKnown() && !heterogeneous {
+				if elemType == nil {
+					valCopy := valType
+					elemType = &valCopy
+				} else if *elemType != valType {
+					elemType = nil
+					heterogeneous = true
+				}
+			}
 		}
-		return typesystem.Type{Kind: typesystem.Map}
+		keyT := typesystem.Type{Kind: typesystem.String}
+		if elemType != nil && !heterogeneous {
+			return typesystem.Type{Kind: typesystem.Map, Key: &keyT, Element: elemType}
+		}
+		return typesystem.Type{Kind: typesystem.Map, Key: &keyT}
 	case *parser.AssignExpression:
 		return a.inferAssignment(node, current)
 	case *parser.InfixExpression:

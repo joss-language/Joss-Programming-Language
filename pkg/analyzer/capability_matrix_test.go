@@ -19,11 +19,27 @@ func TestCapabilityMatrixLookup(t *testing.T) {
 	if !found {
 		t.Fatal("expected 'DynamicMaps' capability to be found")
 	}
-	if mapsCap.Language != Supported || mapsCap.Native != Unsupported {
-		t.Fatalf("expected DynamicMaps to be supported in language but unsupported in native, got %+v", mapsCap)
+	if mapsCap.Language != Supported || mapsCap.Native != Supported {
+		t.Fatalf("expected DynamicMaps to be supported in language and native, got %+v", mapsCap)
 	}
 
-	errStr := FormatCapabilityError("dynamic maps")
+	exceptionsCap, found := LookupCapability("Exceptions")
+	if !found {
+		t.Fatal("expected 'Exceptions' capability to be found")
+	}
+	if exceptionsCap.Language != Supported || exceptionsCap.Native != Supported {
+		t.Fatalf("expected Exceptions to be supported in language and native, got %+v", exceptionsCap)
+	}
+
+	channelsCap, found := LookupCapability("Channels")
+	if !found {
+		t.Fatal("expected 'Channels' capability to be found")
+	}
+	if channelsCap.Language != Supported || channelsCap.Native != Unsupported {
+		t.Fatalf("expected Channels to be supported in language but unsupported in native, got %+v", channelsCap)
+	}
+
+	errStr := FormatCapabilityError("Channels")
 	if errStr == "" {
 		t.Fatal("expected formatted capability error to be non-empty")
 	}
@@ -36,14 +52,26 @@ func TestCapabilityMatrixLookup(t *testing.T) {
 	if functionsCap.State != StateFullyComplete {
 		t.Fatalf("expected Functions to be StateFullyComplete, got %s", functionsCap.State)
 	}
-	if mapsCap.State != StateInterpreterComplete {
-		t.Fatalf("expected DynamicMaps to be StateInterpreterComplete, got %s", mapsCap.State)
+	if mapsCap.State != StateFullyComplete {
+		t.Fatalf("expected DynamicMaps to be StateFullyComplete, got %s", mapsCap.State)
+	}
+	if exceptionsCap.State != StateFullyComplete {
+		t.Fatalf("expected Exceptions to be StateFullyComplete, got %s", exceptionsCap.State)
+	}
+	if channelsCap.State != StateInterpreterComplete {
+		t.Fatalf("expected Channels to be StateInterpreterComplete, got %s", channelsCap.State)
 	}
 	if !IsNativeSupported("SpaceshipOperator") {
 		t.Fatal("expected SpaceshipOperator to be native supported")
 	}
-	if IsNativeSupported("DynamicClasses") {
-		t.Fatal("expected DynamicClasses to be NOT native supported")
+	if !IsNativeSupported("DynamicClasses") {
+		t.Fatal("expected DynamicClasses to be native supported")
+	}
+	if !IsNativeSupported("Exceptions") {
+		t.Fatal("expected Exceptions to be native supported")
+	}
+	if IsNativeSupported("Channels") {
+		t.Fatal("expected Channels to be NOT native supported")
 	}
 }
 

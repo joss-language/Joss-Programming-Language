@@ -11,13 +11,14 @@ import (
 
 // Lowerer es el compilador que transforma un PreparedProgram del analizador semántico en Joss Native IR.
 type Lowerer struct {
-	prep       *analyzer.PreparedProgram
-	reachGraph *analyzer.ReachabilityGraph
-	currentFn  *Function
-	currBlock  *BasicBlock
-	prog       *Program
-	varLocals  map[string]Value // Mapea variables a sus punteros locales (alloca)
-	loopStack  []loopContext
+	prep          *analyzer.PreparedProgram
+	reachGraph    *analyzer.ReachabilityGraph
+	currentFn     *Function
+	currBlock     *BasicBlock
+	prog          *Program
+	varLocals     map[string]Value // Mapea variables a sus punteros locales (alloca)
+	loopStack     []loopContext
+	tryCatchCount int
 }
 
 type loopContext struct {
@@ -67,11 +68,6 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 			case *parser.ClassStatement:
 				if s.Body != nil {
 					for _, member := range s.Body.Statements {
-						if _, isLet := member.(*parser.LetStatement); isLet {
-							return nil, &UnsupportedCapabilityError{Feature: describeUnsupportedStatement(s)}
-						}
-					}
-					for _, member := range s.Body.Statements {
 						if m, ok := member.(*parser.MethodStatement); ok {
 							qualifiedName := s.Name.Value + "::" + m.Name.Value
 							if l.reachGraph != nil && !l.reachGraph.IsFunctionReachable(qualifiedName) && !l.reachGraph.IsFunctionReachable(m.Name.Value) {
@@ -108,6 +104,9 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 						}
 					}
 				}
+			case *parser.InterfaceStatement:
+				// Contratos nominales validados por frontend
+				continue
 			}
 		}
 	}
@@ -121,6 +120,9 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 				continue
 			}
 			if _, isClass := stmt.(*parser.ClassStatement); isClass {
+				continue
+			}
+			if _, isIface := stmt.(*parser.InterfaceStatement); isIface {
 				continue
 			}
 			hasTopLevelStmts = true
@@ -148,6 +150,9 @@ func (l *Lowerer) synthesizeMainFunction(stmts []parser.Statement) error {
 			continue
 		}
 		if _, isClass := stmt.(*parser.ClassStatement); isClass {
+			continue
+		}
+		if _, isIface := stmt.(*parser.InterfaceStatement); isIface {
 			continue
 		}
 		if err := l.lowerStatement(stmt); err != nil {
@@ -196,8 +201,11 @@ func (l *Lowerer) lowerMethod(stmt *parser.MethodStatement) error {
 	if l.currBlock.Terminator == nil {
 		if retType.Kind == TypeKindVoid {
 			l.currBlock.SetTerminator(&ReturnTerminator{})
+		} else if retType.Kind == TypeKindString {
+			l.currBlock.SetTerminator(&ReturnTerminator{Val: NewConstString("")})
+		} else if retType.Kind == TypeKindPtr || retType.Kind == TypeKindStruct || retType.Kind == TypeKindArray {
+			l.currBlock.SetTerminator(&ReturnTerminator{Val: NewConstNull(retType)})
 		} else {
-			// Fallback constante según tipo
 			l.currBlock.SetTerminator(&ReturnTerminator{Val: NewConstInt(0, retType)})
 		}
 	}
@@ -213,6 +221,15 @@ func (l *Lowerer) lowerClassMethod(className string, stmt *parser.MethodStatemen
 	l.currentFn = fn
 	l.currBlock = fn.EntryBlock
 	l.varLocals = make(map[string]Value)
+
+	if !stmt.IsStatic {
+		thisType := PtrType(StructType(className, nil))
+		thisVal := fn.AddParam("this", thisType)
+		ptrTemp := fn.NewTemp(PtrType(thisType), "this_ptr")
+		l.currBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: thisType})
+		l.currBlock.AddInstruction(&StoreInst{Val: thisVal, Ptr: ptrTemp})
+		l.varLocals["this"] = ptrTemp
+	}
 
 	for _, param := range stmt.Parameters {
 		paramType := l.mapType(param.Type.Literal)
@@ -235,6 +252,10 @@ func (l *Lowerer) lowerClassMethod(className string, stmt *parser.MethodStatemen
 	if l.currBlock.Terminator == nil {
 		if retType.Kind == TypeKindVoid {
 			l.currBlock.SetTerminator(&ReturnTerminator{})
+		} else if retType.Kind == TypeKindString {
+			l.currBlock.SetTerminator(&ReturnTerminator{Val: NewConstString("")})
+		} else if retType.Kind == TypeKindPtr || retType.Kind == TypeKindStruct || retType.Kind == TypeKindArray {
+			l.currBlock.SetTerminator(&ReturnTerminator{Val: NewConstNull(retType)})
 		} else {
 			l.currBlock.SetTerminator(&ReturnTerminator{Val: NewConstInt(0, retType)})
 		}
@@ -441,6 +462,29 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 	case *parser.ClassStatement:
 		return nil
 
+	case *parser.InterfaceStatement:
+		return nil
+
+	case *parser.ThrowStatement:
+		var throwVal Value
+		if s.Value != nil {
+			v, err := l.lowerExpression(s.Value)
+			if err != nil {
+				return err
+			}
+			throwVal = v
+		} else {
+			throwVal = NewConstString("exception")
+		}
+		l.currBlock.AddInstruction(&ThrowInst{Val: throwVal})
+		l.currBlock.SetTerminator(&UnreachableTerminator{})
+		deadBlock := l.currentFn.NewBlock("dead")
+		l.currBlock = deadBlock
+		return nil
+
+	case *parser.TryCatchStatement:
+		return l.lowerTryCatch(s)
+
 	case *parser.BlockStatement:
 		return l.lowerBlock(s)
 
@@ -449,6 +493,85 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 			Feature: describeUnsupportedStatement(stmt),
 		}
 	}
+}
+
+func (l *Lowerer) lowerTryCatch(s *parser.TryCatchStatement) error {
+	tcID := l.tryCatchCount
+	l.tryCatchCount++
+
+	savedBlock := l.currBlock
+
+	// 1. Lower try block
+	startTryIdx := len(l.currentFn.Blocks)
+	tryBlock := l.currentFn.NewBlock(fmt.Sprintf("try_%d", tcID))
+	l.currBlock = tryBlock
+
+	if s.TryBlock != nil {
+		for _, stmt := range s.TryBlock.Statements {
+			if err := l.lowerStatement(stmt); err != nil {
+				return err
+			}
+		}
+	}
+	tryBlocks := append([]*BasicBlock(nil), l.currentFn.Blocks[startTryIdx:]...)
+	l.currentFn.Blocks = l.currentFn.Blocks[:startTryIdx]
+
+	// 2. Setup catch variable
+	catchVarName := cleanVarName(s.CatchVar)
+	if catchVarName == "" {
+		catchVarName = "e"
+	}
+	catchType := TypeString
+	ptrTemp := l.currentFn.NewTemp(PtrType(catchType), catchVarName+"_ptr")
+	l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: catchType})
+	l.varLocals[catchVarName] = ptrTemp
+
+	// 3. Lower catch block
+	startCatchIdx := len(l.currentFn.Blocks)
+	catchBlock := l.currentFn.NewBlock(fmt.Sprintf("catch_%d", tcID))
+	l.currBlock = catchBlock
+
+	if s.CatchBlock != nil {
+		for _, stmt := range s.CatchBlock.Statements {
+			if err := l.lowerStatement(stmt); err != nil {
+				return err
+			}
+		}
+	}
+	catchBlocks := append([]*BasicBlock(nil), l.currentFn.Blocks[startCatchIdx:]...)
+	l.currentFn.Blocks = l.currentFn.Blocks[:startCatchIdx]
+
+	// 4. Restore current block and add TryCatchInst
+	l.currBlock = savedBlock
+	l.currBlock.AddInstruction(&TryCatchInst{
+		ID:          tcID,
+		TryBlocks:   tryBlocks,
+		CatchVar:    catchVarName,
+		CatchVarPtr: ptrTemp,
+		CatchBlocks: catchBlocks,
+	})
+
+	// Check if both paths terminated with returns
+	tryTerminates := false
+	if len(tryBlocks) > 0 && tryBlocks[len(tryBlocks)-1].Terminator != nil {
+		if _, ok := tryBlocks[len(tryBlocks)-1].Terminator.(*ReturnTerminator); ok {
+			tryTerminates = true
+		}
+	}
+	catchTerminates := false
+	if len(catchBlocks) > 0 && catchBlocks[len(catchBlocks)-1].Terminator != nil {
+		if _, ok := catchBlocks[len(catchBlocks)-1].Terminator.(*ReturnTerminator); ok {
+			catchTerminates = true
+		}
+	}
+
+	if tryTerminates && catchTerminates {
+		l.currBlock.SetTerminator(&UnreachableTerminator{})
+		deadBlock := l.currentFn.NewBlock("dead")
+		l.currBlock = deadBlock
+	}
+
+	return nil
 }
 
 func (l *Lowerer) lowerBlock(block *parser.BlockStatement) error {
@@ -497,6 +620,17 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		right, err := l.lowerExpression(e.Right)
 		if err != nil {
 			return nil, err
+		}
+
+		if (e.Operator == "+" || e.Operator == ".") && (left.Type().Kind == TypeKindString || right.Type().Kind == TypeKindString) {
+			l.prog.RequireRuntime("str_concat")
+			dest := l.currentFn.NewTemp(TypeString, "strcat")
+			l.currBlock.AddInstruction(&CallRuntimeInst{
+				Dest: dest,
+				Func: "str_concat",
+				Args: []Value{left, right},
+			})
+			return dest, nil
 		}
 
 		op, isCmp := mapInfixOp(e.Operator)
@@ -589,16 +723,183 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		l.currBlock.AddInstruction(&LoadInst{Dest: resTemp, Ptr: resPtr})
 		return resTemp, nil
 
+	case *parser.NewExpression:
+		className := e.Class.Value
+		objType := PtrType(StructType(className, nil))
+		objTemp := l.currentFn.NewTemp(objType, "obj")
+		l.currBlock.AddInstruction(&NewObjectInst{
+			Dest:      objTemp,
+			ClassName: className,
+		})
+
+		// Inicializar propiedades por defecto de la clase si existen
+		if l.prep != nil && l.prep.Environment.Classes != nil {
+			if classDef, ok := l.prep.Environment.Classes[className]; ok {
+				for _, unit := range l.prep.Units {
+					if unit.Program == nil {
+						continue
+					}
+					for _, stmt := range unit.Program.Statements {
+						if cs, ok := stmt.(*parser.ClassStatement); ok && cs.Name.Value == className && cs.Body != nil {
+							for _, member := range cs.Body.Statements {
+								if letStmt, ok := member.(*parser.LetStatement); ok && letStmt.Name != nil {
+									fName := cleanVarName(letStmt.Name.Value)
+									if letStmt.Value != nil {
+										val, err := l.lowerExpression(letStmt.Value)
+										if err == nil {
+											l.currBlock.AddInstruction(&StoreFieldInst{
+												Val:       val,
+												Obj:       objTemp,
+												FieldName: fName,
+											})
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				_ = classDef
+			}
+		}
+
+		// Si tiene constructor (Init o constructor), invocarlo
+		hasCtor := false
+		ctorName := ""
+		if l.prog.Functions[className+"_Init"] != nil {
+			hasCtor = true
+			ctorName = className + "_Init"
+		} else if l.prog.Functions[className+"_constructor"] != nil {
+			hasCtor = true
+			ctorName = className + "_constructor"
+		} else if className == "Exception" {
+			hasCtor = true
+			ctorName = "Exception_constructor"
+		}
+
+		if hasCtor {
+			ctorArgs := []Value{objTemp}
+			for _, arg := range e.Arguments {
+				v, err := l.lowerExpression(arg)
+				if err != nil {
+					return nil, err
+				}
+				ctorArgs = append(ctorArgs, v)
+			}
+			l.currBlock.AddInstruction(&CallInst{
+				Dest:   nil,
+				Callee: ctorName,
+				Args:   ctorArgs,
+			})
+		}
+
+		return objTemp, nil
+
+	case *parser.MemberExpression:
+		objVal, err := l.lowerExpression(e.Left)
+		if err != nil {
+			return nil, err
+		}
+		propName := e.Property.Value
+		fieldType := l.inferNodeType(e)
+		resTemp := l.currentFn.NewTemp(fieldType, "prop")
+		l.currBlock.AddInstruction(&LoadFieldInst{
+			Dest:      resTemp,
+			Obj:       objVal,
+			FieldName: propName,
+		})
+		return resTemp, nil
+
+	case *parser.ArrayLiteral:
+		elemType := TypeI64
+		elements := make([]Value, len(e.Elements))
+		for idx, el := range e.Elements {
+			v, err := l.lowerExpression(el)
+			if err != nil {
+				return nil, err
+			}
+			elements[idx] = v
+			if v.Type().Kind == TypeKindString {
+				elemType = TypeString
+			}
+		}
+		arrTemp := l.currentFn.NewTemp(ArrayType(elemType), "arr")
+		l.currBlock.AddInstruction(&NewArrayInst{
+			Dest:     arrTemp,
+			ElemType: elemType,
+			Elements: elements,
+		})
+		return arrTemp, nil
+
+	case *parser.MapLiteral:
+		pairs := make([][2]Value, 0, len(e.Pairs))
+		for k, v := range e.Pairs {
+			kVal, err := l.lowerExpression(k)
+			if err != nil {
+				return nil, err
+			}
+			vVal, err := l.lowerExpression(v)
+			if err != nil {
+				return nil, err
+			}
+			pairs = append(pairs, [2]Value{kVal, vVal})
+		}
+		mapTemp := l.currentFn.NewTemp(PtrType(StructType("map", nil)), "map")
+		l.currBlock.AddInstruction(&NewMapInst{
+			Dest:  mapTemp,
+			Pairs: pairs,
+		})
+		return mapTemp, nil
+
+	case *parser.IndexExpression:
+		container, err := l.lowerExpression(e.Left)
+		if err != nil {
+			return nil, err
+		}
+		idxVal, err := l.lowerExpression(e.Index)
+		if err != nil {
+			return nil, err
+		}
+		resType := l.inferNodeType(e)
+		resTemp := l.currentFn.NewTemp(resType, "elem")
+		if idxVal.Type().Kind == TypeKindString {
+			l.currBlock.AddInstruction(&MapGetInst{
+				Dest: resTemp,
+				Map:  container,
+				Key:  idxVal,
+			})
+		} else {
+			l.currBlock.AddInstruction(&ArrayGetInst{
+				Dest:  resTemp,
+				Array: container,
+				Index: idxVal,
+			})
+		}
+		return resTemp, nil
+
 	case *parser.CallExpression:
 		calleeName := ""
-		if ident, ok := e.Function.(*parser.Identifier); ok {
-			calleeName = ident.Value
-		} else if member, ok := e.Function.(*parser.MemberExpression); ok {
+		var receiverObj Value
+
+		if member, ok := e.Function.(*parser.MemberExpression); ok {
 			if identLeft, ok := member.Left.(*parser.Identifier); ok && member.Property != nil {
+				// Podría ser estático Class::method o $obj->method
+				if ptr, ok := l.varLocals[cleanVarName(identLeft.Value)]; ok {
+					dest := l.currentFn.NewTemp(ptr.Type().ElemType(), cleanVarName(identLeft.Value))
+					l.currBlock.AddInstruction(&LoadInst{Dest: dest, Ptr: ptr})
+					receiverObj = dest
+				}
 				calleeName = identLeft.Value + "_" + member.Property.Value
 			} else {
-				calleeName = member.String()
+				recv, err := l.lowerExpression(member.Left)
+				if err != nil {
+					return nil, err
+				}
+				receiverObj = recv
+				calleeName = member.Property.Value
 			}
+		} else if ident, ok := e.Function.(*parser.Identifier); ok {
+			calleeName = ident.Value
 		} else {
 			calleeName = e.Function.String()
 		}
@@ -616,13 +917,16 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 		}
 
-		args := make([]Value, len(e.Arguments))
-		for i, a := range e.Arguments {
+		var args []Value
+		if receiverObj != nil {
+			args = append(args, receiverObj)
+		}
+		for _, a := range e.Arguments {
 			v, err := l.lowerExpression(a)
 			if err != nil {
 				return nil, err
 			}
-			args[i] = v
+			args = append(args, v)
 		}
 
 		// Determinar tipo de retorno usando AnalysisFacts si está disponible
@@ -660,6 +964,40 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				return val, nil
 			}
 			return nil, fmt.Errorf("lowerer: asignación a variable no declarada %s", ident.Value)
+		} else if member, ok := e.Left.(*parser.MemberExpression); ok {
+			objVal, err := l.lowerExpression(member.Left)
+			if err != nil {
+				return nil, err
+			}
+			l.currBlock.AddInstruction(&StoreFieldInst{
+				Val:       val,
+				Obj:       objVal,
+				FieldName: member.Property.Value,
+			})
+			return val, nil
+		} else if idxExpr, ok := e.Left.(*parser.IndexExpression); ok {
+			colVal, err := l.lowerExpression(idxExpr.Left)
+			if err != nil {
+				return nil, err
+			}
+			idxVal, err := l.lowerExpression(idxExpr.Index)
+			if err != nil {
+				return nil, err
+			}
+			if idxVal.Type().Kind == TypeKindString {
+				l.currBlock.AddInstruction(&MapSetInst{
+					Val: val,
+					Map: colVal,
+					Key: idxVal,
+				})
+			} else {
+				l.currBlock.AddInstruction(&ArraySetInst{
+					Val:   val,
+					Array: colVal,
+					Index: idxVal,
+				})
+			}
+			return val, nil
 		}
 		return nil, fmt.Errorf("lowerer: asignación a destino no soportado %T", e.Left)
 
@@ -691,13 +1029,24 @@ func (l *Lowerer) mapTypeSystemType(t typesystem.Type) Type {
 		return TypeString
 	case typesystem.Void:
 		return TypeVoid
+	case typesystem.Class:
+		return PtrType(StructType(t.Name, nil))
+	case typesystem.Array:
+		elem := TypeI64
+		if t.Element != nil {
+			elem = l.mapTypeSystemType(*t.Element)
+		}
+		return ArrayType(elem)
+	case typesystem.Map:
+		return PtrType(StructType("map", nil))
 	default:
 		return TypeI64
 	}
 }
 
 func (l *Lowerer) mapType(lit string) Type {
-	switch strings.TrimSpace(lit) {
+	lit = strings.TrimSpace(lit)
+	switch lit {
 	case "int":
 		return TypeI64
 	case "float":
@@ -708,7 +1057,21 @@ func (l *Lowerer) mapType(lit string) Type {
 		return TypeString
 	case "void":
 		return TypeVoid
+	case "var", "mixed", "unknown":
+		return TypeUnknown
 	default:
+		if l.prep != nil {
+			if l.prep.Environment.Classes != nil {
+				if _, ok := l.prep.Environment.Classes[lit]; ok {
+					return PtrType(StructType(lit, nil))
+				}
+			}
+			if l.prep.Environment.Interfaces != nil {
+				if _, ok := l.prep.Environment.Interfaces[lit]; ok {
+					return PtrType(StructType(lit, nil))
+				}
+			}
+		}
 		return TypeI64
 	}
 }
@@ -777,14 +1140,8 @@ func (e *UnsupportedCapabilityError) Error() string {
 
 func describeUnsupportedStatement(stmt parser.Statement) string {
 	switch stmt.(type) {
-	case *parser.ClassStatement:
-		return "Clases dinámicas con propiedades en heap"
-	case *parser.InterfaceStatement:
-		return "Interfaces nominales (interface)"
 	case *parser.EnumStatement:
 		return "Enumeraciones (enum)"
-	case *parser.TryCatchStatement, *parser.ThrowStatement:
-		return "Manejo de excepciones (try / catch / throw)"
 	case *parser.SelectStatement:
 		return "Selección concurrente de canales (select)"
 	case *parser.ForeachStatement:
@@ -802,16 +1159,6 @@ func describeUnsupportedStatement(stmt parser.Statement) string {
 
 func describeUnsupportedExpression(expr parser.Expression) string {
 	switch expr.(type) {
-	case *parser.ArrayLiteral:
-		return "Literales de array dinámico ([])"
-	case *parser.MapLiteral:
-		return "Literales de mapa asociativo ({})"
-	case *parser.MemberExpression:
-		return "Acceso a miembros dinámicos ($obj->prop)"
-	case *parser.NewExpression:
-		return "Instanciación dinámica de clases en heap (new)"
-	case *parser.IndexExpression:
-		return "Indexación de colecciones ($arr[i])"
 	case *parser.MatchExpression:
 		return "Expresiones de coincidencia de patrones (match)"
 	case *parser.YieldExpression:
