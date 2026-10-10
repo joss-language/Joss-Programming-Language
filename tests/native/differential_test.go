@@ -101,9 +101,11 @@ func assertDifferential(t *testing.T, name string, source string) {
 		t.Fatalf("[%s] binario nativo terminó con código de salida %d (esperado 0)", name, nativeExit)
 	}
 
-	// 3. Comparación diferencial exacta
-	if interpOut != nativeOut {
-		t.Errorf("[%s] Discrepancia diferencial detectada:\n--- Intérprete (joss run) ---\n%s\n--- Nativo (joss build) ---\n%s", name, interpOut, nativeOut)
+	// 3. Comparación diferencial exacta (normalizando saltos de línea para portabilidad multiplataforma)
+	normInterp := strings.ReplaceAll(strings.TrimSpace(interpOut), "\r\n", "\n")
+	normNative := strings.ReplaceAll(strings.TrimSpace(nativeOut), "\r\n", "\n")
+	if normInterp != normNative {
+		t.Errorf("[%s] Discrepancia diferencial detectada:\n--- Intérprete (joss run) ---\n%s\n--- Nativo (joss build) ---\n%s", name, normInterp, normNative)
 	}
 }
 

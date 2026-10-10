@@ -65,7 +65,8 @@ func runNativeBinary(t *testing.T, exePath string) (string, int) {
 			t.Fatalf("failed to run %s: %v", exePath, err)
 		}
 	}
-	return strings.TrimSpace(string(outBytes)), exitCode
+	cleanOut := strings.ReplaceAll(strings.TrimSpace(string(outBytes)), "\r\n", "\n")
+	return cleanOut, exitCode
 }
 
 func TestEndToEnd_EmptyMain(t *testing.T) {
