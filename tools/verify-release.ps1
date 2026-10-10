@@ -1,3 +1,8 @@
+[CmdletBinding()]
+param(
+    [switch]$SkipTests
+)
+
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $work = Join-Path $root '.joss-release-work'
@@ -101,7 +106,11 @@ try {
         $env:GOOS, $env:GOARCH, $env:CGO_ENABLED = $oldGOOS, $oldGOARCH, $oldCGO
     }
 
-    Invoke-Checked 'Tests completos de Joss' { go test ./... }
+    if (-not $SkipTests) {
+        Invoke-Checked 'Tests completos de Joss' { go test ./... }
+    } else {
+        Write-Host "⚡ Omitiendo suite completa de tests de Joss (-SkipTests activo)" -ForegroundColor Yellow
+    }
 
     $jossName = if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'joss.exe' } else { 'joss' }
     $jossBinary = Join-Path $dist $jossName

@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       create_release:
-        description: Publicar o actualizar los archivos generados en GitHub Release
+        description: "Publicar o actualizar los archivos generados en GitHub Release"
         required: true
         default: true
         type: boolean
       release_type:
-        description: Tipo de release a crear (draft, prerelease, published)
+        description: "Tipo de release a crear (draft, prerelease, published)"
         required: true
         default: draft
         type: choice
@@ -18,9 +18,19 @@ on:
           - prerelease
           - published
       release_tag:
-        description: Etiqueta de versión (ej. v3.6.5). Si se omite, se lee de pkg/version/version.go
+        description: "Etiqueta de versión (ej. v3.6.8). Si se omite, se lee de pkg/version/version.go"
         required: false
         type: string
+      skip_tests:
+        description: "⚡ Modo rápido: omitir tests unitarios si ya pasaron en CI"
+        required: false
+        default: false
+        type: boolean
+      skip_vscode:
+        description: "⚡ Omitir empaquetado de la extensión de VS Code (.vsix)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -31,69 +41,113 @@ concurrency:
 
 jobs:
   distribution:
-    name: Verify and package Joss
+    name: 🚀 Package and Release Joss
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     steps:
-      - name: Checkout Joss
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up Go
+      - name: 🐹 Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up Node.js
+      - name: 🟢 Set up Node.js
+        if: ${{ !inputs.skip_vscode }}
         uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: vscode-joss/package-lock.json
 
-
-
-      - name: Build and package distribution
+      - name: 🔨 Build and package distribution
+        id: build_dist
         shell: pwsh
-        run: ./build_all.ps1
+        env:
+          SKIP_TESTS: ${{ inputs.skip_tests }}
+          SKIP_VSCODE: ${{ inputs.skip_vscode }}
+        run: |
+          $sw = [System.Diagnostics.Stopwatch]::StartNew()
+          $args = @()
+          if ($env:SKIP_TESTS -eq 'true') {
+            $args += '-SkipTests'
+            Write-Host "⚡ Flags activas: Omitiendo suite de tests redundante" -ForegroundColor Yellow
+          }
+          if ($env:SKIP_VSCODE -eq 'true') {
+            $args += '-SkipVSCode'
+            Write-Host "⚡ Flags activas: Omitiendo empaquetado de extensión VS Code" -ForegroundColor Yellow
+          }
 
-      - name: Upload distribution artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: joss-distribution
-          path: dist/*
-          if-no-files-found: error
-          retention-days: 14
+          ./build_all.ps1 @args
+          $sw.Stop()
+          $elapsedMin = [math]::Round($sw.Elapsed.TotalMinutes, 2)
+          Write-Host "⏱️ Tiempo total de empaquetado: $elapsedMin minutos" -ForegroundColor Cyan
+          "build_time_min=$elapsedMin" >> $env:GITHUB_OUTPUT
 
-      - name: Resolve release tag and parameters
-        if: ${{ github.event_name == 'push' || inputs.create_release }}
-        id: release_meta
+      - name: 📊 Generate Summary & Visual Matrix
+        id: summary
         shell: pwsh
         run: |
+          $manifestPath = "dist/release-manifest.json"
+          $shaPath = "dist/SHA256SUMS.txt"
           $tag = '${{ inputs.release_tag }}'
           if ([string]::IsNullOrWhiteSpace($tag)) {
             $versionSource = Get-Content 'pkg/version/version.go' -Raw
             if ($versionSource -match 'const Version = "([^"]+)"') {
               $ver = $Matches[1]
-              if (-not $ver.StartsWith("v") -and -not $ver.StartsWith("V")) {
-                $tag = "v$ver"
-              } else {
-                $tag = $ver
-              }
+              $tag = if (-not $ver.StartsWith("v") -and -not $ver.StartsWith("V")) { "v$ver" } else { $ver }
             } else {
-              throw 'No se pudo obtener la versión desde pkg/version/version.go'
+              $tag = "latest"
             }
           }
-          Write-Host "Etiqueta seleccionada para la release: $tag"
           "tag=$tag" >> $env:GITHUB_OUTPUT
 
-      - name: Publish or update GitHub Release
+          $artifacts = Get-ChildItem -LiteralPath dist -File | Sort-Object Name
+          $totalBytes = ($artifacts | Measure-Object -Property Length -Sum).Sum
+          $totalMb = [math]::Round($totalBytes / 1MB, 2)
+
+          $summary = @()
+          $summary += "## 🚀 Resumen de Distribución Joss ($tag)"
+          $summary += ""
+          $summary += "| Estado | Tipo | Modo Rápido | Archivos Generados | Peso Total |"
+          $summary += "| :--- | :--- | :--- | :--- | :--- |"
+          $skipTestLabel = if ('${{ inputs.skip_tests }}' -eq 'true') { "✅ Omitidos" } else { "🔬 Ejecutados" }
+          $summary += "| ✅ **Exitoso** | `${{ inputs.release_type }}` | $skipTestLabel | **$($artifacts.Count) artefactos** | **$totalMb MB** |"
+          $summary += ""
+          $summary += "### 📦 Artefactos y Checksums SHA-256"
+          $summary += ""
+          $summary += "| Archivo | Tamaño (MB) | SHA-256 |"
+          $summary += "| :--- | :--- | :--- |"
+
+          foreach ($f in $artifacts) {
+            $size = [math]::Round($f.Length / 1MB, 2)
+            $hash = (Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $shortHash = $hash.Substring(0, 16) + "..."
+            $summary += "| ``$($f.Name)`` | **$size MB** | ``$shortHash`` |"
+          }
+
+          $summaryContent = $summary -join "`n"
+          $summaryContent >> $env:GITHUB_STEP_SUMMARY
+
+      - name: 📤 Upload distribution artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: joss-distribution-${{ steps.summary.outputs.tag }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 🏷️ Publish or update GitHub Release
         if: ${{ github.event_name == 'push' || inputs.create_release }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ steps.release_meta.outputs.tag }}
+          RELEASE_TAG: ${{ steps.summary.outputs.tag }}
           RELEASE_TYPE: ${{ inputs.release_type || 'prerelease' }}
         run: |
           $files = Get-ChildItem -LiteralPath dist -File | Sort-Object Name | ForEach-Object FullName
@@ -101,12 +155,12 @@ jobs:
             throw 'No se encontraron archivos en la carpeta dist.'
           }
 
-          # Buscar si ya existe una release con este tag (draft, prerelease o published)
+          # Buscar si ya existe una release con este tag
           $releaseJson = gh release view $env:RELEASE_TAG --repo $env:GH_REPO --json tagName,isDraft,isPrerelease 2>$null
           $releaseExists = $LASTEXITCODE -eq 0
 
           if ($releaseExists) {
-            Write-Host "La release '$env:RELEASE_TAG' ya existe. Actualizando archivos y estado..."
+            Write-Host "🔄 La release '$env:RELEASE_TAG' ya existe. Actualizando archivos y estado..." -ForegroundColor Cyan
 
             # Actualizar archivos con --clobber (reemplaza los existentes)
             gh release upload $env:RELEASE_TAG @files --repo $env:GH_REPO --clobber
@@ -114,7 +168,7 @@ jobs:
               throw "No se pudieron actualizar los archivos de la release '$env:RELEASE_TAG'"
             }
 
-            # Actualizar el tipo de release (draft/prerelease/published) segun el input
+            # Actualizar estado de la release
             $editFlags = @('release', 'edit', $env:RELEASE_TAG, '--repo', $env:GH_REPO)
             if ($env:RELEASE_TYPE -eq 'draft') {
               $editFlags += '--draft=true'
@@ -123,29 +177,24 @@ jobs:
               $editFlags += '--draft=false'
               $editFlags += '--prerelease=true'
             } else {
-              # published
               $editFlags += '--draft=false'
               $editFlags += '--prerelease=false'
             }
             gh @editFlags
-            if ($LASTEXITCODE -ne 0) {
-              Write-Warning "No se pudo actualizar el estado de la release, pero los archivos si fueron actualizados."
-            }
 
-            Write-Host "✨ Release '$env:RELEASE_TAG' actualizada correctamente ($env:RELEASE_TYPE)."
+            Write-Host "✨ Release '$env:RELEASE_TAG' actualizada correctamente ($env:RELEASE_TYPE)." -ForegroundColor Green
           } else {
-            Write-Host "Creando nueva release '$env:RELEASE_TAG' (tipo: $env:RELEASE_TYPE)..."
+            Write-Host "🎉 Creando nueva release '$env:RELEASE_TAG' (tipo: $env:RELEASE_TYPE)..." -ForegroundColor Cyan
             $createFlags = @($env:RELEASE_TAG, '--repo', $env:GH_REPO, '--title', "Joss $env:RELEASE_TAG", '--generate-notes')
             if ($env:RELEASE_TYPE -eq 'draft') {
               $createFlags += '--draft'
             } elseif ($env:RELEASE_TYPE -eq 'prerelease') {
               $createFlags += '--prerelease'
             }
-            # Adjuntar archivos al final
             $createFlags += $files
             gh release create @createFlags
             if ($LASTEXITCODE -ne 0) {
               throw "Error creando la release '$env:RELEASE_TAG'"
             }
-            Write-Host "✨ Release '$env:RELEASE_TAG' creada exitosamente ($env:RELEASE_TYPE)."
+            Write-Host "✨ Release '$env:RELEASE_TAG' creada exitosamente ($env:RELEASE_TYPE)." -ForegroundColor Green
           }

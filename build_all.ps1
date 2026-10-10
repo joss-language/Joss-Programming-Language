@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$SkipVSCode
+    [switch]$SkipVSCode,
+    [switch]$SkipTests
 )
 
 $ErrorActionPreference = 'Stop'
@@ -57,8 +58,17 @@ function Compress-Directory {
     }
     $items = @(Get-ChildItem -LiteralPath $Source -Force)
     if ($items.Count -eq 0) { throw "No hay archivos para crear $Destination" }
-    Compress-Archive -Path (Join-Path $Source '*') -DestinationPath $Destination -CompressionLevel Optimal
-    Write-Host "Creado: $Destination" -ForegroundColor Green
+    
+    # Usar System.IO.Compression.ZipFile de .NET para compresión ultra-rápida
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($Source, $Destination, [System.IO.Compression.CompressionLevel]::Fastest, $false)
+    } catch {
+        Compress-Archive -Path (Join-Path $Source '*') -DestinationPath $Destination -CompressionLevel Fastest
+    }
+    $destItem = Get-Item -LiteralPath $Destination
+    $sizeMb = [math]::Round($destItem.Length / 1MB, 2)
+    Write-Host "📦 Creado: $(Split-Path $Destination -Leaf) ($sizeMb MB)" -ForegroundColor Green
 }
 
 function New-StagingDirectory {
@@ -81,7 +91,7 @@ function Remove-WorkDirectory {
 
 Push-Location $root
 try {
-    & (Join-Path $root 'tools/verify-release.ps1')
+    & (Join-Path $root 'tools/verify-release.ps1') -SkipTests:$SkipTests
     if ($LASTEXITCODE -ne 0) { throw 'La verificacion de release fallo' }
 
     Remove-WorkDirectory
