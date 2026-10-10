@@ -514,7 +514,13 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			})
 			return dest, nil
 		} else {
-			dest := l.currentFn.NewTemp(left.Type(), "binop")
+			destType := left.Type()
+			if op == OpAnd || op == OpOr {
+				if left.Type().Kind == TypeKindBool || right.Type().Kind == TypeKindBool {
+					destType = TypeBool
+				}
+			}
+			dest := l.currentFn.NewTemp(destType, "binop")
 			l.currBlock.AddInstruction(&BinaryInst{
 				Op:    op,
 				Dest:  dest,
@@ -719,6 +725,16 @@ func mapInfixOp(op string) (Opcode, bool) {
 		return OpDiv, false
 	case "%":
 		return OpMod, false
+	case "&&", "&":
+		return OpAnd, false
+	case "||", "|":
+		return OpOr, false
+	case "^":
+		return OpXor, false
+	case "<<":
+		return OpShl, false
+	case ">>":
+		return OpShr, false
 	case "==":
 		return OpCmpEq, true
 	case "!=":

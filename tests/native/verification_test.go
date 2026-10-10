@@ -84,12 +84,14 @@ func TestVerification_TraceArtifactsAndCleanExecution(t *testing.T) {
 		}
 	}
 
-	if res.BootstrapPath == "" {
-		t.Errorf("expected BootstrapPath to be set in trace mode when standalone backend is used")
-	} else {
-		goData, err := os.ReadFile(res.BootstrapPath)
-		if err != nil || !strings.Contains(string(goData), "func main()") {
-			t.Errorf("Bootstrap file invalid or missing: %v", err)
+	if res.BackendUsed == backend.BackendStandalone {
+		if res.BootstrapPath == "" {
+			t.Errorf("expected BootstrapPath to be set in trace mode when standalone backend is used")
+		} else {
+			goData, err := os.ReadFile(res.BootstrapPath)
+			if err != nil || !strings.Contains(string(goData), "func main()") {
+				t.Errorf("Bootstrap file invalid or missing: %v", err)
+			}
 		}
 	}
 
