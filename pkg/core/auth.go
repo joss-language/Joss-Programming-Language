@@ -1,9 +1,10 @@
 package core
 
 import (
+	crand "crypto/rand"
 	"database/sql"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strings"
 	"time"
 
@@ -781,7 +782,11 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 
 // sendEmailOTPChallenge generates a 6-digit OTP, stores it in user_mfa_challenges and dispatches via SmtpClient
 func (r *Runtime) sendEmailOTPChallenge(userId int, email string) bool {
-	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	n, err := crand.Int(crand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return false
+	}
+	code := fmt.Sprintf("%06d", n.Int64())
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
 	if err != nil {
 		return false

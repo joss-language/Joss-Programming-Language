@@ -2,11 +2,12 @@ package core
 
 import (
 	"crypto/hmac"
+	crand "crypto/rand"
 	"crypto/sha1"
 	"encoding/base32"
 	"encoding/binary"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"net/url"
 	"strings"
 	"time"
@@ -214,7 +215,11 @@ func generateRandomBase32Secret() string {
 	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
 	var sb strings.Builder
 	for i := 0; i < 16; i++ {
-		sb.WriteByte(alphabet[rand.Intn(len(alphabet))])
+		idx, err := crand.Int(crand.Reader, big.NewInt(int64(len(alphabet))))
+		if err != nil {
+			panic(fmt.Sprintf("crypto/rand error: %v", err))
+		}
+		sb.WriteByte(alphabet[idx.Int64()])
 	}
 	return sb.String()
 }
@@ -223,7 +228,11 @@ func generateRandomRecoveryCode() string {
 	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
 	var sb strings.Builder
 	for i := 0; i < 10; i++ {
-		sb.WriteByte(chars[rand.Intn(len(chars))])
+		idx, err := crand.Int(crand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			panic(fmt.Sprintf("crypto/rand error: %v", err))
+		}
+		sb.WriteByte(chars[idx.Int64()])
 	}
 	return sb.String()
 }

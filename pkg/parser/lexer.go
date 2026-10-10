@@ -66,11 +66,17 @@ func (l *Lexer) NextToken() Token {
 		l.readChar()
 		return Token{Type: VAR, Literal: "$", Line: startLine, Column: startColumn}
 	case '"':
-		literal := l.readString('"')
+		literal, closed := l.readString('"')
+		if !closed {
+			return Token{Type: ILLEGAL, Literal: literal, Line: startLine, Column: startColumn}
+		}
 		l.readChar()
 		return Token{Type: STRING, Literal: literal, Line: startLine, Column: startColumn}
 	case '\'':
-		literal := l.readString('\'')
+		literal, closed := l.readString('\'')
+		if !closed {
+			return Token{Type: ILLEGAL, Literal: literal, Line: startLine, Column: startColumn}
+		}
 		l.readChar()
 		return Token{Type: STRING, Literal: literal, Line: startLine, Column: startColumn}
 	case 0:
@@ -162,15 +168,21 @@ func isDigit(ch byte) bool {
 	return '0' <= ch && ch <= '9'
 }
 
-func (l *Lexer) readString(delimiter byte) string {
+func (l *Lexer) readString(delimiter byte) (string, bool) {
 	var out []byte
 	braceDepth := 0
+	closed := false
 	for {
 		l.readChar()
 		if l.ch == 0 {
 			break
 		}
+		if l.ch == '\n' || l.ch == '\r' {
+			// Delimited strings cannot cross unescaped newlines in Joss
+			break
+		}
 		if l.ch == delimiter && braceDepth == 0 {
+			closed = true
 			break
 		}
 
@@ -213,7 +225,7 @@ func (l *Lexer) readString(delimiter byte) string {
 					out = append(out, innerQuote)
 					for {
 						l.readChar()
-						if l.ch == 0 {
+						if l.ch == 0 || l.ch == '\n' {
 							break
 						}
 						out = append(out, l.ch)
@@ -233,5 +245,5 @@ func (l *Lexer) readString(delimiter byte) string {
 
 		out = append(out, l.ch)
 	}
-	return string(out)
+	return string(out), closed
 }

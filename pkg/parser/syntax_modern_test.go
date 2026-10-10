@@ -146,3 +146,19 @@ func TestParseModernSyntax(t *testing.T) {
 		})
 	}
 }
+
+func TestUnterminatedStringLiteral(t *testing.T) {
+	cases := []string{
+		`print("hola)`,
+		`print('hola)`,
+		"var $x = \"linea1\nlinea2\"",
+	}
+	for _, input := range cases {
+		l := NewLexer(input)
+		p := NewParser(l)
+		_ = p.ParseProgram()
+		if len(p.Errors()) == 0 {
+			t.Errorf("expected parser errors for unterminated string %q, got none", input)
+		}
+	}
+}

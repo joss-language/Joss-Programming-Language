@@ -1,5 +1,30 @@
 # Changelog
 
+## [3.6.8.0] - 2026-10-09
+
+### Security
+- **Auth**: Replaced non-cryptographic `math/rand` with `crypto/rand` for email OTP challenges, TOTP base32 secrets and recovery codes.
+- **CSRF**: Eliminated session ID and token leaks to stdout/debug comments; implemented constant-time comparison via `subtle.ConstantTimeCompare`.
+- **WebSocket**: Implemented strict origin checking in upgrader validating against request Host, loopback addresses and `APP_ALLOWED_ORIGINS` / `APP_URL`.
+
+### Fixed
+- **Compiler**: Eliminated silent fallback from native AOT build (`joss build`) to application runner bundle when IR lowering or verification fails; fails explicitly with actionable diagnostics.
+- **CLI**: Added explicit `joss build bundle` / `joss build app` commands for self-contained runtime packaging.
+- **Lexer**: Unterminated string literals spanning unescaped newlines or reaching EOF without matching quotes now correctly emit `ILLEGAL` token and parser errors.
+
+## [3.6.7.8] - 2026-10-08
+- Added options to skip tests and VS Code packaging in manual distribution workflow.
+- Normalized newline comparisons in native differential test suite.
+
+## [3.6.7.6] - 2026-10-06
+- Hardened runtime capabilities and security boundary checks.
+
+## [3.6.7.2] - 2026-09-28
+- Implemented const declarations, immutable properties, and type normalization.
+
+## [3.6.7.1] - 2026-09-24
+- Added Microsoft SQL Server support, GranDB transactions, distinct and crossJoin queries.
+
 ## [3.6.4] - 2026-08-30
 
 ### Added

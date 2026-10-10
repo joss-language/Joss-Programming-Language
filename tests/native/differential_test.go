@@ -458,3 +458,68 @@ func TestDifferential_Exceptions_TryCatch(t *testing.T) {
 	`
 	assertDifferential(t, "exceptions_try_catch_parity", source)
 }
+
+func TestNativeAOT_StandaloneBinaryDoesNotContainASTInterpreter(t *testing.T) {
+	source := `
+		int $x = 10;
+		int $y = 20;
+		int $z = $x + $y;
+		echo $z;
+	`
+	p := parser.NewParser(parser.NewLexer(source))
+	prog := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+	units := []analyzer.SourceUnit{{Path: "pure_aot_check.joss", Program: prog}}
+	prep := analyzer.PrepareProgram(units, analyzer.NewEnvironment())
+	if prep.HasErrors() {
+		t.Fatalf("analyzer errors: %v", prep.Diagnostics)
+	}
+	lowerer := ir.NewLowerer(prep, nil)
+	irProg, err := lowerer.LowerProgram("pure_aot_check")
+	if err != nil {
+		t.Fatalf("lowering failed: %v", err)
+	}
+	verifier := ir.NewVerifier()
+	if err := verifier.Verify(irProg); err != nil {
+		t.Fatalf("verification failed: %v", err)
+	}
+
+	tempDir := t.TempDir()
+	outExe := filepath.Join(tempDir, "pure_aot_check.exe")
+	res, err := backend.BuildProgram(irProg, backend.BuildOptions{
+		OutputPath: outExe,
+		Backend:    backend.BackendStandalone,
+	})
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	// Verify generated standalone Go source code does NOT import AST/core/parser packages
+	standalone := backend.NewStandaloneBuilder()
+	src := standalone.GenerateSource(irProg)
+	forbidden := []string{
+		"github.com/jossecurity/joss/pkg/core",
+		"github.com/jossecurity/joss/pkg/parser",
+		"github.com/jossecurity/joss/pkg/analyzer",
+		"ExecutePrepared",
+		"evaluator",
+	}
+	for _, f := range forbidden {
+		if strings.Contains(src, f) {
+			t.Errorf("AOT standalone source contains forbidden interpreter dependency: %q", f)
+		}
+	}
+
+	// Verify the executable runs independently and outputs 30
+	cmd := exec.Command(res.OutputPath)
+	outBytes, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("execution failed: %v", err)
+	}
+	outStr := strings.TrimSpace(string(outBytes))
+	if outStr != "30" {
+		t.Errorf("expected output 30, got %q", outStr)
+	}
+}

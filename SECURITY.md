@@ -1,21 +1,26 @@
 # Security Policy
 
-## Supported Versions
+## Scope and Execution Trust Model
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+**Joss Programming Language** is designed for backend server and command-line application development.
+
+- **Application Code Trust**: Scripts executed via `joss run` or compiled via `joss build` run with the privileges of the host process and the operating system user. Joss does not implement an operating-system level sandbox (such as WASI or process cgroups) for untrusted source code.
+- **Plugins (`.jp`)**: Packages distributed in `.jp` format require Ed25519 cryptographic signatures and integrity verification before extraction and loading.
+- **Web Stack**: Built-in HTTP and WebSocket servers enforce CSRF protection with constant-time token comparison, Origin header validation on WebSockets, and cryptographically secure random generation for authentication challenges (MFA/TOTP).
+
+## Supported Versions
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| 3.6.x   | :white_check_mark: |
+| < 3.6   | :x:                |
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+If you discover a potential security vulnerability in Joss, please report it privately:
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+1. Send an email to the security team or maintainers at `security@joss.red`.
+2. Do not file public GitHub issues for undisclosed vulnerabilities.
+3. Include detailed reproduction steps, proof-of-concept code, and the affected Joss version/environment.
+
+Security reports receive an initial response within 48 hours and high-priority vulnerability patches are released with dedicated patch versions.

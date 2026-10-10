@@ -4,18 +4,87 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
+// checkWebSocketOrigin verifies that incoming WebSocket connections originate from
+// the same host or from explicitly allowed domains configured via APP_ALLOWED_ORIGINS or APP_URL.
+func checkWebSocketOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		// Non-browser or same-origin direct clients without Origin header
+		return true
+	}
+
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+
+	// 1. Same-origin comparison with request Host
+	if strings.EqualFold(u.Host, r.Host) {
+		return true
+	}
+
+	// 2. Allow local loopback origins in local environments
+	hostOnly := u.Hostname()
+	if hostOnly == "localhost" || hostOnly == "127.0.0.1" || hostOnly == "::1" {
+		reqHost := r.Host
+		if colon := strings.Index(reqHost, ":"); colon != -1 {
+			reqHost = reqHost[:colon]
+		}
+		if reqHost == "localhost" || reqHost == "127.0.0.1" || reqHost == "::1" {
+			return true
+		}
+	}
+
+	// 3. Configurable allowlist via APP_ALLOWED_ORIGINS (comma-separated origins or hosts)
+	allowedList := os.Getenv("APP_ALLOWED_ORIGINS")
+	if currentRuntime != nil && currentRuntime.Env != nil {
+		if envAllowed, ok := currentRuntime.Env["APP_ALLOWED_ORIGINS"]; ok && envAllowed != "" {
+			allowedList = envAllowed
+		}
+	}
+	if allowedList != "" {
+		for _, allowed := range strings.Split(allowedList, ",") {
+			allowed = strings.TrimSpace(allowed)
+			if allowed == "*" {
+				return true
+			}
+			if strings.EqualFold(allowed, origin) || strings.EqualFold(allowed, u.Host) || strings.EqualFold(allowed, u.Hostname()) {
+				return true
+			}
+		}
+	}
+
+	// 4. Check against APP_URL if configured
+	appURL := os.Getenv("APP_URL")
+	if currentRuntime != nil && currentRuntime.Env != nil {
+		if val, ok := currentRuntime.Env["APP_URL"]; ok && val != "" {
+			appURL = val
+		}
+	}
+	if appURL != "" {
+		if au, err := url.Parse(appURL); err == nil {
+			if strings.EqualFold(au.Host, u.Host) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all for now
-	},
+	CheckOrigin:     checkWebSocketOrigin,
 }
 
 // Hub maintains the set of active clients and broadcasts messages

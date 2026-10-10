@@ -426,6 +426,27 @@ func handleBuildCommand(args []string) {
 
 	first := args[0]
 	// Subcomandos de paquetes y bundles existentes
+	if first == "bundle" || first == "app" {
+		tOS := ""
+		tArch := ""
+		gui := false
+		outPath := ""
+		for _, a := range args[1:] {
+			if a == "--gui" {
+				gui = true
+			} else if strings.HasPrefix(a, "--target=") {
+				parts := strings.Split(strings.TrimPrefix(a, "--target="), "-")
+				if len(parts) == 2 {
+					tOS = parts[0]
+					tArch = parts[1]
+				}
+			} else if strings.HasPrefix(a, "-o=") {
+				outPath = strings.TrimPrefix(a, "-o=")
+			}
+		}
+		buildNativeWithOutput(tOS, tArch, gui, outPath)
+		return
+	}
 	if first == "package" {
 		if len(args) < 2 {
 			fmt.Printf("%s joss build package [ruta_del_paquete]\n", i18n.Tr("cliUsageLabel"))
@@ -551,12 +572,10 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
 	irProg, err := lowerer.LowerProgram(progName)
 	if err != nil {
-		if trace {
-			fmt.Printf("  [trace] El proyecto contiene subsistemas de aplicación completa (%v).\n", err)
-			fmt.Println("  [trace] Compilando ejecutable nativo autocontenido de aplicación...")
-		}
-		_, _ = buildNativeWithOutput(target.OS, target.Arch, enableGUI, outExe)
-		return
+		fmt.Printf("Error de compilación nativa AOT (Lowering): %v\n", err)
+		fmt.Println("Sugerencia: La compilación nativa AOT requiere soporte en Joss Native IR.")
+		fmt.Println("Para empaquetar una aplicación completa con el runtime, usa 'joss package' o 'joss build bundle'.")
+		os.Exit(1)
 	}
 
 	if trace {
@@ -564,11 +583,9 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	}
 	verifier := ir.NewVerifier()
 	if err := verifier.Verify(irProg); err != nil {
-		if trace {
-			fmt.Printf("  [trace] Verificación de IR delegando a pipeline de aplicación (%v).\n", err)
-		}
-		_, _ = buildNativeWithOutput(target.OS, target.Arch, enableGUI, outExe)
-		return
+		fmt.Printf("Error de compilación nativa AOT (Verificación de IR): %v\n", err)
+		fmt.Println("Sugerencia: El IR generado contiene instrucciones o tipos no válidos para el backend nativo.")
+		os.Exit(1)
 	}
 
 	bKind := native.BackendAuto

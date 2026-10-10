@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -341,12 +342,9 @@ func validateCSRFToken(w http.ResponseWriter, r *http.Request, reqData, sessData
 		reqToken = r.Header.Get("X-CSRF-TOKEN")
 	}
 
-	fmt.Printf("[CSRF DEBUG] Session: %s | Stored: %s | Received: %s\n", sessionID, csrfToken, reqToken)
-
-	if reqToken == "" || reqToken != csrfToken {
+	if csrfToken == "" || reqToken == "" || subtle.ConstantTimeCompare([]byte(reqToken), []byte(csrfToken)) != 1 {
 		w.WriteHeader(http.StatusForbidden)
 		fmt.Fprintf(w, "<h1>419 Page Expired</h1><p>CSRF token mismatch.</p>")
-		fmt.Fprintf(w, "<!-- Debug: Stored='%s' Received='%s' -->", csrfToken, reqToken)
 		return false
 	}
 	return true
