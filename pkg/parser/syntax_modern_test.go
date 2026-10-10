@@ -151,7 +151,7 @@ func TestUnterminatedStringLiteral(t *testing.T) {
 	cases := []string{
 		`print("hola)`,
 		`print('hola)`,
-		"var $x = \"linea1\nlinea2\"",
+		"var $x = \"linea1\nlinea2",
 	}
 	for _, input := range cases {
 		l := NewLexer(input)
@@ -160,5 +160,18 @@ func TestUnterminatedStringLiteral(t *testing.T) {
 		if len(p.Errors()) == 0 {
 			t.Errorf("expected parser errors for unterminated string %q, got none", input)
 		}
+	}
+}
+
+func TestMultilineStringLiteral(t *testing.T) {
+	input := "var $x = \"linea1\nlinea2\""
+	l := NewLexer(input)
+	p := NewParser(l)
+	prog := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("expected 0 errors for valid multiline string, got: %v", p.Errors())
+	}
+	if len(prog.Statements) != 1 {
+		t.Fatalf("expected 1 statement, got %d", len(prog.Statements))
 	}
 }

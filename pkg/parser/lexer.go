@@ -177,10 +177,6 @@ func (l *Lexer) readString(delimiter byte) (string, bool) {
 		if l.ch == 0 {
 			break
 		}
-		if l.ch == '\n' || l.ch == '\r' {
-			// Delimited strings cannot cross unescaped newlines in Joss
-			break
-		}
 		if l.ch == delimiter && braceDepth == 0 {
 			closed = true
 			break
@@ -225,7 +221,7 @@ func (l *Lexer) readString(delimiter byte) (string, bool) {
 					out = append(out, innerQuote)
 					for {
 						l.readChar()
-						if l.ch == 0 || l.ch == '\n' {
+						if l.ch == 0 {
 							break
 						}
 						out = append(out, l.ch)
