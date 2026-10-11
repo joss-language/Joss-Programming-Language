@@ -427,24 +427,8 @@ func handleBuildCommand(args []string) {
 	first := args[0]
 	// Subcomandos de paquetes y bundles existentes
 	if first == "bundle" || first == "app" {
-		tOS := ""
-		tArch := ""
-		gui := false
-		outPath := ""
-		for _, a := range args[1:] {
-			if a == "--gui" {
-				gui = true
-			} else if strings.HasPrefix(a, "--target=") {
-				parts := strings.Split(strings.TrimPrefix(a, "--target="), "-")
-				if len(parts) == 2 {
-					tOS = parts[0]
-					tArch = parts[1]
-				}
-			} else if strings.HasPrefix(a, "-o=") {
-				outPath = strings.TrimPrefix(a, "-o=")
-			}
-		}
-		buildNativeWithOutput(tOS, tArch, gui, outPath)
+		fmt.Println("Aviso: El empaquetado con runner Go ha sido deprecado en favor de la compilación nativa directa AOT.")
+		fmt.Println("Usa 'joss build [archivo.joss]' para compilar nativamente sin runtime.")
 		return
 	}
 	if first == "package" {
@@ -573,8 +557,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	irProg, err := lowerer.LowerProgram(progName)
 	if err != nil {
 		fmt.Printf("Error de compilación nativa AOT (Lowering): %v\n", err)
-		fmt.Println("Sugerencia: La compilación nativa AOT requiere soporte en Joss Native IR.")
-		fmt.Println("Para empaquetar una aplicación completa con el runtime, usa 'joss package' o 'joss build bundle'.")
+		fmt.Println("Sugerencia: La compilación nativa AOT requiere que las características del programa cuenten con representación en Joss Native IR.")
 		os.Exit(1)
 	}
 
