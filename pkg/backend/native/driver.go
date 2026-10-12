@@ -14,6 +14,7 @@ type BackendKind string
 
 const (
 	BackendAuto       BackendKind = "auto"
+	BackendNative     BackendKind = "native"
 	BackendLLVM       BackendKind = "llvm"
 	BackendStandalone BackendKind = "standalone"
 )
@@ -29,6 +30,7 @@ type BuildOptions struct {
 	Verbose       bool
 	Debug         bool
 	Release       bool
+	GUI           bool
 }
 
 // BuildResult contiene la información del ejecutable generado y artefactos de trace.
@@ -41,11 +43,12 @@ type BuildResult struct {
 	ExecutableSize  int64
 	IRDumpPath      string
 	LLVMPath        string
+	ASMPath         string
 	BootstrapPath   string
 }
 
-// BuildProgram compila un ir.Program al backend seleccionado, verificando invariantes y
-// generando opcionalmente artefactos intermedios (.ir, .ll, .standalone.go) si Trace está activo.
+// BuildProgram compila un ir.Program directamente a código máquina nativo (PE32+ / ELF64)
+// sin invocar compiladores externos (sin Go, sin GCC, sin Clang, sin MSVC).
 func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 	if prog == nil {
 		return nil, fmt.Errorf("build native: programa IR nulo")
@@ -110,7 +113,7 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 		}
 		res.IRDumpPath = irFile
 
-		// Emisión LLVM IR (.ll)
+		// Emisión LLVM IR (.ll) para inspección
 		llvmEmitter := NewLLVMEmitter()
 		llvmText, err := llvmEmitter.Emit(prog)
 		if err == nil {
@@ -120,29 +123,40 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 		}
 	}
 
-	// 4. Selección del backend
-	compiler := NewNativeCompiler()
+	// 4. Selección del backend (por defecto: BackendNative autocontenido)
 	selectedBackend := opts.Backend
 	if selectedBackend == "" || selectedBackend == BackendAuto {
-		if compiler.HasNativeToolchain() {
-			selectedBackend = BackendLLVM
-		} else {
-			selectedBackend = BackendStandalone
-			res.IsBootstrap = true
-			res.ToolchainNotice = "Toolchain nativo primario (LLVM/Clang) no encontrado en PATH; utilizando backend auxiliar bootstrap (Standalone)."
-		}
-	} else if selectedBackend == BackendStandalone {
-		res.IsBootstrap = true
-		res.ToolchainNotice = "Backend bootstrap (Standalone) solicitado explícitamente."
+		selectedBackend = BackendNative
 	}
-
 	res.BackendUsed = selectedBackend
 
 	// 5. Compilación según el backend seleccionado
 	switch selectedBackend {
+	case BackendNative, BackendStandalone:
+		mcBuilder := NewMachineCodeBuilder(target, opts.GUI)
+		binBytes, asmListing, err := mcBuilder.Compile(prog)
+		if err != nil {
+			return nil, err
+		}
+		if opts.Trace {
+			asmFile := filepath.Join(traceDir, baseName+".asm")
+			_ = os.WriteFile(asmFile, []byte(asmListing), 0644)
+			res.ASMPath = asmFile
+			if selectedBackend == BackendStandalone {
+				res.BootstrapPath = asmFile
+			}
+		}
+		if err := os.MkdirAll(filepath.Dir(outExe), 0755); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(outExe, binBytes, 0755); err != nil {
+			return nil, fmt.Errorf("no se pudo escribir ejecutable nativo %s: %w", outExe, err)
+		}
+
 	case BackendLLVM:
+		compiler := NewNativeCompiler()
 		if !compiler.HasNativeToolchain() {
-			return nil, fmt.Errorf("el backend 'llvm' requiere un compilador C/LLVM (clang o gcc) en PATH.\nPara compilar sin dependencias externas use '--backend=standalone'")
+			return nil, fmt.Errorf("el backend externo 'llvm' no está habilitado sin toolchain externo (clang/gcc); usa el compilador nativo integrado de 'joss build'")
 		}
 		llvmEmitter := NewLLVMEmitter()
 		llvmIR, err := llvmEmitter.Emit(prog)
@@ -153,20 +167,8 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 			return nil, err
 		}
 
-	case BackendStandalone:
-		standalone := NewStandaloneBuilder()
-		if opts.Trace {
-			goSource := standalone.GenerateSource(prog)
-			goFile := filepath.Join(traceDir, baseName+".standalone.go")
-			_ = os.WriteFile(goFile, []byte(goSource), 0644)
-			res.BootstrapPath = goFile
-		}
-		if err := standalone.BuildNativeExecutableWithOptions(prog, outExe, opts); err != nil {
-			return nil, err
-		}
-
 	default:
-		return nil, fmt.Errorf("backend desconocido: %s (opciones válidas: auto, llvm, standalone)", selectedBackend)
+		return nil, fmt.Errorf("backend desconocido: %s (opciones válidas: auto, native, standalone, llvm)", selectedBackend)
 	}
 
 	// 6. Obtener tamaño del ejecutable

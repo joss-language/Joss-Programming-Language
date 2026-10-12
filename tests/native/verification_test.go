@@ -10,6 +10,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/analyzer"
 	backend "github.com/jossecurity/joss/pkg/backend/native"
+	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/parser"
 )
@@ -23,7 +24,8 @@ func prepareTestProgram(t *testing.T, source string, name string) *ir.Program {
 	}
 
 	units := []analyzer.SourceUnit{{Path: name + ".joss", Program: prog}}
-	prep := analyzer.PrepareProgram(units, analyzer.NewEnvironment())
+	report := core.AnalyzeSourceUnits(units)
+	prep := report.Prepared
 	if prep.HasErrors() {
 		t.Fatalf("analyzer errors: %v", prep.Diagnostics)
 	}
@@ -84,14 +86,12 @@ func TestVerification_TraceArtifactsAndCleanExecution(t *testing.T) {
 		}
 	}
 
-	if res.BackendUsed == backend.BackendStandalone {
-		if res.BootstrapPath == "" {
-			t.Errorf("expected BootstrapPath to be set in trace mode when standalone backend is used")
-		} else {
-			goData, err := os.ReadFile(res.BootstrapPath)
-			if err != nil || !strings.Contains(string(goData), "func main()") {
-				t.Errorf("Bootstrap file invalid or missing: %v", err)
-			}
+	if res.ASMPath == "" {
+		t.Errorf("expected ASMPath to be set in trace mode")
+	} else {
+		asmData, err := os.ReadFile(res.ASMPath)
+		if err != nil || !strings.Contains(string(asmData), "fn_main:") {
+			t.Errorf("ASM trace file invalid or missing: %v", err)
 		}
 	}
 

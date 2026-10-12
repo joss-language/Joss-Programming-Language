@@ -417,7 +417,7 @@ func handleBuildCommand(args []string) {
 		fmt.Println("  --target=<os>-<arch> Objetivo de compilación cruzada (ej. windows-amd64, linux-amd64)")
 		fmt.Println("  --release            Compilación optimizada sin símbolos de depuración")
 		fmt.Println("  --debug              Compilación con información de depuración")
-		fmt.Println("  --trace              Emite y conserva artefactos intermedios (.ir, .ll, .standalone.go)")
+		fmt.Println("  --trace              Emite y conserva artefactos intermedios (.ir, .ll, .asm)")
 		fmt.Println("\nSubcomandos de distribución:")
 		fmt.Println("  package <ruta>       Empaquetar librería o plugin en formato .jp")
 		fmt.Println("  web                  Preparar bundle de archivos y assets para despliegue web")
@@ -573,6 +573,8 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 
 	bKind := native.BackendAuto
 	switch strings.ToLower(backendName) {
+	case "native":
+		bKind = native.BackendNative
 	case "llvm":
 		bKind = native.BackendLLVM
 	case "standalone":
@@ -582,7 +584,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	}
 
 	if trace {
-		fmt.Printf("  [trace] 4. Ejecutando backend nativo (solicitado: %s)...\n", bKind)
+		fmt.Printf("  [trace] 4. Generando código máquina y enlazando ejecutable (backend: %s)...\n", bKind)
 	}
 
 	res, err := native.BuildProgram(irProg, native.BuildOptions{
@@ -592,6 +594,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		Trace:      trace,
 		Debug:      debug,
 		Release:    release,
+		GUI:        enableGUI,
 	})
 	if err != nil {
 		fmt.Printf("Error generando ejecutable nativo: %v\n", err)
@@ -599,12 +602,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	}
 
 	sizeKB := float64(res.ExecutableSize) / 1024.0
-	if res.IsBootstrap {
-		fmt.Printf("  [bootstrap] %s\n", res.ToolchainNotice)
-		fmt.Printf("✓ Ejecutable generado con éxito (bootstrap): %s (%.1f KB) [target: %s]\n", outExe, sizeKB, res.Target.DashString())
-	} else {
-		fmt.Printf("✓ Ejecutable nativo real generado con éxito: %s (%.1f KB) [backend: %s, target: %s]\n", outExe, sizeKB, res.BackendUsed, res.Target.DashString())
-	}
+	fmt.Printf("✓ Ejecutable nativo real generado con éxito: %s (%.1f KB) [backend: %s, target: %s]\n", outExe, sizeKB, res.BackendUsed, res.Target.DashString())
 	if trace {
 		if res.IRDumpPath != "" {
 			fmt.Printf("  [trace] Artefacto IR: %s\n", res.IRDumpPath)
@@ -612,8 +610,8 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		if res.LLVMPath != "" {
 			fmt.Printf("  [trace] Artefacto LLVM: %s\n", res.LLVMPath)
 		}
-		if res.BootstrapPath != "" {
-			fmt.Printf("  [trace] Artefacto Bootstrap: %s\n", res.BootstrapPath)
+		if res.ASMPath != "" {
+			fmt.Printf("  [trace] Artefacto ASM: %s\n", res.ASMPath)
 		}
 	}
 }

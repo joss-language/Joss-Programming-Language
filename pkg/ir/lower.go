@@ -269,12 +269,6 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 	switch s := stmt.(type) {
 	case *parser.LetStatement:
 		valType := l.mapType(s.Token.Literal)
-		if valType.Kind == TypeKindUnknown && s.Value != nil {
-			valType = l.inferNodeType(s.Value)
-		}
-		ptrTemp := l.currentFn.NewTemp(PtrType(valType), s.Name.Value+"_ptr")
-		l.currBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: valType})
-
 		var val Value
 		if s.Value != nil {
 			v, err := l.lowerExpression(s.Value)
@@ -282,9 +276,22 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 				return err
 			}
 			val = v
-		} else {
+		}
+		if valType.Kind == TypeKindUnknown {
+			if s.Value != nil {
+				valType = l.inferNodeType(s.Value)
+				if val != nil && val.Type().Kind != TypeKindI64 && val.Type().Kind != TypeKindUnknown {
+					valType = val.Type()
+				}
+			} else {
+				valType = TypeI64
+			}
+		}
+		if val == nil {
 			val = NewConstInt(0, valType)
 		}
+		ptrTemp := l.currentFn.NewTemp(PtrType(valType), s.Name.Value+"_ptr")
+		l.currBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: valType})
 		l.currBlock.AddInstruction(&StoreInst{Val: val, Ptr: ptrTemp})
 		l.varLocals[cleanVarName(s.Name.Value)] = ptrTemp
 		return nil
@@ -454,6 +461,8 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 		l.prog.RequireRuntime("print")
 		if val.Type().Kind == TypeKindString {
 			l.currBlock.AddInstruction(&CallRuntimeInst{Func: "print_string", Args: []Value{val}})
+		} else if val.Type().Kind == TypeKindBool {
+			l.currBlock.AddInstruction(&CallRuntimeInst{Func: "print_bool", Args: []Value{val}})
 		} else {
 			l.currBlock.AddInstruction(&CallRuntimeInst{Func: "print_i64", Args: []Value{val}})
 		}
@@ -680,6 +689,12 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		}
 		return nil, fmt.Errorf("operador prefijo '%s' no soportado", e.Operator)
 
+	case *parser.BlockExpression:
+		if err := l.lowerBlock(e.Block); err != nil {
+			return nil, err
+		}
+		return NewConstInt(0, TypeI64), nil
+
 	case *parser.TernaryExpression:
 		condVal, err := l.lowerExpression(e.Condition)
 		if err != nil {
@@ -698,25 +713,40 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 
 		// Rama verdadera
 		l.currBlock = trueBlock
-		trueVal, err := l.lowerExpression(e.True)
-		if err != nil {
-			return nil, err
+		var trueVal Value = condVal
+		if e.True != nil {
+			tv, err := l.lowerExpression(e.True)
+			if err != nil {
+				return nil, err
+			}
+			trueVal = tv
 		}
-		// Reservar alloca para el resultado ternario en el entry block si es posible
-		resTemp := l.currentFn.NewTemp(trueVal.Type(), "ternary_res")
-		resPtr := l.currentFn.NewTemp(PtrType(trueVal.Type()), "ternary_ptr")
-		l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: resPtr, AllocType: trueVal.Type()})
-		l.currBlock.AddInstruction(&StoreInst{Val: trueVal, Ptr: resPtr})
-		l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+		resType := trueVal.Type()
+		resTemp := l.currentFn.NewTemp(resType, "ternary_res")
+		resPtr := l.currentFn.NewTemp(PtrType(resType), "ternary_ptr")
+		l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: resPtr, AllocType: resType})
+		if l.currBlock.Terminator == nil {
+			l.currBlock.AddInstruction(&StoreInst{Val: trueVal, Ptr: resPtr})
+			l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+		}
 
 		// Rama falsa
 		l.currBlock = falseBlock
-		falseVal, err := l.lowerExpression(e.False)
-		if err != nil {
-			return nil, err
+		var falseVal Value = NewConstInt(0, resType)
+		if resType.Kind == TypeKindString {
+			falseVal = NewConstString("")
 		}
-		l.currBlock.AddInstruction(&StoreInst{Val: falseVal, Ptr: resPtr})
-		l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+		if e.False != nil {
+			fv, err := l.lowerExpression(e.False)
+			if err != nil {
+				return nil, err
+			}
+			falseVal = fv
+		}
+		if l.currBlock.Terminator == nil {
+			l.currBlock.AddInstruction(&StoreInst{Val: falseVal, Ptr: resPtr})
+			l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+		}
 
 		// Merge
 		l.currBlock = mergeBlock
@@ -732,38 +762,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			ClassName: className,
 		})
 
-		// Inicializar propiedades por defecto de la clase si existen
-		if l.prep != nil && l.prep.Environment.Classes != nil {
-			if classDef, ok := l.prep.Environment.Classes[className]; ok {
-				for _, unit := range l.prep.Units {
-					if unit.Program == nil {
-						continue
-					}
-					for _, stmt := range unit.Program.Statements {
-						if cs, ok := stmt.(*parser.ClassStatement); ok && cs.Name.Value == className && cs.Body != nil {
-							for _, member := range cs.Body.Statements {
-								if letStmt, ok := member.(*parser.LetStatement); ok && letStmt.Name != nil {
-									fName := cleanVarName(letStmt.Name.Value)
-									if letStmt.Value != nil {
-										val, err := l.lowerExpression(letStmt.Value)
-										if err == nil {
-											l.currBlock.AddInstruction(&StoreFieldInst{
-												Val:       val,
-												Obj:       objTemp,
-												FieldName: fName,
-											})
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-				_ = classDef
-			}
-		}
-
-		// Si tiene constructor (Init o constructor), invocarlo
+		// Inicializar propiedades por defecto de la clase y detectar constructor
 		hasCtor := false
 		ctorName := ""
 		if l.prog.Functions[className+"_Init"] != nil {
@@ -775,6 +774,41 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		} else if className == "Exception" {
 			hasCtor = true
 			ctorName = "Exception_constructor"
+		}
+
+		if l.prep != nil {
+			for _, unit := range l.prep.Units {
+				if unit.Program == nil {
+					continue
+				}
+				for _, stmt := range unit.Program.Statements {
+					if cs, ok := stmt.(*parser.ClassStatement); ok && cs.Name.Value == className && cs.Body != nil {
+						for _, member := range cs.Body.Statements {
+							if letStmt, ok := member.(*parser.LetStatement); ok && letStmt.Name != nil {
+								fName := cleanVarName(letStmt.Name.Value)
+								if letStmt.Value != nil {
+									val, err := l.lowerExpression(letStmt.Value)
+									if err == nil {
+										l.currBlock.AddInstruction(&StoreFieldInst{
+											Val:       val,
+											Obj:       objTemp,
+											FieldName: fName,
+										})
+									}
+								}
+							} else if _, isInit := member.(*parser.InitStatement); isInit && !hasCtor {
+								hasCtor = true
+								ctorName = className + "_Init"
+							} else if mStmt, isM := member.(*parser.MethodStatement); isM && !hasCtor {
+								if mStmt.Name.Value == "Init" || mStmt.Name.Value == "constructor" {
+									hasCtor = true
+									ctorName = className + "_" + mStmt.Name.Value
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 
 		if hasCtor {
@@ -802,6 +836,11 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		}
 		propName := e.Property.Value
 		fieldType := l.inferNodeType(e)
+		if fieldType.Kind == TypeKindI64 && objVal.Type().Kind == TypeKindPtr && objVal.Type().Elem != nil {
+			if resolvedPropType, ok := l.lookupClassPropertyType(objVal.Type().Elem.Name, propName); ok {
+				fieldType = resolvedPropType
+			}
+		}
 		resTemp := l.currentFn.NewTemp(fieldType, "prop")
 		l.currBlock.AddInstruction(&LoadFieldInst{
 			Dest:      resTemp,
@@ -819,8 +858,8 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				return nil, err
 			}
 			elements[idx] = v
-			if v.Type().Kind == TypeKindString {
-				elemType = TypeString
+			if idx == 0 || v.Type().Kind != TypeKindI64 {
+				elemType = v.Type()
 			}
 		}
 		arrTemp := l.currentFn.NewTemp(ArrayType(elemType), "arr")
@@ -833,6 +872,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 
 	case *parser.MapLiteral:
 		pairs := make([][2]Value, 0, len(e.Pairs))
+		valType := TypeI64
 		for k, v := range e.Pairs {
 			kVal, err := l.lowerExpression(k)
 			if err != nil {
@@ -842,9 +882,12 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			if err != nil {
 				return nil, err
 			}
+			if len(pairs) == 0 || vVal.Type().Kind != TypeKindI64 {
+				valType = vVal.Type()
+			}
 			pairs = append(pairs, [2]Value{kVal, vVal})
 		}
-		mapTemp := l.currentFn.NewTemp(PtrType(StructType("map", nil)), "map")
+		mapTemp := l.currentFn.NewTemp(PtrType(StructType("map", []Type{valType})), "map")
 		l.currBlock.AddInstruction(&NewMapInst{
 			Dest:  mapTemp,
 			Pairs: pairs,
@@ -861,20 +904,27 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			return nil, err
 		}
 		resType := l.inferNodeType(e)
-		resTemp := l.currentFn.NewTemp(resType, "elem")
 		if idxVal.Type().Kind == TypeKindString {
+			if resType.Kind == TypeKindI64 && container.Type().Kind == TypeKindPtr && container.Type().Elem != nil && len(container.Type().Elem.Fields) > 0 {
+				resType = container.Type().Elem.Fields[0]
+			}
+			resTemp := l.currentFn.NewTemp(resType, "elem")
 			l.currBlock.AddInstruction(&MapGetInst{
 				Dest: resTemp,
 				Map:  container,
 				Key:  idxVal,
 			})
-		} else {
-			l.currBlock.AddInstruction(&ArrayGetInst{
-				Dest:  resTemp,
-				Array: container,
-				Index: idxVal,
-			})
+			return resTemp, nil
 		}
+		if resType.Kind == TypeKindI64 && container.Type().Kind == TypeKindArray && container.Type().Elem != nil {
+			resType = *container.Type().Elem
+		}
+		resTemp := l.currentFn.NewTemp(resType, "elem")
+		l.currBlock.AddInstruction(&ArrayGetInst{
+			Dest:  resTemp,
+			Array: container,
+			Index: idxVal,
+		})
 		return resTemp, nil
 
 	case *parser.CallExpression:
@@ -898,6 +948,16 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				receiverObj = recv
 				calleeName = member.Property.Value
 			}
+			if receiverObj != nil && receiverObj.Type().Kind == TypeKindPtr && receiverObj.Type().Elem != nil {
+				clsName := receiverObj.Type().Elem.Name
+				if clsName != "" && clsName != "map" {
+					if targetFn, _, found := l.resolveClassMethod(clsName, member.Property.Value); found {
+						calleeName = targetFn
+					} else {
+						calleeName = clsName + "_" + member.Property.Value
+					}
+				}
+			}
 		} else if ident, ok := e.Function.(*parser.Identifier); ok {
 			calleeName = ident.Value
 		} else {
@@ -911,7 +971,11 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 						prefix := resolved.TargetID[:lastColons]
 						className := prefix[strings.LastIndex(prefix, ":")+1:]
 						methodName := resolved.TargetID[lastColons+2:]
-						calleeName = className + "_" + methodName
+						if targetFn, _, found := l.resolveClassMethod(className, methodName); found {
+							calleeName = targetFn
+						} else {
+							calleeName = className + "_" + methodName
+						}
 					}
 				}
 			}
@@ -929,12 +993,22 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			args = append(args, v)
 		}
 
-		// Determinar tipo de retorno usando AnalysisFacts si está disponible
+		// Determinar tipo de retorno usando AnalysisFacts o resolución de método en jerarquía
 		retType := TypeI64
 		if l.prep != nil && l.prep.Facts != nil {
 			if resolved, ok := l.prep.Facts.ResolvedCalls[e]; ok {
 				retType = l.mapTypeSystemType(resolved.ReturnType)
 			}
+		}
+		if retType.Kind == TypeKindI64 && receiverObj != nil && receiverObj.Type().Kind == TypeKindPtr && receiverObj.Type().Elem != nil {
+			if member, ok := e.Function.(*parser.MemberExpression); ok && member.Property != nil {
+				if _, mRet, found := l.resolveClassMethod(receiverObj.Type().Elem.Name, member.Property.Value); found {
+					retType = mRet
+				}
+			}
+		}
+		if (calleeName == "array_push" || calleeName == "append") && len(args) > 0 {
+			retType = args[0].Type()
 		}
 
 		var dest *TempValue
@@ -1044,8 +1118,87 @@ func (l *Lowerer) mapTypeSystemType(t typesystem.Type) Type {
 	}
 }
 
+func (l *Lowerer) lookupClassPropertyType(className, propName string) (Type, bool) {
+	if l.prep == nil {
+		return TypeI64, false
+	}
+	curr := className
+	for curr != "" {
+		nextSuper := ""
+		for _, unit := range l.prep.Units {
+			if unit.Program == nil {
+				continue
+			}
+			for _, stmt := range unit.Program.Statements {
+				cls, ok := stmt.(*parser.ClassStatement)
+				if !ok || cls.Name == nil || cls.Name.Value != curr {
+					continue
+				}
+				if cls.SuperClass != nil {
+					nextSuper = cls.SuperClass.Value
+				}
+				if cls.Body != nil {
+					for _, member := range cls.Body.Statements {
+						switch m := member.(type) {
+						case *parser.LetStatement:
+							if m.Name != nil && cleanVarName(m.Name.Value) == propName {
+								return l.mapType(m.Token.Literal), true
+							}
+						case *parser.MultiLetStatement:
+							for _, d := range m.Declarations {
+								if d.Name != nil && cleanVarName(d.Name.Value) == propName {
+									return l.mapType(m.TypeToken.Literal), true
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		curr = nextSuper
+	}
+	return TypeI64, false
+}
+
+func (l *Lowerer) resolveClassMethod(className, methodName string) (string, Type, bool) {
+	if l.prep == nil {
+		return "", TypeI64, false
+	}
+	curr := className
+	for curr != "" {
+		nextSuper := ""
+		for _, unit := range l.prep.Units {
+			if unit.Program == nil {
+				continue
+			}
+			for _, stmt := range unit.Program.Statements {
+				cls, ok := stmt.(*parser.ClassStatement)
+				if !ok || cls.Name == nil || cls.Name.Value != curr {
+					continue
+				}
+				if cls.SuperClass != nil {
+					nextSuper = cls.SuperClass.Value
+				}
+				if cls.Body != nil {
+					for _, member := range cls.Body.Statements {
+						if m, ok := member.(*parser.MethodStatement); ok && m.Name != nil && m.Name.Value == methodName {
+							return curr + "_" + methodName, l.mapType(m.ReturnType.Literal), true
+						}
+					}
+				}
+			}
+		}
+		curr = nextSuper
+	}
+	return "", TypeI64, false
+}
+
 func (l *Lowerer) mapType(lit string) Type {
 	lit = strings.TrimSpace(lit)
+	if strings.HasSuffix(lit, "[]") {
+		elem := l.mapType(strings.TrimSuffix(lit, "[]"))
+		return ArrayType(elem)
+	}
 	switch lit {
 	case "int":
 		return TypeI64
@@ -1057,6 +1210,10 @@ func (l *Lowerer) mapType(lit string) Type {
 		return TypeString
 	case "void":
 		return TypeVoid
+	case "map":
+		return PtrType(StructType("map", nil))
+	case "array":
+		return ArrayType(TypeI64)
 	case "var", "mixed", "unknown":
 		return TypeUnknown
 	default:
