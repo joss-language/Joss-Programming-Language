@@ -157,6 +157,18 @@ func (v *IRVerifier) verifyInstruction(fn *Function, block *BasicBlock, inst Ins
 		if i.CatchVar == "" {
 			v.addError("try_catch en %s tiene nombre de variable catch vacío", block.Label)
 		}
+	case *CallBuiltinInst:
+		if i.BuiltinID == "" {
+			v.addError("call_builtin en %s tiene ID vacío", block.Label)
+		}
+	case *CallPrimitiveMethodInst:
+		if i.TypeKind == "" || i.MethodName == "" || i.Recv == nil {
+			v.addError("call_primitive en %s tiene operandos inválidos", block.Label)
+		}
+	case *CallHostServiceInst:
+		if i.ClassName == "" || i.MethodName == "" {
+			v.addError("call_host en %s tiene operandos inválidos", block.Label)
+		}
 	}
 }
 

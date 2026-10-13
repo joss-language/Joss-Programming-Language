@@ -1457,9 +1457,20 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 
 		// Determinar tipo de retorno usando AnalysisFacts o resolución de método en jerarquía
 		retType := TypeI64
+		var isBuiltin, isHost, isPrimitive bool
+		var targetID string
+
 		if l.prep != nil && l.prep.Facts != nil {
 			if resolved, ok := l.prep.Facts.ResolvedCalls[e]; ok {
 				retType = l.mapTypeSystemType(resolved.ReturnType)
+				targetID = resolved.TargetID
+				if resolved.Kind == "builtin" {
+					isBuiltin = true
+				} else if resolved.Kind == "primitive_method" {
+					isPrimitive = true
+				} else if resolved.Kind == "host_service" {
+					isHost = true
+				}
 			}
 		}
 		if retType.Kind == TypeKindI64 && receiverObj != nil && receiverObj.Type().Kind == TypeKindPtr && receiverObj.Type().Elem != nil {
@@ -1489,11 +1500,42 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			dest = l.currentFn.NewTemp(retType, "call_ret")
 		}
 
-		l.currBlock.AddInstruction(&CallInst{
-			Dest:   dest,
-			Callee: calleeName,
-			Args:   args,
-		})
+		if isBuiltin {
+			l.currBlock.AddInstruction(&CallBuiltinInst{
+				Dest:      dest,
+				BuiltinID: targetID,
+				Args:      args,
+			})
+		} else if isPrimitive {
+			parts := strings.Split(targetID, "::")
+			typeKind := parts[0]
+			methodName := parts[1]
+			l.currBlock.AddInstruction(&CallPrimitiveMethodInst{
+				Dest:       dest,
+				TypeKind:   typeKind,
+				MethodName: methodName,
+				Recv:       receiverObj,
+				Args:       args,
+			})
+		} else if isHost {
+			parts := strings.Split(targetID, "::")
+			className := parts[0]
+			methodName := parts[1]
+			l.currBlock.AddInstruction(&CallHostServiceInst{
+				Dest:       dest,
+				ClassName:  className,
+				MethodName: methodName,
+				Recv:       receiverObj,
+				Args:       args,
+			})
+		} else {
+			l.currBlock.AddInstruction(&CallInst{
+				Dest:   dest,
+				Callee: calleeName,
+				Args:   args,
+			})
+		}
+
 		if dest != nil {
 			return dest, nil
 		}
