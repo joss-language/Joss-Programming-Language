@@ -7,7 +7,7 @@ This document defines the formal Application Binary Interface (ABI) used for cro
 - **Registers:** The first 4 arguments are passed in `RCX`, `RDX`, `R8`, `R9`.
 - **Stack:** Additional arguments are passed on the stack starting at `[RSP + 32]`.
 - **Return Value:** Integer/Pointer return values are passed in `RAX`.
-- **Shadow Space:** 32 bytes of shadow space are reserved above the return address for all calls. 
+- **Shadow Space:** 32 bytes of shadow space are reserved above the return address for all calls.
 - **Stack Alignment:** 16-byte alignment is maintained immediately before any `CALL` instruction.
 
 ## Memory Model

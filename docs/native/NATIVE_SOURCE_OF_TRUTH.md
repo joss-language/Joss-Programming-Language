@@ -1,6 +1,6 @@
 # JOSS NATIVE AOT: The Single Source of Truth
 
-This document formally describes the single source of truth architectural rule for Joss Native AOT. 
+This document formally describes the single source of truth architectural rule for Joss Native AOT.
 
 ## The Rule
 
@@ -25,4 +25,3 @@ Under the unified architecture, this problem is solved via the **Canonical Host 
 - If an IR instruction is `CallBuiltinInst`, `CallPrimitiveMethodInst`, or `CallHostServiceInst`, the Native Generator emits a native ABI call across the Host Bridge interface.
 - This allows AOT binaries to link to the canonical implementations of these features directly (e.g., statically linked via Go `c-archive` or similar cross-platform mechanism) WITHOUT re-implementing databases, string allocations, or networking stacks in assembly.
 - All types, scopes, and target resolutions are perfectly preserved across the boundary because `AnalysisFacts.ResolvedCalls` guarantees the method target is explicit in IR.
-
