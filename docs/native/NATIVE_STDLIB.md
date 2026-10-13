@@ -1,6 +1,6 @@
 # JOSS NATIVE AOT: Standard Library & Host Services
 
-In Joss Native AOT, the Standard Library and Host Services (like GranDB, HTTP router, Filesystem) are NOT re-implemented in assembly or C.
+In Joss Native AOT, the Standard Library and Host Services (like GranDB, HTTP router, Filesystem) are NOT re-implemented in assembly or C. 
 
 ## Architectural Separation
 
@@ -9,7 +9,7 @@ In Joss Native AOT, the Standard Library and Host Services (like GranDB, HTTP ro
 
 ## The Integration Strategy
 
-The canonical implementations of Host Services live in `pkg/core` and related packages.
+The canonical implementations of Host Services live in `pkg/core` and related packages. 
 
 When `joss build` compiles a program that uses `GranDB::where(...)`:
 1. The Semantic Analyzer resolves this as a `host_service` call.

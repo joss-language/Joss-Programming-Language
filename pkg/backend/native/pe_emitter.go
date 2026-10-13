@@ -104,7 +104,6 @@ func PreparePERData(textLen int, rodata []byte) *PEImageLayout {
 		_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[i]))
 	}
 	_ = binary.Write(&rdata, binary.LittleEndian, uint64(0)) // Null terminator for KERNEL32
-
 	// joss_host.dll IAT
 	iatRVAs[7] = rdataRVA + iatOffset + 64
 	_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[7]))
@@ -115,16 +114,14 @@ func PreparePERData(textLen int, rodata []byte) *PEImageLayout {
 	_ = binary.Write(&rdata, binary.LittleEndian, rdataRVA+iltOffset) // OriginalFirstThunk (ILT RVA)
 	_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))          // TimeDateStamp
 	_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))          // ForwarderChain
-	_ = binary.Write(&rdata, binary.LittleEndian, dll1NameRVA)         // Name RVA
+	_ = binary.Write(&rdata, binary.LittleEndian, dll1NameRVA)        // Name RVA
 	_ = binary.Write(&rdata, binary.LittleEndian, rdataRVA+iatOffset) // FirstThunk (IAT RVA)
-
 	// Entry 1: joss_host.dll
 	_ = binary.Write(&rdata, binary.LittleEndian, rdataRVA+iltOffset+64) // OriginalFirstThunk (ILT RVA)
-	_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))          // TimeDateStamp
-	_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))          // ForwarderChain
-	_ = binary.Write(&rdata, binary.LittleEndian, dll2NameRVA)         // Name RVA
+	_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))             // TimeDateStamp
+	_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))             // ForwarderChain
+	_ = binary.Write(&rdata, binary.LittleEndian, dll2NameRVA)           // Name RVA
 	_ = binary.Write(&rdata, binary.LittleEndian, rdataRVA+iatOffset+64) // FirstThunk (IAT RVA)
-
 	// Entry 2: Null terminator (20 bytes)
 	rdata.Write(make([]byte, 20))
 
