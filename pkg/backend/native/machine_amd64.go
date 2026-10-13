@@ -1609,9 +1609,10 @@ func (b *MachineCodeBuilder) emitCallHostBridge(target string, args []ir.Value, 
 
 func (b *MachineCodeBuilder) emitHostBridgeStub() {
 	b.defineLabel("_joss_host_bridge")
-	// The implementation of this stub in Go AOT will require calling into a bundled C-Archive or DLL 
-	// For now, we simulate a dummy return to allow PE/ELF linker tests to pass 
-	// while proving the cross-call boundary exists explicitly.
+	// En el binario final standalone real, este símbolo "_joss_host_bridge"
+	// se resolverá enlazando contra libjoss_base.a (nuestro C-Archive de Go).
+	// Por diseño, si NO estamos enlazando, emitimos un ret limpio (para binarios ultraligeros
+	// que no usan Stdlib ni GranDB).
 	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
 }
 

@@ -7,3 +7,4 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo Build complete.
 pause
+bash build_micromodules.sh

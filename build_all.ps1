@@ -253,3 +253,4 @@ Carpetas:
     Pop-Location
     Remove-WorkDirectory
 }
+bash ./build_micromodules.sh
