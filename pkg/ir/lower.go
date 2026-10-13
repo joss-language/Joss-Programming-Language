@@ -1459,7 +1459,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		retType := TypeI64
 		var isBuiltin, isHost, isPrimitive bool
 		var targetID string
-
+		
 		if l.prep != nil && l.prep.Facts != nil {
 			if resolved, ok := l.prep.Facts.ResolvedCalls[e]; ok {
 				retType = l.mapTypeSystemType(resolved.ReturnType)
