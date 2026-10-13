@@ -10,7 +10,7 @@ de contratos y el handler enlazado. `mixed` no certifica aislamiento ni ausencia
 
 ## Auth
 
-Implementación: [executeAuthMethod](../pkg/core/auth.go#L15).
+Implementación: [executeAuthMethod](../pkg/core/auth.go#L16).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -41,7 +41,7 @@ Implementación: [executeAuthMethod](../pkg/core/auth.go#L15).
 
 ## AuthLoginResult
 
-Implementación: [executeAuthLoginResultMethod](../pkg/core/auth_fluent.go#L18).
+Implementación: [executeAuthLoginResultMethod](../pkg/core/auth_fluent.go#L19).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -391,7 +391,7 @@ Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
 
 ## MFA
 
-Implementación: [executeMFAMethod](../pkg/core/auth_fluent.go#L77).
+Implementación: [executeMFAMethod](../pkg/core/auth_fluent.go#L78).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -929,7 +929,7 @@ Implementación: [executeTaskMethod](../pkg/core/task.go#L10).
 
 ## TwoFactor
 
-Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L146).
+Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L147).
 
 | Método | Retorno publicado al analizador |
 |---|---|

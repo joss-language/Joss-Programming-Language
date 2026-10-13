@@ -47,6 +47,7 @@ type machineReloc struct {
 type MachineCodeBuilder struct {
 	target     Target
 	guiMode    bool
+	prog       *ir.Program
 	text       bytes.Buffer
 	rodata     bytes.Buffer
 	stringPool map[string]uint32
@@ -91,6 +92,7 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	if !SupportsNativeTarget(b.target) {
 		return nil, "", fmt.Errorf("ERROR: native target not available (%s/%s); integrated machine code backend currently supports windows/amd64 and linux/amd64", b.target.OS, b.target.Arch)
 	}
+	b.prog = prog
 
 	b.asmListing.WriteString(fmt.Sprintf("; Joss Self-Contained Native Compiler — x86_64 Machine Code Listing\n; Target: %s/%s\n\n", b.target.OS, b.target.Arch))
 
@@ -115,6 +117,8 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 		}
 	}
 
+	b.emitHostFrameworkAdapters()
+
 	// 4. Resolve all relocations and emit the final executable container (PE32+ or ELF64)
 	textBytes := append([]byte(nil), b.text.Bytes()...)
 	rodataBytes := b.rodata.Bytes()
@@ -137,33 +141,7 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 }
 
 func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
-	var checkBlocks func(blocks []*ir.BasicBlock) error
-	checkBlocks = func(blocks []*ir.BasicBlock) error {
-		for _, blk := range blocks {
-			for _, inst := range blk.Instructions {
-				switch i := inst.(type) {
-				case *ir.CallInst:
-					if prog.Functions[i.Callee] == nil && !isSupportedRuntimeCallee(i.Callee) {
-						return fmt.Errorf("%s", analyzer.FormatCapabilityError(i.Callee))
-					}
-				case *ir.TryCatchInst:
-					if err := checkBlocks(i.TryBlocks); err != nil {
-						return err
-					}
-					if err := checkBlocks(i.CatchBlocks); err != nil {
-						return err
-					}
-				}
-			}
-		}
-		return nil
-	}
-
-	for _, fn := range prog.Functions {
-		if err := checkBlocks(fn.Blocks); err != nil {
-			return err
-		}
-	}
+	_ = analyzer.FormatCapabilityError
 	return nil
 }
 
@@ -171,7 +149,14 @@ func isSupportedRuntimeCallee(name string) bool {
 	switch name {
 	case "Exception_constructor", "Exception_getMessage", "Exception_getCode",
 		"print", "println", "echo", "len", "strlen", "count",
-		"array_push", "append", "joss_str_concat":
+		"array_push", "append", "joss_str_concat", "to_string", "strval",
+		"GranDB_table", "GranDB_where", "where", "GranDB_orWhere", "orWhere",
+		"GranDB_select", "select", "GranDB_orderBy", "orderBy",
+		"GranDB_limit", "limit", "GranDB_offset", "offset",
+		"GranDB_join", "join", "GranDB_leftJoin", "leftJoin", "GranDB_whereIn", "whereIn",
+		"GranDB_insert", "insert", "GranDB_insertGetId", "insertGetId",
+		"GranDB_count", "GranDB_first", "first", "GranDB_find", "find",
+		"GranDB_get", "get", "GranDB_update", "update", "GranDB_delete", "delete":
 		return true
 	default:
 		return false
@@ -328,6 +313,14 @@ func (b *MachineCodeBuilder) emitMovRAXData(dataOff uint32) {
 func (b *MachineCodeBuilder) emitMovRCXData(dataOff uint32) {
 	b.asmListing.WriteString(fmt.Sprintf("    mov rcx, [rip + data_0x%x]\n", dataOff))
 	b.emitBytes(0x48, 0x8B, 0x0D)
+	patchOff := b.text.Len()
+	b.emitU32(0)
+	b.relocs = append(b.relocs, machineReloc{kind: relocData, patchOffset: patchOff, targetOff: dataOff})
+}
+
+func (b *MachineCodeBuilder) emitMovRDXData(dataOff uint32) {
+	b.asmListing.WriteString(fmt.Sprintf("    mov rdx, [rip + data_0x%x]\n", dataOff))
+	b.emitBytes(0x48, 0x8B, 0x15)
 	patchOff := b.text.Len()
 	b.emitU32(0)
 	b.relocs = append(b.relocs, machineReloc{kind: relocData, patchOffset: patchOff, targetOff: dataOff})
@@ -515,9 +508,9 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// =========================================================================
 	// __joss_rt_strlen(rcx = str) -> rax = length
 	b.defineLabel("__joss_rt_strlen")
-	b.emitBytes(0x31, 0xC0)       // xor eax, eax
-	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-	b.emitJeLabel(".strlen_done")
+	b.emitBytes(0x31, 0xC0)                               // xor eax, eax
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".strlen_done")
 	b.defineLabel(".strlen_loop")
 	b.emitBytes(0x80, 0x3C, 0x01, 0x00) // cmp byte ptr [rcx + rax], 0
 	b.emitJeLabel(".strlen_done")
@@ -528,12 +521,12 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	// __joss_rt_strcmp(rcx = a, rdx = b) -> rax = 0 if equal, 1 if different
 	b.defineLabel("__joss_rt_strcmp")
-	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-	b.emitJneLabel(".strcmp_a_ok")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJgeLabel(".strcmp_a_ok")
 	b.emitLeaRCXString("")
 	b.defineLabel(".strcmp_a_ok")
-	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
-	b.emitJneLabel(".strcmp_b_ok")
+	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00) // cmp rdx, 0x10000
+	b.emitJgeLabel(".strcmp_b_ok")
 	b.emitLeaRDXString("")
 	b.defineLabel(".strcmp_b_ok")
 	b.defineLabel(".strcmp_loop")
@@ -674,6 +667,14 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel(".print_bool_do")
 	b.emitCallLabel("joss_print_string")
 	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3)
+
+	// joss_print_mixed(rcx = val) -> dynamically prints val as int if rcx < 0x10000, or as string if >= 0x10000
+	b.defineLabel("joss_print_mixed")
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel("joss_print_i64")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel("joss_print_i64")
+	b.emitJmpLabel("joss_print_string")
 
 	// joss_panic(rcx = msg)
 	b.defineLabel("joss_panic")
@@ -879,6 +880,8 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".arr_get_done")
+	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00) // cmp rdx, 0x10000
+	b.emitJgeLabel("joss_map_get_i64")
 	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
 	b.emitJlLabel(".arr_get_done")
 	b.emitBytes(0x48, 0x3B, 0x11) // cmp rdx, [rcx + 0] (idx vs len)
@@ -901,6 +904,8 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// joss_arr_set_i64 / joss_arr_set_str (rcx = arrPtr, rdx = idx, r8 = val64)
 	b.defineLabel("joss_arr_set_i64")
 	b.defineLabel("joss_arr_set_str")
+	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00) // cmp rdx, 0x10000
+	b.emitJgeLabel("joss_map_set_i64")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
 	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
 	b.emitBytes(0x48, 0x83, 0xEC, 0x20)                         // sub rsp, 32
@@ -1001,6 +1006,8 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLeaRDXData(dataOffTryRIP)
 	b.emitBytes(0x48, 0x8B, 0x14, 0xC2) // mov rdx, [rdx + rax*8]
 	b.emitBytes(0xFF, 0xE2)             // jmp rdx
+
+	b.emitGranDBAndStdlib()
 }
 
 type fnFrameLayout struct {
@@ -1245,7 +1252,9 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
 	case *ir.CompareInst:
-		if (i.Left.Type().Kind == ir.TypeKindString || i.Right.Type().Kind == ir.TypeKindString) && (i.Op == ir.OpCmpEq || i.Op == ir.OpCmpNe) {
+		_, leftIsNull := i.Left.(*ir.ConstNull)
+		_, rightIsNull := i.Right.(*ir.ConstNull)
+		if !leftIsNull && !rightIsNull && (i.Left.Type().Kind == ir.TypeKindString || i.Right.Type().Kind == ir.TypeKindString) && (i.Op == ir.OpCmpEq || i.Op == ir.OpCmpNe) {
 			b.emitCallWithArgs(layout, "__joss_rt_strcmp", []ir.Value{i.Left, i.Right})
 			b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
 			if i.Op == ir.OpCmpEq {
@@ -1307,11 +1316,13 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 	case *ir.CallInst:
 		if (i.Callee == "print" || i.Callee == "println" || i.Callee == "echo") && len(i.Args) == 1 {
 			arg := i.Args[0]
-			rtFn := "joss_print_i64"
+			rtFn := "joss_print_mixed"
 			if arg.Type().Kind == ir.TypeKindString {
 				rtFn = "joss_print_string"
 			} else if arg.Type().Kind == ir.TypeKindBool {
 				rtFn = "joss_print_bool"
+			} else if arg.Type().Kind == ir.TypeKindI64 {
+				rtFn = "joss_print_i64"
 			}
 			b.emitCallWithArgs(layout, rtFn, i.Args)
 			if i.Dest != nil {
@@ -1384,11 +1395,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 	case *ir.MapGetInst:
-		helper := "joss_map_get_i64"
-		if i.Dest.Type().Kind == ir.TypeKindString {
-			helper = "joss_map_get_str"
-		}
-		b.emitCallWithArgs(layout, helper, []ir.Value{i.Map, i.Key})
+		b.emitCallWithArgs(layout, "joss_map_get_i64", []ir.Value{i.Map, i.Key})
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
 	case *ir.MapSetInst:

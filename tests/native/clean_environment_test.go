@@ -283,19 +283,17 @@ func TestCleanEnvironment003_NoExternalToolchainInvocationRegression(t *testing.
 func TestCleanEnvironment004_NoGoFallbackAndExplicitJOSSNative001(t *testing.T) {
 	// 1. Unsupported language feature -> JOSS-NATIVE-001
 	unsupportedSrc := `
-		var $items = [1, 2, 3];
-		foreach ($items as $x) {
-			echo $x;
-		}
+		public func cleanup(): void {}
+		defer cleanup();
 	`
 	p := jossparser.NewParser(jossparser.NewLexer(unsupportedSrc))
 	prog := p.ParseProgram()
-	units := []analyzer.SourceUnit{{Path: "unsupported_foreach.joss", Program: prog}}
+	units := []analyzer.SourceUnit{{Path: "unsupported_defer.joss", Program: prog}}
 	prep := analyzer.PrepareProgram(units, analyzer.NewEnvironment())
 	lowerer := ir.NewLowerer(prep, nil)
-	_, err := lowerer.LowerProgram("unsupported_foreach")
+	_, err := lowerer.LowerProgram("unsupported_defer")
 	if err == nil {
-		t.Fatal("expected unsupported feature 'foreach' to fail lowering with JOSS-NATIVE-001")
+		t.Fatal("expected unsupported feature 'defer' to fail lowering with JOSS-NATIVE-001")
 	}
 	if !strings.Contains(err.Error(), "JOSS-NATIVE-001") {
 		t.Errorf("expected JOSS-NATIVE-001 diagnostic, got: %v", err)

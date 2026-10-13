@@ -468,6 +468,8 @@ echo helper(8);
 		"ExitProcess:KERNEL32.dll":    true,
 		"GetProcessHeap:KERNEL32.dll": true,
 		"HeapAlloc:KERNEL32.dll":      true,
+		"LoadLibraryA:KERNEL32.dll":   true,
+		"GetProcAddress:KERNEL32.dll": true,
 	}
 	if len(imports) != len(expectedImports) {
 		t.Fatalf("expected %d KERNEL32 imports, got %d: %v", len(expectedImports), len(imports), imports)
@@ -631,17 +633,25 @@ try {
 		})
 	}
 
-	// Level 8: Unsupported dynamic iteration (foreach) -> Must fail with JOSS-NATIVE-001 (no fallback)
-	t.Run("Level_8_Unsupported_Construct_Explicit_Error", func(t *testing.T) {
-		src := `
-var $arr = [1, 2, 3];
+	// Level 8: Foreach and Match differential parity + Unsupported construct (defer) -> Must fail with JOSS-NATIVE-001 (no fallback)
+	t.Run("Level_8_Foreach_And_Unsupported_Defer_Explicit_Error", func(t *testing.T) {
+		foreachSrc := `
+var $arr = [10, 20, 30];
+int $sum = 0;
 foreach ($arr as $x) {
-	echo $x;
+	$sum = $sum + $x;
 }
+echo $sum;
 `
-		err := tryLowerSourceToIR(src)
+		assertStandaloneDifferentialParity(t, "Level_8_Foreach", foreachSrc)
+
+		deferSrc := `
+public func cleanup(): void {}
+defer cleanup();
+`
+		err := tryLowerSourceToIR(deferSrc)
 		if err == nil {
-			t.Fatalf("expected JOSS-NATIVE-001 on unsupported foreach statement")
+			t.Fatalf("expected JOSS-NATIVE-001 on unsupported defer statement")
 		}
 		if !strings.Contains(err.Error(), "JOSS-NATIVE-001") {
 			t.Fatalf("expected JOSS-NATIVE-001 diagnostic, got: %v", err)
