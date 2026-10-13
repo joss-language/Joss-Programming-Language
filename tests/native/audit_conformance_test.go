@@ -470,6 +470,7 @@ echo helper(8);
 		"HeapAlloc:KERNEL32.dll":      true,
 		"LoadLibraryA:KERNEL32.dll":   true,
 		"GetProcAddress:KERNEL32.dll": true,
+		"_joss_host_bridge:joss_host.dll": true,
 	}
 	if len(imports) != len(expectedImports) {
 		t.Fatalf("expected %d KERNEL32 imports, got %d: %v", len(expectedImports), len(imports), imports)

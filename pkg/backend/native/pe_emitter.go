@@ -12,7 +12,7 @@ const (
 	peTextRVA          uint32 = 0x1000
 )
 
-// WinImportSlot identifies the KERNEL32.dll IAT slots in the PE32+ binary.
+// WinImportSlot identifies the KERNEL32.dll and joss_host.dll IAT slots in the PE32+ binary.
 type WinImportSlot int
 
 const (
@@ -23,6 +23,7 @@ const (
 	IATExitProcess
 	IATLoadLibraryA
 	IATGetProcAddress
+	IATJossHostBridge // For _joss_host_bridge in joss_host.dll
 	iatSlotCount
 )
 
@@ -36,26 +37,32 @@ type PEImageLayout struct {
 	RDataBuf  []byte
 }
 
-// PreparePERData constructs the .rdata section containing the KERNEL32.dll Import Table
+// PreparePERData constructs the .rdata section containing the KERNEL32.dll and joss_host.dll Import Table
 // (IAT, Import Directory Table, ILT, Hint/Name table) followed by read-only program data (rodata).
 func PreparePERData(textLen int, rodata []byte) *PEImageLayout {
 	rdataRVA := alignUpU32(peTextRVA+uint32(textLen), peSectionAlignment)
 
 	// Layout inside .rdata:
-	// [0x00 .. 0x40): IAT (7 uint64 entries + 1 uint64 null terminator = 64 bytes)
-	// [0x40 .. 0x68): Import Directory Table (2 * 20 bytes = 40 bytes)
-	// [0x68 .. 0xA8): ILT (7 uint64 entries + 1 uint64 null terminator = 64 bytes)
-	// [0xA8 ..     ): DLL Name ("KERNEL32.dll\0") + Hint/Name entries
+	// [0x00 .. 0x48): IAT for KERNEL32 (7 entries + 1 null = 64 bytes) + IAT for joss_host (1 entry + 1 null = 16 bytes) (Total 80 bytes)
+	// [0x50 .. 0x8C): Import Directory Table (3 * 20 bytes = 60 bytes)
+	// [0x8C .. 0xDC): ILT for KERNEL32 (64 bytes) + ILT for joss_host (16 bytes) (Total 80 bytes)
+	// [0xDC ..     ): DLL Names ("KERNEL32.dll\0", "joss_host.dll\0") + Hint/Name entries
 	const (
 		iatOffset = 0x00
-		idtOffset = 0x40
-		iltOffset = 0x68
-		strOffset = 0xA8
+		idtOffset = 0x50
+		iltOffset = 0x8C
+		strOffset = 0xDC
 	)
 
 	var tail bytes.Buffer
-	dllNameRVA := rdataRVA + strOffset
+	dll1NameRVA := rdataRVA + strOffset
 	tail.WriteString("KERNEL32.dll\x00")
+	if tail.Len()%2 != 0 {
+		tail.WriteByte(0)
+	}
+
+	dll2NameRVA := rdataRVA + strOffset + uint32(tail.Len())
+	tail.WriteString("joss_host.dll\x00")
 	if tail.Len()%2 != 0 {
 		tail.WriteByte(0)
 	}
@@ -68,6 +75,7 @@ func PreparePERData(textLen int, rodata []byte) *PEImageLayout {
 		"ExitProcess",
 		"LoadLibraryA",
 		"GetProcAddress",
+		"_joss_host_bridge", // slot 7
 	}
 
 	var hintNameRVAs [iatSlotCount]uint32
@@ -88,28 +96,46 @@ func PreparePERData(textLen int, rodata []byte) *PEImageLayout {
 	rodataRVA := rdataRVA + rodataOffset
 
 	var rdata bytes.Buffer
-	// 1. IAT (64 bytes)
+	// 1. IAT (80 bytes)
 	var iatRVAs [iatSlotCount]uint32
-	for i := 0; i < int(iatSlotCount); i++ {
+	// KERNEL32.dll IAT
+	for i := 0; i < 7; i++ {
 		iatRVAs[i] = rdataRVA + iatOffset + uint32(i*8)
 		_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[i]))
 	}
-	_ = binary.Write(&rdata, binary.LittleEndian, uint64(0)) // Null terminator
+	_ = binary.Write(&rdata, binary.LittleEndian, uint64(0)) // Null terminator for KERNEL32
 
-	// 2. Import Directory Table (40 bytes)
+	// joss_host.dll IAT
+	iatRVAs[7] = rdataRVA + iatOffset + 64
+	_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[7]))
+	_ = binary.Write(&rdata, binary.LittleEndian, uint64(0)) // Null terminator for joss_host.dll
+
+	// 2. Import Directory Table (60 bytes)
 	// Entry 0: KERNEL32.dll
 	_ = binary.Write(&rdata, binary.LittleEndian, rdataRVA+iltOffset) // OriginalFirstThunk (ILT RVA)
 	_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))          // TimeDateStamp
 	_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))          // ForwarderChain
-	_ = binary.Write(&rdata, binary.LittleEndian, dllNameRVA)         // Name RVA
+	_ = binary.Write(&rdata, binary.LittleEndian, dll1NameRVA)         // Name RVA
 	_ = binary.Write(&rdata, binary.LittleEndian, rdataRVA+iatOffset) // FirstThunk (IAT RVA)
-	// Entry 1: Null terminator (20 bytes)
+
+	// Entry 1: joss_host.dll
+	_ = binary.Write(&rdata, binary.LittleEndian, rdataRVA+iltOffset+64) // OriginalFirstThunk (ILT RVA)
+	_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))          // TimeDateStamp
+	_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))          // ForwarderChain
+	_ = binary.Write(&rdata, binary.LittleEndian, dll2NameRVA)         // Name RVA
+	_ = binary.Write(&rdata, binary.LittleEndian, rdataRVA+iatOffset+64) // FirstThunk (IAT RVA)
+
+	// Entry 2: Null terminator (20 bytes)
 	rdata.Write(make([]byte, 20))
 
-	// 3. ILT (64 bytes)
-	for i := 0; i < int(iatSlotCount); i++ {
+	// 3. ILT (80 bytes)
+	// KERNEL32.dll ILT
+	for i := 0; i < 7; i++ {
 		_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[i]))
 	}
+	_ = binary.Write(&rdata, binary.LittleEndian, uint64(0))
+	// joss_host.dll ILT
+	_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[7]))
 	_ = binary.Write(&rdata, binary.LittleEndian, uint64(0))
 
 	// 4. Strings + Hint/Name table
@@ -138,10 +164,10 @@ func PreparePERData(textLen int, rodata []byte) *PEImageLayout {
 func EmitPE32PlusExecutable(layout *PEImageLayout, textBytes []byte, dataSize uint32, guiSubsystem bool) []byte {
 	const (
 		headersFileSize = 0x0200 // 512 bytes (DOS 64 + PE 4 + COFF 20 + Opt 240 + 3*40 SecHdr = 448 <= 512)
-		idtOffsetInRDat = 0x40
-		idtSize         = 40
+		idtOffsetInRDat = 0x50
+		idtSize         = 60
 		iatOffsetInRDat = 0x00
-		iatSize         = 64
+		iatSize         = 80
 	)
 
 	textRawSize := alignUpU32(uint32(len(textBytes)), peFileAlignment)
