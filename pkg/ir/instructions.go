@@ -201,6 +201,88 @@ func (i *CallInst) String() string {
 	return fmt.Sprintf("call @%s(%s)", i.Callee, argsStr)
 }
 
+// CallBuiltinInst: [%dst =] call_builtin builtinID(args...)
+type CallBuiltinInst struct {
+	Dest      *TempValue // Puede ser nil si retorna void
+	BuiltinID string
+	Args      []Value
+}
+
+func (i *CallBuiltinInst) Opcode() Opcode     { return OpCall }
+func (i *CallBuiltinInst) Result() *TempValue { return i.Dest }
+func (i *CallBuiltinInst) Operands() []Value  { return i.Args }
+func (i *CallBuiltinInst) String() string {
+	argsStr := ""
+	for idx, a := range i.Args {
+		if idx > 0 {
+			argsStr += ", "
+		}
+		argsStr += a.String()
+	}
+	return fmt.Sprintf("call_builtin %s(%s)", i.BuiltinID, argsStr)
+}
+
+// CallPrimitiveMethodInst: [%dst =] call_primitive typeKind.methodName(recv, args...)
+type CallPrimitiveMethodInst struct {
+	Dest       *TempValue
+	TypeKind   string
+	MethodName string
+	Recv       Value
+	Args       []Value
+}
+
+func (i *CallPrimitiveMethodInst) Opcode() Opcode     { return OpCall }
+func (i *CallPrimitiveMethodInst) Result() *TempValue { return i.Dest }
+func (i *CallPrimitiveMethodInst) Operands() []Value {
+	ops := []Value{i.Recv}
+	ops = append(ops, i.Args...)
+	return ops
+}
+func (i *CallPrimitiveMethodInst) String() string {
+	argsStr := ""
+	for idx, a := range i.Args {
+		if idx > 0 {
+			argsStr += ", "
+		}
+		argsStr += a.String()
+	}
+	return fmt.Sprintf("call_primitive %s.%s(%s, %s)", i.TypeKind, i.MethodName, i.Recv, argsStr)
+}
+
+// CallHostServiceInst: [%dst =] call_host className::methodName(recv, args...)
+type CallHostServiceInst struct {
+	Dest       *TempValue
+	ClassName  string
+	MethodName string
+	Recv       Value
+	Args       []Value
+}
+
+func (i *CallHostServiceInst) Opcode() Opcode     { return OpCall }
+func (i *CallHostServiceInst) Result() *TempValue { return i.Dest }
+func (i *CallHostServiceInst) Operands() []Value {
+	ops := []Value{}
+	if i.Recv != nil {
+		ops = append(ops, i.Recv)
+	}
+	ops = append(ops, i.Args...)
+	return ops
+}
+func (i *CallHostServiceInst) String() string {
+	argsStr := ""
+	for idx, a := range i.Args {
+		if idx > 0 {
+			argsStr += ", "
+		}
+		argsStr += a.String()
+	}
+	recvStr := "nil"
+	if i.Recv != nil {
+		recvStr = i.Recv.String()
+	}
+	return fmt.Sprintf("call_host %s::%s(%s, %s)", i.ClassName, i.MethodName, recvStr, argsStr)
+}
+
 // CallRuntimeInst: [%dst =] call_runtime "func"(args...)
 type CallRuntimeInst struct {
 	Dest *TempValue
