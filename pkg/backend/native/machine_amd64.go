@@ -118,6 +118,7 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	}
 
 	b.emitHostBridgeStub()
+	b.emitToStringStub()
 
 	// 4. Resolve all relocations and emit the final executable container (PE32+ or ELF64)
 	textBytes := append([]byte(nil), b.text.Bytes()...)
@@ -148,8 +149,6 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 func isSupportedRuntimeCallee(name string) bool {
 	switch name {
 	case "Exception_constructor", "Exception_getMessage", "Exception_getCode",
-		"print", "println", "echo", "len", "strlen", "count",
-		"array_push", "append", "joss_str_concat", "to_string", "strval",
 		"GranDB_table", "GranDB_where", "where", "GranDB_orWhere", "orWhere",
 		"GranDB_select", "select", "GranDB_orderBy", "orderBy",
 		"GranDB_limit", "limit", "GranDB_offset", "offset",
@@ -1324,7 +1323,18 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
 	case *ir.CallBuiltinInst:
-		b.emitCallHostBridge(i.BuiltinID, i.Args, i.Dest, layout, "builtin")
+		if i.BuiltinID == "strlen" || i.BuiltinID == "len" || i.BuiltinID == "count" || i.BuiltinID == "array_push" || i.BuiltinID == "append" || i.BuiltinID == "to_string" {
+			fnLabel := "fn_" + i.BuiltinID
+			if i.BuiltinID == "to_string" {
+				fnLabel = "joss_to_string"
+			}
+			b.emitCallWithArgs(layout, fnLabel, i.Args)
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
+		} else {
+			b.emitCallHostBridge(i.BuiltinID, i.Args, i.Dest, layout, "builtin")
+		}
 	case *ir.CallPrimitiveMethodInst:
 		// We can directly use Host Bridge for primitives or emit inline native code if needed.
 		// For now, redirect to host bridge
@@ -1363,7 +1373,17 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 	case *ir.CallRuntimeInst:
-		b.emitCallWithArgs(layout, "joss_"+i.Func, i.Args)
+		if isSupportedRuntimeCallee(i.Func) {
+			b.emitCallHostBridge(i.Func, i.Args, i.Dest, layout, "legacy_runtime")
+		} else {
+			if i.Func == "to_string" || i.Func == "strval" {
+				b.emitCallWithArgs(layout, "joss_to_string", i.Args)
+			} else if i.Func == "str_concat" {
+				b.emitCallWithArgs(layout, "joss_str_concat", i.Args)
+			} else {
+				b.emitCallWithArgs(layout, "joss_"+i.Func, i.Args)
+			}
+		}
 		if i.Dest != nil {
 			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 		}
@@ -1592,5 +1612,12 @@ func (b *MachineCodeBuilder) emitHostBridgeStub() {
 	// The implementation of this stub in Go AOT will require calling into a bundled C-Archive or DLL
 	// For now, we simulate a dummy return to allow PE/ELF linker tests to pass
 	// while proving the cross-call boundary exists explicitly.
+	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
+}
+
+func (b *MachineCodeBuilder) emitToStringStub() {
+	b.defineLabel("joss_to_string")
+	b.defineLabel("fn_to_string")
+	b.defineLabel("fn_strval")
 	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
 }

@@ -1503,7 +1503,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		if isBuiltin {
 			l.currBlock.AddInstruction(&CallBuiltinInst{
 				Dest:      dest,
-				BuiltinID: targetID,
+				BuiltinID: calleeName,
 				Args:      args,
 			})
 		} else if isPrimitive {
@@ -1529,11 +1529,30 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				Args:       args,
 			})
 		} else {
-			l.currBlock.AddInstruction(&CallInst{
-				Dest:   dest,
-				Callee: calleeName,
-				Args:   args,
-			})
+			if calleeName == "strlen" || calleeName == "count" || calleeName == "len" || calleeName == "array_push" || calleeName == "append" || calleeName == "to_string" {
+				l.currBlock.AddInstruction(&CallBuiltinInst{
+					Dest:      dest,
+					BuiltinID: calleeName,
+					Args:      args,
+				})
+			} else if strings.HasPrefix(calleeName, "GranDB_") {
+				parts := strings.SplitN(calleeName, "_", 2)
+				className := parts[0]
+				methodName := parts[1]
+				l.currBlock.AddInstruction(&CallHostServiceInst{
+					Dest:       dest,
+					ClassName:  className,
+					MethodName: methodName,
+					Recv:       receiverObj,
+					Args:       args,
+				})
+			} else {
+				l.currBlock.AddInstruction(&CallInst{
+					Dest:   dest,
+					Callee: calleeName,
+					Args:   args,
+				})
+			}
 		}
 
 		if dest != nil {
