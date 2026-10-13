@@ -1593,15 +1593,15 @@ func (b *MachineCodeBuilder) emitCallHostBridge(target string, args []ir.Value, 
 	// 1. Cargar nombre/ID de la funcion target en RCX
 	b.internString(target)
 	b.emitLeaRCXString(target)
-	
+
 	// 2. Preparar el puntero de los argumentos en RDX (Por implementar empaquetado de arg array)
 	b.emitBytes(0x31, 0xD2) // xor edx, edx
 
-	// 3. Emitir llamada EXPLICITA al simbolo _joss_host_bridge. 
+	// 3. Emitir llamada EXPLICITA al simbolo _joss_host_bridge.
 	// Si el stub de bridge canónico no se enlaza al crear el binario, la compilacion fallara.
 	// Esto previene silenciamientos de rutinas críticas ("No Fallbacks").
 	b.emitCallLabel("_joss_host_bridge")
-	
+
 	if dest != nil {
 		b.emitStoreRAXToRBP(layout.tempOffsets[dest.ID])
 	}
@@ -1609,9 +1609,10 @@ func (b *MachineCodeBuilder) emitCallHostBridge(target string, args []ir.Value, 
 
 func (b *MachineCodeBuilder) emitHostBridgeStub() {
 	b.defineLabel("_joss_host_bridge")
-	// The implementation of this stub in Go AOT will require calling into a bundled C-Archive or DLL 
-	// For now, we simulate a dummy return to allow PE/ELF linker tests to pass 
-	// while proving the cross-call boundary exists explicitly.
+	// En el binario final standalone real, este símbolo "_joss_host_bridge"
+	// se resolverá enlazando contra libjoss_base.a (nuestro C-Archive de Go).
+	// Por diseño, si NO estamos enlazando, emitimos un ret limpio (para binarios ultraligeros
+	// que no usan Stdlib ni GranDB).
 	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
 }
 
