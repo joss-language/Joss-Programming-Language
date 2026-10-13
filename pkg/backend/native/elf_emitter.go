@@ -29,7 +29,7 @@ func PrepareELFLayout(textLen int, rodataLen int) *ELFImageLayout {
 	}
 }
 
-// EmitELF64Executable serializes a Linux x86_64 ELF64 executable.
+// EmitELF64Executable serializes a static Linux x86_64 ELF64 executable with zero external dynamic libraries.
 func EmitELF64Executable(layout *ELFImageLayout, textBytes []byte, rodataBytes []byte, dataSize uint32) []byte {
 	var out bytes.Buffer
 
