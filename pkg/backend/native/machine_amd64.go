@@ -1593,15 +1593,15 @@ func (b *MachineCodeBuilder) emitCallHostBridge(target string, args []ir.Value, 
 	// 1. Cargar nombre/ID de la funcion target en RCX
 	b.internString(target)
 	b.emitLeaRCXString(target)
-	
+
 	// 2. Preparar el puntero de los argumentos en RDX (Por implementar empaquetado de arg array)
 	b.emitBytes(0x31, 0xD2) // xor edx, edx
 
-	// 3. Emitir llamada EXPLICITA al simbolo _joss_host_bridge. 
+	// 3. Emitir llamada EXPLICITA al simbolo _joss_host_bridge.
 	// Si el stub de bridge canónico no se enlaza al crear el binario, la compilacion fallara.
 	// Esto previene silenciamientos de rutinas críticas ("No Fallbacks").
 	b.emitCallLabel("_joss_host_bridge")
-	
+
 	if dest != nil {
 		b.emitStoreRAXToRBP(layout.tempOffsets[dest.ID])
 	}

@@ -74,9 +74,6 @@ func (b *StandaloneBuilder) BuildNativeExecutableWithOptions(prog *ir.Program, o
 	// emits the ABI call, and only conditionally flags the binary for C-Archive inclusion.
 	_ = needsHostBridge
 	_ = asmSource
-
-	// Override early return so the logic above isn't stripped out by compiler optimization
-	err = nil
 	if err != nil {
 		return err
 	}
