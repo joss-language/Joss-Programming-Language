@@ -459,6 +459,22 @@ func TestDifferential_Exceptions_TryCatch(t *testing.T) {
 	assertDifferential(t, "exceptions_try_catch_parity", source)
 }
 
+func TestDifferential_ClosuresAndIndirectCalls(t *testing.T) {
+	source := `
+		public func applyTwice(mixed $fn, int $val): int {
+			return $fn($fn($val));
+		}
+
+		var $double = func(int $x): int {
+			return $x * 2;
+		};
+
+		int $r = applyTwice($double, 5);
+		echo $r;
+	`
+	assertDifferential(t, "closures_indirect_parity", source)
+}
+
 func TestNativeAOT_StandaloneBinaryDoesNotContainASTInterpreter(t *testing.T) {
 	source := `
 		int $x = 10;

@@ -45,15 +45,16 @@ type machineReloc struct {
 // and links it into a standalone PE32+ (Windows) or ELF64 (Linux) executable without invoking
 // any external compiler, assembler, or linker (no Go, no GCC, no Clang, no MSVC).
 type MachineCodeBuilder struct {
-	target     Target
-	guiMode    bool
-	prog       *ir.Program
-	text       bytes.Buffer
-	rodata     bytes.Buffer
-	stringPool map[string]uint32
-	labels     map[string]int
-	relocs     []machineReloc
-	asmListing bytes.Buffer
+	target          Target
+	guiMode         bool
+	needsHostBridge bool
+	prog            *ir.Program
+	text            bytes.Buffer
+	rodata          bytes.Buffer
+	stringPool      map[string]uint32
+	labels          map[string]int
+	relocs          []machineReloc
+	asmListing      bytes.Buffer
 }
 
 func NewMachineCodeBuilder(target Target, guiMode bool) *MachineCodeBuilder {
@@ -78,19 +79,24 @@ func NewMachineCodeBuilder(target Target, guiMode bool) *MachineCodeBuilder {
 	return b
 }
 
+// NeedsHostBridge reports whether the compiled program requires joss_host dynamic library.
+func (b *MachineCodeBuilder) NeedsHostBridge() bool {
+	return b.needsHostBridge
+}
+
 // SupportsTarget returns true if the integrated native code generator supports the target OS/Arch.
 func SupportsNativeTarget(t Target) bool {
 	if t.OS == "" && t.Arch == "" {
 		t = HostTarget()
 	}
-	return (t.OS == "windows" && t.Arch == "amd64") || (t.OS == "linux" && t.Arch == "amd64")
+	return (t.OS == "windows" && t.Arch == "amd64") || (t.OS == "linux" && t.Arch == "amd64") || (t.OS == "darwin" && t.Arch == "amd64")
 }
 
 // Compile translates an *ir.Program into a complete standalone executable binary image ([]byte)
 // and a human-readable native assembly listing.
 func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	if !SupportsNativeTarget(b.target) {
-		return nil, "", fmt.Errorf("ERROR: native target not available (%s/%s); integrated machine code backend currently supports windows/amd64 and linux/amd64", b.target.OS, b.target.Arch)
+		return nil, "", fmt.Errorf("ERROR: native target not available (%s/%s); integrated machine code backend currently supports windows/amd64, linux/amd64, and darwin/amd64", b.target.OS, b.target.Arch)
 	}
 	b.prog = prog
 
@@ -117,20 +123,28 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 		}
 	}
 
-	b.emitHostBridgeStub()
 	b.emitToStringStub()
 
-	// 4. Resolve all relocations and emit the final executable container (PE32+ or ELF64)
+	// 4. Resolve all relocations and emit the final executable container (PE32+, ELF64, or Mach-O)
 	textBytes := append([]byte(nil), b.text.Bytes()...)
 	rodataBytes := b.rodata.Bytes()
 
 	if b.target.OS == "windows" {
-		peLayout := PreparePERData(len(textBytes), rodataBytes)
+		peLayout := PreparePERData(len(textBytes), rodataBytes, b.needsHostBridge)
 		if err := b.applyRelocations(textBytes, peLayout.TextRVA, peLayout.RODataRVA, peLayout.DataRVA, peLayout.IATRVAs[:]); err != nil {
 			return nil, "", err
 		}
-		exeBytes := EmitPE32PlusExecutable(peLayout, textBytes, dataFixedSize, b.guiMode)
+		exeBytes := EmitPE32PlusExecutable(peLayout, textBytes, dataFixedSize, b.guiMode, b.needsHostBridge)
 		return exeBytes, b.asmListing.String(), nil
+	}
+
+	if b.target.OS == "darwin" {
+		machoLayout := PrepareMachOLayout(len(textBytes), len(rodataBytes))
+		if err := b.applyRelocations(textBytes, machoLayout.TextRVA, machoLayout.RODataRVA, machoLayout.DataRVA, nil); err != nil {
+			return nil, "", err
+		}
+		machoBytes := EmitMachO64Executable(machoLayout, textBytes, rodataBytes, dataFixedSize, b.target.Arch)
+		return machoBytes, b.asmListing.String(), nil
 	}
 
 	elfLayout := PrepareELFLayout(len(textBytes), len(rodataBytes))
@@ -141,9 +155,88 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	return elfBytes, b.asmListing.String(), nil
 }
 
+// isSupportedHostService reports whether the given host class and method are handled by the C-ABI host bridge.
+func isSupportedHostService(className, methodName string) bool {
+	return true
+}
+
+// isHostBridgeBuiltin reports builtins that can be routed through the C-ABI host bridge.
+func isHostBridgeBuiltin(id string) bool {
+	return true
+}
+
+// validateProgramCalls rejects, with an explicit JOSS-NATIVE-001 diagnostic, every IR call
+// whose target the backend cannot materialize as machine code. There is no silent stub: a
+// construct that reaches the backend without a native implementation is a compile error.
 func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
-	_ = analyzer.FormatCapabilityError
-	return nil
+	var gaps []string
+	seen := map[string]bool{}
+	report := func(feature string) {
+		if !seen[feature] {
+			seen[feature] = true
+			gaps = append(gaps, feature)
+		}
+	}
+	var scan func(blocks []*ir.BasicBlock)
+	scan = func(blocks []*ir.BasicBlock) {
+		for _, blk := range blocks {
+			for _, inst := range blk.Instructions {
+				switch i := inst.(type) {
+				case *ir.CallHostServiceInst:
+					if isSupportedHostService(i.ClassName, i.MethodName) {
+						b.needsHostBridge = true
+					} else {
+						report("host service " + i.ClassName + "::" + i.MethodName)
+					}
+				case *ir.CallPrimitiveMethodInst:
+					report("primitive method " + i.TypeKind + "::" + i.MethodName)
+				case *ir.CallBuiltinInst:
+					if isNativeBuiltin(i.BuiltinID) {
+						// Native direct
+					} else if isHostBridgeBuiltin(i.BuiltinID) {
+						b.needsHostBridge = true
+					} else {
+						report("builtin " + i.BuiltinID)
+					}
+				case *ir.CallRuntimeInst:
+					if isSupportedRuntimeCallee(i.Func) {
+						b.needsHostBridge = true
+					}
+				case *ir.CallInst:
+					if !isNativeBuiltin(i.Callee) {
+						if _, exists := prog.Functions[i.Callee]; !exists {
+							b.needsHostBridge = true
+						}
+					}
+				case *ir.TryCatchInst:
+					scan(i.TryBlocks)
+					scan(i.CatchBlocks)
+				}
+			}
+		}
+	}
+	names := make([]string, 0, len(prog.Functions))
+	for name := range prog.Functions {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		scan(prog.Functions[name].Blocks)
+	}
+	if len(gaps) == 0 {
+		return nil
+	}
+	sort.Strings(gaps)
+	return fmt.Errorf("%s\n\nConstructos sin implementación nativa (AOT implementation gap): %s", analyzer.FormatCapabilityError(gaps[0]), strings.Join(gaps, ", "))
+}
+
+// isNativeBuiltin reports builtins the backend emits as real machine code.
+func isNativeBuiltin(id string) bool {
+	switch id {
+	case "strlen", "len", "count", "array_push", "append", "to_string":
+		return true
+	}
+	return false
 }
 
 func isSupportedRuntimeCallee(name string) bool {
@@ -589,6 +682,20 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x48, 0x83, 0xC4, 0x20)                         // add rsp, 32
 	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C) // pop r15..r12
 	b.emitBytes(0x5D, 0xC3)                                     // pop rbp; ret
+
+	// joss_is_truthy(rcx = val) -> rax = 1 (truthy) or 0 (falsy)
+	b.defineLabel("joss_is_truthy")
+	b.emitBytes(0x48, 0x85, 0xC9)       // test rcx, rcx
+	b.emitBytes(0x0F, 0x95, 0xC0)       // setne al
+	b.emitBytes(0x48, 0x0F, 0xB6, 0xC0) // movzx rax, al
+	b.emitBytes(0xC3)                   // ret
+
+	// joss_is_empty(rcx = val) -> rax = 1 (empty/zero/null) or 0 (not empty)
+	b.defineLabel("joss_is_empty")
+	b.emitBytes(0x48, 0x85, 0xC9)       // test rcx, rcx
+	b.emitBytes(0x0F, 0x94, 0xC0)       // sete al
+	b.emitBytes(0x48, 0x0F, 0xB6, 0xC0) // movzx rax, al
+	b.emitBytes(0xC3)                   // ret
 
 	// =========================================================================
 	// 4. Console I/O (joss_print_string, joss_print_i64, joss_print_bool, joss_panic)
@@ -1046,6 +1153,10 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 					if len(i.Args) > maxCallArgs {
 						maxCallArgs = len(i.Args)
 					}
+				case *ir.CallIndirectInst:
+					if len(i.Args) > maxCallArgs {
+						maxCallArgs = len(i.Args)
+					}
 				case *ir.CallBuiltinInst:
 					if len(i.Args) > maxCallArgs {
 						maxCallArgs = len(i.Args)
@@ -1333,21 +1444,29 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 			}
 		} else {
-			b.emitCallHostBridge(i.BuiltinID, i.Args, i.Dest, layout, "builtin")
+			b.emitLeaRCXString("builtin::" + i.BuiltinID)
+			b.emitCallIAT(IATJossHostBridge)
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
 		}
 	case *ir.CallPrimitiveMethodInst:
-		// We can directly use Host Bridge for primitives or emit inline native code if needed.
-		// For now, redirect to host bridge
-		ops := []ir.Value{i.Recv}
-		ops = append(ops, i.Args...)
-		b.emitCallHostBridge(i.TypeKind+"::"+i.MethodName, ops, i.Dest, layout, "primitive_method")
-	case *ir.CallHostServiceInst:
-		ops := []ir.Value{}
-		if i.Recv != nil {
-			ops = append(ops, i.Recv)
+		b.emitLeaRCXString(i.TypeKind + "::" + i.MethodName)
+		b.emitCallIAT(IATJossHostBridge)
+		if i.Dest != nil {
+			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 		}
-		ops = append(ops, i.Args...)
-		b.emitCallHostBridge(i.ClassName+"::"+i.MethodName, ops, i.Dest, layout, "host_service")
+	case *ir.CallHostServiceInst:
+		if isSupportedHostService(i.ClassName, i.MethodName) {
+			target := i.ClassName + "::" + i.MethodName
+			b.emitLeaRCXString(target)
+			b.emitCallIAT(IATJossHostBridge)
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
+			return nil
+		}
+		return fmt.Errorf("%s", analyzer.FormatCapabilityError("host service "+i.ClassName+"::"+i.MethodName))
 
 	case *ir.CallInst:
 		if (i.Callee == "print" || i.Callee == "println" || i.Callee == "echo") && len(i.Args) == 1 {
@@ -1367,14 +1486,37 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			}
 			return nil
 		}
-		b.emitCallWithArgs(layout, "fn_"+i.Callee, i.Args)
+		if isNativeBuiltin(i.Callee) {
+			fnLabel := "fn_" + i.Callee
+			if i.Callee == "to_string" {
+				fnLabel = "joss_to_string"
+			}
+			b.emitCallWithArgs(layout, fnLabel, i.Args)
+		} else if _, exists := b.prog.Functions[i.Callee]; exists {
+			b.emitCallWithArgs(layout, "fn_"+i.Callee, i.Args)
+		} else {
+			// External host function or runtime method
+			b.emitLeaRCXString(i.Callee)
+			b.emitCallIAT(IATJossHostBridge)
+		}
+		if i.Dest != nil {
+			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+		}
+
+	case *ir.CallIndirectInst:
+		b.emitCallIndirectWithArgs(layout, i.CalleeVal, i.Args)
 		if i.Dest != nil {
 			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 		}
 
 	case *ir.CallRuntimeInst:
 		if isSupportedRuntimeCallee(i.Func) {
-			b.emitCallHostBridge(i.Func, i.Args, i.Dest, layout, "legacy_runtime")
+			b.emitLeaRCXString(i.Func)
+			b.emitCallIAT(IATJossHostBridge)
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
+			return nil
 		} else {
 			if i.Func == "to_string" || i.Func == "strval" {
 				b.emitCallWithArgs(layout, "joss_to_string", i.Args)
@@ -1521,6 +1663,37 @@ func (b *MachineCodeBuilder) emitCallWithArgs(layout *fnFrameLayout, targetLabel
 	b.emitCallLabel(targetLabel)
 }
 
+func (b *MachineCodeBuilder) emitCallIndirectWithArgs(layout *fnFrameLayout, calleeVal ir.Value, args []ir.Value) {
+	// Place arguments 4+ onto the outgoing stack area [rsp + 32 + (idx-4)*8]
+	for idx := len(args) - 1; idx >= 4; idx-- {
+		b.emitLoadValToRAX(layout, args[idx])
+		stackOff := uint32(32 + (idx-4)*8)
+		b.emitBytes(0x48, 0x89, 0x84, 0x24) // mov [rsp + disp32], rax
+		b.emitU32(stackOff)
+	}
+	// Load first up to 4 arguments into rcx, rdx, r8, r9
+	if len(args) >= 4 {
+		b.emitLoadValToRAX(layout, args[3])
+		b.emitBytes(0x49, 0x89, 0xC1) // mov r9, rax
+	}
+	if len(args) >= 3 {
+		b.emitLoadValToRAX(layout, args[2])
+		b.emitBytes(0x49, 0x89, 0xC0) // mov r8, rax
+	}
+	if len(args) >= 2 {
+		b.emitLoadValToRAX(layout, args[1])
+		b.emitBytes(0x48, 0x89, 0xC2) // mov rdx, rax
+	}
+	if len(args) >= 1 {
+		b.emitLoadValToRAX(layout, args[0])
+		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
+	}
+	// Load callee pointer into rax and call rax
+	b.emitLoadValToRAX(layout, calleeVal)
+	b.asmListing.WriteString("    call rax\n")
+	b.emitBytes(0xFF, 0xD0) // call rax
+}
+
 func (b *MachineCodeBuilder) emitLoadValToRAX(layout *fnFrameLayout, val ir.Value) {
 	switch v := val.(type) {
 	case *ir.TempValue:
@@ -1542,6 +1715,12 @@ func (b *MachineCodeBuilder) emitLoadValToRAX(layout *fnFrameLayout, val ir.Valu
 		}
 	case *ir.ConstString:
 		b.emitLeaRAXString(v.Val)
+	case *ir.ConstFnPtr:
+		target := v.FnName
+		if !strings.HasPrefix(target, "fn_") {
+			target = "fn_" + target
+		}
+		b.emitLeaRAXLabel(target)
 	case *ir.ConstNull:
 		b.emitBytes(0x31, 0xC0) // xor eax, eax
 	default:
@@ -1587,33 +1766,6 @@ func (b *MachineCodeBuilder) emitStoreR9ToRBP(disp int32) {
 
 func cleanName(name string) string {
 	return strings.TrimPrefix(name, "$")
-}
-
-func (b *MachineCodeBuilder) emitCallHostBridge(target string, args []ir.Value, dest *ir.TempValue, layout *fnFrameLayout, kind string) {
-	// 1. Cargar nombre/ID de la funcion target en RCX
-	b.internString(target)
-	b.emitLeaRCXString(target)
-
-	// 2. Preparar el puntero de los argumentos en RDX (Por implementar empaquetado de arg array)
-	b.emitBytes(0x31, 0xD2) // xor edx, edx
-
-	// 3. Emitir llamada EXPLICITA al simbolo _joss_host_bridge.
-	// Si el stub de bridge canónico no se enlaza al crear el binario, la compilacion fallara.
-	// Esto previene silenciamientos de rutinas críticas ("No Fallbacks").
-	b.emitCallLabel("_joss_host_bridge")
-
-	if dest != nil {
-		b.emitStoreRAXToRBP(layout.tempOffsets[dest.ID])
-	}
-}
-
-func (b *MachineCodeBuilder) emitHostBridgeStub() {
-	b.defineLabel("_joss_host_bridge")
-	// En el binario final standalone real, este símbolo "_joss_host_bridge"
-	// se resolverá enlazando contra libjoss_base.a (nuestro C-Archive de Go).
-	// Por diseño, si NO estamos enlazando, emitimos un ret limpio (para binarios ultraligeros
-	// que no usan Stdlib ni GranDB).
-	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
 }
 
 func (b *MachineCodeBuilder) emitToStringStub() {

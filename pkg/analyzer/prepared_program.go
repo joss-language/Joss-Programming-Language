@@ -19,11 +19,25 @@ type AnalysisFacts struct {
 	ResolvedCalls map[*parser.CallExpression]ResolvedCallFact
 }
 
+// CallKind is the closed vocabulary describing how the analyzer resolved a call.
+// Analyzer and IR lowering share these constants; never compare against string literals.
+type CallKind string
+
+const (
+	CallKindBuiltin      CallKind = "builtin"
+	CallKindFunction     CallKind = "function"
+	CallKindMethod       CallKind = "method"
+	CallKindPrimitive    CallKind = "primitive"
+	CallKindNativeStatic CallKind = "native_static"
+	CallKindClosure      CallKind = "closure"
+	CallKindIndirect     CallKind = "indirect"
+)
+
 // ResolvedCallFact identifies calls whose target is stable at analysis time.
 // Dynamic variables and mixed receivers deliberately have no entry.
 type ResolvedCallFact struct {
 	TargetID   string
-	Kind       string
+	Kind       CallKind
 	ReturnType typesystem.Type
 }
 
@@ -56,7 +70,7 @@ func NewAnalysisFacts() *AnalysisFacts {
 	}
 }
 
-func (a *Analyzer) recordResolvedCall(call *parser.CallExpression, targetID, kind string, returnType typesystem.Type) {
+func (a *Analyzer) recordResolvedCall(call *parser.CallExpression, targetID string, kind CallKind, returnType typesystem.Type) {
 	if a.facts == nil || call == nil {
 		return
 	}

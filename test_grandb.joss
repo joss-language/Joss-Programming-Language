@@ -1,4 +1,0 @@
-var $db = GranDB::table("users");
-$db->insert({"name": "Joss", "email": "joss@example.com"});
-var $user = $db->where("name", "Joss")->first();
-print($user["email"]);

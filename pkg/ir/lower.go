@@ -1402,7 +1402,9 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			if cs, ok := fnVal.(*ConstString); ok {
+			if cfp, ok := fnVal.(*ConstFnPtr); ok {
+				calleeName = cfp.FnName
+			} else if cs, ok := fnVal.(*ConstString); ok {
 				calleeName = cs.Val
 			} else {
 				calleeName = "__closure_0"
@@ -1413,7 +1415,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 
 		if l.prep != nil && l.prep.Facts != nil {
 			if resolved, ok := l.prep.Facts.ResolvedCalls[e]; ok {
-				if resolved.Kind == "method" {
+				if resolved.Kind == analyzer.CallKindMethod {
 					if lastColons := strings.LastIndex(resolved.TargetID, "::"); lastColons != -1 {
 						prefix := resolved.TargetID[:lastColons]
 						className := prefix[strings.LastIndex(prefix, ":")+1:]
@@ -1464,11 +1466,11 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			if resolved, ok := l.prep.Facts.ResolvedCalls[e]; ok {
 				retType = l.mapTypeSystemType(resolved.ReturnType)
 				targetID = resolved.TargetID
-				if resolved.Kind == "builtin" {
+				if resolved.Kind == analyzer.CallKindBuiltin {
 					isBuiltin = true
-				} else if resolved.Kind == "primitive_method" {
+				} else if resolved.Kind == analyzer.CallKindPrimitive {
 					isPrimitive = true
-				} else if resolved.Kind == "host_service" {
+				} else if resolved.Kind == analyzer.CallKindNativeStatic {
 					isHost = true
 				}
 			}
@@ -1508,8 +1510,15 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			})
 		} else if isPrimitive {
 			parts := strings.Split(targetID, "::")
-			typeKind := parts[0]
-			methodName := parts[1]
+			typeKind := ""
+			methodName := ""
+			if len(parts) >= 3 {
+				typeKind = parts[1]
+				methodName = parts[2]
+			} else if len(parts) == 2 {
+				typeKind = parts[0]
+				methodName = parts[1]
+			}
 			l.currBlock.AddInstruction(&CallPrimitiveMethodInst{
 				Dest:       dest,
 				TypeKind:   typeKind,
@@ -1519,8 +1528,14 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			})
 		} else if isHost {
 			parts := strings.Split(targetID, "::")
-			className := parts[0]
-			methodName := parts[1]
+			className := ""
+			methodName := ""
+			if len(parts) >= 2 {
+				className = parts[len(parts)-2]
+				methodName = parts[len(parts)-1]
+			} else {
+				className = targetID
+			}
 			l.currBlock.AddInstruction(&CallHostServiceInst{
 				Dest:       dest,
 				ClassName:  className,
@@ -1547,11 +1562,22 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 					Args:       args,
 				})
 			} else {
-				l.currBlock.AddInstruction(&CallInst{
-					Dest:   dest,
-					Callee: calleeName,
-					Args:   args,
-				})
+				// Check if calleeName is a local closure variable
+				if ptr, ok := l.varLocals[cleanVarName(calleeName)]; ok {
+					closureVal := l.currentFn.NewTemp(ptr.Type().ElemType(), cleanVarName(calleeName)+"_val")
+					l.currBlock.AddInstruction(&LoadInst{Dest: closureVal, Ptr: ptr})
+					l.currBlock.AddInstruction(&CallIndirectInst{
+						Dest:      dest,
+						CalleeVal: closureVal,
+						Args:      args,
+					})
+				} else {
+					l.currBlock.AddInstruction(&CallInst{
+						Dest:   dest,
+						Callee: calleeName,
+						Args:   args,
+					})
+				}
 			}
 		}
 
@@ -1712,7 +1738,7 @@ func (l *Lowerer) lowerFunctionLiteral(e *parser.FunctionLiteral) (Value, error)
 	l.varLocals = savedLocals
 	l.loopStack = savedLoops
 
-	return NewConstString(closureName), nil
+	return NewConstFnPtr(closureName, PtrType(TypeVoid)), nil
 }
 
 func (l *Lowerer) lowerMatchExpression(e *parser.MatchExpression) (Value, error) {
@@ -1832,6 +1858,24 @@ func (l *Lowerer) mapTypeSystemType(t typesystem.Type) Type {
 		return ArrayType(elem)
 	case typesystem.Map:
 		return PtrType(StructType("map", nil))
+	case typesystem.Decimal:
+		return TypeDecimal
+	case typesystem.Mixed:
+		return TypeMixed
+	case typesystem.Union:
+		return Type{Kind: TypeKindUnion}
+	case typesystem.Channel:
+		elem := TypeI64
+		if t.Element != nil {
+			elem = l.mapTypeSystemType(*t.Element)
+		}
+		return PtrType(StructType("channel", []Type{elem}))
+	case typesystem.Callable:
+		ret := TypeVoid
+		if t.Element != nil {
+			ret = l.mapTypeSystemType(*t.Element)
+		}
+		return FuncType(nil, ret)
 	default:
 		return TypeI64
 	}

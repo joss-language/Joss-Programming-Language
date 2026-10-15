@@ -74,9 +74,9 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 	outExe := opts.OutputPath
 	if outExe == "" {
 		if target.OS == "windows" {
-			outExe = baseName + ".exe"
+			outExe = filepath.Join("build", baseName+".exe")
 		} else {
-			outExe = baseName
+			outExe = filepath.Join("build", baseName)
 		}
 	} else if target.OS == "windows" && !strings.HasSuffix(strings.ToLower(outExe), ".exe") {
 		outExe += ".exe"
@@ -151,6 +151,27 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 		}
 		if err := os.WriteFile(outExe, binBytes, 0755); err != nil {
 			return nil, fmt.Errorf("no se pudo escribir ejecutable nativo %s: %w", outExe, err)
+		}
+
+		if mcBuilder.NeedsHostBridge() && target.OS == "windows" {
+			// Ensure joss_host.dll is placed alongside the generated executable
+			targetDll := filepath.Join(filepath.Dir(outExe), "joss_host.dll")
+			// Try locating joss_host.dll from build directory or runtime location
+			builtDllLocations := []string{
+				"pkg/backend/native/abi/build/joss_host.dll",
+				"../pkg/backend/native/abi/build/joss_host.dll",
+				"../../pkg/backend/native/abi/build/joss_host.dll",
+			}
+			var dllBytes []byte
+			for _, loc := range builtDllLocations {
+				if b, readErr := os.ReadFile(loc); readErr == nil {
+					dllBytes = b
+					break
+				}
+			}
+			if len(dllBytes) > 0 {
+				_ = os.WriteFile(targetDll, dllBytes, 0755)
+			}
 		}
 
 	case BackendLLVM:

@@ -169,6 +169,10 @@ func (v *IRVerifier) verifyInstruction(fn *Function, block *BasicBlock, inst Ins
 		if i.ClassName == "" || i.MethodName == "" {
 			v.addError("call_host en %s tiene operandos inválidos", block.Label)
 		}
+	case *CallIndirectInst:
+		if i.CalleeVal == nil {
+			v.addError("call_indirect en %s tiene callee nulo", block.Label)
+		}
 	}
 }
 

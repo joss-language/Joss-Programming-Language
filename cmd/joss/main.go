@@ -525,9 +525,9 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 			base = "app"
 		}
 		if target.OS == "windows" {
-			outExe = base + ".exe"
+			outExe = filepath.Join("build", base+".exe")
 		} else {
-			outExe = base
+			outExe = filepath.Join("build", base)
 		}
 	} else if target.OS == "windows" && !strings.HasSuffix(strings.ToLower(outExe), ".exe") {
 		outExe += ".exe"

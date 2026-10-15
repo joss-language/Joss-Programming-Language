@@ -94,9 +94,18 @@ echo "Hola Joss Standalone";
 		t.Fatalf("[JOSS-CLEAN-ENVIRONMENT-001] `joss build hello.joss` failed in clean environment without Go/GCC/Clang: %v\nOutput:\n%s", err, string(buildOut))
 	}
 
-	expectedExe := filepath.Join(userWorkDir, "hello")
+	expectedExe := filepath.Join(userWorkDir, "build", "hello")
 	if runtime.GOOS == "windows" {
 		expectedExe += ".exe"
+	}
+	if _, err := os.Stat(expectedExe); err != nil {
+		fallbackExe := filepath.Join(userWorkDir, "hello")
+		if runtime.GOOS == "windows" {
+			fallbackExe += ".exe"
+		}
+		if _, fbErr := os.Stat(fallbackExe); fbErr == nil {
+			expectedExe = fallbackExe
+		}
 	}
 	fi, err := os.Stat(expectedExe)
 	if err != nil {

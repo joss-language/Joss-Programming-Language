@@ -201,6 +201,34 @@ func (i *CallInst) String() string {
 	return fmt.Sprintf("call @%s(%s)", i.Callee, argsStr)
 }
 
+// CallIndirectInst: [%dst =] call_indirect CalleeVal(args...)
+type CallIndirectInst struct {
+	Dest      *TempValue // Puede ser nil si retorna void
+	CalleeVal Value      // Puntero o valor de función / closure
+	Args      []Value
+}
+
+func (i *CallIndirectInst) Opcode() Opcode     { return OpCall }
+func (i *CallIndirectInst) Result() *TempValue { return i.Dest }
+func (i *CallIndirectInst) Operands() []Value {
+	ops := []Value{i.CalleeVal}
+	ops = append(ops, i.Args...)
+	return ops
+}
+func (i *CallIndirectInst) String() string {
+	argsStr := ""
+	for idx, a := range i.Args {
+		if idx > 0 {
+			argsStr += ", "
+		}
+		argsStr += a.String()
+	}
+	if i.Dest != nil {
+		return fmt.Sprintf("%s = call_indirect %s(%s)", i.Dest, i.CalleeVal, argsStr)
+	}
+	return fmt.Sprintf("call_indirect %s(%s)", i.CalleeVal, argsStr)
+}
+
 // CallBuiltinInst: [%dst =] call_builtin builtinID(args...)
 type CallBuiltinInst struct {
 	Dest      *TempValue // Puede ser nil si retorna void

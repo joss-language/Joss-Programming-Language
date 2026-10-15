@@ -21,11 +21,13 @@ const (
 	TypeKindU64     TypeKind = "u64"
 	TypeKindF32     TypeKind = "f32"
 	TypeKindF64     TypeKind = "f64"
+	TypeKindDecimal TypeKind = "decimal"
 	TypeKindString  TypeKind = "string"
 	TypeKindPtr     TypeKind = "ptr"
 	TypeKindFunc    TypeKind = "func"
 	TypeKindArray   TypeKind = "array"
 	TypeKindStruct  TypeKind = "struct"
+	TypeKindUnion   TypeKind = "union"
 	TypeKindMixed   TypeKind = "mixed"
 	TypeKindUnknown TypeKind = "unknown"
 )
@@ -44,7 +46,7 @@ func (t Type) String() string {
 	switch t.Kind {
 	case TypeKindVoid, TypeKindBool, TypeKindI8, TypeKindI16, TypeKindI32, TypeKindI64,
 		TypeKindU8, TypeKindU16, TypeKindU32, TypeKindU64, TypeKindF32, TypeKindF64,
-		TypeKindString, TypeKindMixed, TypeKindUnknown:
+		TypeKindDecimal, TypeKindString, TypeKindUnion, TypeKindMixed, TypeKindUnknown:
 		return string(t.Kind)
 	case TypeKindPtr:
 		if t.Elem == nil {
@@ -167,6 +169,7 @@ var (
 	TypeU64     = Type{Kind: TypeKindU64}
 	TypeF32     = Type{Kind: TypeKindF32}
 	TypeF64     = Type{Kind: TypeKindF64}
+	TypeDecimal = Type{Kind: TypeKindDecimal}
 	TypeString  = Type{Kind: TypeKindString}
 	TypeMixed   = Type{Kind: TypeKindMixed}
 	TypeUnknown = Type{Kind: TypeKindUnknown}

@@ -155,3 +155,20 @@ func NewConstNull(t Type) *ConstNull {
 	}
 	return &ConstNull{ValueType: t}
 }
+
+// ConstFnPtr representa la dirección o puntero a una función compilada o closure.
+type ConstFnPtr struct {
+	FnName    string
+	ValueType Type
+}
+
+func (c *ConstFnPtr) ValueKind() ValueKind { return ValueKindConst }
+func (c *ConstFnPtr) Type() Type           { return c.ValueType }
+func (c *ConstFnPtr) String() string       { return "@" + c.FnName }
+
+func NewConstFnPtr(fnName string, t Type) *ConstFnPtr {
+	if t.Kind == TypeKindUnknown || t.Kind == "" {
+		t = PtrType(TypeVoid)
+	}
+	return &ConstFnPtr{FnName: fnName, ValueType: t}
+}

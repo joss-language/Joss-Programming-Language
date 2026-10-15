@@ -13,7 +13,7 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 		name := identifier.Value
 		if builtin, exists := a.environment.Builtins[name]; exists {
 			a.checkCall(builtin, call.Arguments, current, identifier.Token)
-			a.recordResolvedCall(call, "builtin::"+name, "builtin", builtin.ReturnType)
+			a.recordResolvedCall(call, "builtin::"+name, CallKindBuiltin, builtin.ReturnType)
 			if name == "send" && len(call.Arguments) >= 2 {
 				chanType := a.inferExpression(call.Arguments[0], current)
 				valType := a.inferExpression(call.Arguments[1], current)
@@ -38,7 +38,7 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 					"Private project declarations are visible only in their source file.", "Make the function public or call it from its declaring file.")
 			}
 			a.checkCall(function.callable, call.Arguments, current, identifier.Token)
-			a.recordResolvedCall(call, symbolFact("function", name, function.callable.ReturnType, function.file).ID, "function", function.callable.ReturnType)
+			a.recordResolvedCall(call, symbolFact("function", name, function.callable.ReturnType, function.file).ID, CallKindFunction, function.callable.ReturnType)
 			return function.callable.ReturnType
 		}
 		if variable, exists := current.resolve(name); exists {
@@ -53,6 +53,7 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 					callable.Parameters = append(callable.Parameters, Parameter{Name: fmt.Sprintf("arg%d", index+1), Type: parameterType})
 				}
 				a.checkCall(callable, call.Arguments, current, identifier.Token)
+				a.recordResolvedCall(call, "var:"+name, CallKindClosure, callable.ReturnType)
 				return callable.ReturnType
 			}
 			for _, argument := range call.Arguments {
@@ -92,7 +93,11 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 				}
 				a.checkCall(callable, call.Arguments, current, member.Property.Token)
 				qualified := receiver.Name + "::" + member.Property.Value
-				a.recordResolvedCall(call, "method:"+canonicalSourcePath(callable.File)+":"+qualified, "method", callable.ReturnType)
+				if callable.File == "" {
+					a.recordResolvedCall(call, qualified, CallKindNativeStatic, callable.ReturnType)
+				} else {
+					a.recordResolvedCall(call, "method:"+canonicalSourcePath(callable.File)+":"+qualified, CallKindMethod, callable.ReturnType)
+				}
 				if nullable && member.NullSafe {
 					return nullableType(callable.ReturnType)
 				}
@@ -104,7 +109,7 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 		}
 		if member.Property != nil {
 			if primType, isPrim := a.inferPrimitiveMethod(receiver, member.Property.Value, call, current); isPrim {
-				a.recordResolvedCall(call, "primitive::"+receiver.String()+"::"+member.Property.Value, "primitive", primType)
+				a.recordResolvedCall(call, "primitive::"+receiver.String()+"::"+member.Property.Value, CallKindPrimitive, primType)
 				return primType
 			}
 		}
@@ -124,6 +129,7 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 			callable.Parameters = append(callable.Parameters, Parameter{Name: fmt.Sprintf("arg%d", index+1), Type: parameterType})
 		}
 		a.checkCall(callable, call.Arguments, current, tokenOfExpression(call.Function))
+		a.recordResolvedCall(call, "indirect", CallKindIndirect, callable.ReturnType)
 		return callable.ReturnType
 	}
 	for _, argument := range call.Arguments {
