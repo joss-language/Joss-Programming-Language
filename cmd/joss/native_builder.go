@@ -425,6 +425,9 @@ func compileRunnerBinary(targetOS, targetArch string, enableGUI bool, detectedCa
 	}
 
 	var tags []string
+	if !enableGUI {
+		tags = append(tags, "nogui")
+	}
 	if detectedCaps != nil && !detectedCaps["server"] && !detectedCaps["http"] && !enableGUI {
 		tags = append(tags, "cli")
 	}
@@ -690,6 +693,9 @@ func optimizeHostBridgeDLL(outDir string, detectedCaps map[string]bool) {
 		}
 		if !detectedCaps["redis"] {
 			tags = append(tags, "noredis")
+		}
+		if !detectedCaps["gui"] {
+			tags = append(tags, "nogui")
 		}
 	}
 

@@ -961,6 +961,17 @@
       "subscriberCount",
       "unsubscribe"
     ],
+    "Window": [
+      "close",
+      "hide",
+      "on",
+      "open",
+      "pollEvents",
+      "render",
+      "setSize",
+      "setTitle",
+      "show"
+    ],
     "Zip": [
       "extract"
     ]

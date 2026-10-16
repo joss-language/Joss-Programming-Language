@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,9 +15,10 @@ import (
 )
 
 var (
-	currentRuntime   *core.Runtime
-	mutex            sync.RWMutex
-	GlobalFileSystem http.FileSystem // Exposed for hotreload.go
+	currentRuntime      *core.Runtime
+	mutex               sync.RWMutex
+	GlobalFileSystem    http.FileSystem // Exposed for hotreload.go
+	ServerReadyCallback func(port string)
 )
 
 func init() {
@@ -83,8 +85,12 @@ func Start(fileSystem http.FileSystem) {
 			fileSystem = http.Dir("public")
 		}
 		fsHandler := http.FileServer(fileSystem)
-		http.Handle("/public/", http.StripPrefix("/public/", fsHandler))
-		http.Handle("/assets/", http.StripPrefix("/assets/", fsHandler))
+		loggingFs := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Printf("[Server STATIC] %s %s\n", r.Method, r.URL.Path)
+			fsHandler.ServeHTTP(w, r)
+		})
+		http.Handle("/public/", http.StripPrefix("/public/", loggingFs))
+		http.Handle("/assets/", http.StripPrefix("/assets/", loggingFs))
 	}
 
 	// WebSocket Endpoint for Hot Reload
@@ -152,30 +158,39 @@ func Start(fileSystem http.FileSystem) {
 		isGUI = true
 	}
 
+	ln, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		fmt.Printf("[Server ERROR] No se pudo enlazar el puerto TCP :%s: %v\n", port, err)
+		os.Exit(1)
+	}
+	fmt.Printf("[Server] Socket TCP enlazado con éxito en :%s. Servidor listo para peticiones.\n", port)
+
 	if isGUI {
 		go func() {
-			var err error
+			var serveErr error
 			if certFile != "" {
-				err = srv.ListenAndServeTLS(certFile, keyFile)
+				serveErr = srv.ServeTLS(ln, certFile, keyFile)
 			} else {
-				err = srv.ListenAndServe()
+				serveErr = srv.Serve(ln)
 			}
-			if err != nil && err != http.ErrServerClosed {
-				fmt.Printf("FATAL: Error iniciando servidor: %v\n", err)
+			if serveErr != nil && serveErr != http.ErrServerClosed {
+				fmt.Printf("[Server ERROR] %v\n", serveErr)
 				os.Exit(1)
 			}
 		}()
+		if ServerReadyCallback != nil {
+			ServerReadyCallback(port)
+		}
 		if maybeLaunchDesktopWindow(port, true) {
 			return
 		}
 		select {}
 	}
 
-	var err error
 	if certFile != "" {
-		err = srv.ListenAndServeTLS(certFile, keyFile)
+		err = srv.ServeTLS(ln, certFile, keyFile)
 	} else {
-		err = srv.ListenAndServe()
+		err = srv.Serve(ln)
 	}
 	if err != nil && err != http.ErrServerClosed {
 		fmt.Printf("FATAL: Error iniciando servidor: %v\n", err)

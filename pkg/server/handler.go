@@ -31,6 +31,7 @@ var (
 )
 
 func MainHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[Server REQ] %s %s (desde %s)\n", r.Method, r.URL.Path, r.RemoteAddr)
 	requestID := fmt.Sprintf("%s %s", r.Method, r.URL.Path)
 	stopWatchdog := startRequestWatchdog(r, requestID)
 	defer stopWatchdog()
@@ -39,6 +40,7 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 	mutex.RLock()
 	if currentRuntime == nil {
 		mutex.RUnlock()
+		fmt.Printf("[Server WARN] Servidor iniciando... Runtime no listo para %s\n", r.URL.Path)
 		http.Error(w, "Server starting up...", http.StatusServiceUnavailable)
 		return
 	}
@@ -49,7 +51,7 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			errMsg := core.FormatPanicAsError(recovered)
-			fmt.Printf("[SERVER ERROR] %s\n", errMsg)
+			fmt.Printf("[SERVER PANIC] %s\n", errMsg)
 			if !webSocketUpgraded {
 				w.WriteHeader(http.StatusInternalServerError)
 				fmt.Fprintf(w, "<h1>500 Internal Server Error</h1><pre>%s</pre>", errMsg)
@@ -98,20 +100,23 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 	// 8. Save Session
 	if err := saveSession(rt.Env, driver, sessionID, sessData); err != nil {
 		http.Error(w, "Unable to persist session storage", http.StatusInternalServerError)
-		fmt.Printf("[Session] %v\n", err)
+		fmt.Printf("[Session ERROR] %v\n", err)
 		return
 	}
 
 	if err == nil {
 		if writeExecutionResult(w, r, rt, result, responseSession{id: sessionID, driver: driver, data: sessData}) {
+			fmt.Printf("[Server RESP] %s %s -> 200 OK\n", r.Method, r.URL.Path)
 			return
 		}
+		fmt.Printf("[Server WARN] writeExecutionResult no pudo representar el resultado para %s %s (tipo: %T)\n", r.Method, r.URL.Path, result)
 	} else {
-		fmt.Printf("[DEBUG] Dispatch error: %v\n", err)
+		fmt.Printf("[Server ERROR] Dispatch falló para %s %s: %v\n", r.Method, r.URL.Path, err)
 	}
 
 	// Try serving static files from public/ directory before 404 (e.g. /ads.txt, /robots.txt, etc.)
 	if servePublicFile(w, r) {
+		fmt.Printf("[Server RESP] %s %s -> Archivo público servido\n", r.Method, r.URL.Path)
 		return
 	}
 
@@ -123,9 +128,11 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `<link rel="stylesheet" href="/public/css/app.css">`)
 		// Hot Reload Script (WebSocket)
 		fmt.Fprint(w, getHotReloadScript())
+		fmt.Printf("[Server RESP] %s %s -> Fallback HTML por defecto\n", r.Method, r.URL.Path)
 		return
 	}
 
+	fmt.Printf("[Server RESP] %s %s -> 404 Not Found\n", r.Method, r.URL.Path)
 	http.NotFound(w, r)
 }
 

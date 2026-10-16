@@ -333,6 +333,10 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.registerNativeDefinitions("Mutex", migratedNativeMethods["Mutex"], (*Runtime).executeMutexMethod)
 	r.registerNativeDefinitions("RWMutex", migratedNativeMethods["RWMutex"], (*Runtime).executeRWMutexMethod)
 	r.registerNativeDefinitions("WaitGroup", migratedNativeMethods["WaitGroup"], (*Runtime).executeWaitGroupMethod)
+
+	// Window (Desktop GUI & GPU Canvas)
+	r.registerNativeDefinitions("Window", migratedNativeMethods["Window"], (*Runtime).executeWindowMethod)
+	r.Variables["Window"] = &Instance{Class: r.Classes["Window"], Fields: make(map[string]interface{})}
 }
 
 const ansiReset = "\033[0m"

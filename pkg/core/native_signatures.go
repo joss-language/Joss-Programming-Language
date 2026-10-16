@@ -206,6 +206,17 @@ var migratedNativeMethods = map[string][]NativeMethodDefinition{
 		nativeMethodWithArity("done", "void"),
 		nativeMethodWithArity("wait", "void"),
 	},
+	"Window": {
+		withNativeEffects(nativeMethodWithArity("open", "Window", nativeOptionalParam("title", "string"), nativeOptionalParam("width", "int"), nativeOptionalParam("height", "int")), "io", "blocking"),
+		nativeMethodWithArity("setTitle", "void", nativeParam("title", "string")),
+		nativeMethodWithArity("setSize", "void", nativeParam("width", "int"), nativeParam("height", "int")),
+		nativeMethodWithArity("show", "void"),
+		nativeMethodWithArity("hide", "void"),
+		nativeMethodWithArity("close", "void"),
+		nativeMethodWithArity("pollEvents", "bool"),
+		nativeMethodWithArity("render", "void", nativeOptionalParam("view", "mixed")),
+		nativeMethodWithArity("on", "void", nativeParam("event", "string"), nativeParam("handler", "mixed")),
+	},
 }
 
 // nativeMethodReturnType is the return-signature source of truth for core

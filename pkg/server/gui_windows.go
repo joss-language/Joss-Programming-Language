@@ -5,12 +5,16 @@ package server
 import (
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/jchv/go-webview2"
 )
 
 func maybeLaunchDesktopWindow(port string, isGUI bool) bool {
+	if os.Getenv("JOSS_PROGRAM_START") == "true" {
+		return false
+	}
 	if !isGUI && os.Getenv("JOSS_GUI") != "true" {
 		return false
 	}
@@ -25,7 +29,13 @@ func maybeLaunchDesktopWindow(port string, isGUI bool) bool {
 		time.Sleep(150 * time.Millisecond)
 	}
 
-	w := webview2.New(true)
+	dataDir := filepath.Join(os.TempDir(), "joss_gui_"+port)
+	_ = os.MkdirAll(dataDir, 0755)
+
+	w := webview2.NewWithOptions(webview2.WebViewOptions{
+		Debug:    true,
+		DataPath: dataDir,
+	})
 	if w == nil {
 		return false
 	}
