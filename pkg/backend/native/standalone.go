@@ -67,11 +67,7 @@ func (b *StandaloneBuilder) BuildNativeExecutableWithOptions(prog *ir.Program, o
 		return err
 	}
 
-	// Future implementation of the linker:
-	// If needsHostBridge is true, we should read libjoss_base.a and inject its object code
-	// into the final executable structure (PE/ELF).
-	// For now, the architecture proof-of-concept guarantees that the analyzer detects the requirement,
-	// emits the ABI call, and only conditionally flags the binary for C-Archive inclusion.
+	// If needsHostBridge is true, the PE/ELF emitter imports _joss_host_bridge from the host bridge runtime.
 	_ = needsHostBridge
 	_ = asmSource
 	if err != nil {

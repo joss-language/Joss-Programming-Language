@@ -633,10 +633,6 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	}
 }
 
-func buildNativeBackend(filename, outExe string, backendName string, trace bool) {
-	buildNativeProgram(filename, outExe, "", false, false, trace, false, backendName)
-}
-
 func executeScript(filename string) {
 	// Analyze the same project surface that the runtime will preload. Semantic
 	// errors are blocking; warnings remain visible but do not prevent execution.

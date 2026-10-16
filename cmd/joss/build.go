@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -153,37 +152,6 @@ func buildWeb() {
 	fmt.Println(i18n.T("buildWebSuccess"))
 	fmt.Println(i18n.T("buildDeployTip"))
 	fmt.Println(i18n.T("buildRunTip"))
-}
-
-func buildProgram() {
-	fmt.Println(i18n.T("buildProgramStart"))
-
-	fmt.Println(i18n.T("buildSelectOS"))
-	fmt.Println(i18n.T("buildOSWindows"))
-	fmt.Println(i18n.T("buildOSLinux"))
-	fmt.Println(i18n.T("buildOSMacArm"))
-	fmt.Println(i18n.T("buildOSMacIntel"))
-	fmt.Println(i18n.T("buildOSCurrent", map[string]any{"os": runtime.GOOS, "arch": runtime.GOARCH}))
-	fmt.Print(i18n.T("buildPromptOption"))
-
-	reader := bufio.NewReader(os.Stdin)
-	option, _ := reader.ReadString('\n')
-	option = strings.TrimSpace(option)
-
-	switch option {
-	case "1", "windows":
-		buildNative("windows", "amd64", false)
-	case "2", "linux":
-		buildNative("linux", "amd64", false)
-	case "3", "mac", "macos", "darwin-arm64":
-		buildNative("darwin", "arm64", false)
-	case "4", "darwin-amd64":
-		buildNative("darwin", "amd64", false)
-	case "5", "current", "":
-		buildNative(runtime.GOOS, runtime.GOARCH, false)
-	default:
-		fmt.Println(i18n.T("buildInvalidOption"))
-	}
 }
 
 func copyFile(src, dst string) error {

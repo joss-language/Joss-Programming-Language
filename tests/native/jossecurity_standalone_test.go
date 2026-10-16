@@ -22,7 +22,7 @@ import (
 // that exercises GranDB::table, insert, insertGetId, where, count, first, get (with foreach),
 // update, and delete, together with newly lowered AST constructs (foreach, match, ??, ++, isset, empty, '.' concat).
 func TestNativeGranDBInsertionAndQuery(t *testing.T) {
-	t.Skip("GranDB native execution requires static Host Bridge linking (libjoss_base.a)")
+	t.Skip("GranDB native execution requires Host Bridge linking")
 	src := `
 		// 1. Insert rows into 'users' table using GranDB::table()->insert() and insertGetId()
 		int $id1 = GranDB::table("users")->insert({
@@ -119,7 +119,7 @@ func TestNativeGranDBInsertionAndQuery(t *testing.T) {
 // ejemplos/Joss-Red-JosSecurity application into standalone Windows PE32+ and Linux ELF64
 // native binaries, verifies zero Go runtime / zero AST interpreter embedding, and executes it.
 func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
-	t.Skip("Full project native compilation requires static Host Bridge linking (libjoss_base.a)")
+	t.Skip("Full project native compilation requires Host Bridge linking")
 	josSecurityDir, err := filepath.Abs(filepath.Join("..", "..", "ejemplos", "Joss-Red-JosSecurity"))
 	if err != nil {
 		t.Fatalf("filepath.Abs failed: %v", err)

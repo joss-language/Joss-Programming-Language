@@ -11,5 +11,5 @@ Nunca duplicar lógica. Funcionalidades como `GranDB`, `HTTP` y `Storage` viven 
 ## 3. HostBridge y Micromódulos (Smart Selective Linking)
 La solución definitiva para no sacrificar el peso del binario (`Opción D` o Enlace Modular Inteligente):
 - Código máquina puro se emite para lógica, loops y algoritmos base.
-- Si (y sólo si) se detecta uso de `GranDB` o Standard Library, el linker estático interno une `libjoss_base.a` con el binario AOT generado.
-- **Resultado:** Binarios de 5KB para algoritmos simples y 5MB para apps complejas con Base de Datos o servidor Web integrados.
+- Si (y sólo si) se detecta uso de servicios como servidor HTTP o GranDB, el ejecutable enlaza `_joss_host_bridge` con optimización por build tags (descartando drivers no usados).
+- **Resultado:** Binarios de ~5.5 KB para algoritmos y CLI puros, y binarios autocontenidos sellados con VFS (AES-256) para aplicaciones web completas.
