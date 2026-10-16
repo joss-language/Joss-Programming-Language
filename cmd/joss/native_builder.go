@@ -9,6 +9,8 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"net/http"
 	"os"
@@ -20,6 +22,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/buildmanifest"
 	"github.com/jossecurity/joss/pkg/bytecode"
+	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/crypto"
 	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
@@ -152,8 +155,9 @@ func validateBuildTarget(targetOS, targetArch string) (string, string, bool) {
 func collectProjectFiles(enableGUI bool) (map[string][]byte, map[string]bool, error) {
 	files := make(map[string][]byte)
 	ignoredDirs := map[string]bool{
-		".git": true, ".vscode": true, ".idea": true, "build": true, "vendor": true,
+		".git": true, ".vscode": true, ".idea": true, "build": true, "dist": true, "vendor": true,
 		"node_modules": true, ".gemini": true, ".codex": true, ".agents": true, ".github": true,
+		"bruno": true, ".joss": true, "tests": true, "test": true,
 	}
 
 	// 1. Run reachability analysis starting from main.joss
@@ -242,21 +246,47 @@ func collectProjectFiles(enableGUI bool) (map[string][]byte, map[string]bool, er
 		capsMap["http"] = true
 	}
 
-	envPath := GetEnvFile()
-	if envData, err := os.ReadFile(envPath); err == nil {
-		content := string(envData)
-		if strings.Contains(content, "DB=mysql") || strings.Contains(content, "DB=\"mysql\"") || strings.Contains(content, "DB_HOST") {
-			capsMap["mysql"] = true
-			capsMap["database"] = true
-		}
-		if strings.Contains(content, "DB=sqlite") || strings.Contains(content, "DB=\"sqlite\"") || strings.Contains(content, "database.sqlite") {
-			capsMap["sqlite"] = true
-			capsMap["database"] = true
-		}
-	}
-	if capsMap["database"] && !capsMap["mysql"] && !capsMap["sqlite"] {
-		capsMap["sqlite"] = true
+	envDetect := core.DetectAndLoadEnv(nil)
+	envMap := envDetect.EnvMap
+	dbDriver := strings.ToLower(strings.TrimSpace(envMap["DB"]))
+	switch dbDriver {
+	case "mysql":
 		capsMap["mysql"] = true
+		capsMap["sqlite"] = false
+		capsMap["postgres"] = false
+		capsMap["mssql"] = false
+		capsMap["database"] = true
+	case "sqlite", "sqlite3":
+		capsMap["sqlite"] = true
+		capsMap["mysql"] = false
+		capsMap["postgres"] = false
+		capsMap["mssql"] = false
+		capsMap["database"] = true
+	case "postgres", "postgresql", "pgx":
+		capsMap["postgres"] = true
+		capsMap["sqlite"] = false
+		capsMap["mysql"] = false
+		capsMap["mssql"] = false
+		capsMap["database"] = true
+	case "sqlserver", "mssql", "mssqlserver":
+		capsMap["mssql"] = true
+		capsMap["sqlite"] = false
+		capsMap["mysql"] = false
+		capsMap["postgres"] = false
+		capsMap["database"] = true
+	}
+	if strings.EqualFold(strings.TrimSpace(envMap["STORAGE"]), "OCI") {
+		capsMap["oci"] = true
+	}
+	if strings.EqualFold(strings.TrimSpace(envMap["SESSION_DRIVER"]), "redis") || strings.TrimSpace(envMap["REDIS_HOST"]) != "" || strings.TrimSpace(envMap["REDIS_URL"]) != "" {
+		capsMap["redis"] = true
+	}
+	if capsMap["database"] && !capsMap["mysql"] && !capsMap["sqlite"] && !capsMap["postgres"] && !capsMap["mssql"] {
+		if _, err := os.Stat(sqliteDbFile); err == nil {
+			capsMap["sqlite"] = true
+		} else {
+			capsMap["mysql"] = true
+		}
 	}
 
 	return files, capsMap, nil
@@ -318,6 +348,10 @@ func processSingleWalkFile(path string, info os.FileInfo, err error, files map[s
 			data = bcData
 			*compiledCount++
 		}
+	} else if strings.HasSuffix(name, ".png") && len(data) > 150*1024 {
+		if optPNG, ok := optimizeLargePNG(data, 720); ok && len(optPNG) < len(data) {
+			data = optPNG
+		}
 	}
 
 	files[relPath] = data
@@ -329,8 +363,57 @@ func shouldSkipFileByName(name string) bool {
 		strings.HasSuffix(name, ".enc") || strings.HasSuffix(name, ".dll") ||
 		strings.HasSuffix(name, ".so") || strings.HasSuffix(name, ".dylib") ||
 		strings.HasSuffix(name, ".scss") || strings.HasSuffix(name, ".map") ||
+		strings.HasSuffix(name, ".sqlite") || strings.HasSuffix(name, ".sqlite-shm") || strings.HasSuffix(name, ".sqlite-wal") ||
 		name == "runner" || name == "joss" ||
-		name == ".env" || name == "env.joss" || name == ".env.joss"
+		name == ".env" || name == "env.joss" || name == ".env.joss" ||
+		name == "package-lock.json" || name == "dockerfile" || name == ".dockerignore" ||
+		name == ".gitignore" || name == "agents.md" || name == "entrypoint.sh" ||
+		name == "translation_history.json"
+}
+
+func optimizeLargePNG(data []byte, maxDim int) ([]byte, bool) {
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, false
+	}
+	bounds := img.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	if w <= maxDim && h <= maxDim {
+		var buf bytes.Buffer
+		enc := png.Encoder{CompressionLevel: png.BestCompression}
+		if err := enc.Encode(&buf, img); err == nil {
+			return buf.Bytes(), true
+		}
+		return nil, false
+	}
+	newW, newH := w, h
+	if w > h {
+		newW = maxDim
+		newH = (h * maxDim) / w
+	} else {
+		newH = maxDim
+		newW = (w * maxDim) / h
+	}
+	if newW < 1 {
+		newW = 1
+	}
+	if newH < 1 {
+		newH = 1
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
+	for y := 0; y < newH; y++ {
+		srcY := bounds.Min.Y + (y*h)/newH
+		for x := 0; x < newW; x++ {
+			srcX := bounds.Min.X + (x*w)/newW
+			dst.Set(x, y, img.At(srcX, srcY))
+		}
+	}
+	var buf bytes.Buffer
+	enc := png.Encoder{CompressionLevel: png.BestCompression}
+	if err := enc.Encode(&buf, dst); err != nil {
+		return nil, false
+	}
+	return buf.Bytes(), true
 }
 
 func tryCompileJossBytecode(data []byte) ([]byte, bool) {
@@ -348,6 +431,18 @@ func tryCompileJossBytecode(data []byte) ([]byte, bool) {
 func encryptProjectEnvironment(files map[string][]byte, enableGUI bool) {
 	envPath := GetEnvFile()
 	data, _ := os.ReadFile(envPath)
+	contentStr := string(data)
+
+	if !strings.Contains(contentStr, "JWT_SECRET=") || strings.Contains(contentStr, "joss_default_secret") {
+		keyBytes := make([]byte, 32)
+		_, _ = rand.Read(keyBytes)
+		data = append(data, []byte(fmt.Sprintf("\nJWT_SECRET=\"%x\"", keyBytes))...)
+	}
+	if !strings.Contains(contentStr, "APP_KEY=") || strings.Contains(contentStr, "joss_default_secret") {
+		keyBytes := make([]byte, 32)
+		_, _ = rand.Read(keyBytes)
+		data = append(data, []byte(fmt.Sprintf("\nAPP_KEY=\"%x\"", keyBytes))...)
+	}
 
 	if enableGUI {
 		data = append(data, []byte("\nJOSS_GUI=\"true\"")...)
@@ -639,6 +734,129 @@ func assembleFinalExecutable(buildDir, targetOS string, runnerBytes, encryptedAs
 	}
 
 	return outPath, nil
+}
+
+func appendSealedAssetsToExecutable(outExe string, enableGUI bool) (int64, error) {
+	if _, err := os.Stat("assets/css"); err == nil {
+		server.CompileStyles()
+	}
+
+	fmt.Println(i18n.Tr("nativeBuildPackagingAssets"))
+	encryptedAssets, buildKey, detectedCaps, err := collectAndEncryptAssets(enableGUI)
+	if err != nil {
+		return 0, err
+	}
+
+	outDir := filepath.Dir(outExe)
+	if outDir != "" && outDir != "." {
+		_ = os.MkdirAll(filepath.Join(outDir, "Storage"), 0755)
+		copyDatabaseFiles(outDir)
+		optimizeHostBridgeDLL(outDir, detectedCaps)
+	}
+
+	outFile, err := os.OpenFile(outExe, os.O_WRONLY|os.O_APPEND, 0755)
+	if err != nil {
+		return 0, err
+	}
+	defer outFile.Close()
+
+	if _, err := outFile.Write(encryptedAssets); err != nil {
+		return 0, err
+	}
+	if _, err := outFile.Write(buildKey); err != nil {
+		return 0, err
+	}
+
+	lenBuf := make([]byte, 8)
+	binary.LittleEndian.PutUint64(lenBuf, uint64(len(encryptedAssets)))
+	if _, err := outFile.Write(lenBuf); err != nil {
+		return 0, err
+	}
+
+	magic := []byte("JOSS_RUNNER_DATA")
+	if _, err := outFile.Write(magic); err != nil {
+		return 0, err
+	}
+
+	_ = outFile.Close()
+	if stat, err := os.Stat(outExe); err == nil {
+		return stat.Size(), nil
+	}
+	return 0, nil
+}
+
+func optimizeHostBridgeDLL(outDir string, detectedCaps map[string]bool) {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	targetDll := filepath.Join(outDir, "joss_host.dll")
+	absTargetDll, err := filepath.Abs(targetDll)
+	if err != nil {
+		absTargetDll = targetDll
+	}
+
+	var tags []string
+	if detectedCaps != nil {
+		if !detectedCaps["database"] && !detectedCaps["sqlite"] && !detectedCaps["mysql"] && !detectedCaps["postgres"] && !detectedCaps["mssql"] {
+			tags = append(tags, "nodb")
+		} else {
+			if !detectedCaps["mysql"] {
+				tags = append(tags, "nomysql")
+			}
+			if !detectedCaps["sqlite"] {
+				tags = append(tags, "nosqlite")
+			}
+			if !detectedCaps["postgres"] {
+				tags = append(tags, "nopostgres")
+			}
+			if !detectedCaps["mssql"] {
+				tags = append(tags, "nomssql")
+			}
+		}
+		if !detectedCaps["oci"] {
+			tags = append(tags, "nooci")
+		}
+		if !detectedCaps["redis"] {
+			tags = append(tags, "noredis")
+		}
+	}
+
+	repoRoot := ""
+	for check := "."; ; check = filepath.Join("..", check) {
+		absCheck, absErr := filepath.Abs(check)
+		if absErr != nil {
+			break
+		}
+		if _, statErr := os.Stat(filepath.Join(absCheck, "pkg", "backend", "native", "abi", "host_bridge.go")); statErr == nil {
+			repoRoot = absCheck
+			break
+		}
+		parent := filepath.Dir(absCheck)
+		if parent == absCheck {
+			break
+		}
+	}
+
+	if repoRoot != "" {
+		if _, lookErr := exec.LookPath("go"); lookErr == nil {
+			args := []string{"build", "-buildmode=c-shared", "-trimpath", "-buildvcs=false", "-ldflags=-s -w"}
+			if len(tags) > 0 {
+				args = append(args, "-tags="+strings.Join(tags, ","))
+			}
+			args = append(args, "-o", absTargetDll, "./pkg/backend/native/abi/host_bridge.go")
+			cmd := exec.Command("go", args...)
+			cmd.Dir = repoRoot
+			if err := cmd.Run(); err == nil {
+				_ = os.Remove(strings.TrimSuffix(absTargetDll, ".dll") + ".h")
+				fmt.Printf("⚡ Host bridge compilado con poda selectiva de dependencias (%s)\n", strings.Join(tags, ", "))
+			}
+		}
+	}
+
+	if upxPath := resolveOrDownloadUPX(); upxPath != "" {
+		upxCmd := exec.Command(upxPath, "-9", absTargetDll)
+		_ = upxCmd.Run()
+	}
 }
 
 func copyDatabaseFiles(buildDir string) {

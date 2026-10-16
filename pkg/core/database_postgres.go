@@ -7,15 +7,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-
-	"github.com/jackc/pgx/v5/stdlib"
 )
 
 const postgresSQLDriver = "joss-postgres"
-
-func init() {
-	sql.Register(postgresSQLDriver, &postgresRebindingDriver{base: stdlib.GetDefaultDriver()})
-}
 
 // postgresRebindingDriver keeps the public database API portable. Joss queries use
 // '?' placeholders, while PostgreSQL requires '$1', '$2', ... placeholders.

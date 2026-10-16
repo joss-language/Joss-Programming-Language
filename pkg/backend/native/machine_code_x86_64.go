@@ -84,30 +84,39 @@ func (b *MachineCodeBuilder) NeedsHostBridge() bool {
 	return b.needsHostBridge
 }
 
-// SupportsTarget returns true if the integrated native code generator supports the target OS/Arch.
+// SupportsNativeTarget returns true if the integrated native code generator supports the target OS/Arch.
 func SupportsNativeTarget(t Target) bool {
 	if t.OS == "" && t.Arch == "" {
 		t = HostTarget()
 	}
-	return (t.OS == "windows" && t.Arch == "amd64") || (t.OS == "linux" && t.Arch == "amd64") || (t.OS == "darwin" && t.Arch == "amd64")
+	archs, ok := SupportedTargets[t.OS]
+	if !ok {
+		return false
+	}
+	for _, a := range archs {
+		if a == t.Arch {
+			return true
+		}
+	}
+	return false
 }
 
 // Compile translates an *ir.Program into a complete standalone executable binary image ([]byte)
 // and a human-readable native assembly listing.
 func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	if !SupportsNativeTarget(b.target) {
-		return nil, "", fmt.Errorf("ERROR: native target not available (%s/%s); integrated machine code backend currently supports windows/amd64, linux/amd64, and darwin/amd64", b.target.OS, b.target.Arch)
+		return nil, "", fmt.Errorf("ERROR: native target not available (%s/%s)", b.target.OS, b.target.Arch)
 	}
 	b.prog = prog
 
-	b.asmListing.WriteString(fmt.Sprintf("; Joss Self-Contained Native Compiler — x86_64 Machine Code Listing\n; Target: %s/%s\n\n", b.target.OS, b.target.Arch))
+	b.asmListing.WriteString(fmt.Sprintf("; Joss Self-Contained Native Compiler — %s Machine Code Listing\n; Target: %s/%s\n\n", b.target.Arch, b.target.OS, b.target.Arch))
 
 	// 1. Validate that all called functions are either user IR functions or supported native runtime intrinsics
 	if err := b.validateProgramCalls(prog); err != nil {
 		return nil, "", err
 	}
 
-	// 2. Emit _start entrypoint and Native Joss Runtime in x86_64 machine code
+	// 2. Emit _start entrypoint and Native Joss Runtime in machine code
 	b.emitEntrypointAndRuntime(prog.Functions["main"] != nil)
 
 	// 3. Sort function names for deterministic binary output
@@ -151,7 +160,7 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	if err := b.applyRelocations(textBytes, elfLayout.TextRVA, elfLayout.RODataRVA, elfLayout.DataRVA, nil); err != nil {
 		return nil, "", err
 	}
-	elfBytes := EmitELF64Executable(elfLayout, textBytes, rodataBytes, dataFixedSize)
+	elfBytes := EmitELF64Executable(elfLayout, textBytes, rodataBytes, dataFixedSize, b.target.Arch)
 	return elfBytes, b.asmListing.String(), nil
 }
 

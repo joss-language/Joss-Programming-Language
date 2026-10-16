@@ -29,8 +29,8 @@ func PrepareELFLayout(textLen int, rodataLen int) *ELFImageLayout {
 	}
 }
 
-// EmitELF64Executable serializes a Linux x86_64 ELF64 executable.
-func EmitELF64Executable(layout *ELFImageLayout, textBytes []byte, rodataBytes []byte, dataSize uint32) []byte {
+// EmitELF64Executable serializes a Linux x86_64 or arm64 ELF64 executable.
+func EmitELF64Executable(layout *ELFImageLayout, textBytes []byte, rodataBytes []byte, dataSize uint32, arch ...string) []byte {
 	var out bytes.Buffer
 
 	// ELF64 Header (64 bytes) + 2 Program Headers (2 * 56 = 112 bytes) = 176 bytes, padded to 0x1000
@@ -42,10 +42,17 @@ func EmitELF64Executable(layout *ELFImageLayout, textBytes []byte, rodataBytes [
 
 	dataFileOffset := layout.DataRVA
 
+	eMachine := uint16(0x3E) // EM_X86_64
+	if len(arch) > 0 && (arch[0] == "arm64" || arch[0] == "aarch64") {
+		eMachine = 0xB7 // EM_AARCH64
+	} else if len(arch) > 0 && arch[0] == "arm" {
+		eMachine = 0x28 // EM_ARM
+	}
+
 	// 1. ELF64 Header (64 bytes)
 	out.Write([]byte{0x7F, 'E', 'L', 'F', 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0})      // e_ident (ELF64, Little-Endian, SYSV)
 	_ = binary.Write(&out, binary.LittleEndian, uint16(2))                          // e_type = ET_EXEC
-	_ = binary.Write(&out, binary.LittleEndian, uint16(0x3E))                       // e_machine = EM_X86_64
+	_ = binary.Write(&out, binary.LittleEndian, eMachine)                           // e_machine
 	_ = binary.Write(&out, binary.LittleEndian, uint32(1))                          // e_version = EV_CURRENT
 	_ = binary.Write(&out, binary.LittleEndian, elfBaseAddr+uint64(layout.TextRVA)) // e_entry
 	_ = binary.Write(&out, binary.LittleEndian, uint64(64))                         // e_phoff = 64

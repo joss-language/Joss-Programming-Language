@@ -1,3 +1,5 @@
+//go:build !noredis
+
 package core
 
 import (
@@ -200,4 +202,85 @@ func (r *Runtime) executeRedisMethod(instance *Instance, method string, args []i
 		return err == nil
 	}
 	return nil
+}
+
+// InitRedisSessions initializes GlobalRedis from environment map and pings it.
+func InitRedisSessions(env map[string]string) error {
+	redisURL := strings.TrimSpace(env["REDIS_URL"])
+	if redisURL == "" {
+		redisURL = strings.TrimSpace(os.Getenv("REDIS_URL"))
+	}
+	if redisURL != "" {
+		opts, err := redis.ParseURL(redisURL)
+		if err == nil {
+			GlobalRedis = redis.NewClient(opts)
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if err := GlobalRedis.Ping(ctx).Err(); err != nil {
+				_ = GlobalRedis.Close()
+				GlobalRedis = nil
+				return fmt.Errorf("redis %s no disponible: %w", redisURL, err)
+			}
+			return nil
+		}
+	}
+
+	host := strings.TrimSpace(env["REDIS_HOST"])
+	if host == "" {
+		host = strings.TrimSpace(os.Getenv("REDIS_HOST"))
+	}
+	if host == "" {
+		host = "127.0.0.1:6379"
+	} else if !strings.Contains(host, ":") {
+		port := strings.TrimSpace(env["REDIS_PORT"])
+		if port == "" {
+			port = strings.TrimSpace(os.Getenv("REDIS_PORT"))
+		}
+		if port == "" {
+			port = "6379"
+		}
+		host = host + ":" + port
+	}
+
+	database, err := strconv.Atoi(strings.TrimSpace(env["REDIS_DB"]))
+	if err != nil {
+		database = 0
+	}
+	password := env["REDIS_PASSWORD"]
+	if password == "" {
+		password = os.Getenv("REDIS_PASSWORD")
+	}
+
+	InitRedis(host, password, database)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := GlobalRedis.Ping(ctx).Err(); err != nil {
+		_ = GlobalRedis.Close()
+		GlobalRedis = nil
+		return fmt.Errorf("redis %s no disponible: %w", host, err)
+	}
+	return nil
+}
+
+// GetRedisSession fetches a session string from Redis. Returns ("", false, nil) if missing.
+func GetRedisSession(sessionID string) (string, bool, error) {
+	if GlobalRedis == nil {
+		return "", false, fmt.Errorf("redis session storage is not available")
+	}
+	val, err := GlobalRedis.Get(Ctx, "session:"+sessionID).Result()
+	if err == redis.Nil {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return val, true, nil
+}
+
+// SetRedisSession writes a session payload to Redis with the given TTL.
+func SetRedisSession(sessionID string, encoded []byte, ttl time.Duration) error {
+	if GlobalRedis == nil {
+		return fmt.Errorf("redis session storage is not available")
+	}
+	return GlobalRedis.Set(Ctx, "session:"+sessionID, encoded, ttl).Err()
 }

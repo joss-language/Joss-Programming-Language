@@ -215,154 +215,103 @@ npm run compile
 cd ..
 ```
 
-## Tercera fase de arquitectura — septiembre de 2026
+## Reglas de Ciclo de Vida, Runtime Pool, Web y ORM
 
-El pipeline del analyzer debe permanecer explícito (`collectDeclarations → projectScope → validateNominalContracts → analyzeSourceBodies`) y sus fases se mantienen en archivos cohesivos del mismo package, no en una colección de managers públicos. La resolución de llamadas y miembros consume firmas semánticas; analyzer y runtime pueden compartir metadata/typesystem, pero nunca estado ni ejecución.
-
-Toda extracción de `Runtime`, `MainHandler` o `pub_cli` exige primero characterization tests reproducibles: pool/fork/reset, HTTP con `httptest`, y CLI con `t.TempDir`/registry en memoria. Un runtime devuelto al pool debe limpiar estado por request/ejecución; configuración persistente y recursos externos compartidos deben documentarse explícitamente. No se deben introducir contratos falsos para métodos nativos variádicos.
-
-Las reglas arquitectónicas negativas siguen vigentes: analyzer no importa core; server no define semántica; formatter conserva trivia; VM no promociona semántica experimental. Para directivas de templates, compartir interpretación requiere una representación sintáctica, no una regex duplicada. Las métricas de fan-in/out y Change Surface son observación, no objetivos cosméticos.
-
-## Cuarta fase de arquitectura — septiembre de 2026
-
-- `Runtime` se adquiere/libera mediante `runtime_lifecycle.go`. Todo campo nuevo debe declarar lifetime, owner, política de Fork y política de Free; estado de request/ejecución nunca sobrevive al pool. `DB` es externo y no se cierra en `Free`.
-- En HTTP, registre el cleanup inmediatamente después de `Fork`. Resultados Joss→HTTP pertenecen a `response_writer.go`; request adaptation, rate limit y session storage no deben volver a mezclarse allí.
-- Métodos nativos nuevos deben usar `NativeMethodDefinition` cuando el contrato sea fiable. No represente aridad desconocida como cero parámetros. Runtime implementa; analyzer/LSP/docs consumen proyecciones.
-- Binding runtime y validación analyzer permanecen separados, pero ambos deben respetar positional/named/default/ref/duplicate/missing a partir de la misma firma semántica.
-- La sintaxis de directivas pertenece a `pkg/viewtemplate`; runtime y tooling no deben añadir regex locales para `@json` u otras directivas migradas.
-- Tests nunca escriben en HOME real. Use `t.TempDir`, `httptest` y `GOCACHE` temporal si el host tiene ACLs defectuosas. Para validar la extensión con VS Code bloqueando `node_modules`, use un checkout/directorio temporal limpio.
-- La VM experimental sólo entra en `differentialFeatures` cuando Interpreter y VM soportan realmente la feature. Interpreter y documentación continúan siendo autoridad runtime publicada.
-
-## Quinta fase de arquitectura — septiembre de 2026
-
-- **Ownership de Plugins y Drivers Nativos**: `PluginRegistry` y `NativeDriverDefinition` separan el AST inmutable y los handles dinámicos del estado mutable por ejecución. `PluginAwareHost` (`Runtime`) mantiene engines AST y namespaces aislados por instancia/fork. Los handles usan ownership contado: `Fork()` retiene, `Free()` libera y el último owner descarga. `Unload()` explícito no puede invalidar un driver prestado y se serializa con llamadas activas.
-- **Sesiones HTTP y Redirect Flash**: Los únicos backends válidos son `memory`, `file` y `redis`; nombres desconocidos deben fallar, no degradarse a memoria. Los snapshots de request clonan mapas/slices JSON anidados. La persistencia de flash reutiliza `saveSession`; un fallo aborta con HTTP 500 sin `Location` ni estado parcial.
-- **Ciclo de vida y aislamiento WebSocket**: La actualización HTTP a WebSocket dispone de callbacks Joss implementados `onMessage` y `onClose`, cleanup idempotente y runtime forkeado por request. Los parámetros de ruta se entregan posicionalmente al setup handler. No anuncie `onConnect`, `onError` ni `$params` hasta que existan implementación y tests.
-- **Protección contra Double-Free en Runtime Pool**: `Runtime` mantiene una guarda `atomic.Bool`; `Free()` usa una transición compare-and-swap para que un puntero sólo pueda reingresar una vez a `sync.Pool`. El singleton de assets debe conservar inicialización sincronizada.
-- **Metadata Nativa Declarativa**: 10 clases nativas (`Stack`, `Queue`, `Math`, `JSON`, `Markdown`, `Str`, `UUID`, `Lang`, `Console`, `Zip`) usan `NativeMethodDefinition`. Sólo se publican nombres y retornos comprobados; `ArityKnown=false` significa desconocimiento legítimo y no debe describirse como aridad exacta.
-- **Directivas y Posicionamiento de Plantillas**: `pkg/viewtemplate` implementa cálculo de columnas basado en runas Unicode (`utf8.RuneCountInString`), garantizando que caracteres acentuados o multibyte en directivas mantengan rangos 1-based exactos y compatibles con LSP/diagnósticos.
-
-## Sexta fase de arquitectura — Model ORM
-
-- La metadata de una subclase de `Model` se construye desde literales del AST, se conserva inmutable dentro de `classMetadataCache` y nunca usa un cache global mutable.
-- Valores de DB pasan por el hydrator y sus casts antes de entrar en `Instance.Fields`; `NULL` permanece `nil`. La serialización aplica `hidden`/`visible` y relaciones cargadas.
-- `fillable`/`guarded` solo gobiernan asignación masiva. Hydration y asignación explícita no dependen de esa política.
-- `save()` usa el estado explícito `exists`, compara atributos actuales con `original`, omite UPDATE sin cambios y sincroniza el estado solo después de SQL exitoso.
-- Consultas de `Model` componen el builder de GranDB. El builder directo conserva mapas; el builder de modelo hidrata instancias.
-- `belongsTo`, `hasOne` y `hasMany` producen la misma consulta de modelo. `with`, `load` y `loadMissing` comparten un cargador eager por lotes e indexan resultados por clave.
-- `belongsToMany` conserva atributos pivot fuera de los atributos relacionados. `sync` calcula attach/detach y toda escritura relacional compuesta reutiliza `Runtime.activeTx`; arrays vacíos nunca se convierten en borrado global.
-- Soft delete es un scope de query removible y opt in mediante metadata. `forceDelete` es la única ruta de borrado físico para una instancia soft deleted.
-- Hooks de modelo previos pueden cancelar retornando `false`; hooks posteriores se ejecutan únicamente después de SQL exitoso. No añada buses de eventos paralelos.
-- Accessors y mutators usan exclusivamente `get{Studly}Attribute(value)` y `set{Studly}Attribute(value)`. Hydration no ejecuta mutators; asignación explícita sí. Accessors no deben iniciar consultas ni alterar el valor raw usado por dirty tracking.
-
-## Reglas de evolución de GranDB
-
-- Los valores SQL se envían como bindings. Tablas, columnas, aliases, operadores y direcciones son estructura: deben validarse y compilarse, nunca tratarse como values ni interpolarse desde entrada de usuario.
-- Una expresión del ORM debe tener un tipo interno explícito. Un `string` de Joss siempre representa datos, aunque su contenido sea `CURRENT_TIMESTAMP`, `NULL` o parezca una función SQL.
-- Las diferencias entre SQLite, MySQL/MariaDB, PostgreSQL y SQL Server pertenecen a `databaseDialect`. No añada nuevas ramas de motor al dispatcher o a operaciones individuales cuando la diferencia pueda compilarse en el dialecto.
-- Las escrituras desde maps ordenan columnas antes de construir SQL y bindings. Operaciones bulk exigen filas homogéneas, respetan el límite de parámetros del dialecto y son atómicas cuando abarcan varios lotes.
-- Un método GranDB solo puede publicarse en `native.go` cuando el dispatcher tiene una ruta alcanzable, el retorno está proyectado al analyzer y existe al menos una prueba positiva. La compatibilidad de un motor solo se declara cuando una prueba de integración se ejecuta contra ese motor; los golden tests de SQL demuestran compilación, no ejecución.
-- `update` y `delete` requieren filtros. Las variantes que afecten toda una tabla deben tener un nombre explícito y pruebas que demuestren la intención destructiva.
-- Logging SQL es opt in. Nunca imprima bindings automáticamente; cualquier observer futuro debe admitir redacción y documentar su lifetime en `Runtime`, `Fork` y `Free`.
-
-## Séptima fase de arquitectura — Septiembre de 2026
-
-- **Clases Genéricas y Records Inmutables**:
-  - `public class Box<T>` permite parámetros formales de tipo analizados en contratos nominales y constructores (`Init`).
-  - `public record Nombre(Tipo $campo1, Tipo $campo2)` genera una clase sellada cuyos campos son constantes inmutables post-inicialización, con constructor canónico auto-generado si no se declara uno explícito.
-- **Canales Tipados y Concurrencia**:
-  - Se soportan canales con tipo `channel<T>`.
-  - Operaciones sobre canales cerrados (`JOSS-CHANNEL-001`) o capacidades inválidas (`JOSS-CHANNEL-002`) emiten diagnósticos runtime precisos.
-  - La expresión `await` suspende y propaga errores cooperativamente con cancelaciones de contexto (`Future.Cancel()`).
-- **Aislamiento de Archivos de Prueba en Linter y Analyzer**:
-  - Los archivos de prueba (`*_test.joss` o dentro de carpetas `test/` y `tests/`) se detectan con `parser.IsTestSourceFile()`.
-  - `joss check` y el linter excluyen automáticamente los archivos de prueba del análisis semántico estricto de proyecto para evitar falsos positivos por variables libres o mocks de prueba.
-- **IndexNow, SEO y Sitemap**:
-  - Integración nativa de `IndexNow` (generación automática de claves y endpoints de verificación).
-  - `/sitemap.xml` dinámico en vivo con soporte de exclusiones configurables y formato de fecha canónico.
-- **Soporte Móvil (Android/Termux e iOS)**:
-  - Runtimes con buffers de salida aislados y wrappers defensivos para ejecución multiplataforma y captura segura de salida tardía.
+- **Pipeline y Aislamiento**: `analyzer` (`collectDeclarations → projectScope → validateNominalContracts → analyzeSourceBodies`) nunca importa `core`; `server` nunca define semántica; `formatter` conserva trivia.
+- **Ciclo de Vida de `Runtime` (`runtime_lifecycle.go`)**:
+  - Todo campo nuevo en `Runtime` debe declarar lifetime, owner, política de `Fork()` y política de `Free()`. El estado por request nunca sobrevive al pool. `DB` es compartido/externo y no se cierra en `Free()`.
+  - `Runtime` mantiene una guarda `atomic.Bool` compare-and-swap en `Free()` contra *double-free*.
+  - En HTTP, el cleanup se registra inmediatamente tras `Fork()`. La adaptación de resultados Joss→HTTP pertenece a `response_writer.go`.
+- **Plugins y Drivers Nativos**: `PluginRegistry` y `NativeDriverDefinition` usan ownership contado (`Fork()` retiene, `Free()` libera y el último owner descarga).
+- **Sesiones HTTP y WebSockets**:
+  - Backends válidos de sesión: `memory`, `file` y `redis` (nombres desconocidos fallan explícitamente).
+  - WebSockets usan callbacks `onMessage` y `onClose` con cleanup idempotente y runtime forkeado por conexión.
+- **Directivas de Plantillas (`pkg/viewtemplate`)**: Cálculo de columnas basado en runas Unicode (`utf8.RuneCountInString`); prohibido duplicar regex de directivas fuera de `pkg/viewtemplate`.
+- **Model ORM y GranDB**:
+  - La metadata de subclases de `Model` se construye desde literales del AST y es inmutable en `classMetadataCache`.
+  - Valores SQL siempre viajan como bindings; tablas, columnas y operadores se validan estructuralmente. Un `string` de Joss siempre es dato, nunca SQL crudo.
+  - Diferencias entre motores SQL pertenecen exclusivamente a `databaseDialect`.
+  - `update` y `delete` requieren filtros obligatorios.
+  - Accessors/mutators usan `get{Studly}Attribute` / `set{Studly}Attribute`. Hydration no ejecuta mutators.
+- **Clases Genéricas, Records y Canales**:
+  - `public class Box<T>` y `public record Nombre(...)` se validan nominalmente.
+  - `channel<T>` emite `JOSS-CHANNEL-001` (cerrado) y `JOSS-CHANNEL-002` (capacidad inválida).
+- **Archivos de Prueba**: `*_test.joss` y carpetas `test/`/`tests/` (`parser.IsTestSourceFile()`) se excluyen del análisis estricto de proyecto en `joss check`.
 
 ---
 
 ## 8. Reglas de internacionalización (i18n) y archivos ARB
 
-Para mantener la consistencia entre los 30 idiomas soportados y evitar que los motores de traducción corrompan sintaxis de comandos o flujos interactivos de consola:
-
-1. **Aislamiento estricto de sintaxis CLI**:
-   * En los archivos `.arb` va **únicamente prosa humana, descripciones y etiquetas legibles**.
-   * **Nunca** incluir comandos ejecutables (`joss run`, `joss migrate`, `joss make:...`), flags (`--write`, `--dry-run`), ni nombres de archivo de ejemplo (`main.joss`, `tu_script.joss`) dentro de los valores de cadenas a traducir.
-   * La sintaxis CLI se formatea siempre en código Go con `fmt.Printf`, inyectando únicamente las etiquetas o descripciones traducidas.
-   * Para prefijar líneas de ayuda con "Uso:", usar la clave canónica `cliUsageLabel` (`"Uso:"`), interpolando el comando en Go:
-     ```go
-     fmt.Printf("%s joss run [archivo.joss]\n", i18n.Tr("cliUsageLabel"))
-     ```
-
-2. **Prompts interactivos de consola (`s/n` vs `y/n`)**:
-   * **Nunca** incluir el sufijo selector `(s/n): ` o `(y/n): ` dentro del texto de la pregunta en el ARB.
-   * La cadena ARB debe contener únicamente la pregunta limpia en prosa (ej: `"¿Deseas descargar los archivos desde OCI hacia local?"`).
-   * El indicador de opciones se formatea directamente en Go:
-     ```go
-     fmt.Printf("%s (s/n): ", i18n.Tr("storagePromptDownloadOci"))
-     ```
-   * La validación de entrada por teclado en Go debe aceptar indistintamente opciones afirmativas en español e internacional:
-     ```go
-     if text == "s" || text == "y" || text == "si" || text == "yes" {
-     ```
-
-3. **Placeholders y metadata obligatoria**:
-   * Toda cadena que use variables interpoladas `{param}` debe tener obligatoriamente su bloque `@key` con `"placeholders": { "param": {} }`.
-   * El tooling de traducción (`Traductor-de-Proyectos-arb-xml`) y los characterization tests (`pkg/i18n/i18n_test.go`) validan esta paridad.
-
-4. **Paridad de claves al 100%**:
-   * Los 30 archivos `intl_*.arb` deben contener exactamente el mismo conjunto de claves. No se admiten claves huérfanas ni traducciones que dejen el valor del comando en español en archivos de otros idiomas.
-
-5. **Protección absoluta de códigos de diagnóstico y nombres canónicos**:
-   * Los códigos estables de diagnóstico (`JOSS-SYM-008`, `JOSS-TYPE-011`, `JOSS-PARSE-001`, `JOSS-CALL-001`, etc.) son invariantes arquitectónicas del compilador, analizador y linter. **Bajo ninguna circunstancia se deben borrar, traducir, alterar o reemplazar**.
-   * Nombres de archivos de configuración técnica (`joss.yaml`) y nombres de propiedades canónicas (`name, version, repository`) se mantienen estrictamente literales en todos los idiomas sin traducir ni añadir sufijos gramaticales de otros idiomas.
+1. **Aislamiento estricto de sintaxis CLI**: En `intl_*.arb` va únicamente prosa traducible. Nunca incluir comandos (`joss run`), flags (`--write`) ni rutas de ejemplo dentro de cadenas ARB; formatearlos en Go con `cliUsageLabel`.
+2. **Prompts interactivos (`s/n` vs `y/n`)**: Nunca incluir `(s/n): ` en el ARB; formatearlo en Go y aceptar `s`, `si`, `y`, `yes`.
+3. **Placeholders y paridad 100%**: Toda variable `{param}` exige metadata `@key` con `"placeholders"`. Los 30 archivos `intl_*.arb` deben tener exactamente las mismas claves.
+4. **Protección de códigos `JOSS-...` y `joss.yaml`**: Jamás traducir códigos de diagnóstico ni claves técnicas (`name, version, repository`).
 
 ---
 
 ## 9. Principio de Paridad Total de Lenguaje (Feature Once, Execute Everywhere)
 
-A partir de la consolidación de la arquitectura unificada de compilación y ejecución:
+> **One Language. One Semantics. Multiple Execution Modes.**
 
-> **One Language. One Semantics. Multiple Execution Modes.**  
-> **Feature Once, Execute Everywhere.**  
-> **Semantics Once. Materialization Per Backend.**
-
-### Invariantes Obligatorias para Agentes y Desarrolladores:
-
-1. **Un solo lenguaje:**
-   * Joss **NO** tiene un “lenguaje interpretado” y un “lenguaje compilado”. Existe un único lenguaje Joss.
-   * `joss run`, `joss server`, `joss program` y `joss build` son diferentes modos de ejecutar el **mismo lenguaje** con la **misma semántica**.
-2. **Prohibición de `JOSS-NATIVE-001` en Core Language:**
-   * Toda característica clasificada en la categoría `CORE LANGUAGE` (`Variables`, `Primitives`, `ControlFlow`, `Recursion`, `Functions`, `Classes`, `StaticClassMethods`, `SpaceshipOperator`, `DynamicArrays`, `DynamicMaps`, `Exceptions`, `Interfaces`, `Enums`, `Generics`) debe tener paridad completa de materialización en el compilador nativo (`pkg/ir` y `pkg/backend/native`).
-   * No se permite marcar una funcionalidad del Core Language como completa o soportada en el intérprete si produce `JOSS-NATIVE-001` al compilarse con `joss build`.
-3. **Obligatoriedad de Tests de Compilación Nativa:**
-   * **Siempre que se integre cualquier funcionalidad o cambio semántico al lenguaje, es obligatorio crear pruebas de compilación nativa.**
-   * Toda adición exige un test en `tests/native/differential_test.go` que compruebe que el código compila limpiamente a binario ejecutable (`joss build`), se ejecuta sin errores y produce idéntica salida que el intérprete (`joss run`).
-   * Ningún PR o cambio de lenguaje puede cerrarse con sólo pruebas de intérprete o analizador.
-4. **Prohibición de Embeber Intérprete o Serializar AST en Binarios Nativos:**
-   * `joss build` debe generar código nativo real AOT (PE `.exe`, ELF, Mach-O).
-   * Queda estrictamente prohibido empaquetar el contenedor de AST serializado `JOSSBC2Z`, marcadores como `JOSS_RUNNER_DATA`, o el runtime completo de Go como un falso binario nativo. Las pruebas en `tests/architecture/architecture_contract_test.go` protegen este invariante.
-5. **`PreparedProgram` como Autoridad Semántica Exclusiva:**
-   * El Native Lowerer (`pkg/ir/lower.go`) consume directamente `PreparedProgram` y sus hechos de análisis (`ResolvedCalls`, `InferredTypes`, `Environment`).
-   * El backend nativo **nunca** debe intentar re-inferir tipos, re-resolver sobrecargas de funciones o re-descubrir símbolos por separado.
-6. **Autonomía del Toolchain:**
-   * El usuario final de Joss sólo necesita instalar el binario `joss` para programar, ejecutar y compilar sus aplicaciones con `joss build`. No se debe requerir la instalación manual de toolchains externos (Go, GCC, Clang, LLVM, CMake) para las operaciones oficialmente soportadas.
+1. **Un solo lenguaje**: `joss run`, `joss server`, `joss program` y `joss build` ejecutan el mismo lenguaje con la misma semántica a partir de `PreparedProgram`.
+2. **Prohibición de `JOSS-NATIVE-001` en Core Language**: Toda característica de `CORE LANGUAGE` debe tener lowering en `pkg/ir` y emisión en `pkg/backend/native`.
+3. **Autonomía del Toolchain**: El usuario final sólo necesita `joss` para programar, ejecutar y compilar binarios nativos.
 
 ---
 
 ## 10. Contratos de Arquitectura y Verificación Continua (CI Gates)
 
-Todo cambio arquitectónico en el analizador, lowering o backend nativo debe satisfacer y mantener en estado verde los siguientes tests permanentes en `tests/architecture/architecture_contract_test.go`:
+Todo cambio debe mantener en verde `tests/architecture/architecture_contract_test.go`:
+* `TestArchitecture_SemanticIntegrityAndSharedPreparedProgramReuse`
+* `TestArchitecture_NativeLoweringNeverResolvesTypesOrCallsIndependently`
+* `TestArchitecture_NoASTSerializationOrMonolithicRuntimeInNative`
+* `TestArchitecture_CoreLanguageImplementedFeaturesMustExecuteEverywhere`
+* `TestArchitecture_EveryCoreLanguageFeatureExecutesEverywhere`
+* `TestArchitecture_LanguageFeatureMustBeImplementedOnceAndExecuteEverywhere`
+* `TestArchitecture_Regression_InterpreterSupportedNativeUnsupportedRejected`
 
-* `TestArchitecture_SemanticIntegrityAndSharedPreparedProgramReuse`: Garantiza que una misma instancia inmutable de `PreparedProgram` puede ser ejecutada por el intérprete, bajada a IR/compilada a nativo, y reejecutada sin mutaciones de estado interno.
-* `TestArchitecture_NativeLoweringNeverResolvesTypesOrCallsIndependently`: Valida que el Lowerer nativo respete exclusivamente las decisiones del análisis semántico.
-* `TestArchitecture_NoASTSerializationOrMonolithicRuntimeInNative`: Verifica a nivel binario que no se introduzcan artefactos de AST serializado ni runtimes Go en los binarios compilados.
-* `TestArchitecture_CoreLanguageImplementedFeaturesMustExecuteEverywhere`: Exige que ninguna característica de `CORE LANGUAGE` en estado `StateFullyComplete` tenga `Native != Supported` o emita `JOSS-NATIVE-001`.
-* `TestArchitecture_EveryCoreLanguageFeatureExecutesEverywhere`: Asegura paridad total y universal.
-* `TestArchitecture_LanguageFeatureMustBeImplementedOnceAndExecuteEverywhere`: Prohíbe divergencias de soporte entre backends para características completas.
-* `TestArchitecture_Regression_InterpreterSupportedNativeUnsupportedRejected`: Falla de inmediato si una característica del Core Language se declara soportada en el intérprete pero no en el backend nativo.
+---
+
+## 11. Compilación Nativa (`joss build`), Poda Selectiva de Motores (`no<driver>`) y Sellado VFS
+
+### 11.1 Directorio de salida y Compilación Cruzada (Multi-OS / Multi-Arch)
+* Todo `joss build` sin `-o` deposita los binarios compilados dentro de `build/` (`build/<nombre>.exe` o `build/<nombre>`).
+* **Compilación cruzada nativa integrada (`--target` o atajo directo)**:
+  - `joss build main.joss --target=linux-amd64` (o `joss build linux`)
+  - `joss build main.joss --target=linux-arm64`
+  - `joss build main.joss --target=darwin-arm64` (o `joss build macos` — Apple Silicon M1/M2/M3/M4)
+  - `joss build main.joss --target=darwin-amd64` (macOS Intel)
+  - `joss build main.joss --target=windows-amd64` / `--target=windows-arm64`
+  - `joss build main.joss --target=android-arm64` (o `joss build android` — Android / Termux)
+
+### 11.2 Separación entre Binarios CLI Puros y Aplicaciones con Host Bridge
+* **Programas CLI puros**: Se compilan a código máquina puro (~5.5 KB - 32 KB) sin `joss_host.dll` y sin trailer VFS (`JOSS_RUNNER_DATA`).
+* **Aplicaciones completas con servicios de servidor/DB**: Enlazan selectivamente `_joss_host_bridge` y sellan el VFS encriptado en el ejecutable.
+
+### 11.3 Regla Obligatoria para Nuevos Motores, Bases de Datos o SDKs Externos (Patrón `no<servicio>`)
+> **REGLA ESTRICTA DE ARQUITECTURA**: Ninguna librería externa pesada (nuevo motor de base de datos como MongoDB, Cassandra, ClickHouse, o SDK de nube como AWS S3, Firebase, Kafka, etc.) puede importarse de forma incondicional en `pkg/core` ni en `pkg/server`.
+
+Siempre que se agregue un nuevo driver o integración externa (ejemplo: **MongoDB**):
+1. **Aislamiento por Build Tag (`!nomongodb` / `nomongodb`)**:
+   - Crear `pkg/core/drivers_db_mongodb.go` (o `pkg/core/lib_<servicio>.go`) con `//go:build !nodb && !nomongodb` que contenga el `import` del paquete externo.
+   - Crear su contraparte ligera `pkg/core/drivers_db_mongodb_stub.go` con `//go:build nodb || nomongodb` que devuelva un error claro sin importar la dependencia externa.
+   - Drivers actualmente aislados bajo este estándar:
+     - SQLite: `!nodb && !nosqlite` (`drivers_db_sqlite.go`)
+     - MySQL: `!nodb && !nomysql` (`drivers_db_mysql.go`)
+     - PostgreSQL: `!nodb && !nopostgres` (`drivers_db_postgres.go`)
+     - SQL Server: `!nodb && !nomssql` (`drivers_db_mssql.go`)
+     - Oracle Cloud OCI: `!nooci` / `nooci` (`lib_storage_oci.go` / `lib_storage_nooci.go`)
+     - Redis: `!noredis` / `noredis` (`redis.go` / `redis_stub.go`)
+2. **Detección Automática en `cmd/joss/native_builder.go`**:
+   - Registrar la detección del nuevo servicio en `collectProjectFiles` leyendo `core.DetectAndLoadEnv(nil)` (ej. `DB=mongodb` → `capsMap["mongodb"] = true`) y en el grafo de alcanzabilidad AST.
+   - En `optimizeHostBridgeDLL` y `compileRunnerBinary`, si `!detectedCaps["mongodb"]`, inyectar automáticamente el tag `nomongodb` en `-tags=...` para que los proyectos que no usen MongoDB jamás carguen su peso en el binario ni en `joss_host.dll`.
+
+### 11.4 Sellado VFS Encriptado (`env.enc` AES-256) y Optimización del `.exe`
+* `appendSealedAssetsToExecutable` empaqueta el proyecto dentro del ejecutable final:
+  - Encripta las variables de entorno con **AES-256** bajo `env.enc` y excluye `.env` / `env.joss` en texto plano.
+  - Excluye directorios y archivos de desarrollo (`bruno/`, `.joss/`, `tests/`, `package-lock.json`, `Dockerfile`, `.dockerignore`, `translation_history.json`, `AGENTS.md`).
+  - Optimiza en memoria imágenes PNG > 150 KB (`optimizeLargePNG` a 720px con `png.BestCompression`) sin modificar los archivos fuente en disco.
+  - En runtime, `_joss_host_bridge` desencripta el VFS en RAM y `Runtime.writeEnvJoss()` nunca escribe `env.joss` a disco cuando `GlobalFileSystem != nil`.
+
+
 

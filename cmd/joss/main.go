@@ -411,12 +411,14 @@ func handleBuildCommand(args []string) {
 			buildNativeProgram("main.joss", "", "", false, false, false, false, "auto")
 			return
 		}
-		fmt.Printf("%s joss build [archivo.joss] [opciones]\n", i18n.Tr("cliUsageLabel"))
+		fmt.Printf("%s joss build [archivo.joss] [target] [opciones]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println("\nOpciones:")
-		fmt.Println("  -o <salida>          Nombre o ruta del binario nativo de salida")
-		fmt.Println("  --target=<os>-<arch> Objetivo de compilación cruzada (ej. windows-amd64, linux-amd64)")
-		fmt.Println("  --release            Compilación optimizada sin símbolos de depuración")
+		fmt.Println("  -o <salida>          Nombre o ruta del binario nativo de salida (por defecto: build/<nombre>)")
+		fmt.Println("  --target=<os>-<arch> Objetivo de compilación cruzada (linux-amd64, linux-arm64, darwin-arm64, darwin-amd64, windows-amd64, android-arm64)")
+		fmt.Println("  linux | macos | windows | android  Atajos directos de compilación cruzada")
+		fmt.Println("  --release            Compilación optimizada sin símbolos de depuración (por defecto)")
 		fmt.Println("  --debug              Compilación con información de depuración")
+		fmt.Println("  --gui                Habilita subsistema de interfaz gráfica de escritorio (GUI)")
 		fmt.Println("  --trace              Emite y conserva artefactos intermedios (.ir, .ll, .asm)")
 		fmt.Println("\nSubcomandos de distribución:")
 		fmt.Println("  package <ruta>       Empaquetar librería o plugin en formato .jp")
@@ -489,7 +491,10 @@ func handleBuildCommand(args []string) {
 		} else if strings.HasPrefix(arg, "--backend=") {
 			backendName = strings.TrimPrefix(arg, "--backend=")
 		} else if !strings.HasPrefix(arg, "-") {
-			if filename == "" {
+			lowerArg := strings.ToLower(arg)
+			if _, parseErr := native.ParseTarget(lowerArg); parseErr == nil && !strings.HasSuffix(lowerArg, ".joss") {
+				targetStr = lowerArg
+			} else if filename == "" {
 				filename = arg
 			}
 		}
@@ -599,6 +604,18 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	if err != nil {
 		fmt.Printf("Error generando ejecutable nativo: %v\n", err)
 		os.Exit(1)
+	}
+
+	if res.NeedsHostBridge {
+		_, hasRoutes := os.Stat("routes.joss")
+		_, hasApi := os.Stat("api.joss")
+		_, hasApp := os.Stat("app")
+		if hasRoutes == nil || hasApi == nil || hasApp == nil {
+			if newSize, sealErr := appendSealedAssetsToExecutable(outExe, enableGUI); sealErr == nil && newSize > 0 {
+				res.ExecutableSize = newSize
+				fmt.Println("🔒 Assets, vistas, rutas y entorno (env.enc AES-256) sellados dentro del ejecutable.")
+			}
+		}
 	}
 
 	sizeKB := float64(res.ExecutableSize) / 1024.0

@@ -7,15 +7,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	mssql "github.com/microsoft/go-mssqldb"
 )
 
 const sqlServerDriverName = "joss-sqlserver"
-
-func init() {
-	sql.Register(sqlServerDriverName, &sqlServerRebindingDriver{base: &mssql.Driver{}})
-}
 
 // sqlServerRebindingDriver wraps the standard mssql driver for Joss compatibility.
 type sqlServerRebindingDriver struct {

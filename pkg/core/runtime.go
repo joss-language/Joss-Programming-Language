@@ -393,6 +393,9 @@ func generateSecureKey() string {
 const defaultEnvFileName = "env.joss"
 
 func (r *Runtime) writeEnvJoss() {
+	if GlobalFileSystem != nil {
+		return
+	}
 	filePath := resolveEnvFilePath()
 	if filePath == "" {
 		return

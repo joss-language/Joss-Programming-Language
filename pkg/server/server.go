@@ -146,6 +146,31 @@ func Start(fileSystem http.FileSystem) {
 		"host": "localhost",
 		"port": port,
 	}))
+
+	isGUI := os.Getenv("JOSS_GUI") == "true"
+	if currentRuntime != nil && currentRuntime.Env != nil && currentRuntime.Env["JOSS_GUI"] == "true" {
+		isGUI = true
+	}
+
+	if isGUI {
+		go func() {
+			var err error
+			if certFile != "" {
+				err = srv.ListenAndServeTLS(certFile, keyFile)
+			} else {
+				err = srv.ListenAndServe()
+			}
+			if err != nil && err != http.ErrServerClosed {
+				fmt.Printf("FATAL: Error iniciando servidor: %v\n", err)
+				os.Exit(1)
+			}
+		}()
+		if maybeLaunchDesktopWindow(port, true) {
+			return
+		}
+		select {}
+	}
+
 	var err error
 	if certFile != "" {
 		err = srv.ListenAndServeTLS(certFile, keyFile)

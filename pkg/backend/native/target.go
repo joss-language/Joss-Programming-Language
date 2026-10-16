@@ -42,19 +42,39 @@ var SupportedTargets = map[string][]string{
 	"android": {"arm64", "arm"},
 }
 
-// ParseTarget valida y normaliza un objetivo de compilación (ej. "windows-amd64", "linux/amd64").
+// ParseTarget valida y normaliza un objetivo de compilación (ej. "windows-amd64", "linux-arm64", "linux", "macos").
 func ParseTarget(s string) (Target, error) {
 	if s == "" {
 		return HostTarget(), nil
 	}
-	s = strings.ReplaceAll(s, "/", "-")
+	s = strings.ToLower(strings.TrimSpace(strings.ReplaceAll(s, "/", "-")))
+	switch s {
+	case "windows", "win":
+		return Target{OS: "windows", Arch: "amd64"}, nil
+	case "linux":
+		return Target{OS: "linux", Arch: "amd64"}, nil
+	case "darwin", "macos", "mac", "osx":
+		return Target{OS: "darwin", Arch: "arm64"}, nil
+	case "android", "termux":
+		return Target{OS: "android", Arch: "arm64"}, nil
+	}
 	parts := strings.Split(s, "-")
 	if len(parts) != 2 {
-		return Target{}, fmt.Errorf("formato de target inválido '%s'. Debe ser <os>-<arch> (ej. windows-amd64, linux-amd64)", s)
+		return Target{}, fmt.Errorf("formato de target inválido '%s'. Debe ser <os>-<arch> (ej. windows-amd64, linux-amd64, linux-arm64, darwin-arm64)", s)
 	}
 
 	osName := strings.ToLower(parts[0])
+	if osName == "macos" || osName == "mac" || osName == "osx" {
+		osName = "darwin"
+	} else if osName == "win" {
+		osName = "windows"
+	}
 	archName := strings.ToLower(parts[1])
+	if archName == "x86_64" || archName == "x64" {
+		archName = "amd64"
+	} else if archName == "aarch64" {
+		archName = "arm64"
+	}
 
 	archs, ok := SupportedTargets[osName]
 	if !ok {

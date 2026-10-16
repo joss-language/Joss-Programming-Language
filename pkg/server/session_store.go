@@ -1,76 +1,20 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jossecurity/joss/pkg/core"
-	"github.com/redis/go-redis/v9"
 )
 
 var loadedSessionPath string
 
 func initializeRedisSessions(env map[string]string) error {
-	redisURL := strings.TrimSpace(env["REDIS_URL"])
-	if redisURL == "" {
-		redisURL = strings.TrimSpace(os.Getenv("REDIS_URL"))
-	}
-	if redisURL != "" {
-		opts, err := redis.ParseURL(redisURL)
-		if err == nil {
-			core.GlobalRedis = redis.NewClient(opts)
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			defer cancel()
-			if err := core.GlobalRedis.Ping(ctx).Err(); err != nil {
-				_ = core.GlobalRedis.Close()
-				core.GlobalRedis = nil
-				return fmt.Errorf("redis %s no disponible: %w", redisURL, err)
-			}
-			return nil
-		}
-	}
-
-	host := strings.TrimSpace(env["REDIS_HOST"])
-	if host == "" {
-		host = strings.TrimSpace(os.Getenv("REDIS_HOST"))
-	}
-	if host == "" {
-		host = "127.0.0.1:6379"
-	} else if !strings.Contains(host, ":") {
-		port := strings.TrimSpace(env["REDIS_PORT"])
-		if port == "" {
-			port = strings.TrimSpace(os.Getenv("REDIS_PORT"))
-		}
-		if port == "" {
-			port = "6379"
-		}
-		host = host + ":" + port
-	}
-
-	database, err := strconv.Atoi(strings.TrimSpace(env["REDIS_DB"]))
-	if err != nil {
-		database = 0
-	}
-	password := env["REDIS_PASSWORD"]
-	if password == "" {
-		password = os.Getenv("REDIS_PASSWORD")
-	}
-
-	core.InitRedis(host, password, database)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	if err := core.GlobalRedis.Ping(ctx).Err(); err != nil {
-		_ = core.GlobalRedis.Close()
-		core.GlobalRedis = nil
-		return fmt.Errorf("redis %s no disponible: %w", host, err)
-	}
-	return nil
+	return core.InitRedisSessions(env)
 }
 
 func sessionDriver(env map[string]string) string {
@@ -131,15 +75,15 @@ func loadSession(env map[string]string, sessionID string) (map[string]interface{
 		return nil, driver, err
 	}
 	if driver == "redis" {
-		if core.GlobalRedis == nil {
-			return nil, driver, fmt.Errorf("redis session storage is not available")
-		}
-		value, err := core.GlobalRedis.Get(core.Ctx, "session:"+sessionID).Result()
-		if err == redis.Nil {
-			return make(map[string]interface{}), driver, nil
-		}
+		value, found, err := core.GetRedisSession(sessionID)
 		if err != nil {
+			if strings.Contains(err.Error(), "not available") {
+				return nil, driver, err
+			}
 			return nil, driver, fmt.Errorf("read redis session: %w", err)
+		}
+		if !found {
+			return make(map[string]interface{}), driver, nil
 		}
 		data := make(map[string]interface{})
 		if err := json.Unmarshal([]byte(value), &data); err != nil {
@@ -168,14 +112,14 @@ func saveSession(env map[string]string, driver, sessionID string, data map[strin
 		return err
 	}
 	if driver == "redis" {
-		if core.GlobalRedis == nil {
-			return fmt.Errorf("redis session storage is not available")
-		}
 		encoded, err := json.Marshal(data)
 		if err != nil {
 			return fmt.Errorf("encode redis session: %w", err)
 		}
-		if err := core.GlobalRedis.Set(core.Ctx, "session:"+sessionID, encoded, 24*time.Hour).Err(); err != nil {
+		if err := core.SetRedisSession(sessionID, encoded, 24*time.Hour); err != nil {
+			if strings.Contains(err.Error(), "not available") {
+				return err
+			}
 			return fmt.Errorf("write redis session: %w", err)
 		}
 		return nil

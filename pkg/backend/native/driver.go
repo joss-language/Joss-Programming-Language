@@ -38,6 +38,7 @@ type BuildResult struct {
 	Target          Target
 	BackendUsed     BackendKind
 	IsBootstrap     bool
+	NeedsHostBridge bool
 	ToolchainNotice string
 	OutputPath      string
 	ExecutableSize  int64
@@ -153,6 +154,7 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 			return nil, fmt.Errorf("no se pudo escribir ejecutable nativo %s: %w", outExe, err)
 		}
 
+		res.NeedsHostBridge = mcBuilder.NeedsHostBridge()
 		if mcBuilder.NeedsHostBridge() && target.OS == "windows" {
 			// Ensure joss_host.dll is placed alongside the generated executable
 			targetDll := filepath.Join(filepath.Dir(outExe), "joss_host.dll")
@@ -161,6 +163,14 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 				"pkg/backend/native/abi/build/joss_host.dll",
 				"../pkg/backend/native/abi/build/joss_host.dll",
 				"../../pkg/backend/native/abi/build/joss_host.dll",
+			}
+			if selfExe, exeErr := os.Executable(); exeErr == nil {
+				selfDir := filepath.Dir(selfExe)
+				builtDllLocations = append(builtDllLocations,
+					filepath.Join(selfDir, "joss_host.dll"),
+					filepath.Join(selfDir, "pkg", "backend", "native", "abi", "build", "joss_host.dll"),
+					filepath.Join(selfDir, "..", "pkg", "backend", "native", "abi", "build", "joss_host.dll"),
+				)
 			}
 			var dllBytes []byte
 			for _, loc := range builtDllLocations {
