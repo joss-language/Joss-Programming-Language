@@ -312,6 +312,3 @@ Siempre que se agregue un nuevo driver o integración externa (ejemplo: **MongoD
   - Excluye directorios y archivos de desarrollo (`bruno/`, `.joss/`, `tests/`, `package-lock.json`, `Dockerfile`, `.dockerignore`, `translation_history.json`, `AGENTS.md`).
   - Optimiza en memoria imágenes PNG > 150 KB (`optimizeLargePNG` a 720px con `png.BestCompression`) sin modificar los archivos fuente en disco.
   - En runtime, `_joss_host_bridge` desencripta el VFS en RAM y `Runtime.writeEnvJoss()` nunca escribe `env.joss` a disco cuando `GlobalFileSystem != nil`.
-
-
-
