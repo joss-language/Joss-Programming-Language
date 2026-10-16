@@ -315,11 +315,11 @@ func TestCleanEnvironment004_NoGoFallbackAndExplicitJOSSNative001(t *testing.T) 
 	`
 	irProg := prepareTestProgram(t, validSrc, "target_check")
 	_, targetErr := backend.BuildProgram(irProg, backend.BuildOptions{
-		Target:     backend.Target{OS: "darwin", Arch: "arm64"},
-		OutputPath: filepath.Join(t.TempDir(), "out_darwin"),
+		Target:     backend.Target{OS: "freebsd", Arch: "riscv64"},
+		OutputPath: filepath.Join(t.TempDir(), "out_unsupported"),
 	})
 	if targetErr == nil {
-		t.Fatal("expected unavailable target darwin/arm64 to fail explicitly")
+		t.Fatal("expected unavailable target freebsd/riscv64 to fail explicitly")
 	}
 	if !strings.Contains(targetErr.Error(), "ERROR: native target not available") {
 		t.Errorf("expected 'ERROR: native target not available', got: %v", targetErr)
