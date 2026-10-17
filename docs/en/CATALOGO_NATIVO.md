@@ -10,7 +10,7 @@ de contratos y el handler enlazado. `mixed` no certifica aislamiento ni ausencia
 
 ## Auth
 
-Implementación: [executeAuthMethod](../../pkg/core/auth.go#L15).
+Implementación: [executeAuthMethod](../../pkg/core/auth.go#L16).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -41,7 +41,7 @@ Implementación: [executeAuthMethod](../../pkg/core/auth.go#L15).
 
 ## AuthLoginResult
 
-Implementación: [executeAuthLoginResultMethod](../../pkg/core/auth_fluent.go#L18).
+Implementación: [executeAuthLoginResultMethod](../../pkg/core/auth_fluent.go#L19).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -166,7 +166,7 @@ Implementación: [executeCronMethod](../../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../../pkg/core/native.go#L380).
+Implementación: [executeExceptionMethod](../../pkg/core/native.go#L384).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -391,7 +391,7 @@ Implementación: [executeIndexNowMethod](../../pkg/core/native_indexnow.go#L158)
 
 ## MFA
 
-Implementación: [executeMFAMethod](../../pkg/core/auth_fluent.go#L77).
+Implementación: [executeMFAMethod](../../pkg/core/auth_fluent.go#L78).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -678,7 +678,7 @@ Implementación: [executeRedirectMethod](../../pkg/core/response.go#L177).
 
 ## Redis
 
-Implementación: [executeRedisMethod](../../pkg/core/redis.go#L96).
+Implementación: [executeRedisMethod](../../pkg/core/redis_stub.go#L16).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -929,7 +929,7 @@ Implementación: [executeTaskMethod](../../pkg/core/task.go#L10).
 
 ## TwoFactor
 
-Implementación: [executeTwoFactorMethod](../../pkg/core/auth_fluent.go#L146).
+Implementación: [executeTwoFactorMethod](../../pkg/core/auth_fluent.go#L147).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -945,7 +945,7 @@ Implementación: [executeTwoFactorMethod](../../pkg/core/auth_fluent.go#L146).
 
 ## UserStorage
 
-Implementación: [executeUserStorageMethod](../../pkg/core/lib_storage.go#L21).
+Implementación: [executeUserStorageMethod](../../pkg/core/lib_storage.go#L15).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -999,6 +999,20 @@ Implementación: [executeWebSocketMethod](../../pkg/core/websocket.go#L60).
 | `subscribe` | `mixed` |
 | `subscriberCount` | `int` |
 | `unsubscribe` | `mixed` |
+
+## Window
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `close` | `void` |
+| `hide` | `void` |
+| `on` | `void` |
+| `open` | `Window` |
+| `pollEvents` | `bool` |
+| `render` | `void` |
+| `setSize` | `void` |
+| `setTitle` | `void` |
+| `show` | `void` |
 
 ## Zip
 
@@ -1138,4 +1152,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 54 clases, 664 métodos y 126 built-ins.
+Total: 55 clases, 673 métodos y 126 built-ins.

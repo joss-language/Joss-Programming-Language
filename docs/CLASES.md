@@ -1,6 +1,6 @@
 # Clases, objetos, métodos y herencia
 
-Antes: [Funciones y closures](FUNCIONES.md), [Colecciones](COLECCIONES.md). Después: [Manejo de errores y excepciones](ERRORES.md).
+Antes: [Manejo de errores y excepciones](ERRORES.md). Después: [Concurrencia, asincronía y canales](CONCURRENCIA.md).
 Referencia técnica: [Sistema de tipos](SISTEMA_TIPOS.md), [Catálogo nativo](CATALOGO_NATIVO.md).
 
 ---
@@ -20,8 +20,8 @@ En esta guía aprenderás:
 4. El rol de la variable especial **`$this`**.
 5. Los niveles de visibilidad y encapsulación: `public`, `protected` y `private`.
 6. Miembros estáticos y el operador de resolución de ámbito (`::`).
-7. Cómo reutilizar y especializar código mediante **herencia** con `extends`.
-8. El operador de navegación segura ante nulos (`?->`).
+7. Cómo reutilizar y especializar código mediante **herencia (`extends`)**, **interfaces (`implements`)** y **clases abstractas (`abstract`)**.
+8. Clases genéricas (`<T>`), `record` inmutables y el operador de navegación segura ante nulos (`?->`).
 
 ---
 
@@ -48,6 +48,13 @@ print($contador->incrementar())
 print($contador->incrementar())
 ```
 
+Salida en la terminal:
+
+```text
+1
+2
+```
+
 ### ¿Qué elementos componen este código?
 
 1. `public class Contador`: Declara una clase pública llamada `Contador`. En Joss, las clases a nivel de archivo requieren un modificador de visibilidad (`public` o `private`).
@@ -63,7 +70,7 @@ print($contador->incrementar())
 
 Cuando creas un objeto, casi siempre necesitas configurarlo con datos iniciales (por ejemplo, el nombre de una persona o las credenciales de una base de datos).
 
-En Joss puedes definir un método `constructor` o un bloque `Init`:
+En Joss puedes definir un método `public func constructor(...)` o un bloque `Init(...)`:
 
 <!-- joss-run: ["Hola, Ada"] -->
 ```joss
@@ -82,10 +89,16 @@ var $persona = new Persona("Ada")
 print($persona->saludar())
 ```
 
+Salida en la terminal:
+
+```text
+Hola, Ada
+```
+
 Al escribir `new Persona("Ada")`, Joss llama automáticamente al constructor entregándole el argumento `"Ada"`, el cual queda guardado de forma segura dentro de la propiedad privada `$this->nombre`.
 
 > [!NOTE]
-> Joss también admite la sintaxis de bloque `Init(string $nombre) { ... }`. Los bloques `Init` no llevan modificadores de visibilidad (`public` ni `private`).
+> Joss también admite la sintaxis de bloque `Init(string $nombre) { ... }`. Los bloques `Init` no llevan modificadores de visibilidad (`public` ni `private`). La forma histórica combinada `Init constructor(...)` sigue siendo aceptada por compatibilidad pero emite el aviso de transición `JOSS-DECL-008`; prefiere `public func constructor(...)` o `Init(...)`.
 
 ### Promoción de propiedades en el constructor (Constructor Property Promotion)
 
@@ -94,7 +107,7 @@ Para evitar tener que declarar la propiedad, recibir el parámetro y escribir `$
 <!-- joss-run: ["Ada", "30"] -->
 ```joss
 public class Usuario {
-    Init (
+    Init(
         public string $nombre,
         public int $edad = 30
     ) {}
@@ -103,6 +116,13 @@ public class Usuario {
 var $u = new Usuario("Ada")
 print($u->nombre)
 print($u->edad)
+```
+
+Salida en la terminal:
+
+```text
+Ada
+30
 ```
 
 También es posible declarar propiedades constantes promovidas con `public const Tipo $campo` para protegerlas frente a reasignaciones posteriores.
@@ -121,11 +141,12 @@ Joss ofrece tres modificadores de visibilidad explícitos:
 | `protected` | Solo **dentro de la propia clase** y **dentro de las subclases** que hereden de ella con `extends`. | Para métodos y propiedades internas que las clases hijas necesitan especializar o consultar. |
 | `private` | **Únicamente dentro de la clase exacta** donde fue declarada. Nadie más puede verla ni modificarla. | Para detalles de implementación íntimos (contraseñas, conexiones crudas, flags de estado). |
 
+<!-- joss-run: ["150.5"] -->
 ```joss
 public class CuentaBancaria {
     private decimal $saldo = 0.0m
 
-    public func depositar(decimal $monto) {
+    public func depositar(decimal $monto): void {
         ($monto > 0.0m) ? {
             $this->saldo = $this->saldo + $monto
         }
@@ -135,7 +156,18 @@ public class CuentaBancaria {
         return $this->saldo
     }
 }
+
+var $cuenta = new CuentaBancaria()
+$cuenta->depositar(150.50m)
+print($cuenta->obtenerSaldo())
 ```
+
+Salida en la terminal:
+
+```text
+150.5
+```
+
 Al hacer `$saldo` privado, nadie puede escribir `$cuenta->saldo = -5000.0m` desde afuera, garantizando que el dinero solo se modifique bajo las reglas del método `depositar`.
 
 ---
@@ -144,23 +176,27 @@ Al hacer `$saldo` privado, nadie puede escribir `$cuenta->saldo = -5000.0m` desd
 
 No todas las propiedades o métodos le pertenecen a una casa individual; algunas operaciones pertenecen al concepto general de la clase o no requieren crear una instancia con `new`.
 
-A estos elementos se les llama **estáticos** y se declaran con la palabra `static`:
+A estos elementos se les llama **estáticos** y se declaran con la palabra `static` (recuerda que `static` siempre acompaña a un modificador de visibilidad como `public static`):
 
+<!-- joss-run: ["hola"] -->
 ```joss
 public class Utilidades {
     public static func limpiarTexto(string $t): string {
         return trim($t)
     }
 }
+
+var $limpio = Utilidades::limpiarTexto("  hola  ")
+print($limpio)
 ```
 
-Para invocar un método estático o leer una propiedad estática, no se utiliza `->`, sino el operador de doble dos puntos **`::`**:
+Salida en la terminal:
 
-```joss
-$limpio = Utilidades::limpiarTexto("  hola  ")
+```text
+hola
 ```
 
-En Joss, las clases nativas del sistema (como `Auth::user()`, `GranDB::table()`, `Route::get()`, `Cache::put()`) son fachadas que se invocan habitualmente mediante `::`.
+Para invocar un método estático o leer una propiedad estática, no se utiliza `->`, sino el operador de doble dos puntos **`::`**. En Joss, las clases nativas del sistema (como `Auth::user()`, `GranDB::table()`, `Router::get()`, `Cache::put()`) son fachadas que se invocan habitualmente mediante `::`.
 
 ---
 
@@ -176,6 +212,12 @@ public class Mensaje {
 public class Aviso extends Mensaje {}
 var $aviso = new Aviso()
 print($aviso->texto())
+```
+
+Salida en la terminal:
+
+```text
+hola
 ```
 
 - La clase `Mensaje` es la **clase base** (o superclase).
@@ -211,7 +253,7 @@ public class Rectangulo implements IFigura {
     public int $ancho = 0
     public int $alto = 0
 
-    Init constructor(int $ancho, int $alto) {
+    public func constructor(int $ancho, int $alto) {
         $this->ancho = $ancho
         $this->alto = $alto
     }
@@ -224,7 +266,7 @@ public class Rectangulo implements IFigura {
 public class Cuadrado implements IFigura {
     public int $lado = 0
 
-    Init constructor(int $lado) {
+    public func constructor(int $lado) {
         $this->lado = $lado
     }
 
@@ -243,19 +285,26 @@ print(imprimirArea($r))
 print(imprimirArea($c))
 ```
 
+Salida en la terminal:
+
+```text
+50
+36
+```
+
 ### Ventajas del Polimorfismo con Interfaces:
 1. **Desacoplamiento**: La función `imprimirArea(IFigura $figura)` no necesita saber si recibe un `Rectangulo`, un `Cuadrado` o cualquier figura futura; solo confía en que cumple con el contrato `IFigura`.
-2. **Validación estática exhaustiva**: Si olvidas implementar un método en una clase o declaras un parámetro con un tipo diferente, el analizador semántico emite de inmediato `JOSS-DECL-005`.
+2. **Validación estática exhaustiva**: Si olvidas implementar un método de la interfaz en una clase o su firma no coincide, el analizador semántico emite `JOSS-DECL-004` (o `JOSS-SEM-001` si un método implementado no es `public`).
 
 ---
 
 ## 7. Clases y métodos abstractos (`abstract`)
 
-Una **clase abstracta** (`public abstract class`) sirve como plantilla base para otras clases pero **no puede ser instanciada directamente** con `new` (emitirá `JOSS-DECL-004`).
+Una **clase abstracta** (`public abstract class`) sirve como plantilla base para otras clases pero **no puede ser instanciada directamente** con `new` (intentarlo emite el diagnóstico `JOSS-DECL-006`).
 
 Las clases abstractas pueden contener:
 - Propiedades y métodos completos con implementación para ser heredados.
-- Métodos abstractos (`abstract func nombre(...): Tipo`) que carecen de cuerpo y obligan a las subclases a implementarlos (`JOSS-DECL-003`).
+- Métodos abstractos (`public abstract func nombre(...): Tipo`) que carecen de cuerpo y obligan a las subclases concretas a implementarlos (omitirlos emite `JOSS-DECL-005`).
 
 <!-- joss-run: ["Guau!"] -->
 ```joss
@@ -271,6 +320,12 @@ public class Perro extends Animal {
 
 var $perro = new Perro()
 print($perro->hablar())
+```
+
+Salida en la terminal:
+
+```text
+Guau!
 ```
 
 ---
@@ -290,19 +345,41 @@ print($auto is IMovible)
 print($auto instanceof string)
 ```
 
+Salida en la terminal:
+
+```text
+true
+true
+false
+```
+
 También puedes usar `is` con tipos primitivos como `int`, `string`, `bool`, etc. (ej. `$x is int`).
 
 ---
 
 ## 9. Navegación segura contra nulos (`?->`)
 
-Si una variable puede contener una instancia o ser `null` (tipo `Persona?`), intentar acceder a un método con `->` sobre un valor nulo podría causar un error.
+Si una variable puede contener una instancia o ser `null` (tipo `Persona?`), intentar acceder a un método con `->` sobre un valor nulo produciría un fallo.
 
 Joss incluye el operador **null-safe (`?->`)**:
 
+<!-- joss-run: ["Sin usuario"] -->
 ```joss
-Persona? $usuario = obtenerUsuario(123)
-$nombre = $usuario?->saludar()
+public class Perfil {
+    public func saludo(): string {
+        return "Hola"
+    }
+}
+
+Perfil? $usuario = null
+var $nombre = $usuario?->saludo()
+print($nombre ?? "Sin usuario")
+```
+
+Salida en la terminal:
+
+```text
+Sin usuario
 ```
 
 Si `$usuario` es `null`, la llamada se cancela de forma silenciosa y segura, y `$nombre` recibirá simplemente `null` sin detener el programa.
@@ -317,25 +394,34 @@ Joss admite parámetros de tipo formales `<T>` en la declaración de clases:
 ```joss
 public class Caja<T> {
     public T $contenido
-    Init constructor(T $valor) {
+    public func constructor(T $valor) {
         $this->contenido = $valor
     }
 }
 ```
 
-El analizador semántico valida la coherencia de tipos asegurando que `Caja<int>` no sea asignable a `Caja<string>`.
+El analizador semántico valida nominalmente los parámetros genéricos asegurando que `Caja<int>` no sea asignable a `Caja<string>`.
 
 ### Records (`public record Nombre(campos...)`)
 Un `record` es una declaración concisa de clase orientada a datos inmutables con constructor y campos automáticos:
 
+<!-- joss-run: ["10", "20"] -->
 ```joss
 public record Coordenada(int $x, int $y)
 
-$c = new Coordenada(10, 20)
+var $c = new Coordenada(10, 20)
 print($c->x)
+print($c->y)
 ```
 
-Los campos declarados en un `record` quedan sellados como constantes (`const`) tras la inicialización del objeto, impidiendo cualquier reasignación accidental.
+Salida en la terminal:
+
+```text
+10
+20
+```
+
+Los campos declarados en un `record` quedan sellados como constantes (`const`) tras la inicialización del objeto, impidiendo cualquier reasignación accidental (`JOSS-CONST-001`).
 
 ---
 
@@ -367,32 +453,51 @@ var $s = new SesionSegura()
 $s->destructor()
 ```
 
+Salida en la terminal:
+
+```text
+Conexión activa
+Cerrando sesión de forma segura...
+```
+
 ---
 
-## 11. Errores comunes en POO con Joss
+## 12. Errores comunes en POO con Joss
 
 | Error | Causa | Solución |
 |---|---|---|
 | Confundir `->` con `::` | Escribir `$objeto::metodo()` o `Clase->metodo()`. | Usa `->` para instancias reales creadas con `new` y `::` para llamadas estáticas a clases. |
 | Intentar acceder a un miembro privado | `$cuenta->saldo` cuando es `private`. | Crea un método público *getter* (como `obtenerSaldo()`) para consultar el valor. |
-| Olvidar `new` al instanciar | `$p = Persona()` en vez de `$p = new Persona()`. | La creación de instancias exige la palabra `new`. |
+| Olvidar `new` al instanciar | `var $p = Persona()` en vez de `var $p = new Persona()`. | La creación de instancias exige la palabra `new`. |
 | Confundir una instancia con un map | Tratar un objeto como array asociativo (`$objeto["campo"]`). | Los objetos usan flecha (`$objeto->campo`), los maps usan corchetes (`$mapa["campo"]`). |
-| Incumplir contrato de interfaz | La clase declara `implements` pero le falta un método o sus parámetros no coinciden. | Implementar todos los métodos de la interfaz con visibilidad `public` y tipos compatibles (`JOSS-DECL-005`). |
+| Incumplir contrato de interfaz | La clase declara `implements` pero le falta un método o sus parámetros no coinciden. | Implementar todos los métodos de la interfaz con visibilidad `public` y tipos compatibles (`JOSS-DECL-004`). |
+| Instanciar una clase abstracta | Hacer `new ClaseAbstracta()` directamente. | Extiende la clase abstracta en una subclase concreta e instancia la subclase (`JOSS-DECL-006`). |
 | Acceso a objeto destruido | Intentar leer o escribir un objeto tras ejecutarse su ciclo de destrucción. | Crear una nueva instancia válida en lugar de reutilizar un objeto ya invalidado (`SecurityError`). |
 
 ---
 
-## 12. Ejercicio práctico
+## 13. Ejercicios prácticos
 
-1. **Jerarquía de vehículos**:
-   - Crea una clase `public class Vehiculo` con una propiedad protegida `protected string $marca` y un método `public func obtenerMarca(): string`.
-   - Crea una clase derivada `public class Auto extends Vehiculo` que tenga una propiedad `public int $puertas = 4`.
-   - Instancia un `Auto`, asígnale marca y muestra su marca y número de puertas en la consola.
+### Nivel 1 — Prueba rápida
+Declara un `public record Producto(string $nombre, decimal $precio)`. Instancia un producto `"Teclado"` con precio `45.50m` e imprime su nombre y su precio usando `->`.
+
+### Nivel 2 — Ejercicio guiado
+1. Crea una clase `public class Vehiculo` con una propiedad protegida `protected string $marca = ""` inicializada en `public func constructor(string $marca)` y un método `public func obtenerMarca(): string`.
+2. Crea una clase derivada `public class Auto extends Vehiculo` que tenga una propiedad `public int $puertas = 4`.
+3. Instancia un `Auto("Toyota")`, e imprime su marca (usando `obtenerMarca()`) y su número de puertas en la consola.
+
+### Nivel 3 — Reto
+1. Define una interfaz `public interface INotificador` con el método `public func enviar(string $mensaje): string;`.
+2. Crea dos clases que implementen `INotificador`:
+   - `NotificadorEmail`: devuelve `"[EMAIL] " . $mensaje`.
+   - `NotificadorSMS`: devuelve `"[SMS] " . $mensaje`.
+3. Escribe una función `public func despacharAlerta(INotificador $canal, string $texto): void` que imprima el resultado de `$canal->enviar($texto)`.
+4. Pruébala pasándole una instancia de `NotificadorEmail` y otra de `NotificadorSMS`.
 
 ---
 
 ## Siguiente paso
 
-Incluso en el mejor código orientado a objetos, las cosas pueden fallar: un archivo puede no existir, una base de datos puede estar desconectada o un usuario puede ingresar datos no válidos. Aprenderemos cómo interceptar y solucionar estos problemas con elegancia:
+Ahora que dominas clases, contratos de interfaces y objetos, estás listo para descubrir una de las capacidades más potentes de Joss: ejecutar tareas en paralelo, delegar operaciones a segundo plano y comunicar procesos mediante canales seguros.
 
-Continúa con: [Manejo de errores, excepciones y try/catch](ERRORES.md).
+Continúa con: [Concurrencia, operaciones asíncronas, Future y Canales](CONCURRENCIA.md).

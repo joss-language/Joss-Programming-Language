@@ -1,29 +1,31 @@
-# Complete web project: MVC architecture with the native stack
+# Complete Web Project: MVC Architecture with the Native Stack
 
-Before: [Console project](PROYECTO_CONSOLA.md). After: [Controllers and HTTP](CONTROLADORES.md).
-Technical reference: [View Engine](VISTAS.md), [Native Server](SERVIDOR.md), [GranDB Models](MODELOS.md).
+Previous: [Console project](PROYECTO_CONSOLA.md). Next: [Controllers and HTTP](CONTROLADORES.md).
+Technical reference: [View engine](VISTAS.md), [Native server](SERVIDOR.md), [GranDB models](MODELOS.md).
 
 ---
 
-## What are you going to build here?
+## What Will You Build Here?
 
-A **web application** is a program that runs on a server listening to network requests (usually from a browser or a mobile application) and responds with interactive HTML pages or data in JSON format.
+A **web application** is a program that runs on a server listening to network requests (usually from a browser or mobile application) and responds with interactive HTML pages or data in JSON format.
 
-Unlike other languages ​​where you need to install complex external servers (like Apache, Nginx or heavy Node.js packages), **Joss includes its own high-performance HTTP server, dynamic router and HTML templating engine**.
+Unlike other languages where you need to install complex external servers (such as Apache, Nginx, or heavy Node.js packages), **Joss includes its own high-performance HTTP server, dynamic router, and HTML template engine**.
 
 In this guided tutorial you will build your first web application based on the **MVC (Model - View - Controller)** architectural pattern:
-1. Create the project structure using the `joss new web` template builder.
+1. Create the project structure using the `joss new` template generator (`joss new web`).
 2. Understand the flow of a web request in Joss.
-3. Define a route with dynamic parameters in `routes.joss`.
+3. Configure the port in `env.joss` and define a route with dynamic parameters in `routes.joss`.
 4. Create a controller in `app/controllers/` that processes the logic.
 5. Design a secure HTML view in `app/views/` with automatic escaping against XSS injections.
-6. Start up the server and test the application in the browser.
+6. Start the server with `joss server start` and test the application in the browser.
 
 ---
 
-## 1. The flow of a web request in Joss
+## 1. The Flow of a Web Request in Joss
 
-When a user types an address into their browser, the following sequence occurs:```text
+When a user types an address into their browser, the following sequence occurs:
+
+```text
 1. Navegador web
    │  Solicita: GET http://127.0.0.1:8080/saludo/Ana
    ▼
@@ -43,49 +45,64 @@ When a user types an address into their browser, the following sequence occurs:`
    ▼
 6. Respuesta HTTP (HTML renderizado devuelto al navegador del usuario)
 ```
+
 ---
 
-## 2. Generate the web project
+## 2. Generate the Web Project
 
-Open your terminal and run the official generator:```bash
+Open your terminal and run the official generator (you can type `joss new saludo_web` or explicitly `joss new web saludo_web`):
+
+```bash
 joss new web saludo_web
 cd saludo_web
 ```
+
 This command will create the standard structure of a Joss web application:
-- `main.joss`: Server entry point.
+- `main.joss`: Entry point of the project.
 - `env.joss`: Configuration variables (port, database, secret keys).
-- `routes.joss`: The application URL map.
-- `app/controllers/`: Where the controllers reside.
+- `routes.joss` and `api.joss`: The map of web URLs and API endpoints of the application.
+- `app/controllers/`: Where controllers reside (organized into `web/`, `auth/`, `api/`).
 - `app/models/`: Database models with GranDB.
 - `app/views/`: Dynamic HTML templates (`.joss.html`).
-- `public/`: Direct static files (CSS style sheets, JS scripts, images).
+- `public/`: Direct static files (CSS stylesheets, JS scripts, images).
 
 ---
 
-## 3. Configure the server port
+## 3. Configure the Server Port
 
-Open the `env.joss` file in the root of the project. You will see a line that defines the port. Make sure you configure an available port (for example `8080`):```joss
-PORT = "8080"
-APP_NAME = "Mi Web Joss"
+Open the `env.joss` file at the root of the project. By default the template generates `PORT="80"`. To develop locally without administrator privileges, change it to a free port such as `"8080"`:
+
+```joss
+PORT="8080"
+APP_NAME="Mi Web Joss"
 ```
+
+> [!NOTE]
+> `env.joss` is an environment configuration file that Joss loads automatically on startup; it is not an executable script to run with `joss run env.joss`.
+
 ---
 
-## 4. Define the dynamic route
+## 4. Define the Dynamic Route
 
-Open the `routes.joss` file and add the following definition:<!-- joss-check: fragmento de routes.joss -->
+Open the `routes.joss` file and add the following definition:
+
+<!-- joss-check: fragmento de routes.joss -->
 ```joss
 Router::get("/saludo/{nombre}", "SaludoController@show")
 ```
-### What does this line mean?
-- `Router::get(...)`: Indicates that we will respond to HTTP requests of type `GET` (those made by the browser when opening a link).
-- `"/saludo/{nombre}"`: The URL pattern. `{nombre}` is a **dynamic segment**: any text the user types at that position in the URL will be captured.
-- `"SaludoController@show"`: The recipient. Tells the router to instantiate the `SaludoController` class and execute its `show` method.
+
+### What Does This Line Mean?
+- `Router::get(...)`: Indicates that we will respond to HTTP requests of type `GET` (the ones made by the browser when opening a link).
+- `"/saludo/{nombre}"`: The URL pattern. `{nombre}` is a **dynamic segment**: any text the user types into that position of the URL will be captured.
+- `"SaludoController@show"`: The target handler. Tells the router to instantiate the `SaludoController` class and execute its `show` method.
 
 ---
 
-## 5. Create the controller
+## 5. Create the Controller
 
-Create the file `app/controllers/SaludoController.joss` with the following code:<!-- joss-check: fragmento de controlador web -->
+Create the `app/controllers/SaludoController.joss` file with the following code:
+
+<!-- joss-check: fragmento de controlador web -->
 ```joss
 public class SaludoController {
     public func show(string $nombre) {
@@ -94,20 +111,23 @@ public class SaludoController {
     }
 }
 ```
-### Controller Anatomy:
-1. `public class SaludoController`: Public class that Joss automatically discovers without the need for `import`.
+
+### Anatomy of the Controller:
+1. `public class SaludoController`: Public class that Joss automatically discovers inside `app/` without needing an `import`.
 2. `public func show(string $nombre)`: The method receives the dynamic parameter `{nombre}` captured by the route. In Joss, controller parameters must declare their type (`string $nombre`).
-3. `$nombreLimpio = trim($nombre)`: Cleans possible whitespace at the ends.
+3. `var $nombreLimpio = trim($nombre)`: Trims any leading or trailing whitespace.
 4. `return view("saludo", {"nombre": $nombreLimpio})`:
-   - Call the native function `view(...)`.
+   - Calls the native function `view(...)`.
    - The first argument is the name of the template file (it will look for `app/views/saludo.joss.html`).
-   - The second argument is an associative map with the data that we want to inject into the HTML.
+   - The second argument is an associative map with the data we want to inject into the HTML.
 
 ---
 
-## 6. Style the HTML view
+## 6. Design the HTML View
 
-Create the template file `app/views/saludo.joss.html`:```html
+Create the template file `app/views/saludo.joss.html`:
+
+```html
 <!doctype html>
 <html lang="es">
 <head>
@@ -128,47 +148,73 @@ Create the template file `app/views/saludo.joss.html`:```html
 </body>
 </html>
 ```
-### Native security against XSS attacks:
-Note the `{{ $nombre }}` syntax:
-- Joss templating engine **automatically escapes dangerous HTML characters** such as `<`, `>`, `"` or `&`.
-- If a malicious user tries to enter as name `<script>alert('hack')</script>`, Joss will convert them to safe entities (`&lt;script&gt;...`), protecting your visitors from Cross-Site Scripting (XSS) vulnerabilities.
+
+### Native Security Against XSS Attacks:
+Notice the `{{ $nombre }}` syntax:
+- Joss's template engine **automatically escapes dangerous HTML characters** such as `<`, `>`, `"`, or `&`.
+- If a malicious user tries to enter `<script>alert('hack')</script>` as a name, Joss will convert it into safe entities (`&lt;script&gt;...`), protecting your visitors from Cross-Site Scripting (XSS) vulnerabilities.
 
 ---
 
-## 7. Start and test the server
+## 7. Start and Test the Server
 
-In your terminal, located at the root of the `saludo_web` project, type:```bash
+In your terminal, located at the root of the `saludo_web` project, type:
+
+```bash
 joss server start
 ```
-You will see the confirmation message from the HTTP server:```text
+
+(Or its equivalent shortcut `joss server`). You will see the HTTP server confirmation message:
+
+```text
 [CLI] Ejecutando script de inicio (main.joss)...
 [Joss Server] Servidor HTTP escuchando en http://127.0.0.1:8080
 [Joss Server] Presiona 'q' o Ctrl+C para detener el servidor.
 ```
+
 Open your web browser and visit:
 
 `http://127.0.0.1:8080/saludo/Ana`
 
-You will see the stylized card greeting Ana. Now try changing the URL to:
+You will see the styled card greeting Ana. Now try changing the URL to:
 
 `http://127.0.0.1:8080/saludo/Carlos`
 
 The server will respond instantly with the new greeting.
 
-To stop the server at any time, simply press the **`q`** key on your terminal.
+To stop the server at any time, simply press the **`q`** key or `Ctrl + C` in your terminal.
 
 ---
 
-## 8. Verification and static verification
+## 8. Verification and Static Checking
 
-Before deploying to production, you can audit the entire project with Joss verification commands:```bash
+Before deploying to production, you can audit the entire project with Joss's verification commands:
+
+```bash
 joss analyze main.joss
 joss check .
 ```
+
 ---
 
-## Next step
+## 9. Practical Exercises
 
-Now that you know the complete cycle of a web request, you can explore the advanced capabilities of the Joss web stack: user authentication, security middlewares, GranDB databases and real-time WebSockets:
+### Level 1 — Quick Test
+Pass a second piece of data from `SaludoController@show` to the view by adding `"rol": "Desarrollador Joss"` to the `view(...)` map and display it inside `saludo.joss.html` below the title using `<p>Rol: {{ $rol }}</p>`.
 
-Continue with: [HTTP and Drivers](CONTROLADORES.md), [Middlewares and Security](MIDDLEWARE.md) and [GranDB Models](MODELOS.md).
+### Level 2 — Guided Exercise
+1. Open `api.joss` (or `routes.joss`) and register a route `Router::get("/api/estado", "SaludoController@estado")`.
+2. Add in `SaludoController` the method `public func estado()` that returns `Response::json({"ok": true, "servidor": "Joss HTTP"})`.
+3. Visit `http://127.0.0.1:8080/api/estado` in your browser and check the JSON response.
+
+### Level 3 — Challenge
+1. Register a route with two dynamic parameters: `Router::get("/calcular/{a}/{b}", "SaludoController@sumar")`.
+2. Implement `public func sumar(string $a, string $b)` in `SaludoController`, convert both parameters with `intval($a)` and `intval($b)`, calculate their sum, and render a view or JSON response with the operation details.
+
+---
+
+## Next Step
+
+Now that you know the complete lifecycle of a web request, you can explore the advanced capabilities of the Joss web stack and the complete type system of the language:
+
+Continue with: [Type system and coercion](SISTEMA_TIPOS.md), [HTTP and Controllers](CONTROLADORES.md), [Middlewares and Security](MIDDLEWARE.md), and [GranDB Models](MODELOS.md).

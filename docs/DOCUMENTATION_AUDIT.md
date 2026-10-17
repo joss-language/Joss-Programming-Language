@@ -7,81 +7,77 @@ Antes: [Contribuir a Joss](CONTRIBUIR.md). Después: [Auditoría técnica de 202
 
 ## 1. Introducción y propósito de la auditoría
 
-El presente informe documenta la auditoría exhaustiva y la reconstrucción profunda de la documentación del lenguaje de programación **Joss**, llevada a cabo el 5 de septiembre de 2026.
+El presente informe documenta la auditoría exhaustiva y la reconstrucción profunda de la documentación del lenguaje de programación **Joss**.
 
 El principio rector absoluto de este trabajo ha sido:
 
-> **El código fuente es la única fuente de verdad.**
+> **El código fuente y sus tests ejecutados son la única fuente de verdad.**
 
-Toda la documentación anterior fue contrastada contra el comportamiento real del analizador léxico (`pkg/parser/lexer.go`), el parser Pratt (`pkg/parser`), el árbol de sintaxis abstracta AST (`pkg/parser/ast*.go`), el sistema de tipos e inferencia (`pkg/typesystem`), el analizador semántico (`pkg/analyzer`), el evaluador y motor de ejecución en Go (`pkg/core`), las clases y funciones nativas registradas, y la suite de pruebas automatizadas.
+Toda la documentación fue contrastada contra el comportamiento real del analizador léxico (`pkg/parser/lexer.go`), el parser Pratt (`pkg/parser`), el árbol de sintaxis abstracta AST (`pkg/parser/ast*.go`), el sistema de tipos e inferencia (`pkg/typesystem`), el analizador semántico (`pkg/analyzer`), el evaluador y motor de ejecución en Go (`pkg/core`), el compilador nativo (`pkg/ir`, `pkg/backend/native`), las clases y funciones nativas registradas, y la suite de pruebas automatizadas.
 
 ---
 
 ## 2. Diagnóstico del estado inicial y deuda documental
 
-Al iniciar la auditoría, se detectó que la documentación existente presentaba una brecha significativa respecto a las capacidades reales del código:
+Al iniciar la auditoría, se detectó que la documentación existente presentaba brechas tanto técnicas como pedagógicas respecto a las capacidades reales del código:
 
-### A. Brecha pedagógica para principiantes
-- La documentación estaba redactada casi exclusivamente como una referencia técnica compacta para personas que ya dominaban otros lenguajes o conocían la jerga de compiladores.
-- No existían explicaciones sobre conceptos fundacionales como qué es una variable, por qué se utiliza `$`, la diferencia entre imprimir en pantalla (`print`) y retornar un valor (`return`), o qué representa la memoria y el ámbito (*scope*).
-- Conceptos avanzados como `async`, `await` o `channel` se presentaban mediante fragmentos de código sin explicar previamente la diferencia entre sincronía, asincronía y concurrencia.
+### A. Brecha pedagógica y de onboarding para principiantes
+- El punto de entrada en `PRIMEROS_PASOS.md` enseñaba a crear carpetas manualmente con `mkdir` en lugar de aprovechar el generador oficial `joss new console mi-primer-joss`.
+- El orden del curso introducía `FUNCIONES.md` antes de `COLECCIONES.md`, a pesar de que funciones utilizaba listas y operadores de desempaquetado (`...$numeros`), y colocaba `ERRORES.md` después de `CLASES.md` aunque las funciones ya requerían comprender `throw`.
+- Faltaba explicar explícitamente la estructura generada por `joss new console` (`public class Main { Init main() { ... } }`), la diferencia entre declarar una variable por primera vez (`var $x = 1`) y reasignarla (`$x = 2`), y la diferencia entre interpretar (`joss run`) y compilar a binario nativo (`joss build`).
 
-### B. Características implementadas en el código que estaban sin documentar o subdocumentadas
-Durante la inspección línea por línea del código fuente se descubrieron comportamientos y sintaxis que estaban implementados pero ausentes en las guías:
+### B. Características implementadas en el código incorporadas a las guías
+Durante la inspección línea por línea del código fuente se documentaron e integraron en el recorrido de aprendizaje y referencia:
 1. **El operador Pipeline (`|>`)**:
-   - Implementado en `pkg/parser/parser.go` (precedencia `PIPE_OP`), `pkg/parser/parser_expressions.go` y evaluado en `pkg/core/evaluator_infix.go`.
-   - Permite componer funciones de izquierda a derecha: `" ada " |> trim |> strtoupper`. Si la función requiere más argumentos, el valor izquierdo se inyecta como primer parámetro. Estaba ausente en los tutoriales.
-2. **El operador Elvis (`?:`)**:
-   - Implementado en el analizador de ternarios (`parseTernaryExpression`) y evaluado en `evaluateTernary`. Permite evaluar valores por defecto cuando la condición es truthy: `$val = $input ?: "default"`.
-3. **El operador de coalescencia nula (`??`)**:
-   - Implementado con protección ante errores nulos para fallbacks limpios: `$val = $input ?? "fallback"`.
-4. **El operador de navegación segura ante nulos (`?->`)**:
-   - Permite acceder a propiedades y métodos de instancias potencialmente nulas (`$user?->nombre`) sin estrellar el programa.
-5. **Sintaxis de auto-append en arrays (`$arr[] = $val`)**:
-   - Soportado en el evaluador de asignaciones (`IndexExpression` con índice nulo), permitiendo agregar elementos al final de forma natural.
-6. **Consumo de canales concurrentes mediante `foreach`**:
-   - `executeForeach` en `pkg/core/executor.go` comprueba si el iterable es un `*Channel` (`for item := range ch.Ch`), permitiendo crear patrones productor-consumidor puros sin llamadas manuales repetitivas a `recv`.
-7. **Estructura del mapa de error capturado en `catch ($e)`**:
-   - Cuando ocurre un `JossError` en tiempo de ejecución, el bloque `catch` recibe un mapa asociativo estructurado con las claves `"message"`, `"type"`, `"file"`, `"line"` y `"error"`.
-8. **Invarianza bilateral de referencias (`ref`)**:
-   - El código impone que tanto la declaración de la función como la llamada utilicen `ref`, exige tipos idénticos (sin ampliación `int` a `float`) y prohíbe el escape de la referencia fuera del frame.
+   - Implementado en `pkg/parser/parser.go` (precedencia `PIPE_OP`), `pkg/parser/parser_expressions.go` y evaluado en `pkg/core/evaluator_pipeline.go`.
+   - Permite componer funciones de izquierda a derecha: `" ada " |> trim |> strtoupper`.
+2. **Sentencias `guard` y `defer`**:
+   - `guard (condición) : { return ... }` validada estáticamente con `JOSS-FLOW-005` para retornos tempranos y *smart cast narrowing*.
+   - `defer { ... }` para ejecución diferida en orden LIFO al finalizar el frame de la función.
+3. **Records inmutables (`public record Nombre(...)`) y Clases Genéricas (`class Caja<T>`)**:
+   - Validación nominal e inmutabilidad automática de campos (`JOSS-CONST-001`).
+4. **El operador Elvis (`?:`), coalescencia nula (`??`), asignación nula (`??=`) y navegación segura (`?->`)**:
+   - Documentados con sus reglas exactas de evaluación y estrechamiento de tipos.
+5. **Consumo de canales concurrentes mediante `foreach` y multiplexación con `select`**:
+   - Patrones productor-consumidor y generadores perezosos con `yield`.
+6. **Descubrimiento unificado del proyecto (`semanticanalyzer.LoadProject` y `ExecutePrepared`)**:
+   - Tanto `joss analyze`, `joss run`, `joss server` como `joss build` cargan de manera uniforme `main.joss`, `routes.joss`, `api.joss` y todos los subdirectorios de `app/` (incluido `app/libs`) en un único `PreparedProgram`.
 
-### C. Documentación obsoleta y desinformación eliminada
-- **Aliases retirados**: Se aclaró categóricamente que `integer`, `double`, `boolean`, `dynamic`, `any` y `list` ya no son normalizados; usarlos dispara el error `JOSS-TYPE-009`.
-- **Sintaxis async obsoleta**: Se documentó que `async(func() ...)` fue eliminado y que la única sintaxis válida es el bloque `async { ... }`.
-- **APIs fantasma o mal catalogadas**: Se eliminaron menciones a métodos no registrados en el dispatcher como `Http::query` o `System::change_db`.
-- **Comportamiento no mutante de `array_pop` y `array_shift`**: Se alertó explícitamente a los desarrolladores de que en Joss estas funciones devuelven el elemento sin reducir la longitud del array original.
+### C. Correcciones técnicas de precisión
+- **Promoción numérica exacta**: Se corrigió en `SISTEMA_TIPOS.md` que la única promoción numérica implícita entre tipos distintos es `int → decimal`; las mezclas entre `int` y `float` o `float` y `decimal` requieren conversión explícita (`JOSS-ARITH-003`).
+- **Declaración obligatoria de variables**: Se actualizaron todos los ejemplos de la documentación para declarar variables con `var`, tipo explícito, `mixed` o `const` antes de reasignarlas, cumpliendo con `JOSS-SYM-001` / `JOSS-DECL-007`.
+- **Códigos de diagnóstico exactos**: Se alinearon `CLASES.md` y `DIAGNOSTICOS.md` con `pkg/analyzer/validation_nominal.go` y `member_resolution.go` (`JOSS-DECL-003` para métodos duplicados, `JOSS-DECL-004` para conflictos nominales e incumplimiento de interfaz, `JOSS-DECL-005` para métodos abstractos no implementados, y `JOSS-DECL-006` para instanciación de clase abstracta o transición de `let`).
 
 ---
 
-## 3. Nueva arquitectura documental del proyecto
+## 3. Arquitectura documental del proyecto (Separación Curso vs Referencia)
 
-Se reestructuró la documentación en cuatro niveles complementarios para satisfacer a todas las audiencias sin degradar el rigor técnico:
+Se estructuró la documentación diferenciando claramente el **Curso progresivo** de la **Referencia técnica formal**:
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ 1. APRENDER JOSS (Niveles 0 al 10 - Progresivo y pedagógico) │
-│    - PRIMEROS_PASOS: De cero a un programa ejecutable.      │
-│    - FUNDAMENTOS: Memoria, tipos primitivos y variables.    │
-│    - CONTROL_FLUJO: Ternarios con bloques, match y bucles.  │
-│    - FUNCIONES: Scope, closures, ref y pipelines.           │
-│    - COLECCIONES: Arrays, maps y texto Unicode.             │
-│    - SISTEMA_TIPOS: Inferencia, uniones y conversiones.     │
-│    - CLASES: POO, Init, encapsulación y herencia.           │
-│    - ERRORES: Fases, diagnósticos y try/catch.              │
-│    - CONCURRENCIA: Async, Future y canales.                 │
-│    - PROYECTO_CONSOLA: Proyecto real con persistencia JSON. │
-│    - PROYECTO_WEB: Aplicación MVC con el stack nativo.      │
+│ 1. APRENDER JOSS (Capítulos 0 al 9 - Curso Progresivo)      │
+│    - 0. PRIMEROS_PASOS: joss new console, main.joss y run.  │
+│    - 1. FUNDAMENTOS: Memoria, tipos primitivos y variables. │
+│    - 2. CONTROL_FLUJO: Ternarios con bloques, match, ciclos.│
+│    - 3. COLECCIONES: Arrays, maps, métodos -> y Unicode.    │
+│    - 4. FUNCIONES: Scope, void, guard, defer, closures, ref.│
+│    - 5. ERRORES: Fases, diagnósticos, throw y try/catch.    │
+│    - 6. CLASES: POO, constructores, interfaces y records.   │
+│    - 7. CONCURRENCIA: Async, Future, canales y select.      │
+│    - 8. PROYECTO_CONSOLA: App CLI con JSON y joss build.    │
+│    - 9. PROYECTO_WEB: Aplicación MVC con el stack nativo.   │
 │    - GLOSARIO: Diccionario conceptual para principiantes.   │
 ├─────────────────────────────────────────────────────────────┤
 │ 2. REFERENCIA TÉCNICA DEL LENGUAJE Y HERRAMIENTAS           │
-│    - SINTAXIS: Tokens, precedencias y operadores.           │
+│    - SISTEMA_TIPOS: Inferencia, uniones y CoerceString.     │
+│    - SINTAXIS: Las 39 keywords, precedencias y operadores.  │
 │    - GRAMATICA: EBNF formal y correspondencia con el AST.   │
 │    - DIAGNOSTICOS: Catálogo completo de códigos JOSS-*.     │
-│    - FUNCIONES_GLOBALES: Las 121 funciones built-in.        │
+│    - FUNCIONES_GLOBALES: Funciones built-in integradas.     │
 │    - MODULOS_NATIVOS: Clases integradas en Go.              │
 │    - CATALOGO_NATIVO: Catálogo sincronizado por docgen.     │
-│    - CLI: Referencia de comandos joss.                      │
+│    - CLI: Referencia de comandos joss y compilación nativa. │
 │    - VSCODE_EXTENSION: LSP y tooling del editor.            │
 │    - ESTADO_IMPLEMENTACION: Estado real vs límites.         │
 ├─────────────────────────────────────────────────────────────┤
@@ -100,49 +96,41 @@ Se reestructuró la documentación en cuatro niveles complementarios para satisf
 
 ---
 
-## 4. Problemas de experiencia del desarrollador (UX) detectados en el lenguaje
+## 4. Puntos técnicos del motor registrados para referencia
 
-Durante la auditoría del código fuente y la ejecución de pruebas, se identificaron los siguientes puntos donde el comportamiento actual del lenguaje puede inducir a confusión o requerir atención en el futuro:
+Durante la auditoría del código fuente y la ejecución de pruebas, se registraron los siguientes comportamientos del runtime que la documentación explica con honestidad técnica:
 
-1. **Detección de `break` / `continue` en ternarios anidados**:
-   - El optimizador de planes de bucle (`pkg/runtime/plan`) busca saltos directos en el AST. Si un `break` o `continue` se encuentra dentro del bloque de un ternario en el bucle, en ciertas situaciones el plan no lo detecta y escapa como un panic interno en lugar de ser absorbido por el ciclo.
-2. **Brazos de `match` que son bloques**:
-   - En la implementación actual de `pkg/core`, un brazo `match` cuyo valor derecho es un bloque `{ ... }` puede retornar el nodo sintáctico del bloque como valor en lugar de ejecutar sus declaraciones internas, a pesar de que el analizador semántico lo contabiliza como retorno válido. Se recomienda usar expresiones directas en los brazos de `match`.
-3. **Comportamiento no atómico de `GranDB::transaction`**:
-   - `GranDB::transaction` abre una transacción SQL en Go (`tx, err := db.Begin()`), pero las llamadas normales ejecutadas dentro de la closure de usuario utilizan la conexión de base de datos estándar de la instancia y no el puntero `*sql.Tx`, por lo que no garantizan atomicidad completa ante errores dentro del callback.
-4. **Discrepancia en `array_pop` y `array_shift`**:
-   - Los desarrolladores que provienen de PHP o JavaScript esperan que `array_pop` elimine el elemento del array original. En Joss, retorna el valor pero el array subyacente conserva su tamaño.
-5. **Asimetría de análisis estático en proyectos web**:
-   - El comando `joss analyze main.joss` escanea `main.joss` y los archivos dentro de `app/**/*.joss`. Sin embargo, `routes.joss` se procesa únicamente cuando arranca el servidor HTTP mediante su propio cargador, por lo que un error sintáctico en `routes.joss` solo se descubre al ejecutar `joss server start`.
-6. **Seguridad en generación de números pseudoaleatorios**:
-   - Ciertas funciones utilitarias nativas (como `Str::random` y el módulo TOTP) utilizan el paquete `math/rand` con semillas predecibles en lugar del generador criptográficamente seguro `crypto/rand`.
+1. **Detección de `break` / `continue` en bloques condicionales dentro de bucles**:
+   - El optimizador de planes de bucle (`pkg/runtime/plan/callable.go`) inspecciona sentencias directas del cuerpo del bucle (`BlockHasBreakOrContinue`). Si `break` o `continue` se anidan dentro de un ternario en un bucle de nivel superior donde `hasControl` es falso, el salto no es interceptado por `executeLoopBodyProtected`.
+2. **Comportamiento no mutante de `array_pop` y `array_shift`**:
+   - Las funciones globales `array_pop($arr)` y `array_shift($arr)` devuelven el último o primer elemento sin reducir la longitud del slice original, a diferencia del método mutante `$arr->pop()`.
+3. **Diferencias entre metadata publicada y retorno dinámico en algunos built-ins**:
+   - Ciertas funciones heredadas (`boolval`, `json`, `microtime`, `strpos`, `base64_decode`, `array_merge`) tienen firmas estáticas simplificadas en `builtins.go` aunque en tiempo de ejecución devuelven tipos compuestos o booleanos en caso de fallo.
 
 ---
 
 ## 5. Verificación formal y pruebas ejecutadas
 
-Para garantizar que ningún documento presente enlaces rotos, ejemplos desactualizados o inconsistencias con el runtime, se ejecutó la suite de validación completa:
+Para garantizar que ningún documento presente enlaces rotos, ejemplos desactualizados o inconsistencias con el runtime, se ejecuta la suite de validación completa:
 
-1. **Verificación de catálogo y documentación nativa**:
+1. **Verificación de catálogo, documentación nativa e internacionalización (i18n)**:
    ```bash
    go run ./tools/cataloggen --check
    go run ./tools/docgen --check
+   go run ./tools/docsi18n --check
    ```
 2. **Suite de pruebas unitarias y de integración**:
    ```bash
-   go test ./pkg/parser ./pkg/typesystem ./pkg/analyzer ./pkg/core
+   go vet ./...
+   go test ./...
    ```
 3. **Verificación de contratos y navegación (`TestDocumentationNavigationAndPublicMirror` y `TestDocumentationContracts`)**:
    - Comprobación de todos los enlaces Markdown locales entre documentos.
    - Verificación de paridad byte por byte entre `docs/*.md` y `ejemplos/Joss-Red-JosSecurity/assets/docs/*.md`.
    - Ejecución y análisis de todos los bloques etiquetados con `<!-- joss-run: ... -->`, `<!-- joss-check: ... -->` y `<!-- joss-error: ... -->`.
-4. **Construcción general del repositorio**:
-   ```bash
-   go build ./...
-   ```
 
 ---
 
 ## 6. Conclusión
 
-Con esta reconstrucción, la documentación de Joss deja de ser un simple catálogo de sintaxis para convertirse en un **sistema pedagógico y técnico integral**. Permite que cualquier persona sin experiencia previa aprenda a programar desde cero paso a paso, al tiempo que proporciona a desarrolladores experimentados y contribuidores del compilador una referencia exhaustiva, honesta y verificable basada al 100% en el código fuente.
+Con esta reconstrucción, la documentación de Joss combina una **ruta pedagógica progresiva** (capaz de guiar desde cero absoluto con `joss new console` hasta aplicaciones web y binarios nativos con `joss build`) con una **referencia técnica rigurosa**, 100% sincronizada y verificada contra el código fuente.

@@ -26,7 +26,7 @@ mi_app/
 │   │   └── auth/
 │   ├── services/             # Servicios en segundo plano e integraciones
 │   ├── middleware/           # Middleware de peticiones
-│   ├── libs/                # Creado por la plantilla, no precargado actualmente por run
+│   ├── libs/                 # Librerías y utilidades del proyecto
 │   └── database/migrations/
 ├── assets/
 ├── public/
@@ -37,14 +37,16 @@ mi_app/
 
 La plantilla también puede incluir rutas, archivos de autenticación, recursos frontend y colecciones de API. La lista exacta puede crecer; el generador y sus pruebas son la referencia ejecutable.
 
-`main.joss` es obligatorio para `joss server start`. `env.joss` no es código Joss y no debe ejecutarse con `joss run`.
+`main.joss` es obligatorio para `joss server start`. `env.joss` contiene la configuración de entorno del proyecto (`PORT="80"` por defecto en la plantilla web) y no es código ejecutable con `joss run`.
 
-`joss analyze` descubre recursivamente la entrada y `app/`. Al ejecutar, la
-precarga runtime se limita a `controllers`, `models`, `middleware`, `services`,
-`database`, `jobs`, `tasks` y `providers`. Aunque la plantilla crea `app/libs`,
-esa carpeta no se precarga hoy. Colocar allí una declaración puede pasar el
-análisis y faltar en ejecución; mueve el código a un dominio cargado mientras
-se unifican ambas listas.
+## Descubrimiento unificado del proyecto (`PreparedProgram`)
+
+Tanto `joss analyze`, `joss check`, `joss run`, `joss server` como `joss build` utilizan el cargador unificado `semanticanalyzer.LoadProject("main.joss", "app")`, que descubre e integra en un único `PreparedProgram`:
+- El punto de entrada (`main.joss`).
+- Los archivos de rutas en la raíz (`routes.joss` y `api.joss`, si existen).
+- Todos los archivos `.joss` recursivamente bajo `app/` (incluyendo `controllers/`, `models/`, `services/`, `middleware/`, `libs/` y `database/`).
+
+El intérprete (`Runtime.ExecutePrepared`), el servidor HTTP y el compilador nativo registran todas las clases, interfaces, enums y funciones directamente desde ese `PreparedProgram` canónico sin re-escanear ni omitir subdirectorios de `app/`.
 
 ## Consola
 
@@ -55,9 +57,9 @@ cd mi_cli
 joss run main.joss
 ```
 
-## Paquete
+## Paquete / Plugin
 
-`joss new package mi_plugin` crea:
+`joss new package mi_plugin` (o `joss new plugin mi_plugin`) crea:
 
 ```text
 mi_plugin/
@@ -70,10 +72,10 @@ Compílalo con `joss build package .`. Consulta [Plugins](PLUGINS.md).
 
 ## Convenciones efectivas
 
-- Controladores: `app/controllers/NameController.joss`.
-- Modelos: `app/models/Name.joss` y normalmente `extends GranDB`.
+- Controladores: `app/controllers/NameController.joss` (o subcarpetas `web/`, `auth/`, `api/`).
+- Modelos: `app/models/Name.joss` y normalmente `extends GranDB` o `extends Model`.
 - Vistas: `app/views/name.joss.html` o `.html`.
 - Migraciones: timestamp, nombre descriptivo y extensión `.joss`.
 - Sintaxis generada: `func`, `::` para estáticos y `->` para instancias.
 
-Los generadores se validan con una prueba que crea proyectos web y consola y pasa todos sus archivos `.joss` por el parser.
+Los generadores se validan con una prueba que crea proyectos web y consola y pasa todos sus archivos `.joss` por el parser y el analizador semántico.

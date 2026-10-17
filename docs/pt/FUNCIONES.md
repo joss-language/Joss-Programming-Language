@@ -1,32 +1,35 @@
-# Funções, escopo de variáveis, fechamentos e referências
+# Funções, escopo de variáveis, closures e referências
 
-Antes: [Controle de fluxo e decisões](CONTROL_FLUJO.md). Depois: [Coleções: Arrays, Mapas e Texto](COLECCIONES.md).
+Antes: [Coleções: Arrays, Maps e Texto](COLECCIONES.md). Depois: [Tratamento de erros e exceções](ERRORES.md).
 Referência técnica: [Sintaxe](SINTAXIS.md), [Recursão](RECURSION.md), [Sistema de tipos](SISTEMA_TIPOS.md).
 
 ---
 
 ## O que você vai aprender aqui?
 
-À medida que os programas crescem, escrever centenas de instruções seguidas torna-se incontrolável. Se você precisa calcular o total de uma nota fiscal em dez lugares diferentes do seu aplicativo, copiar e colar a mesma fórmula dez vezes é uma receita para o desastre: se a legislação tributária mudar, você terá que encontrar e corrigir dez arquivos e, mais cedo ou mais tarde, esquecerá um.
+À medida que os programas crescem, escrever centenas de instruções seguidas torna-se inadministrável. Se você precisa calcular o total de uma fatura com impostos em dez lugares diferentes da sua aplicação, copiar e colar a mesma fórmula dez vezes é uma receita para o desastre: se a legislação tributária mudar, você teria que procurar e corrigir dez arquivos e, mais cedo ou mais tarde, esquecerá um.
 
 Neste guia você aprenderá:
-1. O que é uma **função** e por que ela é o alicerce fundamental do software.
-2. A diferença crítica entre **parâmetros**, **argumentos** e **impressão** versus **retorno**.
-3. Como declarar funções com tipos seguros e valores padrão.
-4. Regras de visibilidade obrigatórias em Joss (`public` e `private`).
-5. O que é escopo variável e como funciona o isolamento de memória em cada chamada.
-6. O que são **funções anônimas (fechamentos)** e como elas capturam dados de seu ambiente.
-7. Como modificar variáveis ​​externas com segurança usando **referências (`ref`)**.
-8. Como encadear transformações limpas de dados com o operador **pipeline (`|>`)**.
+1. O que é uma **função** e por que ela é o bloco fundamental de construção de software.
+2. A diferença crítica entre **parâmetros**, **argumentos** e **impressão (`print`)** versus **retorno (`return`)**, incluindo funções `: void`.
+3. Como declarar funções com tipos seguros, valores padrão, argumentos nomeados e desempacotamento (`...`).
+4. As regras de visibilidade obrigatória no Joss (`public` e `private`).
+5. Como escrever retornos antecipados limpos com **`guard`** e programar ações de limpeza garantidas com **`defer`**.
+6. O que é o **escopo de variáveis (scope)** e como funciona o isolamento de memória em cada chamada.
+7. O que são as **funções anônimas (closures)** e como usá-las para transformar listas com `map` e `filter`.
+8. Como modificar variáveis externas de forma segura mediante **referências (`ref`)**.
+9. Como encadear transformações de dados limpas com o operador **pipeline (`|>`)**.
 
 ---
 
 ## 1. O que é uma função?
 
-Uma **função** é um bloco autônomo de instruções ao qual atribuímos um nome. Pense nisso como uma pequena máquina especializada:
-1. Recebe matéria-prima (dados de entrada, chamados **argumentos**).
-2. Ele processa as informações internas isoladamente.
-3. Retorna um produto acabado (o resultado, denominado **valor de retorno**).<!-- joss-run: ["5", "12"] -->
+Uma **função** é um bloco autônomo de instruções ao qual atribuímos um nome. Pense nela como uma pequena máquina especializada:
+1. Recebe matérias-primas (dados de entrada, chamados **argumentos**).
+2. Processa a informação em seu interior de forma isolada.
+3. Devolve um produto acabado (o resultado, chamado **valor de retorno**).
+
+<!-- joss-run: ["5", "12"] -->
 ```joss
 public func sumar(int $a, int $b): int {
     return $a + $b
@@ -34,40 +37,69 @@ public func sumar(int $a, int $b): int {
 print(sumar(2, 3))
 print(sumar(5, 7))
 ```
-### Anatomia de uma função em Joss:
 
-- `public`: **Modificador de visibilidade**. Em Joss, as funções globais requerem visibilidade:
-  - `public`: A função está disponível em todo o projeto e outros arquivos podem utilizá-la sem importações.
+Saída no terminal:
+
+```text
+5
+12
+```
+
+### Anatomia de uma função no Joss:
+
+- `public`: **Modificador de visibilidade**. No Joss, as funções globais exigem obrigatoriamente visibilidade:
+  - `public`: A função fica disponível em todo o projeto e outros arquivos podem usá-la sem imports.
   - `private`: A função só pode ser chamada a partir do mesmo arquivo onde foi escrita.
-- `func`: Palavra-chave que indica o início da declaração (Joss não utiliza `function`).
+- `func`: Palavra-chave que indica o início da declaração (o Joss não usa `function`).
 - `sumar`: O nome da função.
-- `(int $a, int $b)`: A lista de **parâmetros**. Define quais tipos de dados a função requer para funcionar.
-- `: int`: O **tipo de retorno**. Declara que tipo de valor a função promete retornar ao chamador.
-- `{ ... }`: O **corpo** da função, onde as instruções são escritas.
-- `return $a + $b`: A instrução `return` encerra a execução da função imediatamente e envia o resultado de volta ao chamador.
+- `(int $a, int $b)`: A lista de **parâmetros**. Define quais tipos de dados a função exige para trabalhar.
+- `: int`: O **tipo de retorno**. Declara que tipo de valor a função promete devolver a quem a chamou.
+- `{ ... }`: O **corpo** da função, onde são escritas as instruções.
+- `return $a + $b`: A instrução `return` finaliza a execução da função imediatamente e envia o resultado de volta ao chamador.
 
 ---
 
 ## 2. Diferenças conceituais cruciais
 
 ### Parâmetros vs Argumentos
-- **Parâmetro**: É a variável que você declara na assinatura da função (por exemplo, `$a` e `$b`). É o slot ou espaço que espera um valor.
-- **Argumento**: É o valor específico que você fornece ao chamar a função (por exemplo, `2` e `3`).
+- **Parâmetro**: É a variável que você declara na assinatura da função (por exemplo, `$a` e `$b`). É o espaço que espera um valor.
+- **Argumento**: É o valor concreto que você entrega no momento de chamar a função (por exemplo, `2` e `3`).
 
-### Return (`return`) vs Imprimir (`print`)
-Essa é uma das armadilhas mais comuns para quem começa a programar:
-- `print` é uma ação física: escreve com tinta na tela do terminal para um ser humano ler. O resto do programa **não pode reutilizar essa saída**.
-- `return` é uma ação de memória interna: entrega os dados calculados para a linha que chamou a função para que ela possa continuar operando com ela (salvar em uma variável, salvar em um banco de dados, enviar pela internet, etc.).
+### Retornar (`return`) vs Imprimir (`print`) e o tipo `: void`
+Este é um dos tropeços mais comuns para quem está começando a programar:
+- `print` é uma ação física: escreve tinta na tela do terminal para que um humano leia. O restante do programa **não pode reutilizar essa saída**.
+- `return` é uma ação de memória interna: entrega o dado calculado para a linha que chamou a função para que ela possa continuar operando com ele (guardá-lo em uma variável, salvá-lo em um banco de dados, enviá-lo pela internet, etc.).
+
+E se a sua função apenas realiza uma ação (como mostrar um cabeçalho na tela ou salvar um registro) e não precisa devolver nenhum dado? Nesse caso, você declara seu tipo de retorno como **`: void`** (vazio):
+
+<!-- joss-run: ["=== REPORTE DE VENTAS ==="] -->
+```joss
+public func mostrarEncabezado(string $titulo): void {
+    print("=== " . $titulo . " ===")
+}
+
+mostrarEncabezado("REPORTE DE VENTAS")
+```
+
+Saída no terminal:
+
+```text
+=== REPORTE DE VENTAS ===
+```
+
+Uma função `: void` não devolve valor e pode terminar sem `return` ou com um `return` vazio para sair antecipadamente.
 
 ---
 
-## 3. Tipos de contrato e valores padrão
+## 3. Contratos de tipos e valores padrão
 
-Em Joss, **cada parâmetro de origem deve ter um tipo de dados explícito**. Se uma função realmente precisa aceitar qualquer valor dinâmico, você deve indicar isso escrevendo `mixed`.
+No Joss, **todo parâmetro fonte deve ter um tipo de dado explícito** (`JOSS-TYPE-011`). Se uma função realmente precisar aceitar qualquer valor dinâmico, você deve indicar isso escrevendo `mixed`.
 
-### Parâmetros com valores padrão (Padrões)
+### Parâmetros com valores padrão (Defaults)
 
-Você pode tornar certos argumentos opcionais atribuindo-lhes um valor padrão com `=`:<!-- joss-run: ["Hola, visitante", "Hola, Ada"] -->
+Você pode tornar certos argumentos opcionais atribuindo a eles um valor padrão com `=`:
+
+<!-- joss-run: ["Hola, visitante", "Hola, Ada"] -->
 ```joss
 public func saludo(string $nombre = "visitante"): string {
     return "Hola, " . $nombre
@@ -75,15 +107,25 @@ public func saludo(string $nombre = "visitante"): string {
 print(saludo())
 print(saludo("Ada"))
 ```
-- Se você chamar `saludo()` sem argumentos, Joss usará automaticamente `"visitante"`.
+
+Saída no terminal:
+
+```text
+Hola, visitante
+Hola, Ada
+```
+
+- Se você chamar `saludo()` sem argumentos, o Joss utilizará automaticamente `"visitante"`.
 - Se você chamar `saludo("Ada")`, o valor entregue substitui o valor padrão.
 
 > [!TIP]
-> Sempre coloque parâmetros com valores padrão no final da lista de parâmetros. Caso contrário, Joss não saberia a qual parâmetro atribuir um argumento se você passar apenas um.
+> Coloque sempre os parâmetros com valor padrão no final da lista de parâmetros. Caso contrário, o Joss não saberia a qual parâmetro atribuir um argumento se você passar apenas um.
 
-### Argumentos Nomeados
+### Argumentos nomeados (Named Arguments)
 
-Você pode passar argumentos declarando explicitamente o nome do parâmetro seguido por dois pontos (`nombre: valor`). Isso permite pular parâmetros intermediários que possuem valores padrão ou passar argumentos em qualquer ordem:<!-- joss-run: ["Estimada Ada"] -->
+Você pode passar argumentos indicando explicitamente o nome do parâmetro seguido de dois pontos (`nombre: valor`). Isso permite omitir parâmetros intermediários que tenham valores padrão ou passar argumentos em qualquer ordem:
+
+<!-- joss-run: ["Estimada Ada"] -->
 ```joss
 public func bienvenida(string $nombre, string $titulo = "Estimado/a"): string {
     return $titulo . " " . $nombre
@@ -91,9 +133,18 @@ public func bienvenida(string $nombre, string $titulo = "Estimado/a"): string {
 
 print(bienvenida(titulo: "Estimada", nombre: "Ada"))
 ```
+
+Saída no terminal:
+
+```text
+Estimada Ada
+```
+
 ### Operador Spread (`...`) em chamadas
 
-Se você possui uma lista e deseja descompactar seus elementos como argumentos posicionais independentes para uma chamada de função, acrescente `...`:<!-- joss-run: ["10"] -->
+Se você tem uma lista (que conheceu no capítulo anterior) e deseja desempacotar seus elementos como argumentos posicionais independentes para uma chamada de função, anteponha `...`:
+
+<!-- joss-run: ["10"] -->
 ```joss
 public func sumarTres(int $a, int $b, int $c): int {
     return $a + $b + $c
@@ -102,36 +153,89 @@ public func sumarTres(int $a, int $b, int $c): int {
 var $numeros = [2, 3, 5]
 print(sumarTres(...$numeros))
 ```
+
+Saída no terminal:
+
+```text
+10
+```
+
 ---
 
-## 4. Retorno antecipado e cláusulas de guarda
+## 4. Retorno antecipado (`guard`) e limpeza adiada (`defer`)
 
-A instrução `return` interrompe a função imediatamente. Se você colocá-lo dentro de um bloco ternário, poderá verificar se há erros no início da função e sair antes de processar o restante:<!-- joss-run: ["agotado", "disponible"] -->
+### Cláusulas de guarda com `guard` ou ternário
+
+A instrução `return` interrompe a função imediatamente. Para validar que os dados de entrada atendem a uma condição antes de continuar, o Joss oferece a instrução dedicada **`guard (condición) : { ... }`** (além do ternário tradicional):
+
+<!-- joss-run: ["agotado", "disponible (2 unidades)"] -->
 ```joss
 public func disponibilidad(int $cantidad): string {
-    ($cantidad <= 0) ? { return "agotado" } : {}
-    return "disponible"
+    guard ($cantidad > 0) : {
+        return "agotado"
+    }
+    return "disponible (${cantidad} unidades)"
 }
 print(disponibilidad(0))
 print(disponibilidad(2))
 ```
-Esse padrão é chamado de **cláusula de guarda**. Evite criar estruturas condicionais profundamente aninhadas (*código espaguete*).
 
-> [!IMPORTANTE]
-> **Completude do retorno (`JOSS-TYPE-010`)**:
-> Se uma função declara um tipo de retorno (como `: string`), o analisador semântico requer que **todos os caminhos de execução possíveis** terminem com um `return` do tipo indicado ou com uma exceção `throw`. Você não pode deixar ramificações inacabadas onde a função simplesmente termina sem retornar nada.
+Saída no terminal:
+
+```text
+agotado
+disponible (2 unidades)
+```
+
+Como se lê `guard ($cantidad > 0) : { return "agotado" }`?
+- **"Certifique-se de que `$cantidad > 0`. Caso contrário (`:`), execute este bloco de saída imediata"**.
+- Você também pode expressá-lo com um ternário: `($cantidad <= 0) ? { return "agotado" } : {}`.
+- Esse padrão é chamado de **cláusula de guarda**. Ele evita criar estruturas condicionais profundamente aninhadas (*código espaguete*).
+
+> [!IMPORTANT]
+> **Exaustividade de retorno (`JOSS-TYPE-010`)**:
+> Se uma função declara um tipo de retorno diferente de `void` (como `: string`), o analisador semântico exige que **todas as rotas possíveis** de execução terminem com um `return` do tipo indicado ou com uma exceção `throw`.
+
+### Execução adiada ao sair com `defer`
+
+Às vezes uma função abre um recurso ou inicia uma operação e você quer garantir que, aconteça o que acontecer, uma ação de fechamento seja executada pouco antes de a função terminar. Para isso existe **`defer { ... }`**:
+
+<!-- joss-run: ["1. Procesando pago", "2. Cerrando sesión de auditoría", "OK"] -->
+```joss
+public func procesarPago(): string {
+    defer {
+        print("2. Cerrando sesión de auditoría")
+    }
+    print("1. Procesando pago")
+    return "OK"
+}
+
+print(procesarPago())
+```
+
+Saída no terminal:
+
+```text
+1. Procesando pago
+2. Cerrando sesión de auditoría
+OK
+```
+
+O bloco `defer` é registrado no início, mas o Joss **adia sua execução** até o instante exato em que a função está prestes a retornar (mesmo que haja vários `return` em diferentes ramificações). Se você declarar vários `defer`, eles serão executados em ordem inversa (o último registrado é executado primeiro, ordem LIFO).
 
 ---
 
-## 5. Escopo das variáveis (Escopo) e passagem por valor
+## 5. Escopo de variáveis (Scope) e passagem por valor
 
-O **escopo** é a área do programa onde uma variável existe e é acessível.
+O **escopo (scope)** é a região do programa onde uma variável existe e é acessível.
 
-Em Joss:
-1. Cada chamada de função cria um **quadro de memória isolado (quadro)**.
-2. Parâmetros e variáveis ​​declarados dentro da função **existem apenas enquanto a função está em execução**. Assim que atinge `return`, eles desaparecem da memória.
-3. Funções nomeadas **não têm acesso automático às variáveis ​​globais do arquivo**. Se uma função precisar de dados, você deverá passá-los como parâmetro.
-4. **Passagem por valor**: Ao passar um valor primitivo (como um `int` ou `string`) para uma função, Joss fornece uma cópia dele. Modificar essa variável dentro da função **não altera a variável original que estava fora**:<!-- joss-run: ["20", "10"] -->
+No Joss:
+1. Cada chamada a uma função cria um **quadro de memória isolado (frame)**.
+2. Os parâmetros e as variáveis declaradas dentro da função **só existem enquanto a função está sendo executada**. Assim que chega ao `return`, desaparecem da memória.
+3. As funções nomeadas **não têm acesso automático às variáveis de nível superior do arquivo**. Se uma função precisa de um dado, você deve passá-lo como parâmetro.
+4. **Passagem por valor**: Ao passar um valor primitivo (como um `int` ou `string`) para uma função, o Joss entrega uma cópia. Modificar essa variável dentro da função **não altera a variável original que estava fora**:
+
+<!-- joss-run: ["20", "10"] -->
 ```joss
 public func duplicar(int $valor): int {
     $valor = $valor * 2
@@ -141,15 +245,25 @@ var $numero = 10
 print(duplicar($numero))
 print($numero)
 ```
-A variável original `$numero` mantém seu valor `10` intacto.
+
+Saída no terminal:
+
+```text
+20
+10
+```
+
+A variável original `$numero` conserva seu valor `10` intacto.
 
 ---
 
-## 6. Funções e encerramentos anônimos
+## 6. Funções anônimas e Closures
 
-Uma função nem sempre precisa de um nome global. Você pode criar uma função como um valor, armazená-la em uma variável ou passá-la como argumento para outra função. Isso é chamado de **função anônima** ou **função de primeira classe**.
+Uma função nem sempre precisa de um nome global. Você pode criar uma função como se fosse um valor, guardá-la em uma variável ou passá-la como argumento para outra função. Isso é chamado de **função anônima** ou **função de primeira classe**.
 
-Quando uma função anônima usa variáveis ​​que foram criadas no bloco externo ao seu redor, ela se torna um **fechamento**: "capture" e lembra dessas variáveis ​​para uso posterior, mesmo que o bloco externo já tenha terminado:<!-- joss-run: ["Hola, Ada"] -->
+Quando uma função anônima utiliza variáveis que foram criadas no bloco externo ao seu redor, ela se torna uma **closure**: "captura" e lembra dessas variáveis para utilizá-las mais tarde:
+
+<!-- joss-run: ["Hola, Ada"] -->
 ```joss
 var $prefijo = "Hola, "
 var $saludar = func(string $nombre): string {
@@ -157,16 +271,40 @@ var $saludar = func(string $nombre): string {
 }
 print($saludar("Ada"))
 ```
-- Closures são amplamente usados ​​como **callbacks**: funções que você fornece a um serviço (por exemplo, a um servidor HTTP ou a um WebSocket) para ser executado quando ocorre um evento (como a chegada de um cliente).
-- Os fechamentos não possuem modificadores de visibilidade (`public` nem `private`).
+
+Saída no terminal:
+
+```text
+Hola, Ada
+```
+
+- As closures não levam modificadores de visibilidade (`public` nem `private`).
+- São ideais para transformar ou filtrar coleções com as funções nativas `map` e `filter`:
+
+<!-- joss-run: ["[20 40 60]"] -->
+```joss
+var $precios = [10, 20, 30]
+var $dobles = map($precios, func(int $p): int {
+    return $p * 2
+})
+print($dobles)
+```
+
+Saída no terminal:
+
+```text
+[20 40 60]
+```
 
 ---
 
-## 7. Referências mutáveis ​​temporárias com `ref`
+## 7. Referências mutáveis temporárias com `ref`
 
-E se você realmente quiser que uma função modifique a variável original que você passou de fora? Em vez de retornar uma cópia, Joss permite o uso de **referências (`ref`)**.
+O que acontece se você realmente quiser que uma função modifique a variável original que você passou de fora? Em vez de devolver uma cópia, o Joss permite o uso de **referências (`ref`)**.
 
-Por segurança, Joss exige que a intenção seja **bilateral**: tanto a assinatura da função quanto a chamada devem incluir a palavra reservada `ref`:<!-- joss-run: ["2"] -->
+Por segurança, o Joss exige que a intenção seja **bilateral**: tanto a assinatura da função quanto a chamada devem incluir a palavra reservada `ref`:
+
+<!-- joss-run: ["2"] -->
 ```joss
 public func incrementar(ref int $valor): int {
     $valor = $valor + 1
@@ -176,74 +314,130 @@ var $contador = 1
 incrementar(ref $contador)
 print($contador)
 ```
-Agora `$contador` mudou seu valor original para `2`.
 
-### Referência de regras de segurança em Joss:
-1. **Somente variáveis simples e mutáveis**: Você não pode passar constantes, expressões matemáticas ou literais (por exemplo, `incrementar(ref 5)` é ilegal com `JOSS-REF-002`).
-2. **Invariância estrita de tipo**: O tipo da variável deve corresponder exatamente ao tipo do parâmetro (não é permitido passar um `int` para um `ref float`).
-3. **Eles não podem escapar**: Uma referência só vive durante a chamada. Você não pode salvar uma referência a uma variável global, retorná-la com `return` ou enviá-la por um canal assíncrono.
+Saída no terminal:
+
+```text
+2
+```
+
+Agora `$contador` realmente mudou seu valor original para `2`.
+
+### Regras de segurança das referências no Joss:
+1. **Apenas variáveis simples e mutáveis**: Você não pode passar constantes, expressões matemáticas nem literais (por exemplo, `incrementar(ref 5)` é ilegal com `JOSS-REF-002`).
+2. **Invariância estrita de tipos**: O tipo da variável deve coincidir exatamente com o tipo do parâmetro (não é permitido passar um `int` para um `ref float`).
+3. **Não podem escapar**: Uma referência só vive durante a chamada. Você não pode guardar uma referência em uma variável global, nem devolvê-la com `return`, nem enviá-la para uma função `async`.
 
 ---
 
 ## 8. O operador Pipeline (`|>`)
 
-Na programação é muito comum ter que passar um dado por uma série de transformações sucessivas. Nas linguagens clássicas, isso força as chamadas a serem aninhadas de dentro para fora:```joss
+Na programação é muito comum ter que passar um dado por uma série de transformações sucessivas. Em linguagens clássicas, isso obriga a aninhar chamadas de dentro para fora:
+
+```joss
 // Difícil de leer: debes leer de derecha a izquierda o de adentro hacia afuera
 strtoupper(trim("  ada  "))
 ```
-Joss inclui nativamente o operador **Pipeline (`|>`)**, que pega o resultado à esquerda e o envia como primeiro argumento para a função à direita:<!-- joss-run: ["ADA"] -->
+
+O Joss inclui de forma nativa o operador **Pipeline (`|>`)**, que pega o resultado da esquerda e o envia como primeiro argumento para a função da direita:
+
+<!-- joss-run: ["ADA"] -->
 ```joss
 print("  ada  " |> trim |> strtoupper)
 ```
-O fluxo lê naturalmente da esquerda para a direita:
-1. Pegue o texto `"  ada  "`.
-2. Passe por `trim` (que remove os espaços, resultando em `"ada"`).
-3. Passe por `strtoupper` (que converte para maiúsculas, resultando em `"ADA"`).
-4. Passe para `print` para exibi-lo na tela.
 
-Se a função receptora precisar de mais de um argumento, escreva-os normalmente entre parênteses:```joss
-$resultado = $texto |> str_replace("a", "o")
+Saída no terminal:
+
+```text
+ADA
 ```
-Joss colocará o valor à esquerda como o primeiro parâmetro de `str_replace`.
+
+O fluxo é lido de forma natural da esquerda para a direita:
+1. Pegue o texto `"  ada  "`.
+2. Passe-o por `trim` (que remove os espaços, resultando em `"ada"`).
+3. Passe-o por `strtoupper` (que converte para maiúsculas, resultando em `"ADA"`).
+4. Passe-o para `print` para exibi-lo na tela.
+
+Você também pode combinar pipelines com funções personalizadas, coleções e closures para criar fluxos de processamento de dados muito expressivos:
+
+<!-- joss-run: ["Precio: 25 USD"] -->
+```joss
+public func formatearMoneda(int $monto, string $moneda = "USD"): string {
+    return "Precio: ${monto} ${moneda}"
+}
+
+var $resultado = 25 |> formatearMoneda
+print($resultado)
+```
+
+Saída no terminal:
+
+```text
+Precio: 25 USD
+```
+
+E com listas usando `filter`:
+
+<!-- joss-run: ["60"] -->
+```joss
+var $ventas = [5, 10, 20, 30]
+var $altas = $ventas |> filter(func(int $x): bool { return $x >= 10 })
+print(sum($altas))
+```
+
+Saída no terminal:
+
+```text
+60
+```
 
 ---
 
 ## 9. Funções recursivas
 
-Uma função **recursiva** é aquela que se chama para resolver um problema dividindo-o em versões menores do mesmo problema.
+Uma função **recursiva** é aquela que chama a si mesma para resolver um problema dividindo-o em versões menores do mesmo problema.
 
-Toda função recursiva deve ter dois componentes essenciais:
-1. **Caso base**: Uma condição de parada em que a função retorna um resultado simples sem ser chamada novamente.
-2. **Etapa recursiva**: onde a função chama a si mesma com um dado mais próximo do caso base.
+Toda função recursiva deve ter dois componentes indispensáveis:
+1. **Caso base**: Uma condição de parada onde a função retorna um resultado simples sem voltar a se chamar.
+2. **Passo recursivo**: Onde a função chama a si mesma com um dado mais próximo do caso base.
 
-Joss protege sua memória limitando a profundidade máxima de chamadas recursivas a 1024 níveis por padrão (consulte [Recursão](RECURSION.md) para obter detalhes).
+O Joss protege sua memória limitando a profundidade máxima de chamadas recursivas a 1024 níveis por padrão (consulte [Recursão](RECURSION.md) para mais detalhes).
 
 ---
 
 ## 10. Erros comuns com funções
 
-| Erro | Código/Causa | Solução |
+| Erro | Código / Causa | Solução |
 |---|---|---|
-| Escreva `function f()` | `function` foi removido de Joss. | Use `public func f()` ou `private func f()`. |
-| Esqueça `public` ou `private` em funções globais | Funções nomeadas requerem visibilidade obrigatória. | Adicione `public func nombre(...)` ou `private func nombre(...)`. |
-| Parâmetro não digitado: `func($x)` | Os parâmetros devem ser digitados (`JOSS-TYPE-011`). | Declare o tipo: `func(int $x)` ou `func(mixed $x)`. |
-| Função digitada sem retorno em todas as rotas | `JOSS-TYPE-010`: O verificador detectou um caminho que termina sem retornar nada. | Certifique-se de que todas as ramificações ternárias retornem ou gerem um erro. |
-| Esqueça `ref` na chamada | Chame `f($x)` quando a função espera `ref T $param` (`JOSS-REF-001`). | Adicione `ref` na chamada: `f(ref $x)`. |
+| Escrever `function f()` | `function` foi removida do Joss. | Use `public func f()` ou `private func f()`. |
+| Esquecer `public` ou `private` em funções globais | As funções nomeadas exigem visibilidade obrigatória. | Adicione `public func nombre(...)` ou `private func nombre(...)`. |
+| Parâmetro sem tipo: `func($x)` | Os parâmetros devem ser tipados (`JOSS-TYPE-011`). | Declare o tipo: `func(int $x)` ou `func(mixed $x)`. |
+| Função tipada sem return em todas as rotas | `JOSS-TYPE-010`: O verificador detectou um caminho que termina sem devolver nada. | Certifique-se de que todas as ramificações ternárias retornem ou lancem um erro. |
+| Esquecer `ref` na chamada | Chamar `f($x)` quando a função espera `ref T $param` (`JOSS-REF-001`). | Adicione `ref` na chamada: `f(ref $x)`. |
 
 ---
 
-## 11. Exercício prático
+## 11. Exercícios práticos
 
-1. **Calculadora com funções**:
-   - Escreva uma função `public func calcularIVA(decimal $subtotal, decimal $tasa = 0.16m): decimal`.
-   - A função deve retornar o valor do imposto (`$subtotal * $tasa`).
-   - Tente chamá-lo com um único argumento (`calcularIVA(100.0m)`) e depois com uma taxa personalizada de 8% (`calcularIVA(100.0m, 0.08m)`).
-   - Mostrar ambos os resultados no console.
+### Nível 1 — Teste rápido
+Escreva uma função `public func presentar(string $nombre, string $rol = "Estudiante"): string` que retorne `"${nombre} (${rol})"`. Chame-a primeiro passando apenas `"Ada"` e depois passando `"Grace"` e `"Arquitecta"`. Imprima ambos os resultados.
+
+### Nível 2 — Exercício guiado
+1. Escreva uma função `public func calcularIVA(decimal $subtotal, decimal $tasa = 0.16m): decimal`.
+2. Use uma cláusula `guard ($subtotal > 0.0m) : { return 0.0m }` para evitar calcular impostos sobre valores zerados ou negativos.
+3. Se o subtotal for válido, retorne `$subtotal * $tasa`.
+4. Teste chamá-la com `0.0m`, `100.0m` (usando a taxa padrão) e `100.0m` com taxa `0.08m`.
+
+### Nível 3 — Desafio
+Dada a lista `var $precios = [50, 120, 80, 200, 30]`:
+1. Utilize o operador pipeline (`|>`) junto com `filter` para ficar apenas com os preços maiores ou iguais a `100`.
+2. Encadeie outro `|>` com `map` para aplicar um desconto subtraindo `15` de cada preço filtrado.
+3. Encadeie `|> sum` no final e imprima a soma total resultante (deve imprimir `290`).
 
 ---
 
-## Próxima etapa
+## Próximo passo
 
-Agora que você sabe como estruturar código modular com funções seguras, é hora de aprender como manipular coleções de dados complexas: listas de elementos e mapas associativos de valores-chave.
+Agora que você sabe como organizar sua lógica em funções limpas e reutilizáveis, aprenderá como detectar, lançar e se recuperar de situações imprevistas sem que seu programa entre em colapso.
 
-Continue com: [Coleções: Arrays, Mapas e Manipulação de Texto](COLECCIONES.md).
+Continue com: [Tratamento de erros, exceções e diagnóstico](ERRORES.md).

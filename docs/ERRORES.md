@@ -1,6 +1,6 @@
 # Manejo de errores, excepciones y diagnóstico
 
-Antes: [Clases, objetos y herencia](CLASES.md). Después: [Concurrencia, asincronía y canales](CONCURRENCIA.md).
+Antes: [Funciones, closures y referencias](FUNCIONES.md). Después: [Clases, objetos y herencia](CLASES.md).
 Referencia técnica: [Diagnósticos estructurados](DIAGNOSTICOS.md), [Analizador semántico](ANALIZADOR.md).
 
 ---
@@ -20,7 +20,7 @@ En esta guía aprenderás:
 3. El mecanismo de control de excepciones con **`try`**, **`catch`** y **`throw`**.
 4. Qué información contiene la variable de error capturada (el mapa `$error`).
 5. Por qué las instrucciones `return`, `break` y `continue` dentro de un bloque `try` no son interferidas por `catch`.
-6. Cuándo manejar errores mediante excepciones vs cuándo comprobar códigos o valores de retorno (`null`).
+6. Cuándo manejar errores mediante excepciones vs cuándo comprobar valores de retorno (`null`).
 
 ---
 
@@ -90,6 +90,12 @@ try {
 }
 ```
 
+Salida en la terminal:
+
+```text
+No se pudo continuar: faltan datos
+```
+
 ### ¿Qué sucede en este ejemplo?
 1. La computadora entra al bloque `try`.
 2. Ejecuta `throw "faltan datos"`. En ese instante, la ejecución normal se detiene.
@@ -102,14 +108,15 @@ try {
 
 ## 4. Inspección avanzada del objeto de error en `catch`
 
-Cuando el propio motor de ejecución de Joss genera un error interno (llamado `JossError`, como un desbordamiento aritmético o un índice fuera de rango), la variable `$error` del `catch` se convierte en un **mapa asociativo** con información técnica detallada:
+Cuando el propio motor de ejecución de Joss genera un error interno (llamado `JossError`, como un desbordamiento aritmético o un índice fuera de rango), la variable `$e` del `catch` recibe en tiempo de ejecución un **mapa asociativo** con información técnica detallada:
 
 ```joss
 try {
-    $arr = [1, 2]
+    var $arr = [1, 2]
     print($arr[99]) // Índice fuera de rango
 } catch ($e) {
     print("Mensaje: " . $e["message"])
+    print("Tipo: " . $e["type"])
     print("Archivo: " . $e["file"])
     print("Línea: " . $e["line"])
 }
@@ -122,9 +129,9 @@ try {
 - `$e["line"]`: El número de línea exacto.
 - `$e["error"]`: La representación textual completa del error.
 
-### Excepciones personalizadas con instancias de clase
+### Excepciones estructuradas con mapas o instancias de clase
 
-Si tu aplicación arroja una instancia de una clase (`throw new MiExcepcion(...)`), el bloque `catch ($e)` preserva la **instancia viva del objeto**, permitiendo acceder directamente a sus métodos y propiedades especializadas:
+También puedes lanzar un mapa asociativo con tus propios campos de contexto, o bien una instancia de una clase personalizada (veremos cómo construir clases en detalle en el siguiente capítulo, [Clases, objetos y herencia](CLASES.md)):
 
 <!-- joss-run: ["Campo: email", "Motivo: Formato inválido"] -->
 ```joss
@@ -138,6 +145,13 @@ try {
     print("Campo: " . $e->campo)
     print("Motivo: " . $e->motivo)
 }
+```
+
+Salida en la terminal:
+
+```text
+Campo: email
+Motivo: Formato inválido
 ```
 
 ---
@@ -169,6 +183,12 @@ var $contenido = file_get_contents("archivo-que-no-existe.txt")
 }
 ```
 
+Salida en la terminal:
+
+```text
+No se pudo leer el archivo
+```
+
 - `file_get_contents(...)`: Devuelve el texto del archivo si existe, o `null` si no se pudo leer. No lanza una excepción destructiva; te permite comprobar el resultado con un ternario simple.
 - `file_put_contents(...)`: Devuelve `true` si el archivo se escribió en disco o `false` si hubo un fallo de permisos.
 
@@ -190,23 +210,32 @@ try {
 } catch ($e) {}
 ```
 
-> Si la base de datos no pudo iniciar, el programa continuará corriendo a ciegas y fallará de forma incomprensible diez líneas más adelante. Como mínimo, registra el error en consola con `print($e["error"])` o cancela la ejecución.
+> Si la base de datos no pudo iniciar, el programa continuará corriendo a ciegas y fallará de forma incomprensible diez líneas más adelante. Como mínimo, registra el error en consola con `print($e)` o cancela la ejecución.
 
 ---
 
-## 8. Ejercicio práctico
+## 8. Ejercicios prácticos
 
-1. **Validador de usuarios con excepciones**:
-   - Escribe una función `public func registrarEdad(int $edad): string`.
-   - Si `$edad < 0`, lanza una excepción: `throw "La edad no puede ser negativa"`.
-   - Si `$edad < 18`, lanza: `throw "Debe ser mayor de edad para registrarse"`.
-   - Si es válida, retorna `"Registro exitoso"`.
-   - Llama a la función dentro de un bloque `try / catch`, probando con `-5`, `15` y `25`, e imprime el resultado o el mensaje de error capturado.
+### Nivel 1 — Prueba rápida
+Escribe un bloque `try / catch ($err)` donde dentro del `try` lances la excepción `throw "Conexión rechazada"`. En el `catch`, imprime `"Alerta: " . $err`.
+
+### Nivel 2 — Ejercicio guiado
+1. Escribe una función `public func registrarEdad(int $edad): string`.
+2. Si `$edad < 0`, lanza una excepción: `throw "La edad no puede ser negativa"`.
+3. Si `$edad < 18`, lanza: `throw "Debe ser mayor de edad para registrarse"`.
+4. Si es válida, retorna `"Registro exitoso"`.
+5. Llama a la función dentro de un bloque `try / catch`, probando con `-5`, `15` y `25`, e imprime el resultado o el mensaje de error capturado.
+
+### Nivel 3 — Reto
+Crea una función `public func dividirSeguro(int $numerador, int $denominador): int` que:
+1. Use un bloque `try / catch ($e)` para realizar la operación `$numerador / $denominador`.
+2. Si ocurre un error aritmético (como dividir entre `0`), capture el mapa `$e`, imprima `"Fallo detectado: " . $e["type"]` y retorne `0`.
+3. Prueba llamarla con `dividirSeguro(20, 4)` y `dividirSeguro(20, 0)`.
 
 ---
 
 ## Siguiente paso
 
-Ahora que tu código sabe defenderse de fallos y recuperarse con elegancia, es momento de aprender una de las características más potentes de Joss: cómo realizar tareas en paralelo, delegar operaciones a segundo plano y comunicar procesos sin bloqueos.
+Ahora que sabes cómo organizar funciones, manipular colecciones y proteger tu programa frente a fallos, estás listo para empaquetar datos y comportamientos juntos mediante la Programación Orientada a Objetos.
 
-Continúa con: [Concurrencia, asincronía, Future y canales](CONCURRENCIA.md).
+Continúa con: [Clases, objetos, métodos y herencia](CLASES.md).

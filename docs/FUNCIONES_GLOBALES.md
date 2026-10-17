@@ -2,7 +2,7 @@
 
 [Índice](README.md) · Antes: [funciones](FUNCIONES.md) · [Clases nativas](MODULOS_NATIVOS.md)
 
-Estas funciones están integradas en el runtime, sin imports ni instalación.
+Estas funciones están integradas en el runtime (`pkg/core/builtins.go`), sin imports ni instalación.
 La firma de esta página describe el uso admitido por el dispatcher; no todos
 los parámetros están publicados al analizador. `[x]` indica un argumento
 opcional y `...` varios argumentos. No son caracteres que debas copiar.
@@ -27,7 +27,7 @@ Las familias comparten ejemplos al final. Los aliases de funciones como
 | `is_decimal(valor)` | Bool; decimal concreto. | `is_decimal(1m)` |
 | `is_string(valor)` | Bool; texto concreto. | `is_string("a")` |
 | `is_array(valor)` | Bool; array/slice, no map. | `is_array([1])` |
-| `is_null(valor)` | Bool; ausencia de valor; sin argumento también true. | `is_null(nil)` |
+| `is_null(valor)` | Bool; ausencia de valor; sin argumento también true. | `is_null(null)` |
 | `isset(expresiones...)` | Forma especial del parser: consulta existencia sin error por variable ausente. Una variable ligada a null cuenta como existente; no sirve como comprobación general de claves map. | `isset($nombre)` |
 | `empty(expresion)` | Forma especial: true si no existe o si el valor es falso según las reglas runtime. | `empty($ausente)` |
 
@@ -35,7 +35,7 @@ Las conversiones explícitas son permisivas; no sustituyen la validación.
 Para condiciones exactas compara contra `0`, `null` o `""` según lo que
 necesites. Véase [tipos](SISTEMA_TIPOS.md) y [sintaxis](SINTAXIS.md).
 
-## Arrays y mapas
+## Arrays, mapas y colecciones funcionales
 
 | Firma | Resultado, mutación y errores | Ejemplo |
 |---|---|---|
@@ -55,6 +55,9 @@ necesites. Véase [tipos](SISTEMA_TIPOS.md) y [sintaxis](SINTAXIS.md).
 | `array_column(array,clave)` | Valores de esa clave en elementos map; omite otros elementos/claves ausentes. | `array_column([{"id":1}],"id")` |
 | `in_array(valor,array)` | Bool; en arrays Joss admite igualdad profunda o textual. | `in_array(1,["1"])` → true |
 | `array_key_exists(clave,map)` | Bool de existencia; no confundir con valor no nulo. | `array_key_exists("a",{"a":null})` |
+| `map(array, closure)` | Retorna un nuevo array aplicando `closure` a cada elemento. | `map([1,2], func(int $x): int { return $x * 2 })` |
+| `filter(array, closure)` | Retorna un nuevo array con los elementos donde `closure` devuelva verdadero. | `filter([1,2,3], func(int $x): bool { return $x > 1 })` |
+| `sum(array)` | Suma numérica de los elementos; conserva `decimal`, verifica overflow entero y rechaza mezclar `float` con `decimal` (`JOSS-ARITH-003`). | `sum([10, 20, 30])` → 60 |
 
 ## Texto y formato
 
@@ -129,7 +132,7 @@ local en pruebas que deban ser idénticas en cualquier máquina.
 Las rutas son relativas al directorio de trabajo. Las operaciones no tienen
 sandbox de archivos. El ejemplo completo está en [informe de compras](PROYECTO_CONSOLA.md).
 
-## Contexto web y concurrencia
+## Contexto web, pruebas y concurrencia
 
 | Firma | Contrato y disponibilidad |
 |---|---|
@@ -148,6 +151,9 @@ sandbox de archivos. El ejemplo completo está en [informe de compras](PROYECTO_
 | `send(channel,valor)` | Envía; puede bloquear, canal cerrado provoca fallo. También channel << valor. |
 | `recv(channel)` | Recibe; bloquea hasta dato/cierre; cierre agotado produce null. |
 | `close(channel)` | Cierra; cerrar dos veces o enviar después produce fallo. |
+| `Ok(valor)`, `Err(error)` | Constructores del tipo `Result<T, E>` para retorno explícito de éxito o fallo. |
+| `test(nombre, closure)`, `it(nombre, closure)` | Registra y ejecuta un caso de prueba en archivos `*_test.joss` (`joss test`). |
+| `assert(cond,[msg])`, `assertTrue(...)`, `assertFalse(...)`, `assertEqual(a,b)`, `assertNotEqual(a,b)`, `assertNull(v)`, `assertNotNull(v)`, `assertThrows(closure)` | Aserciones nativas integradas para pruebas automatizadas con `joss test`. |
 
 Consulta [HTTP y clases nativas](MODULOS_NATIVOS.md), [vistas](VISTAS.md) y
 [concurrencia](CONCURRENCIA.md) para ejemplos con el contexto necesario.

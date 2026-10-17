@@ -1,16 +1,16 @@
 # Joss CLI — Complete Command Reference
 
-[Index](README.md) · Before: [getting started](PRIMEROS_PASOS.md) · After: [parser](ANALIZADOR.md)
+[Index](README.md) · Before: [getting started](PRIMEROS_PASOS.md) · After: [analyzer](ANALIZADOR.md)
 
-The canonical command source is `cmd/joss/main.go`. `joss help` shows the installed interactive help and `joss version` the current runtime version.
+The canonical source of commands is `cmd/joss/main.go`. `joss help` displays the installed interactive help and `joss version` shows the current runtime version (`3.6.8.0`).
 
-The CLI is the program that receives commands in the terminal. It incorporates an interactive REPL environment
-(`joss repl`), direct script execution (`joss run`), high-performance web server
-(`joss server start`) and a set comprehensive code quality and package management tools (`pub`).
+The CLI is the program that receives commands in the terminal. It includes an interactive
+REPL environment (`joss repl`), direct script execution (`joss run`), a high-performance
+web server (`joss server start` / `joss server`), AOT native compilation (`joss build`), and a complete suite of code quality and package management (`pub`) tools.
 
 ---
 
-## 1. Execution, REPL and Build
+## 1. Execution, REPL, and Native Build
 
 ```bash
 joss run archivo.joss
@@ -23,21 +23,23 @@ joss analyze [archivo.joss]
 joss update [-f|--canary|--stable]
 ```
 
-- `run [archivo]`: Run a script `.joss` after analyzing the project. Semantic errors block execution; the warnings do not.
-- `repl`: Launches the interactive console (Read-Eval-Print Loop) to evaluate expressions, test functions, and experiment with code in real time. Type `exit` or press `Ctrl+C` to exit.
-- `server start`: Requires the entry point `main.joss` and starts the high-performance multi-level HTTP server. Press `q` to stop it safely.
-- `program start`: Start the application in desktop mode.
-- `build [archivo.joss]`: **Official Joss Native Compiler**. Compiles the program into a real self-contained native binary executable (PE `.exe` on Windows, ELF on Linux, Mach-O on macOS). Performs exhaustive semantic analysis (`PreparedProgram`), reachability analysis (*Reachability Analysis*), lowering to Joss Native IR (`pkg/ir`), IR verification, and native code generation via LLVM or the direct compilation backend (`pkg/backend/native`), without packaging AST or depending on the Go runtime.
-  - `-o <salida>`: Name or path of the final executable binary.
-  - `--target=<os>-<arch>`: Cross-compilation target (e.g. `windows-amd64`, `linux-amd64`, `darwin-arm64`).
-  - `--release`: Production-optimized compilation without debug symbols.
-  - `--debug`: Compilation with debugging information.
-  - `--trace`: Emits and preserves intermediate artifacts of the native pipeline (`.ir`, `.ll`, `.standalone.go`).
-  - `build package [ruta]`: Packages extensions and plugins into `.jp` (v2) packages signed with Ed25519 containing pure bytecode.
+- `run [archivo]`: Executes a `.joss` script after analyzing the project (`LoadProject`) and validating its `PreparedProgram` with the Joss interpreter. Semantic errors block execution; warnings do not.
+- `repl`: Starts the interactive console (Read-Eval-Print Loop) with the `joss> ` prompt to evaluate expressions, test functions, and experiment with code in real time. Type `exit` or press `Ctrl+C` to quit.
+- `server start` (or `joss server`): Requires the `main.joss` entry point and starts the high-performance multi-tier HTTP server interpreted by the server runtime. Press `q` or `Ctrl+C` to stop it safely.
+- `program start`: Starts the application in desktop mode.
+- `build [archivo.joss]`: **Official Joss native compiler**. Compiles the program into a real self-contained native binary executable (PE `.exe` on Windows, ELF on Linux, Mach-O on macOS), placing it by default inside the `build/` folder. Performs exhaustive semantic analysis (`PreparedProgram`), reachability analysis (*Reachability Analysis*), lowering to Joss Native IR (`pkg/ir`), IR verification (`ir.Verifier`), and native code generation (`pkg/backend/native`).
+  - **Pure CLI binaries**: Compiled into ultra-compact pure machine code (~5.5 KB - 32 KB) without `joss_host.dll` or VFS trailer.
+  - **Full applications with web/DB services**: Selectively link `_joss_host_bridge` (pruning unused engines via `no<driver>` tags) and seal the encrypted virtual file system (`env.enc` with AES-256) inside the executable.
+  - `-o <salida>`: Custom name or path for the final executable binary.
+  - `--target=<os>-<arch>` (or direct shortcuts `joss build linux`, `joss build macos`, `joss build android`): Built-in cross-compilation for `windows-amd64`, `windows-arm64`, `linux-amd64`, `linux-arm64`, `darwin-arm64` (Apple Silicon), `darwin-amd64`, and `android-arm64` (Termux).
+  - `--release`: Production-optimized build without debug symbols.
+  - `--debug`: Build with debugging information.
+  - `--trace`: Emits and preserves intermediate artifacts from the native pipeline (`.ir`, `.ll`, `.standalone.go`).
+  - `build package [ruta]`: Packages extensions and plugins into Ed25519-signed `.jp` (v2) packages containing pure bytecode.
   - `build web`: Prepares assets and static distribution for web deployment.
 - `emit-ir [archivo.joss] [-o salida.ir]`: Emits the canonical intermediate representation (Joss Native IR) in deterministic textual format after semantic analysis and lowering.
-- `analyze [archivo]`: Parse the input (by default `main.joss`) and `app/**/*.joss`. Does not automatically include `routes.joss`, `api.joss` or other siblings. Returns non-zero code if errors exist and preserves file/line/column. See [ANALYZER.md](ANALIZADOR.md).
-- `update`: Uses the updater implemented by the CLI and may require network/system permissions. Check their actual channels and artifacts before promising that a distribution contains an SDK or editor.
+- `analyze [archivo]`: Analyzes the project through `semanticanalyzer.LoadProject` (including the entry point, `routes.joss`, `api.joss`, and `app/**/*.joss`). Returns a non-zero exit code if errors exist and preserves file/line/column. See [ANALIZADOR.md](ANALIZADOR.md).
+- `update`: Uses the updater implemented by the CLI (`--canary`, `--stable`, `-f`).
 
 ---
 
@@ -51,10 +53,10 @@ joss new package mi_paquete
 joss new plugin mi_plugin
 ```
 
-- `new web` / `new`: Generates the complete MVC structure of a web application with views engine, routes, middleware and ORM.
-- `new console`: Generates a lightweight template for command line tools.
-- `new package`: Creates a declarative package structure for the manager `pub`.
-- `new plugin`: Create an official multilanguage plugin project translatable to binary bytecode `.jp`.
+- `new web` / `new`: Generates the complete MVC structure of a web application with view engine, routes, middleware, and ORM.
+- `new console`: Generates a lightweight template for command-line tools (`main.joss`, `env.joss`, `joss.yaml`, and `app/`).
+- `new package`: Creates a declarative package structure for the `pub` manager.
+- `new plugin`: Creates an official multi-language plugin project compilable to `.jp` binary bytecode.
 
 ---
 
@@ -72,21 +74,21 @@ joss make:migration create_products
 ```
 
 ### 🛠️ `make:crud [Tabla]` (Intelligent Relational Generator)
-Connects to the database configured at `env.joss`, inspects the table schema and automatically generates a complete administrative module:
-1. **Foreign Key Inspection (`_id`)**: Detects relationships with other tables, infers relational model names and auto-detects visible columns (`username`, `name`, `title`).
-2. **Model and Related Models**: Generate `app/models/Model.joss` and any missing relational models.
-3. **Full CRUD handler**: Generate `app/controllers/ModelController.joss` with methods `index`, `create`, `store`, `edit`, `update` and `delete` including automatic `joins` and `selects`.
-4. **Tailwind CSS Views**: Generate `app/views/model/index.joss.html`, `create.joss.html` and `edit.joss.html` with dynamic forms and dropdown menus `<select>` for relationships.
-5. **Injection in Navbar and Routes**: Inject the option in `app/views/layouts/master.joss.html` and insert the protected routes within the group `Router::middleware("auth")` in `routes.joss`.
+Connects to the database configured in `env.joss`, inspects the table schema, and automatically generates a complete administrative module:
+1. **Foreign Key Inspection (`_id`)**: Detects relationships with other tables, infers relational model names, and auto-detects display columns (`username`, `name`, `title`).
+2. **Model and Related Models**: Generates `app/models/Model.joss` and any missing relational models.
+3. **Complete CRUD Controller**: Generates `app/controllers/ModelController.joss` with `index`, `create`, `store`, `edit`, `update`, and `delete` methods including automatic `joins` and `selects`.
+4. **Tailwind CSS Views**: Generates `app/views/model/index.joss.html`, `create.joss.html`, and `edit.joss.html` with dynamic forms and `<select>` dropdowns for relationships.
+5. **Navbar and Route Injection**: Injects the menu item into `app/views/layouts/master.joss.html` and inserts the protected routes inside the `Router::middleware("auth")` group in `routes.joss`.
 
 The command is only supported in web projects and requires the table to already exist.
 Table/column names are validated as identifiers before querying
-the schema. The generated handler accepts only discovered
-editable columns (does not do bulk allocation), deletion uses `POST` with CSRF and returning
-to run the generator does not duplicate paths or navigation links.
+the schema. The generated controller accepts only the discovered editable
+columns (no mass assignment), deletion uses `POST` with CSRF, and re-running
+the generator does not duplicate routes or navigation links.
 
 ### 🗑️ `remove:crud [Tabla]`
-Cleanly undo the build: remove the controller, model, views folder and remove the paths injected into `routes.joss` and the navbar link.
+Cleanly undoes generation: deletes the controller, model, and views folder, and removes the injected routes in `routes.joss` as well as the navbar link.
 
 ---
 
@@ -103,16 +105,16 @@ joss change db prefix app_
 joss change db migrate --host=HOST --port=3306 --database=DB --user=USER --password=PASS
 ```
 
-- `make:migration`: Generate a new migration with timestamp at `app/database/migrations/`. `create_users`, `create_users_table` and `user` are normalized to the logical table `users`; `make:miggrate` is not an alias and shows the suggested fix.
-- `migrate`: Run pending migrations in chronological order.
-- `migrate:fresh`: Delete all database tables and rerun all migrations from scratch.
-- `db:seed`: Runs the settler seeders defined in `app/database/seeders/`.
-- `change db`: Change the configured engine (`mysql` or `sqlite`) or modify the global table prefix (`DB_PREFIX`).
-- `change db migrate`: Hot migrate the data and structure of the current connection to a new remote MySQL server.
+- `make:migration`: Generates a new timestamped migration in `app/database/migrations/`. `create_users`, `create_users_table`, and `user` are normalized to the logical table `users`; `make:miggrate` is not an alias and prints the suggested correction.
+- `migrate`: Runs pending migrations in chronological order.
+- `migrate:fresh`: Drops all database tables and re-runs all migrations from scratch.
+- `db:seed`: Runs the database seeders defined in `app/database/seeders/`.
+- `change db`: Switches the configured engine (`mysql`, `postgres`, `sqlserver`, or `sqlite`) or modifies the global table prefix (`DB_PREFIX`).
+- `change db migrate`: Hot-migrates the data and schema from the current connection to a new remote server.
 
 ---
 
-## 5. Compilation and Plugin Management (`.jp`)
+## 5. Plugin Compilation and Management (`.jp`)
 
 ```bash
 joss plugin compile .
@@ -121,9 +123,9 @@ joss plugin inspect mi_plugin.jp
 joss plugin verify mi_plugin.jp
 ```
 
-- `plugin compile`: Produce signed JPBC from partial backends. Python/PHP/Java translate subsets; The Wasm route only validates the header and generates demo stubs. See [Plugins](PLUGINS.md).
-- `plugin inspect`: Displays metadata, declared permissions, and symbol table from the package `.jp`.
-- `plugin verify`: Checks the Ed25519 digital signature and the structural integrity of the container `.jp`.
+- `plugin compile`: Produces signed JPBC from partial backends. Python/PHP/Java translate subsets; the Wasm path only validates the header and generates demo stubs. See [Plugins](PLUGINS.md).
+- `plugin inspect`: Displays metadata, declared permissions, and the symbol table of the `.jp` package.
+- `plugin verify`: Verifies the Ed25519 digital signature and structural integrity of the `.jp` container.
 
 ---
 
@@ -157,11 +159,11 @@ joss fix [ruta] [--dry-run]
 joss test [--filter=nombre] [ruta]
 ```
 
-- `check`: Runs formatting, syntax, parsing and linter. Check its output: a formatting problem is reported as a warning in this pipeline.
-- `format`: In a file, modify the default unless you use `--check`; in a directory just write with `--write`. Always use `joss format ruta --check` in CI.
-- `lint`: Performs static analysis with type consistency rules, style and detection of secrets or credentials in hard code (`--json` for structured integration).
-- `fix`: Applies safe automatic fixes (visibility required, formatting) with support for `--dry-run`.
-- `test`: Run files `*_test.joss` with `test`/`it`, `assert`, `assertTrue`, `assertFalse`, `assertEqual`, `assertNotEqual`, `assertNull`, `assertNotNull` and `assertThrows`. Place `--filter` before the path: the flags parser stops reading options after the first positional argument.
+- `check`: Runs formatting, syntax, semantic analysis, and linter checks. Review its output: a formatting issue is reported as a warning in this pipeline.
+- `format`: On a single file, modifies in place by default unless `--check` is used; on a directory, only writes when `--write` is passed. Always use `joss format ruta --check` in CI.
+- `lint`: Runs static analysis with rules for type consistency, style, and detection of hardcoded secrets or credentials (`--json` for structured integration).
+- `fix`: Applies lexically safe automatic fixes (`let`/`nil` migrations, required visibility, formatting) without touching strings or comments, with `--dry-run` support.
+- `test`: Runs `*_test.joss` files with `test`/`it`, `assert`, `assertTrue`, `assertFalse`, `assertEqual`, `assertNotEqual`, `assertNull`, `assertNotNull`, and `assertThrows`. Place `--filter` before the path: the flag parser stops reading options after the first positional argument.
 
 ---
 
@@ -178,19 +180,21 @@ joss bg:remove <input.jpg> [output.png]
 joss notify:send <canal> <mensaje>
 ```
 
-- `help plugins`: Shows all installed and available plugins along with their exposed CLI commands and their status (`[protegido]`).
-- `help plugins [nombre_plugin]`: Shows the technical sheet, repository, options and specific commands of the selected plugin.
-- **Plugin Commands**: Plugins installed at `plugins/` or declared at `joss.yaml` can register and dispatch standalone and protected CLI commands.
+- `help plugins`: Lists all installed and available plugins along with their exposed CLI commands and status (`[protegido]`).
+- `help plugins [nombre_plugin]`: Displays the technical datasheet, repository, options, and specific commands for the selected plugin.
+- **Plugin commands**: Plugins installed in `plugins/` or declared in `joss.yaml` can register and dispatch autonomous, protected CLI commands.
 
 ---
 
-## 9. Storage and Cloud Services (`userstorage`)
+## 9. Cloud Storage and Services (`userstorage` and `indexnow`)
 
 ```bash
 joss userstorage local
 joss userstorage oci
 joss userstorage sync-oci
 joss userstorage sync-local
+joss indexnow generate
 ```
 
-- `userstorage`: Switches the storage provider between local disk and **Oracle Cloud Infrastructure (OCI)**, allowing two-way synchronization using `sync-oci` and `sync-local`.
+- `userstorage`: Switches the storage provider between local disk and **Oracle Cloud Infrastructure (OCI)**, enabling bidirectional synchronization via `sync-oci` and `sync-local`.
+- `indexnow generate`: Generates and configures the instant indexing key for IndexNow in the project environment.

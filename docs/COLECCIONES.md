@@ -1,6 +1,6 @@
 # Colecciones: Arrays, Maps y Manipulación de Texto Unicode
 
-Antes: [Funciones y closures](FUNCIONES.md). Después: [Sistema de tipos e inferencia](SISTEMA_TIPOS.md).
+Antes: [Control de flujo y decisiones](CONTROL_FLUJO.md). Después: [Funciones, ámbito y pipelines](FUNCIONES.md).
 Referencia técnica: [Módulos nativos](MODULOS_NATIVOS.md), [Funciones globales](FUNCIONES_GLOBALES.md).
 
 ---
@@ -14,22 +14,21 @@ Hasta ahora hemos trabajado con variables que almacenan un solo dato a la vez: u
 
 Para agrupar y organizar múltiples datos en una sola estructura, existen las **colecciones**.
 
-En esta guía aprenderás:
-1. Qué es un **array**, cómo funciona la numeración desde cero (índices) y cómo añadir elementos.
-2. Qué es un **map** (diccionario clave-valor) con sintaxis de llaves `{}` o estilo asociativo PHP `["clave" => valor]`.
-3. Cómo recorrer colecciones con `foreach` extrayendo pares `$clave => $valor`.
-4. Cómo procesar listas con funciones funcionales y pipelines: `map`, `filter`, `reduce`, `find`, `any`, `all`, `sum`.
-5. Cómo se comportan las colecciones en la memoria: copia de referencias vs duplicación de datos.
-6. Las peculiaridades de funciones como `array_pop`, `array_push` y `array_shift` en Joss.
-7. El texto como colección: la diferencia fundamental entre **bytes**, **puntos de código Unicode** y **grafemas (caracteres visibles)**.
+En esta guía aprenderás paso a paso:
+1. Qué es un **array**, cómo funciona la numeración desde cero (**índices**) y cómo añadir elementos.
+2. Qué es un **map** (diccionario clave → valor) con llaves `{}` o estilo asociativo `["clave" => valor]`.
+3. Cómo recorrer colecciones con `foreach` extrayendo tanto la posición o clave como el valor (`$clave => $valor`).
+4. Cómo desempaquetar varios valores a la vez mediante **desestructuración** (`[$a, $b] = ...`).
+5. Cómo funcionan las colecciones en la memoria (copia vs referencia compartida) y funciones útiles como `count`, `merge`, `explode` e `implode`.
+6. Cómo maneja Joss el texto moderno Unicode (letras con tildes y emojis) y cómo convertir colecciones a **JSON**.
 
 ---
 
-## 1. Arrays: Secuencias ordenadas de elementos
+## 1. Arrays: Listas ordenadas de elementos
 
-Un **array** es una lista ordenada de valores. Cada valor ocupa una casilla numerada llamada **índice**.
+Un **array** es una lista ordenada de valores encerrados entre corchetes `[` y `]`. Cada valor ocupa una casilla numerada llamada **índice**.
 
-En Joss (y en la inmensa mayoría de lenguajes modernos), **los índices comienzan a contar desde cero (`0`)**, no desde uno:
+En Joss (y en la mayoría de lenguajes de programación), **los índices comienzan a contar desde cero (`0`)**, no desde uno:
 - El primer elemento está en el índice `0`.
 - El segundo elemento está en el índice `1`.
 - El tercer elemento está en el índice `2`.
@@ -43,42 +42,33 @@ print(count($compras))
 print($compras[2])
 ```
 
-### Operaciones básicas con arrays:
+Salida:
 
-1. **Creación**: Se delimitan con corchetes `[` y `]`, separando los elementos por comas: `["pan", "leche"]`.
-2. **Lectura por índice**: `$compras[0]` accede al primer elemento (`"pan"`).
-3. **Añadir al final con `[]`**: Escribir `$compras[] = "fruta"` agrega automáticamente el nuevo elemento al final de la lista.
-4. **Contar elementos**: `count($compras)` (o `len($compras)`) devuelve la cantidad total de elementos (en este caso, `3`).
-5. **Protección de límites**: Si intentas acceder a un índice que no existe (por ejemplo `$compras[99]` o un índice negativo `$compras[-1]`), Joss detiene la ejecución de inmediato con el error de seguridad `JOSS-INDEX-001` (Index Out of Range), protegiendo tu programa de leer memoria basura.
+```text
+pan
+3
+fruta
+```
 
-### Tipado de colecciones: Arrays homogéneos
-Por defecto, un array `array` puede contener tipos mezclados. Si quieres garantizar que todos los elementos sean números enteros, puedes usar la sintaxis parametrizada:
+### Operaciones fundamentales con arrays:
+
+1. **Creación**: Se escriben entre corchetes `[` y `]`, separando los elementos con comas: `["pan", "leche"]`. Una lista vacía se escribe `[]`.
+2. **Lectura por índice**: `$compras[0]` obtiene el primer elemento (`"pan"`).
+3. **Modificar una posición**: `$compras[1] = "queso"` cambia el segundo elemento.
+4. **Añadir al final con `[]`**: Escribir `$compras[] = "fruta"` agrega el nuevo elemento al final de la lista automáticamente.
+5. **Contar elementos**: `count($compras)` (o `len($compras)`) devuelve cuántos elementos tiene la lista (`3`).
+6. **Protección de límites**: Si intentas leer una casilla que no existe (como `$compras[99]` o `$compras[-1]`), Joss detiene la operación de inmediato con el error `JOSS-INDEX-001` (*Index Out of Range*), evitando lecturas de memoria inválidas.
+
+### Arrays con tipo fijo de elemento (`array<Tipo>`)
+Por defecto, un `array` permite guardar distintos tipos de datos. Si quieres exigir que todos los elementos de una lista sean números enteros, puedes declararla con `array<int>`:
 
 ```joss
 array<int> $edades = [18, 25, 30]
 ```
 
-### Desestructuración declarativa de arrays y maps
+### Expandir una lista dentro de otra con `...` (Spread)
 
-Cuando tienes un array o un map y necesitas extraer sus elementos en variables separadas, no necesitas escribir asignaciones individuales repetitivas. Puedes desempaquetarlos directamente en una sola línea mediante **desestructuración declarativa**, incluyendo valores por defecto opcionales:
-
-<!-- joss-run: ["10", "20", "30", "Ada", "cliente"] -->
-```joss
-[$x, $y, $z = 30] = [10, 20]
-print($x)
-print($y)
-print($z)
-
-{"nombre": $nombre, "rol": $rol = "cliente"} = {"nombre": "Ada"}
-print($nombre)
-print($rol)
-```
-
-Esto resulta muy cómodo para desempaquetar parámetros de peticiones web, pares de coordenadas o resultados devueltos por funciones sin código ceremonial.
-
-### Operador Spread (`...`) en arrays
-
-Puedes expandir los elementos de un array existente dentro de otro nuevo array anteponiendo `...`:
+Puedes insertar todos los elementos de una lista existente dentro de una lista nueva anteponiendo tres puntos `...`:
 
 <!-- joss-run: ["1", "2", "3", "4"] -->
 ```joss
@@ -90,13 +80,22 @@ print($todos[2])
 print($todos[3])
 ```
 
+Salida:
+
+```text
+1
+2
+3
+4
+```
+
 ---
 
 ## 2. Maps: Diccionarios de Clave → Valor
 
-Un array es perfecto cuando el orden de los elementos importa (como una lista de espera). Pero si quieres representar una entidad con propiedades etiquetadas (como un usuario), recordar que "el nombre está en el índice 0 y el correo en el 1" es frágil y confuso.
+Un array es ideal cuando solo importa el orden (como una fila de turnos). Pero si quieres guardar la ficha de una persona con su nombre, edad y correo, recordar que "el nombre está en el 0 y la edad en el 1" es incómodo.
 
-Para eso existen los **maps** (también conocidos como diccionarios, tablas hash o mapas asociativos). En un map, cada valor se guarda y se recupera mediante una **clave de texto**:
+Para eso existen los **maps** (diccionarios o mapas asociativos). En un map, cada dato se guarda bajo una **etiqueta de texto llamada clave**:
 
 <!-- joss-run: ["Ada", "21", "sin teléfono"] -->
 ```joss
@@ -107,16 +106,23 @@ print($persona["edad"])
 print($persona["telefono"] ?? "sin teléfono")
 ```
 
+Salida:
+
+```text
+Ada
+21
+sin teléfono
+```
+
 ### Características de los Maps en Joss:
-1. **Creación**: Se delimitan con llaves `{}` asociando con `:` (`{"clave": valor}`) o con corchetes `[]` asociando con `=>` (`["clave" => valor]`).
-2. **Mapa vacío**: `{}` crea un mapa vacío.
-3. **Acceso y modificación**: Se utilizan corchetes con el nombre de la clave entre comillas: `$persona["nombre"]`.
-4. **Claves inexistentes**: Si intentas leer una clave que no existe (como `$persona["telefono"]`), Joss devuelve `null` de forma segura en lugar de fallar. Puedes usar el operador `??` para proveer un valor predeterminado elegante.
-5. **Verificación de existencia**: Puedes usar `array_key_exists("telefono", $persona)` para saber con certeza si una clave fue definida, incluso si su valor asociado es `null`.
+1. **Creación con llaves `{}`**: Se asocia cada clave de texto con su valor usando dos puntos: `{"nombre": "Ada", "edad": 20}`. Un mapa vacío se escribe `{}`.
+2. **Lectura y modificación**: Se escribe el nombre de la clave entre corchetes y comillas: `$persona["nombre"]`.
+3. **Claves que no existen**: Si consultas una clave que aún no ha sido guardada (como `$persona["telefono"]`), Joss devuelve `null` sin fallar. Combinarlo con `??` te permite mostrar un texto de respaldo limpio.
+4. **Verificar si una clave existe**: La función integrada `array_key_exists("telefono", $persona)` devuelve `true` o `false`.
 
-### Notación asociativa estilo PHP (`=>`)
+### Notación alternativa con corchetes y flecha (`=>`)
 
-Joss admite tanto la notación clásica de llaves `{}` con dos puntos `:` como la notación con corchetes y flecha gruesa `=>`, incluyendo mapas multidimensionales anidados:
+Además de las llaves `{}`, Joss también acepta crear mapas usando corchetes `[]` y la flecha doble `=>` (muy familiar si conoces PHP):
 
 <!-- joss-run: ["JosSecurity", "v1.0", "Ada"] -->
 ```joss
@@ -130,9 +136,17 @@ print($config["version"])
 print($config["autor"]["nombre"])
 ```
 
-### Operador Spread (`...`) en maps
+Salida:
 
-Al igual que en arrays, puedes expandir y fusionar pares clave-valor de un mapa dentro de otro utilizando el operador `...`:
+```text
+JosSecurity
+v1.0
+Ada
+```
+
+### Combinar mapas con `...` (Spread)
+
+Igual que en los arrays, puedes fusionar las claves de un mapa dentro de otro nuevo usando `...`:
 
 <!-- joss-run: ["localhost", "8080", "true"] -->
 ```joss
@@ -143,11 +157,19 @@ print($completo["puerto"])
 print($completo["seguro"])
 ```
 
+Salida:
+
+```text
+localhost
+8080
+true
+```
+
 ---
 
-## 3. Recorrer Colecciones con `foreach ($coleccion as $clave => $valor)`
+## 3. Recorrer Índices y Claves con `foreach ($coleccion as $clave => $valor)`
 
-Puedes recorrer arrays y mapas asociativos accediendo directamente a la clave (o índice numérico en arrays) y al valor mediante la sintaxis `$clave => $valor`:
+En el capítulo anterior vimos cómo recorrer los valores de una lista. Si también necesitas saber **en qué posición o bajo qué clave** está cada valor, escribe `$clave => $valor` dentro del `foreach`:
 
 <!-- joss-run: ["0: manzana", "1: pera", "a => alfa", "b => beta"] -->
 ```joss
@@ -162,14 +184,80 @@ foreach ($letras as $k => $v) {
 }
 ```
 
-- `keys($persona)`: Devuelve un array con todos los nombres de las claves del mapa.
-- `values($persona)`: Devuelve un array únicamente con los valores contenidos en el mapa.
+Salida:
+
+```text
+0: manzana
+1: pera
+a => alfa
+b => beta
+```
+
+Además, dispones de dos funciones directas para extraer las partes de un mapa:
+- `keys($mapa)`: Devuelve un array con todas las claves.
+- `values($mapa)`: Devuelve un array con todos los valores.
 
 ---
 
-## 4. Funciones de orden superior y Pipelines (`map`, `filter`, `reduce`, `find`, `sum`)
+## 4. Desestructuración de Arrays y Maps
 
-Joss incluye funciones integradas para transformar y filtrar colecciones en estilo funcional, diseñadas para encadenarse con el operador pipeline `|>`:
+Cuando quieres extraer varios valores de un array o de un map y guardarlos en variables individuales en una sola línea, puedes usar la **desestructuración**, incluyendo valores por defecto por si algún dato falta:
+
+<!-- joss-run: ["10", "20", "30", "Ada", "cliente"] -->
+```joss
+[$x, $y, $z = 30] = [10, 20]
+print($x)
+print($y)
+print($z)
+
+{"nombre": $nombre, "rol": $rol = "cliente"} = {"nombre": "Ada"}
+print($nombre)
+print($rol)
+```
+
+Salida:
+
+```text
+10
+20
+30
+Ada
+cliente
+```
+
+> [!NOTE]
+> Por compatibilidad, Joss también acepta la forma con paréntesis `let ($x, $y) = [10, 20]`, aunque la forma con corchetes `[$x, $y] = [10, 20]` es más expresiva y soporta valores por defecto.
+
+---
+
+## 5. Métodos directos sobre textos, listas y mapas (`->`)
+
+En Joss, los textos (`string`), listas (`array`) y mapas (`map`) traen **herramientas integradas (métodos)** que puedes invocar escribiendo una flecha delgada **`->`** después de la variable:
+
+<!-- joss-run: ["hola-mundo", "a-b"] -->
+```joss
+var $txt = "  Hola Mundo  "
+print($txt->trim()->lower()->replace(" ", "-"))
+
+var $mapa = {"a": 1, "b": 2}
+print($mapa->keys()->join("-"))
+```
+
+Salida:
+
+```text
+hola-mundo
+a-b
+```
+
+Observa cómo se lee de izquierda a derecha:
+1. `$txt->trim()`: Quita los espacios sobrantes de los extremos (`"Hola Mundo"`).
+2. `->lower()`: Convierte las letras a minúsculas (`"hola mundo"`).
+3. `->replace(" ", "-")`: Cambia el espacio por un guion (`"hola-mundo"`).
+
+### Procesamiento funcional de listas
+
+Joss también permite filtrar, transformar y sumar listas enteras con funciones como `sum`, `filter`, `map`, `find`, `any` y `all` (que exploraremos en profundidad en el próximo capítulo de [Funciones](FUNCIONES.md)):
 
 <!-- joss-run: ["60", "20", "true"] -->
 ```joss
@@ -181,10 +269,6 @@ var $encontrado = $numeros |> find(func(int $x): bool { return $x == 2; })
 print($encontrado * 10)
 print($numeros |> any(func(int $x): bool { return $x == 3; }))
 ```
-
-### Métodos fluidos de instancia en colecciones y cadenas
-
-Además del operador pipeline, Joss permite invocar métodos fluidos directamente sobre valores primitivos (`string`, `array`, `map`):
 
 <!-- joss-run: ["hola-mundo", "6, 8", "a-b"] -->
 ```joss
@@ -201,14 +285,12 @@ print($mapa->keys()->join("-"))
 
 ---
 
-## 5. Comportamiento en memoria: ¿Copia o referencia?
+## 6. Comportamiento en memoria: ¿Copia independiente o lista compartida?
 
-Este es un concepto fundamental en la arquitectura de Joss:
+Hay una diferencia muy importante entre los datos simples y las colecciones:
 
-- Cuando asignas un número o un texto a otra variable (`$b = $a`), se copia el valor de forma independiente.
-- En cambio, los **arrays** y los **maps** se gestionan internamente mediante punteros y estructuras compartidas (slices y maps de Go).
-
-Si asignas un array o map existente a una nueva variable, **ambas variables apuntan a la misma estructura de datos en memoria**:
+- Cuando asignas un número o un texto a otra variable (`var $b = $a`), se crea una **copia independiente**.
+- En cambio, cuando asignas un **array** o un **map** a otra variable (`var $copia = $original`), **ambas variables apuntan a la misma lista en la memoria**:
 
 <!-- joss-run: ["9", "nuevo"] -->
 ```joss
@@ -216,27 +298,33 @@ var $original = [1, 2]
 var $copia = $original
 $copia[0] = 9
 print($original[0])
+
 var $datos = {"estado": "inicial"}
 var $alias = $datos
 $alias["estado"] = "nuevo"
 print($datos["estado"])
 ```
 
-Modificar `$copia[0]` alteró también a `$original[0]`, porque ambas son dos nombres distintos para el mismo array físico.
+Salida:
 
-> [!TIP]
-> **¿Cómo crear una copia independiente?**
-> Para duplicar un array sin compartir cambios futuros, utiliza la función `merge`:
-
-```joss
-$clon = merge([], $original)
+```text
+9
+nuevo
 ```
 
----
+Cambiar `$copia[0]` también cambió `$original[0]` porque ambas variables miran a la misma lista.
 
-## 6. Nombres de funciones que debes conocer bien
+> [!TIP]
+> **¿Cómo crear una copia separada de un array?**
+> Si quieres duplicar una lista para modificar la nueva sin afectar la original, usa `merge`:
 
-Algunas funciones para manipular arrays tienen contratos específicos en Joss que difieren de lenguajes como PHP o JavaScript:
+```joss
+var $clon = merge([], $original)
+```
+
+### Funciones de extremos en listas (`array_pop`, `array_shift`, `array_push`)
+
+Ten presente cómo funcionan estas tres funciones en Joss:
 
 <!-- joss-run: ["2", "2", "3"] -->
 ```joss
@@ -247,19 +335,25 @@ $numeros = array_push($numeros, 3)
 print(count($numeros))
 ```
 
-Presta atención a estos detalles:
-1. `array_pop($arr)`: Devuelve el último elemento, pero **no lo elimina del array original** (no muta la longitud).
-2. `array_shift($arr)`: Devuelve el primer elemento sin eliminarlo.
-3. `array_push($arr, $item)` y `append($arr, $item)`: Toman el array, le agregan el nuevo elemento y **retornan el nuevo array resultante**. Por eso debes reasignar: `$numeros = array_push($numeros, 3)` o usar la sintaxis directa `$numeros[] = 3`.
-4. `array_slice($arr, $inicio, $longitud)`: Extrae una porción del array sin modificar el original.
+Salida:
+
+```text
+2
+2
+3
+```
+
+1. `array_pop($arr)`: Devuelve el último elemento sin borrarlo de la lista original.
+2. `array_shift($arr)`: Devuelve el primer elemento sin borrarlo.
+3. `array_push($arr, $item)` (o `append($arr, $item)`): Devuelve una nueva lista con el elemento añadido, por lo que puedes reasignarla (`$numeros = array_push($numeros, 3)`) o usar directamente `$numeros[] = 3`.
 
 ---
 
-## 7. Manipulación de Texto: Bytes, Runas y Grafemas
+## 7. Texto Unicode: Letras visibles vs Bytes
 
-El texto digital moderno es mucho más complejo que las letras en inglés del teclado ASCII. Cuando manejas texto con acentos (`á`, `é`), caracteres asiáticos o emojis (`😀`, `👨‍👩‍👧‍👦`), una sola letra visual puede estar compuesta por varios bytes e incluso por varios caracteres Unicode combinados.
+En los idiomas modernos usamos tildes (`á`, `é`), eñes (`ñ`) y emojis (`🚀`). En la memoria de una computadora, un solo símbolo visible puede ocupar varios bytes.
 
-En Joss:
+Mira cómo Joss te permite medir exactamente lo que necesitas:
 
 <!-- joss-run: ["3", "2", "é"] -->
 ```joss
@@ -269,22 +363,25 @@ print(strlen($texto))
 print($texto[0])
 ```
 
-Observa la diferencia de las tres líneas para la letra `é` (letra `e` con tilde combinada):
-1. `len($texto)`: Devuelve **3 bytes** en formato UTF-8 físico.
-2. `strlen($texto)`: Devuelve **2 puntos de código Unicode** (la `e` base + el acento combinante).
-3. `$texto[0]`: Devuelve el **grafema visual completo** (`é`).
+Salida:
 
-| Operación | Unidad que mide | Uso recomendado |
+```text
+3
+2
+é
+```
+
+| Operación | Qué mide o devuelve | Cuándo usarla |
 |---|---|---|
-| `len($texto)` | Bytes físicos | Tamaños de archivo, transferencias de red, buffers en disco. |
-| `strlen($texto)` | Puntos de código (Runas) | Algoritmos de análisis de texto estándar. |
-| `$texto[$i]` | Grafemas extendidos (caracteres visibles) | **Manipulación de texto orientada al usuario**: cortar nombres, mostrar avatares, indexar sin partir emojis por la mitad. |
+| `$texto[0]` | El **carácter visible completo** (*grafema*) | Cuando trabajas con nombres de personas o mensajes con tildes y emojis, sin romperlos por la mitad. |
+| `strlen($texto)` | Cantidad de **puntos de código Unicode** | Para conteo estándar de caracteres Unicode. |
+| `len($texto)` | Cantidad de **bytes en memoria (UTF-8)** | Para tamaños de archivo o envíos por red. |
 
 ---
 
-## 7. Serialización y Deserialización JSON (`json_encode` y `json_decode`)
+## 8. Convertir colecciones a formato JSON (`json_encode` y `json_decode`)
 
-En Joss puedes serializar y deserializar JSON utilizando tanto la notación de **mapas con llaves `{}`** como la notación de **arreglos asociativos con corchetes `[]` (`=>`)**, además de los arrays indexados convencionales. Ambos formatos son compatibles con `json_encode` y `json_decode` (o `JSON::encode` y `JSON::decode`):
+**JSON** es el formato de texto universal para guardar datos en archivos o enviarlos por internet. Joss convierte cualquier array o map a JSON y viceversa con una sola instrucción:
 
 ### Con mapas usando llaves `{}`:
 <!-- joss-run: ["Ada", "Joss"] -->
@@ -299,7 +396,14 @@ print($datosMapa["nombre"])
 print($datosMapa["lenguajes"][0])
 ```
 
-### Con arreglos asociativos usando corchetes `[]` y `=>`:
+Salida:
+
+```text
+Ada
+Joss
+```
+
+### Con mapas usando corchetes `[]` y `=>`:
 <!-- joss-run: ["Carlos", "admin"] -->
 ```joss
 var $usuario = [
@@ -312,44 +416,55 @@ print($datosArray["nombre"])
 print($datosArray["roles"][0])
 ```
 
-- **`json_encode($datos, $pretty = false)`**: Convierte arrays, mapas o instancias en una cadena JSON válida. Si se pasa `true` en el segundo parámetro, formatea el texto con sangría legible.
-- **`json_decode($cadenaJson)`**: Convierte una cadena JSON en colecciones de Joss: los objetos `{}` se deserializan en mapas asociativos `map`, las listas `[]` en arrays y los enteros preservan el tipo `int`.
-- **`json_verify($cadenaJson)`**: Valida si el texto contiene una estructura JSON sintácticamente correcta.
+Salida:
+
+```text
+Carlos
+admin
+```
+
+- **`json_encode($datos)`**: Convierte tu array o map en una cadena de texto JSON.
+- **`json_decode($textoJson)`**: Reconstruye el texto JSON en arrays y maps de Joss listos para usarse.
+- **`json_verify($textoJson)`**: Devuelve `true` si el texto es un JSON válido o `false` si está mal formado.
 
 ---
 
-## 8. Resumen de funciones útiles para colecciones
+## 9. Resumen de funciones esenciales para colecciones y texto
 
-| Función | Propósito | Ejemplo |
-|---|---|---|
-| `count($arr)` / `len($arr)` | Devuelve la longitud de una colección o texto. | `count([1, 2])` → `2` |
-| `is_array($val)` | Verifica si un valor es un array o mapa asociativo. | `is_array(["a" => 1])` → `true` |
-| `in_array($val, $arr)` | Verifica si un valor existe en el array. | `in_array(2, [1, 2, 3])` → `true` |
-| `keys($map)` | Obtiene la lista de claves de un mapa. | `keys({"a": 1})` → `["a"]` |
-| `values($map)` | Obtiene la lista de valores de un mapa. | `values({"a": 1})` → `[1]` |
-| `explode($sep, $str)` | Divide un texto en un array usando un separador. | `explode(",", "a,b,c")` → `["a", "b", "c"]` |
-| `implode($sep, $arr)` | Une un array de textos en una sola cadena. | `implode("-", ["2026", "09", "05"])` → `"2026-09-05"` |
-| `json_encode($val)` | Convierte un array o mapa a texto JSON. | `json_encode(["ok" => true])` → `'{"ok":true}'` |
-| `json_decode($str)` | Convierte texto JSON en array o mapa de Joss. | `json_decode('{"ok":true}')` |
-| `array_reverse($arr)` | Invierte el orden de los elementos. | `array_reverse([1, 2, 3])` → `[3, 2, 1]` |
+| Función | Propósito | Ejemplo | Resultado |
+|---|---|---|---|
+| `count($col)` / `len($col)` | Cantidad de elementos de un array o map | `count([10, 20])` | `2` |
+| `in_array($val, $arr)` | ¿Existe el valor dentro del array? | `in_array(2, [1, 2, 3])` | `true` |
+| `keys($map)` | Lista con todas las claves del map | `keys({"a": 1})` | `["a"]` |
+| `values($map)` | Lista con todos los valores del map | `values({"a": 1})` | `[1]` |
+| `explode($sep, $str)` | Parte un texto en un array usando un separador | `explode(",", "a,b,c")` | `["a", "b", "c"]` |
+| `implode($sep, $arr)` | Une un array de textos con un separador | `implode("-", ["2026", "10", "17"])` | `"2026-10-17"` |
+| `array_reverse($arr)` | Invierte el orden de un array | `array_reverse([1, 2, 3])` | `[3, 2, 1]` |
 
 ---
 
-## 9. Ejercicios prácticos
+## 10. Práctica del capítulo
 
-1. **Gestión de inventario**:
-   - Crea un mapa llamado `$producto` con las claves `"nombre"` (`"Laptop"`), `"precio"` (`1200.00m`) y `"stock"` (`5`).
-   - Muestra en la terminal: `"Producto: Laptop | Precio: $1200.00 | Disponibles: 5"`.
-   - Simula una compra restándole 1 al stock y muestra el nuevo valor.
-2. **Filtro de palabras con `explode` e `implode`**:
-   - Crea un texto `$frase = "manzana,pera,uva,platano"`.
-   - Conviértelo en un array usando `explode`.
-   - Recorre el array con `foreach` e imprime cada fruta en mayúsculas usando el operador pipeline: `$fruta |> strtoupper`.
+### 1. Prueba rápida
+En el ejemplo de la sección 1:
+1. Agrega un cuarto producto a `$compras` escribiendo `$compras[] = "café"`.
+2. Muestra en pantalla el primer elemento (`$compras[0]`) y el total de productos con `count($compras)`.
+
+### 2. Ejercicio guiado: Ficha de inventario con un Map
+1. Crea en tu `main.joss` un mapa llamado `$producto` con tres claves: `"nombre": "Laptop"`, `"precio": 1200.00m` y `"stock": 5`.
+2. Muestra sus datos: `print("Producto: " . $producto["nombre"] . " | Stock: " . $producto["stock"])`.
+3. Simula una venta restando `1` a `$producto["stock"]` (`$producto["stock"] = $producto["stock"] - 1`).
+4. Convierte `$producto` a JSON con `print(json_encode($producto))`.
+
+### 3. Reto: Gestor de lista de tareas
+1. Crea un array `var $tareas = ["Instalar Joss", "Crear proyecto"]`.
+2. Añade dos tareas más usando `$tareas[] = ...`.
+3. Recorre la lista con `foreach ($tareas as $indice => $tarea)` e imprime cada tarea numerada desde el `1` (pista: usa `${$indice + 1}: ${tarea}`).
 
 ---
 
 ## Siguiente paso
 
-Ahora que dominas las estructuras de datos en memoria, es momento de profundizar en cómo el analizador de tipos de Joss verifica contratos, cómo funciona la inferencia y cómo se manejan valores nulos de forma segura.
+Ahora que sabes representar listas, diccionarios y JSON en memoria, aprenderemos a organizar nuestro código en piezas reutilizables, limpias y con nombre propio: **las funciones**.
 
-Continúa con: [Sistema de tipos, inferencia y conversiones](SISTEMA_TIPOS.md).
+Continúa con: [Funciones, ámbito de variables (scope), `guard`, `defer`, closures y pipelines](FUNCIONES.md).

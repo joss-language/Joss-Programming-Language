@@ -10,55 +10,55 @@ fuentes .joss
   → parser Pratt (`pkg/parser`)
   → AST (`pkg/parser/ast*.go`)
   → análisis semántico (`pkg/analyzer`)
+    (collectDeclarations → projectScope → validateNominalContracts → analyzeSourceBodies)
   → diagnósticos (`pkg/diagnostics`)
-  → PreparedProgram
-  ┌───────────────────────┴───────────────────────┐
-  ▼                                               ▼
-Ruta Interpretada                               Ruta Compilación Nativa
-  → Intérprete AST (`pkg/core`)                    → Joss Native IR (`pkg/ir`)
-  → Runtime integrado (`pkg/core`, `pkg/server`)   → IR Verifier
-                                                   → Native Backend (`pkg/backend/native`)
-                                                     (LLVM IR / Standalone Bootstrap)
-                                                   → Ejecutable Nativo (.exe, ELF, Mach-O)
+  → PreparedProgram (Canónico)
+  ┌───────────────────────┼───────────────────────┐
+  ▼                       ▼                       ▼
+`joss run`             `joss server`           `joss build`
+Intérprete AST         Servidor HTTP           Joss Native IR (`pkg/ir`)
+(`pkg/core`)           (`pkg/server`)            → IR Verifier (`ir.Verifier`)
+                                                 → Native Backend (`pkg/backend/native`)
+                                                 → Ejecutable Nativo (.exe, ELF, Mach-O)
 ```
 
 ```mermaid
 flowchart TD
-    S[Fuente .joss] --> L[Lexer]
-    L --> T[Tokens]
-    T --> P[Parser Pratt]
-    P --> A[AST]
-    A --> N[Analyzer]
-    N --> D[Diagnósticos]
-    N -->|sin errores| PP[PreparedProgram]
-    PP -->|joss run / server| E[Intérprete core]
-    E --> R[Runtime y servicios]
-    PP -->|joss build| IR[Joss Native IR]
-    IR --> V[IR Verifier]
-    V --> NB[Native Backend]
-    NB --> EXE[Ejecutable nativo real]
+    S["Fuente .joss"] --> L["Lexer"]
+    L --> T["Tokens"]
+    T --> P["Parser Pratt"]
+    P --> A["AST"]
+    A --> N["Analyzer"]
+    N --> D["Diagnósticos"]
+    N -->|sin errores| PP["PreparedProgram"]
+    PP -->|joss run / server| E["Intérprete core"]
+    E --> R["Runtime y servicios"]
+    PP -->|joss build| IR["Joss Native IR"]
+    IR --> V["IR Verifier"]
+    V --> NB["Native Backend"]
+    NB --> EXE["Ejecutable nativo real"]
 ```
 
-`joss analyze` conserva cada archivo como una `analyzer.SourceUnit`; no concatena ASTs perdiendo el origen. Primero registra declaraciones globales de funciones y clases, después analiza cada método con un scope léxico independiente. Las clases nativas provienen de `Runtime.RegisterNativeClasses`; los plugins aportan sus índices de símbolos JP v2.
+`semanticanalyzer.LoadProject` conserva cada archivo como una `analyzer.SourceUnit` (incluyendo `main.joss`, `routes.joss`, `api.joss` y todos los archivos `.joss` bajo `app/`); no concatena ASTs perdiendo el origen. Primero registra declaraciones globales de funciones, clases, interfaces y enums, después valida contratos nominales y finalmente analiza cada método con un scope léxico independiente. Las clases nativas provienen de `Runtime.RegisterNativeClasses`; los plugins aportan sus índices de símbolos JP v2.
 
 ## Responsabilidades
 
 | Paquete | Responsabilidad |
 |---|---|
 | `pkg/parser` | Tokens, lexer, precedencias, parser y nodos AST. |
-| `pkg/typesystem` | Nombres canónicos, inferencia, coerción explícita y compatibilidad de asignación. |
-| `pkg/analyzer` | Unidades fuente, scopes, símbolos, inferencia de expresiones, firmas y flujo alcanzable. No depende del runtime. |
+| `pkg/typesystem` | Nombres canónicos, inferencia, coerción explícita, métodos primitivos y compatibilidad de asignación. |
+| `pkg/analyzer` | Unidades fuente, scopes, símbolos, inferencia de expresiones, firmas, flujo alcanzable y generación de `PreparedProgram`. Nunca importa `pkg/core`. |
 | `pkg/diagnostics` | Modelo común: código, severidad, mensaje, archivo, rango, explicación y sugerencia. |
-| `pkg/core` | Adaptación de catálogos reales al analizador, intérprete y primitivas integradas. |
+| `pkg/core` | Adaptación de catálogos reales al analizador, intérprete (`ExecutePrepared`) y primitivas integradas. |
 | `pkg/runtime/errors` | Error runtime estructurado y frames de stack Joss, sin dependencias de framework. |
 | `pkg/runtime/value` | Semántica de valores independiente del evaluator, incluida indexación Unicode. |
 | `pkg/runtime/plan`, `pkg/runtime/frame` | Planes de callables, slots y representación etiquetada usados para acelerar resolución local; no forman bytecode portable. |
 | `pkg/pluginruntime`, `pkg/pluginpkg` | Carga aislada, verificación y resolución de símbolos de plugins JP v2. |
-| `pkg/bytecode` | Serialización comprimida del AST (formato histórico `JOSSBC2Z` para plugins). |
-| `pkg/ir` | Joss Native IR canónico: CFG, bloques básicos, instrucciones tipadas, lowerer y verifier. |
-| `pkg/backend/native` | Backend de compilación nativa: generador LLVM IR y standalone bootstrap para binarios nativos reales. |
+| `pkg/bytecode` | Serialización comprimida del AST (formato `JOSSBC2Z` exclusivo para plugins `.jp`, nunca para binarios nativos AOT). |
+| `pkg/ir` | Joss Native IR canónico: CFG, bloques básicos, instrucciones SSA/3AC tipadas, lowerer desde `PreparedProgram` y verifier. |
+| `pkg/backend/native` | Backend de compilación nativa: generador de código máquina real y emisión LLVM para ejecutables autónomos. |
 | `pkg/vm` | Compilador/VM experimental independientes. El CLI y `pkg/core` no los usan como ruta predeterminada. |
-| `cmd/joss` | CLI, análisis de proyecto, ejecución (`run`), servidor (`server start`), compilación nativa (`build`) y herramientas. |
+| `cmd/joss` | CLI, análisis de proyecto, ejecución (`run`), servidor (`server start`), compilación nativa (`build`) con poda selectiva (`no<driver>`) y herramientas. |
 | `vscode-joss` | LSP/editor. Consume el catálogo generado del núcleo. |
 
 ## Fuentes de verdad
@@ -71,8 +71,9 @@ flowchart TD
 - Símbolos de plugins: `pluginpkg.SymbolIndex` incluido en cada `.jp`.
 - Diagnósticos: `pkg/diagnostics.Diagnostic` y códigos emitidos por `pkg/analyzer`.
 - Catálogo de VS Code: `vscode-joss/src/server/generated/languageCatalog.json`, generado mediante `go run ./tools/cataloggen`.
+- Catálogo nativo de documentación: `docs/CATALOGO_NATIVO.md`, generado mediante `go run ./tools/docgen`.
 
-CI ejecuta `go run ./tools/cataloggen --check`; editar a mano el catálogo generado no es válido.
+CI ejecuta `go run ./tools/cataloggen --check` y `go run ./tools/docgen --check`; editar a mano los catálogos generados no es válido.
 
 ## Scopes y símbolos
 
@@ -89,7 +90,7 @@ CI ejecuta `go run ./tools/cataloggen --check`; editar a mano el catálogo gener
 
 ## Build y ejecución
 
-El modo de desarrollo interpreta el AST. Cada invocación de callable crea un frame léxico independiente; no existe scope dinámico entre caller y callee. Esto evita que una llamada recursiva lea o sobrescriba locales del caller. El runtime limita la profundidad a 1024 frames por defecto y las closures escriben únicamente sobre su entorno capturado. Los tipos de retorno anotados se validan en analyzer/runtime y el analyzer exige terminación exhaustiva demostrable.
+El modo de desarrollo interpreta el `PreparedProgram` (`Runtime.ExecutePrepared`). Cada invocación de callable crea un frame léxico independiente; no existe scope dinámico entre caller y callee. Esto evita que una llamada recursiva lea o sobrescriba locales del caller. El runtime limita la profundidad a 1024 frames por defecto y las closures escriben únicamente sobre su entorno capturado. Los tipos de retorno anotados se validan en analyzer/runtime y el analyzer exige terminación exhaustiva demostrable.
 
 Antes de ejecutar un callable, `pkg/runtime/plan` puede asignar slots a parámetros
 y locales. `frame_runtime.go` usa esos slots y conserva un fallback para bindings
@@ -100,7 +101,9 @@ los ternarios/match, un límite registrado en la auditoría.
 
 Las referencias seguras no exponen punteros de Go: `core.VariableReference` conserva el binding de valor/tipo/constancia durante una llamada y el evaluator desreferencia automáticamente. Una referencia no es un valor Joss almacenable ni cruza fronteras async/plugin.
 
-La compilación nativa oficial (`joss build`) transforma el `PreparedProgram` analizado y validado hacia **Joss Native IR** (`pkg/ir`), con CFG, basic blocks e instrucciones de tipado estricto. Tras la verificación formal (`ir.VerifyProgram`), el **Native Backend** (`pkg/backend/native`) emite LLVM IR y compila ejecutables nativos reales autocontenidos (PE `.exe`, ELF, Mach-O) de tamaño reducido (~1.6 MB) sin empaquetar AST ni depender del runtime de Go. El formato `JOSSBC2Z` de `pkg/bytecode` se conserva únicamente para empaquetado de plugins `.jp`.
+La compilación nativa oficial (`joss build`) transforma el `PreparedProgram` analizado y validado hacia **Joss Native IR** (`pkg/ir`), con CFG, basic blocks e instrucciones de tipado estricto. Tras la verificación formal (`ir.VerifyProgram`), el **Native Backend** (`pkg/backend/native`) genera ejecutables nativos reales autocontenidos (PE `.exe`, ELF, Mach-O) en `build/` sin serializar AST:
+- **Programas CLI puros**: Se compilan a código máquina puro (~5.5 KB - 32 KB) sin `joss_host.dll` y sin trailer VFS (`JOSS_RUNNER_DATA`).
+- **Aplicaciones con servicios web/DB**: Enlazan selectivamente `_joss_host_bridge` (aplicando poda automática por build tags `no<driver>` para excluir motores como SQLite, MySQL, PostgreSQL, SQL Server, Redis u OCI cuando el proyecto no los utiliza) y sellan el VFS encriptado con AES-256 (`env.enc`).
 
 El árbol `pkg/vm` contiene opcodes y una VM experimental. Su aritmética y sus
 errores no definen la semántica publicada mientras no esté conectado al pipeline

@@ -5,7 +5,7 @@
 <h1 align="center">El Lenguaje de Programación Joss</h1>
 
 <p align="center">
-  <b>Moderno · Fuertemente Tipado · Alto Rendimiento · Cero Imports · Pila Web Nativa</b>
+  <b>Moderno · Fuertemente Tipado · Compilación Nativa AOT e Intérprete · Cero Imports · Pila Web Nativa</b>
 </p>
 
 <p align="center">
@@ -17,17 +17,18 @@
 
 ---
 
-**Joss** es un lenguaje de programación moderno, tipado y de alto rendimiento implementado en Go. Está diseñado para el desarrollo ágil de servicios backend, APIs concurrentes, aplicaciones web de gran escala y herramientas de línea de comandos seguras y deterministas.
+**Joss** es un lenguaje de programación moderno, fuertemente tipado y de alto rendimiento implementado en Go. Ejecuta el mismo lenguaje bajo múltiples modos a partir de un modelo semántico único (`PreparedProgram`): ejecución inmediata interpretada (`joss run`), servidor web de alta concurrencia (`joss server`) y compilación nativa AOT a ejecutables independientes (`joss build`).
 
 ---
 
 ## 🚀 ¿Por qué elegir Joss?
 
-- **Cero imports en el código (Zero-Imports)**: Olvídate de gestionar rutas relativas o árboles interminables de `import`/`require`. Joss descubre, analiza y organiza automáticamente todas las clases y funciones públicas de tu proyecto y plugins.
-- **Análisis estático exhaustivo (`joss analyze`)**: El verificador semántico de Joss analiza tipos de datos, rutas de retorno de funciones, scopes y contratos nominales antes de ejecutar una sola línea.
+- **Un solo lenguaje, múltiples modos de ejecución**: Desarrolla con feedback instantáneo usando `joss run` o `joss repl`, y compila tu proyecto a un binario nativo real (`.exe`, ELF, Mach-O) con `joss build` sin cambiar una sola línea de código.
+- **Cero imports en el código (Zero-Imports)**: Olvídate de gestionar rutas relativas o árboles interminables de `import`/`require`. Joss descubre, analiza y organiza automáticamente todas las clases y funciones públicas de tu proyecto (`main.joss`, `routes.joss`, `api.joss` y `app/**/*.joss`) y plugins.
+- **Análisis estático exhaustivo (`joss analyze`)**: El verificador semántico de Joss analiza tipos de datos, rutas de retorno de funciones, cláusulas `guard`, scopes y contratos nominales antes de ejecutar una sola línea.
 - **Sintaxis limpia y sin fricción**: Diseñado con delimitación natural por **saltos de línea**. No necesitas colocar punto y coma (`;`) al final de cada sentencia salvo que decidas escribir varias en la misma línea.
 - **Pila web y backend integrada (Batteries-Included)**: Servidor HTTP multinivel nativo, enrutamiento dinámico, motor de vistas HTML dinámico con escape anti-XSS, ORM y migraciones versionadas (GranDB / Schema), autenticación, sesiones seguras y WebSockets.
-- **Concurrencia limpia con Canales y Async**: Ejecuta tareas en segundo plano con bloques `async { ... }`, espera resultados con `await` y comunica procesos de forma segura mediante canales (`channel`).
+- **Concurrencia limpia con Canales y Async**: Ejecuta tareas en segundo plano con bloques `async { ... }`, espera resultados con `await` y comunica procesos de forma segura mediante canales (`channel`) y `select`.
 - **Aritmética financiera exacta**: Incorpora el tipo primitivo `decimal` para cálculos monetarios y de precisión en base diez, previniendo errores de redondeo del estándar binario IEEE-754.
 
 ---
@@ -48,7 +49,7 @@ curl -fsSL https://astriom.org/install.sh | bash
 
 ### Compilar desde el código fuente
 
-Si dispones de [Go](https://go.dev) (versión 1.27 o superior):
+Si dispones de [Go](https://go.dev) (versión 1.25 o superior):
 ```bash
 git clone https://github.com/joss-language/Joss-Programming-Language.git
 cd Joss-Programming-Language
@@ -62,20 +63,29 @@ joss version
 
 ---
 
-## ⚡ Tu primer programa en 30 segundos
+## ⚡ Tu primer proyecto en 30 segundos
 
-Crea un archivo llamado `hola.joss`:
+Crea un proyecto de consola completo usando el generador oficial de Joss:
+
+```bash
+joss new console mi-primer-joss
+cd mi-primer-joss
+joss run main.joss
+```
+
+O escribe un programa directo en `main.joss`:
 
 <!-- joss-run: ["Hola, Joss!"] -->
 ```joss
 print("Hola, Joss!")
 ```
 
-Verifícalo y ejecútalo directamente desde tu terminal:
+Verifícalo, ejecútalo o compílalo a un ejecutable nativo desde tu terminal:
 
 ```bash
-joss analyze hola.joss
-joss run hola.joss
+joss analyze main.joss
+joss run main.joss
+joss build main.joss
 ```
 
 Salida esperada:
@@ -108,8 +118,8 @@ print(($edad >= 18) ? "Puedes participar" : "Aún debes esperar")
    - Declaración explícita: `int $contador = 0` o `string $mensaje = "Hola"`.
    - Dinamismo explícito: `mixed $variable = "dinámico"` (permite cambiar de tipo posteriormente).
    - Constantes inmutables: `const $pi = 3.1416` o `const int $max = 100`.
-4. **Concatenación con punto (`.`)**: El operador `.` concatena cadenas de texto; el operador `+` se reserva estrictamente para la suma numérica.
-5. **Decisiones elegantes**: Expresiones ternarias concisas con bloques `(condición) ? { ... } : { ... }` y coincidencia de patrones con `match ($valor) { ... }`.
+4. **Concatenación (`.`) e interpolación (`"${...}"`)**: El operador `.` concatena cadenas de texto y las comillas dobles permiten interpolar variables (`"Hola, ${nombre}"`); el operador `+` se reserva estrictamente para la suma numérica.
+5. **Decisiones elegantes**: Expresiones ternarias concisas con bloques `(condición) ? { ... } : { ... }`, cláusulas de guarda `guard (condición) : { return ... }` y coincidencia de patrones con `match ($valor) { ... }`.
 
 ---
 
@@ -117,13 +127,15 @@ print(($edad >= 18) ? "Puedes participar" : "Aún debes esperar")
 
 | Comando | Descripción |
 |---|---|
-| `joss new [web|console|package|plugin] <ruta>` | Crea un nuevo proyecto con la plantilla indicada |
-| `joss run <archivo.joss>` | Ejecuta un archivo o script de Joss |
+| `joss new [web\|console\|package\|plugin] <ruta>` | Crea un nuevo proyecto con la plantilla oficial indicada |
+| `joss run <archivo.joss>` | Analiza y ejecuta un archivo o proyecto de Joss |
+| `joss build [archivo.joss] [--target=...]` | Compila el proyecto a un ejecutable binario nativo independiente (`build/`) |
+| `joss server start` | Inicia el servidor web HTTP nativo de alto rendimiento |
+| `joss repl` | Inicia la consola interactiva (`joss> `) para experimentar en vivo |
 | `joss analyze [ruta]` | Ejecuta el análisis semántico y comprobación exhaustiva de tipos |
-| `joss lint [ruta]` | Inspecciona el código en busca de advertencias, desuso y buenas prácticas |
-| `joss format [ruta] [--write|--check]` | Formatea o comprueba el código fuente según las reglas canónicas |
-| `joss test` | Ejecuta la suite de pruebas unitarias y de integración del proyecto |
-| `joss server start` | Inicia el servidor web nativo de alto rendimiento |
+| `joss check [ruta]` | Ejecuta formato, sintaxis, análisis semántico y linter |
+| `joss format [ruta] [--write\|--check]` | Formatea o comprueba el código fuente según las reglas canónicas |
+| `joss test` | Ejecuta la suite de pruebas unitarias y de integración (`*_test.joss`) |
 | `joss pub [comando]` | Administra paquetes y plugins del ecosistema Joss |
 
 ---
@@ -132,25 +144,25 @@ print(($edad >= 18) ? "Puedes participar" : "Aún debes esperar")
 
 La documentación oficial se organiza en cuatro áreas temáticas:
 
-### 1. Aprender Joss desde cero (Tutorial guiado)
-- 0. [Primeros pasos: De un archivo a un programa](docs/PRIMEROS_PASOS.md)
+### 1. Aprender Joss desde cero (Curso guiado paso a paso)
+- 0. [Primeros pasos: De cero a tu primer proyecto con `joss new`](docs/PRIMEROS_PASOS.md)
 - 1. [Valores, variables y operaciones fundamentales](docs/FUNDAMENTOS.md)
 - 2. [Control de flujo, decisiones y bucles](docs/CONTROL_FLUJO.md)
-- 3. [Funciones, ámbito (scope), closures y referencias](docs/FUNCIONES.md)
-- 4. [Colecciones: Arrays, Maps y texto Unicode](docs/COLECCIONES.md)
-- 5. [Sistema de tipos, inferencia y conversiones](docs/SISTEMA_TIPOS.md)
-- 6. [Clases, objetos, métodos y herencia](docs/CLASES.md)
-- 7. [Manejo de errores, excepciones y try/catch](docs/ERRORES.md)
-- 8. [Concurrencia, asincronía, Future y canales](docs/CONCURRENCIA.md)
-- 9. [Proyecto práctico: Aplicación de consola con persistencia JSON](docs/PROYECTO_CONSOLA.md)
-- 10. [Proyecto práctico: Aplicación web MVC con el stack nativo](docs/PROYECTO_WEB.md)
+- 3. [Colecciones: Arrays, Maps y texto Unicode](docs/COLECCIONES.md)
+- 4. [Funciones, ámbito (scope), closures y referencias](docs/FUNCIONES.md)
+- 5. [Manejo de errores, excepciones y try/catch](docs/ERRORES.md)
+- 6. [Clases, objetos, métodos, interfaces y herencia](docs/CLASES.md)
+- 7. [Concurrencia, asincronía, Future y canales](docs/CONCURRENCIA.md)
+- 8. [Proyecto práctico: Aplicación de consola con persistencia JSON](docs/PROYECTO_CONSOLA.md)
+- 9. [Proyecto práctico: Aplicación web MVC con el stack nativo](docs/PROYECTO_WEB.md)
 - [Glosario completo de términos de programación](docs/GLOSARIO.md)
 
 ### 2. Referencia técnica exhaustiva
+- [Sistema de tipos, inferencia, uniones y conversiones](docs/SISTEMA_TIPOS.md)
 - [Sintaxis, tokens y precedencia de operadores](docs/SINTAXIS.md)
 - [Gramática EBNF formal y correspondencia con el AST](docs/GRAMATICA.md)
 - [Catálogo y referencia de diagnósticos (JOSS-*)](docs/DIAGNOSTICOS.md)
-- [Guía de las 121 funciones globales integradas](docs/FUNCIONES_GLOBALES.md)
+- [Guía de funciones globales integradas](docs/FUNCIONES_GLOBALES.md)
 - [Clases nativas y servicios del runtime](docs/MODULOS_NATIVOS.md)
 - [Catálogo nativo generado por docgen](docs/CATALOGO_NATIVO.md)
 - [Referencia de comandos de la CLI (`joss`)](docs/CLI.md)
@@ -183,6 +195,7 @@ La documentación oficial se organiza en cuatro áreas temáticas:
 - [Informe de auditoría integral y reconstrucción documental](docs/DOCUMENTATION_AUDIT.md)
 - [Auditoría técnica y optimización del runtime](docs/AUDITORIA_TECNICA_2026.md)
 - [Auditoría integral del lenguaje 2026](docs/JOSS_LANGUAGE_AUDIT_2026.md)
+- [Revisión del lenguaje Joss 2026](docs/JOSS_LANGUAGE_REVIEW_2026.md)
 - [Auditoría de optimización del runtime](docs/RUNTIME_OPTIMIZATION_AUDIT.md)
 - [Novedades de Joss 3.6.7](docs/NOVEDADES_367.md)
 
@@ -213,8 +226,9 @@ go vet ./...
 go test ./...
 go test -race ./pkg/parser ./pkg/typesystem ./pkg/analyzer ./pkg/core ./pkg/server
 
-# Verificación de contratos y documentación
+# Verificación de contratos, documentación e i18n
 go test ./pkg/core -run TestDocumentation -v
+go run ./tools/docsi18n --check
 ```
 
 ---

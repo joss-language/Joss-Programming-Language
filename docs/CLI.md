@@ -2,15 +2,15 @@
 
 [Índice](README.md) · Antes: [primeros pasos](PRIMEROS_PASOS.md) · Después: [analizador](ANALIZADOR.md)
 
-La fuente canónica de comandos es `cmd/joss/main.go`. `joss help` muestra la ayuda interactiva instalada y `joss version` la versión actual del runtime.
+La fuente canónica de comandos es `cmd/joss/main.go`. `joss help` muestra la ayuda interactiva instalada y `joss version` la versión actual del runtime (`3.6.8.0`).
 
 La CLI es el programa que recibe comandos en la terminal. Incorpora un entorno REPL
 interactivo (`joss repl`), ejecución directa de scripts (`joss run`), servidor web de alto
-rendimiento (`joss server start`) y un conjunto completo de herramientas de calidad de código y gestión de paquetes (`pub`).
+rendimiento (`joss server start` / `joss server`), compilación nativa AOT (`joss build`) y un conjunto completo de herramientas de calidad de código y gestión de paquetes (`pub`).
 
 ---
 
-## 1. Ejecución, REPL y Build
+## 1. Ejecución, REPL y Build Nativo
 
 ```bash
 joss run archivo.joss
@@ -23,21 +23,23 @@ joss analyze [archivo.joss]
 joss update [-f|--canary|--stable]
 ```
 
-- `run [archivo]`: Ejecuta un script `.joss` después de analizar el proyecto con el intérprete de Joss. Los errores semánticos bloquean la ejecución; los warnings no.
-- `repl`: Inicia la consola interactiva (Read-Eval-Print Loop) para evaluar expresiones, probar funciones y experimentar con código en tiempo real. Escribe `exit` o presiona `Ctrl+C` para salir.
-- `server start`: Requiere el punto de entrada `main.joss` e inicia el servidor HTTP multinivel de alto rendimiento interpretado por el runtime de servidor. Presiona `q` para detenerlo de manera segura.
+- `run [archivo]`: Ejecuta un script `.joss` después de analizar el proyecto (`LoadProject`) y validar su `PreparedProgram` con el intérprete de Joss. Los errores semánticos bloquean la ejecución; los warnings no.
+- `repl`: Inicia la consola interactiva (Read-Eval-Print Loop) con prompt `joss> ` para evaluar expresiones, probar funciones y experimentar con código en tiempo real. Escribe `exit` o presiona `Ctrl+C` para salir.
+- `server start` (o `joss server`): Requiere el punto de entrada `main.joss` e inicia el servidor HTTP multinivel de alto rendimiento interpretado por el runtime de servidor. Presiona `q` o `Ctrl+C` para detenerlo de manera segura.
 - `program start`: Inicia la aplicación en modo escritorio.
-- `build [archivo.joss]`: **Compilador nativo oficial de Joss**. Compila el programa a un ejecutable binario nativo real autocontenido (PE `.exe` en Windows, ELF en Linux, Mach-O en macOS). Realiza análisis semántico exhaustivo (`PreparedProgram`), análisis de alcance (*Reachability Analysis*), lowering a Joss Native IR (`pkg/ir`), verificación de IR y generación de código nativo a través de LLVM o el backend de compilación directa (`pkg/backend/native`), sin empaquetar AST ni depender del runtime de Go.
-  - `-o <salida>`: Nombre o ruta del binario ejecutable final.
-  - `--target=<os>-<arch>`: Objetivo de compilación cruzada (ej. `windows-amd64`, `linux-amd64`, `darwin-arm64`).
+- `build [archivo.joss]`: **Compilador nativo oficial de Joss**. Compila el programa a un ejecutable binario nativo real autocontenido (PE `.exe` en Windows, ELF en Linux, Mach-O en macOS) depositándolo por defecto dentro de la carpeta `build/`. Realiza análisis semántico exhaustivo (`PreparedProgram`), análisis de alcance (*Reachability Analysis*), lowering a Joss Native IR (`pkg/ir`), verificación de IR (`ir.Verifier`) y generación de código nativo (`pkg/backend/native`).
+  - **Binarios CLI puros**: Se compilan a código máquina puro ultracompacto (~5.5 KB - 32 KB) sin `joss_host.dll` ni trailer VFS.
+  - **Aplicaciones completas con servicios web/DB**: Enlazan selectivamente `_joss_host_bridge` (podando motores no utilizados mediante tags `no<driver>`) y sellan el sistema de archivos virtual encriptado (`env.enc` con AES-256) dentro del ejecutable.
+  - `-o <salida>`: Nombre o ruta personalizada del binario ejecutable final.
+  - `--target=<os>-<arch>` (o atajos directos `joss build linux`, `joss build macos`, `joss build android`): Compilación cruzada integrada para `windows-amd64`, `windows-arm64`, `linux-amd64`, `linux-arm64`, `darwin-arm64` (Apple Silicon), `darwin-amd64` y `android-arm64` (Termux).
   - `--release`: Compilación optimizada para producción sin símbolos de depuración.
   - `--debug`: Compilación con información de depuración.
   - `--trace`: Emite y conserva artefactos intermedios del pipeline nativo (`.ir`, `.ll`, `.standalone.go`).
   - `build package [ruta]`: Empaqueta extensiones y plugins en paquetes `.jp` (v2) firmados con Ed25519 conteniendo bytecode puro.
   - `build web`: Prepara assets y distribución estática para despliegue web.
 - `emit-ir [archivo.joss] [-o salida.ir]`: Emite la representación intermedia canónica (Joss Native IR) en formato textual determinista tras el análisis semántico y lowering.
-- `analyze [archivo]`: Analiza la entrada (por defecto `main.joss`) y `app/**/*.joss`. No incluye automáticamente `routes.joss`, `api.joss` ni otros hermanos. Devuelve código distinto de cero si existen errores y conserva archivo/línea/columna. Consulte [ANALIZADOR.md](ANALIZADOR.md).
-- `update`: Usa el actualizador implementado por el CLI y puede requerir red/permisos del sistema. Comprueba sus canales y artefactos reales antes de prometer que una distribución contiene SDK o editor.
+- `analyze [archivo]`: Analiza el proyecto a través de `semanticanalyzer.LoadProject` (incluyendo la entrada, `routes.joss`, `api.joss` y `app/**/*.joss`). Devuelve código distinto de cero si existen errores y conserva archivo/línea/columna. Consulte [ANALIZADOR.md](ANALIZADOR.md).
+- `update`: Usa el actualizador implementado por el CLI (`--canary`, `--stable`, `-f`).
 
 ---
 
@@ -52,7 +54,7 @@ joss new plugin mi_plugin
 ```
 
 - `new web` / `new`: Genera la estructura MVC completa de una aplicación web con motor de vistas, rutas, middleware y ORM.
-- `new console`: Genera una plantilla ligera para herramientas de línea de comandos.
+- `new console`: Genera una plantilla ligera para herramientas de línea de comandos (`main.joss`, `env.joss`, `joss.yaml` y `app/`).
 - `new package`: Crea una estructura declarativa de paquete para el gestor `pub`.
 - `new plugin`: Crea un proyecto de plugin multilenguaje oficial traducible a bytecode binario `.jp`.
 
@@ -107,8 +109,8 @@ joss change db migrate --host=HOST --port=3306 --database=DB --user=USER --passw
 - `migrate`: Ejecuta las migraciones pendientes en orden cronológico.
 - `migrate:fresh`: Elimina todas las tablas de la base de datos y vuelve a ejecutar todas las migraciones desde cero.
 - `db:seed`: Ejecuta los seeders pobladores definidos en `app/database/seeders/`.
-- `change db`: Cambia el motor configurado (`mysql` o `sqlite`) o modifica el prefijo global de tablas (`DB_PREFIX`).
-- `change db migrate`: Migra en caliente los datos y estructura de la conexión actual hacia un nuevo servidor MySQL remoto.
+- `change db`: Cambia el motor configurado (`mysql`, `postgres`, `sqlserver` o `sqlite`) o modifica el prefijo global de tablas (`DB_PREFIX`).
+- `change db migrate`: Migra en caliente los datos y estructura de la conexión actual hacia un nuevo servidor remoto.
 
 ---
 
@@ -160,7 +162,7 @@ joss test [--filter=nombre] [ruta]
 - `check`: Ejecuta formato, sintaxis, análisis y linter. Revisa su salida: un problema de formato se comunica como warning en este pipeline.
 - `format`: En un archivo, modifica por defecto salvo que uses `--check`; en un directorio sólo escribe con `--write`. Usa siempre `joss format ruta --check` en CI.
 - `lint`: Ejecuta análisis estático con reglas de consistencia de tipos, estilo y detección de secretos o credenciales en código duro (`--json` para integración estructurada).
-- `fix`: Aplica correcciones automáticas seguras (visibilidad requerida, formateo) con soporte para `--dry-run`.
+- `fix`: Aplica correcciones automáticas léxicamente seguras (migraciones de `let`/`nil`, visibilidad requerida, formateo) sin tocar strings ni comentarios, con soporte para `--dry-run`.
 - `test`: Ejecuta archivos `*_test.joss` con `test`/`it`, `assert`, `assertTrue`, `assertFalse`, `assertEqual`, `assertNotEqual`, `assertNull`, `assertNotNull` y `assertThrows`. Coloca `--filter` antes de la ruta: el parser de flags deja de leer opciones tras el primer argumento posicional.
 
 ---
@@ -184,13 +186,15 @@ joss notify:send <canal> <mensaje>
 
 ---
 
-## 9. Almacenamiento y Servicios en la Nube (`userstorage`)
+## 9. Almacenamiento y Servicios en la Nube (`userstorage` e `indexnow`)
 
 ```bash
 joss userstorage local
 joss userstorage oci
 joss userstorage sync-oci
 joss userstorage sync-local
+joss indexnow generate
 ```
 
 - `userstorage`: Conmuta el proveedor de almacenamiento entre disco local y **Oracle Cloud Infrastructure (OCI)**, permitiendo sincronización bidireccional mediante `sync-oci` y `sync-local`.
+- `indexnow generate`: Genera y configura la clave para indexación instantánea IndexNow en el entorno del proyecto.

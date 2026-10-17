@@ -16,24 +16,22 @@ relativos funcionen igual. Después de editar el español, ejecuta
 web; `go run ./tools/docsi18n -check` detecta archivos ausentes, traducciones
 desactualizadas, enlaces rotos o diferencias con JosSecurity.
 
-## Aprender Joss (Ruta guiada para principiantes)
+## Aprender Joss (Ruta guiada desde cero)
 
-Si nunca has programado o estás aprendiendo Joss por primera vez, lee este recorrido en orden. Cada página introduce los conceptos con explicaciones pedagógicas, ejemplos visuales paso a paso y chuletas rápidas antes de profundizar en los aspectos técnicos avanzados.
+Si nunca has programado o estás aprendiendo Joss por primera vez, sigue este curso en orden. Cada capítulo introduce un concepto a la vez, partiendo desde cómo crear y ejecutar tu proyecto oficial con `joss new console`, con explicaciones línea por línea, resultados visibles y tres niveles de práctica (*Prueba rápida*, *Ejercicio guiado* y *Reto*).
 
-0. [Primeros pasos: de un archivo a tu primer programa interactivo con cin](PRIMEROS_PASOS.md)
+0. [Primeros pasos: crear tu proyecto con `joss new console`, entender `main.joss` y dialogar con `cin`](PRIMEROS_PASOS.md)
 1. [Valores, variables y operaciones fundamentales](FUNDAMENTOS.md)
-2. [Control de flujo y toma de decisiones](CONTROL_FLUJO.md)
-3. [Funciones, scope, closures y referencias](FUNCIONES.md)
-4. [Arrays, maps y texto](COLECCIONES.md)
-5. [Tipos, inferencia y conversiones](SISTEMA_TIPOS.md)
-6. [Clases, objetos y herencia](CLASES.md)
-7. [Errores y excepciones](ERRORES.md)
-8. [Async, Future, channels y concurrencia](CONCURRENCIA.md)
-9. [Proyecto de consola completo con persistencia JSON](PROYECTO_CONSOLA.md)
-10. [Proyecto web completo con MVC nativo](PROYECTO_WEB.md)
+2. [Control de flujo: decisiones y ciclos de repetición](CONTROL_FLUJO.md)
+3. [Colecciones: Arrays, Maps y texto Unicode](COLECCIONES.md)
+4. [Funciones, ámbito (scope), `guard`, `defer`, closures, `ref` y pipelines](FUNCIONES.md)
+5. [Manejo de errores, diagnósticos `JOSS-...` y excepciones `try/catch`](ERRORES.md)
+6. [Clases, objetos, herencia, interfaces, `record` y genéricos](CLASES.md)
+7. [Concurrencia, `async/await`, `Future` y canales (`channel`)](CONCURRENCIA.md)
+8. [Proyecto práctico de consola con persistencia JSON y `joss build`](PROYECTO_CONSOLA.md)
+9. [Proyecto web completo con `joss new` y arquitectura MVC nativa](PROYECTO_WEB.md)
 
-El [glosario](GLOSARIO.md) explica términos de programación y de Joss sin exigir
-que ya conozcas otro lenguaje.
+El [glosario](GLOSARIO.md) explica todos los términos de programación y de Joss en lenguaje cotidiano, sin exigir que conozcas otro lenguaje. Una vez completado el curso básico, profundiza en las reglas formales de tipos en [Sistema de tipos, inferencia y conversiones](SISTEMA_TIPOS.md).
 
 ## Referencia del lenguaje y herramientas
 

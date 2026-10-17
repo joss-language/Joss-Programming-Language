@@ -1,45 +1,41 @@
-#
+# Referência de sintaxe e operadores
 
-Referência de sintaxe e operadores Para aprender: [fundamentos](FUNDAMENTOS.md) , [fluxo](CONTROL_FLUJO.md) ,
-[funções](FUNCIONES.md) , classes [CLASES.md](CLASES.md) . Plug-ins
-: gramática [GRAMATICA.md](GRAMATICA.md) , tipos [SISTEMA_TIPOS.md](SISTEMA_TIPOS.md) .
+Para aprender: [fundamentos](FUNDAMENTOS.md), [fluxo](CONTROL_FLUJO.md),
+[coleções](COLECCIONES.md), [funções](FUNCIONES.md), [classes](CLASES.md).
+Complementos: [gramática](GRAMATICA.md), [tipos](SISTEMA_TIPOS.md).
 
-Esta referência descreve o analisador e o avaliador para este patch. As limitações observadas de
-são indicadas como tal; Não são propostas de design.
+Esta referência descreve o parser e o avaliador atuais do Joss. As
+limitações observadas são indicadas como tais; não são propostas de design.
 
-## Lexicon
+## Léxico
 
-As palavras reservadas são obtidas de `parser.KeywordNames()` :
+As palavras reservadas são obtidas de `parser.KeywordNames()` (`pkg/parser/token.go`):
 
 ```text
-Init abstract as async break case catch class const continue default defer do echo empty
-enum extends false foreach func implements instanceof interface is isset let match new nil null print private
-protected public ref return select static this throw true try while yield
+Init abstract as async await break case catch class const continue default defer do echo empty
+enum extends false foreach func guard implements instanceof interface is isset let match new nil null print private
+protected public record ref return select static this throw true try while yield
 ```
 
-`var` , `int` , `mixed` , `await` e `make_chan` são identificadores
-interpretados por nomes de contexto ou função, não por palavras-chave lexer.
-As constantes internas `IF` e `ELSE` não significam que essas construções
-estejam disponíveis. `if` , `else` , `elif` , `for` e `switch` não são
-estruturas de origem Joss.
+`var`, `int`, `float`, `decimal`, `string`, `bool`, `array`, `map`, `object`, `channel`, `mixed`, `void` e `make_chan` são identificadores de tipo ou funções integradas interpretados por contexto, não keywords fechadas do lexer.
+As constantes internas `IF` e `ELSE` não significam que essas construções estejam disponíveis: `if`, `else`, `elif`, `for` e `switch` não são estruturas fonte do Joss.
 
 | Forma | Regra |
 |---|---|
-| Identificador | ASCII: letras, `_` ou `@` no início; também dígitos depois. Evite `@` fora de APIs específicas; Não é um sistema de pontuação. |
-| Variável | `$nombre` ; o token `$` é separado do nome. `$this` tem tratamento próprio. |
-| Comentários | `//` e `#` até o final da linha; `/* ... */` sem aninhamento. |
-| Cordas | Aspas simples ou duplas; escapa `\n` , `\t` , `\r` , `\'` , `\"` , `\\` ; Interpolação estilo Dart/Flutter entre aspas duplas: `"${var}"` ou `"${expr}"` (escape `\${` ); aspas simples sem interpolação. |
-| Inteiros | Sequência de dígitos; o analisador usa base automática: `010` é lido como octal, `08` falha. Evite zeros à esquerda. |
-| Flutuadores | Dígitos, ponto final e mais dígitos: `0.5` . Não há literal exponencial, literal hexadecimal ou separador `_` no lexer. |
-| Decimais | Inteiro ou fração com sufixo `m` / `M` : `100m` , `1.25M` . |
-| Ausência | `null` e `nil` produzem o mesmo valor. |
-| Separação | Nova linha ou `;` . Espaços e tabulações não delimitam blocos. |
+| Identificador | ASCII: letras, `_` ou `@` no início; também dígitos depois. Evite `@` fora de APIs concretas; não é um sistema de anotações. |
+| Variável | `$nombre`; o token `$` se separa do nome. `$this` tem tratamento próprio. |
+| Comentários | `//` e `#` até o fim da linha; `/* ... */` sem aninhamento. |
+| Strings | Aspas simples ou duplas; escapes `\n`, `\t`, `\r`, `\'`, `\"`, `\\`; interpolação estilo Dart/Flutter em aspas duplas: `"${var}"` ou `"${$expr}"` (escape `\${`); aspas simples sem interpolação. |
+| Inteiros | Sequência de dígitos; o parser usa base automática: `010` é lido como octal, `08` falha. Evite zeros à esquerda. |
+| Float | Dígitos, ponto e mais dígitos: `0.5`. Não há literal exponencial, hexadecimal nem separador `_` no lexer. |
+| Decimal | Inteiro ou fração com sufixo `m`/`M`: `100m`, `1.25M`. |
+| Ausência | `null` é o literal canônico (`nil` produz o mesmo valor, mas emite o aviso de transição `JOSS-DECL-010`). |
+| Separação | Nova linha ou `;`. Os espaços e tabs não delimitam blocos. |
 
-O lexer remove o BOM UTF-8 inicial. Fora das strings, omita bytes não ASCII:
-não confie em identificadores acentuados. O diagnóstico para sequências multilinhas
-e texto não ASCII ainda tem limitações de posição.
+O lexer remove o BOM UTF-8 inicial. Fora de strings, omite bytes não ASCII:
+não confie em identificadores acentuados.
 
-Além de nomes, literais e palavras-chave, eles são tokenizados:
+Além de nomes, literais e keywords, são tokenizados:
 
 ```text
 = += -= *= /= ??= + - ! * / % < > == != === !== <=> <= >= << >> && || ++ --
@@ -47,36 +43,36 @@ Além de nomes, literais e palavras-chave, eles são tokenizados:
 NEWLINE EOF ILLEGAL
 ```
 
-Não há exponenciação, binário AND `&` ou binário OR `|` ;
-o último separa os tipos de união.
+Não há exponenciação, AND binário `&` nem OR binário `|`;
+este último separa tipos de uma união (`int|string`).
 
-## Precedência: do menor para o maior
+## Precedência: da menor para a maior
 
-A tabela reproduz `pkg/parser/parser.go` . No mesmo nível,
-comum infixa o grupo à esquerda; a tarefa analisa todos os seus direitos.
+A tabela reproduz `pkg/parser/parser.go`. No mesmo nível, os infixos
+ordinários agrupam à esquerda; a atribuição analisa toda a sua direita.
 
-| Nível | Operadores/construções |
+| Nível | Operadores / construções |
 |---|---|
-| 1 | `=` , `+=` , `-=` , `*=` , `/=` , `??=` (direita) |
-| 2 | `? :` , `?:` |
+| 1 | `=`, `+=`, `-=`, `*=`, `/=`, `??=` (direita) |
+| 2 | `? :`, `?:` |
 | 3 | `??` |
 | 4 | `\|>` |
 | 5 | `\|\|` |
 | 6 | `&&` |
-| 7 | `==` , `!=` , `===` , `!==` , `<=>` |
-| 8 | `<` , `>` , `<=` , `>=` , `is` , `instanceof` |
-| 9 | `<<` , `>>` |
+| 7 | `==`, `!=`, `===`, `!==`, `<=>` |
+| 8 | `<`, `>`, `<=`, `>=`, `is`, `instanceof` |
+| 9 | `<<`, `>>` |
 | 10 | `..` |
-| 11 | `+` , `-` , `.` |
-| 12 | `*` , `/` , `%` |
-| 13 | Prefixos `-` , `!` , `ref` , `...` |
-| 14 | Ligue para `()` |
-| 15 | Índice `[]` , membros `->` , `?->` , `::` , postfix `++` , `--` |
+| 11 | `+`, `-`, `.` |
+| 12 | `*`, `/`, `%` |
+| 13 | Prefixos `-`, `!`, `await`, `ref`, `...` |
+| 14 | Chamada `()` |
+| 15 | Índice `[]`, membros `->`, `?->`, `::`, pós-fixos `++`, `--` |
 
-Os operadores aritméticos e lógicos seguem sua hierarquia convencional: `%` ,
-`*` e `/` nível de compartilhamento e `&&` se liga mais forte que `||` .
-Os braços do ternário são analisados ​​como expressões completas; coloca entre parênteses
-ternários aninhados em vez de transferir a associatividade de outro idioma.
+Os operadores aritméticos e lógicos seguem sua hierarquia convencional: `%`,
+`*` e `/` compartilham o mesmo nível, e `&&` tem precedência maior que `||`.
+Os braços do ternário são analisados como expressões completas; coloque parênteses
+em ternários aninhados em vez de transferir a associatividade de outra linguagem.
 
 <!-- joss-run: ["1", "true", "true"] -->
 ```joss
@@ -85,112 +81,116 @@ print(true || false && false)
 print(true || (false && false))
 ```
 
-Fornece `1` , `true` e `true` . A primeira expressão é `(8 * 5) % 3` .
+Resulta em `1`, `true` e `true`. A primeira expressão é `(8 * 5) % 3`.
 
 ## Avaliação
 
-- `+` , `-` , `*` : inteiros exatos com overflow verificado; promoção se houver
-float, operações decimais se decimal estiver envolvido.
-- `/` : resultado flutuante para inteiros; decimal se decimal estiver envolvido.
-- `+=` , `-=` , `*=` , `/=` , `??=` : atribuição composta e atribuição nula coalescente
-( `$a ??= $b` é equivalente a `$a = $a ?? $b` ) com validação de tipo estrita
-.
-- `%` : número inteiro restante; com float trunca operandos para número inteiro; decimal usa `Mod` .
-- `.` - representa operandos como texto e concatena; `null` contribui com texto vazio.
-- `..` : operador de intervalo numérico ( `$a..$b` ); gera uma sequência inteira entre
-ambos os limites, úteis em expressões e loops `foreach (1..10 as $i)` .
-- `"${...}"` - Interpolação de string estilo Flutter/Dart dentro de aspas duplas
-. Ele permite incorporar variáveis ​​​​ou expressões (por exemplo, `"${indice}"` , `"${a + b}"` ),
-, simplificando automaticamente as concatenações de tipo de string. O escape `\${`
-imprime `${` literalmente.
-- `++` , `--` : incrementa ou decrementa a variável numérica e retorna o valor anterior.
-- `&&` , `||` : curto-circuito e resultado bool. `!` : negação da veracidade.
-- `==` / `!=` : comparação numérica quando aplicável; fallback usando representação textual
-para outros valores. Para coleções prefira
-`===` / `!==` , com base na comparação estrutural.
-- `===` : distingue inteiro, flutuante, string e decimal; normaliza variantes numéricas
-internas do Go antes de comparar.
-- `<=>` : retorna `-1` , `0` ou `1` ; compara números, strings, nulos e
-finalmente representações textuais.
-- `??` : avalia a direita somente se a esquerda produzir `null` . Erros quando
-avalia left são propagados e devem ser tratados com `try` / `catch` .
-- `?:` (Elvis): preserva à esquerda se for verdadeiro de acordo com a veracidade.
-- Ternário completo de ramificação única: `cond ? expr : expr` e `(cond) ? { cuerpo }`
-(permite que a ramificação `: {}` seja ignorada quando a alternativa falsa não for necessária).
-- `match` : seleção múltipla por valor; suporta expressões ou blocos multilinha `{ ... }` .
-- `?->` : retorna nulo antes do receptor nulo; Não valida nem corrige outros acessos.
-- `|>` : acrescenta o valor esquerdo aos argumentos de uma função, chamada
-ou encerramento.
-- `cout << valor` : imprime sem adicionar quebra e retorna `cout` .
-`canal << valor` : Enviar para o canal. `cin >> $variable` - Lê
-de forma adaptativa da entrada padrão (convertendo automaticamente em número se a variável ou entrada
-for numérica e lendo linhas completas com espaços se for texto).
+- `+`, `-`, `*`: inteiros exatos com verificação de overflow; operações entre `int` e `decimal` promovem para `decimal`; misturar `int` com `float` ou `float` com `decimal` requer conversão explícita (`JOSS-ARITH-003`).
+- `/`: resultado `float` para inteiros; `decimal` se envolver `decimal`.
+- `+=`, `-=`, `*=`, `/=`, `??=`: atribuição composta e atribuição de coalescência
+  nula (`$a ??= $b` equivale a `$a = $a ?? $b`) com validação
+  estrita de tipos.
+- `%`: resto inteiro; com float trunca operandos para inteiro; decimal usa `Mod`.
+- `.`: representa operandos como texto e concatena; `null` contribui com texto vazio.
+- `..`: operador de intervalo numérico (`$a..$b`); gera uma sequência inteira entre
+  ambos os limites, útil em expressões e laços `foreach (1..10 as $i)`.
+- `"${...}"`: interpolação de strings estilo Flutter / Dart dentro de aspas
+  duplas. Permite embutir variáveis simples (`"${indice}"`) ou expressões (`"${$a + $b}"`),
+  convertendo-se automaticamente em concatenações do tipo string. O escape `\${`
+  imprime `${` de forma literal.
+- `++`, `--`: incrementa ou decrementa a variável numérica e retorna o valor anterior.
+- `&&`, `||`: curto-circuito e resultado bool. `!`: negação de truthiness.
+- `==`/`!=`: comparação numérica quando aplicável; fallback mediante
+  representação textual para outros valores. Para coleções prefira
+  `===`/`!==`, baseados em comparação estrutural.
+- `===`: distingue inteiro, float, string e decimal; normaliza variantes
+  numéricas internas do Go antes de comparar.
+- `<=>`: retorna `-1`, `0` ou `1`; compara números, strings, nulos e
+  finalmente representações textuais.
+- `??`: avalia a direita somente se a esquerda produzir `null`. Os erros ao
+  avaliar a esquerda se propagam e devem ser tratados com `try`/`catch`.
+- `?:` (Elvis): conserva a esquerda se for verdadeira segundo truthiness.
+- Ternário completo e de ramo único: `cond ? expr : expr` e `(cond) ? { cuerpo }`
+  (permite omitir o ramo `: {}` quando não é necessária alternativa falsa).
+- `guard (cond) : { cuerpo }`: garante que `cond` seja verdadeira; se for falsa executa o bloco, o qual deve encerrar o fluxo com `return` ou `throw` (`JOSS-FLOW-005`).
+- `match`: seleção múltipla por valor estrita (`===`); admite expressões ou blocos `{ ... }`.
+- `?->`: retorna nulo diante de receptor nulo; não valida nem corrige outros acessos.
+- `|>`: antepõe o valor esquerdo aos argumentos de uma função, chamada
+  ou closure.
+- `cout << valor`: imprime sem adicionar quebra de linha e retorna `cout`.
+  `canal << valor`: envia ao canal. `cin >> $variable`: lê de forma adaptativa
+  da entrada padrão (convertendo automaticamente para número se a variável
+  ou entrada for numérica e lendo linhas completas com espaços se for texto).
 
-## Verdade dos valores
+## Valor verdade (Truthiness)
 
-Joss mantém uma veracidade pequena e uniforme. Eles são falsos: `null` , `false` ,
-zero de qualquer tipo numérico, string vazia, array vazio e mapa vazio. Todos os valores
-restantes são verdadeiros; em particular, `"0"` é verdadeiro porque é uma string
-não vazia. `empty` usa essa mesma interpretação após verificar a existência do valor
-.
+O Joss conserva um modelo de truthiness pequeno e uniforme. São falsos: `null`, `false`,
+zero de qualquer tipo numérico, string vazia, array vazio e map vazio. Todo
+valor restante é verdadeiro; em particular, `"0"` é verdadeiro porque é uma
+string não vazia. `empty` usa esta mesma interpretação depois de verificar a
+existência do valor.
 
 ## Declarações e escopos
 
-| Forma | Efeito |
+| Forma | Classificação e efeito |
 |---|---|
-| `$x = valor` | A primeira atribuição declara/infere; então reatribuir. |
-| `var $x = valor` | Declaração com inferência fixa. |
-| `T $x = valor` , `let T $x = valor` | Tipo explícito. |
-| `let $x = valor` , `mixed $x = valor` | Vinculação dinâmica explícita. |
-| `const [T] $x = valor` | Constante de ligação; requer inicializador. |
-| `int $a = 1, $b = 2` | Declaração múltipla do mesmo tipo. |
-| `public/private func f(T $p): R { ... }` | função global; retorno opcional, parâmetros digitados. |
-| `func(T $p): R { ... }` | Fechamento sem modificador de visibilidade. |
-| `public/private class C [extends B] [implements I1, I2] { ... }` | Aula; Superclasse opcional e interfaces implementadas. |
-| `public/private interface I [extends I1, I2] { ... }` | Interface; Contratos de método público sem corpo. |
-| `Init nombre(...) { ... }` | Inicializador sem modificador. |
+| `var $x = valor` | **Canônica**: Declaração com inferência estrita e fixa. |
+| `T $x = valor` | **Canônica**: Declaração com tipo explícito (`int`, `string`, `Persona`, etc.). |
+| `mixed $x = valor` | **Canônica**: Dinamismo explícito voluntário; permite mudar de tipo em reatribuições. |
+| `const [T] $x = valor` | **Canônica**: Binding constante imutável; requer inicializador. |
+| `int $a = 1, $b = 2` | **Canônica**: Declaração múltipla do mesmo tipo. |
+| `$x = valor` (sem declaração prévia) | **Reatribuição** se `$x` já existir; se não foi declarada previamente, emite erro `JOSS-SYM-001` (e aviso histórico `JOSS-DECL-007`). |
+| `let [T] $x = valor` | **Transição**: Suportada por compatibilidade, emite aviso `JOSS-DECL-006`. Use `var`, `T` ou `mixed`. |
+| `public/private func f(T $p): R { ... }` | **Canônica**: Função global; parâmetros tipados e retorno `: R` ou `: void`. |
+| `func(T $p): R { ... }` | **Canônica**: Closure sem modificador de visibilidade. |
+| `public/private [abstract] class C [<T>] [extends B] [implements I1, I2] { ... }` | **Canônica**: Classe nominal (com suporte para genéricos `<T>`, herança e interfaces). |
+| `public/private record R(T $campo, ...)` | **Canônica**: Classe de dados imutável com campos `public const` e construtor automático. |
+| `public/private interface I [extends I1, I2] { ... }` | **Canônica**: Interface de contratos de métodos públicos sem corpo. |
+| `public/private enum E [: int\|string] { case ... }` | **Canônica**: Enumeração pura ou apoiada (`int`/`string`). |
+| `public func constructor(...) { ... }` ou `Init(...) { ... }` | **Canônica**: Inicializador de instância (`Init constructor(...)` é forma de transição `JOSS-DECL-008`). |
 
-Funções/classes globais são registradas antes da análise dos corpos.
-Variáveis ​​de nível superior não são globais implícitas de funções com
-nome. Cada chamada utiliza seu próprio quadro; Um fechamento captura um ambiente.
-A visibilidade dos métodos e propriedades é obrigatória. Não há sobrecargas de assinatura
-ou sintaxe de parâmetro de tipo geral.
+As funções e classes globais são registradas antes de analisar corpos.
+As variáveis de nível superior não são globais implícitas de funções com
+nome. Cada chamada usa seu próprio frame; uma closure captura seu ambiente léxico.
+A visibilidade de métodos e propriedades é obrigatória. Não há sobrecarga
+por assinatura.
 
 ## Blocos, coleções e instruções
 
-`[]` cria um array, `{}` cria um mapa vazio no contexto de expressão e
-`{"clave": valor}` cria um mapa não vazio. Uma chave em um local que requer um corpo
-(função/ciclo) delimita um bloco. Blocos como expressões são
-representados internamente como ASTs e não são executados automaticamente em todos os contextos.
+`[]` cria um array, `{}` cria um map vazio em contexto de expressão e
+`{"clave": valor}` cria um map não vazio. Uma chave em um lugar que exige um
+corpo (função/laço) delimita um bloco.
 
-- Ternário: escolha um valor ou execute o bloco selecionado; `return` pode
-sair do chamável desse bloco.
-- `while (condición) { ... }` : verifique antes de cada volta.
-- `do { ... } while (condición)` : verifique mais tarde.
-- `foreach (array_o_canal as $valor)` ou `foreach ($coleccion as $clave => $valor)` :
-percorre sequências, intervalos `1..$n` , mapas associativos e canais de simultaneidade.
-- `break` e `continue` : sair/pular volta.
-- `defer { ... }` ou `defer expresión;` : adia a execução da instrução até
-o quadro atual terminar (na ordem LIFO).
-- `[$a, $b] = $expr` : desestruturação sequencial de arrays em atribuição direta.
-- `match (valor) { clave, clave => resultado, default => resultado }` : compare
-estritamente, primeiro braço correspondente; nenhuma correspondência/padrão retorna nulo.
-- `try { ... } catch ($error) { ... }` , `throw expresión` : recuperação em tempo de execução.
-- `return [expresión]` : sai do chamável.
-- `async { ... }` : cria um Futuro; é coletado com `await(futuro)` .
-- `Console::*` : módulo nativo para cores ANSI ( `Console::green` , `Console::red` , `Console::bold` , etc.).
-- `joss repl` : ambiente interativo por terminal (Read-Eval-Print Loop).
+- Ternário: escolhe um valor ou executa o bloco selecionado; `return` pode
+  sair do callable a partir desse bloco.
+- `guard (condición) : { ... }`: cláusula de guarda com saída obrigatória (`return` ou `throw`).
+- `while (condición) { ... }`: verifica antes de cada iteração.
+- `do { ... } while (condición)`: verifica depois.
+- `foreach (array_o_canal as $valor)` ou `foreach ($coleccion as $clave => $valor)`:
+  percorre sequências, intervalos `1..$n`, mapas associativos, geradores e canais de concorrência.
+- `break` e `continue`: sair/pular iteração.
+- `defer { ... }` ou `defer expresión`: adia a execução até que
+  o frame atual finalize (em ordem LIFO).
+- `[$a, $b] = $expr`: desestruturação sequencial de arrays.
+- `match (valor) { clave, clave => resultado, default => resultado }`: compara
+  estritamente, primeiro braço correspondente; sem correspondência/default retorna nulo.
+- `try { ... } catch ($error) { ... }`, `throw expresión`: recuperação em runtime.
+- `return [expresión]`: sai do callable.
+- `async { ... }`: cria um `Future`; é recolhido com `await($futuro)` ou `await $futuro`.
+- `select { case ... default: ... }`: multiplexação sobre canais.
+- `yield [clave =>] valor`: emissão preguiçosa em funções geradoras.
+- `Console::*`: módulo nativo para cores ANSI (`Console::green`, `Console::red`, `Console::bold`, etc.).
+- `joss repl`: ambiente interativo de terminal (Read-Eval-Print Loop).
 
 ## Ausências e compatibilidade
 
-Não há importações de origem, namespaces, exportações de arquivos, interfaces, características, protocolos
-, propriedade, ponteiros manuais, `switch` clássico, `for` ou sintaxe de açúcar de funções de seta.
+Não há imports fonte, namespaces, exports de arquivos, traits,
+protocolos, ownership, ponteiros manuais, `switch`, `for` clássico nem syntax sugar de arrow functions.
 `ref` serve apenas como parâmetro/argumento temporário e não é um ponteiro armazenável.
 
-`function` , `import` , `@import` , `use` , `Use` , `Import` ,
-`namespace` e `Namespace` geram erros de sintaxe excluídos.
-Os nomes herdados de APIs não são necessariamente tipos de origem válidos:
-`is_integer` ainda está registrado, `integer $x` não é um alias de `int` .
-
+`function`, `import`, `@import`, `use`, `Use`, `Import`,
+`namespace` e `Namespace` geram erros de sintaxe removida (`JOSS-PARSE-001`).
+Os nomes herdados de APIs não são necessariamente tipos fonte válidos:
+`is_integer` continua registrado como função built-in, mas `integer $x` não é alias de `int` (`JOSS-TYPE-009`).
 
 [Índice](README.md)

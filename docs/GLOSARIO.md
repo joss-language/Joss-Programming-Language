@@ -8,67 +8,78 @@ sin interrumpir el recorrido de aprendizaje.
 | Término | Significado en esta documentación |
 |---|---|
 | Programa | Instrucciones guardadas en archivos para que una computadora realice una tarea. |
+| Proyecto | Carpeta organizada creada con `joss new` o `joss new console` que contiene tu código, configuración y estructura lista para trabajar. |
+| `main.joss` | Archivo principal de entrada de todo proyecto Joss. Es el primer archivo que Joss busca al ejecutar o compilar tu aplicación. |
+| `Init main()` | Bloque de arranque dentro de `public class Main` en `main.joss`. Todo lo que escribas dentro de sus llaves `{ ... }` se ejecuta al iniciar el programa. |
 | Valor | Un dato concreto: `12`, `"Ana"`, `true`. |
-| Variable | Nombre que permite guardar y consultar un valor; por ejemplo `$edad`. |
-| Binding | Asociación entre un nombre y su valor. Una constante protege esa asociación, no necesariamente el contenido de una colección. |
-| Tipo | Clase de datos que una operación o variable admite. `int` representa enteros. |
-| Inferencia | Deducción de un tipo a partir del valor, sin escribirlo explícitamente. |
-| Conversión / casting | Obtención de un valor en otro tipo mediante reglas concretas; puede perder información. |
-| `mixed` | Decisión explícita de aceptar valores de distintos tipos. |
-| `unknown` | Falta de información del analizador; no es un tipo fuente para declarar variables. |
-| `null` / `nil` | Ausencia de valor; ambas formas producen el mismo valor nulo. |
-| Nullable | Tipo que permite además `null`, como `string|null` o `string?`. |
-| Expresión | Código que produce un valor: `2 + 3`. |
-| Sentencia | Instrucción que realiza un paso: declarar, retornar o repetir. |
-| Bloque | Grupo de instrucciones entre llaves en un contexto que espera un cuerpo. |
-| Función | Operación reutilizable que recibe datos y puede devolver un resultado. |
-| Parámetro | Nombre y tipo de un dato recibido en la declaración de una función. |
-| Argumento | Valor entregado cuando se llama a la función. |
-| Retorno | Resultado que una función entrega con `return`. |
-| Callable | Valor que el runtime puede invocar: función, método o closure, entre otros. No es una keyword fuente. |
-| Ámbito / scope | Región donde un nombre se puede resolver. |
-| Closure | Función anónima que conserva un entorno de variables de su creación. |
-| Recursión | Función que se llama a sí misma, directa o indirectamente. |
-| Clase | Declaración que agrupa propiedades y métodos. |
-| Instancia | Objeto creado a partir de una clase mediante `new`. |
-| Propiedad | Dato guardado dentro de una instancia. |
-| Método | Función asociada a una clase; se llama con `->` en una instancia o `::` en contexto estático. |
-| Constructor | Inicialización al crear una instancia; Joss admite `Init` en su contrato de clases. |
-| Herencia | Reutilización de una clase base mediante `extends`. |
-| Encapsulación | Control de acceso con `public`, `protected` o `private`. |
-| Array | Colección ordenada de elementos, indexada desde cero; “lista” es una explicación, no el alias de tipo `list`. |
-| Map | Colección de claves y valores; también se llama diccionario. |
-| Referencia | Acceso al mismo almacenamiento. `ref` es además una capacidad temporal y restringida de modificar una variable del caller. |
-| Mutabilidad | Posibilidad de cambiar un valor o el contenido de una estructura. |
-| Copia superficial | Copia del contenedor que puede seguir compartiendo elementos interiores. |
-| Error / diagnóstico | Problema detectado; un diagnóstico incluye ubicación, código y explicación. |
-| Excepción | Fallo que interrumpe el flujo y puede recuperarse con `try/catch`. |
-| Pila de llamadas / stack | Secuencia de funciones que están esperando que termine otra llamada. No confundir con la clase contenedora `Stack`. |
-| Heap | Memoria para objetos cuya vida no se limita a una llamada; la administra Go, no el programa Joss manualmente. |
-| Sincronía | Una operación termina antes de continuar con la siguiente. |
-| Concurrencia | Varias tareas avanzan durante periodos superpuestos; no garantiza ejecución simultánea. |
-| Asincronía | Una operación permite obtener su resultado posteriormente. |
-| Future | Objeto runtime que representa un resultado pendiente de `async`; no es una keyword ni tipo fuente canónico. |
-| `await` | Espera bloqueante del resultado de un Future en la ejecución actual. |
-| Channel | Canal para enviar datos entre tareas y coordinarlas. |
-| Runtime | Motor que ejecuta el programa y ofrece servicios integrados. |
-| Lexer | Componente que convierte caracteres en tokens. |
-| Token | Unidad reconocida: un nombre, un número, un operador, etc. |
-| Parser | Componente que organiza tokens según la sintaxis. |
-| AST | Árbol que representa la estructura del programa. |
-| Analizador / analyzer | Componente que comprueba nombres, tipos y flujo antes de ejecutar. |
-| Interpretación | Ejecución leyendo una representación del programa, como su AST. |
-| Compilación | Transformación a otra representación. En Joss no implica necesariamente código máquina. |
-| Bytecode | Formato intermedio. El principal de Joss contiene AST comprimido; JPBC tiene instrucciones para plugins. |
-| Módulo | Capacidad integrada u organización física; Joss no tiene módulos fuente con imports. |
-| Paquete | Unidad distribuible con metadatos y archivos. |
-| Plugin | Extensión cargada por el runtime desde un paquete. |
-| CLI | Programa que se controla escribiendo comandos en una terminal. |
-| Terminal | Ventana para ejecutar comandos y ver su salida. |
-| Ruta HTTP | Asociación entre una URL, un método HTTP y código que responde. |
-| Controlador | Clase que prepara la respuesta a una petición web. |
-| Middleware | Comprobación o transformación alrededor de una petición. |
-| Vista | Plantilla que convierte datos en HTML. |
-| Migración | Cambio versionado de la estructura de una base de datos. |
-| Query builder | Objeto que construye una consulta antes de ejecutarla. |
-| API | Conjunto de operaciones que otro programa o componente puede utilizar. |
+| Variable | Nombre con prefijo `$` que permite guardar, consultar o cambiar un valor en memoria; por ejemplo `$edad`. |
+| Declaración | Acción de crear una variable por primera vez indicando `var` (`var $x = 1`), un tipo explícito (`int $x = 1`), `mixed` o `const`. |
+| Reasignación | Acción de cambiar el valor de una variable que ya fue declarada previamente (`$x = 2`). |
+| Binding | Asociación entre un nombre y su valor. Una constante (`const`) protege esa asociación para que no pueda reasignarse. |
+| Tipo | Categoría de datos que una operación o variable admite. Por ejemplo, `int` representa números enteros y `decimal` importes monetarios exactos. |
+| Inferencia | Deducción automática del tipo de una variable a partir de su valor inicial (como en `var $edad = 20`, donde Joss deduce `int`). |
+| Conversión / casting | Obtención de un valor en otro tipo mediante funciones como `intval(...)`, `decimal(...)` o `strval(...)`. |
+| Interpolación | Incrustar variables o cálculos dentro de un texto con comillas dobles usando `${nombre}` o `${$precio * 2}`. |
+| `mixed` | Decisión explícita de permitir que una variable o parámetro acepte valores de distintos tipos a lo largo del tiempo. |
+| `void` | Tipo de retorno que indica explícitamente que una función realiza acciones pero no devuelve ningún valor. |
+| `unknown` | Estado interno del analizador cuando aún no conoce un tipo; no es una palabra para declarar variables. |
+| `null` / `nil` | Ausencia de valor; `null` es la forma canónica recomendada y `nil` se acepta como sinónimo de compatibilidad. |
+| Nullable | Tipo que permite un valor concreto o `null`, escrito como `string|null` o con el atajo `string?`. |
+| Expresión | Fragmento de código que se evalúa y produce un valor: `2 + 3`, `"Hola " . $nombre` o `($edad >= 18) ? "Mayor" : "Menor"`. |
+| Sentencia | Instrucción que realiza un paso dentro del programa: declarar una variable, mostrar un mensaje, repetir un ciclo o retornar. |
+| Bloque | Grupo de instrucciones delimitadas entre llaves `{` y `}`. |
+| Función | Máquina reutilizable de código (`public func` o `private func`) que recibe datos de entrada y puede devolver un resultado. |
+| Parámetro | Variable tipada declarada entre los paréntesis de una función (`int $a`) que define qué dato espera recibir. |
+| Argumento | Valor real entregado entre los paréntesis cuando llamas a una función (`sumar(5, 10)`). |
+| Retorno | Resultado que una función devuelve a quien la llamó mediante la palabra `return`. |
+| `guard` | Cláusula de guarda (`guard (condicion) : { return ... }`) que exige que se cumpla una condición o sale inmediatamente de la función. |
+| `defer` | Instrucción que agenda un bloque para ejecutarse justo antes de que termine la función o archivo actual, útil para cerrar recursos. |
+| Callable | Cualquier valor que puede invocarse con paréntesis `()`: una función, un método o una closure. |
+| Ámbito / scope | Zona del programa donde una variable existe y puede utilizarse. Cada llamada a función tiene su propio ámbito aislado. |
+| Closure | Función anónima (`func(...) { ... }`) que puede guardarse en una variable y recordar variables del entorno donde fue creada. |
+| Recursión | Técnica en la que una función se llama a sí misma para resolver un problema en pasos más pequeños. |
+| Clase | Plano o molde (`public class Nombre`) que agrupa datos (propiedades) y comportamientos (métodos). |
+| `record` | Forma concisa (`public record Nombre(...)`) de declarar una clase cuyos datos quedan protegidos como constantes tras crearse. |
+| Instancia / Objeto | Entidad concreta creada en memoria a partir de una clase usando `new Nombre(...)`. |
+| Propiedad | Variable que pertenece a una clase o instancia (accedida con `$this->propiedad` o `$objeto->propiedad`). |
+| Método | Función que pertenece a una clase; se invoca con `->` sobre una instancia o con `::` si es un método estático de la clase. |
+| Constructor | Método especial (`public func constructor(...)` o `Init(...)`) que prepara los datos iniciales al crear un objeto con `new`. |
+| Herencia | Capacidad de una clase para reutilizar y ampliar otra clase base mediante `extends`. |
+| Interfaz | Contrato formal (`public interface`) que enumera qué métodos públicos debe implementar una clase mediante `implements`. |
+| Encapsulación | Protección de los miembros de una clase usando `public` (abierto), `protected` (clase e hijas) o `private` (solo la misma clase). |
+| Array | Lista ordenada de elementos entre corchetes `[10, 20]`, cuyas posiciones (índices) empiezan a contar desde `0`. |
+| Map | Diccionario de pares clave → valor escrito como `{"clave": valor}` o `["clave" => valor]`. |
+| Referencia | Acceso compartido al mismo dato. Con `ref` (`incrementar(ref $x)`), permite que una función modifique temporalmente una variable del llamador. |
+| Mutabilidad | Posibilidad de modificar el valor de una variable o los elementos internos de una colección. |
+| Copia superficial | Duplicado del contenedor exterior de una colección cuyos elementos internos complejos siguen compartiéndose. |
+| Error / Diagnóstico | Aviso estructurado (`JOSS-...`) con archivo, línea, explicación y sugerencia que señala un problema en el código. |
+| Excepción | Fallo en tiempo de ejecución que se lanza con `throw` y puede interceptarse con `try { ... } catch ($e) { ... }`. |
+| Pila de llamadas / stack | Cadena de funciones en espera mientras se ejecuta una llamada interna. No confundir con la clase de estructura de datos `Stack`. |
+| Heap | Memoria administrada automáticamente donde viven los objetos, arrays y maps creados durante la ejecución. |
+| Sincronía | Ejecución paso a paso en la que cada instrucción espera a que termine la anterior. |
+| Concurrencia | Avance coordinado de varias tareas al mismo tiempo. |
+| Asincronía | Delegar una tarea con `async { ... }` para que se ejecute sin bloquear el programa principal. |
+| Future | Objeto devuelto por un bloque `async` que representa el resultado futuro de esa tarea. |
+| `await` | Palabra clave (`await $tarea` o `await($tarea)`) que espera y obtiene el valor final de un `Future`. |
+| Channel | Canal tipado (`channel<T>` / `make_chan()`) para enviar (`<<`) y recibir (`<-`) mensajes seguros entre tareas concurrentes. |
+| Runtime | Motor de ejecución de Joss que gestiona la memoria, la concurrencia y las clases nativas integradas. |
+| Lexer | Primer paso del procesador de Joss: convierte el texto del archivo `.joss` en piezas indivisibles llamadas tokens. |
+| Token | Unidad léxica reconocida: una palabra clave, una variable, un número o un operador. |
+| Parser | Segundo paso del procesador: organiza los tokens en un árbol sintáctico comprobando las reglas de escritura. |
+| AST | Árbol de Sintaxis Abstracta que representa la estructura lógica de tu código. |
+| Analizador / analyzer | Red de seguridad estática que verifica tipos, nombres, contratos y retornos antes de ejecutar o compilar, generando un `PreparedProgram`. |
+| Interpretación (`joss run`) | Ejecución inmediata del programa validado directamente desde la terminal. |
+| Compilación nativa (`joss build`) | Transformación del mismo programa Joss a un archivo ejecutable nativo independiente (`.exe` en Windows o binario en Linux/macOS/Android). |
+| Bytecode (`.jp`) | Representación binaria firmada criptográficamente utilizada para distribuir paquetes y plugins de Joss. |
+| Módulo | Organización automática de archivos dentro del proyecto (`app/`); en Joss las declaraciones públicas se descubren sin escribir `import`. |
+| Paquete | Librería reutilizable distribuida y gestionada con `joss pub`. |
+| Plugin | Extensión compilada en formato `.jp` que añade capacidades o comandos al proyecto. |
+| CLI | Herramienta de línea de comandos (`joss`) que controlas escribiendo órdenes en la terminal. |
+| Terminal / Consola | Ventana del sistema operativo (como PowerShell o Terminal) donde escribes comandos de texto y ves los resultados. |
+| Ruta HTTP | Regla en `routes.joss` o `api.joss` que conecta una dirección web (URL) con el controlador encargado de responderla. |
+| Controlador | Clase ubicada en `app/controllers/` que recibe la petición del usuario, procesa la lógica y devuelve una vista o JSON. |
+| Middleware | Filtro intermedio que revisa o protege una petición web antes de que llegue al controlador (por ejemplo, verificar si inició sesión). |
+| Vista | Plantilla HTML dinámica (`.joss.html`) en `app/views/` que muestra datos al usuario escapando código malicioso automáticamente. |
+| Migración | Archivo en `app/database/migrations/` que crea o actualiza tablas de la base de datos de forma ordenada con `joss migrate`. |
+| Query builder / ORM | Sistema integrado (`Model` y `GranDB`) para consultar y guardar datos en bases de datos sin concatenar SQL inseguro. |
+| API | Conjunto de funciones, métodos o rutas web que un programa ofrece para comunicarse con otro. |

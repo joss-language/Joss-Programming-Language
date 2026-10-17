@@ -1,45 +1,41 @@
-#
+# Syntax and Operators Reference
 
-Syntax and Operators Reference To learn: [fundamentals](FUNDAMENTOS.md) , [flow](CONTROL_FLUJO.md) ,
-[functions](FUNCIONES.md) , [classes](CLASES.md) .
-Plugins: [grammar](GRAMATICA.md) , [types](SISTEMA_TIPOS.md) .
+To learn: [basics](FUNDAMENTOS.md), [control flow](CONTROL_FLUJO.md),
+[collections](COLECCIONES.md), [functions](FUNCIONES.md), [classes](CLASES.md).
+Supplements: [grammar](GRAMATICA.md), [types](SISTEMA_TIPOS.md).
 
-This reference describes the parser and evaluator for this patch.
-observed limitations are noted as such;They are not design proposals.
+This reference describes the current Joss parser and evaluator. Observed
+limitations are stated as such; they are not design proposals.
 
 ## Lexicon
 
-Reserved words are obtained from `parser.KeywordNames()` :
+Reserved words are obtained from `parser.KeywordNames()` (`pkg/parser/token.go`):
 
 ```text
-Init abstract as async break case catch class const continue default defer do echo empty
-enum extends false foreach func implements instanceof interface is isset let match new nil null print private
-protected public ref return select static this throw true try while yield
+Init abstract as async await break case catch class const continue default defer do echo empty
+enum extends false foreach func guard implements instanceof interface is isset let match new nil null print private
+protected public record ref return select static this throw true try while yield
 ```
 
-`var` , `int` , `mixed` , `await` and `make_chan` are
-identifiers interpreted by context or function names, not lexer keywords.
-The internal constants `IF` and `ELSE` do not mean that those
-constructs are available.`if` , `else` , `elif` , `for` and `switch` are not
-Joss source structures.
+`var`, `int`, `float`, `decimal`, `string`, `bool`, `array`, `map`, `object`, `channel`, `mixed`, `void`, and `make_chan` are contextual type identifiers or built-in functions, not closed lexer keywords.
+The internal constants `IF` and `ELSE` do not mean those constructs are available: `if`, `else`, `elif`, `for`, and `switch` are not source constructs in Joss.
 
-|Shape |Rule |
+| Form | Rule |
 |---|---|
-|Identifier |ASCII: letters, `_` or `@` at the beginning;also digits after.Avoid `@` outside of specific APIs;It is not a scoring system.|
-|Variable |`$nombre` ;the `$` token is separated from the name.`$this` has its own treatment.|
-|Comments |`//` and `#` until end of line;`/* ... */` without nesting.|
-|Strings |Single or double quotes;exhausts `\n` , `\t` , `\r` , `\'` , `\"` , `\\` ;Dart/Flutter style interpolation in double quotes: `"${var}"` or `"${expr}"` (escape `\${` );single quotes without interpolation.|
-|Integers |Digit sequence;the parser uses automatic base: `010` is read as octal, `08` fails.Avoid leading zeros.|
-|Floats |Digits, period and more digits: `0.5` .There is no exponential literal, hexadecimal literal, or `_` separator in the lexer.|
-|Decimal |Integer or fraction with suffix `m` / `M` : `100m` , `1.25M` .|
-|Absence |`null` and `nil` produce the same value.|
-|Separation |New line or `;` .Spaces and tabs do not delimit blocks.|
+| Identifier | ASCII: letters, `_`, or `@` at the start; digits also allowed afterwards. Avoid `@` outside concrete APIs; it is not an annotation system. |
+| Variable | `$nombre`; the `$` token is separated from the name. `$this` has special handling. |
+| Comments | `//` and `#` to end of line; `/* ... */` without nesting. |
+| Strings | Single or double quotes; escapes `\n`, `\t`, `\r`, `\'`, `\"`, `\\`; Dart/Flutter-style interpolation in double quotes: `"${var}"` or `"${$expr}"` (escape `\${`); single quotes without interpolation. |
+| Integers | Sequence of digits; the parser uses automatic base detection: `010` is read as octal, `08` fails. Avoid leading zeros. |
+| Float | Digits, dot, and more digits: `0.5`. There is no exponential, hexadecimal, or `_` separator literal in the lexer. |
+| Decimal | Integer or fraction with `m`/`M` suffix: `100m`, `1.25M`. |
+| Absence | `null` is the canonical literal (`nil` produces the same value but emits the transition warning `JOSS-DECL-010`). |
+| Separation | Newline or `;`. Spaces and tabs do not delimit blocks. |
 
-The lexer removes leading UTF-8 BOM.Outside of strings, omit non-ASCII bytes:
-do not trust accented identifiers.Diagnostics for multiline strings
-and non-ASCII text still have position limitations.
+The lexer strips an initial UTF-8 BOM. Outside strings, it skips non-ASCII bytes:
+do not rely on accented identifiers.
 
-In addition to names, literals and keywords, they are tokenized:
+In addition to names, literals, and keywords, the following are tokenized:
 
 ```text
 = += -= *= /= ??= + - ! * / % < > == != === !== <=> <= >= << >> && || ++ --
@@ -47,36 +43,36 @@ In addition to names, literals and keywords, they are tokenized:
 NEWLINE EOF ILLEGAL
 ```
 
-There is no exponentiation, binary AND `&` or binary OR `|` ;
-the latter separates types of a union.
+There is no exponentiation, bitwise AND `&`, or bitwise OR `|`;
+the latter separates types in a union (`int|string`).
 
-## Precedence: lowest to highest
+## Precedence: From Lowest to Highest
 
-The table reproduces `pkg/parser/parser.go` .At the same level, ordinary
-infixes group to the left;the assignment analyzes all your right.
+The table reproduces `pkg/parser/parser.go`. At the same level, ordinary infix
+operators associate to the left; assignment parses its entire right-hand side.
 
-|Level |Operators/constructions |
+| Level | Operators / constructs |
 |---|---|
-|1 |`=` , `+=` , `-=` , `*=` , `/=` , `??=` (right) |
-|2 |`? :` , `?:` |
-|3 |`??` |
-|4 |`\|>` |
-|5 |`\|\|` |
-|6 |`&&` |
-|7 |`==` , `!=` , `===` , `!==` , `<=>` |
-|8 |`<` , `>` , `<=` , `>=` , `is` , `instanceof` |
-|9 |`<<` , `>>` |
-|10 |`..` |
-|11 |`+` , `-` , `.` |
-|12 |`*` , `/` , `%` |
-|13 |Prefixes `-` , `!` , `ref` , `...` |
-|14 |Call `()` |
-|15 |Index `[]` , members `->` , `?->` , `::` , postfix `++` , `--` |
+| 1 | `=`, `+=`, `-=`, `*=`, `/=`, `??=` (right) |
+| 2 | `? :`, `?:` |
+| 3 | `??` |
+| 4 | `\|>` |
+| 5 | `\|\|` |
+| 6 | `&&` |
+| 7 | `==`, `!=`, `===`, `!==`, `<=>` |
+| 8 | `<`, `>`, `<=`, `>=`, `is`, `instanceof` |
+| 9 | `<<`, `>>` |
+| 10 | `..` |
+| 11 | `+`, `-`, `.` |
+| 12 | `*`, `/`, `%` |
+| 13 | Prefixes `-`, `!`, `await`, `ref`, `...` |
+| 14 | Call `()` |
+| 15 | Index `[]`, members `->`, `?->`, `::`, postfix `++`, `--` |
 
-Arithmetic and logical operators follow their conventional hierarchy: `%` ,
-`*` and `/` share level, and `&&` binds stronger than `||` .
-The arms of the ternary are parsed as complete expressions;parenthetizes
-nested ternaries instead of transferring the associativity from another language.
+Arithmetic and logical operators follow their conventional hierarchy: `%`,
+`*`, and `/` share the same level, and `&&` binds tighter than `||`.
+Ternary branches are parsed as full expressions; parenthesize
+nested ternaries instead of carrying over associativity assumptions from another language.
 
 <!-- joss-run: ["1", "true", "true"] -->
 ```joss
@@ -85,112 +81,116 @@ print(true || false && false)
 print(true || (false && false))
 ```
 
-Gives `1` , `true` and `true` .The first expression is `(8 * 5) % 3` .
+Produces `1`, `true`, and `true`. The first expression is `(8 * 5) % 3`.
 
 ## Evaluation
 
-- `+` , `-` , `*` : exact integers with checked overflow;promotion if there is
-float, decimal operations if decimal is involved.
-- `/` : float result for integers;decimal if decimal is involved.
-- `+=` , `-=` , `*=` , `/=` , `??=` : composite assignment and coalescent
-null assignment (`$a ??= $b` is equivalent to `$a = $a ?? $b` ) with strict type validation
-.
-- `%` : remainder integer;with float truncates operands to integer;decimal uses `Mod` .
-- `.` - represents operands as text and concatenates;`null` contributes empty text.
-- `..` : numeric range operator ( `$a..$b` );generates an integer sequence between
-both limits, useful in `foreach (1..10 as $i)` expressions and loops.
-- `"${...}"` - Flutter/Dart-style string interpolation inside double
-quotes.It allows embedding variables or expressions (e.g. `"${indice}"` , `"${a + b}"` ),
-, automatically desugaring string type concatenations.The `\${`
-escape prints `${` literally.
-- `++` , `--` : increments or decrements the numeric variable and returns the previous value.
-- `&&` , `||` : short circuit and bool result.`!`: denial of truthiness.
-- `==` / `!=` : numerical comparison where applicable;fallback using
-textual representation for other values.For collections prefer
-`===` / `!==`, based on structural comparison.
-- `===` : distinguishes integer, float, string and decimal;normalizes internal Go numeric
-variants before comparing.
-- `<=>` : returns `-1` , `0` or `1` ;compares numbers, strings, nulls and
-finally textual representations.
-- `??` : evaluates the right only if the left produces `null` .Errors when
-evaluate left are propagated and should be handled with `try` / `catch` .
-- `?:` (Elvis): preserve left if true according to truthiness.
-- Full, single-branch ternary: `cond ? expr : expr` and `(cond) ? { cuerpo }`
-(allows branch `: {}` to be skipped when false alternative is not required).
-- `match` : multiple selection by value;supports multiline expressions or blocks `{ ... }` .
-- `?->` : returns null before null receiver;It does not validate or correct other accesses.
-- `|>` : prepends the left value to the arguments of a function, called
-or closure.
-- `cout << valor` : prints without adding a break and returns `cout` .
-`canal << valor` : Send to channel.`cin >> $variable` - Adaptively reads
-from standard input (automatically converting to number if the
-variable or input is numeric and reading full lines with spaces if it is text).
+- `+`, `-`, `*`: exact integers with checked overflow; operations between `int` and `decimal` promote to `decimal`; mixing `int` with `float` or `float` with `decimal` requires explicit conversion (`JOSS-ARITH-003`).
+- `/`: `float` result for integers; `decimal` if `decimal` is involved.
+- `+=`, `-=`, `*=`, `/=`, `??=`: compound assignment and null-coalescing
+  assignment (`$a ??= $b` is equivalent to `$a = $a ?? $b`) with strict
+  type validation.
+- `%`: integer remainder; with float it truncates operands to integer; decimal uses `Mod`.
+- `.`: represents operands as text and concatenates; `null` contributes empty text.
+- `..`: numeric range operator (`$a..$b`); generates an integer sequence between
+  both bounds, useful in expressions and `foreach (1..10 as $i)` loops.
+- `"${...}"`: Flutter / Dart-style string interpolation inside double
+  quotes. Allows embedding simple variables (`"${indice}"`) or expressions (`"${$a + $b}"`),
+  automatically desugaring into string concatenations. The escape `\${`
+  prints `${` literally.
+- `++`, `--`: increments or decrements the numeric variable and returns the previous value.
+- `&&`, `||`: short-circuit evaluation and bool result. `!`: truthiness negation.
+- `==`/`!=`: numeric comparison when applicable; fallback via
+  textual representation for other values. For collections prefer
+  `===`/`!==`, based on structural comparison.
+- `===`: distinguishes integer, float, string, and decimal; normalizes internal
+  Go numeric variants before comparing.
+- `<=>`: returns `-1`, `0`, or `1`; compares numbers, strings, nulls, and
+  finally textual representations.
+- `??`: evaluates the right side only if the left side produces `null`. Errors when
+  evaluating the left side propagate and must be handled with `try`/`catch`.
+- `?:` (Elvis): keeps the left side if it is truthy according to truthiness rules.
+- Full and single-branch ternary: `cond ? expr : expr` and `(cond) ? { cuerpo }`
+  (allows omitting the `: {}` branch when no false alternative is needed).
+- `guard (cond) : { cuerpo }`: ensures `cond` is truthy; if falsy it executes the block, which must terminate control flow with `return` or `throw` (`JOSS-FLOW-005`).
+- `match`: strict multi-way value selection (`===`); accepts expressions or `{ ... }` blocks.
+- `?->`: returns null on a null receiver; does not validate or fix other accesses.
+- `|>`: prepends the left value to the arguments of a function, call,
+  or closure.
+- `cout << valor`: prints without adding a newline and returns `cout`.
+  `canal << valor`: sends to the channel. `cin >> $variable`: adaptively reads
+  from standard input (automatically converting to a number if the variable
+  or input is numeric and reading full lines with spaces if it is text).
 
-## Truthiness of values ​​
+## Value Truthiness
 
-Joss retains a small and uniform truthiness.They are fake: `null` , `false` ,
-zero of any numeric type, empty string, empty array and empty map.All remaining
-value is true;in particular, `"0"` is true because it is a non-empty
-string.`empty` uses this same interpretation after checking for the existence of the
-value.
+Joss maintains a small, uniform truthiness model. The following are falsy: `null`, `false`,
+zero of any numeric type, empty string, empty array, and empty map. Every
+remaining value is truthy; in particular, `"0"` is truthy because it is a
+non-empty string. `empty` uses this same interpretation after checking that the
+value exists.
 
-## Declarations and scopes
+## Declarations and Scopes
 
-|Shape |Effect |
+| Form | Classification and effect |
 |---|---|
-|`$x = valor` |First assignment declares/infers;then reassign.|
-|`var $x = valor` |Statement with fixed inference.|
-|`T $x = valor` , `let T $x = valor` |Explicit type.|
-|`let $x = valor` , `mixed $x = valor` |Explicit dynamic binding.|
-|`const [T] $x = valor` |Binding constant;requires initializer.|
-|`int $a = 1, $b = 2` |Multiple declaration of the same type.|
-|`public/private func f(T $p): R { ... }` |global function;optional return, typed parameters.|
-|`func(T $p): R { ... }` |Closure without visibility modifier.|
-|`public/private class C [extends B] [implements I1, I2] { ... }` |Class;Optional superclass and implemented interfaces.|
-|`public/private interface I [extends I1, I2] { ... }` |Interface;Bodyless public method contracts.|
-|`Init nombre(...) { ... }` |Initializer without modifier.|
+| `var $x = valor` | **Canonical**: Declaration with strict, fixed type inference. |
+| `T $x = valor` | **Canonical**: Declaration with explicit type (`int`, `string`, `Persona`, etc.). |
+| `mixed $x = valor` | **Canonical**: Voluntary explicit dynamism; allows changing type on reassignments. |
+| `const [T] $x = valor` | **Canonical**: Immutable constant binding; requires initializer. |
+| `int $a = 1, $b = 2` | **Canonical**: Multiple declaration of the same type. |
+| `$x = valor` (without prior declaration) | **Reassignment** if `$x` already exists; if not declared previously, emits error `JOSS-SYM-001` (and historical notice `JOSS-DECL-007`). |
+| `let [T] $x = valor` | **Transition**: Supported for compatibility, emits warning `JOSS-DECL-006`. Use `var`, `T`, or `mixed`. |
+| `public/private func f(T $p): R { ... }` | **Canonical**: Global function; typed parameters and `: R` or `: void` return. |
+| `func(T $p): R { ... }` | **Canonical**: Closure without visibility modifier. |
+| `public/private [abstract] class C [<T>] [extends B] [implements I1, I2] { ... }` | **Canonical**: Nominal class (with support for generics `<T>`, inheritance, and interfaces). |
+| `public/private record R(T $campo, ...)` | **Canonical**: Immutable data class with `public const` fields and automatic constructor. |
+| `public/private interface I [extends I1, I2] { ... }` | **Canonical**: Interface of bodiless public method contracts. |
+| `public/private enum E [: int\|string] { case ... }` | **Canonical**: Pure or backed enumeration (`int`/`string`). |
+| `public func constructor(...) { ... }` or `Init(...) { ... }` | **Canonical**: Instance initializer (`Init constructor(...)` is transition form `JOSS-DECL-008`). |
 
-Global functions/classes are registered before parsing bodies.
-Top-level variables are not implicit globals of functions with
-name.Each call uses its frame;A closure captures an environment.
-Visibility of methods and properties is mandatory.There are no signature
-overloads or general type parameter syntax.
+Global functions and classes are registered before analyzing bodies.
+Top-level variables are not implicit globals inside named
+functions. Each call uses its own frame; a closure captures its lexical environment.
+Visibility on methods and properties is mandatory. There is no signature
+overloading.
 
-## Blocks, collections and statements
+## Blocks, Collections, and Statements
 
-`[]` creates an array, `{}` creates an empty map in expression context and
-`{"clave": valor}` creates a non-empty map.A key in a place that requires a
-body (function/cycle) delimits a block.Blocks such as expressions are
-represented internally as ASTs and are not automatically executed in every context.
+`[]` creates an array, `{}` creates an empty map in expression context, and
+`{"clave": valor}` creates a non-empty map. A brace in a position that requires a
+body (function/loop) delimits a block.
 
-- Ternary: choose a value or execute the selected block;`return` can
-exit the callable from that block.
-- `while (condición) { ... }` : check before each lap.
-- `do { ... } while (condición)` : check later.
-- `foreach (array_o_canal as $valor)` or `foreach ($coleccion as $clave => $valor)` :
-traverses sequences, `1..$n` ranges, associative maps, and concurrency channels.
-- `break` and `continue`: exit/skip lap.
-- `defer { ... }` or `defer expresión;` : postpones the execution of the statement until
-the current frame ends (in LIFO order).
-- `[$a, $b] = $expr` : sequential destructuring of arrays in direct assignment.
-- `match (valor) { clave, clave => resultado, default => resultado }` : compare
-strictly, first matching arm;no match/default returns null.
-- `try { ... } catch ($error) { ... }` , `throw expresión` : runtime recovery.
-- `return [expresión]` : exits the callable.
-- `async { ... }` : creates a Future;is collected with `await(futuro)` .
+- Ternary: chooses a value or executes the selected block; `return` can
+  exit the callable from inside that block.
+- `guard (condición) : { ... }`: guard clause with mandatory exit (`return` or `throw`).
+- `while (condición) { ... }`: checks before each iteration.
+- `do { ... } while (condición)`: checks after each iteration.
+- `foreach (array_o_canal as $valor)` or `foreach ($coleccion as $clave => $valor)`:
+  iterates over sequences, `1..$n` ranges, associative maps, generators, and concurrency channels.
+- `break` and `continue`: exit/skip iteration.
+- `defer { ... }` or `defer expresión`: postpones execution until
+  the current frame finishes (in LIFO order).
+- `[$a, $b] = $expr`: sequential array destructuring.
+- `match (valor) { clave, clave => resultado, default => resultado }`: compares
+  strictly, first matching arm; without match/default returns null.
+- `try { ... } catch ($error) { ... }`, `throw expresión`: runtime recovery.
+- `return [expresión]`: exits the callable.
+- `async { ... }`: creates a `Future`; collected with `await($futuro)` or `await $futuro`.
+- `select { case ... default: ... }`: multiplexing over channels.
+- `yield [clave =>] valor`: lazy emission in generator functions.
 - `Console::*`: native module for ANSI colors (`Console::green`, `Console::red`, `Console::bold`, etc.).
-- `joss repl`: interactive environment per terminal (Read-Eval-Print Loop).
+- `joss repl`: interactive terminal environment (Read-Eval-Print Loop).
 
-## Absences and compatibility
+## Omissions and Compatibility
 
-There are no source imports, namespaces, file exports, interfaces, traits,
-protocols, ownership, manual pointers, classic `switch`, `for` or sugar syntax of arrow functions.
+There are no source imports, namespaces, file exports, traits,
+protocols, ownership, manual pointers, `switch`, classic `for`, or arrow function syntax sugar.
 `ref` only serves as a temporary parameter/argument and is not a storable pointer.
 
-`function` , `import` , `@import` , `use` , `Use` , `Import` ,
-`namespace` and `Namespace` generate deleted syntax errors.
-Names inherited from APIs are not necessarily valid source types:
-`is_integer` is still registered, `integer $x` is not an alias of `int` .
-
+`function`, `import`, `@import`, `use`, `Use`, `Import`,
+`namespace`, and `Namespace` generate removed-syntax errors (`JOSS-PARSE-001`).
+Legacy API names are not necessarily valid source types:
+`is_integer` remains registered as a built-in function, but `integer $x` is not an alias for `int` (`JOSS-TYPE-009`).
 
 [Index](README.md)

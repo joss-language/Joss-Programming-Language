@@ -12,12 +12,12 @@ Una **aplicación web** es un programa que corre en un servidor escuchando petic
 A diferencia de otros lenguajes donde necesitas instalar servidores externos complejos (como Apache, Nginx o paquetes pesados de Node.js), **Joss incluye su propio servidor HTTP de alto rendimiento, router dinámico y motor de plantillas HTML**.
 
 En este tutorial guiado construirás tu primera aplicación web basada en el patrón arquitectónico **MVC (Modelo - Vista - Controlador)**:
-1. Crear la estructura del proyecto usando el generador de plantillas `joss new web`.
+1. Crear la estructura del proyecto usando el generador de plantillas `joss new` (`joss new web`).
 2. Comprender el flujo de una petición web en Joss.
-3. Definir una ruta con parámetros dinámicos en `routes.joss`.
+3. Configurar el puerto en `env.joss` y definir una ruta con parámetros dinámicos en `routes.joss`.
 4. Crear un controlador en `app/controllers/` que procese la lógica.
 5. Diseñar una vista HTML segura en `app/views/` con escape automático contra inyecciones XSS.
-6. Poner en marcha el servidor y probar la aplicación en el navegador.
+6. Poner en marcha el servidor con `joss server start` y probar la aplicación en el navegador.
 
 ---
 
@@ -50,7 +50,7 @@ Cuando un usuario escribe una dirección en su navegador, ocurre la siguiente se
 
 ## 2. Generar el proyecto web
 
-Abre tu terminal y ejecuta el generador oficial:
+Abre tu terminal y ejecuta el generador oficial (puedes escribir `joss new saludo_web` o explícitamente `joss new web saludo_web`):
 
 ```bash
 joss new web saludo_web
@@ -58,10 +58,10 @@ cd saludo_web
 ```
 
 Este comando creará la estructura estándar de una aplicación web Joss:
-- `main.joss`: Punto de entrada del servidor.
+- `main.joss`: Punto de entrada del proyecto.
 - `env.joss`: Variables de configuración (puerto, base de datos, claves secretas).
-- `routes.joss`: El mapa de URLs de la aplicación.
-- `app/controllers/`: Dónde residen los controladores.
+- `routes.joss` y `api.joss`: El mapa de URLs web y endpoints API de la aplicación.
+- `app/controllers/`: Dónde residen los controladores (organizados en `web/`, `auth/`, `api/`).
 - `app/models/`: Modelos de base de datos con GranDB.
 - `app/views/`: Plantillas HTML dinámicas (`.joss.html`).
 - `public/`: Archivos estáticos directos (hojas de estilo CSS, scripts JS, imágenes).
@@ -70,12 +70,15 @@ Este comando creará la estructura estándar de una aplicación web Joss:
 
 ## 3. Configurar el puerto del servidor
 
-Abre el archivo `env.joss` en la raíz del proyecto. Verás una línea que define el puerto. Asegúrate de configurar un puerto disponible (por ejemplo `8080`):
+Abre el archivo `env.joss` en la raíz del proyecto. Por defecto la plantilla genera `PORT="80"`. Para desarrollar localmente sin permisos de administrador, cámbialo a un puerto libre como `"8080"`:
 
 ```joss
-PORT = "8080"
-APP_NAME = "Mi Web Joss"
+PORT="8080"
+APP_NAME="Mi Web Joss"
 ```
+
+> [!NOTE]
+> `env.joss` es un archivo de configuración de entorno que Joss carga automáticamente al arrancar; no es un script ejecutable para correr con `joss run env.joss`.
 
 ---
 
@@ -110,9 +113,9 @@ public class SaludoController {
 ```
 
 ### Anatomía del controlador:
-1. `public class SaludoController`: Clase pública que Joss descubre automáticamente sin necesidad de `import`.
+1. `public class SaludoController`: Clase pública que Joss descubre automáticamente dentro de `app/` sin necesidad de `import`.
 2. `public func show(string $nombre)`: El método recibe el parámetro dinámico `{nombre}` capturado por la ruta. En Joss, los parámetros del controlador deben declarar su tipo (`string $nombre`).
-3. `$nombreLimpio = trim($nombre)`: Limpia posibles espacios en blanco en los extremos.
+3. `var $nombreLimpio = trim($nombre)`: Limpia posibles espacios en blanco en los extremos.
 4. `return view("saludo", {"nombre": $nombreLimpio})`:
    - Llama a la función nativa `view(...)`.
    - El primer argumento es el nombre del archivo de plantilla (buscará `app/views/saludo.joss.html`).
@@ -161,7 +164,7 @@ En tu terminal, ubicado en la raíz del proyecto `saludo_web`, escribe:
 joss server start
 ```
 
-Verás el mensaje de confirmación del servidor HTTP:
+(O bien su atajo equivalente `joss server`). Verás el mensaje de confirmación del servidor HTTP:
 
 ```text
 [CLI] Ejecutando script de inicio (main.joss)...
@@ -179,7 +182,7 @@ Verás la tarjeta estilizada saludando a Ana. Ahora prueba a cambiar la URL a:
 
 El servidor responderá al instante con el nuevo saludo.
 
-Para detener el servidor en cualquier momento, presiona simplemente la tecla **`q`** en tu terminal.
+Para detener el servidor en cualquier momento, presiona simplemente la tecla **`q`** o `Ctrl + C` en tu terminal.
 
 ---
 
@@ -194,8 +197,24 @@ joss check .
 
 ---
 
+## 9. Ejercicios prácticos
+
+### Nivel 1 — Prueba rápida
+Pasa un segundo dato desde `SaludoController@show` hacia la vista agregando `"rol": "Desarrollador Joss"` al mapa de `view(...)` y muéstralo dentro de `saludo.joss.html` debajo del título usando `<p>Rol: {{ $rol }}</p>`.
+
+### Nivel 2 — Ejercicio guiado
+1. Abre `api.joss` (o `routes.joss`) y registra una ruta `Router::get("/api/estado", "SaludoController@estado")`.
+2. Añade en `SaludoController` el método `public func estado()` que retorne `Response::json({"ok": true, "servidor": "Joss HTTP"})`.
+3. Visita `http://127.0.0.1:8080/api/estado` en tu navegador y comprueba la respuesta JSON.
+
+### Nivel 3 — Reto
+1. Registra una ruta con dos parámetros dinámicos: `Router::get("/calcular/{a}/{b}", "SaludoController@sumar")`.
+2. Implementa `public func sumar(string $a, string $b)` en `SaludoController`, convierte ambos parámetros con `intval($a)` e `intval($b)`, calcula su suma y renderiza una vista o respuesta JSON con el detalle de la operación.
+
+---
+
 ## Siguiente paso
 
-Ahora que conoces el ciclo completo de una petición web, puedes explorar las capacidades avanzadas del stack web de Joss: autenticación de usuarios, middlewares de seguridad, bases de datos GranDB y WebSockets en tiempo real:
+Ahora que conoces el ciclo completo de una petición web, puedes explorar las capacidades avanzadas del stack web de Joss y el sistema de tipos completo del lenguaje:
 
-Continúa con: [HTTP y Controladores](CONTROLADORES.md), [Middlewares y Seguridad](MIDDLEWARE.md) y [Modelos GranDB](MODELOS.md).
+Continúa con: [Sistema de tipos y coerción](SISTEMA_TIPOS.md), [HTTP y Controladores](CONTROLADORES.md), [Middlewares y Seguridad](MIDDLEWARE.md) y [Modelos GranDB](MODELOS.md).

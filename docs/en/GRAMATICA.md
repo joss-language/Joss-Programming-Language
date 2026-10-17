@@ -3,34 +3,38 @@
 [Index](README.md)
 
 Before: [syntax](SINTAXIS.md). Go deeper: [architecture](ARQUITECTURA.md).
-This grammar summarizes the implemented productions. Does not replace the parser
-Pratt does not promise to accept all the programs that an isolated EBNF would produce:
-the visibility, types, and valid locations of `ref` are then validated.
+This grammar summarizes the implemented productions. It does not replace the Pratt
+parser nor promise to accept all programs that an isolated EBNF would produce:
+visibility, types, and valid locations of `ref` are validated afterwards.
 
 ## Notation
 
-Quotation marks indicate literal text. `[...]` indicates optional; `{...}` repeat;
+Quotation marks indicate literal text. `[...]` indicates optional; `{...}` repetition;
 `|` separates alternatives. `expr` uses the reference precedence table.
-`sep` is end of line or `;`; lists allow new lines and trailing commas.
+`sep` is end of line or `;`; lists allow newlines and trailing commas.
 
 ```ebnf
 programa      = { sentencia [sep] } ;
-sentencia     = declaracion | funcion | clase | interfaz | enum | inicializador | select
+sentencia     = declaracion | destructuracion | funcion | clase | record | interfaz | enum
+              | inicializador | guard | defer | select
               | "return" [expr] | "throw" expr
               | "break" | "continue" | ciclo | captura
               | ("print" | "echo") ["("] expr [")"] | expr ;
 variable      = "$" identificador ;
 declaracion   = [visibilidad] ["static"] ["const"]
-                ("let" [tipo] | tipo) variable ["=" expr]
+                ("var" | "let" [tipo] | tipo) variable ["=" expr]
                 {"," variable ["=" expr]} ;
+destructuracion = "[" [variable] {"," [variable]} "]" "=" expr ;
 funcion       = [visibilidad] ["abstract"] ["static"] "func" identificador firma (bloque | [sep]) ;
 firma         = "(" [parametros] ")" [":" tipo] ;
 parametros    = parametro {"," parametro} [","] ;
-parametro     = [visibilidad] ["ref"] tipo variable ["=" expr] ;
+parametro     = [visibilidad] ["const"] ["ref"] tipo variable ["=" expr] ;
 closure       = "func" firma bloque ;
-clase         = visibilidad ["abstract"] ["static"] "class" identificador
+clase         = visibilidad ["abstract"] ["static"] "class" identificador ["<" identificador {"," identificador} ">"]
                 ["extends" identificador]
                 ["implements" identificador {"," identificador}] "{" {miembro} "}" ;
+record        = visibilidad "record" identificador "(" [parametrosRecord] ")" ;
+parametrosRecord = [visibilidad] ["const"] tipo variable ["=" expr] {"," [visibilidad] ["const"] tipo variable ["=" expr]} ;
 interfaz      = visibilidad "interface" identificador
                 ["extends" identificador {"," identificador}] "{" {protoMetodo} "}" ;
 enum          = visibilidad "enum" identificador [":" tipo] "{" {casoEnum} "}" ;
@@ -38,6 +42,8 @@ casoEnum      = "case" identificador ["=" expr] [sep] ;
 protoMetodo   = [visibilidad] "func" identificador "(" [parametros] ")" [":" tipo] [sep] ;
 miembro       = declaracion | funcion | inicializador ;
 inicializador = "Init" [identificador] "(" [parametros] ")" bloque ;
+guard         = "guard" "(" expr ")" ":" bloque ;
+defer         = "defer" (bloque | sentencia) ;
 visibilidad   = "public" | "private" | "protected" ;
 tipo          = simple {"|" simple} ["?"] ;
 simple        = nombreTipo ["<" tipo {"," tipo} ">"] ;
@@ -57,61 +63,62 @@ brazo         = ("default" | expr {"," expr}) "=>" (expr | bloque) [","] ;
 llamada       = expr "(" [argumento {"," argumento} [","]] ")" ;
 argumento     = expr | "ref" variable | identificador ":" expr | "..." expr ;
 yield         = "yield" [expr ["=>" expr]] ;
+await         = "await" ( "(" expr ")" | expr ) ;
 comprobacion  = expr ("is" | "instanceof") tipo ;
 acceso        = expr ("->" | "?->" | "::") nombreMiembro ;
 indice        = expr "[" [expr] "]" ;
-nuevo         = "new" identificador "(" [argumentos] ")" ;
+nuevo         = "new" identificador ["<" tipo {"," tipo} ">"] "(" [argumentos] ")" ;
 asincrono     = "async" bloque ;
 ```
 
 ## Restrictions that the notation does not express
 
-- `protected` only applies to members, not global classes/functions.
-- `static` requires explicit visibility. `Init` and closures do not have it.
+- `protected` only applies to class members, not global classes/functions.
+- `static` requires explicit visibility. `Init` and closures do not carry it.
 - The parser preserves untyped parameters to be able to emit `JOSS-TYPE-011`;
   valid code grammar requires the type.
 - `const` requires an initializer and has its own parsing path.
 - Canonical type names are described in [types](SISTEMA_TIPOS.md);
   accepting the name in the parser does not prove that a class exists.
-- The only semantic genericity implemented is that of arrays/maps.
-- An empty index only works for append as an allocation destination.
-- In expression, `{}` is interpreted as empty map. A mandatory body
-  parse as a block. `{ "a": 1 }` is distinguished from a block by `:`.
-- Ternary uses `cond ? expr : expr`, `cond ?: expr` or single branch conditional
-  `(cond) ? bloque`; its branches support blocks or expressions. `match` evaluates and
-  executes both expressions and blocks of multiline statements.
-- Strings with double quotes support expression interpolation `${expr}`
-  desugaring to concatenation `.`. Numerical range operators are incorporated
-  `..`, postfix decrement `--` and coalescent null assignment `??=`.
+- An empty index `[]` only works for append as an assignment target (`$arr[] = $v`).
+- In an expression, `{}` is interpreted as an empty map. A mandatory body is
+  parsed as a block. `{ "a": 1 }` is distinguished from a block by `:`.
+- Ternary uses `cond ? expr : expr`, `cond ?: expr`, or single-branch conditional
+  `(cond) ? bloque`; its branches accept blocks or expressions.
+- `guard (cond) : { ... }` requires its block to exit the callable via `return` or `throw` (`JOSS-FLOW-005`).
+- Double-quoted strings support expression interpolation `${expr}`
+  desugared to `.` concatenation. Numeric range operators
+  `..`, postfix decrement `--`, and null-coalescing assignment `??=` are incorporated.
 - `async expresión` is still a parser route, with early evaluation
-  of the argument; `async(...)` is rejected. The recommended shape is the block.
-- Calls, arrays and signatures allow trailing commas. The continuity of a
-  expression after a jump is decided by `isExpressionContinuation`; not all
-  postfix tokens have identical treatment (for example `?->`).
+  of the argument; `async(...)` is rejected. The recommended form is the block `async { ... }`.
+- Calls, arrays, and signatures allow trailing commas. Continuation of an
+  expression after a newline is decided by `isExpressionContinuation`.
 
 ## From text to node
 
 | Production | Parser | AST Node |
 |---|---|---|
 | Program | `ParseProgram` | `Program` |
-| Expression by precedence | `parseExpression`, prefix/infix logs | `Expression` and concrete types |
+| Expression by precedence | `parseExpression`, prefix/infix registries | `Expression` and concrete types |
 | Assignment | `parseAssignExpression` | `AssignExpression` |
-| Declared variable | Routes from `parseStatement` | `LetStatement`, `MultiLetStatement` |
+| Declared variable | Routes of `parseStatement` | `LetStatement`, `MultiLetStatement` |
+| Destructuring | `parseDestructureStatement` | `DestructureStatement` |
 | Global function/method | `parseMethodStatement` | `MethodStatement` |
 | Closure | `parseFunctionLiteral` | `FunctionLiteral` |
 | Type | `parseTypeReference` | Normalized token preserved in declaration/signature |
-| Class/Init | `parseClassStatement`, `parseInitStatement` | `ClassStatement`, `InitStatement` |
+| Class / Record / Init | `parseClassStatement`, `parseRecordStatement`, `parseInitStatement` | `ClassStatement`, `InitStatement` |
 | Interface | `parseInterfaceStatement` | `InterfaceStatement` |
 | Enum | `parseEnumStatement` | `EnumStatement` |
+| Guard | `parseGuardStatement` | `GuardStatement` |
+| Defer | `parseDeferStatement` | `DeferStatement` |
 | Select | `parseSelectStatement` | `SelectStatement` |
 | Yield | `parseYieldExpression` | `YieldExpression` |
 | Spread | `parseSpreadExpression` | `SpreadExpression` |
-| Type checking | `parseIsInfix` | `IsExpression` |
-| Cycles | `parseForeachStatement`, `parseWhileStatement`, `parseDoWhileStatement` | Your statement nodes |
+| Type check | `parseIsInfix` | `IsExpression` |
+| Loops | `parseForeachStatement`, `parseWhileStatement`, `parseDoWhileStatement` | Their statement nodes |
 | Error | `parseTryCatchStatement`, `parseThrowStatement` | `TryCatchStatement`, `ThrowStatement` |
-| Defer | `parseDeferStatement` | `DeferStatement` |
-| Async | `parseAsyncExpression` | `CallExpression` to `async` with captured function |
+| Async / Await | `parseAsyncExpression`, `parseAwaitExpression` | `CallExpression` to `async`, `PrefixExpression` / `CallExpression` |
 
-The files are `pkg/parser/parser*.go`, `ast*.go`, `lexer.go` and `token.go`.
+The files are `pkg/parser/parser*.go`, `ast*.go`, `lexer.go`, and `token.go`.
 To add syntax, update positive and negative tests before changing
-this reference. Don't convert residual token names into public features.
+this reference. Do not turn residual token names into public features.

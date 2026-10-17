@@ -1,6 +1,6 @@
 # Sistema de tipos, inferencia y conversiones
 
-Antes: [Colecciones: Arrays, Maps y Texto](COLECCIONES.md). Después: [Clases y objetos](CLASES.md).
+Antes: [Proyecto web completo](PROYECTO_WEB.md), [Colecciones](COLECCIONES.md). Después: [Referencia de sintaxis](SINTAXIS.md), [Diagnósticos](DIAGNOSTICOS.md).
 Referencia técnica: [Diagnósticos](DIAGNOSTICOS.md), [Sintaxis](SINTAXIS.md).
 
 ---
@@ -15,10 +15,10 @@ En Joss, el sistema de tipos cumple un doble propósito:
 
 En esta guía aprenderás:
 1. La lista canónica de tipos de datos en Joss y por qué ciertos nombres antiguos (*aliases*) ya no son válidos.
-2. Cómo funciona la **inferencia de tipos** y las diferencias entre `$x = ...`, `var`, `mixed` y declaraciones explícitas.
-3. El funcionamiento de los **tipos unión** (`T|U`) y valores opcionales anulables (`T?`).
-4. Cómo funciona la compatibilidad y la ampliación de números (`int → float → decimal`).
-5. Colecciones tipadas con genéricos (`array<T>` y `map<K, V>`).
+2. Cómo funciona la **inferencia de tipos** y las diferencias entre `var`, tipos explícitos, `mixed` y `const`.
+3. El funcionamiento de los **tipos unión** (`T|U`), valores opcionales anulables (`T?`) y el tipo de retorno `: void`.
+4. Cómo funciona la compatibilidad y la promoción numérica exacta (`int → decimal`) y por qué mezclar con `float` exige conversión explícita (`JOSS-ARITH-003`).
+5. Colecciones tipadas con genéricos (`array<T>`, `map<K, V>`, `channel<T>`, `Result<T, E>`).
 6. La regla de coerción de cadenas (`typesystem.CoerceString`) y las protecciones aritméticas de seguridad.
 
 ---
@@ -39,8 +39,9 @@ La fuente de verdad canónica del compilador (`pkg/typesystem/types.go`) reconoc
 | `object` | Instancia genérica de una clase | Instancia de clase de usuario o nativa | `object $instancia = new Persona()` |
 | `channel` | Canal de comunicación concurrente | `*core.Channel` (canal Go de mensajes) | `channel $c = make_chan(1)` |
 | `mixed` | Dinamismo explícito y polimorfismo | Cualquier valor válido del runtime | `mixed $dato = "dinamico"` |
-| `null` / `nil` | Ausencia de valor | Representación `nil` | `null` |
-| Nombre de clase | Tipo nominal definido por el usuario o nativo | Instancia de la clase correspondiente | `Persona $p = new Persona()` |
+| `void` | Terminación sin valor (solo retorno de callable) | Sin valor de retorno (`nil`) | `public func log(): void` |
+| `null` | Ausencia de valor | Representación `nil` | `null` |
+| Nombre de clase / interfaz / enum | Tipo nominal definido por el usuario o nativo | Instancia o caso correspondiente | `Persona $p = new Persona()` |
 
 ### Los antiguos aliases eliminados
 
@@ -53,7 +54,7 @@ La fuente de verdad canónica del compilador (`pkg/typesystem/types.go`) reconoc
 
 ## 2. Inferencia y formas de declarar variables
 
-Joss combina la agilidad de los lenguajes dinámicos con la seguridad de los lenguajes fuertemente tipados:
+Joss combina la agilidad de la inferencia moderna con la seguridad de los lenguajes fuertemente tipados:
 
 <!-- joss-run: ["30", "Ada", "pendiente"] -->
 ```joss
@@ -69,16 +70,18 @@ print($resultado)
 
 ### Reglas semánticas de declaración:
 
-1. **Inferencia por asignación simple (`$x = 20`) o con `var` (`var $x = 20`)**:
-   - En la primera asignación, Joss inspecciona el valor y fija el tipo concreto (en este caso `int`).
-   - Las asignaciones posteriores **deben ser compatibles** con ese tipo. Si intentas meter un texto, el analizador rechazará el programa con `JOSS-TYPE-001`.
+1. **Inferencia canónica con `var` (`var $x = 20`)**:
+   - En la declaración, Joss inspecciona el valor inicial y fija el tipo concreto (en este caso `int`).
+   - Las reasignaciones posteriores (`$x = 30`) **deben ser compatibles** con ese tipo. Si intentas meter un texto, el analizador rechazará el programa con `JOSS-TYPE-001`.
 2. **Declaración explícita (`string $nombre = "Ada"`)**:
    - Fija el tipo de forma visible y documentada.
 3. **Dinamismo voluntario (`mixed $resultado = 10`)**:
    - Le indica al analizador que esta variable cambiará de naturaleza a lo largo del tiempo. Puedes reasignarle un texto, un mapa o una clase sin errores.
-   - `let $resultado = 10` es un atajo sintáctico que produce exactamente una variable `mixed`.
-4. **Inicialización con `null`**:
-   - Si escribes `$x = null` sin tipo, la inferencia se **pospone** hasta la primera asignación que contenga un valor concreto.
+   - `let $resultado = 10` es una sintaxis histórica en transición (`JOSS-DECL-006`); prefiere siempre `mixed $resultado = 10`.
+4. **Prohibición de variables no declaradas (`$x = 20` directo)**:
+   - Asignar por primera vez a una variable sin haberla declarado previamente con `var`, un tipo explícito, `mixed` o `const` emite `JOSS-SYM-001` (y el aviso de transición `JOSS-DECL-007`).
+5. **Inicialización con `null`**:
+   - Si escribes `var $x = null`, la inferencia se **pospone** hasta la primera asignación que contenga un valor concreto.
 
 ---
 
@@ -102,23 +105,23 @@ print($cantidad ?? "sin dato")
 
 1. **Sintaxis con barra vertical (`|`)**: `int|string` significa que la variable solo aceptará enteros o textos, pero rechazará booleanos o listas.
 2. **El atajo de interrogación (`?`)**: Escribir `int?` es exactamente equivalente a escribir `int|null`. El AST del compilador lo normaliza automáticamente a una unión con `null`.
-3. **Refinamiento de tipos (Narrowing) en ternarios**:
-   Si tienes una variable `string? $nombre` y preguntas `($nombre != null)`, dentro de la rama verdadera el analizador sabe que `$nombre` ya no puede ser nulo, permitiéndote acceder a sus operaciones de texto de forma segura.
+3. **Refinamiento de tipos (Smart Cast Narrowing)**:
+   Si tienes una variable `string? $nombre` y la filtras con `guard ($nombre != null) : { return "" }` o con un ternario `($nombre != null) ? { ... }`, el analizador estrecha automáticamente su tipo a `string` no nulo en la ruta validada.
 
 ---
 
-## 4. Reglas de compatibilidad y asignación
+## 4. Reglas de compatibilidad y promoción numérica
 
 ¿Cuándo puede un valor de tipo origen asignarse a una variable de tipo destino?
 
 ```text
 int ──────────► decimal
-    promoción exacta
+    promoción exacta (única implícita)
 ```
 
 1. **Mismo tipo**: Siempre permitido.
-2. **`int → decimal`**: Permitido automáticamente porque conserva el valor exacto.
-3. **`int → float` y `float → decimal`**: Requieren conversión explícita. La primera puede perder enteros grandes y la segunda sólo puede conservar la aproximación binaria que ya existe.
+2. **`int → decimal`**: Es la **única promoción numérica implícita** entre tipos distintos porque conserva el valor exacto en base diez sin pérdida de precisión.
+3. **`int → float` y `float → decimal`**: **Requieren conversión explícita** (`floatval($entero)` o `decimal($flotante)`). La primera puede perder precisión en enteros grandes ($> 2^{53}$) y la segunda sólo conserva la aproximación binaria previa. Intentar mezclarlos implícitamente emite `JOSS-ARITH-003` o `JOSS-TYPE-001`/`002`.
 4. **`Clase → object`**: Cualquier instancia de clase es compatible con el tipo universal `object`.
 5. **`Subclase → Superclase`**: Una clase derivada que extiende a una clase base es aceptada donde se espere la clase base.
 6. **`Clase → Interfaz`**: Una clase que implementa una interfaz (`implements`) es compatible donde se declare dicha interfaz como tipo.
@@ -126,18 +129,16 @@ int ──────────► decimal
 
 Las operaciones que mezclan `int` con `float`, o `float` con `decimal`, también
 requieren convertir deliberadamente uno de los operandos. La división de dos
-enteros produce `float`; si un operando no puede representarse exactamente, el
+enteros produce `float`; si un operando no puede representarse exactamente en IEEE-754, el
 analyzer emite `JOSS-ARITH-003` cuando lo conoce y el runtime mantiene la misma
-defensa. Para importes, porcentajes e impuestos usa literales `decimal` y evita
+defensa. Para importes, porcentajes e impuestos usa literales `decimal` (`19.99m`) y evita
 pasar primero por `float`.
-
-Cualquier otra mezcla (como intentar meter un `string` en un `int` o un `bool` en un `array`) será bloqueada por el analizador con `JOSS-TYPE-001` (Type Mismatch).
 
 ---
 
 ## 5. Colecciones tipadas (Genéricos de primer nivel)
 
-Aunque Joss no tiene plantillas genéricas complejas en funciones de usuario, sí permite parametrizar las dos estructuras de datos principales:
+Joss permite parametrizar colecciones y contenedores:
 
 <!-- joss-run: ["6", "2"] -->
 ```joss
@@ -153,7 +154,7 @@ print($inventario["pan"])
 - `Result<T, E>`: Tipo canónico para resultados de operaciones que pueden tener éxito con valor de tipo `T` o fallar con error de tipo `E`.
 - `Clase<T>`: Clases con parámetros formales de tipo genérico (ej. `Caja<T>`).
 
-`array<T>`, `map<K, V>` y `channel<T>` son mutables y por ello sus parámetros son **invariantes**. Por ejemplo, `array<int>` no puede reutilizarse como `array<float>`, aunque un `int` individual pueda promoverse a `float`: permitir el alias dejaría insertar después un `float` visible desde una referencia que promete contener sólo `int`. Las colecciones sin parámetro conservan compatibilidad por transición, pero al cruzar hacia una colección tipada emiten `JOSS-TYPE-012` porque otro alias todavía podría mutarlas sin respetar el tipo.
+`array<T>`, `map<K, V>` y `channel<T>` son mutables y por ello sus parámetros son **invariantes**. Por ejemplo, `array<int>` no puede reutilizarse como `array<decimal>`, aunque un `int` individual pueda promoverse a `decimal`: permitir el alias dejaría insertar después un `decimal` fraccionario visible desde una referencia que promete contener sólo `int`. Las colecciones sin parámetro conservan compatibilidad por transición, pero al cruzar hacia una colección tipada emiten `JOSS-TYPE-012` porque otro alias todavía podría mutarlas sin respetar el tipo.
 
 Al indexar una colección parametrizada (por ejemplo `$cantidades[0]`), el analizador infiere de inmediato que el resultado es de tipo `int`, garantizando la seguridad en el resto del código.
 
@@ -227,7 +228,7 @@ print($numero instanceof int)
 
 En aplicaciones web, los datos que llegan desde formularios HTTP o peticiones JSON son cadenas de texto crudas (por ejemplo, `"8080"` o `"true"`).
 
-Joss implementa una política compartida de coerción textual (`CoerceString`) tanto en el analizador estático como en el runtime:
+Joss implementa una política compartida de coerción textual (`CoerceString`) tanto en el analizador estático como en el runtime cuando asignas un literal o cadena a una variable con tipo explícito:
 
 <!-- joss-run: ["9000", "49.99", "true"] -->
 ```joss
@@ -258,6 +259,7 @@ Si el texto no se puede convertir (por ejemplo `int $x = "manzana"`), el analiza
 |---|---|---|
 | Desbordamiento entero | Las operaciones con enteros de 64 bits (`+`, `-`, `*`) se verifican contra overflow. Si superan los límites de 64 bits, la ejecución se interrumpe de inmediato. | `JOSS-ARITH-001` |
 | División por cero | Dividir o calcular el resto de un número entre cero (`$n / 0` o `$n % 0`) produce un error controlado en vez de valores `NaN` o `Infinity` inesperados. | `JOSS-ARITH-002` |
+| Pérdida de precisión implícita | Mezclar `int` y `float`, `float` y `decimal`, o dividir enteros fuera de rango exacto IEEE-754 sin conversión explícita es rechazado. | `JOSS-ARITH-003` |
 | Índice fuera de rango | Acceder a un índice negativo o superior a la longitud de una lista o cadena detiene el programa de forma estructurada. | `JOSS-INDEX-001` |
 
 ---
@@ -266,17 +268,16 @@ Si el texto no se puede convertir (por ejemplo `int $x = "manzana"`), el analiza
 
 | Código | Significado | Solución habitual |
 |---|---|---|
-| `JOSS-TYPE-001` | Reasignación con tipo incompatible (ej. `$x = 1; $x = "hola"`). | Mantén el tipo homogéneo o declara la variable explícitamente como `mixed $x`. |
+| `JOSS-TYPE-001` | Reasignación con tipo incompatible (ej. `var $x = 1; $x = "hola"`). | Mantén el tipo homogéneo o declara la variable explícitamente como `mixed $x`. |
 | `JOSS-TYPE-002` | Valor inicial incompatible con la anotación de tipo. | Corrige el valor inicial para que coincida con el tipo declarado. |
 | `JOSS-TYPE-008` | El valor retornado por una función no coincide con el tipo prometido en `: Tipo`. | Revisa la expresión de `return` para que entregue el tipo prometido. |
 | `JOSS-TYPE-009` | Nombre de tipo o clase inexistente (incluye aliases retirados como `integer`). | Reemplaza `integer`, `double`, `boolean`, `any` por sus nombres canónicos: `int`, `float`, `bool`, `mixed`. |
 | `JOSS-TYPE-010` | Una función tipada puede terminar sin ejecutar un `return` o `throw`. | Asegúrate de que todas las ramas ternarias concluyan con un valor devuelto. |
 | `JOSS-TYPE-011` | Se declaró un parámetro sin tipo (`func($x)`). | Escribe el tipo del parámetro: `func(int $x)` o `func(mixed $x)`. |
+| `JOSS-TYPE-014` | Una función o método con nombre omitió su tipo de retorno. | Añade `: Tipo` o `: void` en la firma de la función. |
 
 ---
 
 ## Siguiente paso
 
-Ahora que comprendes el sistema de tipos, las uniones y las conversiones seguras, daremos el siguiente paso hacia el modelado de dominio y la programación orientada a objetos:
-
-Continúa con: [Clases, objetos, métodos y herencia](CLASES.md).
+Para consultar todos los códigos de diagnóstico del analizador y sus ejemplos de corrección, continúa con: [Catálogo y referencia de diagnósticos](DIAGNOSTICOS.md).

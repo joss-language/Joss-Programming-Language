@@ -2,34 +2,35 @@
 
 [Índice](README.md)
 
-## Status atual
+## Estado atual: Descoberta automática sem `import`
 
-O projeto é organizado como um conjunto de arquivos `.joss`, mas cada comando
-Escolha uma superfície específica. `joss analyze` carrega a entrada indicada e tudo mais
-`app/`; ele não adiciona automaticamente `routes.joss` ou `api.joss`. O servidor carrega
-suas rotas através de sua própria infraestrutura. O tempo de execução `joss run` pré-carrega apenas o
-domínios padrão em `app/` e hoje omite `app/libs`, embora o analisador não
-vá. Esta assimetria é registada como dívida.
+No Joss, um projeto é organizado como um conjunto de arquivos `.joss` que compartilham um espaço global de declarações públicas sem necessidade de escrever instruções `import` manuais:
 
-As formas históricas `import`, `use`, `@import` e `Namespace` foram removidas do conjunto de tokens, AST, executor e compilador de plugins. O analisador os rejeita com uma mensagem de migração. Esta ausência é uma decisão permanente da linguagem: não haverá exportações, namespaces de origem ou gráfico de importações.
+- O carregador canônico `semanticanalyzer.LoadProject("main.joss", "app")` constrói a unidade de projeto descobrindo automaticamente o arquivo de entrada (`main.joss`), os arquivos de rotas (`routes.joss`, `api.joss`) e todos os arquivos `.joss` dentro de `app/` (incluindo `controllers`, `models`, `middleware`, `services`, `libs`, `database`, etc.).
+- Esse conjunto validado produz um `PreparedProgram` único que é consumido diretamente por `joss run` (`Runtime.ExecutePrepared`), `joss server` e `joss build`.
+- Visibilidade entre arquivos:
+  - As classes, interfaces, enums e funções declaradas como `public` são visíveis em todos os arquivos do projeto.
+  - As declaradas como `private` estão restritas exclusivamente ao arquivo `.joss` onde foram definidas (`JOSS-ACCESS-001`).
 
-##Plugins
+As formas históricas `import`, `use`, `@import` e `Namespace` foram eliminadas do conjunto de tokens, AST, executor e compilador de plugins. O parser as rejeita com uma mensagem de migração (`JOSS-PARSE-001`). Esta ausência é uma decisão permanente da linguagem: não haverá exports, namespaces fonte nem grafo de imports manuais.
 
-A extensibilidade modular atual usa pacotes `.jp`:
+## Plugins
 
-- Eles são declarados em `joss.yaml` ou colocados em `plugins/`.
-- O tempo de execução verifica e carrega-os automaticamente.
+A extensibilidade modular externa vigente usa pacotes `.jp`:
+
+- São declarados em `joss.yaml` ou colocados em `plugins/`.
+- O runtime os verifica criptograficamente e os carrega automaticamente.
 - Cada pacote publica `META-INF/joss-symbols.json`.
-- O analisador consome esse índice para resolver classes, métodos e funções exportados sem executar o plugin.
+- O analyzer consome esse índice para resolver classes, métodos e funções exportadas sem executar o plugin.
 
-Um símbolo externo que não aparece no índice não é inventado ou adicionado a uma lista manual do analisador: o pacote ou a geração de seu símbolo devem ser corrigidos.
+Um símbolo externo que não conste no índice não é inventado nem adicionado a uma lista manual do analyzer: deve-se corrigir o pacote ou sua geração de símbolos.
 
 ## Arquivos incluídos por infraestrutura
 
-Rotas, controladores, modelos e middleware são descobertos com base no layout do projeto e CLI/tempo de execução. Essa inclusão física não cria um namespace por arquivo; Funções e classes de nível superior compartilham o espaço de declaração do projeto e suas duplicatas são diagnosticadas.
+Rotas, controladores, modelos, serviços, bibliotecas e middleware sob `app/` são descobertos automaticamente segundo o layout de projeto. Esta inclusão física não cria um namespace por arquivo; as funções e classes `public` top-level compartilham o espaço de declarações do projeto e suas duplicatas são diagnosticadas (`JOSS-SYM-002`, `JOSS-DECL-004`).
 
-## Decisão quanto à tese
+## Decisão em relação à tese
 
-O capítulo 11 da tese descreve módulos de origem com interfaces, exportações e um DAG. A implementação toma uma decisão diferente: “modular” no ALIM significa recursos integrados desacoplados e plug-ins isolados, não importações escritas pela aplicação. Esta discrepância é deliberada e o design dos módulos fonte da tese não faz parte do roteiro de Joss.
+O capítulo 11 da tese descreve módulos fonte com interfaces, exports e um DAG. A implementação adota uma decisão diferente: “modular” no ALIM significa capacidades integradas desacopladas e plugins `.jp` isolados, não imports escritos pela aplicação. Esta discrepância é deliberada e o design de módulos fonte da tese não faz parte do roadmap do Joss.
 
-As funções e classes de nível superior formam um único espaço de declaração de projeto. Variáveis ​​de origem de nível superior não são herdadas dinamicamente em funções nomeadas; Eles devem ser passados ​​como parâmetros. Um encerramento preserva o ambiente lexical que captura.
+As funções e classes top-level formam um único espaço de declarações do projeto. As variáveis fonte top-level não são herdadas dinamicamente dentro de funções nomeadas; devem ser passadas como parâmetros. Uma closure conserva o ambiente léxico que captura.

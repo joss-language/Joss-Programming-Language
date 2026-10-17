@@ -1,12 +1,14 @@
-# Estrutura do projeto
+# Estrutura de projetos
 
 [Índice](README.md)
 
-##Web
+## Web
 
-`joss new web mi_app` e `joss new mi_app` criam o modelo web real a partir do pacote `pkg/template/files`.
+`joss new web mi_app` e `joss new mi_app` criam o template web real do pacote `pkg/template/files`.
 
-Todas as quatro variantes de `joss new` são validadas no CI: web e console devem analisar e analisar sem erros; console também deve ser executado; o pacote e o plugin devem ser compilados em um JP v2 assinado e verificável, com bytecode decodificável e índice de símbolos.```text
+As quatro variantes de `joss new` são validadas no CI: web e console devem passar pelo parser e analisador sem erros; console além disso deve executar; package e plugin devem compilar para um JP v2 assinado, verificável, com bytecode decodificável e índice de símbolos.
+
+```text
 mi_app/
 ├── main.joss
 ├── env.joss
@@ -24,7 +26,7 @@ mi_app/
 │   │   └── auth/
 │   ├── services/             # Servicios en segundo plano e integraciones
 │   ├── middleware/           # Middleware de peticiones
-│   ├── libs/                # Creado por la plantilla, no precargado actualmente por run
+│   ├── libs/                 # Librerías y utilidades del proyecto
 │   └── database/migrations/
 ├── assets/
 ├── public/
@@ -32,39 +34,48 @@ mi_app/
 ├── package.json
 └── README.md
 ```
-O modelo também pode incluir rotas, arquivos de autenticação, recursos de front-end e coleções de API. A lista exata pode aumentar; o gerador e seus testes são a referência executável.
 
-`main.joss` é necessário para `joss server start`. `env.joss` não é código Joss e não deve ser executado com `joss run`.
+O template também pode incluir rotas, arquivos de autenticação, recursos frontend e coleções de API. A lista exata pode crescer; o gerador e seus testes são a referência executável.
 
-`joss analyze` descobre recursivamente a entrada e `app/`. Ao executar, o
-o pré-carregamento de tempo de execução é limitado a `controllers`, `models`, `middleware`, `services`,
-`database`, `jobs`, `tasks` e `providers`. Embora o modelo crie `app/libs`,
-essa pasta não está pré-carregada hoje. Colocar uma declaração lá pode passar o
-análise e falta de execução; mova o código para um domínio carregado enquanto
-ambas as listas são unificadas.
+`main.joss` é obrigatório para `joss server start`. `env.joss` contém a configuração de ambiente do projeto (`PORT="80"` por padrão no template web) e não é código executável com `joss run`.
 
-##Console
+## Descoberta unificada do projeto (`PreparedProgram`)
 
-`joss new console mi_cli` cria `main.joss`, configuração, controladores, modelos, bibliotecas e migrações; ele não cria rotas, visualizações, `public/` ou ativos da web.```bash
+Tanto `joss analyze`, `joss check`, `joss run`, `joss server` quanto `joss build` utilizam o carregador unificado `semanticanalyzer.LoadProject("main.joss", "app")`, que descobre e integra em um único `PreparedProgram`:
+- O ponto de entrada (`main.joss`).
+- Os arquivos de rotas na raiz (`routes.joss` e `api.joss`, se existirem).
+- Todos os arquivos `.joss` recursivamente sob `app/` (incluindo `controllers/`, `models/`, `services/`, `middleware/`, `libs/` e `database/`).
+
+O interpretador (`Runtime.ExecutePrepared`), o servidor HTTP e o compilador nativo registram todas as classes, interfaces, enums e funções diretamente a partir desse `PreparedProgram` canônico sem reescanear nem omitir subdiretórios de `app/`.
+
+## Console
+
+`joss new console mi_cli` cria `main.joss`, configuração, controladores, modelos, bibliotecas e migrações; não cria rotas, views, `public/` nem assets web.
+
+```bash
 cd mi_cli
 joss run main.joss
 ```
-## Pacote
 
-`joss new package mi_plugin` cria:```text
+## Pacote / Plugin
+
+`joss new package mi_plugin` (ou `joss new plugin mi_plugin`) cria:
+
+```text
 mi_plugin/
 ├── joss.yaml
 ├── README.md
 └── src/plugin.joss
 ```
-Construa-o com `joss build package .`. Consulte [Plugins](PLUGINS.md).
 
-## Convenções eficazes
+Compile-o com `joss build package .`. Consulte [Plugins](PLUGINS.md).
 
-- Controladores: `app/controllers/NameController.joss`.
-- Modelos: `app/models/Name.joss` e geralmente `extends GranDB`.
-- Visualizações: `app/views/name.joss.html` ou `.html`.
-- Migrações: timestamp, nome amigável e extensão `.joss`.
-- Sintaxe gerada: `func`, `::` para estática e `->` para instâncias.
+## Convenções efetivas
 
-Os geradores são validados com um teste que cria projetos web e de console e passa todos os seus arquivos `.joss` através do analisador.
+- Controladores: `app/controllers/NameController.joss` (ou subpastas `web/`, `auth/`, `api/`).
+- Modelos: `app/models/Name.joss` e normalmente `extends GranDB` ou `extends Model`.
+- Views: `app/views/name.joss.html` ou `.html`.
+- Migrações: timestamp, nome descritivo e extensão `.joss`.
+- Sintaxe gerada: `func`, `::` para estáticos e `->` para instâncias.
+
+Os geradores são validados com um teste que cria projetos web e console e passa todos os seus arquivos `.joss` pelo parser e pelo analisador semântico.

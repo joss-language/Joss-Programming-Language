@@ -1,69 +1,69 @@
-# Valores fundamentais, variáveis ​​e operações
+# Valores, variáveis e operações fundamentais
 
 Antes: [Primeiros passos](PRIMEROS_PASOS.md). Depois: [Controle de fluxo e decisões](CONTROL_FLUJO.md).
-Referência técnica: [Sistema de tipo](SISTEMA_TIPOS.md), [Sintaxe e operadores](SINTAXIS.md).
+Referência técnica: [Sistema de tipos](SISTEMA_TIPOS.md), [Sintaxe e operadores](SINTAXIS.md).
 
 ---
 
 ## O que você vai aprender aqui?
 
-Todo programa de computador existe para processar informações: calcular o total de uma fatura, salvar o nome de um usuário, verificar se uma senha está correta ou contar quantas mensagens você tem pendentes.
+Todo programa de computador existe para processar informações: calcular o total de uma fatura, guardar o nome de um usuário, verificar se uma senha está correta ou contar quantas mensagens pendentes você tem.
 
 Neste guia você aprenderá do zero:
-1. O que é um **valor** e o que é um **tipo de dados**.
-2. Os tipos primitivos essenciais de Joss: inteiros, decimais aproximados, decimais exatos, texto e booleanos.
-3. O que é uma **variável**, como ela funciona na memória e como declará-la.
-4. As quatro maneiras de declarar variáveis em Joss: inferida (`$x = ...`), explícita (`int $x = ...`), dinâmica (`mixed $x = ...`) e constante (`const`).
-5. Como operar números, juntar textos e formatar a saída da tela.
-6. Quais erros comuns são cometidos e como evitá-los.
+1. O que é um **valor** e o que é um **tipo de dado**.
+2. Os tipos primitivos essenciais do Joss: inteiros, decimais aproximados, decimais exatos, texto e booleanos.
+3. O que é uma **variável**, como ela funciona na memória e a diferença entre **declará-la** e **reatribuí-la**.
+4. As quatro formas canônicas de declarar variáveis no Joss: inferida (`var $x = ...`), explícita (`int $x = ...`), dinâmica (`mixed $x = ...`) e constante (`const`).
+5. Como operar números, unir ou interpolar textos (`"${...}"`) e formatar a saída na tela.
+6. Quais erros comuns são cometidos e como preveni-los.
 
 ---
 
-## 1. Valores e tipos de dados: quais informações tratamos?
+## 1. Valores e tipos de dados: Que informações manipulamos?
 
-Um **dado** ou **valor** é qualquer informação que um programa usa. Por exemplo:
-- `42` é um número.
+Um **dado** ou **valor** é qualquer informação que um programa utiliza. Por exemplo:
+- `42` é um número inteiro.
 - `"Ada Lovelace"` é um texto.
-- `true` (true) é uma resposta lógica.
+- `true` (verdadeiro) é uma resposta lógica.
 
-Em um computador, nem todos os dados são armazenados ou manipulados da mesma maneira. Adicionar duas quantidades numéricas (`10 + 5 = 15`) é uma operação matemática; por outro lado, juntar dois nomes (`"Ana" . " Gómez"`) é uma operação de texto.
+Em um computador, nem todos os dados são armazenados ou manipulados da mesma forma. Somar duas quantidades numéricas (`10 + 5 = 15`) é uma operação matemática; em compensação, unir dois nomes (`"Ana" . " Gómez"`) é uma operação de texto.
 
-O **tipo de dados** define:
+O **tipo de dado** define:
 1. Que tipo de informação o valor representa.
-2. Quais operações são permitidas nele.
-3. Quanta memória requer e como é armazenada internamente.
+2. Quais operações são permitidas sobre ele.
+3. Quanta memória requer e como é armazenado internamente.
 
-### Tipos canônicos fundamentais de Joss
+### Os tipos canônicos fundamentais do Joss
 
-| Tipo de dados | O que isso representa | Exemplos | Quando usar |
+| Tipo de dado | O que representa | Exemplos | Quando utilizá-lo |
 |---|---|---|---|
 | `int` | Número inteiro (sem parte decimal) | `0`, `42`, `-15`, `1000` | Para contadores, idades, identificadores numéricos e quantidades indivisíveis. |
-| `float` | Número com vírgula decimal (aproximação binária) | `3.1416`, `0.5`, `-12.8` | Para cálculos científicos, coordenadas, gráficos ou medições onde pequenas aproximações são aceitáveis. |
-| `decimal` | Número decimal de alta precisão na base dez | `0.10m`, `19.99m`, `100.00M` | **Essencial em finanças, preços, impostos e balanços**, onde perder um único centavo devido à aproximação binária é inaceitável. Tem o sufixo `m` ou `M`. |
+| `float` | Número com ponto decimal (aproximação binária) | `3.1416`, `0.5`, `-12.8` | Para cálculos científicos, coordenadas, gráficos ou medições onde pequenas aproximações são aceitáveis. |
+| `decimal` | Número decimal de alta precisão na base dez | `0.10m`, `19.99m`, `100.00M` | **Essencial em finanças, preços, impostos e balanços**, onde perder um único centavo por aproximação binária é inaceitável. Leva o sufixo `m` ou `M`. |
 | `string` | Sequência de caracteres (texto) | `"Hola"`, `'Joss'`, `"admin@ejemplo.com"` | Para nomes, e-mails, descrições, conteúdo HTML e mensagens. |
-| `bool` | Valor de verdade lógica | `true` (verdadeiro), `false` (falso) | Para tomar decisões: é autenticado? Existe estoque? É maior de idade? |
-| `array` | Lista ordenada de valores | `[1, 2, 3]`, `["pan", "leche"]` | Para sequências de elementos (detalhadas em [Coleções](COLECCIONES.md)). |
-| `map` | Dicionário associativo (chave → valor) | `{"id": 1, "nombre": "Ada"}` | Para registros de dados com propriedades (detalhadas em [Coleções](COLECCIONES.md)). |
-| `null` / `nil` | Ausência absoluta de valor | `null` ou `nil` | Para indicar que um dado ainda não existe, está vazio ou não foi encontrado. |
+| `bool` | Valor lógico de verdade | `true` (verdadeiro), `false` (falso) | Para tomar decisões: está autenticado?, há estoque?, é maior de idade? |
+| `array` | Lista ordenada de valores | `[1, 2, 3]`, `["pan", "leche"]` | Para sequências de elementos (você aprenderá em [Coleções](COLECCIONES.md)). |
+| `map` | Dicionário associativo (chave → valor) | `{"id": 1, "nombre": "Ada"}` | Para registros de dados com etiquetas (você aprenderá em [Coleções](COLECCIONES.md)). |
+| `null` | Ausência de valor | `null` (ou `nil` por compatibilidade) | Para indicar que um dado ainda não existe, está vazio ou não foi encontrado. |
 
 ---
 
-## 2. Variáveis: caixas nomeadas na memória
+## 2. Variáveis: Caixas com nome na memória
 
-Um computador possui milhões de células de memória. Se salvarmos um número e não lhe dermos um nome, não teremos como encontrá-lo um milissegundo depois.
+Um computador tem milhões de células de memória. Se guardarmos um número e não lhe dermos um nome, não teremos como encontrá-lo um milissegundo depois.
 
-Uma **variável** é simplesmente um nome humano que atribuímos a um espaço de memória para armazenar dados, lê-los quando precisamos ou alterá-los para outro valor.
+Uma **variável** é simplesmente um nome humano que atribuímos a um espaço da memória para armazenar um dado, lê-lo quando precisarmos ou trocá-lo por outro valor.
 
-### A regra `$` em Joss
+### A regra do `$` no Joss
 
-Em Joss, **todos os nomes de variáveis começar obrigatoriamente com o cifrão (`$`)**:
+No Joss, **todos os nomes de variáveis começam obrigatoriamente com o cifrão (`$`)**:
 - `$edad`
 - `$nombre_completo`
 - `$totalPagar`
 
 > [!TIP]
-> **Por que Joss usa `$` para variáveis?**
-> O prefixo `$` permite que você, o analisador e o compilador distingam instantaneamente uma variável de uma palavra-chave de linguagem (`return`, `func`, `class`), de tipo (`int`, `string`) ou de função nativa (`print`). Além disso, Joss diferencia maiúsculas de minúsculas: `$edad` e `$Edad` são duas variáveis ​​diferentes.
+> **Por que o Joss usa `$` para as variáveis?**
+> O prefixo `$` permite que tanto você quanto o analisador e o compilador distingam instantaneamente uma variável de uma palavra-chave da linguagem (`return`, `func`, `class`), de um tipo (`int`, `string`) ou de uma função integrada (`print`). Além disso, o Joss diferencia maiúsculas de minúsculas: `$edad` e `$Edad` são duas variáveis distintas.
 
 Vejamos um exemplo mínimo:
 
@@ -74,25 +74,32 @@ $edad = $edad + 1
 print($edad)
 ```
 
+Saída:
+
+```text
+21
+```
+
 ### O que acontece passo a passo neste programa?
 
-1. `var $edad = 20`:
-   - O sinal `=` é o **operador de atribuição**. Ele avalia o que está à sua direita (`20`) e deposita na variável `$edad`.
-   - Com `var`, Joss **infere** automaticamente que `$edad` é do tipo `int`.
-2. `$edad = $edad + 1`:
-   - O computador avalia primeiro o lado direito: procura o valor atual de `$edad` (que é `20`), adiciona `1`, resultando em `21`.
-   - Em seguida, o operador `=` salva esse novo valor `21` em `$edad`, substituindo o `20` acima.
+1. `var $edad = 20` (**Declaração**):
+   - É a **primeira vez** que aparece `$edad`, por isso usamos `var` para criá-la.
+   - O sinal `=` é o **operador de atribuição**: pega o `20` da direita e o guarda em `$edad`.
+   - O Joss **infere** (deduz) automaticamente que `$edad` é do tipo `int`.
+2. `$edad = $edad + 1` (**Reatribuição**):
+   - Como `$edad` **já existe**, não voltamos a escrever `var`.
+   - O computador calcula primeiro o lado direito (`20 + 1` = `21`) e guarda o novo resultado `21` dentro de `$edad`.
 3. `print($edad)`:
-   - Leia o valor atual de `$edad` e exibe-o no console.
+   - Lê o valor atual de `$edad` (`21`) e o mostra no terminal.
 
 ---
 
-## 3. As quatro maneiras de declarar uma variável
+## 3. As quatro formas de declarar uma variável
 
-No Joss você tem controle total sobre o quão estrita ou flexível você deseja que a digitação de suas variáveis seja:
+No Joss você tem controle total sobre quão estrito ou flexível quer que seja o tipo das suas variáveis:
 
 ### 1. Inferência canônica fixa: `var $x = valor`
-É a forma mais rápida e recomendada para o dia a dia. Joss deduz o tipo na primeira atribuição e a partir desse momento a variável fica protegida:
+É a forma mais cômoda e recomendada no dia a dia. O Joss deduz o tipo a partir do valor inicial e, a partir desse momento, protege a variável para que não mude de tipo por acidente:
 
 ```joss
 var $contador = 0       // Infiere int
@@ -100,7 +107,7 @@ var $titulo = "Reporte" // Infiere string
 var $peso = 72.5        // Infiere float
 ```
 
-Se mais tarde você tentar colocar texto dentro de um número inteiro, o analisador semântico irá parar o programa com o código `JOSS-TYPE-001`:
+Se mais adiante você tentar guardar um texto dentro de uma variável que nasceu como inteiro, o analisador semântico deterá o programa antes de executar com o código `JOSS-TYPE-001`:
 
 <!-- joss-error: JOSS-TYPE-001 -->
 ```joss-invalid
@@ -109,7 +116,7 @@ $cantidad = "muchas"
 ```
 
 ### 2. Declaração com tipo explícito: `int $x = valor`
-Quando você deseja que o contrato de dados fique 100% visível para qualquer pessoa que esteja lendo o código, ou nos parâmetros da função:
+Quando você quer que o tipo do dado seja 100% visível ao ler o código (e de forma obrigatória nos parâmetros das funções que veremos mais adiante):
 
 ```joss
 int $puerto = 8080
@@ -118,8 +125,8 @@ decimal $saldo = 1500.50m
 bool $activo = true
 ```
 
-### 3. Variável dinâmica: `mixed $x = valor` (ou `let $x = valor`)
-Às vezes, você está criando um algoritmo que precisa legitimamente transformar um número em um texto ou em um status pendente. Para permitir alterações de tipo sem erros, indique isso explicitamente com `mixed`:
+### 3. Variável dinâmica explícita: `mixed $x = valor`
+Às vezes você precisa legitimamente que uma mesma variável guarde primeiro um número e depois um texto. Para permitir mudanças de tipo sem erro, indique isso com `mixed`:
 
 <!-- joss-run: ["pendiente"] -->
 ```joss
@@ -128,11 +135,18 @@ $resultado = "pendiente"
 print($resultado)
 ```
 
+Saída:
+
+```text
+pendiente
+```
+
 > [!NOTE]
-> `let $resultado = 2` é exatamente equivalente a `mixed $resultado = 2`. Em Joss, `let` typeless **não significa constante**, mas dinamismo explícito.
+> **Nota de compatibilidade (`let`)**:
+> Em código antigo do Joss você pode encontrar `let $x = 2` (equivalente a `mixed $x = 2`) ou `let int $x = 2` (equivalente a `int $x = 2`). A linguagem continua aceitando `let` por compatibilidade e a ferramenta `joss fix` o atualiza automaticamente para as formas canônicas modernas.
 
 ### 4. Constantes imutáveis: `const`
-A **constant** is a value that is defined only once and can never be reassigned during the life of the program. It serves to shield business rules and configuration parameters:
+Uma **constante** é um valor que é definido uma única vez e **jamais pode mudar** enquanto o programa roda. É ideal para taxas de impostos, limites máximos ou nomes de configuração:
 
 <!-- joss-run: ["3"] -->
 ```joss
@@ -140,26 +154,21 @@ const int $maximo = 3
 print($maximo)
 ```
 
-Se você tentar digitar `$maximo = 4`, o analisador emitirá um erro `JOSS-SYM-006` indicando que uma constante não pode ser reatribuída.
+Saída:
 
-### 5. Desestruturação múltipla: `let ($a, $b) = lista`
-Quando uma função retorna uma lista ou tupla de valores, você pode descompactar seus elementos em variáveis independentes em uma única linha:
-
-```joss
-let ($x, $y) = [10, 20]
-print($x)
-print($y)
+```text
+3
 ```
 
-Cada posição da lista é atribuída à sua variável receptora correspondente.
+Se você tentar escrever `$maximo = 4`, o analisador emitirá o erro `JOSS-SYM-006` impedindo a modificação.
 
 ---
 
-## 4. Texto, comentários e saída formatada
+## 4. Texto, comentários e interpolação
 
 ### Delimitadores de texto e caracteres de escape
 
-No Joss você pode escrever strings de texto usando aspas duplas (`"..."`) ou aspas simples (`'...'`):
+No Joss você pode escrever cadeias de texto usando aspas duplas (`"..."`) ou aspas simples (`'...'`):
 
 <!-- joss-run: ["Hola, Ada", "Primera línea", "Segunda línea"] -->
 ```joss
@@ -171,29 +180,44 @@ print("Hola, " . $nombre)
 print("Primera línea\nSegunda línea")
 ```
 
-- **Comentários de uma linha**: Eles começam com `//` (ou `#`). Tudo o que você digita à direita é ignorado pelo computador.
-- **Comentários multilinhas**: começam com `/*` e terminam com `*/`.
-- **Caracteres de escape**:
+Saída:
+
+```text
+Hola, Ada
+Primera línea
+Segunda línea
+```
+
+- **Comentários de uma linha**: Começam com `//` (ou `#`). Tudo o que você escrever à direita deles é ignorado pelo computador.
+- **Comentários de várias linhas**: Começam com `/*` e terminam com `*/`.
+- **Caracteres de escape** (em aspas duplas ou simples):
   - `\n`: Insere uma quebra de linha.
-  - `\t`: Insere uma parada de tabulação horizontal.
-  - `\"` ou `\'`: Permite incluir aspas literais no texto.
+  - `\t`: Insere uma tabulação horizontal.
+  - `\"` ou `\'`: Permite incluir aspas literais dentro do texto.
   - `\\`: Insere uma barra invertida.
 
 ### Concatenação com o operador ponto (`.`)
 
-Em muitos idiomas, é usado `+` para juntar texto, o que causa erros graves quando números e texto são acidentalmente misturados. Em Joss:
-- O operador `+` é reservado **exclusivamente para adição matemática**.
-- O operador ponto `.` é usado **exclusivamente para concatenar texto**.
+Em outras linguagens usa-se `+` tanto para somar quanto para unir textos, o que provoca erros silenciosos quando se misturam números e textos. No Joss a regra é inequívoca:
+- O sinal `+` é reservado **exclusivamente para a soma matemática**.
+- O ponto `.` é utilizado **exclusivamente para unir texto**.
 
+<!-- joss-run: ["1020"] -->
 ```joss
 var $a = "10"
 var $b = "20"
-print($a . $b) // Imprime "1020" (unión de textos)
+print($a . $b)
 ```
 
-### Interpolação de string moderna: `${variable}` ou `${expresión}`
+Saída:
 
-Em vez de encadear vários fragmentos com o operador ponto (`"Hola " . $nombre . " tienes " . $edad . " años"`), Joss permite **incorporar variáveis e cálculos diretamente em textos com aspas duplas** usando a sintaxe `${...}` (idêntica a linguagens modernas como Flutter/Dart ou Kotlin):
+```text
+1020
+```
+
+### Interpolação de strings: `${nombre}` e `${$edad * 2}`
+
+Em vez de unir vários fragmentos com pontos (`"Hola " . $nombre . ", tienes " . $edad . " años"`), dentro de textos com **aspas duplas** você pode incorporar variáveis ou cálculos diretamente usando `${...}`:
 
 <!-- joss-run: ["Hola Ada, tienes 21 años", "El doble es 42"] -->
 ```joss
@@ -203,21 +227,26 @@ print("Hola ${nombre}, tienes ${edad} años")
 print("El doble es ${$edad * 2}")
 ```
 
-- **Variáveis**: Escreva `${variable}` entre aspas duplas para injetar automaticamente seu valor.
-- **Cálculos e expressões**: Você pode colocar operações matemáticas ou lógicas completas entre os colchetes: `${$precio * $cantidad}`.
-- **Escape literal**: se você precisar que o texto exiba literalmente `${`, digite uma barra invertida antes dele: `\${`.
+Saída:
 
-### Formatação avançada com `printf`
+```text
+Hola Ada, tienes 21 años
+El doble es 42
+```
 
-Quando você precisa montar mensagens com variáveis numéricas e textos em posições exatas sem encadeamento de muitos pontos, use `printf`:
+- **Quando você incorpora uma única variável**: Pode escrever `${nombre}` (ou `${$nombre}`). O Joss reconhece o nome da sua variável automaticamente.
+- **Quando você incorpora uma operação ou cálculo**: Escreva a expressão completa com o sinal `$` em cada variável, por exemplo `${$edad * 2}` ou `${$precio + $impuesto}`.
+- **Escape literal**: Se precisar mostrar literalmente os caracteres `${` na tela, escreva `\${`.
+
+### Formatação com modelos posicionais (`printf`)
+
+Quando quiser formatar textos indicando exatamente onde vai cada texto (`%s`) ou número inteiro (`%d`), você também dispõe de `printf`:
 
 ```joss
 var $item = "Teclado"
 var $cantidad = 2
 printf("Producto: %s | Cantidad: %d\n", $item, $cantidad)
 ```
-- `%s` é substituído por uma string (`string`).
-- `%d` é substituído por um número inteiro (`int`).
 
 ---
 
@@ -231,6 +260,15 @@ print(5 % 2)
 print(0.10m + 0.20m)
 ```
 
+Saída:
+
+```text
+5
+2.5
+1
+0.3
+```
+
 ### Operadores aritméticos
 
 | Operador | Operação | Exemplo | Resultado | Explicação |
@@ -238,16 +276,16 @@ print(0.10m + 0.20m)
 | `+` | Soma | `10 + 5` | `15` | Adição matemática. |
 | `-` | Subtração | `10 - 4` | `6` | Subtração. |
 | `*` | Multiplicação | `3 * 4` | `12` | Produto. |
-| `/` | Divisão | `5 / 2` | `2.5` | Em Joss, dividir inteiros **retorna `float`**, evitando perda acidental de decimais. |
-| `%` | Módulo (descanso) | `5 % 2` | `1` | O resto da divisão inteira (5 dividido por 2 dá 2 com resto 1). Muito útil para saber se um número é par (`$n % 2 == 0`). |
-| `++` | Pós-incremento | `$i++` | Valor atual | Aumente a variável em 1 e retorne seu valor anterior. |
-| `--` | Pós-decremento | `$i--` | Valor atual | Diminui a variável em 1 e retorna seu valor anterior. |
+| `/` | Divisão | `5 / 2` | `2.5` | Dividir inteiros **retorna `float`** para não perder a parte fracionária (`2.5`). |
+| `%` | Módulo (resto) | `5 % 2` | `1` | O que sobra de uma divisão inteira (5 dividido por 2 dá 2 e sobra `1`). Muito útil para saber se um número é par (`$n % 2 == 0`). |
+| `++` | Pós-incremento | `$i++` | Valor anterior | Soma `1` à variável. |
+| `--` | Pós-decremento | `$i--` | Valor anterior | Subtrai `1` da variável. |
 
-### Operadores de atribuição compostos (`+=`, `-=`, `*=`, `??=`)
+### Operadores de atribuição rápida (`+=`, `-=`, `*=`, `/=`)
 
-Quando você deseja modificar o valor que uma variável já possui (por exemplo, adicionando pontos em um jogo ou deduzindo vidas), você não precisa repetir o nome da variável (`$puntos = $puntos + 5`). Você pode usar os operadores de atribuição rápida:
+Quando quiser somar, subtrair ou multiplicar sobre o valor que uma variável já tem (como somar pontos em um placar), você pode abreviar `$puntos = $puntos + 5` escrevendo `$puntos += 5`:
 
-<!-- joss-run: ["15", "12", "24", "Invitado"] -->
+<!-- joss-run: ["15", "12", "24"] -->
 ```joss
 var $puntos = 10
 $puntos += 5
@@ -258,187 +296,209 @@ print($puntos)
 
 $puntos *= 2
 print($puntos)
-
-var $nombre = null
-$nombre = $nombre ?? "Invitado"
-print($nombre)
 ```
 
-| Operador | Equivalência | Descrição |
+Saída:
+
+```text
+15
+12
+24
+```
+
+| Operador | Equivale a escrever | O que faz |
 |---|---|---|
-| `$x += $y` | `$x = $x + $y` | Adiciona `$y` ao valor atual de `$x`. |
-| `$x -= $y` | `$x = $x - $y` | Subtraia `$y` do valor atual de `$x`. |
+| `$x += $y` | `$x = $x + $y` | Soma `$y` ao valor atual de `$x`. |
+| `$x -= $y` | `$x = $x - $y` | Subtrai `$y` do valor atual de `$x`. |
 | `$x *= $y` | `$x = $x * $y` | Multiplica o valor atual de `$x` por `$y`. |
-| `$x ??= $y` | `$x = $x ?? $y` | Atribui `$y` somente se `$x` for atualmente `null`. |
+| `$x /= $y` | `$x = $x / $y` | Divide o valor atual de `$x` por `$y`. |
 
-### Prioridade matemática (precedência)
-Como na álgebra, a multiplicação e o módulo são calculados antes da adição e subtração. Use parênteses `(` `)` para definir claramente o que precisa ser resolvido primeiro:
+### Ordem de prioridade e uso de parênteses
+Assim como na matemática da escola, a multiplicação `*` e a divisão `/` são calculadas antes da soma `+` e da subtração `-`. Use parênteses `(` e `)` quando quiser indicar qual operação deve ser feita primeiro:
 
+<!-- joss-run: ["14", "20"] -->
 ```joss
-print(2 + 3 * 4)   // Da 14 (3 * 4 = 12, luego + 2)
-print((2 + 3) * 4) // Da 20 (2 + 3 = 5, luego * 4)
+print(2 + 3 * 4)
+print((2 + 3) * 4)
 ```
 
-### Segurança de estouro aritmético
+Saída:
 
-Em sistemas convencionais de 64 bits, se você adicionar 1 ao maior número inteiro possível, o número se torna um valor negativo enorme sem avisar. Joss evita isso em seu kernel:
-- Se uma operação inteira exceder o intervalo assinado de 64 bits (-9.223.372.036.854.775.808 para 9.223.372.036.854.775.807), Joss interrompe a execução imediatamente com o erro estruturado `JOSS-ARITH-001` (Arithmetic Overflow).
-- Se você tentar dividir por zero (`$x / 0`), Joss interrompe com `JOSS-ARITH-002` (Divisão por Zero).
-- Se uma promoção implícita perder precisão numérica, analyzer ou runtime a rejeita com `JOSS-ARITH-003`. Converta explicitamente quando a aproximação for deliberada; use `decimal` para dinheiro.
+```text
+14
+20
+```
+
+### Proteção automática em cálculos numéricos
+
+O Joss vigia suas operações matemáticas para evitar falhas silenciosas:
+- **Divisão por zero (`JOSS-ARITH-002`)**: Se você tentar dividir por `0` (`10 / 0`), o Joss interrompe a operação com uma mensagem clara.
+- **Estouro de inteiros (`JOSS-ARITH-001`)**: Se um cálculo com `int` superar a capacidade máxima de um número inteiro, o Joss avisa em vez de entregar um número negativo falso.
+- **Proteção de precisão (`JOSS-ARITH-003`)**: O Joss permite combinar diretamente `int` com `decimal` porque nenhum dígito é perdido, mas pede que você use uma função de conversão explícita se tentar misturar `float` com `decimal` ou `int`.
 
 ---
 
-## 6. A diferença crítica: `float` vs `decimal`
+## 6. A diferença fundamental para dinheiro: `float` vs `decimal`
 
-Por que `float` e `decimal` existem?
+Por que existem dois tipos para números com ponto (`float` e `decimal`)?
 
-Os computadores representam números de ponto flutuante (`float`) usando potências de dois em binário (padrão IEEE-754). Existem frações decimais como `0.1` ou `0.2` que não possuem representação binária finita exata (semelhante a tentar escrever um terço `1/3` em decimal como `0.33333...`).
+Os computadores internamente contam em binário (zeros e uns). Em binário, frações como `0.1` ou `0.2` têm infinitas casas decimais periódicas, de modo que o tipo padrão `float` guarda uma aproximação muito próxima:
 
-Portanto, em quase todos os idiomas tradicionais:
 ```joss
-print(0.1 + 0.2) // Imprime aproximadamente 0.30000000000000004
+print(0.1 + 0.2) // Muestra 0.30000000000000004
 ```
 
-Se você está calculando a trajetória de um projétil em um videogame, esse milionésimo de diferença não importa. Mas se você estiver calculando juros bancários sobre um milhão de transações, essa diferença será um desastre contábil.
+Para mover um personagem em um videogame ou medir temperatura, essa diferença minúscula não importa. Mas para **preços, faturas, salários ou contabilidade**, precisamos de exatidão total na base dez.
 
-**A solução Joss é do tipo `decimal`:**
-Ao adicionar o sufixo `m` ou `M`:
+Por isso o Joss inclui de fábrica o tipo **`decimal`**, que é escrito adicionando um `m` (ou `M`) ao final do número:
+
+<!-- joss-run: ["0.3", "23.2"] -->
 ```joss
-print(0.10m + 0.20m) // Imprime exactamente 0.3
+print(0.10m + 0.20m)
+var $precio = 11.60m
+print($precio * 2)
 ```
-Os cálculos são realizados na base dez exata usando aritmética de ponto fixo.
+
+Saída:
+
+```text
+0.3
+23.2
+```
+
+> **Regra prática**: Use `int` para quantidades inteiras, `float` para medidas físicas ou científicas e **`decimal` (com `m`) sempre que representar dinheiro**.
 
 ---
 
-## 7. Entrada e saída do console (`print`, `cout`, `cin`)
+## 7. Saída e entrada por fluxos (`cout <<` e `cin >>`)
 
-### Saída do console: `print` e `cout`
-
-Joss oferece duas formas modernas e complementares de exibir informações no terminal:
-
-1. **`print(...)`**: A função padrão para emissão de mensagens. Cada argumento é impresso na tela adicionando uma quebra de linha automática no final.
-2. **`cout << ...`**: O fluxo de saída padrão (estilo C++). Permite encadear expressões com o operador `<<`, não adiciona quebras de linha automáticas (você pode usar o manipulador `endl` ou `"\n"`) e também pode ser chamado diretamente como uma função `cout(...)`.
-3. **`cerr << ...`**: O fluxo de saída de erros padrão (`stderr`).
-4. **`endl`**: Constante nativa que representa a quebra de linha (`"\n"`).
+Além de `print(...)`, o Joss oferece o fluxo de saída `cout <<` e o manipulador de quebra de linha `endl`:
 
 <!-- joss-run: ["Hola mundo", "Linea 1", "Linea 2"] -->
 ```joss
-// Con print: genera salto de línea automático
+// Con print: agrega salto de línea automático al final
 print("Hola mundo")
 
-// Con cout: encadenamiento con << y manipulador endl
+// Con cout: encadena varias piezas con << y cierra la línea con endl
 cout << "Linea " << 1 << endl
 cout << "Linea " << 2 << endl
 ```
 
-### Entrada do console com `cin >>`
+Saída:
 
-Para criar programas interativos onde uma pessoa grava dados no console durante a execução, Joss fornece o fluxo de entrada `cin` com o operador `>>`:
-
-```joss
-cout << "¿Cómo te llamas? "
-string $nombre = ""
-cin >> $nombre
-
-cout << "¿Cuántos años tienes? "
-int $edad = 0
-cin >> $edad
-
-print("Hola ${nombre}, el próximo año tendrás ${$edad + 1} años.")
+```text
+Hola mundo
+Linea 1
+Linea 2
 ```
 
-**Recursos de `cin` e `cout`:**
-1. **Conversão automática em `cin`**: se a variável de destino for numérica (`int` ou `float`), `cin` converte o texto inserido diretamente no tipo esperado.
-2. **Leitura de texto completo**: Se a variável for `string`, captura toda a linha digitada pelo usuário.
-3. **Encadeamento múltiplo**: você pode encadear entradas e saídas: `cin >> $a >> $b` ou `cout << "A: " << $a << " B: " << $b << endl`.
-
-### Coalesce atribuição nula (`??=`)
-
-Se uma variável tiver um valor `null` ou ainda não foi inicializado, você pode atribuir a ele um valor padrão somente se estiver vazio usando `??=`:
-
-<!-- joss-run: ["oscuro", "oscuro"] -->
-```joss
-var $tema = null
-$tema ??= "oscuro"
-print($tema)
-$tema ??= "claro" // No sobreescribe porque ya tiene "oscuro"
-print($tema)
-```
+- `print(...)`: Ideal para mostrar uma linha completa de forma direta.
+- `cout << ...`: Muito útil quando você quer mostrar uma mensagem sem pular de linha (por exemplo, antes de pedir um dado com `cin >>`) ou encadear vários valores seguidos.
+- `cerr << ...`: Envia mensagens ao canal de erros do terminal (`stderr`).
 
 ---
 
-## 8. Funções de conversão de tipo (casting)
+## 8. Converter um dado de um tipo para outro (Casting)
 
-If você recebe um dado como texto (por exemplo `"25"`) e precisa adicionar um valor a ele, deve convertê-lo explicitamente em um número:
+Se você ler um dado que vem como texto (por exemplo `"42"` ou `"19.99"`) e precisar fazer cálculos matemáticos com ele, utilize as funções integradas de conversão:
 
-| Função | Converter para | Exemplo de entrada | Resultado |
+<!-- joss-run: ["52", "29.99"] -->
+```joss
+var $numero = intval("42") + 10
+var $precio = decimal("19.99") + 10.00m
+print($numero)
+print($precio)
+```
+
+Saída:
+
+```text
+52
+29.99
+```
+
+| Função | Converte o valor para | Exemplo | Resultado |
 |---|---|---|---|
-| `intval($v)` | `int` | `intval("42")` | `42` |
-| `floatval($v)` | `float` | `floatval("3.14")` | `3.14` |
-| `decimal($v)` | `decimal` | `decimal("19.99")` | `19.99m` |
-| `strval($v)` | `string` | `strval(100)` | `"100"` |
-| `boolval($v)` | `bool` | `boolval(1)` | `true` |
+| `intval($v)` | `int` (inteiro) | `intval("42")` | `42` |
+| `floatval($v)` | `float` (decimal aproximado) | `floatval("3.14")` | `3.14` |
+| `decimal($v)` | `decimal` (decimal exato) | `decimal("19.99")` | `19.99m` |
+| `strval($v)` | `string` (texto) | `strval(100)` | `"100"` |
+| `boolval($v)` | `bool` (`true` ou `false`) | `boolval(1)` | `true` |
 
 > [!WARNING]
-> Converter não é o mesmo que validar. Se você tentar executar `intval("manzana")`, a função retornará `0` sem falhar. Se você precisar primeiro verificar se um texto contém números válidos, use `is_numeric($texto)`.
+> Se você converter um texto que não contém números com `intval("manzana")`, o resultado será `0`. Quando quiser verificar antes se um texto representa um número válido, use `is_numeric($texto)`.
 
 ---
 
-## 9. Erros comuns ao iniciar
+## 9. Erros comuns ao trabalhar com variáveis e tipos
 
-| Erro comum | Código/Causa | Como consertar |
+| Erro comum | Por que ocorre | Como solucionar |
 |---|---|---|
-| Use `+` para juntar textos | `print("Total: " + $precio)` | Sempre use o ponto final para o texto: `print("Total: " . $precio)`. |
-| Esqueça o `$` em uma variável | `edad = 20` | Todas as variáveis ​​devem ter `$`: `$edad = 20`. |
-| Alterar tipo de uma variável inferida | `var $x = 10; $x = "hola"` (`JOSS-TYPE-001`) | Se precisar alterar o tipo, declare-o como `mixed $x = 10`. |
-| Esqueça o sufixo `m` em valores financeiros | `0.10 + 0.20` | Use `0.10m + 0.20m` para garantir a precisão monetária. |
-| Reatribuir uma constante | `const $A = 1; $A = 2` (`JOSS-SYM-006`) | Se o valor precisar ser alterado, não use `const`; use `var $A = 1`. |
+| Usar `+` para unir textos (`"Total: " + $precio`) | No Joss `+` é exclusivo para somar números (`JOSS-TYPE-004`). | Use o ponto `.` (`"Total: " . $precio`) ou interpolação (`"Total: ${precio}"`). |
+| Esquecer `var` ao criar uma variável (`$edad = 20`) | Criar uma variável sem declará-la emite `JOSS-SYM-001`. | Escreva `var $edad = 20` (ou `int $edad = 20`) na primeira vez que a criar. |
+| Mudar o tipo de uma variável criada com `var` | `var $x = 10` fixa o tipo em `int` (`JOSS-TYPE-001`). | Se precisar que ela mude de tipo mais adiante, declare-a com `mixed $x = 10`. |
+| Misturar `int` e `float` sem converter (`10 + 2.5`) | O Joss evita conversões implícitas com possível perda de precisão (`JOSS-ARITH-003`). | Use ambos do mesmo tipo (`10.0 + 2.5`), converta com `floatval(10) + 2.5`, ou use `decimal` (`10 + 2.5m`). |
+| Tentar mudar uma constante (`const $A = 1; $A = 2`) | As constantes são imutáveis (`JOSS-SYM-006`). | Se o valor deve mudar durante o programa, declare-o com `var` em vez de `const`. |
 
 ---
 
-## 10. Miniprojeto guiado: Calculadora de contas e gorjetas
+## 10. Mini-projeto guiado: Calculadora Financeira de Conta e Gorjetas
 
-Para colocar em prática tudo o que você aprendeu neste guia (variáveis, tipos, operações matemáticas e texto concatenado), aqui está um programa completo que calcula a gorjeta e divide o total entre amigos:
+Vamos colocar em prática variáveis, o tipo exato `decimal`, operações matemáticas e interpolação de texto em um programa completo que você pode colocar dentro do seu `main.joss`:
 
-<!-- joss-run: ["Subtotal: 50", "Propina: 7.5", "Total: 57.5", "Por persona: 28.75"] -->
+<!-- joss-run: ["Subtotal: 50", "Propina (15%): 7.5", "Total a pagar: 57.5", "Cada persona paga: 28.75"] -->
 ```joss
-// 1. Datos iniciales
-var $subtotal = 50.0
-var $propina = $subtotal * 0.15
-var $total = $subtotal + $propina
-var $porPersona = $total / 2.0
+// 1. Datos iniciales con precisión monetaria decimal (sufijo m)
+decimal $subtotal = 50.00m
+decimal $tasaPropina = 0.15m
+int $personas = 2
 
-// 2. Mostrar resumen en pantalla
-print("Subtotal: " . $subtotal)
-print("Propina: " . $propina)
-print("Total: " . $total)
-print("Por persona: " . $porPersona)
+// 2. Cálculos matemáticos
+decimal $propina = $subtotal * $tasaPropina
+decimal $total = $subtotal + $propina
+decimal $porPersona = $total / $personas
+
+// 3. Mostrar resumen en pantalla
+print("Subtotal: ${subtotal}")
+print("Propina (15%): ${propina}")
+print("Total a pagar: ${total}")
+print("Cada persona paga: ${porPersona}")
 ```
 
-### Explicação passo a passo:
-1. `var $subtotal = 50.0`: Salvamos o valor da conta como um número decimal (`float`).
-2. `var $propina = $subtotal * 0.15`: Calculamos 15% multiplicando por `0.15`.
-3. `var $total = $subtotal + $propina`: Adicionamos o custo do consumo e a gorjeta.
-4. `var $porPersona = $total / 2.0`: Dividimos a conta igualmente entre duas pessoas.
-5. Chamadas para `print(...)`: Junte o texto longo com o valor numérico usando o operador de concatenação de ponto `.`.
+Saída:
+
+```text
+Subtotal: 50
+Propina (15%): 7.5
+Total a pagar: 57.5
+Cada persona paga: 28.75
+```
 
 ---
 
-## 11. Exercícios práticos para iniciantes
+## 11. Prática do capítulo
 
-1. **Conversor de temperatura**:
-   - Declare uma variável `$celsius = 25.0`.
-   - Aplique a fórmula para converter para Fahrenheit: `$fahrenheit = ($celsius * 9.0 / 5.0) + 32.0`.
-   - Imprima o resultado concatenado: `print($celsius . " °C equivalen a " . $fahrenheit . " °F")`.
-2. **Placar de jogo de atribuição rápida**:
-   - Começa com `$puntos = 0`.
-   - Adicione 100 pontos com `+=`, subtraia 20 com `-=` para penalidade e dobre a pontuação com `*= 2` para um bônus.
-   - Exibe a pontuação final no console.
+### 1. Teste rápido
+No mini-projeto da seção 10:
+1. Mude `$subtotal` para `120.00m` e `$personas` para `4`.
+2. Execute `joss run main.joss` e verifique quanto cada pessoa deve pagar.
+
+### 2. Exercício guiado: Conversor de Temperatura (°C para °F)
+1. Declare uma variável com os graus Celsius: `float $celsius = 25.0`.
+2. Calcule seu equivalente em Fahrenheit usando parênteses: `float $fahrenheit = ($celsius * 9.0 / 5.0) + 32.0`.
+3. Mostre o resultado usando interpolação: `print("${celsius} °C equivalen a ${fahrenheit} °F")` (deverá mostrar `25 °C equivalen a 77 °F`).
+
+### 3. Desafio: Fatura com desconto e imposto
+Crie um programa que:
+1. Declare uma constante `const decimal $IVA = 0.16m`.
+2. Declare o preço de um produto `decimal $precio = 200.00m` e aplique primeiro um desconto de `20.00m` usando o operador `-=`.
+3. Calcule o imposto (`$precio * $IVA`) e o total final (`$precio + $impuesto`).
+4. Mostre na tela o preço com desconto, o imposto e o total final.
 
 ---
 
 ## Próximo passo
 
-Agora que você domina dados, tipos e matemática na memória, é hora de dar decisão e repetibilidade aos seus programas: como executar um bloco somente se uma condição for atendida e como criar loops.
+Agora que você domina os valores, os tipos de dados e as operações na memória, é hora de ensinar seus programas a **tomar decisões** e a **repetir tarefas automaticamente**.
 
-Continua com: [Controle de fluxo e estruturas de repetição](CONTROL_FLUJO.md).
+Continue com: [Controle de fluxo: decisões e estruturas de repetição](CONTROL_FLUJO.md).

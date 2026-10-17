@@ -45,44 +45,46 @@ Su filosofía de diseño se apoya en cuatro pilares:
 3. **Pila completa incluida (Batteries-Included)**: Joss incluye nativamente servidor HTTP de alto rendimiento, sistema de rutas, motor de plantillas HTML, ORM y generador de esquemas para bases de datos (GranDB / Schema), soporte para WebSockets en tiempo real, hashing criptográfico y tareas asíncronas.
 4. **Concurrencia limpia y canales**: Puedes delegar tareas pesadas a segundo plano de forma no bloqueante con `async` y comunicar procesos con canales seguros (`channel`).
 
-### Las capas del ecosistema Joss
+#### Un solo lenguaje, dos formas de ejecutarlo: `joss run` y `joss build`
 
-Es importante distinguir tres conceptos que a veces se confunden:
+El código que escribes en Joss se define una sola vez y tiene exactamente el mismo significado en todos los modos:
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│ 1. Tu código fuente (.joss)                                 │
-│    El texto legible que tú escribes con tus instrucciones.  │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 2. El analizador semántico (Semantic Analyzer)              │
-│    Revisa tipos, nombres, visibilidad y coherencia.          │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ Si no hay errores
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 3. El motor de ejecución (Runtime de Joss en Go)             │
-│    Ejecuta las instrucciones reales en tu máquina física.    │
-└──────────────────────────────┴──────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. Tu código fuente (.joss)                                     │
+│    El texto legible que tú escribes con tus instrucciones.      │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. El analizador semántico (Semantic Analyzer)                  │
+│    Revisa tipos, nombres, visibilidad y coherencia del proyecto. │
+└───────────────┬───────────────────────────────┬─────────────────┘
+                │                               │
+                ▼                               ▼
+┌───────────────────────────────┐ ┌───────────────────────────────┐
+│ A. Desarrollo inmediato       │ │ B. Distribución nativa        │
+│    `joss run main.joss`       │ │    `joss build main.joss`     │
+│    Ejecuta al instante en     │ │    Compila el mismo código a  │
+│    tu terminal.               │ │    un ejecutable (.exe / ELF).│
+└───────────────────────────────┘ └───────────────────────────────┘
 ```
 
-- **El lenguaje Joss**: Las reglas de escritura, palabras reservadas y sintaxis que aprenderás.
-- **La herramienta CLI (`joss`)**: El ejecutable de línea de comandos que utilizas desde tu terminal para analizar, dar formato, probar y poner en marcha tus proyectos.
-- **El Runtime**: El motor que toma tu programa comprobado y realiza las operaciones reales en el procesador y la memoria de tu equipo.
+- **El lenguaje Joss**: Las reglas de escritura, palabras reservadas y sintaxis que aprenderás en este curso.
+- **La herramienta CLI (`joss`)**: El programa de línea de comandos que utilizas desde tu terminal para crear proyectos, analizarlos, ejecutarlos al instante (`joss run`) o compilarlos a un archivo ejecutable independiente (`joss build`).
+- **El Runtime / Compilador**: El motor que toma tu programa ya verificado y ejecuta las operaciones reales en el procesador y la memoria de tu equipo.
 
 ---
 
 ## 3. Instalación paso a paso
 
-Una **terminal** (o consola) es una ventana de texto donde te comunicas con el sistema operativo escribiendo comandos en lugar de hacer clic con el ratón.
-- En **Windows**: Puedes abrir **PowerShell** o la aplicación **Terminal de Windows** (búscala en el menú Inicio).
+Una **terminal** (o consola) es una ventana de texto donde te comunicas con el sistema operativo escribiendo órdenes en lugar de hacer clic con el ratón.
+- En **Windows**: Abre **PowerShell** o la aplicación **Terminal de Windows** (búscala en el menú Inicio).
 - En **Linux o macOS**: Abre la aplicación llamada **Terminal**.
 
 ### Opción A: Instalador automático oficial (Recomendado)
 
-En **Windows** (abre PowerShell como usuario estándar o Administrador):
+En **Windows** (abre PowerShell):
 
 ```powershell
 iwr -useb https://astriom.org/install | iex
@@ -94,22 +96,21 @@ En **Linux, macOS o Android (Termux)** (abre tu Terminal):
 curl -fsSL https://astriom.org/install.sh | bash
 ```
 
-Este comando descargará el binario compilado de Joss, lo ubicará en una carpeta estándar del sistema y lo registrará en tu `PATH`.
+Este comando descargará el ejecutable de Joss, lo ubicará en una carpeta estándar del sistema y lo registrará en tu `PATH`.
 
 > [!NOTE]
 > **¿Qué es el `PATH`?**
-> El `PATH` es una lista interna del sistema operativo con las rutas donde residen los programas que puedes invocar escribiendo solo su nombre. Si agregas Joss al `PATH`, puedes escribir `joss` en cualquier carpeta sin tener que escribir la ruta completa al ejecutable. Si acabas de instalarlo y tu terminal no lo reconoce, **cierra la terminal y ábrela de nuevo**.
+> El `PATH` es una lista interna del sistema operativo con las carpetas donde viven los programas que puedes invocar escribiendo solo su nombre. Gracias a ello puedes escribir `joss` desde cualquier carpeta. Si acabas de instalarlo y tu terminal no lo reconoce, **cierra la terminal y ábrela de nuevo**.
 
 ### Opción B: Descarga manual desde GitHub Releases
 
 1. Ve a la sección de lanzamientos: [GitHub Releases de Joss](https://github.com/joss-language/Joss-Programming-Language/releases).
-2. Descarga el paquete comprimido `.zip` o `.tar.gz` correspondiente a tu arquitectura (`windows_amd64`, `linux_amd64`, `darwin_arm64`, etc.).
-3. Descomprime el archivo y coloca el ejecutable `joss` (o `joss.exe`) en una carpeta accesible de tu disco.
-4. Agrega dicha carpeta a las variables de entorno de tu sistema (`PATH`).
+2. Descarga el archivo comprimido correspondiente a tu sistema (`windows_amd64`, `linux_amd64`, `darwin_arm64`, etc.).
+3. Descomprime el archivo, coloca `joss` (o `joss.exe`) en una carpeta de tu disco y agrégala al `PATH`.
 
 ### Opción C: Compilar desde el código fuente con Go
 
-Si eres desarrollador y tienes [Go](https://go.dev) instalado (versión 1.22 o superior), puedes clonar este repositorio y compilarlo en segundos:
+Si ya tienes [Go](https://go.dev) instalado (versión 1.22 o superior):
 
 ```bash
 git clone https://github.com/joss-language/Joss-Programming-Language.git
@@ -117,267 +118,353 @@ cd Joss-Programming-Language
 go build -o joss ./cmd/joss
 ```
 
-En Windows se creará `joss.exe`; en Linux/macOS se creará el binario ejecutable `joss`.
-
 ### Comprobar que la instalación funciona
 
-Abre una terminal y escribe:
+Abre tu terminal y escribe:
 
 ```bash
 joss version
 ```
 
-Deberías ver en pantalla la versión instalada de Joss (por ejemplo, `Joss version 3.6.7.2`). Si ves ese mensaje, ¡tu entorno está 100% listo para programar!
+Deberías ver en pantalla la versión instalada de Joss:
+
+```text
+Joss v3.6.8.0 (powerbuilder Joss 3.6.8.0)
+```
+
+Si ves ese mensaje, ¡tu entorno está 100% listo!
 
 ---
 
-## 4. Escribir y ejecutar tu primer programa
+## 4. Crear y ejecutar tu primer proyecto con `joss new console`
 
-Vamos a crear el clásico programa que todo programador escribe al empezar: mostrar un saludo en la pantalla.
+En lugar de crear carpetas y archivos vacíos a mano, Joss incluye un generador oficial que prepara todo tu espacio de trabajo en un segundo.
 
-### Paso 1: Crear una carpeta de trabajo
+### Paso 1: Generar el proyecto de consola
 
-Crea una carpeta limpia para tus experimentos. En tu terminal:
+En tu terminal, escribe el siguiente comando y presiona **Enter**:
 
 ```bash
-mkdir mi-primer-joss
-cd mi-primer-joss
+joss new console mi-primer-joss
 ```
 
-### Paso 2: Crear el archivo `hola.joss`
+Verás que Joss te confirma la creación del proyecto:
 
-Abre tu editor de texto preferido (por ejemplo, Visual Studio Code escribiendo `code .` en esa carpeta) y crea un nuevo archivo llamado:
+```text
+Creando proyecto Joss Console en: mi-primer-joss
 
-`hola.joss`
+✓ Proyecto de consola creado exitosamente
 
-> [!CAUTION]
-> Asegúrate de que el archivo termine exactamente en `.joss`. En Windows, si las extensiones conocidas están ocultas, el bloc de notas podría guardarlo como `hola.joss.txt`, lo cual impedirá que Joss lo reconozca como código fuente.
+Estructura creada:
+  - main.joss           (Entry point)
+  - env.joss            (Variables de entorno)
+  - config/reglas.joss  (Constantes globales)
+  - app/controllers/    (Lógica de negocio)
+  - app/models/         (Acceso a datos)
+  - app/libs/           (Librerías)
+  - app/database/migrations/
 
-Escribe dentro del archivo exactamente la siguiente línea:
+Para ejecutar:
+  cd mi-primer-joss
+  joss run main.joss
+```
+
+### Paso 2: Entrar a la carpeta del proyecto y ejecutarlo
+
+Entra a la carpeta recién creada con el comando `cd` (*change directory*, cambiar de directorio) y ejecuta el archivo principal `main.joss`:
+
+```bash
+cd mi-primer-joss
+joss run main.joss
+```
+
+Salida en tu terminal:
+
+```text
+=== Aplicación de Consola Joss ===
+
+¡Hola desde Joss Console!
+
+Este es un proyecto de consola backend-only.
+Puedes agregar tu lógica en este archivo main.joss
+
+Aplicación finalizada correctamente.
+```
+
+¡Felicidades! Acabas de crear y ejecutar tu primer proyecto completo en Joss.
+
+---
+
+## 5. ¿Qué acaba de crear Joss? Entendiendo `main.joss`
+
+Antes de modificar el programa, entendamos tres conceptos esenciales:
+
+1. **¿Qué es un proyecto?**
+   Es una carpeta organizada (`mi-primer-joss`) donde viven tu código fuente, tu configuración (`env.joss`) y las subcarpetas (`app/`) para cuando tu programa crezca.
+2. **¿Qué es `main.joss`?**
+   Es la **puerta principal** (punto de entrada o *entry point*) de tu programa. Cuando ejecutas `joss run main.joss` o compilas tu proyecto con `joss build`, Joss empieza a leer por este archivo.
+3. **¿Qué hay dentro de `main.joss`?**
+   Abre la carpeta `mi-primer-joss` en tu editor de código (por ejemplo, escribiendo `code .` si usas Visual Studio Code) y abre el archivo `main.joss`. Verás este contenido:
+
+<!-- joss-run: ["=== Aplicación de Consola Joss ===", "", "¡Hola desde Joss Console!", "", "Aplicación finalizada correctamente."] -->
+```joss
+public class Main {
+    Init main() {
+        print("=== Aplicación de Consola Joss ===")
+        print("")
+        print("¡Hola desde Joss Console!")
+        print("")
+        print("Aplicación finalizada correctamente.")
+    }
+}
+```
+
+### ¿Qué significan `public class Main` e `Init main()`?
+
+Más adelante (en el capítulo de [Clases y objetos](CLASES.md)) aprenderás en detalle qué es una clase. Por ahora, solo necesitas saber una regla muy sencilla:
+
+- `public class Main { Init main() { ... } }` es el **"botón de encendido"** oficial de tu proyecto.
+- Todo lo que escribas **dentro de las llaves `{` y `}` de `Init main()`** son las órdenes que la computadora ejecutará en orden, de arriba hacia abajo, cuando arranques el programa.
+- Las líneas que empiezan con `//` son **comentarios**: notas para ti que la computadora ignora por completo.
+
+### Escribir tu propio saludo mínimo
+
+Reemplaza el contenido de `main.joss` por este ejemplo mínimo de una sola instrucción dentro de `Init main()`:
 
 <!-- joss-run: ["Hola, Joss!"] -->
 ```joss
-print("Hola, Joss!")
+public class Main {
+    Init main() {
+        print("Hola, Joss!")
+    }
+}
 ```
 
-Guarda el archivo.
+> [!TIP]
+> **¿Sabías que también puedes escribir instrucciones directas?**
+> Si para un experimento rápido escribes únicamente `print("Hola, Joss!")` en `main.joss` (sin envolverlo en `public class Main`), Joss también lo ejecutará. A lo largo del curso veremos fragmentos breves así para ir directo al grano, pero en tus proyectos creados con `joss new console` puedes colocar todo tu código dentro de `Init main() { ... }`.
 
-### Paso 3: Entender cada parte de esa línea
-
-Veamos qué significa cada carácter:
-
-1. `print`: Es el nombre de una **función nativa** incorporada en Joss. Su propósito exclusivo es recibir una información y escribirla en la pantalla (salida estándar), agregando al final un salto de línea para que la siguiente instrucción empiece en el renglón de abajo.
-2. `(` y `)`: Los paréntesis le indican a Joss que estás **llamando** (ejecutando) la función `print`. Dentro de los paréntesis colocas los datos de entrada que la función necesita para trabajar. A estos datos de entrada se les llama **argumentos**.
-3. `"Hola, Joss!"`: Es un valor de tipo **texto** (técnicamente llamado `string` o cadena de caracteres). Las comillas dobles `"` sirven para marcar exactamente dónde empieza y dónde termina el texto. Las comillas no se muestran en pantalla; solo delimitan el contenido.
-
-### Paso 4: Analizar y ejecutar el programa
-
-Vuelve a tu terminal, asegúrate de estar ubicado en la carpeta `mi-primer-joss` y escribe:
+Guarda el archivo y vuelve a ejecutar en tu terminal:
 
 ```bash
-joss run hola.joss
+joss run main.joss
 ```
 
-Inmediatamente verás la salida en la terminal:
+Salida:
 
 ```text
 Hola, Joss!
 ```
 
-¡Felicidades! Acabas de escribir, procesar y ejecutar tu primer programa en Joss.
+### ¿Qué hace cada parte de `print("Hola, Joss!")`?
 
-### Modo interactivo para pruebas rápidas: `joss repl`
+1. `print`: Es una **función integrada** en Joss. Su trabajo es recibir un dato y mostrarlo en la pantalla de tu terminal, agregando un salto de línea al final.
+2. `(` y `)`: Los paréntesis le indican a Joss que quieres **ejecutar** `print`. Lo que colocas dentro de los paréntesis es el dato que le entregas para trabajar (llamado **argumento**).
+3. `"Hola, Joss!"`: Es un valor de tipo **texto** (`string`). Las comillas dobles `"` marcan dónde empieza y dónde termina el texto. Las comillas no se imprimen en pantalla; solo delimitan el mensaje.
 
-Si quieres experimentar con operaciones matemáticas, variables o funciones pequeñas sin necesidad de crear un archivo en el disco, puedes abrir la **consola interactiva (REPL)** de Joss escribiendo en tu terminal:
+### Probar ideas al instante sin editar archivos: `joss repl`
+
+Si en cualquier momento quieres probar una suma o una línea de código en vivo, escribe en tu terminal:
 
 ```bash
 joss repl
 ```
 
-Verás un cursor de bienvenida:
+Verás la consola interactiva de Joss:
+
 ```text
-Joss Interactive REPL (v3.7.0)
-Escribe expresiones, sentencias o 'exit' / 'quit' para salir.
->>> $x = 10
->>> $x * 5
+Joss REPL v3.6.8.0
+Escribe 'exit' para salir.
+joss> var $x = 10
+joss> $x * 5
 50
->>> print("Hola desde el REPL!")
+joss> print("Hola desde el REPL!")
 Hola desde el REPL!
->>> exit
+joss> exit
 ```
-
-Las variables que crees se recordarán entre línea y línea mientras la sesión esté abierta. Para salir, simplemente escribe `exit` o `quit`.
-
-### Extensión de VS Code y formateo automático
-
-Si utilizas Visual Studio Code con la extensión oficial de Joss, puedes ordenar y alinear automáticamente tu código según las normas de estilo canónicas en cualquier momento con el atajo estándar:
-- En **Windows y Linux**: `Shift + Alt + F`
-- En **macOS**: `Shift + Option + F` (o clic derecho → *Dar formato al documento*)
 
 ---
 
-## 5. El comando `analyze`: Tu red de seguridad
+## 6. El comando `analyze`: Tu red de seguridad antes de ejecutar
 
-Antes de poner a correr un programa grande o desplegarlo en un servidor, Joss te permite verificarlo estáticamente mediante el comando `analyze`:
+En Joss no tienes que esperar a que un programa falle a mitad de camino para descubrir un error. Puedes pedirle al **analizador semántico** que revise tu proyecto escribiendo:
 
 ```bash
-joss analyze hola.joss
+joss analyze main.joss
 ```
 
-Si el código es correcto y seguro, el analizador terminará con éxito:
+Si tu código cumple todas las reglas, verás:
 
 ```text
 [Analyzer] Análisis completado sin errores.
 ```
 
-¿Qué hace exactamente el analizador?
-- **Revisa la sintaxis**: Comprueba que no hayas olvidado comillas, paréntesis o llaves.
-- **Valida los nombres de variables y funciones**: Comprueba que no estés llamando a cosas que no existen.
-- **Comprueba los tipos de datos**: Si dijiste que una variable era un número entero, comprueba que no intentes asignarle una lista de usuarios.
-- **Verifica las rutas de retorno**: Comprueba que tus funciones devuelvan siempre un valor coherente en cualquier camino posible.
+¿Qué revisa `joss analyze` por ti?
+- **La puntuación (sintaxis)**: Que no hayas olvidado cerrar unas comillas `"`, un paréntesis `)` o una llave `}`.
+- **Los nombres**: Que no intentes usar una variable o función que nunca fue creada.
+- **Los tipos de datos**: Que no intentes guardar un texto donde prometiste guardar un número entero.
 
-El comando `joss run` realiza internamente este análisis antes de ejecutar. Si hay un error bloqueante (`Severity: error`), Joss se negará a ejecutarlo para proteger tu sistema de comportamientos erráticos.
+De hecho, cada vez que ejecutas `joss run main.joss` o compilas con `joss build main.joss`, Joss pasa primero este filtro de seguridad automáticamente.
 
 ---
 
-## 6. Modificar el programa: Usar memoria y variables
+## 7. Guardar información en la memoria: Tu primera variable
 
-Un programa que solo muestra texto fijo es poco interactivo. Los programas reales guardan información en la memoria de la computadora para recuperarla o transformarla más adelante. Para hacer esto se usan **variables**.
+Un programa que solo imprime texto fijo siempre hace lo mismo. Para recordar un nombre, una edad o un resultado, usamos **variables**.
 
-Modifica tu archivo `hola.joss` para que contenga:
+Imagina una variable como una **caja etiquetada en la memoria** de la computadora donde puedes guardar un dato para usarlo después.
+
+Actualiza tu archivo `main.joss` con el siguiente código:
 
 <!-- joss-run: ["Hola, Ada", "Bienvenida a Joss"] -->
 ```joss
-var $nombre = "Ada"
-print("Hola, " . $nombre)
-print("Bienvenida a Joss")
+public class Main {
+    Init main() {
+        var $nombre = "Ada"
+        print("Hola, " . $nombre)
+        print("Bienvenida a Joss")
+    }
+}
 ```
 
-Guarda y ejecuta:
-
-```bash
-joss run hola.joss
-```
-
-Salida:
+Guarda y ejecuta `joss run main.joss`:
 
 ```text
 Hola, Ada
 Bienvenida a Joss
 ```
 
-### ¿Qué ha cambiado aquí?
+### Explicación línea por línea:
 
 1. `var $nombre = "Ada"`:
-   - La palabra `var` declara la variable por inferencia de tipo.
-   - El símbolo `$` al principio indica que estamos usando una variable. En Joss, **todas las variables empiezan con `$`**.
-   - El signo `=` se llama **operador de asignación**. Toma el valor que está a la derecha (`"Ada"`) y lo guarda en la "caja" de memoria identificada con el nombre `$nombre`.
-   - Joss infiere automáticamente que `$nombre` guarda texto (`string`).
-2. `"Hola, " . $nombre`:
-   - El punto `.` es el **operador de concatenación**. Se utiliza para unir dos piezas de texto en una sola. Aquí une `"Hola, "` con el contenido que hay dentro de `$nombre` (`"Ada"`), produciendo el texto `"Hola, Ada"`.
-3. Segunda llamada a `print`:
-   - Muestra la siguiente línea de forma independiente.
+   - `var`: Le dice a Joss *"voy a crear una variable nueva; deduce su tipo a partir del valor inicial"*.
+   - `$nombre`: Es el nombre de la variable. **En Joss, todas las variables empiezan obligatoriamente con el signo `$`**.
+   - `=`: Es el **operador de asignación**. Toma el valor de la derecha (`"Ada"`) y lo guarda dentro de `$nombre`.
+2. `print("Hola, " . $nombre)`:
+   - El punto `.` es el **operador de concatenación de texto**. Une el texto `"Hola, "` con el contenido guardado en `$nombre` (`"Ada"`), formando `"Hola, Ada"`.
+   - También puedes incrustar la variable directamente dentro de las comillas dobles escribiendo `print("Hola, ${nombre}")`.
 
-Prueba a cambiar `"Ada"` por tu propio nombre en la primera línea, guarda el archivo y vuelve a ejecutar `joss run hola.joss`. Verás cómo el saludo cambia automáticamente.
-
----
+> [!IMPORTANT]
+> **Crear una variable (`var $nombre = ...`) vs Cambiar su valor (`$nombre = ...`)**
+> En Joss, la **primera vez** que creas una variable debes declararla con `var` (o indicando su tipo, como `string $nombre = "Ada"`). Si intentas escribir `$nombre = "Ada"` por primera vez sin haberla declarado antes, Joss te avisará con el error `JOSS-SYM-001` (*Variable is not declared*). Una vez declarada, sí puedes cambiar su valor más adelante escribiendo `$nombre = "Carlos"`.
 
 ---
 
-## 7. Modo Interactivo: Pedir datos al usuario con `cin >>`
+## 8. Dialogar con el usuario: Entrada por teclado con `cin >>`
 
-Hasta ahora, el programa solo muestra datos que ya escribiste en el código. Para crear programas divertidos y útiles, necesitas que la computadora te **escuche**, espere tu respuesta y reaccione a ella.
-
-El ciclo fundamental de todo programa es:
+Ahora hagamos que el programa nos haga preguntas, espere a que escribamos en el teclado y nos responda. Todo programa interactivo sigue tres pasos:
 
 ```text
 ┌─────────────────────────┐       ┌─────────────────────────┐       ┌─────────────────────────┐
 │     1. ENTRADA          │  ──>  │     2. PROCESO          │  ──>  │     3. SALIDA           │
-│ El usuario escribe con  │       │ El programa calcula,    │       │ Se muestra el resultado │
-│ cin >> $variable        │       │ une o toma decisiones   │       │ en pantalla con print() │
+│ El usuario escribe con  │       │ El programa calcula o   │       │ Se muestra el resultado │
+│ cin >> $variable        │       │ prepara la respuesta    │       │ en pantalla con print() │
 └─────────────────────────┘       └─────────────────────────┘       └─────────────────────────┘
 ```
 
-En Joss, leer datos que el usuario escribe en su teclado es tan sencillo como usar `cin >>`:
+Escribe en tu `main.joss`:
 
 <!-- joss-check: lectura interactiva de datos por teclado -->
 ```joss
-string $nombre = ""
-int $edad = 0
+public class Main {
+    Init main() {
+        string $nombre = ""
+        int $edad = 0
 
-print("¿Cómo te llamas?")
-cin >> $nombre
+        print("¿Cómo te llamas?")
+        cin >> $nombre
 
-print("¿Cuántos años tienes?")
-cin >> $edad
+        print("¿Cuántos años tienes?")
+        cin >> $edad
 
-print("¡Mucho gusto, " . $nombre . "! El próximo año tendrás " . ($edad + 1) . " años.")
+        print("¡Mucho gusto, " . $nombre . "! El próximo año tendrás " . ($edad + 1) . " años.")
+    }
+}
 ```
 
-### ¿Cómo funciona `cin >>`?
-1. `print(...)` muestra una pregunta en la terminal para que la persona sepa qué escribir.
-2. `cin >> $nombre` pausa el programa y espera a que el usuario escriba su nombre y presione la tecla **Enter**.
-3. Todo lo que el usuario escribió se almacena automáticamente en la variable `$nombre`.
-4. Si el dato que se espera es un número (como la edad), Joss lo convierte automáticamente para que puedas realizar operaciones matemáticas directas como `$edad + 1`.
+### ¿Cómo funciona este programa cuando lo ejecutas con `joss run main.joss`?
+
+1. `string $nombre = ""` e `int $edad = 0`: Creamos dos variables listas para recibir datos: una para texto (`string`) inicialmente vacía `""`, y otra para un número entero (`int`) inicialmente en `0`.
+2. `cin >> $nombre`: Pausa el programa y espera a que escribas tu nombre en la terminal y presiones **Enter**. Lo que escribas se guarda en `$nombre`.
+3. `cin >> $edad`: Espera a que escribas tu edad y la convierte automáticamente en un número entero dentro de `$edad`.
+4. `($edad + 1)`: Suma `1` a la edad que escribiste y muestra el saludo completo.
+
+Ejemplo de sesión real en tu terminal:
+
+```text
+¿Cómo te llamas?
+Ada
+¿Cuántos años tienes?
+20
+¡Mucho gusto, Ada! El próximo año tendrás 21 años.
+```
 
 ---
 
-## 8. La "Chuleta Esencial del Principiante" (Cheat-Sheet)
+## 9. Resumen rápido de tu primer capítulo
 
-Guarda esta tabla cerca. Estos 8 patrones resuelven prácticamente cualquier programa en tus primeras semanas de aprendizaje:
+Guarda esta tabla como referencia de lo que ya dominas:
 
-| ¿Qué quieres lograr? | ¿Cómo se escribe en Joss? | Ejemplo mínimo |
+| ¿Qué quieres hacer? | Comando o código en Joss | Ejemplo real |
 |---|---|---|
-| **Mostrar un mensaje** | `print(...)` | `print("¡Hola mundo!")` |
-| **Pedir datos al usuario** | `cin >> $variable` | `cin >> $ciudad` |
-| **Guardar información** | `$variable = valor` | `$precio = 25` |
-| **Aumentar o sumar rápido** | `$variable += valor` | `$puntos += 10` |
-| **Unir piezas de texto** | `texto1 . texto2` | `"Hola " . $nombre` |
-| **Tomar una decisión** | `(condicion) ? { si } : { no }` | `($edad >= 18) ? { print("Mayor") } : { print("Menor") }` |
-| **Elegir entre varias opciones** | `match ($opcion) { caso => ... }` | `match ($color) { "rojo" => "Alto", default => "Sigue" }` |
-| **Guardar y recorrer una lista** | `foreach ($lista as $item)` | `foreach (["manzana", "pera"] as $f) { print($f) }` |
+| **Crear un proyecto de consola** | `joss new console <nombre>` | `joss new console mi-primer-joss` |
+| **Ejecutar tu proyecto** | `joss run main.joss` | `joss run main.joss` |
+| **Revisar errores sin ejecutar** | `joss analyze main.joss` | `joss analyze main.joss` |
+| **Compilar a ejecutable nativo** | `joss build main.joss` | Genera `build/main.exe` (o `build/main`) |
+| **Mostrar un mensaje en pantalla** | `print(...)` | `print("¡Hola mundo!")` |
+| **Crear una variable nueva** | `var $variable = valor` | `var $ciudad = "Madrid"` |
+| **Cambiar una variable ya creada** | `$variable = nuevo_valor` | `$ciudad = "Lima"` |
+| **Unir textos** | `texto1 . texto2` o `"${variable}"` | `"Hola, " . $nombre` |
+| **Leer lo que escribe el usuario** | `cin >> $variable` | `cin >> $nombre` |
 
----
+### Las Tres Reglas de Oro para empezar sin tropiezos
 
-## 9. Las Tres Reglas de Oro para Principiantes
-
-Para evitar el 99% de las dudas y errores al dar tus primeros pasos:
-
-1. **El dólar sagrado (`$`):** Toda variable en Joss comienza obligatoriamente con `$`. Si ves un error de variable no definida, revisa si olvidaste el `$`.
-2. **Las comillas van en parejas (`"..."`):** Todo texto libre debe empezar y terminar con comillas dobles. Los números (`42`) no llevan comillas; las palabras (`"Hola"`) sí.
-3. **Todo lo que se abre, se cierra:** Los paréntesis `()`, las llaves `{}` y los corchetes `[]` siempre van en pares. Si abres una llave `{`, asegúrate de tener su correspondiente cierre `}`.
+1. **Toda variable empieza con `$`**: Escribe siempre `$nombre`, `$edad`, `$total`.
+2. **Declara antes de usar**: Usa `var $x = ...` (o el tipo como `int $x = ...`) la primera vez que crees una variable.
+3. **Todo lo que se abre, se cierra**: Comillas `"..."`, paréntesis `(...)` y llaves `{...}` van siempre en pareja.
 
 ---
 
 ## 10. Si algo no funciona: Diagnóstico rápido
 
-Cuando estás aprendiendo a programar, equivocarse no solo es normal, ¡es la mejor forma de entender cómo piensa la computadora!
-
-Aquí tienes una tabla con los problemas más frecuentes y cómo resolverlos:
-
 | Síntoma o mensaje | Causa probable | Cómo solucionarlo |
 |---|---|---|
-| `joss: command not found` o `el término 'joss' no se reconoce` | La terminal no sabe dónde está el ejecutable `joss`. | Cierra y vuelve a abrir tu terminal. Si persiste, revisa que la carpeta de Joss esté incluida en tu variable de entorno `PATH`. |
-| `Error: No se pudo leer el archivo 'hola.joss'` (`JOSS-IO-001`) | La terminal no encuentra el archivo en la carpeta actual. | Escribe `ls` (en Linux/macOS o PowerShell) o `dir` (en Windows CMD) para ver los archivos de la carpeta. Verifica si el nombre está bien escrito o si estás en el directorio correcto con `cd`. |
-| `JOSS-PARSE-001: Error de sintaxis` | Falta cerrar una comilla `"`, un paréntesis `)` o hay un carácter inesperado. | Lee la línea y columna señaladas por el mensaje de error. Revisa que todas las comillas y paréntesis estén debidamente emparejados. |
-| `JOSS-SYM-001: Variable no definida` | Intentaste leer una variable que nunca fue creada o su nombre tiene una errata. | Recuerda incluir siempre el `$`. Verifica las mayúsculas y minúsculas (`$nombre` y `$Nombre` son dos variables completamente distintas para Joss). |
-| Decenas de errores sobre archivos que no reconoces | Estás ejecutando `joss analyze` o `joss run` dentro de una carpeta que contiene otros proyectos o archivos `.joss` previos. | Trabaja siempre dentro de una carpeta vacía dedicada a tu proyecto. Joss descubre automáticamente todos los archivos `.joss` de la carpeta actual y sus subdirectorios. |
+| `joss: command not found` o `el término 'joss' no se reconoce` | La terminal aún no recargó el `PATH` tras instalar Joss. | Cierra la ventana de la terminal, ábrela de nuevo y prueba `joss version`. |
+| `No se encontró el archivo 'main.joss'` | No has entrado a la carpeta del proyecto que creaste. | Ejecuta `cd mi-primer-joss` antes de correr `joss run main.joss`. |
+| `JOSS-PARSE-001` (Error de sintaxis) | Falta cerrar una comilla `"`, un paréntesis `)` o una llave `}`. | Fíjate en el número de línea que te indica Joss y verifica que cada comilla y llave tenga su pareja. |
+| `JOSS-SYM-001: Variable '$x' is not declared` | Escribiste `$x = valor` sin haber creado antes la variable, o escribiste mal su nombre. | Agrega `var` al crearla por primera vez (`var $x = valor`) y revisa mayúsculas/minúsculas (`$edad` y `$Edad` son distintas). |
 
 ---
 
-## 11. Ejercicios prácticos para principiantes
+## 11. Práctica del capítulo
 
-Para afianzar lo que acabas de aprender antes de continuar:
+Pon a prueba lo aprendido directamente en el archivo `main.joss` de tu proyecto `mi-primer-joss`:
 
-1. **Tu tarjeta de presentación**: Escribe un programa `tarjeta.joss` que declare tres variables: `$miNombre`, `$miPais` y `$miProfesion`. Luego, usando `print` y concatenación con `.`, muestra un mensaje en pantalla que arme un párrafo presentándote.
-2. **Tu primer diálogo interactivo**: Crea `conversacion.joss`, pide al usuario su nombre y su comida favorita con `cin >>`, y respóndele con una recomendación culinaria alegre.
-3. **Experimentar con errores (El juego de romper el código)**: Quita a propósito la comilla final del texto en `print("Hola)` y ejecuta `joss analyze`. Observa cómo Joss te indica exactamente el número de línea donde detectó el problema. Vuelve a colocar la comilla para que quede limpio.
+### 1. Prueba rápida
+En el ejemplo de la sección 7:
+1. Cambia `"Ada"` por tu propio nombre.
+2. Agrega una tercera línea `print("Estoy aprendiendo a programar")` antes de cerrar la llave `}` de `Init main()`.
+3. Ejecuta `joss run main.joss` y comprueba que aparezcan las tres líneas en orden.
+
+### 2. Ejercicio guiado: Tu tarjeta de presentación
+Modifica `Init main()` siguiendo estos 4 pasos:
+1. Declara una variable con tu nombre: `var $nombre = "Tu Nombre"`.
+2. Declara una variable con tu país: `var $pais = "Tu País"`.
+3. Declara una variable con tu meta: `var $meta = "Crear aplicaciones en Joss"`.
+4. Usa `print` y el operador `.` (o `${...}`) para mostrar un resumen de tres líneas en la terminal.
+
+### 3. Reto: Calculadora del doble de un número
+1. Declara una variable entera `int $numero = 0`.
+2. Muestra un mensaje con `print("Escribe un número entero:")`.
+3. Lee el número del teclado con `cin >> $numero`.
+4. Muestra en pantalla: `"El doble de tu número es: " . ($numero * 2)`.
+5. *(Opcional)* Ejecuta `joss build main.joss` y observa cómo Joss crea tu propio programa ejecutable dentro de la carpeta `build/`.
 
 ---
 
 ## Siguiente paso
 
-Ahora que ya sabes qué es Joss, cómo crear un archivo, cómo imprimir datos y cómo interactuar con el usuario, es momento de aprender en profundidad los tipos de datos que maneja una computadora, cómo operar números y cómo decidir qué tipo de variable utilizar.
+Ahora que ya sabes crear un proyecto con `joss new console`, entender `main.joss`, mostrar mensajes, crear variables y pedir datos por teclado, es momento de conocer todos los tipos de datos que maneja Joss (números exactos para dinero, decimales, booleanos y texto) y cómo realizar operaciones con ellos.
 
 Continúa con: [Valores, variables y operaciones fundamentales](FUNDAMENTOS.md).
 

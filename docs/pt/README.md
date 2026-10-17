@@ -1,77 +1,76 @@
-# Joss Documentação
+# Documentação do Joss
 
-Esta documentação descreve o comportamento do código atual. Está separado
-na aprendizagem, guias, referências e internos para que uma nova pessoa possa
-avança em ordem e uma pessoa experiente encontra regras concretas.
+Esta documentação descreve o comportamento do código atual. Está dividida
+em aprendizado, guias, referência e internos para que uma pessoa iniciante possa
+avançar em ordem e uma pessoa experiente encontre regras concretas.
 
 ## Idiomas
 
-- [Español (fonte canônica)](../en/README.md)
-- [English](README.md)
-- Português: este diretório.
+- Español (fonte canônica): este diretório.
+- [English](../en/README.md)
+- [Português](README.md)
 
-Todos os 50 documentos usam o mesmo nome de arquivo em cada idioma, para que
-os links relativos funcionem de forma consistente. Depois de editar a fonte em espanhol, execute
-`go run ./tools/docsi18n -translate -sync` para atualizar traduções e espelhar
-a cópia web; `go run ./tools/docsi18n -check` detecta arquivos ausentes,
-traduções desatualizadas, links quebrados ou diferenças com JosSecurity.
+Os 50 documentos mantêm o mesmo nome em cada idioma para que os links
+relativos funcionem igual. Depois de editar o espanhol, execute
+`go run ./tools/docsi18n -translate -sync` para atualizar traduções e o espelho
+web; `go run ./tools/docsi18n -check` detecta arquivos ausentes, traduções
+desatualizadas, links quebrados ou diferenças com JosSecurity.
 
-## Aprenda Joss (rota guiada para iniciantes)
+## Aprender Joss (Rota guiada do zero)
 
-Se você nunca programou ou está aprendendo Joss pela primeira vez, leia este passo a passo na ordem. Cada página apresenta conceitos com explicações pedagógicas, exemplos visuais passo a passo e folhas de dicas rápidas antes de se aprofundar em aspectos técnicos avançados.
+Se você nunca programou ou está aprendendo Joss pela primeira vez, siga este curso em ordem. Cada capítulo introduz um conceito por vez, partindo de como criar e executar seu projeto oficial com `joss new console`, com explicações linha por linha, resultados visíveis e três níveis de prática (*Teste rápido*, *Exercício guiado* e *Desafio*).
 
-0. [Primeiros passos: de um arquivo ao seu primeiro programa interativo com cin](PRIMEROS_PASOS.md)
+0. [Primeiros passos: criar seu projeto com `joss new console`, entender `main.joss` e dialogar com `cin`](PRIMEROS_PASOS.md)
 1. [Valores, variáveis e operações fundamentais](FUNDAMENTOS.md)
-2. [Controle de fluxo e tomada de decisão](CONTROL_FLUJO.md)
-3. [Funções, escopo, fechamentos e referências](FUNCIONES.md)
-4. [Matrizes, mapas e texto](COLECCIONES.md)
-5. [Tipos, inferência e conversões](SISTEMA_TIPOS.md)
-6. [Classes, objetos e herança](CLASES.md)
-7. [Erros e exceções](ERRORES.md)
-8. [Assíncrono, Futuro, canais e simultaneidade](CONCURRENCIA.md)
-9. [Projeto de console completo com persistência JSON](PROYECTO_CONSOLA.md)
-10. [Projeto web completo com MVC nativo](PROYECTO_WEB.md)
+2. [Controle de fluxo: decisões e laços de repetição](CONTROL_FLUJO.md)
+3. [Coleções: Arrays, Maps e texto Unicode](COLECCIONES.md)
+4. [Funções, escopo (scope), `guard`, `defer`, closures, `ref` e pipelines](FUNCIONES.md)
+5. [Tratamento de erros, diagnósticos `JOSS-...` e exceções `try/catch`](ERRORES.md)
+6. [Classes, objetos, herança, interfaces, `record` e genéricos](CLASES.md)
+7. [Concorrência, `async/await`, `Future` e canais (`channel`)](CONCURRENCIA.md)
+8. [Projeto prático de console com persistência JSON e `joss build`](PROYECTO_CONSOLA.md)
+9. [Projeto web completo com `joss new` e arquitetura MVC nativa](PROYECTO_WEB.md)
 
-O [glossário](GLOSARIO.md) explica a programação e os termos Joss sem exigir
-que você já conhece outro idioma.
+O [glossário](GLOSARIO.md) explica todos os termos de programação e do Joss em linguagem cotidiana, sem exigir que você conheça outra linguagem. Depois de concluir o curso básico, aprofunde-se nas regras formais de tipos em [Sistema de tipos, inferência e conversões](SISTEMA_TIPOS.md).
 
-## Referência de linguagem e ferramentas
+## Referência da linguagem e ferramentas
 
 - [Sintaxe, tokens e precedência](SINTAXIS.md)
 - [Gramática EBNF e nós AST](GRAMATICA.md)
 - [Funções](FUNCIONES.md), [recursão](RECURSION.md) e [tipos](SISTEMA_TIPOS.md)
-- [Diagnóstico](DIAGNOSTICOS.md) e [analisador](ANALIZADOR.md)
+- [Diagnósticos](DIAGNOSTICOS.md) e [analisador](ANALIZADOR.md)
 - [Funções globais](FUNCIONES_GLOBALES.md)
-- [Classes e serviços nativos](MODULOS_NATIVOS.md)
+- [Classes nativas e serviços](MODULOS_NATIVOS.md)
 - [Catálogo nativo gerado](CATALOGO_NATIVO.md)
 - [CLI, formatador, linter e testes](CLI.md)
 - [Suporte móvel: Android e iOS](MOBILE.md)
-- [Extensão de código VS](VSCODE_EXTENSION.md)
+- [Extensão do VS Code](VSCODE_EXTENSION.md)
 - [Estado e limites](ESTADO_IMPLEMENTACION.md)
 
-## Criar aplicativos
+## Criar aplicações
 
-- [Estrutura do projeto](ESTRUCTURA_PROYECTO.md) e [configuração](CONFIGURACION.md)
-- [Organização sem importações](MODULOS_IMPORTS.md) e [plugins](PLUGINS.md)
+- [Estrutura de projetos](ESTRUCTURA_PROYECTO.md) e [configuração](CONFIGURACION.md)
+- [Organização sem imports](MODULOS_IMPORTS.md) e [plugins](PLUGINS.md)
 - Web: [servidor](SERVIDOR.md), [HTTP/controladores](CONTROLADORES.md),
-  [middleware](MIDDLEWARE.md), [visualizações](VISTAS.md), [ativos](ASSETS.md) e
+  [middleware](MIDDLEWARE.md), [views](VISTAS.md), [assets](ASSETS.md) e
   [WebSockets](WEBSOCKETS.md)
-- Dados: [models/GranDB](MODELOS.md), [Schema Builder](SCHEMA_BUILDER.md) e
+- Dados: [modelos/GranDB](MODELOS.md), [Schema Builder](SCHEMA_BUILDER.md) e
   [migrações](MIGRACIONES.md)
 - Aplicação: [autenticação](AUTENTICACION.md) e [SEO/sitemap](SEO_SITEMAP.md)
 
 ## Internos e manutenção
 
-- [Arquitetura de linguagem](ARQUITECTURA.md)
-- [Guia de Contribuição](CONTRIBUIR.md)- [Auditoria de documentação](DOCUMENTATION_AUDIT.md)
-- [Auditoria de linguagem Joss 2026](JOSS_LANGUAGE_AUDIT_2026.md)
+- [Arquitetura da linguagem](ARQUITECTURA.md)
+- [Guia de contribuição](CONTRIBUIR.md)
+- [Auditoria de documentação](DOCUMENTATION_AUDIT.md)
+- [Auditoria da linguagem Joss 2026](JOSS_LANGUAGE_AUDIT_2026.md)
 - [Avaliação crítica e comparativa do Joss 2026](JOSS_LANGUAGE_REVIEW_2026.md)
 - [Evolução do Joss 2026: fases 0 e 1](JOSS_EVOLUTION_PHASE_0_1_2026.md)
 - [Auditoria do ORM GranDB 2026](GRANDB_ORM_AUDIT_2026.md)
 - [Auditoria técnica de 2026](AUDITORIA_TECNICA_2026.md)
-- [Auditoria de otimização de tempo de execução](RUNTIME_OPTIMIZATION_AUDIT.md)
-- [Notícias históricas 3.6.7](NOVEDADES_367.md)
+- [Auditoria de otimização runtime](RUNTIME_OPTIMIZATION_AUDIT.md)
+- [Novidades históricas 3.6.7](NOVEDADES_367.md)
 
-Documentos históricos preservam o contexto e podem descrever o estado do seu
-data. No caso de uma diferença, implementação, teste e
-[Status de implementação](ESTADO_IMPLEMENTACION.md).
+Os documentos históricos preservam o contexto e podem descrever o estado de sua
+data. Diante de uma diferença, prevalecem a implementação, os testes e
+[Estado de implementação](ESTADO_IMPLEMENTACION.md).

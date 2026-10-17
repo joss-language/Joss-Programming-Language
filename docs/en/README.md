@@ -1,39 +1,37 @@
 # Joss Documentation
 
-This documentation describes the behavior of the current code. It is separated
-in learning, guides, reference and internals so that a new person can
-move forward in order and an experienced person finds concrete rules.
+This documentation describes the behavior of the current code. It is divided
+into learning, guides, reference and internals so that a beginner can
+move forward in order and an experienced developer can find concrete rules.
 
 ## Languages
 
-- [Español (canonical source)](README.md)
-- English: this directory.
+- Español (canonical source): this directory.
+- [English](README.md)
 - [Português](../pt/README.md)
 
-All 50 documents use the same filename in every language, so relative links
-work consistently. After editing the Spanish source, run
-`go run ./tools/docsi18n -translate -sync` to update translations and mirror
-the web copy; `go run ./tools/docsi18n -check` detects missing files, stale
+All 50 documents keep the same filename in every language so that relative links
+work the same way. After editing the Spanish source, run
+`go run ./tools/docsi18n -translate -sync` to update translations and the web
+mirror; `go run ./tools/docsi18n -check` detects missing files, stale
 translations, broken links or differences with JosSecurity.
 
-## Learn Joss (Guided route for beginners)
+## Learn Joss (Guided route from scratch)
 
-If you've never programmed or are learning Joss for the first time, read this walkthrough in order. Each page introduces concepts with pedagogical explanations, step-by-step visual examples, and quick cheat sheets before delving into advanced technical aspects.
+If you have never programmed before or are learning Joss for the first time, follow this course in order. Each chapter introduces one concept at a time, starting from how to create and run your official project with `joss new console`, with line-by-line explanations, visible results and three levels of practice (*Quick test*, *Guided exercise* and *Challenge*).
 
-0. [First steps: from a file to your first interactive program with cin](PRIMEROS_PASOS.md)
+0. [First steps: create your project with `joss new console`, understand `main.joss` and interact with `cin`](PRIMEROS_PASOS.md)
 1. [Fundamental values, variables and operations](FUNDAMENTOS.md)
-2. [Flow control and decision making](CONTROL_FLUJO.md)
-3. [Functions, scope, closures and references](FUNCIONES.md)
-4. [Arrays, maps and text](COLECCIONES.md)
-5. [Types, inference and conversions](SISTEMA_TIPOS.md)
-6. [Classes, objects and inheritance](CLASES.md)
-7. [Errors and exceptions](ERRORES.md)
-8. [Async, Future, channels and concurrency](CONCURRENCIA.md)
-9. [Full console project with JSON persistence](PROYECTO_CONSOLA.md)
-10. [Complete web project with native MVC](PROYECTO_WEB.md)
+2. [Flow control: decisions and repetition loops](CONTROL_FLUJO.md)
+3. [Collections: Arrays, Maps and Unicode text](COLECCIONES.md)
+4. [Functions, scope, `guard`, `defer`, closures, `ref` and pipelines](FUNCIONES.md)
+5. [Error handling, `JOSS-...` diagnostics and `try/catch` exceptions](ERRORES.md)
+6. [Classes, objects, inheritance, interfaces, `record` and generics](CLASES.md)
+7. [Concurrency, `async/await`, `Future` and channels (`channel`)](CONCURRENCIA.md)
+8. [Practical console project with JSON persistence and `joss build`](PROYECTO_CONSOLA.md)
+9. [Complete web project with `joss new` and native MVC architecture](PROYECTO_WEB.md)
 
-The [glossary](GLOSARIO.md) explains programming and Joss terms without requiring
-that you already know another language.
+The [glossary](GLOSARIO.md) explains all programming and Joss terms in everyday language, without requiring prior knowledge of another language. Once you complete the basic course, dive deeper into formal type rules in [Type system, inference and conversions](SISTEMA_TIPOS.md).
 
 ## Language and tools reference
 
@@ -63,7 +61,8 @@ that you already know another language.
 ## Internals and maintenance
 
 - [Language architecture](ARQUITECTURA.md)
-- [Contribution Guide](CONTRIBUIR.md)- [Documentation audit](DOCUMENTATION_AUDIT.md)
+- [Contribution Guide](CONTRIBUIR.md)
+- [Documentation audit](DOCUMENTATION_AUDIT.md)
 - [Joss Language Audit 2026](JOSS_LANGUAGE_AUDIT_2026.md)
 - [Critical and Comparative Joss Review 2026](JOSS_LANGUAGE_REVIEW_2026.md)
 - [Joss evolution 2026: phases 0 and 1](JOSS_EVOLUTION_PHASE_0_1_2026.md)
@@ -72,6 +71,6 @@ that you already know another language.
 - [Runtime Optimization Audit](RUNTIME_OPTIMIZATION_AUDIT.md)
 - [Historical news 3.6.7](NOVEDADES_367.md)
 
-Historical documents preserve context and can describe the state of your
-date. In the event of a difference, implementation, testing and
-[Implementation status](ESTADO_IMPLEMENTACION.md).
+Historical documents preserve context and may describe the state at their
+date. In the event of a discrepancy, the implementation, tests and
+[Implementation status](ESTADO_IMPLEMENTACION.md) take precedence.

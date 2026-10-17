@@ -1,6 +1,6 @@
 # Catálogo y referencia de diagnósticos del lenguaje
 
-Antes: [Manejo de errores y excepciones](ERRORES.md). Después: [Analizador semántico AST](ANALIZADOR.md).
+Antes: [Manejo de errores y excepciones](ERRORES.md), [Sistema de tipos](SISTEMA_TIPOS.md). Después: [Analizador semántico AST](ANALIZADOR.md).
 Índice general: [Documentación de Joss](README.md).
 
 ---
@@ -28,19 +28,25 @@ A diferencia de los mensajes de error genéricos de herramientas antiguas, cada 
 |---|---|---|---|---|
 | `JOSS-IO-001` | Entrada / Salida | No se puede leer el archivo fuente en disco (permisos o ruta inexistente). | `joss run fantasma.joss` | Verificar que el archivo exista en la ruta indicada con permisos de lectura. |
 | `JOSS-PARSE-001` | Sintaxis | Token o estructura gramatical inválida: falta una comilla, llave o visibilidad obligatoria. | `class MiClase {}`<br>`func prueba() {}` | Usar sintaxis canónica:<br>`public class MiClase {}`<br>`public func prueba() {}` |
-| `JOSS-SYM-001` | Símbolos | Variable no definida: se intenta leer una variable antes de ser creada. | `print($variable)` | Declarar e inicializar la variable antes de usarla:<br>`$variable = "valor"` |
+| `JOSS-SYM-001` | Símbolos | Variable no declarada: se intenta leer o asignar a una variable que no ha sido declarada previamente. | `print($variable)`<br>`$nueva = 10` | Declarar la variable antes de usarla:<br>`var $variable = "valor"`<br>`var $nueva = 10` |
 | `JOSS-SYM-002` | Símbolos | Redeclaración de variable en el mismo ámbito léxico. | `int $x = 1`<br>`int $x = 2` | Reasignar sin volver a declarar:<br>`$x = 2` |
 | `JOSS-SYM-003` | Símbolos | Función no resuelta: se invoca una función que no existe en el proyecto ni en built-ins. | `calcularTotal()` | Definir la función con `public func` o verificar la ortografía del nombre. |
-| `JOSS-SYM-004` | Símbolos | Clase no resuelta: intento de instanciar (`new`) una clase no declarada ni registrada. | `$p = new Persona()` | Declarar `public class Persona {}` o cargar el plugin que la exponga. |
-| `JOSS-SYM-005` | Símbolos | Herencia inválida: la clase especificada en `extends` no existe. | `public class A extends B {}` | Asegurarse de que la superclase `B` esté declarada en el proyecto. |
-| `JOSS-SYM-006` | Símbolos | Intento de reasignar una constante inmutable. | `const int $MAX = 5`<br>`$MAX = 10` | Si el valor debe cambiar, declararla como variable mutable: `$MAX = 5`. |
+| `JOSS-SYM-004` | Símbolos | Clase no resuelta: intento de instanciar (`new`) una clase no declarada ni registrada. | `var $p = new Persona()` | Declarar `public class Persona {}` o cargar el plugin que la exponga. |
+| `JOSS-SYM-005` | Símbolos | Herencia inválida: la clase especificada en `extends` no existe o crea herencia circular. | `public class A extends B {}` | Asegurarse de que la superclase `B` esté declarada en el proyecto sin ciclos. |
+| `JOSS-SYM-006` | Símbolos | Intento de reasignar una constante inmutable. | `const int $MAX = 5`<br>`$MAX = 10` | Si el valor debe cambiar, declararla como variable mutable: `var $MAX = 5`. |
 | `JOSS-SYM-007` | Símbolos | Interfaz no resuelta: la interfaz especificada en `implements` o `extends` no existe. | `public class A implements IDesconocida {}` | Asegurarse de declarar la interfaz o verificar su ortografía. |
 | `JOSS-SYM-008` | Símbolos | Herencia cíclica en interfaces: una interfaz se extiende a sí misma directa o indirectamente. | `public interface A extends B {}`<br>`public interface B extends A {}` | Romper el ciclo de herencia entre las interfaces. |
 | `JOSS-DECL-001` | Declaraciones | Conflicto de nombres: dos funciones globales tienen exactamente el mismo identificador. | Dos archivos con:<br>`public func procesar() {}` | Renombrar una de las dos funciones. En Joss no hay namespaces fuente por carpeta. |
 | `JOSS-DECL-002` | Declaraciones | Conflicto de clases: dos clases globales tienen el mismo nombre en el proyecto. | Dos archivos con:<br>`public class Usuario {}` | Mantener una única declaración canónica de la clase en todo el proyecto. |
-| `JOSS-DECL-003` | Declaraciones | Métodos duplicados: una misma clase declara dos métodos con el mismo nombre. | `public func id() {}`<br>`public func id(int $x) {}` | Joss no admite sobrecarga de métodos por firma; usa nombres descriptivos distintos. |
-| `JOSS-DECL-004` | Declaraciones | Conflicto de nombres entre interfaz y clase o interfaces duplicadas. | `public class Repo {}`<br>`public interface Repo {}` | Usar nombres únicos para cada tipo; convención sugerida: prefijo `I` para interfaces (`IRepo`). |
-| `JOSS-DECL-005` | Declaraciones | Incumplimiento de contrato de interfaz: falta un método, o discrepa en cantidad/tipo de parámetros, retorno o visibilidad. | `public class MiClase implements IFigura {}` (sin `calcularArea()`) | Implementar todos los métodos de la interfaz con visibilidad `public` y tipos compatibles. |
+| `JOSS-DECL-003` | Declaraciones | Métodos duplicados en una misma clase/interfaz, o interfaz desconocida/duplicada en `implements`. | `public func id() {}`<br>`public func id(int $x) {}` | Joss no admite sobrecarga de métodos por firma; usa nombres descriptivos distintos. |
+| `JOSS-DECL-004` | Declaraciones | Conflicto de nombres entre tipos nominales (clase/interfaz/enum) o incumplimiento de contrato de interfaz (`implements`). | `public class MiClase implements IFigura {}` (sin `calcularArea()`) | Usar nombres únicos para cada tipo e implementar todos los métodos de la interfaz con firmas compatibles. |
+| `JOSS-DECL-005` | Declaraciones | Clase concreta sin implementar un método `abstract` heredado, o método `abstract` declarado en clase no abstracta. | `public class Perro extends Animal {}` (faltando `hablar()`) | Implementar todos los métodos abstractos en la subclase concreta o marcar la clase como `abstract`. |
+| `JOSS-DECL-006` | Declaraciones / Migración | Intento de instanciar una clase `abstract` con `new` (`error`), o uso de la palabra histórica `let` (`warning` en modo migración). | `new AnimalAbstracto()`<br>`let $valor = 1` | Instancia una subclase concreta; para variables usa `var`, tipo explícito o `mixed`. |
+| `JOSS-DECL-007` | Migración | Una asignación creó una variable implícitamente sin declaración previa. | `$valor = 1` | Declara antes con `var`, tipo explícito, `mixed` o `const`. |
+| `JOSS-DECL-008` | Migración | Se usó la forma histórica `Init constructor(...)`. | `Init constructor() {}` | Migra a `public func constructor()` o `Init()`. |
+| `JOSS-DECL-010` | Migración | Se usó `nil`, alias histórico de `null`. | `var $valor = nil` | Usa `null`; `joss fix` aplica el cambio sin tocar strings ni comentarios. |
+| `JOSS-SEM-001` | Semántica | Método de interfaz implementado con visibilidad no pública. | `private func calcularArea(): int` | Todos los métodos que implementan una interfaz deben ser `public`. |
+| `JOSS-CONST-001` | Constantes | Intento de modificar un campo inmutable de un `record` o propiedad `const`. | `$coordenada->x = 5` | Los campos de un `record` y propiedades `const` son de solo lectura tras la inicialización. |
 
 ---
 
@@ -48,23 +54,19 @@ A diferencia de los mensajes de error genéricos de herramientas antiguas, cada 
 
 | Código | Categoría | Significado y Causa | Ejemplo incorrecto | Solución y Caso correcto |
 |---|---|---|---|---|
-| `JOSS-TYPE-001` | Tipos | Reasignación incompatible: se asigna un dato de tipo distinto a una variable tipada o inferida. | `$edad = 20`<br>`$edad = "veinte"` | Mantener el tipo homogéneo, o usar dinamismo voluntario:<br>`mixed $edad = 20`<br>`$edad = "veinte"` |
+| `JOSS-TYPE-001` | Tipos | Reasignación incompatible: se asigna un dato de tipo distinto a una variable tipada o inferida. | `var $edad = 20`<br>`$edad = "veinte"` | Mantener el tipo homogéneo, o usar dinamismo voluntario:<br>`mixed $edad = 20`<br>`$edad = "veinte"` |
 | `JOSS-TYPE-002` | Tipos | Valor inicial incompatible con la anotación de tipo explícita. | `int $x = "texto"` | Proveer un valor del tipo esperado o una cadena convertible según `CoerceString`. |
 | `JOSS-TYPE-003` | Tipos | Argumento incompatible con el parámetro tipado de una función o método. | `public func f(int $n) {}`<br>`f("hola")` | Pasar el tipo correcto o convertir el argumento antes de la llamada. |
 | `JOSS-TYPE-004` | Tipos | Operador aplicado a operandos no admitidos (ej. sumar texto con `+`). | `"hola" + " mundo"` | Para aritmética usa números; para unir texto usa el operador punto (`.`): `"hola" . " mundo"`. |
 | `JOSS-TYPE-005` | Tipos | Tipo de clave no admitido en un mapa asociativo. | `{[1, 2]: "valor"}` | Las claves de un `map` deben ser de tipo `string`. |
 | `JOSS-TYPE-006` | Tipos | Tipo de índice incorrecto para una colección conocida. | `$arr["clave"]` (en un array)<br>`$map[true]` (en un map) | Los arrays se indexan con enteros (`$arr[0]`); los maps con cadenas (`$map["clave"]`). |
-| `JOSS-TYPE-007` | Tipos | Intento de indexar con `[...]` un valor que no es indexable (ej. un entero o booleano). | `$n = 42`<br>`print($n[0])` | Indexar únicamente arrays, maps, cadenas o instancias compatibles. |
+| `JOSS-TYPE-007` | Tipos | Intento de indexar con `[...]` un valor que no es indexable (ej. un entero o booleano). | `var $n = 42`<br>`print($n[0])` | Indexar únicamente arrays, maps, cadenas o instancias compatibles. |
 | `JOSS-TYPE-008` | Tipos | El valor retornado por `return` no coincide con el tipo prometido en la firma `: Tipo`. | `public func f(): int {`<br>`    return "no es int"`<br>`}` | Devolver un valor compatible con la firma declarada. |
 | `JOSS-TYPE-009` | Tipos | Tipo de dato o clase inexistente (incluye aliases eliminados como `integer`, `double`, `boolean`, `any`, `list`). | `integer $x = 10`<br>`boolean $flag = true` | Usar los tipos canónicos de Joss:<br>`int $x = 10`<br>`bool $flag = true` |
 | `JOSS-TYPE-010` | Tipos | Función con tipo de retorno anotado puede terminar sin ejecutar un `return` o `throw`. | `public func f(int $n): string {`<br>`    $n > 0 ? { return "si" } : {}`<br>`}` | Garantizar que todas las rutas posibles retornen un valor del tipo prometido. |
 | `JOSS-TYPE-011` | Tipos | Se declaró un parámetro sin tipo explícito. | `public func f($x) {}` | En Joss todos los parámetros deben declarar su tipo:<br>`public func f(int $x) {}` o `public func f(mixed $x) {}` |
-| `JOSS-TYPE-014` | Migración | Una callable con nombre omitió su contrato de retorno. | `public func guardar() {}` | Declara `: Tipo` o `: void` cuando no retorna un valor. |
-| `JOSS-DECL-006` | Migración | Se usó `let`, forma histórica de declaración. | `let $valor = 1` | Usa `mixed` o un tipo explícito; `joss fix` resuelve los casos seguros. |
-| `JOSS-DECL-007` | Migración | Una asignación creó una variable implícitamente. | `$valor = 1` | Declara antes con `var`, tipo explícito, `mixed` o `const`. |
-| `JOSS-DECL-008` | Migración | Se usó `Init constructor`. | `Init constructor() {}` | Migra a `public func constructor(): void {}`. |
-| `JOSS-DECL-010` | Migración | Se usó `nil`, alias histórico de `null`. | `var $valor = nil` | Usa `null`; `joss fix` aplica el cambio sin tocar strings ni comentarios. |
 | `JOSS-TYPE-012` | Warning | Una colección mutable sin parámetros se usa como colección tipada. El alias original podría insertar valores incompatibles. | `array $origen = [1]`<br>`array<int> $numeros = $origen` | Mantener el tipo desde la declaración o validar y copiar en el límite: `array<int> $origen = [1]`. |
+| `JOSS-TYPE-014` | Migración | Una callable con nombre omitió su contrato de retorno. | `public func guardar() {}` | Declara `: Tipo` o `: void` cuando no retorna un valor. |
 | `JOSS-ARITH-003` | Aritmética | Una operación exige una conversión numérica implícita que puede perder precisión. | `9007199254740993 / 1`<br>`1 + 0.5`<br>`0.1 + 1.00m` | Usar operandos del mismo tipo y convertir explícitamente; para dinero, conservar toda la operación en `decimal`. |
 | `JOSS-CALL-001` | Llamadas | Cantidad incorrecta de argumentos respecto a los parámetros de la firma conocida. | `public func f(int $a, int $b) {}`<br>`f(1)` | Proporcionar todos los argumentos obligatorios requeridos por la función. |
 | `JOSS-MEMBER-001` | Miembros | Se intenta invocar un método que no existe en la clase receptora resuelta. | `$usuario->metodoInexistente()` | Comprobar el nombre del método en la definición de la clase o en el catálogo nativo. |
@@ -91,8 +93,9 @@ A diferencia de los mensajes de error genéricos de herramientas antiguas, cada 
 | Código | Severidad | Significado y Causa | Solución |
 |---|---|---|---|
 | `JOSS-FLOW-001` | Warning | Código inalcanzable (*dead code*): instrucciones escritas después de un `return` incondicional. | Mover las instrucciones antes del `return` o eliminarlas. |
-| `JOSS-FLOW-002` | Warning | Match no exhaustivo en enum: una expresión `match` sobre un enum no cubre todos los casos posibles ni declara un brazo `default`. | Agregar los casos de enum faltantes o incluir una rama `default => ...`. |
+| `JOSS-FLOW-002` | Warning / Error | Match no exhaustivo en enum (sin cubrir todos los casos ni `default`), o `break`/`continue` fuera de un ciclo. | Agregar los casos de enum faltantes o incluir `default => ...`; usar `break`/`continue` solo dentro de bucles. |
 | `JOSS-FLOW-003` | Warning | Acceso a miembro sobre un valor cuyo tipo todavía incluye `null`. | Comprobar el valor contra `null` o usar el operador seguro `?->`. |
+| `JOSS-FLOW-005` | Error | El bloque `: { ... }` de una cláusula `guard` no termina el flujo del callable con `return` o `throw`. | Asegurarse de que el bloque `guard` finalice siempre con `return` o `throw`. |
 | `JOSS-LINT-001` | Warning | Variable local declarada pero nunca leída en el cuerpo. | Utilizar la variable o retirarla para mantener el código limpio. |
 | `JOSS-SYNTAX-001` | Error | Error sintáctico capturado durante la fase de análisis del linter. | Corregir la puntuación o estructura señalada por el parser. |
 | `JOSS-LINT-002` | Error | Parámetro sin tipo explícito reportado por el linter. | Añadir la anotación de tipo correspondiente (`int`, `string`, `mixed`). |
@@ -164,7 +167,7 @@ print(duplicar(3))
 
 <!-- joss-error: JOSS-TYPE-001 -->
 ```joss-invalid
-$edad = 20
+var $edad = 20
 $edad = "veinte"
 ```
 
@@ -274,14 +277,6 @@ print(describir(Estado::Activo))
 
 ---
 
-## Siguiente paso
-
-Ahora que conoces todos los diagnósticos y cómo resolverlos, puedes profundizar en cómo el analizador semántico examina el árbol de sintaxis abstracta para emitir estos códigos:
-
-Continúa con: [Analizador estático AST](ANALIZADOR.md).
-
----
-
 ### Acceso potencialmente nulo (`JOSS-FLOW-003`)
 
 <!-- joss-error: JOSS-FLOW-003 -->
@@ -302,3 +297,11 @@ public func nombre(Usuario|null $usuario): string {
 }
 print(nombre(null))
 ```
+
+---
+
+## Siguiente paso
+
+Ahora que conoces todos los diagnósticos y cómo resolverlos, puedes profundizar en cómo el analizador semántico examina el árbol de sintaxis abstracta para emitir estos códigos:
+
+Continúa con: [Analizador estático AST](ANALIZADOR.md).
