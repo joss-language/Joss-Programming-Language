@@ -1349,21 +1349,21 @@
       "downloads": {}
     }
   },
-  "pubSearchingPlatform": "Buscando {name} en joss.red...",
+  "pubSearchingPlatform": "Buscando {name} en astriom.org...",
   "@pubSearchingPlatform": {
     "description": "Mensaje de búsqueda de paquete en el registro",
     "placeholders": {
       "name": {}
     }
   },
-  "pubFoundPlatform": "✓ Paquete '{name}' encontrado en joss.red",
+  "pubFoundPlatform": "✓ Paquete '{name}' encontrado en astriom.org",
   "@pubFoundPlatform": {
     "description": "Aviso cuando el paquete fue encontrado en el registro",
     "placeholders": {
       "name": {}
     }
   },
-  "pubResolvingPlatform": "Resolviendo dependencias desde joss.red...",
+  "pubResolvingPlatform": "Resolviendo dependencias desde astriom.org...",
   "@pubResolvingPlatform": {
     "description": "Mensaje al resolver dependencias remotas del registro"
   },
@@ -1375,7 +1375,7 @@
       "version": {}
     }
   },
-  "pubInstallSuccessPlatform": "✓ {name} {version} instalado correctamente desde joss.red",
+  "pubInstallSuccessPlatform": "✓ {name} {version} instalado correctamente desde astriom.org",
   "@pubInstallSuccessPlatform": {
     "description": "Mensaje de éxito tras instalar un paquete desde el registro",
     "placeholders": {
@@ -1402,7 +1402,7 @@
       "repo": {}
     }
   },
-  "pubInstallFailedAll": "Error: No se pudo instalar '{name}' ni desde joss.red ni desde el repositorio Git.",
+  "pubInstallFailedAll": "Error: No se pudo instalar '{name}' ni desde astriom.org ni desde el repositorio Git.",
   "@pubInstallFailedAll": {
     "description": "Error crítico cuando fallan todas las fuentes de instalación",
     "placeholders": {

@@ -1350,11 +1350,11 @@
       "downloads": {}
     }
   },
-  "pubResolvingPlatform": "joss.red から依存関係を解決しています...",
+  "pubResolvingPlatform": "astriom.org から依存関係を解決しています...",
   "@pubResolvingPlatform": {
     "description": "Mensaje al resolver dependencias remotas del registro"
   },
-  "pubFoundPlatform": "✓ パッケージ「{name}」が joss.red で見つかりました",
+  "pubFoundPlatform": "✓ パッケージ「{name}」が astriom.org で見つかりました",
   "@pubFoundPlatform": {
     "description": "Aviso cuando el paquete fue encontrado en el registro",
     "placeholders": {
@@ -1369,14 +1369,14 @@
       "version": {}
     }
   },
-  "pubSearchingPlatform": "joss.red で {name} を検索しています...",
+  "pubSearchingPlatform": "astriom.org で {name} を検索しています...",
   "@pubSearchingPlatform": {
     "description": "Mensaje de búsqueda de paquete en el registro",
     "placeholders": {
       "name": {}
     }
   },
-  "pubInstallSuccessPlatform": "✓ {name} {version} が joss.red から正常にインストールされました",
+  "pubInstallSuccessPlatform": "✓ {name} {version} が astriom.org から正常にインストールされました",
   "@pubInstallSuccessPlatform": {
     "description": "Mensaje de éxito tras instalar un paquete desde el registro",
     "placeholders": {
@@ -1403,7 +1403,7 @@
   "@pubSearchingGitRepo": {
     "description": "Mensaje al buscar el paquete directamente en Git"
   },
-  "pubInstallFailedAll": "エラー: joss.red または Git リポジトリから '{name}' をインストールできませんでした。",
+  "pubInstallFailedAll": "エラー: astriom.org または Git リポジトリから '{name}' をインストールできませんでした。",
   "@pubInstallFailedAll": {
     "description": "Error crítico cuando fallan todas las fuentes de instalación",
     "placeholders": {

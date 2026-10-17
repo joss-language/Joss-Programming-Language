@@ -1350,11 +1350,11 @@
       "downloads": {}
     }
   },
-  "pubResolvingPlatform": "joss.red'den bağımlılıklar çözülüyor...",
+  "pubResolvingPlatform": "astriom.org'den bağımlılıklar çözülüyor...",
   "@pubResolvingPlatform": {
     "description": "Mensaje al resolver dependencias remotas del registro"
   },
-  "pubFoundPlatform": "✓ joss.red'de '{name}' paketi bulundu",
+  "pubFoundPlatform": "✓ astriom.org'de '{name}' paketi bulundu",
   "@pubFoundPlatform": {
     "description": "Aviso cuando el paquete fue encontrado en el registro",
     "placeholders": {
@@ -1369,14 +1369,14 @@
       "version": {}
     }
   },
-  "pubSearchingPlatform": "Joss.red'de {name} aranıyor...",
+  "pubSearchingPlatform": "astriom.org'de {name} aranıyor...",
   "@pubSearchingPlatform": {
     "description": "Mensaje de búsqueda de paquete en el registro",
     "placeholders": {
       "name": {}
     }
   },
-  "pubInstallSuccessPlatform": "✓ {name} {version} joss.red'den başarıyla yüklendi",
+  "pubInstallSuccessPlatform": "✓ {name} {version} astriom.org'den başarıyla yüklendi",
   "@pubInstallSuccessPlatform": {
     "description": "Mensaje de éxito tras instalar un paquete desde el registro",
     "placeholders": {
@@ -1403,7 +1403,7 @@
   "@pubSearchingGitRepo": {
     "description": "Mensaje al buscar el paquete directamente en Git"
   },
-  "pubInstallFailedAll": "Hata: '{name}_' joss.red'den veya Git deposundan yüklenemedi.",
+  "pubInstallFailedAll": "Hata: '{name}_' astriom.org'den veya Git deposundan yüklenemedi.",
   "@pubInstallFailedAll": {
     "description": "Error crítico cuando fallan todas las fuentes de instalación",
     "placeholders": {

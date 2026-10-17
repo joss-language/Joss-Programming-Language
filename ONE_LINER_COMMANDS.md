@@ -5,13 +5,13 @@
 Windows, desde PowerShell como administrador:
 
 ```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; iwr -useb https://joss.red/install | iex
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; iwr -useb https://astriom.org/install | iex
 ```
 
 Linux o macOS:
 
 ```bash
-curl -fsSL https://joss.red/install.sh | bash
+curl -fsSL https://astriom.org/install.sh | bash
 ```
 
 Los scripts abren un menú para instalar, actualizar o desinstalar el runtime, el SDK y, cuando VS Code está disponible, la extensión.

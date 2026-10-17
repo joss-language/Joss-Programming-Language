@@ -1350,11 +1350,11 @@
       "downloads": {}
     }
   },
-  "pubResolvingPlatform": "جارٍ حل الاعتماديات من joss.red...",
+  "pubResolvingPlatform": "جارٍ حل الاعتماديات من astriom.org...",
   "@pubResolvingPlatform": {
     "description": "Mensaje al resolver dependencias remotas del registro"
   },
-  "pubFoundPlatform": "✓ الحزمة '_{name}' موجودة على joss.red",
+  "pubFoundPlatform": "✓ الحزمة '_{name}' موجودة على astriom.org",
   "@pubFoundPlatform": {
     "description": "Aviso cuando el paquete fue encontrado en el registro",
     "placeholders": {
@@ -1372,7 +1372,7 @@
   "@pubSearchingGitRepo": {
     "description": "Mensaje al buscar el paquete directamente en Git"
   },
-  "pubInstallFailedAll": "خطأ: تعذر تثبيت '_{name}' من joss.red أو من مستودع Git.",
+  "pubInstallFailedAll": "خطأ: تعذر تثبيت '_{name}' من astriom.org أو من مستودع Git.",
   "@pubInstallFailedAll": {
     "description": "Error crítico cuando fallan todas las fuentes de instalación",
     "placeholders": {
@@ -1439,7 +1439,7 @@
   "@pubCacheVerified": {
     "description": "Confirmación de verificación exitosa de la caché"
   },
-  "pubSearchingPlatform": "البحث عن {name} في joss.red...",
+  "pubSearchingPlatform": "البحث عن {name} في astriom.org...",
   "@pubSearchingPlatform": {
     "description": "Mensaje de búsqueda de paquete en el registro",
     "placeholders": {
@@ -1454,7 +1454,7 @@
       "version": {}
     }
   },
-  "pubInstallSuccessPlatform": "✓ تم تثبيت {name} {version} بنجاح من joss.red",
+  "pubInstallSuccessPlatform": "✓ تم تثبيت {name} {version} بنجاح من astriom.org",
   "@pubInstallSuccessPlatform": {
     "description": "Mensaje de éxito tras instalar un paquete desde el registro",
     "placeholders": {

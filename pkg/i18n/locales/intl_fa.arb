@@ -1350,11 +1350,11 @@
       "downloads": {}
     }
   },
-  "pubResolvingPlatform": "در حال حل وابستگی‌ها از joss.red...",
+  "pubResolvingPlatform": "در حال حل وابستگی‌ها از astriom.org...",
   "@pubResolvingPlatform": {
     "description": "Mensaje al resolver dependencias remotas del registro"
   },
-  "pubFoundPlatform": "✓ بسته \"{name}\" در joss.red یافت شد",
+  "pubFoundPlatform": "✓ بسته \"{name}\" در astriom.org یافت شد",
   "@pubFoundPlatform": {
     "description": "Aviso cuando el paquete fue encontrado en el registro",
     "placeholders": {
@@ -1369,14 +1369,14 @@
       "version": {}
     }
   },
-  "pubSearchingPlatform": "جستجوی {name} در joss.red...",
+  "pubSearchingPlatform": "جستجوی {name} در astriom.org...",
   "@pubSearchingPlatform": {
     "description": "Mensaje de búsqueda de paquete en el registro",
     "placeholders": {
       "name": {}
     }
   },
-  "pubInstallSuccessPlatform": "✓ {name} {version} با موفقیت از joss.red نصب شد",
+  "pubInstallSuccessPlatform": "✓ {name} {version} با موفقیت از astriom.org نصب شد",
   "@pubInstallSuccessPlatform": {
     "description": "Mensaje de éxito tras instalar un paquete desde el registro",
     "placeholders": {
@@ -1403,7 +1403,7 @@
   "@pubSearchingGitRepo": {
     "description": "Mensaje al buscar el paquete directamente en Git"
   },
-  "pubInstallFailedAll": "خطا: «{name}» را نمی‌توان از joss.red یا مخزن Git نصب کرد.",
+  "pubInstallFailedAll": "خطا: «{name}» را نمی‌توان از astriom.org یا مخزن Git نصب کرد.",
   "@pubInstallFailedAll": {
     "description": "Error crítico cuando fallan todas las fuentes de instalación",
     "placeholders": {

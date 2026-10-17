@@ -163,7 +163,7 @@ func GetConsoleAppFiles(path string) map[string]string {
 		filepath.Join(path, "app", "controllers", "ExampleController.joss"): `// Controlador de Ejemplo para Consola
 public class ExampleController {
     
-    public func ejecutar() {
+    public func ejecutar(): mixed {
         print("Ejecutando ExampleController...")
         
         // Tu lógica aquí
@@ -172,7 +172,7 @@ public class ExampleController {
         return $resultado
     }
     
-    public func procesarDatos() {
+    public func procesarDatos(): bool {
         // Ejemplo de procesamiento
         var $datos = ["item1", "item2", "item3"]
         
@@ -186,18 +186,16 @@ public class ExampleController {
 
 		// Example model
 		filepath.Join(path, "app", "models", "ExampleModel.joss"): `// Modelo de Ejemplo
-public class ExampleModel extends GranDB {
-    
-    Init constructor() {
-        $this->tabla = "js_example"
+public class ExampleModel extends Model {
+    protected string $table = "example"
+    protected array $fillable = ["name", "description"]
+
+    public func obtenerTodos(): array {
+        return ExampleModel::all()
     }
     
-    public func obtenerTodos() {
-        return (new GranDB())->table($this->tabla)->get()
-    }
-    
-    public func buscarPorId(mixed $id) {
-        return (new GranDB())->table($this->tabla)->where("id", $id)->first()
+    public func buscarPorId(mixed $id): mixed {
+        return ExampleModel::find($id)
     }
 }`,
 

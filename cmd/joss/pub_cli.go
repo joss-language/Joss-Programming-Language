@@ -61,7 +61,7 @@ func pubCacheDir() string {
 	return filepath.Join(home, ".joss", "cache")
 }
 
-// Get standard registry URL (default https://joss.red for Joss Red)
+// Get standard registry URL (default https://astriom.org for Joss Red)
 func getRegistryURL() string {
 	url := os.Getenv("PUB_REGISTRY_URL")
 	if url != "" {
@@ -83,7 +83,7 @@ func getRegistryURL() string {
 		}
 	}
 
-	return "https://joss.red"
+	return "https://astriom.org"
 }
 
 func getCredentialsPath() string {
@@ -308,7 +308,7 @@ func pubInfo(name string) {
 func pubAdd(name string, ver string) {
 	fmt.Println(i18n.Tr("pubSearchingPlatform", i18n.M{"name": name}))
 
-	// 1. Consultar la API del registro oficial joss.red
+	// 1. Consultar la API del registro oficial astriom.org
 	url := fmt.Sprintf("%s/api/v1/pub/packages/%s", getRegistryURL(), name)
 	resp, err := pubHTTPClient.Get(url)
 
@@ -330,7 +330,7 @@ func pubAdd(name string, ver string) {
 				}
 			}
 
-			// Si joss.red tiene versiones binarias publicadas en su registro
+			// Si astriom.org tiene versiones binarias publicadas en su registro
 			if len(versions) > 0 {
 				var targetVer map[string]interface{}
 				if ver == "" {

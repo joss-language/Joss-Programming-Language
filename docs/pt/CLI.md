@@ -147,7 +147,7 @@ joss pub logout
 joss pub cache clean
 ```
 
-Se `PUB_REGISTRY_URL` nÃ£o for especificado, o Pub resolve as dependÃªncias usando o registro oficial em `https://joss.red`.
+Se `PUB_REGISTRY_URL` não for especificado, o Pub resolve as dependências usando o registro oficial em `https://astriom.org`.
 
 ---
 

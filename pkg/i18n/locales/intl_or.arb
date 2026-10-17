@@ -1350,11 +1350,11 @@
       "downloads": {}
     }
   },
-  "pubResolvingPlatform": "joss.red ରୁ ନିର୍ଭରତାଗୁଡିକୁ ସମାଧାନ କରୁଛି...",
+  "pubResolvingPlatform": "astriom.org ରୁ ନିର୍ଭରତାଗୁଡିକୁ ସମାଧାନ କରୁଛି...",
   "@pubResolvingPlatform": {
     "description": "Mensaje al resolver dependencias remotas del registro"
   },
-  "pubFoundPlatform": "Joss.red ରେ ମିଳିଥିବା ପ୍ୟାକେଜ୍ '{name}' |",
+  "pubFoundPlatform": "astriom.org ରେ ମିଳିଥିବା ପ୍ୟାକେଜ୍ '{name}' |",
   "@pubFoundPlatform": {
     "description": "Aviso cuando el paquete fue encontrado en el registro",
     "placeholders": {
@@ -1369,14 +1369,14 @@
       "version": {}
     }
   },
-  "pubSearchingPlatform": "Joss.red ରେ {name} ପାଇଁ ଖୋଜୁଛି ...",
+  "pubSearchingPlatform": "astriom.org ରେ {name} ପାଇଁ ଖୋଜୁଛି ...",
   "@pubSearchingPlatform": {
     "description": "Mensaje de búsqueda de paquete en el registro",
     "placeholders": {
       "name": {}
     }
   },
-  "pubInstallSuccessPlatform": "J {name} {version} joss.red ରୁ ସଫଳତାର ସହିତ ସଂସ୍ଥାପିତ |",
+  "pubInstallSuccessPlatform": "J {name} {version} astriom.org ରୁ ସଫଳତାର ସହିତ ସଂସ୍ଥାପିତ |",
   "@pubInstallSuccessPlatform": {
     "description": "Mensaje de éxito tras instalar un paquete desde el registro",
     "placeholders": {
@@ -1403,7 +1403,7 @@
   "@pubSearchingGitRepo": {
     "description": "Mensaje al buscar el paquete directamente en Git"
   },
-  "pubInstallFailedAll": "ତ୍ରୁଟି: joss.red କିମ୍ବା Git ରେପୋଜିଟୋରୀରୁ '{name}' ସଂସ୍ଥାପନ କରିପାରିଲା ନାହିଁ |",
+  "pubInstallFailedAll": "ତ୍ରୁଟି: astriom.org କିମ୍ବା Git ରେପୋଜିଟୋରୀରୁ '{name}' ସଂସ୍ଥାପନ କରିପାରିଲା ନାହିଁ |",
   "@pubInstallFailedAll": {
     "description": "Error crítico cuando fallan todas las fuentes de instalación",
     "placeholders": {

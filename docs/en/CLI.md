@@ -143,7 +143,7 @@ joss pub logout
 joss pub cache clean
 ```
 
-If `PUB_REGISTRY_URL` is not specified, Pub resolves dependencies using the official registry at `https://joss.red`.
+If `PUB_REGISTRY_URL` is not specified, Pub resolves dependencies using the official registry at `https://astriom.org`.
 
 ---
 

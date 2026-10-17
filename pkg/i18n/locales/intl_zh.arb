@@ -1350,11 +1350,11 @@
       "downloads": {}
     }
   },
-  "pubResolvingPlatform": "正在从 joss.red 解析依赖...",
+  "pubResolvingPlatform": "正在从 astriom.org 解析依赖...",
   "@pubResolvingPlatform": {
     "description": "Mensaje al resolver dependencias remotas del registro"
   },
-  "pubFoundPlatform": "✓ 在 joss.red 上找到包“{name}”",
+  "pubFoundPlatform": "✓ 在 astriom.org 上找到包“{name}”",
   "@pubFoundPlatform": {
     "description": "Aviso cuando el paquete fue encontrado en el registro",
     "placeholders": {
@@ -1369,14 +1369,14 @@
       "version": {}
     }
   },
-  "pubSearchingPlatform": "在 joss.red 上搜索 {name}...",
+  "pubSearchingPlatform": "在 astriom.org 上搜索 {name}...",
   "@pubSearchingPlatform": {
     "description": "Mensaje de búsqueda de paquete en el registro",
     "placeholders": {
       "name": {}
     }
   },
-  "pubInstallSuccessPlatform": "✓ {name} {version} 已从 joss.red 成功安装",
+  "pubInstallSuccessPlatform": "✓ {name} {version} 已从 astriom.org 成功安装",
   "@pubInstallSuccessPlatform": {
     "description": "Mensaje de éxito tras instalar un paquete desde el registro",
     "placeholders": {
@@ -1403,7 +1403,7 @@
   "@pubSearchingGitRepo": {
     "description": "Mensaje al buscar el paquete directamente en Git"
   },
-  "pubInstallFailedAll": "错误：无法从 joss.red 或 Git 存储库安装“{name}”。",
+  "pubInstallFailedAll": "错误：无法从 astriom.org 或 Git 存储库安装“{name}”。",
   "@pubInstallFailedAll": {
     "description": "Error crítico cuando fallan todas las fuentes de instalación",
     "placeholders": {

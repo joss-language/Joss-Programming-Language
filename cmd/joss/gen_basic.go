@@ -29,13 +29,13 @@ func createController(name string) {
 	var content string
 	if isConsoleProject() {
 		content = fmt.Sprintf(`public class %s {
-    public func index() {
+    public func index(): void {
         print("Hello from %s")
     }
 }`, className, className)
 	} else {
 		content = fmt.Sprintf(`public class %s {
-    public func index() {
+    public func index(): mixed {
         return view("%s/index")
     }
 }`, className, viewPrefix)
@@ -49,12 +49,11 @@ func createModel(name string) {
 	os.MkdirAll(filepath.Dir(path), 0755)
 
 	className := sanitizeClassName(name)
-	_, _, _, _, _, _, prefix := loadEnvConfig()
-	// Fix: singularize first to avoid double pluralization
-	tableName := prefix + strings.ToLower(pluralize(singularize(className)))
+	tableName := strings.ToLower(pluralize(singularize(className)))
 
-	content := fmt.Sprintf(`public class %s extends GranDB {
-    public mixed $tabla = "%s"
+	content := fmt.Sprintf(`public class %s extends Model {
+    protected string $table = "%s"
+    protected array $fillable = []
 }`, className, tableName)
 
 	writeGenFile(path, content)

@@ -1350,11 +1350,11 @@
       "downloads": {}
     }
   },
-  "pubResolvingPlatform": "Menyelesaikan dependensi dari joss.red...",
+  "pubResolvingPlatform": "Menyelesaikan dependensi dari astriom.org...",
   "@pubResolvingPlatform": {
     "description": "Mensaje al resolver dependencias remotas del registro"
   },
-  "pubFoundPlatform": "✓ Paket '{name}' ditemukan di joss.red",
+  "pubFoundPlatform": "✓ Paket '{name}' ditemukan di astriom.org",
   "@pubFoundPlatform": {
     "description": "Aviso cuando el paquete fue encontrado en el registro",
     "placeholders": {
@@ -1369,14 +1369,14 @@
       "version": {}
     }
   },
-  "pubSearchingPlatform": "Mencari _{name} di joss.red...",
+  "pubSearchingPlatform": "Mencari _{name} di astriom.org...",
   "@pubSearchingPlatform": {
     "description": "Mensaje de búsqueda de paquete en el registro",
     "placeholders": {
       "name": {}
     }
   },
-  "pubInstallSuccessPlatform": "✓ {name} {version} berhasil diinstal dari joss.red",
+  "pubInstallSuccessPlatform": "✓ {name} {version} berhasil diinstal dari astriom.org",
   "@pubInstallSuccessPlatform": {
     "description": "Mensaje de éxito tras instalar un paquete desde el registro",
     "placeholders": {
@@ -1403,7 +1403,7 @@
   "@pubSearchingGitRepo": {
     "description": "Mensaje al buscar el paquete directamente en Git"
   },
-  "pubInstallFailedAll": "Kesalahan: Tidak dapat menginstal '{name}' dari joss.red atau repositori Git.",
+  "pubInstallFailedAll": "Kesalahan: Tidak dapat menginstal '{name}' dari astriom.org atau repositori Git.",
   "@pubInstallFailedAll": {
     "description": "Error crítico cuando fallan todas las fuentes de instalación",
     "placeholders": {

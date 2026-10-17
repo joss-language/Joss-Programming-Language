@@ -85,13 +85,13 @@ Una **terminal** (o consola) es una ventana de texto donde te comunicas con el s
 En **Windows** (abre PowerShell como usuario estándar o Administrador):
 
 ```powershell
-iwr -useb https://joss.red/install | iex
+iwr -useb https://astriom.org/install | iex
 ```
 
 En **Linux, macOS o Android (Termux)** (abre tu Terminal):
 
 ```bash
-curl -fsSL https://joss.red/install.sh | bash
+curl -fsSL https://astriom.org/install.sh | bash
 ```
 
 Este comando descargará el binario compilado de Joss, lo ubicará en una carpeta estándar del sistema y lo registrará en tu `PATH`.

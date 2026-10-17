@@ -79,10 +79,10 @@ A **terminal** (or console) is a text window where you communicate with the oper
 ### Option A: Official Automatic Installer (Recommended)
 
 On **Windows** (open PowerShell as a standard user or Administrator):```powershell
-iwr -useb https://joss.red/install | iex
+iwr -useb https://astriom.org/install | iex
 ```
 On **Linux, macOS or Android (Termux)** (open your Terminal):```bash
-curl -fsSL https://joss.red/install.sh | bash
+curl -fsSL https://astriom.org/install.sh | bash
 ```
 This command will download the compiled Joss binary, place it in a standard system folder, and register it in your `PATH`.
 

@@ -79,10 +79,10 @@ Um **terminal** (ou console) é uma janela de texto onde você se comunica com o
 ### Opção A: Instalador Automático Oficial (Recomendado)
 
 No **Windows** (abra o PowerShell como usuário padrão ou administrador):```powershell
-iwr -useb https://joss.red/install | iex
+iwr -useb https://astriom.org/install | iex
 ```
 No **Linux, macOS ou Android (Termux)** (abra seu Terminal):```bash
-curl -fsSL https://joss.red/install.sh | bash
+curl -fsSL https://astriom.org/install.sh | bash
 ```
 Este comando irá baixar o binário Joss compilado, colocá-lo em uma pasta padrão do sistema e registrá-lo em seu `PATH`.
 

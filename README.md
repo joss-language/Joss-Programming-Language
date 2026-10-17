@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://goreportcard.com/report/github.com/joss-language/Joss-Programming-Language"><img src="https://goreportcard.com/badge/github.com/joss-language/Joss-Programming-Language" alt="Go Report Card"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://joss.red/docs"><img src="https://img.shields.io/badge/docs-joss.red-teal.svg" alt="Docs"></a>
+  <a href="https://astriom.org/docs"><img src="https://img.shields.io/badge/docs-astriom.org-teal.svg" alt="Docs"></a>
   <a href="https://github.com/joss-language/Joss-Programming-Language/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build Status"></a>
 </p>
 
@@ -38,12 +38,12 @@
 
 En **Windows** (PowerShell):
 ```powershell
-iwr -useb https://joss.red/install | iex
+iwr -useb https://astriom.org/install | iex
 ```
 
 En **Linux, macOS o Android (Termux)** (Terminal):
 ```bash
-curl -fsSL https://joss.red/install.sh | bash
+curl -fsSL https://astriom.org/install.sh | bash
 ```
 
 ### Compilar desde el código fuente

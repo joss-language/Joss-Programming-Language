@@ -133,6 +133,11 @@ func (m *Manager) loadFromReader(r http.File, filename string) {
 }
 
 func (m *Manager) parseAndMerge(filename string, data []byte) {
+	// Strip UTF-8 BOM if present
+	if len(data) >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
+		data = data[3:]
+	}
+
 	// Extract locale
 	namePart := strings.TrimSuffix(filename, ".arb")
 	parts := strings.Split(namePart, "_")
