@@ -1,0 +1,1 @@
+console.log('Joss Enterprise v3.0 - Inicializado');

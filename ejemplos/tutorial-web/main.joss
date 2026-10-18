@@ -1,0 +1,6 @@
+public class Main {
+    Init main() {
+        print("Iniciando Sistema Joss...")
+        Server::start()
+    }
+}

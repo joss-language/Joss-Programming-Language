@@ -1,0 +1,10 @@
+public class SaludoController {
+    public func index(): mixed {
+        return view("saludo", {"nombre": "Visitante"})
+    }
+
+    public func show(string $nombre): mixed {
+        var $nombreLimpio = trim($nombre)
+        return view("saludo", {"nombre": $nombreLimpio})
+    }
+}

@@ -1,0 +1,7 @@
+plugins/
+env.joss
+env.enc
+database.sqlite
+log.txt
+.git/
+.github/

@@ -1,0 +1,21 @@
+meta {
+  name: Refresh Token
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:8000/api/refresh
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+script:post-response {
+  if (res.status === 200) {
+    bru.setVar("token", res.body.token);
+  }
+}

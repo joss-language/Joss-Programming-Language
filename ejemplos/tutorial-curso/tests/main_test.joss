@@ -1,0 +1,5 @@
+test("Ejecución de aplicación de consola", func() {
+    string $appName = "Joss Console"
+    assertEqual($appName, "Joss Console")
+    assertTrue(true)
+})

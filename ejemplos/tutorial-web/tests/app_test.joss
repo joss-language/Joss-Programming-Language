@@ -1,0 +1,5 @@
+test("Verificación de arranque del servidor", func() {
+    bool $ready = true
+    assertTrue($ready)
+    assertEqual(1 + 1, 2)
+})

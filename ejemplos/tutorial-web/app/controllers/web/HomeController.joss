@@ -1,0 +1,8 @@
+public class HomeController {
+    public func index() {
+        return view("welcome", {
+            "title": "Bienvenido a Joss",
+            "version": JOSS_VERSION
+        })
+    }
+}

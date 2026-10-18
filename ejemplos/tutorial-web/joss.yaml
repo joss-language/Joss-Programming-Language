@@ -1,0 +1,6 @@
+name: mi_proyecto
+version: 1.0.0
+environment:
+  joss: ">=3.6.8.0 <4.0.0"
+
+dependencies:

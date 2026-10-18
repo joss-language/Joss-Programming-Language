@@ -41,7 +41,8 @@ Thumbs.db
 
 # Dependencies & Build Artifacts
 node_modules/
-/ejemplos/*
+/ejemplos/plugins/
+/ejemplos/Joss-Red-JosSecurity/
 install/*.zip
 install/*.exe
 install/joss-linux

@@ -1,0 +1,5 @@
+plugins/
+env.joss
+env.enc
+database.sqlite
+log.txt

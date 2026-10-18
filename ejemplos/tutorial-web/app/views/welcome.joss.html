@@ -1,0 +1,28 @@
+@extends('layouts.master')
+
+@section('content')
+<div class="max-w-3xl mx-auto text-center py-16 space-y-8">
+    <div class="inline-flex p-4 bg-blue-600/10 border border-blue-500/20 rounded-2xl text-blue-500 mb-2">
+        <i class="fas fa-cube text-4xl"></i>
+    </div>
+    
+    <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight text-gray-950 dark:text-white">
+        Bienvenido a <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-indigo-600">Joss</span>
+    </h1>
+    
+    <p class="text-lg md:text-xl text-gray-500 dark:text-gray-400 leading-relaxed max-w-2xl mx-auto">
+        El framework y lenguaje de programación de alto rendimiento, seguro, tipado y optimizado nativamente para la nube.
+    </p>
+    
+    <div class="flex flex-wrap justify-center gap-4 pt-4">
+        <a href="/login" class="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 transition">Iniciar Sesión</a>
+        <a href="/register" class="px-8 py-3.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-750 text-gray-800 dark:text-white font-bold rounded-xl border border-gray-250/10 transition">Crear Cuenta</a>
+    </div>
+
+    <div class="pt-12">
+        <span class="bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 text-xs font-mono px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-800">
+            Joss Compiler v{{ $version }}
+        </span>
+    </div>
+</div>
+@endsection

@@ -1,0 +1,23 @@
+// Controlador de Ejemplo para Consola
+public class ExampleController {
+    
+    public func ejecutar(): mixed {
+        print("Ejecutando ExampleController...")
+        
+        // Tu lógica aquí
+        var $resultado = $this->procesarDatos()
+        
+        return $resultado
+    }
+    
+    public func procesarDatos(): bool {
+        // Ejemplo de procesamiento
+        var $datos = ["item1", "item2", "item3"]
+        
+        foreach ($datos as $item) {
+            print("Procesando: " . $item)
+        }
+        
+        return true
+    }
+}

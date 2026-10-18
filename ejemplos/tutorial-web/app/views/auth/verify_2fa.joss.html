@@ -1,0 +1,52 @@
+@extends('layouts.master')
+
+@section('content')
+<section class="bg-gray-50 dark:bg-gray-900 py-12 flex justify-center items-center">
+  <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-8 space-y-6">
+      
+      <div class="text-center space-y-2">
+          <div class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 mx-auto flex items-center justify-center text-2xl shadow-inner">
+              <i class="fas fa-shield-alt"></i>
+          </div>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+              Verificación 2FA
+          </h1>
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+              Introduce el código de 6 dígitos generado por tu aplicación autenticadora.
+          </p>
+      </div>
+      
+      {{ ($error) ? {
+      <div class="p-4 text-sm text-red-800 rounded-xl bg-red-50 dark:bg-red-950/20 dark:text-red-400 border border-red-200 dark:border-red-900/30" role="alert">
+          <i class="fas fa-exclamation-circle mr-1"></i> {{ $error }}
+      </div>
+      } }}
+
+      <form action="/2fa/verify" method="POST" class="space-y-6">
+          {{ csrf_field() }}
+          
+          <div>
+              <label class="block mb-2 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase text-center">Código de Seguridad</label>
+              <input type="text" 
+                     name="code" 
+                     maxlength="6" 
+                     autocomplete="one-time-code" 
+                     inputmode="numeric" 
+                     pattern="[0-9]*" 
+                     required 
+                     autofocus
+                     placeholder="000000"
+                     class="w-full p-4 bg-gray-50 border border-gray-200 dark:bg-gray-900/50 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 text-2xl tracking-[0.5em] text-center font-mono font-bold text-gray-900 dark:text-white shadow-inner">
+          </div>
+          
+          <button type="submit" class="w-full py-3.5 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-500/20 transition duration-150">
+              Verificar e Ingresar
+          </button>
+          
+          <div class="text-center">
+              <a href="/login" class="text-xs text-gray-500 hover:text-blue-600 transition">Volver a iniciar sesión</a>
+          </div>
+      </form>
+  </div>
+</section>
+@endsection

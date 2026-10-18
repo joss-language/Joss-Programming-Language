@@ -1,0 +1,96 @@
+public class ProfileController {
+    public func index() {
+        var $u = Auth::user()
+        var $userId = Auth::id()
+        var $prefix = env("PREFIX", "js_")
+
+        // Check if MFA is active in database
+        var $mfaRecord = GranDB::table($prefix . "user_mfa_methods")->where("user_id", $userId)->where("is_active", 1)->first()
+        var $hasTOTP = (!empty($mfaRecord)) ? true : false
+
+        var $qrCode = ""
+        (!$hasTOTP) ? {
+            var $totp = MFA::generateTOTP()
+            var $secret = $totp["secret"]
+            Session::put("temp_2fa_secret", $secret)
+            var $qrCode = $totp["qr_url"]
+        }
+
+        return view("profile.index", {
+            "title":       "Mi Perfil",
+            "first_name":  $u->first_name,
+            "last_name":   $u->last_name,
+            "email":       $u->email,
+            "phone":       $u->phone,
+            "role_id":     $u->role_id,
+            "username":    $u->username,
+            "mfa_enabled": $hasTOTP,
+            "qr_code":     $qrCode,
+            "success":     session("success"),
+            "error":       session("error")
+        })
+    }
+
+    public func update() {
+        var $id = Auth::user()->id
+        
+        var $data = {
+            "first_name": request("first_name"),
+            "last_name":  request("last_name"),
+            "phone":      request("phone"),
+            "password":   request("password")
+        }
+
+        // Auth::update returns true/false
+        var $success = Auth::update($id, $data)
+
+        return ($success) ? redirect("/profile")->with("success", "Perfil actualizado correctamente.") : back()->with("error", "Error al actualizar el perfil.")
+    }
+
+    public func activate2FA() {
+        var $userId = Auth::id()
+        var $secret = Session::get("temp_2fa_secret")
+        var $code = Str::trim(request("code"))
+        
+        (empty($secret) || empty($code)) ? {
+            return redirect("/profile")->with("error", "Código o sesión de 2FA no válida.")
+        }
+        
+        var $valid = MFA::verifyTOTP($secret, $code)
+        
+        return ($valid) ? {
+            var $prefix = env("PREFIX", "js_")
+            GranDB::table($prefix . "user_mfa_methods")->insert({
+                "user_id": $userId,
+                "method_type": "totp",
+                "secret": $secret,
+                "is_active": 1
+            })
+            Session::forget("temp_2fa_secret")
+            return redirect("/profile")->with("success", "Autenticación de dos factores (2FA) activada con éxito.")
+        } : {
+            return redirect("/profile")->with("error", "Código de verificación incorrecto. Intenta de nuevo.")
+        }
+    }
+
+    public func deactivate2FA() {
+        var $userId = Auth::id()
+        var $prefix = env("PREFIX", "js_")
+        GranDB::table($prefix . "user_mfa_methods")->where("user_id", $userId)->delete()
+        return redirect("/profile")->with("success", "Autenticación de dos factores (2FA) desactivada.")
+    }
+
+    public func delete() {
+        var $id = Auth::user()->id
+        
+        // Remove account
+        var $success = Auth::delete($id)
+
+        return ($success) ? {
+            Auth::logout()
+            return redirect("/login")->withCookie("joss_token", "")->with("success", "Tu cuenta ha sido eliminada permanentemente.")
+        } : {
+            return back()->with("error", "Error al eliminar la cuenta.")
+        }
+    }
+}

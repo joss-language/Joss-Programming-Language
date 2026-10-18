@@ -1,0 +1,14 @@
+// API Routes
+Router::api() // Enable API headers
+
+// Public Routes
+Router::post("/api/register", "ApiController@register")
+Router::post("/api/login", "ApiController@login")
+Router::post("/api/password/email", "ApiController@forgotPassword")
+Router::post("/api/password/reset", "ApiController@resetPassword")
+
+// Protected Routes (JWT)
+Router::middleware("auth_api")
+    Router::post("/api/refresh", "ApiController@refresh")
+    Router::delete("/api/delete", "ApiController@delete")
+Router::end()

@@ -1,0 +1,45 @@
+// Proyecto práctico: Gestor de compras e inventario con persistencia JSON
+// Basado en docs/PROYECTO_CONSOLA.md
+
+public func totalizar(array $compras): decimal {
+    decimal $total = 0m
+    foreach ($compras as $compra) {
+        $total = $total + decimal($compra["precio"]) * intval($compra["cantidad"])
+    }
+    return $total
+}
+
+public func articulosCaros(array $compras, decimal $umbral): array {
+    var $filtrados = []
+    foreach ($compras as $compra) {
+        decimal($compra["precio"]) > $umbral ? {
+            $filtrados[] = $compra
+        } : {}
+    }
+    return $filtrados
+}
+
+public class Main {
+    Init main() {
+        var $compras = [
+            {"nombre": "Cuaderno", "precio": "12.50", "cantidad": 2},
+            {"nombre": "Lapiz", "precio": "3.50", "cantidad": 5},
+            {"nombre": "Mochila", "precio": "35.00", "cantidad": 1}
+        ]
+
+        var $guardado = file_put_contents("compras.json", json_encode($compras))
+        $guardado ? {} : { throw "No se pudo guardar compras.json" }
+
+        var $texto = file_get_contents("compras.json")
+        $texto == null ? { throw "No se pudo leer compras.json" } : {}
+        json_verify($texto) ? {} : { throw "El archivo no contiene JSON valido" }
+
+        var $leidas = json_decode($texto)
+        var $caros = articulosCaros($leidas, 10.00m)
+
+        print("Articulos: " . count($leidas))
+        print("Articulos > 10.00: " . count($caros))
+        print("Total: " . totalizar($leidas))
+        print("Archivo guardado")
+    }
+}

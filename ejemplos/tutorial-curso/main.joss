@@ -1,0 +1,144 @@
+// Curso Oficial de Joss — Recorrido Práctico Completo (Capítulos 1 al 7)
+// Ejecuta con: joss run main.joss
+// Analiza con: joss analyze main.joss
+// Compila con: joss build main.joss
+
+// ============================================================================
+// CAPÍTULO 4: Funciones, guard, defer, ref y pipelines (docs/FUNCIONES.md)
+// ============================================================================
+
+public func calcularTotalConImpuesto(decimal $subtotal, decimal $tasa = 0.16m): decimal {
+    guard ($subtotal >= 0m) : {
+        return 0m
+    }
+    return $subtotal + ($subtotal * $tasa)
+}
+
+public func incrementarPorReferencia(ref int $contador, int $paso): void {
+    $contador = $contador + $paso
+}
+
+public func duplicarEntero(int $n): int {
+    return $n * 2
+}
+
+public func sumarDiez(int $n): int {
+    return $n + 10
+}
+
+// ============================================================================
+// CAPÍTULO 5: Manejo de errores y excepciones (docs/ERRORES.md)
+// ============================================================================
+
+public func dividirSeguro(int $a, int $b): float {
+    $b == 0 ? { throw "Division por cero no permitida" } : {}
+    return $a / $b
+}
+
+// ============================================================================
+// CAPÍTULO 6: Clases, interfaces, record y genéricos (docs/CLASES.md)
+// ============================================================================
+
+public interface Describible {
+    public func describir(): string
+}
+
+public record Coordenada(int $x, int $y)
+
+public class Caja<T> {
+    private T $valor
+
+    Init(T $inicial) {
+        $this->valor = $inicial
+    }
+
+    public func obtener(): T {
+        return $this->valor
+    }
+}
+
+public class Producto implements Describible {
+    public string $nombre
+    public decimal $precio
+
+    Init(string $nombre, decimal $precio) {
+        $this->nombre = $nombre
+        $this->precio = $precio
+    }
+
+    public func describir(): string {
+        return $this->nombre . " ($" . $this->precio . ")"
+    }
+}
+
+// ============================================================================
+// PUNTO DE ENTRADA PRINCIPAL (Capítulos 0, 1, 2, 3, 4, 5, 6 y 7)
+// ============================================================================
+
+public class Main {
+    Init main() {
+        print("=== 1. FUNDAMENTOS Y DECIMAL EXACTO ===")
+        var $usuario = "Ada"
+        decimal $precioUnitario = 19.99m
+        int $unidades = 3
+        decimal $subtotal = $precioUnitario * $unidades
+        print("Usuario: " . $usuario . " | Subtotal: " . $subtotal)
+
+        print("=== 2. CONTROL DE FLUJO (TERNARIO, MATCH, CICLOS) ===")
+        var $categoria = $subtotal >= 50m ? " Mayorista" : "Estándar"
+        var $etiqueta = match ($unidades) {
+            1 => "Unidad",
+            2, 3 => "Pack pequeño",
+            default => "Lote"
+        }
+        print("Categoria: " . trim($categoria) . " | Tipo: " . $etiqueta)
+
+        int $sumaCiclo = 0
+        int $i = 1
+        while ($i <= 4) {
+            $sumaCiclo += $i
+            $i++
+        }
+        print("Suma 1..4: " . $sumaCiclo)
+
+        print("=== 3. COLECCIONES Y UNICODE ===")
+        var $lenguajes = ["Joss", "Go", "Rust"]
+        $lenguajes[] = "TypeScript"
+        var $config = {"modo": "estricto", "version": 3}
+        string $bandera = "Hola 🇲🇽"
+        print("Items: " . count($lenguajes) . " | Modo: " . $config["modo"] . " | Chars: " . $bandera->length())
+
+        print("=== 4. FUNCIONES, REF Y PIPELINE ===")
+        int $visitas = 10
+        incrementarPorReferencia(ref $visitas, 5)
+        var $resultadoPipe = 7 |> duplicarEntero |> sumarDiez
+        var $totalFactura = calcularTotalConImpuesto(100.00m)
+        print("Visitas: " . $visitas . " | Pipe: " . $resultadoPipe . " | Total c/IVA: " . $totalFactura)
+
+        print("=== 5. EXCEPCIONES TRY / CATCH ===")
+        try {
+            var $ok = dividirSeguro(20, 4)
+            print("Division valida: " . $ok)
+            dividirSeguro(10, 0)
+        } catch ($err) {
+            print("Excepcion capturada: " . $err)
+        }
+
+        print("=== 6. CLASES, INTERFACES, RECORD Y GENERICOS ===")
+        var $prod = new Producto("Teclado Mecanico", 85.50m)
+        var $punto = new Coordenada(12, 34)
+        var $cajaTexto = new Caja<string>("Contenido Seguro")
+        print($prod->describir() . " | Coord: " . $punto->x . "," . $punto->y . " | Caja: " . $cajaTexto->obtener())
+
+        print("=== 7. CONCURRENCIA ASYNC/AWAIT Y CHANNEL ===")
+        var $futuro = async {
+            return 9 * 9
+        }
+        var $cuadrado = await($futuro)
+        var $canal = make_chan(1)
+        send($canal, "Mensaje por canal OK")
+        var $recibido = recv($canal)
+        close($canal)
+        print("Async 9^2: " . $cuadrado . " | Canal: " . $recibido)
+    }
+}

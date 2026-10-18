@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ $title ?? "Joss" }}</title>
+    <!-- Tailwind CSS (Play CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            background-color: #03060b; 
+            color: #fff;
+            background-image: radial-gradient(circle at 50% 0%, #172554 0%, #03060b 80%);
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <!-- Navbar -->
+    <nav class="fixed w-full z-50 top-0 start-0 border-b border-white/5 bg-[#03060b]/70 backdrop-blur-md">
+      <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
+        
+        <!-- Logo -->
+        <a href="/" class="flex items-center space-x-3 group">
+            <div class="relative flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 shadow-md group-hover:scale-105 transition-transform duration-300">
+                <i class="fas fa-cube text-white text-md"></i>
+            </div>
+            <span class="self-center text-xl font-bold whitespace-nowrap text-white tracking-tight">
+                JOSS<span class="text-blue-500">APP</span>
+            </span>
+        </a>
+
+        <!-- Right Menu -->
+        <div class="flex items-center md:order-2 space-x-4">
+            {{ ($auth_check) ? {
+                <!-- User Profile Summary -->
+                <a href="/profile" class="flex items-center space-x-2 text-sm text-gray-300 hover:text-white bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
+                    <img class="w-6 h-6 rounded-full border border-gray-700" src="https://ui-avatars.com/api/?name={{ $auth_user }}&background=3b82f6&color=fff&bold=true" alt="avatar">
+                    <span class="hidden sm:inline font-medium text-xs">{{ $auth_user }}</span>
+                </a>
+                <a href="/logout" class="text-xs font-bold text-red-400 hover:text-red-300 transition"><i class="fas fa-sign-out-alt"></i></a>
+            } : {
+                 <div class="flex space-x-3">
+                    <a href="/login" class="text-white hover:text-blue-400 text-xs font-semibold px-3 py-2 transition">Login</a>
+                    <a href="/register" class="text-white bg-blue-600 hover:bg-blue-700 text-xs font-bold rounded-xl px-4 py-2 transition shadow-lg shadow-blue-500/20">Sign up</a>
+                </div>
+            } }}
+        </div>
+
+        <!-- Center Menu -->
+        <div class="items-center justify-between hidden w-full md:flex md:w-auto md:order-1">
+            <ul class="flex flex-col font-medium p-4 md:p-0 mt-4 border border-white/5 rounded-lg md:space-x-8 md:flex-row md:mt-0 md:border-0">
+                <li><a href="/" class="block py-2 px-3 text-white rounded-lg md:bg-transparent">Inicio</a></li>
+                {{ ($auth_check) ? {
+                    <li><a href="/dashboard" class="block py-2 px-3 text-gray-300 hover:text-white">Dashboard</a></li>
+                    <!-- Injected Links Here -->
+                } }}
+            </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content Wrapper -->
+    <div class="pt-32 pb-16 px-4 max-w-screen-xl mx-auto min-h-screen">
+       @yield('content')
+    </div>
+</body>
+</html>

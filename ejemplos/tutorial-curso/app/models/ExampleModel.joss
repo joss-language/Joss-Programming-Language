@@ -1,0 +1,13 @@
+// Modelo de Ejemplo
+public class ExampleModel extends Model {
+    protected string $table = "example"
+    protected array $fillable = ["name", "description"]
+
+    public func obtenerTodos(): array {
+        return ExampleModel::all()
+    }
+    
+    public func buscarPorId(mixed $id): mixed {
+        return ExampleModel::find($id)
+    }
+}

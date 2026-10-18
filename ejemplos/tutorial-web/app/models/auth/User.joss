@@ -1,0 +1,16 @@
+public class User extends Model {
+    protected string $table = "users"
+    protected array $fillable = [
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "username",
+        "password",
+        "role_id",
+        "email_verified_at"
+    ]
+    protected array $hidden = [
+        "password"
+    ]
+}

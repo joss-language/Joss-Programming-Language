@@ -1,0 +1,22 @@
+public class DashboardController {
+    public func index() {
+        var $u = Auth::user()
+        (!$u) ? {
+            Auth::logout()
+            return redirect("/login")->with("error", "Sesión no válida o usuario inexistente.")
+        }
+
+        var $isAdmin = Auth::hasRole("admin")
+        var $roleName = ($isAdmin) ? "Administrador" : "Cliente"
+
+        var $name = ($u->name) ? $u->name : ($u->first_name . " " . $u->last_name)
+
+        return view("dashboard.index", {
+            "title":      "Dashboard",
+            "user_name":  $name,
+            "user_email": $u->email,
+            "role":       $roleName,
+            "isAdmin":    $isAdmin
+        })
+    }
+}
