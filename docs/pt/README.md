@@ -20,6 +20,19 @@ desatualizadas, links quebrados ou diferenças com JosSecurity.
 
 Se você nunca programou ou está aprendendo Joss pela primeira vez, siga este curso em ordem. Cada capítulo introduz um conceito por vez, partindo de como criar e executar seu projeto oficial com `joss new console`, com explicações linha por linha, resultados visíveis e três níveis de prática (*Teste rápido*, *Exercício guiado* e *Desafio*).
 
+```mermaid
+flowchart LR
+    C0["0. Primeros pasos (joss new console)"] --> C1["1. Fundamentos"]
+    C1 --> C2["2. Control de flujo"]
+    C2 --> C3["3. Colecciones"]
+    C3 --> C4["4. Funciones"]
+    C4 --> C5["5. Errores"]
+    C5 --> C6["6. Clases y POO"]
+    C6 --> C7["7. Concurrencia"]
+    C7 --> C8["8. Proyecto Consola (joss build)"]
+    C8 --> C9["9. Proyecto Web MVC (joss new / joss make:*)"]
+```
+
 0. [Primeiros passos: criar seu projeto com `joss new console`, entender `main.joss` e dialogar com `cin`](PRIMEROS_PASOS.md)
 1. [Valores, variáveis e operações fundamentais](FUNDAMENTOS.md)
 2. [Controle de fluxo: decisões e laços de repetição](CONTROL_FLUJO.md)

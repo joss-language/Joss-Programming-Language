@@ -63,7 +63,8 @@ joss new plugin mi_plugin
 ## 3. Code Generators (`make:*` and `remove:*`)
 
 ```bash
-joss make:controller Users
+joss make:controller UsersController
+joss make:controller admin/DashboardController
 joss make:middleware AuthGuard
 joss make:model User
 joss make:view users/index
@@ -72,6 +73,24 @@ joss make:crud products
 joss remove:crud products
 joss make:migration create_products
 ```
+
+```mermaid
+flowchart LR
+    CLI["joss make:<componente>"] --> CTRL["make:controller → app/controllers/<Nombre>.joss"]
+    CLI --> MOD["make:model → app/models/<Nombre>.joss (extends Model)"]
+    CLI --> VIEW["make:view → app/views/<nombre>.joss.html"]
+    CLI --> MID["make:middleware → app/middleware/<Nombre>.joss"]
+    CLI --> MVC["make:mvc → Modelo + Controlador + Vista"]
+    CLI --> MIG["make:migration → app/database/migrations/<timestamp>_<nombre>.joss"]
+    CLI --> CRUD["make:crud → Modelo + Controlador + Vistas Tailwind + Rutas"]
+```
+
+- `make:controller [Nombre]`: Creates a controller in `app/controllers/<Nombre>.joss` (supports subdirectories such as `admin/DashboardController`). In web projects it generates `index(): mixed` returning `view(...)`; in console projects it generates `index(): void` with `print(...)`.
+- `make:model [Nombre]`: Creates a model in `app/models/<Nombre>.joss` that inherits from `Model` with automatically pluralized `$table` and `$fillable = []`.
+- `make:view [Nombre]`: Creates a template in `app/views/<Nombre>.joss.html` extending `@extends('layouts.master')` (exclusive to web projects).
+- `make:middleware [Nombre]`: Creates a middleware in `app/middleware/<Nombre>.joss` with `Router::registerMiddleware(...)`.
+- `make:mvc [Nombre]`: Runs in a single step `make:model <Nombre>`, `make:controller <Nombre>Controller`, and `make:view <nombre>/index`.
+- If the destination file already exists, the generators safely skip it unless you pass the `--force` flag.
 
 ### 🛠️ `make:crud [Tabla]` (Intelligent Relational Generator)
 Connects to the database configured in `env.joss`, inspects the table schema, and automatically generates a complete administrative module:

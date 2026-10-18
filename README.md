@@ -5,7 +5,7 @@
 <h1 align="center">El Lenguaje de Programación Joss</h1>
 
 <p align="center">
-  <b>Moderno · Fuertemente Tipado · Compilación Nativa AOT e Intérprete · Cero Imports · Pila Web Nativa</b>
+  <b>Un solo lenguaje · Una sola semántica · Ejecución interpretada, Servidor Web Nativo y Compilación AOT</b>
 </p>
 
 <p align="center">
@@ -17,19 +17,85 @@
 
 ---
 
-**Joss** es un lenguaje de programación moderno, fuertemente tipado y de alto rendimiento implementado en Go. Ejecuta el mismo lenguaje bajo múltiples modos a partir de un modelo semántico único (`PreparedProgram`): ejecución inmediata interpretada (`joss run`), servidor web de alta concurrencia (`joss server`) y compilación nativa AOT a ejecutables independientes (`joss build`).
+## 🌟 ¿Qué es Joss y qué hace?
+
+**Joss** es un lenguaje de programación moderno, fuertemente tipado y un ecosistema de desarrollo completo (*batteries-included*) escrito en Go.
+
+En el desarrollo de software tradicional, los equipos suelen verse obligados a elegir entre dos extremos:
+1. **Lenguajes dinámicos o de scripting** (rápidos para prototipar, pero propensos a errores en producción, lentos y dependientes de cientos de paquetes externos para levantar un servidor web o conectarse a una base de datos).
+2. **Lenguajes de sistemas compilados** (veloces y seguros, pero con curvas de aprendizaje empinadas, ciclos de compilación lentos y sin herramientas integradas para construir aplicaciones web o de negocio rápidamente).
+
+**Joss une ambos mundos bajo un único diseño coherente**:
+- Permite escribir código limpio, expresivo y sin ceremonias innecesarias (sin `;` obligatorios, sin cadenas interminables de `import` manuales).
+- Analiza estáticamente todo tu proyecto antes de ejecutar una sola línea (`joss analyze`), detectando errores de tipos, rutas sin retorno, contratos de interfaces y mutaciones inválidas con diagnósticos precisos (`JOSS-*`).
+- Ejecuta ese mismo programa validado (`PreparedProgram`) al instante en modo intérprete (`joss run`), como un servidor HTTP de alta concurrencia (`joss server start`), o lo compila directamente a un **ejecutable binario nativo independiente** (`joss build`) para Windows, Linux, macOS y Android sin que tengas que cambiar una sola línea de código.
 
 ---
 
-## 🚀 ¿Por qué elegir Joss?
+## 🎯 Misión, Visión y Filosofía de Diseño
 
-- **Un solo lenguaje, múltiples modos de ejecución**: Desarrolla con feedback instantáneo usando `joss run` o `joss repl`, y compila tu proyecto a un binario nativo real (`.exe`, ELF, Mach-O) con `joss build` sin cambiar una sola línea de código.
-- **Cero imports en el código (Zero-Imports)**: Olvídate de gestionar rutas relativas o árboles interminables de `import`/`require`. Joss descubre, analiza y organiza automáticamente todas las clases y funciones públicas de tu proyecto (`main.joss`, `routes.joss`, `api.joss` y `app/**/*.joss`) y plugins.
-- **Análisis estático exhaustivo (`joss analyze`)**: El verificador semántico de Joss analiza tipos de datos, rutas de retorno de funciones, cláusulas `guard`, scopes y contratos nominales antes de ejecutar una sola línea.
-- **Sintaxis limpia y sin fricción**: Diseñado con delimitación natural por **saltos de línea**. No necesitas colocar punto y coma (`;`) al final de cada sentencia salvo que decidas escribir varias en la misma línea.
-- **Pila web y backend integrada (Batteries-Included)**: Servidor HTTP multinivel nativo, enrutamiento dinámico, motor de vistas HTML dinámico con escape anti-XSS, ORM y migraciones versionadas (GranDB / Schema), autenticación, sesiones seguras y WebSockets.
-- **Concurrencia limpia con Canales y Async**: Ejecuta tareas en segundo plano con bloques `async { ... }`, espera resultados con `await` y comunica procesos de forma segura mediante canales (`channel`) y `select`.
-- **Aritmética financiera exacta**: Incorpora el tipo primitivo `decimal` para cálculos monetarios y de precisión en base diez, previniendo errores de redondeo del estándar binario IEEE-754.
+### Misión
+Democratizar la creación de software robusto, seguro y de alto rendimiento, entregando en **un solo binario (`joss`)** todo lo que una persona —desde quien escribe su primera línea de código hasta un arquitecto de sistemas senior— necesita para diseñar, verificar, probar, servir en la web y compilar aplicaciones nativas listas para producción sin depender de ecosistemas fragmentados.
+
+### Visión
+Convertirse en el lenguaje de referencia bajo el principio **"Un solo lenguaje, una sola semántica, múltiples modos de ejecución"** (*Feature Once, Execute Everywhere*), donde la experiencia pedagógica de aprendizaje, la productividad del desarrollo web empresarial y la eficiencia de la compilación nativa AOT convergen sin compromisos.
+
+### Los 5 Pilares Filosóficos de Joss
+1. **Paridad Semántica Total**: Lo que funciona en `joss run` funciona exactamente igual en `joss server` y en el binario compilado con `joss build`. No existen "subconjuntos" ni dialectos distintos.
+2. **Seguridad Estática con Ergonomía Moderna**: Tipado estático e inferencia estricta (`var $x = 10`), tipos unión (`int|null` / `int?`), aritmética financiera exacta de base 10 (`decimal`) y dinamismo explícito solo cuando el programador lo solicita deliberadamente (`mixed`).
+3. **Cero Fricción Arquitectónica (*Zero-Imports*)**: El compilador descubre y enlaza automáticamente todas las declaraciones de tu proyecto (`main.joss`, `routes.joss`, `api.joss` y `app/**/*.joss`). Tu estructura de carpetas es tu arquitectura, sin burocracia de encabezados.
+4. **Autonomía del Toolchain (*Batteries-Included*)**: Servidor HTTP, motor de plantillas HTML con protección anti-XSS nativa, ORM relacional (`GranDB` / `Model`), constructor de esquemas y migraciones (`Schema`), generadores de código (`joss make:*`), formateador, linter, suite de tests y gestor de paquetes (`pub`) viven dentro del propio lenguaje.
+5. **Distribución Ultraligera y Segura**: Compilación AOT a binarios CLI puros de apenas ~5.5 KB - 32 KB, o aplicaciones completas con servidor/DB que podan automáticamente los motores no utilizados (`no<driver>`) y sellan sus vistas y variables de entorno encriptadas con **AES-256** (`env.enc`) dentro de un único ejecutable.
+
+---
+
+## 🏗️ Arquitectura: Un solo lenguaje, múltiples modos de ejecución
+
+Todo archivo `.joss` atraviesa el mismo pipeline frontal antes de ejecutarse o compilarse:
+
+```mermaid
+flowchart TD
+    SRC["1. Código Fuente (.joss) — Proyecto Zero-Imports (main.joss, routes.joss, app/**)"] --> LEX["2. Lexer + Parser Pratt — Árbol de Sintaxis Abstracta (AST)"]
+    LEX --> ANA["3. Semantic Analyzer Pipeline (joss analyze: collectDeclarations → projectScope → validateNominalContracts → analyzeSourceBodies)"]
+    ANA --> DIAG["Diagnósticos Estables (JOSS-PARSE / JOSS-TYPE / JOSS-SYM / JOSS-FLOW)"]
+    ANA --> PREP["4. PreparedProgram Canónico Inmutable"]
+    PREP --> RUN["Modo A: Intérprete Directo (joss run / joss repl) — Evaluación inmediata con frames léxicos y slots"]
+    PREP --> SRV["Modo B: Servidor Web HTTP/WS (joss server start) — Runtime concurrente con aislamiento por petición (Fork / Free)"]
+    PREP --> IR["Modo C: Compilador Nativo AOT (joss build) — Lowering a Joss Native IR (SSA/3AC) + Verificador CFG (ir.Verifier)"]
+    IR --> BIN["Ejecutable Nativo Standalone (.exe / ELF / Mach-O) — Poda selectiva de drivers (no<driver>) + VFS encriptado AES-256"]
+```
+
+---
+
+## 🔍 Análisis Estático, Sistema de Tipos y Mejoras Clave
+
+Joss ha evolucionado hacia un sistema de verificación estática y ejecución de grado industrial. Estas son las capacidades y mejoras técnicas que distinguen al motor actual:
+
+### 1. Analizador Semántico de 4 Fases y Diagnósticos `JOSS-*`
+Antes de ejecutar cualquier instrucción, `pkg/analyzer` realiza cuatro pasadas deterministas sobre todas las unidades fuente (`SourceUnit`) del proyecto:
+- **Fase 1 (`collectDeclarations`)**: Registra firmas de funciones, clases, constructores (`Init`), interfaces, `record` y `enum` en todo el proyecto sin importar el orden de los archivos.
+- **Fase 2 (`projectScope`)**: Construye la tabla de símbolos global e inyecta el catálogo de clases nativas y símbolos de plugins `.jp` firmados.
+- **Fase 3 (`validateNominalContracts`)**: Verifica herencias (`extends`), implementación completa de `interface`, cumplimiento de métodos `abstract`, invariancia de tipos e inmutabilidad de `record` y `const`.
+- **Fase 4 (`analyzeSourceBodies`)**: Comprueba tipos de cada expresión, estrechamiento de tipos por flujo (*Smart Cast Narrowing* tras `guard` o condicionales `!= null`), rutas de retorno garantizadas (`JOSS-TYPE-010`) y alcanzabilidad de código (`JOSS-FLOW-*`).
+
+### 2. Sistema de Tipos con Precisión Financiera y Contratos Nominales
+- **Inferencia fija (`var`) vs Dinamismo explícito (`mixed`)**: `var $total = 100` infiere y bloquea el tipo `int` para toda la vida de la variable. Si se requiere flexibilidad dinámica, se declara explícitamente `mixed $dato = ...`.
+- **Protección contra pérdida de precisión numérica (`JOSS-ARITH-003`)**: Joss incorpora `decimal` nativo (`19.99m`) para cálculos monetarios exactos en base 10. La única promoción implícita permitida entre tipos numéricos distintos es `int → decimal`; mezclar `float` binario con `decimal` o `int` exige conversión explícita para evitar errores silenciosos de redondeo IEEE-754.
+- **Referencias mutables seguras (`ref`)**: Soporte para paso por referencia explícito en la firma y en la llamada (`public func incrementar(ref int $n): void` → `incrementar(ref $contador)`), estrictamente invariante y sin fugas de memoria (*no escapable*).
+- **Records inmutables y Genéricos**: Declaración concisa de estructuras de datos de valor con `public record Coordenada(int $x, int $y)` y clases parametrizadas `public class Caja<T>`.
+
+### 3. Expresividad Funcional y Control de Recursos
+- **Operador Pipeline (`|>`)**: Transforma datos encadenando funciones de izquierda a derecha de forma legible: `"  ada lovelace  " |> trim |> strtoupper`.
+- **Cláusulas `guard` y `defer`**:
+  - `guard (condición) : { return ... }` obliga estáticamente (`JOSS-FLOW-005`) a salir del ámbito si no se cumple una precondición, eliminando la anidación excesiva y refinando el tipo de las variables posteriores.
+  - `defer { ... }` garantiza la liberación de recursos (archivos, conexiones, locks) en orden inverso (`LIFO`) al salir de la función, incluso ante excepciones.
+- **Expresiones Ternarias de Bloque y `match`**: Evalúa condiciones con `(condición) ? { ... } : { ... }`, operador Elvis (`?:`), coalescencia nula (`??`), asignación nula (`??=`), navegación segura (`?->`) y coincidencia de patrones con `match ($estado) { ... }`.
+- **Concurrencia con `async/await`, `Future` y `channel<T>`**: Ejecución asíncrona con propagación de contexto cancelable y comunicación segura entre tareas mediante canales tipados (`$ch->send(...)`, `$ch-> close()`, `foreach ($ch as $msg)` y multiplexación con `select`).
+
+### 4. Stack Web MVC, ORM GranDB y Generadores Inteligentes (`joss make:*`)
+- **Generación de código integrada**: Crea controladores (`joss make:controller`), modelos (`joss make:model`), vistas (`joss make:view`), middlewares (`joss make:middleware`), tríadas completas (`joss make:mvc`) o módulos administrativos completos inspeccionando la base de datos (`joss make:crud <tabla>`).
+- **ORM GranDB multi-motor**: Consultas parametrizadas seguras contra inyección SQL, relaciones (`belongsTo`, `hasOne`, `hasMany`, `belongsToMany` con `attach`/`detach`/`sync` transaccional), *scopes*, *soft deletes*, *casts*, *accessors/mutators* y soporte transparente para **SQLite, MySQL, PostgreSQL y SQL Server**.
+- **Compilación Cruzada Integrada**: Genera ejecutables nativos para cualquier plataforma desde una sola máquina con `joss build linux`, `joss build macos`, `joss build windows` o `joss build android`.
 
 ---
 
@@ -65,6 +131,8 @@ joss version
 
 ## ⚡ Tu primer proyecto en 30 segundos
 
+### Opción A: Proyecto de consola (`joss new console`)
+
 Crea un proyecto de consola completo usando el generador oficial de Joss:
 
 ```bash
@@ -80,7 +148,7 @@ O escribe un programa directo en `main.joss`:
 print("Hola, Joss!")
 ```
 
-Verifícalo, ejecútalo o compílalo a un ejecutable nativo desde tu terminal:
+Verifícalo estáticamente, ejecútalo al instante o compílalo a un ejecutable nativo:
 
 ```bash
 joss analyze main.joss
@@ -93,90 +161,126 @@ Salida esperada:
 Hola, Joss!
 ```
 
+### Opción B: Aplicación Web MVC (`joss new`)
+
+Crea una aplicación web completa con servidor HTTP nativo, rutas, controladores y vistas:
+
+```bash
+joss new mi-web
+cd mi-web
+joss make:controller SaludoController
+joss make:view saludo
+joss server start
+```
+
 ---
 
-## 🎨 Un vistazo a la sintaxis de Joss
+## 🎨 Un vistazo al lenguaje en acción
 
 Joss combina claridad visual, tipado estático riguroso y expresividad funcional:
 
-<!-- joss-run: ["Hola, Ada", "Puedes participar"] -->
+<!-- joss-run: ["Hola, ADA", "Total con impuesto: 145.49", "Puedes participar"] -->
 ```joss
+public func formatearNombre(string $Texto): string {
+    return $Texto |> trim |> strtoupper
+}
+
 public func saludar(string $nombre): string {
-    return "Hola, " . $nombre
+    return "Hola, " . formatearNombre($nombre)
 }
 
 var $edad = 20
-print(saludar("Ada"))
+decimal $subtotal = 125.50m
+decimal $impuesto = 19.99m
+decimal $total = $subtotal + $impuesto
+
+print(saludar("  ada  "))
+print("Total con impuesto: " . $total)
 print(($edad >= 18) ? "Puedes participar" : "Aún debes esperar")
 ```
 
-### Reglas sintácticas clave
-1. **Prefijo `$` en variables**: Todas las variables inician obligatoriamente con el signo `$`.
-2. **Delimitación por saltos de línea**: Una sentencia por línea no requiere punto y coma (`;`). Si necesitas escribir múltiples sentencias en una misma línea, sepáralas explícitamente con `;`.
-3. **Inferencia y tipado**:
-   - Inferencia canónica: `var $total = 100` (infiere y fija el tipo `int`).
-   - Declaración explícita: `int $contador = 0` o `string $mensaje = "Hola"`.
-   - Dinamismo explícito: `mixed $variable = "dinámico"` (permite cambiar de tipo posteriormente).
-   - Constantes inmutables: `const $pi = 3.1416` o `const int $max = 100`.
-4. **Concatenación (`.`) e interpolación (`"${...}"`)**: El operador `.` concatena cadenas de texto y las comillas dobles permiten interpolar variables (`"Hola, ${nombre}"`); el operador `+` se reserva estrictamente para la suma numérica.
-5. **Decisiones elegantes**: Expresiones ternarias concisas con bloques `(condición) ? { ... } : { ... }`, cláusulas de guarda `guard (condición) : { return ... }` y coincidencia de patrones con `match ($valor) { ... }`.
-
 ---
 
-## 🛠️ Comandos esenciales de la CLI
+## 🛠️ Comandos Esenciales de la CLI y Generadores
+
+```mermaid
+flowchart LR
+    CLI["CLI: joss"] --> NEW["joss new (web | console | package | plugin)"]
+    CLI --> MAKE["joss make:* (controller | model | view | middleware | mvc | crud | migration)"]
+    CLI --> EXEC["Ejecución (joss run | joss server start | joss repl)"]
+    CLI --> BUILD["Compilación AOT (joss build [linux | macos | windows | android])"]
+    CLI --> QA["Calidad (joss analyze | joss check | joss format | joss lint | joss fix | joss test)"]
+```
 
 | Comando | Descripción |
 |---|---|
-| `joss new [web\|console\|package\|plugin] <ruta>` | Crea un nuevo proyecto con la plantilla oficial indicada |
-| `joss run <archivo.joss>` | Analiza y ejecuta un archivo o proyecto de Joss |
-| `joss build [archivo.joss] [--target=...]` | Compila el proyecto a un ejecutable binario nativo independiente (`build/`) |
-| `joss server start` | Inicia el servidor web HTTP nativo de alto rendimiento |
+| `joss new [web\|console\|package\|plugin] <ruta>` | Crea un nuevo proyecto con la plantilla oficial indicada (`web` por defecto) |
+| `joss make:<tipo> <Nombre>` | Genera componentes (`controller`, `model`, `view`, `middleware`, `mvc`, `crud`, `migration`) |
+| `joss remove:crud <tabla>` | Revierte limpiamente un módulo CRUD generado (controlador, modelo, vistas y rutas) |
+| `joss run <archivo.joss>` | Analiza semánticamente el proyecto y lo ejecuta en el intérprete de Joss |
+| `joss build [archivo.joss] [--target=...]` | Compila el proyecto a un ejecutable binario nativo independiente dentro de `build/` |
+| `joss server start` | Inicia el servidor web HTTP/WebSocket nativo de alto rendimiento |
 | `joss repl` | Inicia la consola interactiva (`joss> `) para experimentar en vivo |
-| `joss analyze [ruta]` | Ejecuta el análisis semántico y comprobación exhaustiva de tipos |
-| `joss check [ruta]` | Ejecuta formato, sintaxis, análisis semántico y linter |
-| `joss format [ruta] [--write\|--check]` | Formatea o comprueba el código fuente según las reglas canónicas |
-| `joss test` | Ejecuta la suite de pruebas unitarias y de integración (`*_test.joss`) |
-| `joss pub [comando]` | Administra paquetes y plugins del ecosistema Joss |
+| `joss analyze [ruta]` | Ejecuta el analizador semántico de 4 fases y comprobación exhaustiva de tipos |
+| `joss check [ruta]` | Ejecuta el pipeline completo de calidad: formato, sintaxis, análisis semántico y linter |
+| `joss format [ruta] [--write\|--check]` | Formatea o verifica el código fuente conservando comentarios (*trivia*) |
+| `joss fix [ruta] [--dry-run]` | Aplica migraciones sintácticas automáticas léxicamente seguras |
+| `joss test [--filter=...] [ruta]` | Ejecuta la suite de pruebas unitarias y de integración (`*_test.joss`) |
+| `joss migrate` / `joss migrate:fresh` / `joss db:seed` | Ejecuta migraciones versionadas de base de datos y pobladores de datos (*seeders*) |
+| `joss pub [add\|remove\|install\|publish]` | Administra dependencias, paquetes y plugins firmados (`.jp`) del ecosistema Joss |
 
 ---
 
-## 🗺️ Mapa de la Documentación
+## 🗺️ Mapa de la Documentación Oficial (50 Guías en 3 Idiomas)
 
-La documentación oficial se organiza en cuatro áreas temáticas:
+Toda la documentación de Joss se mantiene sincronizada y verificada automáticamente mediante contratos ejecutables en **Español** (`docs/`), **Inglés** (`docs/en/`) y **Portugués** (`docs/pt/`):
+
+```mermaid
+flowchart LR
+    C0["0. Primeros pasos"] --> C1["1. Fundamentos"]
+    C1 --> C2["2. Control de flujo"]
+    C2 --> C3["3. Colecciones"]
+    C3 --> C4["4. Funciones"]
+    C4 --> C5["5. Errores"]
+    C5 --> C6["6. Clases y POO"]
+    C6 --> C7["7. Concurrencia"]
+    C7 --> C8["8. Proyecto Consola"]
+    C8 --> C9["9. Proyecto Web MVC"]
+```
 
 ### 1. Aprender Joss desde cero (Curso guiado paso a paso)
 - 0. [Primeros pasos: De cero a tu primer proyecto con `joss new`](docs/PRIMEROS_PASOS.md)
 - 1. [Valores, variables y operaciones fundamentales](docs/FUNDAMENTOS.md)
 - 2. [Control de flujo, decisiones y bucles](docs/CONTROL_FLUJO.md)
 - 3. [Colecciones: Arrays, Maps y texto Unicode](docs/COLECCIONES.md)
-- 4. [Funciones, ámbito (scope), closures y referencias](docs/FUNCIONES.md)
-- 5. [Manejo de errores, excepciones y try/catch](docs/ERRORES.md)
-- 6. [Clases, objetos, métodos, interfaces y herencia](docs/CLASES.md)
-- 7. [Concurrencia, asincronía, Future y canales](docs/CONCURRENCIA.md)
-- 8. [Proyecto práctico: Aplicación de consola con persistencia JSON](docs/PROYECTO_CONSOLA.md)
-- 9. [Proyecto práctico: Aplicación web MVC con el stack nativo](docs/PROYECTO_WEB.md)
+- 4. [Funciones, ámbito (scope), `guard`, `defer`, closures, `ref` y pipelines](docs/FUNCIONES.md)
+- 5. [Manejo de errores, diagnósticos `JOSS-...` y excepciones `try/catch`](docs/ERRORES.md)
+- 6. [Clases, objetos, métodos, interfaces, `record` y genéricos](docs/CLASES.md)
+- 7. [Concurrencia, asincronía, `Future` y canales (`channel`)](docs/CONCURRENCIA.md)
+- 8. [Proyecto práctico: Aplicación de consola con persistencia JSON y `joss build`](docs/PROYECTO_CONSOLA.md)
+- 9. [Proyecto práctico: Aplicación web MVC con `joss new` y `joss make:*`](docs/PROYECTO_WEB.md)
 - [Glosario completo de términos de programación](docs/GLOSARIO.md)
 
 ### 2. Referencia técnica exhaustiva
 - [Sistema de tipos, inferencia, uniones y conversiones](docs/SISTEMA_TIPOS.md)
 - [Sintaxis, tokens y precedencia de operadores](docs/SINTAXIS.md)
 - [Gramática EBNF formal y correspondencia con el AST](docs/GRAMATICA.md)
-- [Catálogo y referencia de diagnósticos (JOSS-*)](docs/DIAGNOSTICOS.md)
+- [Catálogo y referencia de diagnósticos (`JOSS-*`)](docs/DIAGNOSTICOS.md)
 - [Guía de funciones globales integradas](docs/FUNCIONES_GLOBALES.md)
 - [Clases nativas y servicios del runtime](docs/MODULOS_NATIVOS.md)
-- [Catálogo nativo generado por docgen](docs/CATALOGO_NATIVO.md)
-- [Referencia de comandos de la CLI (`joss`)](docs/CLI.md)
+- [Catálogo nativo generado por `docgen`](docs/CATALOGO_NATIVO.md)
+- [Referencia completa de comandos de la CLI (`joss`)](docs/CLI.md)
 - [Soporte móvil: Android e iOS](docs/MOBILE.md)
-- [Extensión oficial para Visual Studio Code](docs/VSCODE_EXTENSION.md)
+- [Extensión oficial para Visual Studio Code (LSP)](docs/VSCODE_EXTENSION.md)
 - [Estado real de implementación y límites del sistema](docs/ESTADO_IMPLEMENTACION.md)
 - [Analizador semántico y flujo de diagnósticos](docs/ANALIZADOR.md)
 - [Recursión, frames y límites de llamadas](docs/RECURSION.md)
 
 ### 3. Desarrollo de aplicaciones reales
-- [Estructura de proyectos y convenciones](docs/ESTRUCTURA_PROYECTO.md)
-- [Configuración y variables de entorno](docs/CONFIGURACION.md)
-- [Carga automática y Zero Imports](docs/MODULOS_IMPORTS.md)
-- [Arquitectura de plugins y paquetes binarios JP](docs/PLUGINS.md)
+- [Estructura de proyectos y generadores `joss make:*`](docs/ESTRUCTURA_PROYECTO.md)
+- [Configuración y variables de entorno (`env.joss`)](docs/CONFIGURACION.md)
+- [Carga automática y arquitectura Zero-Imports](docs/MODULOS_IMPORTS.md)
+- [Arquitectura de plugins y paquetes binarios `.jp`](docs/PLUGINS.md)
 - [Servidor HTTP nativo de alto rendimiento](docs/SERVIDOR.md)
 - [Controladores web y peticiones HTTP](docs/CONTROLADORES.md)
 - [Middlewares y capas de seguridad](docs/MIDDLEWARE.md)
@@ -189,15 +293,17 @@ La documentación oficial se organiza en cuatro áreas temáticas:
 - [Sistema de autenticación, sesiones y MFA](docs/AUTENTICACION.md)
 - [SEO y generación de sitemaps](docs/SEO_SITEMAP.md)
 
-### 4. Arquitectura interna y contribución
+### 4. Arquitectura interna, auditorías y contribución
 - [Arquitectura del compilador, analizador y runtime](docs/ARQUITECTURA.md)
 - [Guía para contribuidores del núcleo](docs/CONTRIBUIR.md)
 - [Informe de auditoría integral y reconstrucción documental](docs/DOCUMENTATION_AUDIT.md)
 - [Auditoría técnica y optimización del runtime](docs/AUDITORIA_TECNICA_2026.md)
 - [Auditoría integral del lenguaje 2026](docs/JOSS_LANGUAGE_AUDIT_2026.md)
-- [Revisión del lenguaje Joss 2026](docs/JOSS_LANGUAGE_REVIEW_2026.md)
+- [Evaluación crítica y comparativa de Joss 2026](docs/JOSS_LANGUAGE_REVIEW_2026.md)
+- [Evolución de Joss 2026: fases 0 y 1](docs/JOSS_EVOLUTION_PHASE_0_1_2026.md)
+- [Auditoría del ORM GranDB 2026](docs/GRANDB_ORM_AUDIT_2026.md)
 - [Auditoría de optimización del runtime](docs/RUNTIME_OPTIMIZATION_AUDIT.md)
-- [Novedades de Joss 3.6.7](docs/NOVEDADES_367.md)
+- [Novedades históricas de Joss 3.6.7](docs/NOVEDADES_367.md)
 
 ---
 

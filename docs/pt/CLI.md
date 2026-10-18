@@ -63,7 +63,8 @@ joss new plugin mi_plugin
 ## 3. Geradores de Código (`make:*` e `remove:*`)
 
 ```bash
-joss make:controller Users
+joss make:controller UsersController
+joss make:controller admin/DashboardController
 joss make:middleware AuthGuard
 joss make:model User
 joss make:view users/index
@@ -72,6 +73,24 @@ joss make:crud products
 joss remove:crud products
 joss make:migration create_products
 ```
+
+```mermaid
+flowchart LR
+    CLI["joss make:<componente>"] --> CTRL["make:controller → app/controllers/<Nombre>.joss"]
+    CLI --> MOD["make:model → app/models/<Nombre>.joss (extends Model)"]
+    CLI --> VIEW["make:view → app/views/<nombre>.joss.html"]
+    CLI --> MID["make:middleware → app/middleware/<Nombre>.joss"]
+    CLI --> MVC["make:mvc → Modelo + Controlador + Vista"]
+    CLI --> MIG["make:migration → app/database/migrations/<timestamp>_<nombre>.joss"]
+    CLI --> CRUD["make:crud → Modelo + Controlador + Vistas Tailwind + Rutas"]
+```
+
+- `make:controller [Nombre]`: Cria um controlador em `app/controllers/<Nombre>.joss` (suporta subdiretórios como `admin/DashboardController`). Em projetos web gera `index(): mixed` retornando `view(...)`; em console gera `index(): void` com `print(...)`.
+- `make:model [Nombre]`: Cria um modelo em `app/models/<Nombre>.joss` que herda de `Model` com `$table` pluralizada automaticamente e `$fillable = []`.
+- `make:view [Nombre]`: Cria um template em `app/views/<Nombre>.joss.html` estendendo `@extends('layouts.master')` (exclusivo para projetos web).
+- `make:middleware [Nombre]`: Cria um middleware em `app/middleware/<Nombre>.joss` com `Router::registerMiddleware(...)`.
+- `make:mvc [Nombre]`: Executa em um único passo `make:model <Nombre>`, `make:controller <Nombre>Controller` e `make:view <nombre>/index`.
+- Se o arquivo de destino já existir, os geradores o ignoram de forma segura, a menos que você passe a flag `--force`.
 
 ### 🛠️ `make:crud [Tabla]` (Gerador Relacional Inteligente)
 Conecta ao banco de dados configurado em `env.joss`, inspeciona o esquema da tabela e gera automaticamente um módulo administrativo completo:

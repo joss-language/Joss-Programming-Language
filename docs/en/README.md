@@ -20,6 +20,19 @@ translations, broken links or differences with JosSecurity.
 
 If you have never programmed before or are learning Joss for the first time, follow this course in order. Each chapter introduces one concept at a time, starting from how to create and run your official project with `joss new console`, with line-by-line explanations, visible results and three levels of practice (*Quick test*, *Guided exercise* and *Challenge*).
 
+```mermaid
+flowchart LR
+    C0["0. Primeros pasos (joss new console)"] --> C1["1. Fundamentos"]
+    C1 --> C2["2. Control de flujo"]
+    C2 --> C3["3. Colecciones"]
+    C3 --> C4["4. Funciones"]
+    C4 --> C5["5. Errores"]
+    C5 --> C6["6. Clases y POO"]
+    C6 --> C7["7. Concurrencia"]
+    C7 --> C8["8. Proyecto Consola (joss build)"]
+    C8 --> C9["9. Proyecto Web MVC (joss new / joss make:*)"]
+```
+
 0. [First steps: create your project with `joss new console`, understand `main.joss` and interact with `cin`](PRIMEROS_PASOS.md)
 1. [Fundamental values, variables and operations](FUNDAMENTOS.md)
 2. [Flow control: decisions and repetition loops](CONTROL_FLUJO.md)

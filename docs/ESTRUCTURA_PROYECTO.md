@@ -70,12 +70,26 @@ mi_plugin/
 
 Compílalo con `joss build package .`. Consulta [Plugins](PLUGINS.md).
 
-## Convenciones efectivas
+## Convenciones efectivas y generadores (`joss make:*`)
 
-- Controladores: `app/controllers/NameController.joss` (o subcarpetas `web/`, `auth/`, `api/`).
-- Modelos: `app/models/Name.joss` y normalmente `extends GranDB` o `extends Model`.
-- Vistas: `app/views/name.joss.html` o `.html`.
-- Migraciones: timestamp, nombre descriptivo y extensión `.joss`.
+- Controladores: `app/controllers/NameController.joss` (o subcarpetas `web/`, `auth/`, `api/`), generados con `joss make:controller NameController` (o `joss make:controller web/NameController`).
+- Modelos: `app/models/Name.joss` (`extends Model`), generados con `joss make:model Name`.
+- Vistas: `app/views/name.joss.html` o `.html`, generadas con `joss make:view name` (o `joss make:view carpeta/vista`).
+- Middlewares: `app/middleware/Name.joss`, generados con `joss make:middleware Name`.
+- Tríada MVC completa: `joss make:mvc Name` genera simultáneamente el modelo (`app/models/Name.joss`), el controlador (`app/controllers/NameController.joss`) y la vista (`app/views/name/index.joss.html`).
+- Migraciones: timestamp, nombre descriptivo y extensión `.joss` en `app/database/migrations/`, generadas con `joss make:migration create_tabla`.
+- Módulo CRUD relacional: `joss make:crud tabla` inspecciona la tabla existente y genera modelo, controlador, vistas y rutas; `joss remove:crud tabla` revierte esos artefactos.
 - Sintaxis generada: `func`, `::` para estáticos y `->` para instancias.
+
+```mermaid
+flowchart TD
+    MAKE["CLI: joss make:<componente>"] --> C["joss make:controller → app/controllers/*.joss"]
+    MAKE --> M["joss make:model → app/models/*.joss"]
+    MAKE --> V["joss make:view → app/views/*.joss.html"]
+    MAKE --> MW["joss make:middleware → app/middleware/*.joss"]
+    MAKE --> MG["joss make:migration → app/database/migrations/*.joss"]
+    MAKE --> MVC["joss make:mvc → Modelo + Controlador + Vista"]
+    MAKE --> CRUD["joss make:crud → CRUD completo desde esquema DB"]
+```
 
 Los generadores se validan con una prueba que crea proyectos web y consola y pasa todos sus archivos `.joss` por el parser y el analizador semántico.

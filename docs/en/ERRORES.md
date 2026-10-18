@@ -28,18 +28,11 @@ In this guide you will learn:
 
 To solve a problem quickly, the first step is to identify in which phase of the program's lifecycle it occurred:
 
-```text
-Código fuente (.joss)
-         │
-         ▼
-[ 1. PARSER ] ────────► ¿Error de Sintaxis?
-         │              (Falta cerrar paréntesis, comilla o llave)
-         ▼
-[ 2. ANALYZER ] ──────► ¿Error Semántico o de Tipo?
-         │              (Variable no definida, tipo incompatible, retorno ausente)
-         ▼
-[ 3. RUNTIME ] ───────► ¿Excepción en Ejecución?
-                        (Archivo no encontrado, división por cero, throw explícito)
+```mermaid
+flowchart TD
+    SRC["Código fuente (.joss)"] --> P["1. PARSER — ¿Error de Sintaxis? (Falta cerrar paréntesis, comilla o llave)"]
+    P --> A["2. ANALYZER — ¿Error Semántico o de Tipo? (Variable no declarada, tipo incompatible, retorno ausente)"]
+    A --> R["3. RUNTIME — ¿Excepción en Ejecución? (Archivo no encontrado, división por cero, throw explícito)"]
 ```
 
 | Phase | When it occurs | Example | How to resolve it |

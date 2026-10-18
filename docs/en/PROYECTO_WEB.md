@@ -14,10 +14,11 @@ Unlike other languages where you need to install complex external servers (such 
 In this guided tutorial you will build your first web application based on the **MVC (Model - View - Controller)** architectural pattern:
 1. Create the project structure using the `joss new` template generator (`joss new web`).
 2. Understand the flow of a web request in Joss.
-3. Configure the port in `env.joss` and define a route with dynamic parameters in `routes.joss`.
-4. Create a controller in `app/controllers/` that processes the logic.
-5. Design a secure HTML view in `app/views/` with automatic escaping against XSS injections.
-6. Start the server with `joss server start` and test the application in the browser.
+3. Learn the `joss make:<componente>` code generator system to create project pieces without writing them from scratch.
+4. Configure the port in `env.joss` and define a route with dynamic parameters in `routes.joss`.
+5. Generate and program a controller in `app/controllers/` with `joss make:controller`.
+6. Generate and design a secure HTML view in `app/views/` with `joss make:view` and automatic escaping against XSS injections.
+7. Start the server with `joss server start` and test the application in the browser.
 
 ---
 
@@ -25,30 +26,18 @@ In this guided tutorial you will build your first web application based on the *
 
 When a user types an address into their browser, the following sequence occurs:
 
-```text
-1. Navegador web
-   │  Solicita: GET http://127.0.0.1:8080/saludo/Ana
-   ▼
-2. Servidor HTTP nativo de Joss (construido sobre Go de alta concurrencia)
-   │
-   ▼
-3. Router (routes.joss)
-   │  Encuentra coincidencia: "/saludo/{nombre}"
-   │  Extrae el parámetro: $nombre = "Ana"
-   ▼
-4. Controlador (app/controllers/SaludoController.joss)
-   │  Ejecuta el método: SaludoController@show($nombre)
-   │  Prepara los datos y llama a la vista: view("saludo", {"nombre": ...})
-   ▼
-5. Motor de Vistas (app/views/saludo.joss.html)
-   │  Interpola las variables y escapa caracteres peligrosos
-   ▼
-6. Respuesta HTTP (HTML renderizado devuelto al navegador del usuario)
+```mermaid
+flowchart TD
+    B["1. Navegador web — Solicita GET http://127.0.0.1:8080/saludo/Ana"] --> S["2. Servidor HTTP nativo de Joss (Alta concurrencia)"]
+    S --> R["3. Router (routes.joss) — Coincide '/saludo/{nombre}' y extrae $nombre = 'Ana'"]
+    R --> C["4. Controlador (app/controllers/SaludoController.joss) — Ejecuta SaludoController@show($nombre)"]
+    C --> V["5. Motor de Vistas (app/views/saludo.joss.html) — Interpola variables y escapa HTML"]
+    V --> H["6. Respuesta HTTP — Devuelve el HTML renderizado al navegador"]
 ```
 
 ---
 
-## 2. Generate the Web Project
+## 2. Generate the Web Project and Learn the `joss make:*` Commands
 
 Open your terminal and run the official generator (you can type `joss new saludo_web` or explicitly `joss new web saludo_web`):
 
@@ -65,6 +54,31 @@ This command will create the standard structure of a Joss web application:
 - `app/models/`: Database models with GranDB.
 - `app/views/`: Dynamic HTML templates (`.joss.html`).
 - `public/`: Direct static files (CSS stylesheets, JS scripts, images).
+
+### The `joss make:<componente>` Generator Design
+
+Instead of creating files manually one by one, Joss provides the `joss make:<componente>` command family, which automatically generates classes and templates in the right folder following framework conventions:
+
+```mermaid
+flowchart LR
+    CLI["Terminal: joss make:<componente>"] --> CTRL["joss make:controller Nombre → app/controllers/Nombre.joss"]
+    CLI --> VIEW["joss make:view nombre → app/views/nombre.joss.html"]
+    CLI --> MOD["joss make:model Nombre → app/models/Nombre.joss"]
+    CLI --> MID["joss make:middleware Nombre → app/middleware/Nombre.joss"]
+    CLI --> MIG["joss make:migration nombre → app/database/migrations/..."]
+    CLI --> MVC["joss make:mvc Nombre → Modelo + Controlador + Vista"]
+    CLI --> CRUD["joss make:crud tabla → CRUD completo + Rutas + Vistas"]
+```
+
+| Command | What does it automatically create? | Usage example |
+|---|---|---|
+| `joss make:controller <Nombre>` | A controller in `app/controllers/<Nombre>.joss` (supports subfolders such as `web/SaludoController`) | `joss make:controller SaludoController` |
+| `joss make:view <nombre>` | An HTML template in `app/views/<nombre>.joss.html` (supports subfolders such as `usuarios/perfil`) | `joss make:view saludo` |
+| `joss make:model <Nombre>` | A GranDB model in `app/models/<Nombre>.joss` connected to its pluralized table | `joss make:model Producto` |
+| `joss make:middleware <Nombre>` | An HTTP middleware in `app/middleware/<Nombre>.joss` | `joss make:middleware VerificarSesion` |
+| `joss make:mvc <Nombre>` | The complete triad at once: Model + Controller (`<Nombre>Controller`) + View (`<nombre>/index`) | `joss make:mvc Producto` |
+| `joss make:migration <nombre>` | A timestamped database migration in `app/database/migrations/` | `joss make:migration create_productos` |
+| `joss make:crud <tabla>` | Inspects the database table and generates Model, Controller, Tailwind Views, and Routes (reverted with `joss remove:crud <tabla>`) | `joss make:crud productos` |
 
 ---
 
@@ -98,9 +112,32 @@ Router::get("/saludo/{nombre}", "SaludoController@show")
 
 ---
 
-## 5. Create the Controller
+## 5. Create the Controller with `joss make:controller`
 
-Create the `app/controllers/SaludoController.joss` file with the following code:
+In your terminal, inside the `saludo_web` folder, run the controller generator:
+
+```bash
+joss make:controller SaludoController
+```
+
+You will see the confirmation in the console:
+
+```text
+Created: app/controllers/SaludoController.joss
+```
+
+Joss will have created the `app/controllers/SaludoController.joss` file with an initial structure ready to use:
+
+<!-- joss-check: plantilla generada por joss make:controller -->
+```joss
+public class SaludoController {
+    public func index(): mixed {
+        return view("saludo/index")
+    }
+}
+```
+
+Now open `app/controllers/SaludoController.joss` and add or replace the method with `show(string $nombre)` to receive the parameter from our route:
 
 <!-- joss-check: fragmento de controlador web -->
 ```joss
@@ -123,9 +160,21 @@ public class SaludoController {
 
 ---
 
-## 6. Design the HTML View
+## 6. Generate and Design the HTML View with `joss make:view`
 
-Create the template file `app/views/saludo.joss.html`:
+Generate the view file from your terminal by running:
+
+```bash
+joss make:view saludo
+```
+
+You will see the confirmation:
+
+```text
+Created: app/views/saludo.joss.html
+```
+
+By default, `joss make:view` creates a template connected to the master layout (`@extends('layouts.master')`). For this first self-contained example, open `app/views/saludo.joss.html` and replace its content with this complete HTML card:
 
 ```html
 <!doctype html>

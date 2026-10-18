@@ -70,12 +70,26 @@ mi_plugin/
 
 Compile-o com `joss build package .`. Consulte [Plugins](PLUGINS.md).
 
-## Convenções efetivas
+## Convenções efetivas e geradores (`joss make:*`)
 
-- Controladores: `app/controllers/NameController.joss` (ou subpastas `web/`, `auth/`, `api/`).
-- Modelos: `app/models/Name.joss` e normalmente `extends GranDB` ou `extends Model`.
-- Views: `app/views/name.joss.html` ou `.html`.
-- Migrações: timestamp, nome descritivo e extensão `.joss`.
+- Controladores: `app/controllers/NameController.joss` (ou subpastas `web/`, `auth/`, `api/`), gerados com `joss make:controller NameController` (ou `joss make:controller web/NameController`).
+- Modelos: `app/models/Name.joss` (`extends Model`), gerados com `joss make:model Name`.
+- Views: `app/views/name.joss.html` ou `.html`, geradas com `joss make:view name` (ou `joss make:view carpeta/vista`).
+- Middlewares: `app/middleware/Name.joss`, gerados com `joss make:middleware Name`.
+- Tríade MVC completa: `joss make:mvc Name` gera simultaneamente o modelo (`app/models/Name.joss`), o controlador (`app/controllers/NameController.joss`) e a view (`app/views/name/index.joss.html`).
+- Migrações: timestamp, nome descritivo e extensão `.joss` em `app/database/migrations/`, geradas com `joss make:migration create_tabla`.
+- Módulo CRUD relacional: `joss make:crud tabla` inspeciona a tabela existente e gera modelo, controlador, views e rotas; `joss remove:crud tabla` reverte esses artefatos.
 - Sintaxe gerada: `func`, `::` para estáticos e `->` para instâncias.
+
+```mermaid
+flowchart TD
+    MAKE["CLI: joss make:<componente>"] --> C["joss make:controller → app/controllers/*.joss"]
+    MAKE --> M["joss make:model → app/models/*.joss"]
+    MAKE --> V["joss make:view → app/views/*.joss.html"]
+    MAKE --> MW["joss make:middleware → app/middleware/*.joss"]
+    MAKE --> MG["joss make:migration → app/database/migrations/*.joss"]
+    MAKE --> MVC["joss make:mvc → Modelo + Controlador + Vista"]
+    MAKE --> CRUD["joss make:crud → CRUD completo desde esquema DB"]
+```
 
 Os geradores são validados com um teste que cria projetos web e console e passa todos os seus arquivos `.joss` pelo parser e pelo analisador semântico.

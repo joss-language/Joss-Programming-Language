@@ -54,44 +54,11 @@ Durante la inspección línea por línea del código fuente se documentaron e in
 
 Se estructuró la documentación diferenciando claramente el **Curso progresivo** de la **Referencia técnica formal**:
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ 1. APRENDER JOSS (Capítulos 0 al 9 - Curso Progresivo)      │
-│    - 0. PRIMEROS_PASOS: joss new console, main.joss y run.  │
-│    - 1. FUNDAMENTOS: Memoria, tipos primitivos y variables. │
-│    - 2. CONTROL_FLUJO: Ternarios con bloques, match, ciclos.│
-│    - 3. COLECCIONES: Arrays, maps, métodos -> y Unicode.    │
-│    - 4. FUNCIONES: Scope, void, guard, defer, closures, ref.│
-│    - 5. ERRORES: Fases, diagnósticos, throw y try/catch.    │
-│    - 6. CLASES: POO, constructores, interfaces y records.   │
-│    - 7. CONCURRENCIA: Async, Future, canales y select.      │
-│    - 8. PROYECTO_CONSOLA: App CLI con JSON y joss build.    │
-│    - 9. PROYECTO_WEB: Aplicación MVC con el stack nativo.   │
-│    - GLOSARIO: Diccionario conceptual para principiantes.   │
-├─────────────────────────────────────────────────────────────┤
-│ 2. REFERENCIA TÉCNICA DEL LENGUAJE Y HERRAMIENTAS           │
-│    - SISTEMA_TIPOS: Inferencia, uniones y CoerceString.     │
-│    - SINTAXIS: Las 39 keywords, precedencias y operadores.  │
-│    - GRAMATICA: EBNF formal y correspondencia con el AST.   │
-│    - DIAGNOSTICOS: Catálogo completo de códigos JOSS-*.     │
-│    - FUNCIONES_GLOBALES: Funciones built-in integradas.     │
-│    - MODULOS_NATIVOS: Clases integradas en Go.              │
-│    - CATALOGO_NATIVO: Catálogo sincronizado por docgen.     │
-│    - CLI: Referencia de comandos joss y compilación nativa. │
-│    - VSCODE_EXTENSION: LSP y tooling del editor.            │
-│    - ESTADO_IMPLEMENTACION: Estado real vs límites.         │
-├─────────────────────────────────────────────────────────────┤
-│ 3. DESARROLLO DE APLICACIONES                               │
-│    - ESTRUCTURA_PROYECTO, CONFIGURACION, MODULOS_IMPORTS.   │
-│    - SERVIDOR, CONTROLADORES, MIDDLEWARE, VISTAS, ASSETS.   │
-│    - MODELOS, SCHEMA_BUILDER, MIGRACIONES, AUTENTICACION.   │
-│    - WEBSOCKETS, PLUGINS, SEO_SITEMAP.                      │
-├─────────────────────────────────────────────────────────────┤
-│ 4. INTERNALS Y GUÍA PARA CONTRIBUIDORES                     │
-│    - ARQUITECTURA: Pipeline del compilador y runtime Go.    │
-│    - CONTRIBUIR: Cómo extender sintaxis, tipos y built-ins. │
-│    - AUDITORIAS Y NOVEDADES: Historial y optimizaciones.    │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    COURSE["1. APRENDER JOSS (Capítulos 0 al 9 — Curso Progresivo: PRIMEROS_PASOS a PROYECTO_WEB + GLOSARIO)"] --> REF["2. REFERENCIA TÉCNICA (SISTEMA_TIPOS, SINTAXIS, GRAMATICA, DIAGNOSTICOS, FUNCIONES_GLOBALES, MODULOS_NATIVOS, CLI)"]
+    REF --> APPS["3. DESARROLLO DE APLICACIONES (ESTRUCTURA_PROYECTO, SERVIDOR, CONTROLADORES, MIDDLEWARE, VISTAS, MODELOS, MIGRACIONES)"]
+    APPS --> INT["4. INTERNALS Y CONTRIBUIDORES (ARQUITECTURA, CONTRIBUIR, AUDITORIAS Y NOVEDADES)"]
 ```
 
 ---

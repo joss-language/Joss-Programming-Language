@@ -49,25 +49,12 @@ Su filosofía de diseño se apoya en cuatro pilares:
 
 El código que escribes en Joss se define una sola vez y tiene exactamente el mismo significado en todos los modos:
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Tu código fuente (.joss)                                     │
-│    El texto legible que tú escribes con tus instrucciones.      │
-└───────────────────────────────┬─────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. El analizador semántico (Semantic Analyzer)                  │
-│    Revisa tipos, nombres, visibilidad y coherencia del proyecto. │
-└───────────────┬───────────────────────────────┬─────────────────┘
-                │                               │
-                ▼                               ▼
-┌───────────────────────────────┐ ┌───────────────────────────────┐
-│ A. Desarrollo inmediato       │ │ B. Distribución nativa        │
-│    `joss run main.joss`       │ │    `joss build main.joss`     │
-│    Ejecuta al instante en     │ │    Compila el mismo código a  │
-│    tu terminal.               │ │    un ejecutable (.exe / ELF).│
-└───────────────────────────────┘ └───────────────────────────────┘
+```mermaid
+flowchart TD
+    SRC["1. Tu código fuente (.joss) — Tus instrucciones legibles"] --> ANA["2. Analizador Semántico (joss analyze) — Revisa tipos, nombres y coherencia"]
+    ANA --> RUN["A. Desarrollo inmediato: joss run main.joss (Ejecuta al instante en terminal)"]
+    ANA --> WEB["B. Servidor HTTP nativo: joss server start (Levanta tu aplicación web MVC)"]
+    ANA --> BUILD["C. Distribución nativa AOT: joss build main.joss (Compila a .exe / ELF / Mach-O)"]
 ```
 
 - **El lenguaje Joss**: Las reglas de escritura, palabras reservadas y sintaxis que aprenderás en este curso.
@@ -354,12 +341,10 @@ Bienvenida a Joss
 
 Ahora hagamos que el programa nos haga preguntas, espere a que escribamos en el teclado y nos responda. Todo programa interactivo sigue tres pasos:
 
-```text
-┌─────────────────────────┐       ┌─────────────────────────┐       ┌─────────────────────────┐
-│     1. ENTRADA          │  ──>  │     2. PROCESO          │  ──>  │     3. SALIDA           │
-│ El usuario escribe con  │       │ El programa calcula o   │       │ Se muestra el resultado │
-│ cin >> $variable        │       │ prepara la respuesta    │       │ en pantalla con print() │
-└─────────────────────────┘       └─────────────────────────┘       └─────────────────────────┘
+```mermaid
+flowchart LR
+    IN["1. ENTRADA (cin >> $variable)"] --> PROC["2. PROCESO (Cálculo o lógica)"]
+    PROC --> OUT["3. SALIDA (print() en pantalla)"]
 ```
 
 Escribe en tu `main.joss`:
@@ -408,6 +393,8 @@ Guarda esta tabla como referencia de lo que ya dominas:
 | ¿Qué quieres hacer? | Comando o código en Joss | Ejemplo real |
 |---|---|---|
 | **Crear un proyecto de consola** | `joss new console <nombre>` | `joss new console mi-primer-joss` |
+| **Crear un proyecto web MVC** | `joss new <nombre>` | `joss new mi-web` |
+| **Generar componentes del proyecto** | `joss make:<tipo> <Nombre>` | `joss make:controller SaludoController` |
 | **Ejecutar tu proyecto** | `joss run main.joss` | `joss run main.joss` |
 | **Revisar errores sin ejecutar** | `joss analyze main.joss` | `joss analyze main.joss` |
 | **Compilar a ejecutable nativo** | `joss build main.joss` | Genera `build/main.exe` (o `build/main`) |
