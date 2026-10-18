@@ -126,7 +126,7 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 					}
 				}
 			}
-			fmt.Printf("[View] Rendering %s with data: %v\n", viewName, data)
+			fmt.Printf("[View] Rendering %s\n", viewName)
 
 			// Inject Global Auth & Flash Variables
 			data["auth_check"] = false
