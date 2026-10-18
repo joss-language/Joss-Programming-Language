@@ -65,8 +65,10 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 	}
 	r.callDepth++
 	previousClass := r.currentClass
-	if compiled.Owner != "" {
+	if compiled.Owner != "" && (instance == nil || instance.Class == nil || instance.Class.Name == nil || instance.Class.Name.Value == compiled.Owner || r.isSubclassOf(instance.Class.Name.Value, compiled.Owner)) {
 		r.currentClass = compiled.Owner
+	} else if instance != nil && instance.Class != nil && instance.Class.Name != nil {
+		r.currentClass = instance.Class.Name.Value
 	}
 	stackFrame := runtimeerrors.Frame{Function: method.Name.Value, Class: r.currentClass, File: r.CurrentFile, Line: method.Token.Line, Column: method.Token.Column}
 	r.callStack = append(r.callStack, stackFrame)
@@ -103,7 +105,7 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 		callFrame.defers = nil
 
 		r.callDepth--
-		r.currentClass = previousClass
+		defer func() { r.currentClass = previousClass }()
 		if writeBack != nil {
 			for name := range writeBack.Variables {
 				cleanName := strings.TrimPrefix(name, "$")

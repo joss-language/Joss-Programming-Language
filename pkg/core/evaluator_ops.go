@@ -357,8 +357,14 @@ func (r *Runtime) setInstanceField(instance *Instance, name string, value interf
 		r.requireMemberAccess(declaration.Visibility, owner, name, line)
 		declaredType := declaration.Token.Literal
 		if declaredType != "" && declaredType != "var" && declaredType != "mixed" {
+			prevClass := r.currentClass
+			if owner != "" {
+				r.currentClass = owner
+			}
 			value = r.coerceToTypedValue(value, declaredType)
-			if !r.checkType(value, declaredType) {
+			valid := r.checkType(value, declaredType)
+			r.currentClass = prevClass
+			if !valid {
 				panic(&JossError{
 					Type:    "PropertyTypeError",
 					Message: fmt.Sprintf("La propiedad '%s' requiere %s", name, declaredType),

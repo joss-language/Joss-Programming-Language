@@ -45,6 +45,9 @@ func (r *Runtime) checkParsedType(val interface{}, destination typesystem.Type) 
 	if typesystem.Assignable(destination, source) {
 		return true
 	}
+	if r.isCurrentTypeParam(destination) {
+		return true
+	}
 	if ev, ok := val.(*EnumValue); ok {
 		destinations := destination.Members()
 		for _, candidate := range destinations {
@@ -63,10 +66,14 @@ func (r *Runtime) checkParsedType(val interface{}, destination typesystem.Type) 
 		if class.Name != nil {
 			for _, candidate := range destinations {
 				if candidate.Kind == typesystem.Class {
-					if class.Name.Value == candidate.Name {
+					candBase := candidate.Name
+					if idx := strings.Index(candBase, "<"); idx != -1 {
+						candBase = strings.TrimSpace(candBase[:idx])
+					}
+					if class.Name.Value == candidate.Name || class.Name.Value == candBase {
 						return true
 					}
-					if r.classImplements(class, candidate.Name) {
+					if r.classImplements(class, candidate.Name) || r.classImplements(class, candBase) {
 						return true
 					}
 				}
@@ -76,6 +83,24 @@ func (r *Runtime) checkParsedType(val interface{}, destination typesystem.Type) 
 			break
 		}
 		class = r.Classes[class.SuperClass.Value]
+	}
+	return false
+}
+
+func (r *Runtime) isCurrentTypeParam(destination typesystem.Type) bool {
+	for _, candidate := range destination.Members() {
+		if candidate.Kind != typesystem.Class {
+			continue
+		}
+		if r.currentClass != "" {
+			if cls := r.Classes[r.currentClass]; cls != nil {
+				for _, tp := range cls.TypeParameters {
+					if tp != nil && tp.Value == candidate.Name {
+						return true
+					}
+				}
+			}
+		}
 	}
 	return false
 }

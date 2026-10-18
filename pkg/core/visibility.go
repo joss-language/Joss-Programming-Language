@@ -18,7 +18,7 @@ func (r *Runtime) declaringClassOfMethod(method *parser.MethodStatement) string 
 			if candidate, ok := statement.(*parser.MethodStatement); ok && candidate == method {
 				return className
 			}
-			if initStmt, ok := statement.(*parser.InitStatement); ok && (initStmt.Body == method.Body || (initStmt.Name != nil && method.Name != nil && initStmt.Name.Value == method.Name.Value)) {
+			if initStmt, ok := statement.(*parser.InitStatement); ok && initStmt.Body != nil && initStmt.Body == method.Body {
 				return className
 			}
 		}
@@ -32,7 +32,7 @@ func (r *Runtime) declaringClassOfMethod(method *parser.MethodStatement) string 
 							if candidate, ok := statement.(*parser.MethodStatement); ok && candidate == method {
 								return class.Name.Value
 							}
-							if initStmt, ok := statement.(*parser.InitStatement); ok && (initStmt.Body == method.Body || (initStmt.Name != nil && method.Name != nil && initStmt.Name.Value == method.Name.Value)) {
+							if initStmt, ok := statement.(*parser.InitStatement); ok && initStmt.Body != nil && initStmt.Body == method.Body {
 								return class.Name.Value
 							}
 						}

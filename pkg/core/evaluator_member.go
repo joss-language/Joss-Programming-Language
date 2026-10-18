@@ -64,8 +64,16 @@ func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 				value = r.getZeroValue(field.DeclaredType)
 			}
 			if field.DeclaredType != "" && field.DeclaredType != "var" && field.DeclaredType != "mixed" {
+				prevClass := r.currentClass
+				if field.OwnerClass != "" {
+					r.currentClass = field.OwnerClass
+				} else {
+					r.currentClass = className
+				}
 				value = r.coerceToParsedType(value, field.ParsedType)
-				if !r.checkParsedType(value, field.ParsedType) {
+				valid := r.checkParsedType(value, field.ParsedType)
+				r.currentClass = prevClass
+				if !valid {
 					panic(&JossError{
 						Type:    "PropertyTypeError",
 						Message: fmt.Sprintf("La propiedad '%s' requiere %s", field.Declaration.Name.Value, field.DeclaredType),
