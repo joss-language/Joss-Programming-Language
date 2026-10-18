@@ -72,17 +72,17 @@ jobs:
           SKIP_VSCODE: ${{ inputs.skip_vscode }}
         run: |
           $sw = [System.Diagnostics.Stopwatch]::StartNew()
-          $args = @()
+          $buildParams = @{}
           if ($env:SKIP_TESTS -eq 'true') {
-            $args += '-SkipTests'
+            $buildParams['SkipTests'] = $true
             Write-Host "⚡ Flags activas: Omitiendo suite de tests redundante" -ForegroundColor Yellow
           }
           if ($env:SKIP_VSCODE -eq 'true') {
-            $args += '-SkipVSCode'
+            $buildParams['SkipVSCode'] = $true
             Write-Host "⚡ Flags activas: Omitiendo empaquetado de extensión VS Code" -ForegroundColor Yellow
           }
 
-          ./build_all.ps1 @args
+          ./build_all.ps1 @buildParams
           $sw.Stop()
           $elapsedMin = [math]::Round($sw.Elapsed.TotalMinutes, 2)
           Write-Host "⏱️ Tiempo total de empaquetado: $elapsedMin minutos" -ForegroundColor Cyan
