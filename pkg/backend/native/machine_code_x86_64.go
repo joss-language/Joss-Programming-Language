@@ -1705,23 +1705,49 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
 	case *ir.LoadFieldInst:
+		lblSlow := fmt.Sprintf(".obj_get_slow_%d", b.nextInlineLabelID())
+		lblDone := fmt.Sprintf(".obj_get_done_%d", b.nextInlineLabelID())
 		b.emitLoadValToRAX(layout, i.Obj)
-		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
+		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax (obj)
 		b.emitLeaRDXString(i.FieldName)
+		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+		b.emitJeLabel(lblSlow)
+		b.emitBytes(0x4C, 0x8B, 0x49, 0x08) // mov r9, [rcx + 8] (head)
+		b.emitBytes(0x4D, 0x85, 0xC9)       // test r9, r9
+		b.emitJeLabel(lblSlow)
+		b.emitBytes(0x49, 0x39, 0x11) // cmp [r9], rdx (head.key vs key)
+		b.emitJneLabel(lblSlow)
+		b.emitBytes(0x49, 0x8B, 0x41, 0x08) // mov rax, [r9 + 8] (head.val)
+		b.emitJmpLabel(lblDone)
+		b.defineLabel(lblSlow)
 		if i.Dest.Type().Kind == ir.TypeKindString {
 			b.emitCallLabel("joss_obj_get_field_str")
 		} else {
 			b.emitCallLabel("joss_obj_get_field_i64")
 		}
+		b.defineLabel(lblDone)
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
 	case *ir.StoreFieldInst:
+		lblSlow := fmt.Sprintf(".obj_set_slow_%d", b.nextInlineLabelID())
+		lblDone := fmt.Sprintf(".obj_set_done_%d", b.nextInlineLabelID())
 		b.emitLoadValToRAX(layout, i.Val)
-		b.emitBytes(0x49, 0x89, 0xC0) // mov r8, rax
+		b.emitBytes(0x49, 0x89, 0xC0) // mov r8, rax (val)
 		b.emitLoadValToRAX(layout, i.Obj)
-		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
+		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax (obj)
 		b.emitLeaRDXString(i.FieldName)
+		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+		b.emitJeLabel(lblSlow)
+		b.emitBytes(0x4C, 0x8B, 0x49, 0x08) // mov r9, [rcx + 8] (head)
+		b.emitBytes(0x4D, 0x85, 0xC9)       // test r9, r9
+		b.emitJeLabel(lblSlow)
+		b.emitBytes(0x49, 0x39, 0x11) // cmp [r9], rdx (head.key vs key)
+		b.emitJneLabel(lblSlow)
+		b.emitBytes(0x4D, 0x89, 0x41, 0x08) // mov [r9 + 8], r8
+		b.emitJmpLabel(lblDone)
+		b.defineLabel(lblSlow)
 		b.emitCallLabel("joss_obj_set_field_i64")
+		b.defineLabel(lblDone)
 
 	case *ir.NewArrayInst:
 		b.emitBytes(0x48, 0xC7, 0xC1) // mov rcx, len
