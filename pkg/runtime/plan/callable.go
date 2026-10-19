@@ -87,6 +87,7 @@ func compile(name string, parameters []*parser.Parameter, returnToken parser.Tok
 	for index, parameter := range parameters {
 		if parameter != nil && parameter.Name != nil && index < result.ParameterCount {
 			result.IdentifierSlots[parameter.Name] = index
+			parameter.Name.ResolvedSlot = index + 1
 		}
 	}
 	return result
@@ -343,6 +344,7 @@ func (callable *Callable) annotateIdentifier(identifier *parser.Identifier) {
 	}
 	if slot, exists := callable.NameSlots[clean(identifier.Value)]; exists {
 		callable.IdentifierSlots[identifier] = slot
+		identifier.ResolvedSlot = slot + 1
 	}
 }
 

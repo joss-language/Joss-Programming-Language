@@ -124,9 +124,11 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 	if indexExp, ok := ae.Left.(*parser.IndexExpression); ok {
 		left := r.evaluateExpression(indexExp.Left)
 		if elementType := r.collectionElementType(indexExp.Left); elementType != nil {
-			val = r.coerceToParsedType(val, *elementType)
-			if !r.checkParsedType(val, *elementType) {
-				panic(&JossError{Type: "TypeError", Message: fmt.Sprintf("El elemento requiere %s", elementType.String()), File: r.CurrentFile, Line: indexExp.Token.Line})
+			if _, isInt := val.(int64); !isInt || elementType.Kind != typesystem.Int {
+				val = r.coerceToParsedType(val, *elementType)
+				if !r.checkParsedType(val, *elementType) {
+					panic(&JossError{Type: "TypeError", Message: fmt.Sprintf("El elemento requiere %s", elementType.String()), File: r.CurrentFile, Line: indexExp.Token.Line})
+				}
 			}
 		}
 
@@ -180,7 +182,11 @@ func (r *Runtime) collectionElementType(expression parser.Expression) *typesyste
 		left := r.evaluateExpression(member.Left)
 		if inst, ok := left.(*Instance); ok {
 			if decl := r.lookupInstanceField(inst, member.Property.Value); decl != nil {
-				return typesystem.Parse(decl.Token.Literal).Element
+				lit := decl.Token.Literal
+				if lit == "array" || lit == "[]" {
+					return nil
+				}
+				return typesystem.Parse(lit).Element
 			}
 		}
 	} else if indexExp, ok := expression.(*parser.IndexExpression); ok {

@@ -55,6 +55,12 @@ type MachineCodeBuilder struct {
 	labels          map[string]int
 	relocs          []machineReloc
 	asmListing      bytes.Buffer
+	inlineLabelID   int
+}
+
+func (b *MachineCodeBuilder) nextInlineLabelID() int {
+	b.inlineLabelID++
+	return b.inlineLabelID
 }
 
 func NewMachineCodeBuilder(target Target, guiMode bool) *MachineCodeBuilder {
@@ -366,6 +372,14 @@ func (b *MachineCodeBuilder) emitJlLabel(target string) {
 func (b *MachineCodeBuilder) emitJgeLabel(target string) {
 	b.asmListing.WriteString(fmt.Sprintf("    jge %s\n", target))
 	b.emitBytes(0x0F, 0x8D)
+	patchOff := b.text.Len()
+	b.emitU32(0)
+	b.relocs = append(b.relocs, machineReloc{kind: relocTextLabel, patchOffset: patchOff, targetLabel: target})
+}
+
+func (b *MachineCodeBuilder) emitJaeLabel(target string) {
+	b.asmListing.WriteString(fmt.Sprintf("    jae %s\n", target))
+	b.emitBytes(0x0F, 0x83)
 	patchOff := b.text.Len()
 	b.emitU32(0)
 	b.relocs = append(b.relocs, machineReloc{kind: relocTextLabel, patchOffset: patchOff, targetLabel: target})
@@ -850,20 +864,32 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("joss_obj_set_field_str")
 	b.defineLabel("joss_map_set_i64")
 	b.defineLabel("joss_map_set_str")
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".kv_set_leaf_ret")
+	// Fast leaf path: check if head node exists and matches key pointer directly
+	b.emitBytes(0x4C, 0x8B, 0x49, 0x08) // mov r9, [rcx + 8] (head)
+	b.emitBytes(0x4D, 0x85, 0xC9)       // test r9, r9
+	b.emitJeLabel(".kv_set_need_frame")
+	b.emitBytes(0x49, 0x39, 0x11) // cmp [r9], rdx (head.key vs key)
+	b.emitJneLabel(".kv_set_need_frame")
+	b.emitBytes(0x4D, 0x89, 0x41, 0x08) // mov [r9 + 8], r8 (head.val = val)
+	b.defineLabel(".kv_set_leaf_ret")
+	b.emitBytes(0xC3) // ret
+	b.defineLabel(".kv_set_need_frame")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
 	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
 	b.emitBytes(0x48, 0x83, 0xEC, 0x20)                         // sub rsp, 32
-	b.emitBytes(0x48, 0x85, 0xC9)                               // test rcx, rcx
-	b.emitJeLabel(".kv_set_done")
-	b.emitBytes(0x49, 0x89, 0xCC)             // mov r12, rcx (obj)
-	b.emitBytes(0x49, 0x89, 0xD5)             // mov r13, rdx (key)
-	b.emitBytes(0x4D, 0x89, 0xC6)             // mov r14, r8  (val)
-	b.emitBytes(0x4D, 0x8B, 0x7C, 0x24, 0x08) // mov r15, [r12 + 8] (head)
+	b.emitBytes(0x49, 0x89, 0xCC)                               // mov r12, rcx (obj)
+	b.emitBytes(0x49, 0x89, 0xD5)                               // mov r13, rdx (key)
+	b.emitBytes(0x4D, 0x89, 0xC6)                               // mov r14, r8  (val)
+	b.emitBytes(0x4D, 0x8B, 0x7C, 0x24, 0x08)                   // mov r15, [r12 + 8] (head)
 	b.defineLabel(".kv_set_loop")
 	b.emitBytes(0x4D, 0x85, 0xFF) // test r15, r15
 	b.emitJeLabel(".kv_set_alloc")
 	b.emitBytes(0x49, 0x8B, 0x0F) // mov rcx, [r15] (node.key)
 	b.emitBytes(0x4C, 0x89, 0xEA) // mov rdx, r13   (key)
+	b.emitBytes(0x48, 0x39, 0xD1) // cmp rcx, rdx (pointer equality)
+	b.emitJeLabel(".kv_set_found")
 	b.emitCallLabel("__joss_rt_strcmp")
 	b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
 	b.emitJeLabel(".kv_set_found")
@@ -888,18 +914,31 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// __joss_rt_kv_get_i64(rcx = objOrMap, rdx = keyStr) -> rax = val64 (0 if missing)
 	b.defineLabel("joss_obj_get_field_i64")
 	b.defineLabel("joss_map_get_i64")
+	b.emitBytes(0x31, 0xC0)       // xor eax, eax
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".kv_get_leaf_ret")
+	// Fast leaf path: check if head node exists and matches key pointer directly
+	b.emitBytes(0x4C, 0x8B, 0x49, 0x08) // mov r9, [rcx + 8] (head)
+	b.emitBytes(0x4D, 0x85, 0xC9)       // test r9, r9
+	b.emitJeLabel(".kv_get_leaf_ret")
+	b.emitBytes(0x49, 0x39, 0x11) // cmp [r9], rdx (head.key vs key)
+	b.emitJneLabel(".kv_get_need_frame")
+	b.emitBytes(0x49, 0x8B, 0x41, 0x08) // mov rax, [r9 + 8] (head.val)
+	b.defineLabel(".kv_get_leaf_ret")
+	b.emitBytes(0xC3) // ret
+	b.defineLabel(".kv_get_need_frame")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
 	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
 	b.emitBytes(0x48, 0x83, 0xEC, 0x20)                         // sub rsp, 32
-	b.emitBytes(0x48, 0x85, 0xC9)                               // test rcx, rcx
-	b.emitJeLabel(".kv_get_notfound")
-	b.emitBytes(0x49, 0x89, 0xD5)       // mov r13, rdx (key)
-	b.emitBytes(0x4C, 0x8B, 0x79, 0x08) // mov r15, [rcx + 8] (head)
+	b.emitBytes(0x49, 0x89, 0xD5)                               // mov r13, rdx (key)
+	b.emitBytes(0x4C, 0x8B, 0x79, 0x08)                         // mov r15, [rcx + 8] (head)
 	b.defineLabel(".kv_get_loop")
 	b.emitBytes(0x4D, 0x85, 0xFF) // test r15, r15
 	b.emitJeLabel(".kv_get_notfound")
 	b.emitBytes(0x49, 0x8B, 0x0F) // mov rcx, [r15] (node.key)
 	b.emitBytes(0x4C, 0x89, 0xEA) // mov rdx, r13   (key)
+	b.emitBytes(0x48, 0x39, 0xD1) // cmp rcx, rdx (pointer equality)
+	b.emitJeLabel(".kv_get_found")
 	b.emitCallLabel("__joss_rt_strcmp")
 	b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
 	b.emitJeLabel(".kv_get_found")
@@ -1040,30 +1079,39 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("joss_arr_set_str")
 	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00) // cmp rdx, 0x10000
 	b.emitJgeLabel("joss_map_set_i64")
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".arr_set_leaf_ret")
+	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
+	b.emitJlLabel(".arr_set_leaf_ret")
+	b.emitBytes(0x48, 0x3B, 0x51, 0x08) // cmp rdx, [rcx + 8] (idx vs cap)
+	b.emitJgeLabel(".arr_set_need_grow")
+	// Fast leaf path: idx < cap
+	b.emitBytes(0x48, 0x8D, 0x42, 0x01) // lea rax, [rdx + 1]
+	b.emitBytes(0x48, 0x3B, 0x01)       // cmp rax, [rcx + 0]
+	b.emitJleLabel(".arr_set_fast_store")
+	b.emitBytes(0x48, 0x89, 0x01) // mov [rcx + 0], rax (len = idx + 1)
+	b.defineLabel(".arr_set_fast_store")
+	b.emitBytes(0x4C, 0x8B, 0x49, 0x10) // mov r9, [rcx + 16] (dataPtr)
+	b.emitBytes(0x4D, 0x89, 0x04, 0xD1) // mov [r9 + rdx*8], r8
+	b.defineLabel(".arr_set_leaf_ret")
+	b.emitBytes(0xC3) // ret
+	b.defineLabel(".arr_set_need_grow")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
 	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
 	b.emitBytes(0x48, 0x83, 0xEC, 0x20)                         // sub rsp, 32
-	b.emitBytes(0x48, 0x85, 0xC9)                               // test rcx, rcx
-	b.emitJeLabel(".arr_set_done")
-	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
-	b.emitJlLabel(".arr_set_done")
-	b.emitBytes(0x49, 0x89, 0xCC)             // mov r12, rcx (arrPtr)
-	b.emitBytes(0x49, 0x89, 0xD5)             // mov r13, rdx (idx)
-	b.emitBytes(0x4D, 0x89, 0xC6)             // mov r14, r8  (val64)
-	b.emitBytes(0x49, 0x8D, 0x55, 0x01)       // lea rdx, [r13 + 1] (minCap)
-	b.emitBytes(0x49, 0x3B, 0x54, 0x24, 0x08) // cmp rdx, [r12 + 8] (minCap vs cap)
-	b.emitJleLabel(".arr_set_len")
-	b.emitBytes(0x4C, 0x89, 0xE1) // mov rcx, r12
+	b.emitBytes(0x49, 0x89, 0xCC)                               // mov r12, rcx (arrPtr)
+	b.emitBytes(0x49, 0x89, 0xD5)                               // mov r13, rdx (idx)
+	b.emitBytes(0x4D, 0x89, 0xC6)                               // mov r14, r8  (val64)
+	b.emitBytes(0x49, 0x8D, 0x55, 0x01)                         // lea rdx, [r13 + 1] (minCap)
+	b.emitBytes(0x4C, 0x89, 0xE1)                               // mov rcx, r12
 	b.emitCallLabel("__joss_arr_ensure_cap")
-	b.defineLabel(".arr_set_len")
 	b.emitBytes(0x49, 0x8D, 0x45, 0x01) // lea rax, [r13 + 1]
 	b.emitBytes(0x49, 0x3B, 0x04, 0x24) // cmp rax, [r12 + 0]
-	b.emitJleLabel(".arr_set_write")
-	b.emitBytes(0x49, 0x89, 0x04, 0x24) // mov [r12 + 0], rax (update len = idx + 1)
-	b.defineLabel(".arr_set_write")
-	b.emitBytes(0x4D, 0x8B, 0x4C, 0x24, 0x10) // mov r9, [r12 + 16] (dataPtr)
-	b.emitBytes(0x4F, 0x89, 0x34, 0xE9)       // mov [r9 + r13*8], r14
-	b.defineLabel(".arr_set_done")
+	b.emitJleLabel(".arr_set_grow_write")
+	b.emitBytes(0x49, 0x89, 0x04, 0x24) // mov [r12 + 0], rax
+	b.defineLabel(".arr_set_grow_write")
+	b.emitBytes(0x4D, 0x8B, 0x4C, 0x24, 0x10)                   // mov r9, [r12 + 16] (dataPtr)
+	b.emitBytes(0x4F, 0x89, 0x34, 0xE9)                         // mov [r9 + r13*8], r14
 	b.emitBytes(0x48, 0x83, 0xC4, 0x20)                         // add rsp, 32
 	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C) // pop r15..r12
 	b.emitBytes(0x5D, 0xC3)
@@ -1689,11 +1737,54 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 	case *ir.ArrayGetInst:
-		b.emitCallWithArgs(layout, b.selectArrayGetHelper(i.Dest.Type()), []ir.Value{i.Array, i.Index})
-		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+		if i.Dest.Type().Kind == ir.TypeKindString {
+			b.emitCallWithArgs(layout, "joss_arr_get_str", []ir.Value{i.Array, i.Index})
+			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+		} else {
+			lblSlow := fmt.Sprintf(".arr_get_slow_%d", b.nextInlineLabelID())
+			lblDone := fmt.Sprintf(".arr_get_done_%d", b.nextInlineLabelID())
+			b.emitLoadValToRAX(layout, i.Array)
+			b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax (arr)
+			b.emitLoadValToRAX(layout, i.Index)
+			b.emitBytes(0x48, 0x89, 0xC2) // mov rdx, rax (idx)
+			b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+			b.emitJeLabel(lblSlow)
+			b.emitBytes(0x48, 0x3B, 0x11) // cmp rdx, [rcx + 0] (unsigned idx vs len)
+			b.emitJaeLabel(lblSlow)
+			b.emitBytes(0x4C, 0x8B, 0x41, 0x10) // mov r8, [rcx + 16] (dataPtr)
+			b.emitBytes(0x49, 0x8B, 0x04, 0xD0) // mov rax, [r8 + rdx*8]
+			b.emitJmpLabel(lblDone)
+			b.defineLabel(lblSlow)
+			b.emitCallLabel("joss_arr_get_i64")
+			b.defineLabel(lblDone)
+			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+		}
 
 	case *ir.ArraySetInst:
-		b.emitCallWithArgs(layout, "joss_arr_set_i64", []ir.Value{i.Array, i.Index, i.Val})
+		lblSlow := fmt.Sprintf(".arr_set_slow_%d", b.nextInlineLabelID())
+		lblDone := fmt.Sprintf(".arr_set_done_%d", b.nextInlineLabelID())
+		lblWrite := fmt.Sprintf(".arr_set_w_%d", b.nextInlineLabelID())
+		b.emitLoadValToRAX(layout, i.Val)
+		b.emitBytes(0x49, 0x89, 0xC0) // mov r8, rax (val)
+		b.emitLoadValToRAX(layout, i.Index)
+		b.emitBytes(0x48, 0x89, 0xC2) // mov rdx, rax (idx)
+		b.emitLoadValToRAX(layout, i.Array)
+		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax (arr)
+		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+		b.emitJeLabel(lblSlow)
+		b.emitBytes(0x48, 0x3B, 0x51, 0x08) // cmp rdx, [rcx + 8] (idx vs cap)
+		b.emitJaeLabel(lblSlow)
+		b.emitBytes(0x48, 0x8D, 0x42, 0x01) // lea rax, [rdx + 1]
+		b.emitBytes(0x48, 0x3B, 0x01)       // cmp rax, [rcx + 0]
+		b.emitJleLabel(lblWrite)
+		b.emitBytes(0x48, 0x89, 0x01) // mov [rcx + 0], rax
+		b.defineLabel(lblWrite)
+		b.emitBytes(0x4C, 0x8B, 0x49, 0x10) // mov r9, [rcx + 16] (dataPtr)
+		b.emitBytes(0x4D, 0x89, 0x04, 0xD1) // mov [r9 + rdx*8], r8
+		b.emitJmpLabel(lblDone)
+		b.defineLabel(lblSlow)
+		b.emitCallLabel("joss_arr_set_i64")
+		b.defineLabel(lblDone)
 
 	case *ir.NewMapInst:
 		b.emitCallLabel("joss_map_new")
@@ -1893,5 +1984,54 @@ func (b *MachineCodeBuilder) emitToStringStub() {
 	b.defineLabel("joss_to_string")
 	b.defineLabel("fn_to_string")
 	b.defineLabel("fn_strval")
-	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
+	b.emitBytes(0x53, 0x57, 0x56)             // push rbx; push rdi; push rsi
+	b.emitBytes(0x48, 0x83, 0xEC, 0x38)       // sub rsp, 56
+	b.emitBytes(0x48, 0x89, 0xCB)             // mov rbx, rcx (val)
+	b.emitBytes(0xB9, 0x20, 0x00, 0x00, 0x00) // mov ecx, 32
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x48, 0x89, 0xC7) // mov rdi, rax (outBuf)
+	b.emitBytes(0x48, 0x89, 0xC6) // mov rsi, rax (origBuf)
+	// Check if val == 0
+	b.emitBytes(0x48, 0x85, 0xDB) // test rbx, rbx
+	b.emitJneLabel(".tostr_nonzero")
+	b.emitBytes(0xC6, 0x07, 0x30)       // mov byte ptr [rdi], '0'
+	b.emitBytes(0xC6, 0x47, 0x01, 0x00) // mov byte ptr [rdi+1], 0
+	b.emitBytes(0x48, 0x89, 0xF0)       // mov rax, rsi
+	b.emitJmpLabel(".tostr_exit")
+	b.defineLabel(".tostr_nonzero")
+	// If rbx < 0: write '-', neg rbx
+	b.emitBytes(0x48, 0x85, 0xDB) // test rbx, rbx
+	b.emitJnsLabel(".tostr_pos")
+	b.emitBytes(0xC6, 0x07, 0x2D) // mov byte ptr [rdi], '-'
+	b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
+	b.emitBytes(0x48, 0xF7, 0xDB) // neg rbx
+	b.defineLabel(".tostr_pos")
+	b.emitBytes(0x4C, 0x8D, 0x4D, 0xF8) // lea r9, [rbp - 8]
+	b.emitBytes(0x48, 0x89, 0xD8)       // mov rax, rbx
+	b.defineLabel(".tostr_digits")
+	b.emitBytes(0x31, 0xD2)                               // xor edx, edx
+	b.emitBytes(0x49, 0xC7, 0xC3, 0x0A, 0x00, 0x00, 0x00) // mov r11, 10
+	b.emitBytes(0x49, 0xF7, 0xF3)                         // div r11
+	b.emitBytes(0x80, 0xC2, 0x30)                         // add dl, '0'
+	b.emitBytes(0x49, 0xFF, 0xC9)                         // dec r9
+	b.emitBytes(0x41, 0x88, 0x11)                         // mov [r9], dl
+	b.emitBytes(0x48, 0x85, 0xC0)                         // test rax, rax
+	b.emitJneLabel(".tostr_digits")
+	// Copy digits from r9 to rdi
+	b.emitBytes(0x4C, 0x8D, 0x45, 0xF8) // lea r8, [rbp - 8]
+	b.defineLabel(".tostr_copy")
+	b.emitBytes(0x4D, 0x39, 0xC1) // cmp r9, r8
+	b.emitJgeLabel(".tostr_copy_done")
+	b.emitBytes(0x41, 0x8A, 0x11) // mov dl, [r9]
+	b.emitBytes(0x88, 0x17)       // mov [rdi], dl
+	b.emitBytes(0x49, 0xFF, 0xC1) // inc r9
+	b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
+	b.emitJmpLabel(".tostr_copy")
+	b.defineLabel(".tostr_copy_done")
+	b.emitBytes(0xC6, 0x07, 0x00) // mov byte ptr [rdi], 0
+	b.emitBytes(0x48, 0x89, 0xF0) // mov rax, rsi (origBuf)
+	b.defineLabel(".tostr_exit")
+	b.emitBytes(0x48, 0x83, 0xC4, 0x38)       // add rsp, 56
+	b.emitBytes(0x5E, 0x5F, 0x5B, 0x5D, 0xC3) // pop rsi; pop rdi; pop rbx; pop rbp; ret
 }

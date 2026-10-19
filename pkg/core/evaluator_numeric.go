@@ -269,6 +269,28 @@ func (r *Runtime) slotIntegerOperand(expression parser.Expression) (int64, bool)
 			}
 		}
 		return 0, false
+	case *parser.IndexExpression:
+		left := r.evaluateExpression(node.Left)
+		if list, ok := left.([]interface{}); ok {
+			var idx int64
+			var idxOK bool
+			if intLit, ok := node.Index.(*parser.IntegerLiteral); ok {
+				idx = intLit.Value
+				idxOK = true
+			} else {
+				idx, idxOK = r.slotIntegerOperand(node.Index)
+				if !idxOK {
+					rawIdx := r.evaluateExpression(node.Index)
+					idx, idxOK = runtimeInteger(rawIdx)
+				}
+			}
+			if idxOK && idx >= 0 && idx < int64(len(list)) {
+				if n, ok := list[idx].(int64); ok {
+					return n, true
+				}
+			}
+		}
+		return 0, false
 	default:
 		return 0, false
 	}
