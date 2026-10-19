@@ -65,3 +65,15 @@ build/
 joss-android-arm64
 .tmp*
 docs/.i18n-manifest.json
+
+# SonarQube & Scanner
+.scannerwork/
+.sonar/
+sonar-project.properties
+
+# Cobertura y reportes de tests en Go
+*.out
+coverage.html
+
+# Configuración local del IDE (VS Code SonarLint/SonarQube)
+.sonarlint/
