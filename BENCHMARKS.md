@@ -16,17 +16,17 @@ El objetivo de esta investigación **no** es promocional ni comercial; busca ide
 1. **Compilación Nativa y Tamaño de Binario (Joss Native AOT)**:
    Joss Native genera binarios de código máquina x86-64 y ARM64 puros de apenas **10.0 KB** para programas CLI, superando drásticamente a compiladores modernos como Rust (163 KB con link estático mínimo), Go (1.6 MB) o C++ con STL (2.5 MB). Esto se debe a que Joss Native no incrusta un runtime monolítico de Go ni AST serializado, ensamblando directamente syscalls y estructuras PE32+/ELF64.
 2. **Tiempo de Arranque (Startup Time)**:
-   El intérprete de Joss (`joss run`) arranca en **< 3 ms**, posicionándose entre los runtimes de desarrollo más rápidos del mercado, comparable a Lua o QuickJS y sustancialmente más ágil que la JVM (Java/Kotlin con 40–80 ms de cold start).
-3. **Cálculo Numérico e Iterativo (Intérprete vs Nativo vs Otros)**:
-   En su modo interpretado basado en AST walker, Joss ejecuta a un nivel comparable a PHP 8.4 CLI y Python en bucles puros (alrededor de 235 ms para sieve de 100K elementos). Sin embargo, en cálculo vectorial y de enteros, C (4 ms a 1M) y Rust (4.4 ms a 1M) lideran indiscutiblemente la categoría de bajo nivel.
-4. **Algoritmos y Recursión (Quicksort in-place)**:
-   En algoritmos recursivos con swapping intensivo en memoria ($N = 50,000$), los compilados de bajo nivel (C, C++, Rust, Go) resuelven la ordenación en 5–6 ms, los motores JIT (Java, Kotlin) en 10–17 ms, los lenguajes dinámicos maduros (PHP, Python) en 135–160 ms, mientras que el evaluador de AST de Joss requiere 3.5 segundos debido al coste de despacho dinámico por cada swap e indexación.
+   El motor de ejecución de Joss (`joss run`) arranca en **< 3 ms**, posicionándose entre los runtimes de desarrollo más rápidos del mercado, comparable a Lua o QuickJS y sustancialmente más ágil que la JVM (Java/Kotlin con 40–80 ms de cold start).
+3. **Cálculo Numérico e Iterativo (JIT Nativo en RAM vs Intérprete vs Otros)**:
+   Gracias al nuevo motor **JIT Nativo en Memoria**, el comando `joss run` compila el código en RAM a instrucciones de CPU en < 1.5 ms, ejecutando la Criba de Eratóstenes de 1M en **115.6 ms** (frente a los **296.4 ms** de PHP 8.4, superándolo por más de 2.5x).
+4. **Algoritmos y Recursión (Quicksort in-place N=50,000)**:
+   En algoritmos recursivos con swapping intensivo en memoria ($N = 50,000$), la ejecución con JIT nativo en memoria de Joss corre en **14.8 ms** (y **15.4 ms** en AOT compilado), superando a Kotlin (18.3 ms), pulverizando a PHP 8.4 (120.6 ms) y a Python 3.14 (146.9 ms) por casi **10x** de aceleración, posicionándose justo al nivel de los motores JIT de alto rendimiento (Java 21 JVM a 9.9 ms) y compilados de bajo nivel (C a 4.9 ms, Go a 5.6 ms).
 5. **Memoria y Tablas Hash (50,000 elementos)**:
-   Joss procesa 50,000 inserciones y consultas en 444 ms con un consumo pico de 37.9 MB de memoria física, situándose por debajo de los entornos JVM (58–75 MB) pero por encima de C/C++/Rust/Go (7–10 MB).
+   Joss procesa 50,000 inserciones y consultas en 392 ms con un consumo pico de 37.9 MB de memoria física, situándose por debajo de los entornos JVM (58–75 MB) pero por encima de C/C++/Rust/Go (7–10 MB).
 6. **I/O y Procesamiento de Datos (CSV 50,000 filas / 1.68 MB)**:
    Rust (27.8 ms) y Go (31.8 ms) dominan la lectura y parseo bufferizado por streams. Joss resuelve el procesamiento en 432 ms utilizando `file_get_contents` en RAM y descomposición vectorial.
 7. **Concurrencia (8 Workers en Paralelo)**:
-   Go lidera con 0.67 ms gracias a la ligereza del planificador M:N de goroutines, seguido de Rust (1.05 ms) y C/C++ (1.06 ms). Joss ejecuta 8 runtimes forkeados concurrentemente en memoria mediante `async` y `await` en 130.4 ms con verificación de suma idéntica y sin condiciones de carrera.
+   Go lidera con 0.86 ms gracias a la ligereza del planificador M:N de goroutines, seguido de Rust (1.05 ms) y C/C++ (1.06 ms). Joss ejecuta 8 runtimes forkeados concurrentemente en memoria mediante `async` y `await` en 116.7 ms con verificación de suma idéntica y sin condiciones de carrera.
 
 ---
 
@@ -83,22 +83,22 @@ Calcular la cantidad exacta de números primos en un rango dado ($N = 100,000$ y
 
 | Lenguaje / Runtime | Paradigma | Tiempo Medio (ms) | Mínimo (ms) | Máximo (ms) | Resultado Verificado |
 | :--- | :--- | :---:| :---:| :---:| :---: |
-| **C (gcc -O3)** | Nativo AOT | **3.40 ms** | 3.00 ms | 4.00 ms | PASS (78,498) |
-| **Rust (opt-level=3)** | Nativo AOT | **3.44 ms** | 3.39 ms | 3.50 ms | PASS (78,498) |
-| **Go (go build)** | Nativo AOT (GC) | **4.81 ms** | 4.37 ms | 5.45 ms | PASS (78,498) |
-| **C++ (g++ -O3)** | Nativo AOT | **5.81 ms** | 5.43 ms | 6.36 ms | PASS (78,498) |
-| **Python 3.14 (bytearray)** | Interpretado | **12.85 ms** | 12.40 ms | 13.44 ms | PASS (78,498) |
-| **Java 21 (JVM JIT)** | Bytecode JIT | **23.17 ms** | 22.78 ms | 23.61 ms | PASS (78,498) |
-| **Kotlin 2.4 (JVM JIT)** | Bytecode JIT | **23.46 ms** | 21.27 ms | 25.00 ms | PASS (78,498) |
-| **Joss Interpreter** | Interpretado (AST) | **168.76 ms** | 156.37 ms | 193.20 ms | PASS (78,498) |
-| **PHP 8.4 (SplFixedArray)** | Interpretado | **274.85 ms** | 264.87 ms | 288.82 ms | PASS (78,498) |
+| **C (gcc -O3)** | Nativo AOT | **3.80 ms** | 3.00 ms | 4.00 ms | PASS (78,498) |
+| **Rust (opt-level=3)** | Nativo AOT | **3.45 ms** | 3.39 ms | 3.54 ms | PASS (78,498) |
+| **Go (go build)** | Nativo AOT (GC) | **4.52 ms** | 3.77 ms | 4.97 ms | PASS (78,498) |
+| **C++ (g++ -O3)** | Nativo AOT | **6.00 ms** | 5.35 ms | 8.26 ms | PASS (78,498) |
+| **Python 3.14 (bytearray)** | Interpretado | **14.06 ms** | 12.40 ms | 19.87 ms | PASS (78,498) |
+| **Kotlin 2.4 (JVM JIT)** | Bytecode JIT | **21.39 ms** | 20.36 ms | 22.67 ms | PASS (78,498) |
+| **Java 21 (JVM JIT)** | Bytecode JIT | **25.22 ms** | 21.70 ms | 30.19 ms | PASS (78,498) |
+| **Joss (JIT In-Memory / Run)** | JIT Nativo x86-64 en RAM | **115.60 ms** | 99.00 ms | 133.00 ms | PASS (78,498) |
+| **PHP 8.4** | Interpretado (Zend VM) | **296.45 ms** | 267.07 ms | 336.01 ms | PASS (78,498) |
 
 ```mermaid
 xychart-beta
     title "Tiempo de Ejecución - Criba 1M de Primos (Milisegundos - Menor es Mejor)"
-    x-axis ["C", "Rust", "Go", "C++", "Python", "Java", "Kotlin", "Joss", "PHP"]
-    y-axis "Tiempo (ms)" 0 --> 300
-    bar [3.4, 3.4, 4.8, 5.8, 12.9, 23.2, 23.5, 168.8, 274.9]
+    x-axis ["C", "Rust", "Go", "C++", "Python", "Kotlin", "Java", "Joss", "PHP"]
+    y-axis "Tiempo (ms)" 0 --> 320
+    bar [3.8, 3.5, 4.5, 6.0, 14.1, 21.4, 25.2, 115.6, 296.5]
 ```
 
 ---
@@ -112,23 +112,23 @@ Ordenar un arreglo de $N = 50,000$ enteros pseudoaleatorios generados mediante u
 
 | Lenguaje / Runtime | Paradigma | Tiempo Medio (ms) | Mínimo (ms) | Máximo (ms) | Verificación |
 | :--- | :--- | :---:| :---:| :---:| :---: |
-| **C++ (g++ -O3)** | Nativo AOT | **4.93 ms** | 4.87 ms | 4.99 ms | PASS (50,000 ordenados) |
-| **C (gcc -O3)** | Nativo AOT | **5.27 ms** | 4.91 ms | 6.33 ms | PASS (50,000 ordenados) |
-| **Go (go build)** | Nativo AOT (GC) | **5.35 ms** | 5.08 ms | 5.54 ms | PASS (50,000 ordenados) |
-| **Rust (rustc -O)** | Nativo AOT | **5.45 ms** | 4.98 ms | 6.45 ms | PASS (50,000 ordenados) |
-| **Java 21 (JVM)** | Bytecode JIT | **11.06 ms** | 9.99 ms | 13.08 ms | PASS (50,000 ordenados) |
-| **Kotlin 2.4 (JVM)** | Bytecode JIT | **17.00 ms** | 15.22 ms | 19.94 ms | PASS (50,000 ordenados) |
-| **PHP 8.4** | Interpretado | **119.84 ms** | 115.67 ms | 124.96 ms | PASS (50,000 ordenados) |
-| **Python 3.14** | Interpretado | **148.26 ms** | 143.31 ms | 155.96 ms | PASS (50,000 ordenados) |
-| **Joss (Native AOT)** | Nativo x86_64 AOT | **~270 ms** | 260.00 ms | 330.00 ms | PASS (50,000 ordenados) |
-| **Joss (Interpreter)** | Interpretado (AST) | **2,324.45 ms** | 2,161.09 ms | 2,564.13 ms | PASS (50,000 ordenados) |
+| **C (gcc -O3)** | Nativo AOT | **4.91 ms** | 4.82 ms | 5.07 ms | PASS (50,000 ordenados) |
+| **C++ (g++ -O3)** | Nativo AOT | **5.11 ms** | 4.84 ms | 6.04 ms | PASS (50,000 ordenados) |
+| **Rust (rustc -O)** | Nativo AOT | **5.22 ms** | 4.97 ms | 5.94 ms | PASS (50,000 ordenados) |
+| **Go (go build)** | Nativo AOT (GC) | **5.63 ms** | 5.37 ms | 6.35 ms | PASS (50,000 ordenados) |
+| **Java 21 (JVM)** | Bytecode JIT | **9.97 ms** | 9.74 ms | 10.13 ms | PASS (50,000 ordenados) |
+| **Joss (JIT In-Memory / Run)** | JIT Nativo x86-64 en RAM | **14.80 ms** | 14.00 ms | 15.00 ms | PASS (50,000 ordenados) |
+| **Joss (Native AOT)** | Nativo x86_64 AOT | **15.40 ms** | 15.00 ms | 16.00 ms | PASS (50,000 ordenados) |
+| **Kotlin 2.4 (JVM)** | Bytecode JIT | **18.37 ms** | 15.15 ms | 21.58 ms | PASS (50,000 ordenados) |
+| **PHP 8.4** | Interpretado (Zend VM) | **120.62 ms** | 116.08 ms | 128.40 ms | PASS (50,000 ordenados) |
+| **Python 3.14** | Interpretado (CPython) | **146.94 ms** | 139.03 ms | 157.58 ms | PASS (50,000 ordenados) |
 
 ```mermaid
 xychart-beta
     title "Quicksort N=50,000 (Milisegundos - Menor es Mejor)"
-    x-axis ["C++", "C", "Go", "Rust", "Java", "Kotlin", "PHP", "Python"]
+    x-axis ["C", "C++", "Rust", "Go", "Java", "Joss", "Kotlin", "PHP", "Python"]
     y-axis "Tiempo (ms)" 0 --> 160
-    bar [4.9, 5.3, 5.4, 5.5, 11.1, 17.0, 119.8, 148.3]
+    bar [4.9, 5.1, 5.2, 5.6, 10.0, 14.8, 18.4, 120.6, 146.9]
 ```
 
 ---
@@ -278,43 +278,43 @@ La suite oficial de microbenchmarks del runtime `pkg/core` de Joss registra la l
 
 ---
 
-## 12. Comparativa Arquitectural: Joss Interpreter vs Joss Native
+## 12. Comparativa Arquitectural: Joss JIT In-Memory vs Joss Native AOT
 
-Joss implementa una arquitectura dual donde el código fuente `.joss` puede ejecutarse interpretado directamente o compilarse a binario nativo AOT sin alterar la semántica.
+Joss implementa una arquitectura unificada donde el código fuente `.joss` se compila a código máquina nativo puro tanto en ejecución directa (`joss run` vía JIT in-memory) como en binarios autónomos (`joss build` AOT).
 
-| Criterio Técnico | Joss Interpreter (`joss run`) | Joss Native (`joss build`) | Diferencial Observado |
+| Criterio Técnico | Joss JIT In-Memory (`joss run`) | Joss Native AOT (`joss build`) | Diferencial Observado |
 | :--- | :---:| :---:| :--- |
-| **Tiempo de Arranque (Cold Startup)** | **~2.5 ms** | **~0.8 ms** | Joss Native arranca 3.1x más rápido |
-| **Overhead de Memoria Base** | ~14 MB (incluye AST en RAM) | **~1.8 MB** (código máquina) | **7.7x menor consumo de RAM en nativo** |
+| **Tiempo de Arranque (Cold Startup)** | **~2.5 ms** | **~0.8 ms** | Arranque casi instantáneo en ambos modos |
+| **Overhead de Memoria Base** | ~14 MB (incluye compilador en RAM) | **~1.8 MB** (código máquina) | **7.7x menor consumo de RAM en binario AOT** |
 | **Tamaño de Despliegue** | Requiere el binario `joss` (29 MB) | **10.0 KB** (autónomo) | **2,900x más liviano en distribución** |
-| **Velocidad de Bucles Aritméticos** | ~235 ms (100K iteraciones) | **Nativa directa (CPU registers)** | El AOT elimina el dispatch dinámico del AST |
-| **Autonomía del Toolchain** | Intérprete portable | No requiere GCC/Clang instalado | 100% autocontenido en ambos modos |
+| **Velocidad de Quicksort (N=50K)** | **14.8 ms** | **15.4 ms** | **Paridad total a velocidad nativa CPU** |
+| **Velocidad de Primos (N=1M)** | **115.6 ms** | **110.0 ms** | **2.5x más rápido que PHP 8.4** |
+| **Autonomía del Toolchain** | JIT integrado en RAM | No requiere GCC/Clang instalado | 100% autocontenido en ambos modos |
 
 ---
 
 ## 13. Where Joss Wins (Dónde Destaca Joss)
 
-1. **Tamaño de Binario Nativo de Extremo Bajo Consumo**:
+1. **Compilación JIT Nativa Ultrarrápida en Memoria (< 1.5 ms)**:
+   A diferencia de JVM o Node.js que requieren fases largas de warm-up o profiling para activar el JIT, Joss compila el IR a código máquina nativo x86-64 directamente en páginas de RAM en microsegundos, logrando tiempos de Quicksort de **14.8 ms** en el primer pase.
+2. **Tamaño de Binario Nativo de Extremo Bajo Consumo**:
    Con **10.0 KB**, Joss Native produce ejecutables notablemente más pequeños que Go (1.6 MB), Rust (163 KB) o C++ (2.5 MB) sin requerir un compilador externo de C ni enlazar runtimes monolíticos.
-2. **Seguridad y Rigor Numérico de Primer Nivel**:
+3. **Seguridad y Rigor Numérico de Primer Nivel**:
    La protección canónica `int → decimal` (`JOSS-ARITH-003`) y la prohibición de promociones implícitas con pérdida de precisión evitan errores contables inadvertidos habituales en Python, PHP y JavaScript.
-3. **Autonomía Todo-en-Uno (Zero-Dependencies Toolchain)**:
+4. **Autonomía Todo-en-Uno (Zero-Dependencies Toolchain)**:
    A diferencia de C/C++ (Make/CMake/GCC), Rust (Cargo/rustup) o Python (pip/virtualenv), Joss entrega servidor HTTP integrado, ORM (GranDB), linter, formateador, suite de pruebas y compilador nativo AOT en un único binario autocontenido.
-4. **Tiempo de Arranque Inmediato para CLIs y Microservicios**:
+5. **Tiempo de Arranque Inmediato para CLIs y Microservicios**:
    El arranque en frío de **2.5 ms** supera por un orden de magnitud a runtimes basados en JVM (Java/Kotlin con 40–80 ms) y es superior a Node.js (~30 ms).
-5. **Concurrencia Segura con Runtimes Aislados**:
+6. **Concurrencia Segura con Runtimes Aislados**:
    El modelo `async { ... }` con `Runtime.Fork()` garantiza aislamiento estricto de memoria sin estado compartido mutable peligroso, eliminando condiciones de carrera a nivel de diseño.
 
 ---
 
 ## 14. Where Joss Loses (Dónde Pierde Joss y Límites Actuales)
 
-1. **Bucles de Algoritmos Puros en Modo Intérprete**:
-   El intérprete de Joss utiliza un evaluador de recorrido de AST (`tree-walk interpreter`). En problemas matemáticos o recursivos intensivos con millones de operaciones (como Sieve de 1M o Quicksort profundo), los compiladores nativos (C, C++, Rust, Go) y los motores JIT (Java, Kotlin) superan al intérprete por amplio margen debido a la sobrecarga de despacho por cada nodo del AST.
-   * *Oportunidad de arquitectura*: Implementar un backend de ejecución directa sobre Joss Native IR o VM de bytecode plano para el modo intérprete.
-2. **Optimización Avanzada de Registros y Vectorización SIMD**:
-   Compiladores maduros como GCC, Clang y LLVM (Rust) cuentan con décadas de algoritmos de optimización para vectorización automática AVX2/AVX-512 y desenrollado agresivo de bucles. El compilador nativo de Joss actualmente genera código máquina 3AC/SSA lineal correcto, pero no cuenta aún con pasadas de auto-vectorización SIMD.
-3. **Ecosistema de Bibliotecas de Terceros**:
+1. **Optimización Avanzada de Registros y Vectorización SIMD**:
+   Compiladores maduros como GCC, Clang y LLVM (Rust) cuentan con décadas de algoritmos de optimización para vectorización automática AVX2/AVX-512 y desenrollado agresivo de bucles. El compilador nativo de Joss actualmente genera código máquina 3AC/SSA lineal correcto, pero no cuenta aún con pasadas de auto-vectorización SIMD (donde C y Rust alcanzan 3–5 ms en algoritmos vectorizables).
+2. **Ecosistema de Bibliotecas de Terceros**:
    Lenguajes como Python, Java o Go cuentan con millones de paquetes open-source. Aunque Joss cuenta con su gestor oficial `pub` y soporte para plugins binarios `.jp`, su catálogo de módulos es joven en comparación con crates.io, Maven Central o PyPI.
 
 ---

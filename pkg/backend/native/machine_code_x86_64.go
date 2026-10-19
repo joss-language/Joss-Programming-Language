@@ -10,6 +10,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/ir"
+	"github.com/jossecurity/joss/pkg/jit"
 )
 
 // Fixed offsets in .data section (all 8-byte aligned)
@@ -48,6 +49,7 @@ type machineReloc struct {
 type MachineCodeBuilder struct {
 	target          Target
 	guiMode         bool
+	isJITMode       bool
 	needsHostBridge bool
 	prog            *ir.Program
 	text            bytes.Buffer
@@ -170,6 +172,114 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	}
 	elfBytes := EmitELF64Executable(elfLayout, textBytes, rodataBytes, dataFixedSize, b.target.Arch)
 	return elfBytes, b.asmListing.String(), nil
+}
+
+// JITExecutable represents compiled machine code and data loaded directly into RAM.
+type JITExecutable struct {
+	Block    *jit.ExecutableBlock
+	DataArea []byte
+}
+
+// Free releases executable pages allocated by the JIT compiler.
+func (j *JITExecutable) Free() error {
+	if j == nil || j.Block == nil {
+		return nil
+	}
+	return j.Block.Free()
+}
+
+// Execute runs the JIT compiled entrypoint (_start) and returns the exit code.
+func (j *JITExecutable) Execute() (int, error) {
+	if j == nil || j.Block == nil {
+		return 0, fmt.Errorf("cannot execute null JIT code")
+	}
+	ret, err := jit.CallFunc0(j.Block.Addr)
+	return int(ret), err
+}
+
+// CompileInMemory translates an *ir.Program into native machine code directly in RAM
+// and returns an executable image ready for zero-latency execution.
+func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, error) {
+	b.isJITMode = true
+	b.prog = prog
+
+	// 1. Validate that all called functions are either user IR functions or supported runtime intrinsics
+	if err := b.validateProgramCalls(prog); err != nil {
+		return nil, err
+	}
+
+	// 2. Emit _start entrypoint and Native Joss Runtime in machine code
+	b.emitEntrypointAndRuntime(prog.Functions["main"] != nil)
+
+	// 3. Sort function names for deterministic output
+	fnNames := make([]string, 0, len(prog.Functions))
+	for name := range prog.Functions {
+		fnNames = append(fnNames, name)
+	}
+	sort.Strings(fnNames)
+
+	for _, name := range fnNames {
+		if err := b.emitIRFunction(prog.Functions[name]); err != nil {
+			return nil, err
+		}
+	}
+
+	b.emitToStringStub()
+	b.emitF64ToStringStub()
+
+	// 4. Memory Layout Layout in RAM:
+	// [.text code bytes]
+	// [.rodata string constants, aligned to 16]
+	// [.data runtime globals + IAT table slots, aligned to 16]
+	textBytes := append([]byte(nil), b.text.Bytes()...)
+	rodataBytes := b.rodata.Bytes()
+
+	textLen := uint32(len(textBytes))
+	rodataLen := uint32(len(rodataBytes))
+
+	textRVA := uint32(0)
+	rodataRVA := alignUpU32(textLen, 16)
+	dataRVA := alignUpU32(rodataRVA+rodataLen, 16)
+
+	// Allocate IAT slots inside .data section
+	var iatRVAs [iatSlotCount]uint32
+	iatBaseOff := uint32(0x800) // Place IAT slots at offset 0x800 within .data
+	for i := 0; i < int(iatSlotCount); i++ {
+		iatRVAs[i] = dataRVA + iatBaseOff + uint32(i*8)
+	}
+
+	// 5. Resolve relative RIP relocations
+	if err := b.applyRelocations(textBytes, textRVA, rodataRVA, dataRVA, iatRVAs[:]); err != nil {
+		return nil, err
+	}
+
+	// 6. Build combined contiguous memory block: [text] + [padding] + [rodata] + [padding] + [data]
+	totalSize := dataRVA + dataFixedSize
+	fullImage := make([]byte, totalSize)
+
+	// Copy .text
+	copy(fullImage[textRVA:], textBytes)
+	// Copy .rodata
+	copy(fullImage[rodataRVA:], rodataBytes)
+
+	// Populate .data with IAT function pointers
+	iatPointers := getPlatformIATPointers()
+
+	for i, ptr := range iatPointers {
+		slotOff := dataRVA + iatBaseOff + uint32(i*8)
+		binary.LittleEndian.PutUint64(fullImage[slotOff:], uint64(ptr))
+	}
+
+	// 7. Allocate executable memory page and copy full image
+	block, err := jit.AllocateExecutable(fullImage)
+	if err != nil {
+		return nil, fmt.Errorf("jit allocation failed: %w", err)
+	}
+
+	return &JITExecutable{
+		Block:    block,
+		DataArea: fullImage[dataRVA:],
+	}, nil
 }
 
 // isSupportedHostService reports whether the given host class and method are handled by the C-ABI host bridge.
@@ -583,7 +693,14 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x31, 0xC9) // xor ecx, ecx
 	}
 	b.emitCallLabel("__joss_os_exit")
-	b.emitBytes(0x0F, 0x0B) // ud2
+	if b.isJITMode {
+		b.emitBytes(0x48, 0x89, 0xC8) // mov rax, rcx (return exit code in rax)
+		b.emitBytes(0x48, 0x89, 0xEC) // mov rsp, rbp
+		b.emitBytes(0x5D)             // pop rbp
+		b.emitBytes(0xC3)             // ret
+	} else {
+		b.emitBytes(0x0F, 0x0B) // ud2
+	}
 
 	// =========================================================================
 	// 2. OS Abstraction Layer (__joss_os_init, __joss_os_write, __joss_os_alloc, __joss_os_exit)
@@ -672,7 +789,10 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	// __joss_os_exit(rcx = exitCode)
 	b.defineLabel("__joss_os_exit")
-	if b.target.OS == "windows" {
+	if b.isJITMode {
+		b.emitBytes(0x48, 0x89, 0xC8) // mov rax, rcx (return exitCode in rax)
+		b.emitBytes(0xC3)             // ret
+	} else if b.target.OS == "windows" {
 		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
 		b.emitCallIAT(IATExitProcess)
 		b.emitBytes(0x0F, 0x0B)

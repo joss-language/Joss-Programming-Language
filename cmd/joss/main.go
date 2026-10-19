@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -652,6 +653,30 @@ func executeScript(filename string) {
 	if program == nil {
 		fmt.Println(i18n.Tr("cliReadFileError", i18n.M{"error": "entrypoint was not prepared"}))
 		return
+	}
+
+	// =========================================================================
+	// JIT Native In-Memory Execution (Unified Native JIT)
+	// Attempts compiling to machine code in RAM and running at native CPU speed.
+	// Falls back transparently to tree-walking interpreter if lowering encounters gaps.
+	// =========================================================================
+	if os.Getenv("JOSS_NO_JIT") == "" && (runtime.GOARCH == "amd64" || runtime.GOARCH == "x86_64") {
+		lowerer := ir.NewLowerer(report.Prepared, nil)
+		progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
+		if irProg, err := lowerer.LowerProgram(progName); err == nil {
+			verifier := ir.NewVerifier()
+			if err := verifier.Verify(irProg); err == nil {
+				mcBuilder := native.NewMachineCodeBuilder(native.HostTarget(), false)
+				if jitExe, err := mcBuilder.CompileInMemory(irProg); err == nil {
+					defer jitExe.Free()
+					exitCode, _ := jitExe.Execute()
+					if exitCode != 0 {
+						os.Exit(exitCode)
+					}
+					return
+				}
+			}
+		}
 	}
 
 	rt := core.NewRuntime()
