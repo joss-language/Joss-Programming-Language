@@ -28,18 +28,12 @@ func (r *Runtime) evaluateExpression(exp parser.Expression) interface{} {
 	case *parser.CallExpression:
 		return r.executeCall(e)
 	case *parser.Identifier:
-		if e.ResolvedSlot > 0 && r.currentFrame != nil {
-			idx := e.ResolvedSlot - 1
-			if idx < len(r.currentFrame.slots) {
-				slot := &r.currentFrame.slots[idx]
-				if slot.Initialized {
-					if slot.Value.Kind == runtimeframe.Int {
-						return slot.Value.Integer
-					}
-					if !slot.ByReference {
-						return slot.Value.Interface()
-					}
-				}
+		if slot, resolved := r.slotForIdentifier(e); resolved && slot.Initialized {
+			if slot.Value.Kind == runtimeframe.Int {
+				return slot.Value.Integer
+			}
+			if !slot.ByReference {
+				return slot.Value.Interface()
 			}
 		}
 		if e.Value == "null" || e.Value == "nil" {

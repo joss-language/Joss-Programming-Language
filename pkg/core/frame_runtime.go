@@ -103,23 +103,13 @@ func (r *Runtime) planForFunction(function *parser.FunctionLiteral) *runtimeplan
 }
 
 func (r *Runtime) slotForIdentifier(identifier *parser.Identifier) (*runtimeframe.Slot, bool) {
-	if r.currentFrame == nil || identifier == nil {
-		return nil, false
-	}
-	if identifier.ResolvedSlot > 0 {
-		idx := identifier.ResolvedSlot - 1
-		if idx < len(r.currentFrame.slots) {
-			return &r.currentFrame.slots[idx], true
-		}
-	}
-	if r.currentFrame.plan == nil {
+	if r.currentFrame == nil || identifier == nil || r.currentFrame.plan == nil {
 		return nil, false
 	}
 	index, exists := r.currentFrame.plan.IdentifierSlots[identifier]
 	if !exists || index < 0 || index >= len(r.currentFrame.slots) {
 		return nil, false
 	}
-	identifier.ResolvedSlot = index + 1
 	return &r.currentFrame.slots[index], true
 }
 

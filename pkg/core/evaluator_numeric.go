@@ -251,15 +251,6 @@ func (r *Runtime) slotIntegerOperand(expression parser.Expression) (int64, bool)
 	case *parser.IntegerLiteral:
 		return node.Value, true
 	case *parser.Identifier:
-		if node.ResolvedSlot > 0 && r.currentFrame != nil {
-			idx := node.ResolvedSlot - 1
-			if idx < len(r.currentFrame.slots) {
-				slot := &r.currentFrame.slots[idx]
-				if slot.Initialized && slot.Value.Kind == runtimeframe.Int {
-					return slot.Value.Integer, true
-				}
-			}
-		}
 		if r.currentFrame != nil {
 			slot, resolved := r.slotForIdentifier(node)
 			if !resolved || !slot.Initialized || slot.Value.Kind != runtimeframe.Int {
@@ -281,9 +272,8 @@ func (r *Runtime) slotIntegerOperand(expression parser.Expression) (int64, bool)
 	case *parser.IndexExpression:
 		var list []interface{}
 		if r.currentFrame != nil {
-			if idLeft, ok := node.Left.(*parser.Identifier); ok && idLeft.ResolvedSlot > 0 {
-				leftSlot := &r.currentFrame.slots[idLeft.ResolvedSlot-1]
-				if leftSlot.Initialized {
+			if idLeft, ok := node.Left.(*parser.Identifier); ok {
+				if leftSlot, resolved := r.slotForIdentifier(idLeft); resolved && leftSlot.Initialized {
 					list, _ = leftSlot.Value.Dynamic.([]interface{})
 				}
 			}

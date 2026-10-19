@@ -86,19 +86,9 @@ func (r *Runtime) updatePostfixSlot(expression *parser.PostfixExpression, return
 	if !ok || (expression.Operator != "++" && expression.Operator != "--") {
 		return nil, false
 	}
-	var slot *runtimeframe.Slot
-	if identifier.ResolvedSlot > 0 && r.currentFrame != nil {
-		idx := identifier.ResolvedSlot - 1
-		if idx < len(r.currentFrame.slots) {
-			slot = &r.currentFrame.slots[idx]
-		}
-	}
-	if slot == nil {
-		var resolved bool
-		slot, resolved = r.slotForIdentifier(identifier)
-		if !resolved {
-			return nil, false
-		}
+	slot, resolved := r.slotForIdentifier(identifier)
+	if !resolved {
+		return nil, false
 	}
 	if !slot.Initialized || slot.ByReference {
 		return nil, false

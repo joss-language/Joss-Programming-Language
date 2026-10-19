@@ -14,14 +14,6 @@ import (
 
 func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 	if ident, ok := ae.Left.(*parser.Identifier); ok {
-		if ident.ResolvedSlot > 0 && r.currentFrame != nil {
-			slot := &r.currentFrame.slots[ident.ResolvedSlot-1]
-			if slot.Constant && slot.Initialized {
-				panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede reasignarse", ident.Value), File: r.CurrentFile, Line: ident.Token.Line})
-			}
-			val := r.evaluateExpression(ae.Value)
-			return r.assignSlot(slot, val, false)
-		}
 		if slot, resolved := r.slotForIdentifier(ident); resolved {
 			if slot.Constant && slot.Initialized {
 				panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede reasignarse", ident.Value), File: r.CurrentFile, Line: ident.Token.Line})
@@ -136,13 +128,11 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 
 	if indexExp, ok := ae.Left.(*parser.IndexExpression); ok {
 		if r.currentFrame != nil {
-			if idLeft, ok := indexExp.Left.(*parser.Identifier); ok && idLeft.ResolvedSlot > 0 {
-				leftSlot := &r.currentFrame.slots[idLeft.ResolvedSlot-1]
-				if leftSlot.Initialized {
+			if idLeft, ok := indexExp.Left.(*parser.Identifier); ok {
+				if leftSlot, resolved := r.slotForIdentifier(idLeft); resolved && leftSlot.Initialized {
 					if list, ok := leftSlot.Value.Dynamic.([]interface{}); ok {
-						if idIdx, ok := indexExp.Index.(*parser.Identifier); ok && idIdx.ResolvedSlot > 0 {
-							idxSlot := &r.currentFrame.slots[idIdx.ResolvedSlot-1]
-							if idxSlot.Initialized && idxSlot.Value.Kind == runtimeframe.Int {
+						if idIdx, ok := indexExp.Index.(*parser.Identifier); ok {
+							if idxSlot, idxResolved := r.slotForIdentifier(idIdx); idxResolved && idxSlot.Initialized && idxSlot.Value.Kind == runtimeframe.Int {
 								idx := idxSlot.Value.Integer
 								if idx >= 0 && idx < int64(len(list)) {
 									list[idx] = val
@@ -285,13 +275,11 @@ func (r *Runtime) evaluateMap(ml *parser.MapLiteral) map[string]interface{} {
 
 func (r *Runtime) evaluateIndex(ie *parser.IndexExpression) interface{} {
 	if r.currentFrame != nil {
-		if idLeft, ok := ie.Left.(*parser.Identifier); ok && idLeft.ResolvedSlot > 0 {
-			leftSlot := &r.currentFrame.slots[idLeft.ResolvedSlot-1]
-			if leftSlot.Initialized {
+		if idLeft, ok := ie.Left.(*parser.Identifier); ok {
+			if leftSlot, resolved := r.slotForIdentifier(idLeft); resolved && leftSlot.Initialized {
 				if list, ok := leftSlot.Value.Dynamic.([]interface{}); ok {
-					if idIdx, ok := ie.Index.(*parser.Identifier); ok && idIdx.ResolvedSlot > 0 {
-						idxSlot := &r.currentFrame.slots[idIdx.ResolvedSlot-1]
-						if idxSlot.Initialized && idxSlot.Value.Kind == runtimeframe.Int {
+					if idIdx, ok := ie.Index.(*parser.Identifier); ok {
+						if idxSlot, idxResolved := r.slotForIdentifier(idIdx); idxResolved && idxSlot.Initialized && idxSlot.Value.Kind == runtimeframe.Int {
 							idx := idxSlot.Value.Integer
 							if idx >= 0 && idx < int64(len(list)) {
 								return list[idx]

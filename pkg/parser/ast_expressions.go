@@ -8,9 +8,8 @@ import (
 )
 
 type Identifier struct {
-	Token        Token // The token.VAR ($)
-	Value        string
-	ResolvedSlot int // 1-based cached slot index (0 = unresolved)
+	Token Token // The token.VAR ($)
+	Value string
 }
 
 func (i *Identifier) expressionNode()      {}
