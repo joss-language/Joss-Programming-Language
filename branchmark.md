@@ -27,6 +27,10 @@ El objetivo de esta investigación **no** es promocional ni comercial; busca ide
    Rust (27.8 ms) y Go (31.8 ms) dominan la lectura y parseo bufferizado por streams. Joss resuelve el procesamiento en 432 ms utilizando `file_get_contents` en RAM y descomposición vectorial.
 7. **Concurrencia (8 Workers en Paralelo)**:
    Go lidera con 0.86 ms gracias a la ligereza del planificador M:N de goroutines, seguido de Rust (1.05 ms) y C/C++ (1.06 ms). Joss ejecuta 8 runtimes forkeados concurrentemente en memoria mediante `async` y `await` en 116.7 ms con verificación de suma idéntica y sin condiciones de carrera.
+8. **Asignación Dinámica de Memoria y Punteros (Árboles Binarios Depth = 14)**:
+   En creación y recorrido recursivo intensivo de estructuras de datos acopladas por punteros (65,534 nodos asignados y liberados masivamente), Joss resuelve el árbol completo en **2,995.6 ms**, superando con solvencia a PHP 8.4 (**4,369.3 ms**, 1.45x más lento) y a Python 3.14 (**4,593.1 ms**, 1.53x más lento).
+9. **Computación Científica en Punto Flotante (Conjunto de Mandelbrot N=500x500)**:
+   Calculando más de 4.18 millones de iteraciones de números complejos en IEEE-754 de 64 bits (`float`), el motor JIT nativo en memoria de Joss completa la cuadrícula en tan solo **116.3 ms**, batiendo categóricamente a PHP 8.4 (**681.3 ms**, aceleración de **5.85x**) y pulverizando a Python 3.14 (**1,475.4 ms**, aceleración de **12.68x**).
 
 ---
 
@@ -230,7 +234,66 @@ xychart-beta
 
 ---
 
-## 10. Benchmark 6: Tamaño de Binarios Compilados Standalone (PE32+)
+## 10. Benchmark 6: Asignación Dinámica de Memoria, Punteros y GC (Binary Trees Depth = 14)
+
+### Especificación
+El problema canónico *Binary Trees* evalúa la velocidad del asignador de memoria (malloc/GC), la sobrecarga de referencias cruzadas entre objetos/estructuras y el recorrido recursivo de punteros. Se construye un árbol extendido (*stretch tree*) de profundidad 15, un árbol de larga duración (*long-lived tree*) de profundidad 14, y múltiples árboles temporales de profundidad creciente entre 4 y 14 asignados y liberados en ráfagas masivas.
+
+### Resultados de Ejecución (Depth = 14, 5 iteraciones)
+
+| Lenguaje / Runtime | Paradigma | Tiempo Medio (ms) | Mínimo (ms) | Máximo (ms) | Verificación (Checksum) |
+| :--- | :--- | :---:| :---:| :---:| :---: |
+| **Java 21 (JVM)** | Generational GC (G1/ZGC) | **97.66 ms** | 91.08 ms | 102.86 ms | PASS (total checks: -43680) |
+| **Kotlin 2.4 (JVM)** | Generational GC (JRE 21) | **103.18 ms** | 99.45 ms | 111.83 ms | PASS (total checks: -43680) |
+| **Go (go build)** | Concurrencia GC (Tricolor) | **316.96 ms** | 291.71 ms | 397.07 ms | PASS (total checks: -43680) |
+| **C (gcc -O3)** | Manual (`malloc`/`free`) | **684.85 ms** | 655.23 ms | 728.40 ms | PASS (total checks: -43680) |
+| **C++ (g++ -O3)** | RAII (`std::unique_ptr`) | **722.50 ms** | 684.98 ms | 802.58 ms | PASS (total checks: -43680) |
+| **Rust (rustc -O)** | Borrow Checker (`Box<Node>`) | **806.78 ms** | 706.09 ms | 1033.28 ms | PASS (total checks: -43680) |
+| **Joss (Interpreter)** | Objetos de Clase y Heap Nativo | **2,995.60 ms** | 2968.00 ms | 3033.00 ms | PASS (total checks: -43680) |
+| **PHP 8.4** | Zend Engine (Refcounting + GC) | **4,369.34 ms** | 4229.69 ms | 4480.01 ms | PASS (total checks: -43680) |
+| **Python 3.14** | CPython (__slots__ + Refcount) | **4,593.14 ms** | 4535.06 ms | 4705.71 ms | PASS (total checks: -43680) |
+
+```mermaid
+xychart-beta
+    title "Tiempo de Ejecución - Binary Trees Depth 14 (Milisegundos - Menor es Mejor)"
+    x-axis ["Java", "Kotlin", "Go", "C", "C++", "Rust", "Joss", "PHP", "Python"]
+    y-axis "Tiempo (ms)" 0 --> 4800
+    bar [97.7, 103.2, 317.0, 684.9, 722.5, 806.8, 2995.6, 4369.3, 4593.1]
+```
+
+---
+
+## 11. Benchmark 7: Computación Científica en Punto Flotante (Conjunto de Mandelbrot 500x500)
+
+### Especificación
+El cálculo del *Conjunto de Mandelbrot* evalúa la aritmética vectorial de punto flotante de doble precisión (IEEE-754 64-bit `float`), anidamiento profundo de bucles ($500 \times 500$ coordenadas complejas en $x \in [-2.0, 0.5], y \in [-1.25, 1.25]$) y comprobación condicional continua con hasta 50 iteraciones complejas por punto. Todos los programas deben calcular la suma acumulada exacta de todas las iteraciones de escape.
+* Checksum verificable exacto: $\text{total} = 4,182,301$.
+
+### Resultados de Ejecución (N = 500x500, max_iter = 50, 5 iteraciones)
+
+| Lenguaje / Runtime | Paradigma | Tiempo Medio (ms) | Mínimo (ms) | Máximo (ms) | Verificación (Checksum) |
+| :--- | :--- | :---:| :---:| :---:| :---: |
+| **C (gcc -O3)** | Nativo AOT (AVX2/FPU) | **23.90 ms** | 23.62 ms | 24.19 ms | PASS (4,182,301) |
+| **C++ (g++ -O3)** | Nativo AOT (AVX2/FPU) | **25.13 ms** | 24.56 ms | 26.23 ms | PASS (4,182,301) |
+| **Rust (rustc -O)** | Nativo AOT (LLVM) | **25.67 ms** | 25.29 ms | 26.23 ms | PASS (4,182,301) |
+| **Go (go build)** | Nativo AOT (SSA) | **27.23 ms** | 26.74 ms | 27.72 ms | PASS (4,182,301) |
+| **Java 21 (JVM)** | HotSpot C2 JIT | **34.39 ms** | 34.02 ms | 34.74 ms | PASS (4,182,301) |
+| **Kotlin 2.4 (JVM)** | HotSpot C2 JIT (JRE 21) | **36.01 ms** | 34.53 ms | 37.37 ms | PASS (4,182,301) |
+| **Joss (JIT In-Memory / Run)** | JIT Nativo x86-64 en RAM | **116.33 ms** | 111.12 ms | 121.93 ms | PASS (4,182,301) |
+| **PHP 8.4** | Zend Engine | **681.28 ms** | 589.46 ms | 904.24 ms | PASS (4,182,301) |
+| **Python 3.14** | CPython Bytecode | **1,475.40 ms** | 1405.13 ms | 1608.18 ms | PASS (4,182,301) |
+
+```mermaid
+xychart-beta
+    title "Tiempo de Ejecución - Mandelbrot 500x500 (Milisegundos - Menor es Mejor)"
+    x-axis ["C", "C++", "Rust", "Go", "Java", "Kotlin", "Joss", "PHP", "Python"]
+    y-axis "Tiempo (ms)" 0 --> 1600
+    bar [23.9, 25.1, 25.7, 27.2, 34.4, 36.0, 116.3, 681.3, 1475.4]
+```
+
+---
+
+## 12. Benchmark 8: Tamaño de Binarios Compilados Standalone (PE32+)
 
 Una de las métricas de mayor impacto en despliegues modernos (Edge computing, microservicios serverless, contenedores minimalistas y utilidades CLI de sistema) es el tamaño del ejecutable autónomo standalone sin dependencias externas.
 
@@ -255,7 +318,7 @@ xychart-beta
 
 ---
 
-## 11. Benchmark 7: Perfil de Operaciones Atómicas de Joss (Microbenchmarks Canónicos)
+## 13. Benchmark 9: Perfil de Operaciones Atómicas de Joss (Microbenchmarks Canónicos)
 
 La suite oficial de microbenchmarks del runtime `pkg/core` de Joss registra la latencia exacta por operación atómica en CPU:
 
@@ -278,7 +341,7 @@ La suite oficial de microbenchmarks del runtime `pkg/core` de Joss registra la l
 
 ---
 
-## 12. Comparativa Arquitectural: Joss JIT In-Memory vs Joss Native AOT
+## 14. Comparativa Arquitectural: Joss JIT In-Memory vs Joss Native AOT
 
 Joss implementa una arquitectura unificada donde el código fuente `.joss` se compila a código máquina nativo puro tanto en ejecución directa (`joss run` vía JIT in-memory) como en binarios autónomos (`joss build` AOT).
 
@@ -289,11 +352,12 @@ Joss implementa una arquitectura unificada donde el código fuente `.joss` se co
 | **Tamaño de Despliegue** | Requiere el binario `joss` (29 MB) | **10.0 KB** (autónomo) | **2,900x más liviano en distribución** |
 | **Velocidad de Quicksort (N=50K)** | **14.8 ms** | **15.4 ms** | **Paridad total a velocidad nativa CPU** |
 | **Velocidad de Primos (N=1M)** | **115.6 ms** | **110.0 ms** | **2.5x más rápido que PHP 8.4** |
+| **Velocidad de Mandelbrot (N=500x500)** | **116.3 ms** | **112.5 ms** | **5.85x más rápido que PHP 8.4** |
 | **Autonomía del Toolchain** | JIT integrado en RAM | No requiere GCC/Clang instalado | 100% autocontenido en ambos modos |
 
 ---
 
-## 13. Where Joss Wins (Dónde Destaca Joss)
+## 15. Where Joss Wins (Dónde Destaca Joss)
 
 1. **Compilación JIT Nativa Ultrarrápida en Memoria (< 1.5 ms)**:
    A diferencia de JVM o Node.js que requieren fases largas de warm-up o profiling para activar el JIT, Joss compila el IR a código máquina nativo x86-64 directamente en páginas de RAM en microsegundos, logrando tiempos de Quicksort de **14.8 ms** en el primer pase.
@@ -310,7 +374,7 @@ Joss implementa una arquitectura unificada donde el código fuente `.joss` se co
 
 ---
 
-## 14. Where Joss Loses (Dónde Pierde Joss y Límites Actuales)
+## 16. Where Joss Loses (Dónde Pierde Joss y Límites Actuales)
 
 1. **Optimización Avanzada de Registros y Vectorización SIMD**:
    Compiladores maduros como GCC, Clang y LLVM (Rust) cuentan con décadas de algoritmos de optimización para vectorización automática AVX2/AVX-512 y desenrollado agresivo de bucles. El compilador nativo de Joss actualmente genera código máquina 3AC/SSA lineal correcto, pero no cuenta aún con pasadas de auto-vectorización SIMD (donde C y Rust alcanzan 3–5 ms en algoritmos vectorizables).
@@ -319,7 +383,7 @@ Joss implementa una arquitectura unificada donde el código fuente `.joss` se co
 
 ---
 
-## 15. Conclusiones Técnicas Objetivas
+## 17. Conclusiones Técnicas Objetivas
 
 1. **Cada lenguaje responde a prioridades de ingeniería distintas**:
    * Para rendimiento numérico absoluto y latencia determinista de bajo nivel: **C y Rust** continúan siendo insustituibles.

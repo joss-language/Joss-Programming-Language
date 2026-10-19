@@ -1,0 +1,63 @@
+public class TreeNode {
+    public TreeNode|null $left = null;
+    public TreeNode|null $right = null;
+    public int $item = 0;
+
+    Init(TreeNode|null $left, TreeNode|null $right, int $item) {
+        $this->left = $left;
+        $this->right = $right;
+        $this->item = $item;
+    }
+
+    public func check(): int {
+        return ($this->left == null) ? $this->item : ($this->item + $this->left->check() - $this->right->check());
+    }
+}
+
+public func bottomUpTree(int $item, int $depth): TreeNode {
+    return ($depth > 0) ? new TreeNode(bottomUpTree(2 * $item - 1, $depth - 1), bottomUpTree(2 * $item, $depth - 1), $item) : new TreeNode(null, null, $item);
+}
+
+var $maxDepth = 14;
+var $minDepth = 4;
+var $stretchDepth = $maxDepth + 1;
+
+var $start = microtime(true);
+
+var $stretchTree = bottomUpTree(0, $stretchDepth);
+var $stretchCheck = $stretchTree->check();
+
+var $longLivedTree = bottomUpTree(0, $maxDepth);
+
+var $depth = $minDepth;
+var $totalChecks = 0;
+
+while ($depth <= $maxDepth) {
+    var $iterations = 1;
+    var $shift = $maxDepth - $depth + $minDepth;
+    var $s = 0;
+    while ($s < $shift) {
+        $iterations = $iterations * 2;
+        $s = $s + 1;
+    }
+
+    var $check = 0;
+    var $i = 1;
+    while ($i <= $iterations) {
+        var $t1 = bottomUpTree($i, $depth);
+        var $t2 = bottomUpTree(-$i, $depth);
+        $check = $check + $t1->check() + $t2->check();
+        $i = $i + 1;
+    }
+    $totalChecks = $totalChecks + $check;
+    $depth = $depth + 2;
+}
+
+var $longLivedCheck = $longLivedTree->check();
+var $end = microtime(true);
+
+var $elapsed_ms = ($end - $start) * 1000.0;
+echo("stretch tree depth " . $stretchDepth . " check: " . $stretchCheck . "\n");
+echo("long lived tree depth " . $maxDepth . " check: " . $longLivedCheck . "\n");
+echo("total checks: " . $totalChecks . "\n");
+echo("Binary trees (depth " . $maxDepth . ") completed in " . $elapsed_ms . " ms\n");

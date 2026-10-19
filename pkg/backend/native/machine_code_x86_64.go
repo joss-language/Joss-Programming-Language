@@ -367,7 +367,7 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 func isNativeBuiltin(id string) bool {
 	switch id {
 	case "strlen", "len", "count", "array_push", "append", "to_string",
-		"abs", "min", "max", "intval", "boolval", "array_pop", "microtime":
+		"abs", "min", "max", "intval", "floatval", "boolval", "array_pop", "microtime":
 		return true
 	}
 	return false
@@ -1345,6 +1345,12 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x0F, 0x95, 0xC0) // setne al
 	b.emitBytes(0xC3)
 
+	// fn_floatval(rcx = val) -> rax = float64 bits
+	b.defineLabel("fn_floatval")
+	b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xC1) // cvtsi2sd xmm0, rcx
+	b.emitBytes(0x66, 0x48, 0x0F, 0x7E, 0xC0) // movq rax, xmm0
+	b.emitBytes(0xC3)
+
 	// fn_array_pop(rcx = arrPtr) -> rax = last element (value semantics)
 	b.defineLabel("fn_array_pop")
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
@@ -1997,7 +2003,11 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		b.emitLoadValToRAX(layout, i.Val)
 		switch i.Op {
 		case ir.OpNeg:
-			b.emitBytes(0x48, 0xF7, 0xD8) // neg rax
+			if i.Val.Type().Kind == ir.TypeKindF64 || i.Val.Type().Kind == ir.TypeKindDecimal || (i.Dest != nil && (i.Dest.Type().Kind == ir.TypeKindF64 || i.Dest.Type().Kind == ir.TypeKindDecimal)) {
+				b.emitBytes(0x48, 0x0F, 0xBA, 0xF8, 0x3F) // btc rax, 63 (toggle IEEE-754 sign bit)
+			} else {
+				b.emitBytes(0x48, 0xF7, 0xD8) // neg rax
+			}
 		case ir.OpNot:
 			b.emitBytes(0x48, 0x85, 0xC0)       // test rax, rax
 			b.emitBytes(0x0F, 0x94, 0xC0)       // sete al
@@ -2687,6 +2697,7 @@ func (b *MachineCodeBuilder) emitF64ToStringStub() {
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
 	b.emitBytes(0x53, 0x57, 0x56)             // push rbx; push rdi; push rsi
 	b.emitBytes(0x48, 0x83, 0xEC, 0x38)       // sub rsp, 56
+	b.emitBytes(0x48, 0x89, 0x4D, 0xE0)       // mov [rbp - 32], rcx (save float bits)
 	b.emitBytes(0x66, 0x48, 0x0F, 0x6E, 0xC1) // movq xmm0, rcx (val)
 	b.emitBytes(0xF2, 0x48, 0x0F, 0x2C, 0xD8) // cvttsd2si rbx, xmm0 (int part)
 	b.emitBytes(0x48, 0x89, 0xD9)             // mov rcx, rbx
@@ -2706,6 +2717,9 @@ func (b *MachineCodeBuilder) emitF64ToStringStub() {
 	b.emitBytes(0xC6, 0x07, 0x2E) // mov byte ptr [rdi], '.'
 	b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
 
+	// Restore original float to xmm0
+	b.emitBytes(0x48, 0x8B, 0x4D, 0xE0)       // mov rcx, [rbp - 32]
+	b.emitBytes(0x66, 0x48, 0x0F, 0x6E, 0xC1) // movq xmm0, rcx
 	// Compute fraction = (val - int(val)) * 10000.0
 	b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xCB) // cvtsi2sd xmm1, rbx
 	b.emitBytes(0xF2, 0x0F, 0x5C, 0xC1)       // subsd xmm0, xmm1

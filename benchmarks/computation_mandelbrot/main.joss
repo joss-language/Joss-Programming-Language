@@ -1,0 +1,32 @@
+public func mandelbrot(int $N, int $maxIter): int {
+    var $total = 0;
+    var $y = 0;
+    var $fn = floatval($N);
+    while ($y < $N) {
+        var $ci = -1.25 + (2.5 * floatval($y) / $fn);
+        var $x = 0;
+        while ($x < $N) {
+            var $cr = -2.0 + (2.5 * floatval($x) / $fn);
+            var $zr = 0.0;
+            var $zi = 0.0;
+            var $it = 0;
+            while ($it < $maxIter && ($zr * $zr + $zi * $zi) <= 4.0) {
+                var $zr2 = $zr * $zr;
+                var $zi2 = $zi * $zi;
+                $zi = 2.0 * $zr * $zi + $ci;
+                $zr = $zr2 - $zi2 + $cr;
+                $it = $it + 1;
+            }
+            $total = $total + $it;
+            $x = $x + 1;
+        }
+        $y = $y + 1;
+    }
+    return $total;
+}
+
+var $start = microtime(true);
+var $total = mandelbrot(500, 50);
+var $elapsed = (microtime(true) - $start) * 1000.0;
+
+print("total=" . $total . " time=" . $elapsed . "ms");
