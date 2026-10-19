@@ -15,6 +15,14 @@
   <a href="https://github.com/joss-language/Joss-Programming-Language/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build Status"></a>
 </p>
 
+<p align="center">
+  <a href="https://sonar.astriom.org/dashboard?id=Joss-language"><img src="https://sonar.astriom.org/api/project_badges/quality_gate?project=Joss-language&token=sqb_633f9502c1515b3df979e0bdbf0bbb00fdd9717f" alt="SonarQube Quality Gate"></a>
+  <a href="https://sonar.astriom.org/dashboard?id=Joss-language"><img src="https://sonar.astriom.org/api/project_badges/measure?project=Joss-language&metric=reliability_rating&token=sqb_633f9502c1515b3df979e0bdbf0bbb00fdd9717f" alt="SonarQube Reliability Rating"></a>
+  <a href="https://sonar.astriom.org/dashboard?id=Joss-language"><img src="https://sonar.astriom.org/api/project_badges/measure?project=Joss-language&metric=sqale_rating&token=sqb_633f9502c1515b3df979e0bdbf0bbb00fdd9717f" alt="SonarQube Maintainability Rating"></a>
+  <a href="https://sonar.astriom.org/dashboard?id=Joss-language"><img src="https://sonar.astriom.org/api/project_badges/measure?project=Joss-language&metric=coverage&token=sqb_633f9502c1515b3df979e0bdbf0bbb00fdd9717f" alt="SonarQube Coverage"></a>
+  <a href="https://sonar.astriom.org/dashboard?id=Joss-language"><img src="https://sonar.astriom.org/api/project_badges/measure?project=Joss-language&metric=bugs&token=sqb_633f9502c1515b3df979e0bdbf0bbb00fdd9717f" alt="SonarQube Bugs"></a>
+</p>
+
 ---
 
 ## 🌟 ¿Qué es Joss y qué hace?
