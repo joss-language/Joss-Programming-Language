@@ -340,10 +340,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			update := fmt.Sprintf("UPDATE %s SET verificado = 1, user_token = '', token_expires_at = NULL WHERE id = ?", usersTable)
 			_, err = r.databaseExecutor().Exec(update, id)
 
-			if err == nil {
-				return true
-			}
-			return false
+			return err == nil
 		}
 
 	case "forgotPassword":

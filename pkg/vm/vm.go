@@ -33,10 +33,6 @@ func (vm *VM) pop() Value {
 	return vm.stack[vm.sp]
 }
 
-func (vm *VM) peek() Value {
-	return vm.stack[vm.sp-1]
-}
-
 func (vm *VM) Run(chunk *Chunk) (Value, error) {
 	vm.fp = 0
 	vm.sp = 0

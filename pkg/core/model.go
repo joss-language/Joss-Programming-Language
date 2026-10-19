@@ -1124,9 +1124,10 @@ func (r *Runtime) eagerLoadModels(parents []*Instance, names []string, missingOn
 	grouped := map[string][]string{}
 	for _, path := range names {
 		parts := strings.SplitN(path, ".", 2)
-		if len(parts) == 1 {
-			grouped[parts[0]] = grouped[parts[0]]
-		} else {
+		if _, ok := grouped[parts[0]]; !ok {
+			grouped[parts[0]] = nil
+		}
+		if len(parts) > 1 {
 			grouped[parts[0]] = append(grouped[parts[0]], parts[1])
 		}
 	}

@@ -12,47 +12,6 @@ import (
 	"github.com/jossecurity/joss/pkg/viewtemplate"
 )
 
-// Helper to evaluate an expression string within the current runtime context
-func (r *Runtime) evaluateViewExpression(expr string, data map[string]interface{}) (result interface{}) {
-	defer func() {
-		if rec := recover(); rec != nil {
-			result = ""
-		}
-	}()
-
-	// Inject data into variables (support both raw key and $key)
-	for k, v := range data {
-		r.Variables[k] = v
-		if !strings.HasPrefix(k, "$") {
-			r.Variables["$"+k] = v
-		} else {
-			r.Variables[strings.TrimPrefix(k, "$")] = v
-		}
-	}
-
-	l := parser.NewLexer(expr)
-	p := parser.NewParser(l)
-	program := p.ParseProgram()
-
-	if len(p.Errors()) > 0 {
-		return fmt.Sprintf("Error parsing view expression: %s | Details: %v", expr, p.Errors())
-	}
-
-	if len(program.Statements) == 0 {
-		return ""
-	}
-
-	// Evaluate the statements safely
-	for _, stmt := range program.Statements {
-		if exprStmt, ok := stmt.(*parser.ExpressionStatement); ok {
-			result = r.evaluateExpression(exprStmt.Expression)
-		} else {
-			result = r.executeStatement(stmt)
-		}
-	}
-	return result
-}
-
 var (
 	GlobalViewSharedData = make(map[string]interface{})
 )

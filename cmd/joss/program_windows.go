@@ -88,21 +88,6 @@ func launchProgramRuntime() {
 	r.ExecutePrepared(report.Prepared)
 }
 
-func readMainJossData() ([]byte, error) {
-	if server.GlobalFileSystem != nil {
-		content, errOpen := server.GlobalFileSystem.Open("main.joss")
-		if errOpen == nil {
-			defer content.Close()
-			stat, _ := content.Stat()
-			data := make([]byte, stat.Size())
-			_, errRead := content.Read(data)
-			return data, errRead
-		}
-		return nil, errOpen
-	}
-	return os.ReadFile("main.joss")
-}
-
 func launchGUIWindow(port string) {
 	title := "Joss Application"
 	envRes := core.DetectAndLoadEnv(server.GlobalFileSystem)

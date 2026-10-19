@@ -9,8 +9,11 @@ import (
 func TestRateLimiterOwnsWindowState(t *testing.T) {
 	limiter := rateLimiter{entries: make(map[string]rateLimitEntry)}
 	now := time.Unix(100, 0)
-	if !limiter.allow("client", 2, time.Minute, now) || !limiter.allow("client", 2, time.Minute, now) {
-		t.Fatal("rate limiter rejected a request within the configured limit")
+	if !limiter.allow("client", 2, time.Minute, now) {
+		t.Fatal("rate limiter rejected the first request within the configured limit")
+	}
+	if !limiter.allow("client", 2, time.Minute, now) {
+		t.Fatal("rate limiter rejected the second request within the configured limit")
 	}
 	if limiter.allow("client", 2, time.Minute, now) {
 		t.Fatal("rate limiter accepted a request above the configured limit")

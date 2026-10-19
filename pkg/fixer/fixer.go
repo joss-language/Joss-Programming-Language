@@ -33,8 +33,6 @@ var (
 	// Fix missing visibility: func name( -> public func name(
 	reFuncVisibility  = regexp.MustCompile(`(?m)^([ \t]*)func\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(`)
 	reClassVisibility = regexp.MustCompile(`(?m)^([ \t]*)class\s+([a-zA-Z_][a-zA-Z0-9_]*)`)
-	// Fix missing mixed param type: ($x -> (mixed $x, , $y -> , mixed $y
-	reUntypedParam = regexp.MustCompile(`([\(,]\s*)\$([a-zA-Z_][a-zA-Z0-9_]*)`)
 
 	// Fix empty ternary false branch: } : {} -> }
 	reEmptyTernaryElse = regexp.MustCompile(`\}\s*:\s*\{\s*\}`)

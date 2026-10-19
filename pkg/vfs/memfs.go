@@ -57,7 +57,7 @@ func (fs *MemFS) Open(name string) (http.File, error) {
 		dirPrefix += "/"
 	}
 
-	for fName, _ := range fs.Files {
+	for fName := range fs.Files {
 		if name == "" || strings.HasPrefix(fName, dirPrefix) {
 			// It's inside this directory
 			// Check if it's a direct child

@@ -419,14 +419,6 @@ func (b *MachineCodeBuilder) emitMovRCXData(dataOff uint32) {
 	b.relocs = append(b.relocs, machineReloc{kind: relocData, patchOffset: patchOff, targetOff: dataOff})
 }
 
-func (b *MachineCodeBuilder) emitMovRDXData(dataOff uint32) {
-	b.asmListing.WriteString(fmt.Sprintf("    mov rdx, [rip + data_0x%x]\n", dataOff))
-	b.emitBytes(0x48, 0x8B, 0x15)
-	patchOff := b.text.Len()
-	b.emitU32(0)
-	b.relocs = append(b.relocs, machineReloc{kind: relocData, patchOffset: patchOff, targetOff: dataOff})
-}
-
 func (b *MachineCodeBuilder) emitMovDataRAX(dataOff uint32) {
 	b.asmListing.WriteString(fmt.Sprintf("    mov [rip + data_0x%x], rax\n", dataOff))
 	b.emitBytes(0x48, 0x89, 0x05)

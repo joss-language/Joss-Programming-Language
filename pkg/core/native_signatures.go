@@ -41,10 +41,6 @@ func withNativeEffects(definition NativeMethodDefinition, effects ...string) Nat
 	return definition
 }
 
-func nativeMethod(name, returnName string) NativeMethodDefinition {
-	return NativeMethodDefinition{Name: name, ReturnType: typesystem.Parse(returnName), ContractStatus: NativeContractLegacyIncomplete}
-}
-
 func nativeMethodWithArity(name, returnName string, params ...NativeParameterDefinition) NativeMethodDefinition {
 	return NativeMethodDefinition{
 		Name:           name,

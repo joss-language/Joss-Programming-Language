@@ -14,38 +14,6 @@ import (
 
 var pluginMaterializeMu sync.Mutex
 
-func (r *Runtime) registerPluginABIPayload(name, version, root string, targets map[string]string, files map[string][]byte) error {
-	if len(targets) == 0 {
-		return nil
-	}
-	if existing := r.NativePlugins[name]; existing != nil && existing.Driver != "" {
-		return fmt.Errorf("plugin %s %s: no puede declarar driver duplicado", name, version)
-	}
-	target := runtime.GOOS + "-" + runtime.GOARCH
-	library, ok := targets[target]
-	if !ok {
-		return fmt.Errorf("plugin %s %s: no incluye biblioteca ABI para %s; disponibles: %v", name, version, target, sortedStringKeys(targets))
-	}
-	clean, err := safePluginRelativePath(library)
-	if err != nil {
-		return err
-	}
-	definition := &NativePluginDefinition{Name: name, Version: version, Root: root, Driver: name, ArchiveFiles: files}
-	r.NativePlugins[name] = definition
-	resolved, err := materializePluginPath(definition, clean)
-	if err != nil {
-		return err
-	}
-	driver, err := loadNativeDriver(name, resolved)
-	if err != nil {
-		return fmt.Errorf("plugin %s %s: no se pudo cargar ABI: %w", name, version, err)
-	}
-	if err := r.installNativeDriver(name, driver); err != nil {
-		return fmt.Errorf("plugin %s %s: no se pudo registrar ABI: %w", name, version, err)
-	}
-	return nil
-}
-
 func (r *Runtime) executePluginMethod(_ *Instance, method string, args []interface{}) interface{} {
 	switch method {
 	case "platform":
@@ -263,19 +231,4 @@ func normalizePluginJSON(value interface{}) interface{} {
 		return typed
 	}
 	return value
-}
-
-func sortedStringKeys(values map[string]string) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	for i := 0; i < len(keys); i++ {
-		for j := i + 1; j < len(keys); j++ {
-			if keys[j] < keys[i] {
-				keys[i], keys[j] = keys[j], keys[i]
-			}
-		}
-	}
-	return keys
 }

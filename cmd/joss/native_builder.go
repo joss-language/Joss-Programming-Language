@@ -382,99 +382,6 @@ func encryptProjectEnvironment(files map[string][]byte, enableGUI bool) {
 	}
 }
 
-func compileRunnerBinary(targetOS, targetArch string, enableGUI bool, detectedCaps map[string]bool) ([]byte, error) {
-	tempRunnerDir, err := os.MkdirTemp("", "joss-build-*")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(tempRunnerDir)
-
-	tempRunnerBin := filepath.Join(tempRunnerDir, "runner")
-	if targetOS == "windows" {
-		tempRunnerBin += ".exe"
-	}
-
-	repoRoot := ""
-	for check := "."; ; check = filepath.Join("..", check) {
-		absCheck, err := filepath.Abs(check)
-		if err != nil {
-			break
-		}
-		if _, err := os.Stat(filepath.Join(absCheck, "go.mod")); err == nil {
-			if _, err := os.Stat(filepath.Join(absCheck, "cmd", "runner")); err == nil {
-				repoRoot = absCheck
-				break
-			}
-		}
-		parent := filepath.Dir(absCheck)
-		if parent == absCheck {
-			break
-		}
-	}
-
-	runnerPkg := "github.com/jossecurity/joss/cmd/runner"
-	if repoRoot != "" {
-		runnerPkg = "./cmd/runner"
-	} else if _, err := os.Stat("cmd/runner"); err == nil {
-		runnerPkg = "./cmd/runner"
-	}
-
-	ldflags := "-s -w"
-	if targetOS == "windows" && enableGUI {
-		ldflags += " -H=windowsgui"
-	}
-
-	var tags []string
-	if !enableGUI {
-		tags = append(tags, "nogui")
-	}
-	if detectedCaps != nil && !detectedCaps["server"] && !detectedCaps["http"] && !enableGUI {
-		tags = append(tags, "cli")
-	}
-	if detectedCaps != nil && !detectedCaps["database"] && !detectedCaps["sqlite"] {
-		tags = append(tags, "nodb")
-	} else {
-		if detectedCaps != nil && !detectedCaps["mysql"] {
-			tags = append(tags, "nomysql")
-		}
-		if detectedCaps != nil && !detectedCaps["sqlite"] {
-			tags = append(tags, "nosqlite")
-		}
-	}
-
-	args := []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=" + ldflags}
-	if len(tags) > 0 {
-		args = append(args, "-tags="+strings.Join(tags, ","))
-	}
-	args = append(args, "-o", tempRunnerBin, runnerPkg)
-
-	cmd := exec.Command("go", args...)
-	if repoRoot != "" {
-		cmd.Dir = repoRoot
-	}
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+targetOS, "GOARCH="+targetArch)
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("%v: %s", err, string(out))
-	}
-
-	if upxPath := resolveOrDownloadUPX(); upxPath != "" {
-		fmt.Printf("⚡ Optimizando runtime nativo con UPX...\n")
-		upxCmd := exec.Command(upxPath, "--best", "--lzma", tempRunnerBin)
-		_ = upxCmd.Run()
-	}
-
-	return os.ReadFile(tempRunnerBin)
-}
-
-func compressFinalExecutableWithUPX(outPath string) {
-	if upxPath := resolveOrDownloadUPX(); upxPath != "" {
-		upxCmd := exec.Command(upxPath, "--best", "--lzma", outPath)
-		_ = upxCmd.Run()
-	}
-}
-
 // resolveOrDownloadUPX ensures a functional UPX executable is available.
 // It checks PATH, Joss tools directory, and automatically downloads a standalone binary if missing.
 func resolveOrDownloadUPX() string {
@@ -748,12 +655,4 @@ func copyDatabaseFiles(buildDir string) {
 		}
 		fmt.Printf("🗄️  %s\n", i18n.Tr("nativeBuildDbCopied"))
 	}
-}
-
-func getWorkingDir() string {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "app"
-	}
-	return dir
 }

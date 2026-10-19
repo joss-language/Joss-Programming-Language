@@ -366,7 +366,7 @@ func (r *Runtime) AutoloadPlugins(projectRoot string) {
 			GetFiles() map[string][]byte
 		}
 		// MemFS duck-typing sin acoplamiento circular
-		if mem, ok := GlobalFileSystem.(interface{ GetFiles() map[string][]byte }); ok {
+		if mem, ok := GlobalFileSystem.(vfsFileMap); ok {
 			for k, data := range mem.GetFiles() {
 				cleanKey := filepath.ToSlash(k)
 				if strings.HasPrefix(cleanKey, "plugins/") && strings.HasSuffix(cleanKey, ".jp") {

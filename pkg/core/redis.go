@@ -168,10 +168,7 @@ func (r *Runtime) executeRedisMethod(instance *Instance, method string, args []i
 		if len(args) >= 1 {
 			key := fmt.Sprintf("%v", args[0])
 			err := GlobalRedis.Del(Ctx, key).Err()
-			if err != nil {
-				return false
-			}
-			return true
+			return err == nil
 		}
 
 	case "has":

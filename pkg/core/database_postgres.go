@@ -102,17 +102,6 @@ func normalizeDatabaseDriver(driverName string) string {
 	}
 }
 
-func sqlDriverName(driverName string) string {
-	normalized := normalizeDatabaseDriver(driverName)
-	if normalized == "postgres" {
-		return postgresSQLDriver
-	}
-	if normalized == "sqlserver" {
-		return sqlServerDriverName
-	}
-	return normalized
-}
-
 // OpenConfiguredDatabase opens SQLite, MySQL, PostgreSQL or SQL Server using environment keys.
 func OpenConfiguredDatabase(driverName string, env map[string]string) (*sql.DB, error) {
 	driverName = normalizeDatabaseDriver(driverName)

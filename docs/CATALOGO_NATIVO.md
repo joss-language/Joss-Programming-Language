@@ -627,7 +627,7 @@ Implementación: [executeModelMethod](../pkg/core/model.go#L433).
 
 ## Plugin
 
-Implementación: [executePluginMethod](../pkg/core/native_plugin.go#L49).
+Implementación: [executePluginMethod](../pkg/core/native_plugin.go#L17).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -957,7 +957,7 @@ Implementación: [executeUserStorageMethod](../pkg/core/lib_storage.go#L15).
 
 ## View
 
-Implementación: [executeViewMethod](../pkg/core/view.go#L61).
+Implementación: [executeViewMethod](../pkg/core/view.go#L20).
 
 | Método | Retorno publicado al analizador |
 |---|---|
