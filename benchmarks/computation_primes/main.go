@@ -1,3 +1,5 @@
+//go:build ignore
+
 // Benchmark A: Prime Sieve (Go implementation)
 package main
 
