@@ -95,16 +95,6 @@ try {
     Remove-DistOutput
     New-Item -ItemType Directory -Force -Path $work, $dist | Out-Null
 
-    $runnerPath = Join-Path $root 'cmd/joss/runner_windows.exe'
-    $oldGOOS, $oldGOARCH, $oldCGO = $env:GOOS, $env:GOARCH, $env:CGO_ENABLED
-    try {
-        $env:GOOS, $env:GOARCH, $env:CGO_ENABLED = 'windows', 'amd64', '0'
-        Invoke-Checked 'Runner Windows embebido' {
-            go build -trimpath -o $runnerPath ./cmd/runner
-        }
-    } finally {
-        $env:GOOS, $env:GOARCH, $env:CGO_ENABLED = $oldGOOS, $oldGOARCH, $oldCGO
-    }
 
     if (-not $SkipTests) {
         Invoke-Checked 'Tests completos de Joss' { go test ./... }
