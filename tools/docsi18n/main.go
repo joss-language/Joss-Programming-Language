@@ -511,7 +511,7 @@ func newBingTranslator() (*bingTranslator, error) {
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Microsoft Translator session returned %s", response.Status)
+		return nil, fmt.Errorf("microsoft Translator session returned %s", response.Status)
 	}
 	page, err := io.ReadAll(response.Body)
 	if err != nil {
@@ -520,7 +520,7 @@ func newBingTranslator() (*bingTranslator, error) {
 	extract := func(pattern string) (string, error) {
 		match := regexp.MustCompile(pattern).FindSubmatch(page)
 		if len(match) != 2 {
-			return "", fmt.Errorf("Microsoft Translator session parameter not found")
+			return "", fmt.Errorf("microsoft Translator session parameter not found")
 		}
 		return string(match[1]), nil
 	}
@@ -534,7 +534,7 @@ func newBingTranslator() (*bingTranslator, error) {
 	}
 	abuse := regexp.MustCompile(`params_AbusePreventionHelper\s*=\s*\[([0-9]+),"([^"]+)"`).FindSubmatch(page)
 	if len(abuse) != 3 {
-		return nil, fmt.Errorf("Microsoft Translator anti-abuse parameters not found")
+		return nil, fmt.Errorf("microsoft Translator anti-abuse parameters not found")
 	}
 	return &bingTranslator{client: client, ig: ig, iid: iid, key: string(abuse[1]), token: string(abuse[2])}, nil
 }
@@ -559,7 +559,7 @@ func (translator *bingTranslator) translate(text, locale string) (string, error)
 		return "", err
 	}
 	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Microsoft Translator returned %s: %s", response.Status, strings.TrimSpace(string(body)))
+		return "", fmt.Errorf("microsoft Translator returned %s: %s", response.Status, strings.TrimSpace(string(body)))
 	}
 	var payload []struct {
 		Translations []struct {

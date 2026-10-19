@@ -125,8 +125,7 @@ func build(metadata Metadata, files map[string][]byte) ([]byte, error) {
 			_ = zw.Close()
 			return nil, fmt.Errorf("jp: %s excede %d MiB", name, MaxFileSize>>20)
 		}
-		header := &zip.FileHeader{Name: name, Method: zip.Deflate}
-		header.SetModTime(fixedTime)
+		header := &zip.FileHeader{Name: name, Method: zip.Deflate, Modified: fixedTime}
 		header.SetMode(0644)
 		if isNativeTarget(metadata.Native, name) {
 			header.SetMode(0755)

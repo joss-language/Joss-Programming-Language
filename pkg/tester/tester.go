@@ -125,7 +125,7 @@ func (r *Runner) runTestFile(filePath string) (TestSuite, error) {
 	p := parser.NewParser(l)
 	prog := p.ParseProgram()
 	if len(p.Errors()) > 0 {
-		return suite, fmt.Errorf("Syntax error in test file: %v", p.Errors()[0])
+		return suite, fmt.Errorf("syntax error in test file: %v", p.Errors()[0])
 	}
 
 	rt := core.NewRuntime()

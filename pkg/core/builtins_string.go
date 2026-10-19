@@ -297,7 +297,7 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 	case "ucwords":
 		if len(args) > 0 {
 			str := fmt.Sprintf("%v", args[0])
-			return strings.Title(str), true
+			return titleCaseWords(str), true
 		}
 		return "", true
 
@@ -489,4 +489,22 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 	}
 
 	return nil, false
+}
+
+func titleCaseWords(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	capNext := true
+	for _, r := range s {
+		if unicode.IsSpace(r) {
+			capNext = true
+			b.WriteRune(r)
+		} else if capNext {
+			b.WriteRune(unicode.ToTitle(r))
+			capNext = false
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }

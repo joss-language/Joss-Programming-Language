@@ -58,6 +58,7 @@ func (c *postgresRebindingConn) BeginTx(ctx context.Context, opts driver.TxOptio
 	if beginner, ok := c.Conn.(driver.ConnBeginTx); ok {
 		return beginner.BeginTx(ctx, opts)
 	}
+	//lint:ignore SA1019 fallback for legacy drivers that only implement driver.Conn
 	return c.Conn.Begin()
 }
 

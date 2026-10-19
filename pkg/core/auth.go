@@ -838,7 +838,7 @@ func (r *Runtime) createAuthLoginResultForUser(userId int) (*Instance, error) {
 
 	err := r.databaseExecutor().QueryRow(query, userId).Scan(&email, &username, &roleName)
 	if err != nil {
-		return nil, fmt.Errorf("User with ID %d not found: %w", userId, err)
+		return nil, fmt.Errorf("user with ID %d not found: %w", userId, err)
 	}
 
 	resFields := make(map[string]interface{})

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "modernc.org/sqlite"
@@ -90,7 +91,7 @@ func createCRUD(tableName string) error {
 	camelPrefix := snakeToCamel(prefix)
 	modelName = strings.TrimPrefix(modelName, camelPrefix)
 	// Use singularize helper
-	modelName = strings.Title(singularize(modelName))
+	modelName = titleCase(singularize(modelName))
 
 	// Model
 	createModel(modelName)
@@ -99,7 +100,7 @@ func createCRUD(tableName string) error {
 	for _, rel := range relations {
 		relModelName := snakeToCamel(rel.Table)
 		relModelName = strings.TrimPrefix(relModelName, camelPrefix)
-		relModelName = strings.Title(singularize(relModelName))
+		relModelName = titleCase(singularize(relModelName))
 
 		path := filepath.Join("app", "models", relModelName+".joss")
 		if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -165,7 +166,7 @@ func createCRUDController(modelName, tableName string, cols []ColumnSchema, rela
 			_, _, _, _, _, _, prefix := loadEnvConfig()
 			camelPrefix := snakeToCamel(prefix)
 			relModel = strings.TrimPrefix(relModel, camelPrefix)
-			relModel = strings.Title(singularize(relModel))
+			relModel = titleCase(singularize(relModel))
 			varName := strings.ToLower(pluralize(relModel)) // roles
 			createLogic += fmt.Sprintf("\n        var $%sModel = new %s()", strings.ToLower(relModel), relModel)
 			createLogic += fmt.Sprintf("\n        var $%s = $%sModel->get()", varName, strings.ToLower(relModel))
@@ -331,7 +332,7 @@ func generateIndexHeaders(cols []ColumnSchema, relations []Relation) string {
 		headerName := c.Name
 		for _, rel := range relations {
 			if c.Name == rel.ForeignKey {
-				headerName = strings.Title(strings.Replace(rel.Alias, "_", " ", -1))
+				headerName = titleCase(strings.Replace(rel.Alias, "_", " ", -1))
 				break
 			}
 		}
@@ -380,7 +381,7 @@ func generateFormFields(cols []ColumnSchema, relations []Relation, isEdit bool) 
 			_, _, _, _, _, _, prefix := loadEnvConfig()
 			camelPrefix := snakeToCamel(prefix)
 			relModel = strings.TrimPrefix(relModel, camelPrefix)
-			relModel = strings.Title(singularize(relModel))
+			relModel = titleCase(singularize(relModel))
 			varName := strings.ToLower(pluralize(relModel))
 
 			selectedValue := ""
@@ -397,7 +398,7 @@ func generateFormFields(cols []ColumnSchema, relations []Relation, isEdit bool) 
                 @endforeach
             </select>
         </div>
-`, strings.Title(strings.Replace(c.Name, "_", " ", -1)), c.Name, relModel, varName, selectedValue, relData.DisplayCol)
+`, titleCase(strings.Replace(c.Name, "_", " ", -1)), c.Name, relModel, varName, selectedValue, relData.DisplayCol)
 		} else {
 			valueAttr := ""
 			if isEdit {
@@ -512,7 +513,7 @@ func removeCRUD(tableName string) {
 	_, _, _, _, _, _, prefix := loadEnvConfig()
 	camelPrefix := snakeToCamel(prefix)
 	modelName = strings.TrimPrefix(modelName, camelPrefix)
-	modelName = strings.Title(singularize(modelName))
+	modelName = titleCase(singularize(modelName))
 
 	fmt.Printf("Inferred Model Name: %s\n", modelName)
 
@@ -584,4 +585,22 @@ func removeCRUD(tableName string) {
 	}
 
 	fmt.Println("CRUD removal complete.")
+}
+
+func titleCase(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	capNext := true
+	for _, r := range s {
+		if unicode.IsSpace(r) || r == '_' || r == '-' {
+			capNext = true
+			b.WriteRune(r)
+		} else if capNext {
+			b.WriteRune(unicode.ToTitle(r))
+			capNext = false
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }

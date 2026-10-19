@@ -90,7 +90,7 @@ func (r *Runtime) GenerateSocialAuthURL(provider, redirectURI, state string) (st
 		clientID = r.getEnvOrOs("TWITTER_CLIENT_ID")
 	}
 	if clientID == "" {
-		return "", fmt.Errorf("Social auth error: %s credentials (client_id) not configured", norm)
+		return "", fmt.Errorf("social auth error: %s credentials (client_id) not configured", norm)
 	}
 
 	if state == "" {
@@ -141,7 +141,7 @@ func (r *Runtime) GenerateSocialAuthURL(provider, redirectURI, state string) (st
 		scope = "openid profile email"
 
 	default:
-		return "", fmt.Errorf("Social auth provider %s is not supported", norm)
+		return "", fmt.Errorf("social auth provider %s is not supported", norm)
 	}
 
 	v := url.Values{}
@@ -172,7 +172,7 @@ func (r *Runtime) HandleSocialCallback(provider, code, redirectURI string) (*Ins
 	}
 
 	if clientID == "" || clientSecret == "" {
-		return nil, fmt.Errorf("Social auth credentials not configured for %s", norm)
+		return nil, fmt.Errorf("social auth credentials not configured for %s", norm)
 	}
 
 	userInfo, err := r.exchangeCodeAndFetchUser(norm, clientID, clientSecret, code, redirectURI)
@@ -200,7 +200,7 @@ func (r *Runtime) HandleSocialCallback(provider, code, redirectURI string) (*Ins
 	if err == nil && existingUserId > 0 {
 		// Existing user found by social account
 		if loggedInUserId > 0 && existingUserId != loggedInUserId {
-			return nil, fmt.Errorf("Esta cuenta de %s ya está vinculada a otro usuario.", norm)
+			return nil, fmt.Errorf("esta cuenta de %s ya está vinculada a otro usuario", norm)
 		}
 		return r.createAuthLoginResultForUser(existingUserId)
 	}
@@ -280,13 +280,13 @@ func (r *Runtime) HandleSocialCallback(provider, code, redirectURI string) (*Ins
 
 	insertRes := r.insertFromMap(usersTable, newUserData, false)
 	if insertRes == nil || insertRes == false {
-		return nil, fmt.Errorf("Fallo al registrar usuario por login social %s", norm)
+		return nil, fmt.Errorf("fallo al registrar usuario por login social %s", norm)
 	}
 
 	var newUserId int
 	err = r.databaseExecutor().QueryRow(fmt.Sprintf("SELECT id FROM %s WHERE email = ? LIMIT 1", usersTable), userEmail).Scan(&newUserId)
 	if err != nil || newUserId == 0 {
-		return nil, fmt.Errorf("Fallo al recuperar ID de usuario registrado socialmente")
+		return nil, fmt.Errorf("fallo al recuperar ID de usuario registrado socialmente")
 	}
 
 	// Link social account
@@ -323,7 +323,7 @@ func (r *Runtime) exchangeCodeAndFetchUser(provider, clientID, clientSecret, cod
 		json.NewDecoder(resp.Body).Decode(&tokenRes)
 		accessToken, _ := tokenRes["access_token"].(string)
 		if accessToken == "" {
-			return nil, fmt.Errorf("No access token in response: %v", tokenRes)
+			return nil, fmt.Errorf("no access token in response: %v", tokenRes)
 		}
 
 		req, _ := http.NewRequest("GET", "https://www.googleapis.com/oauth2/v3/userinfo", nil)
@@ -366,7 +366,7 @@ func (r *Runtime) exchangeCodeAndFetchUser(provider, clientID, clientSecret, cod
 		json.NewDecoder(resp.Body).Decode(&tokenRes)
 		accessToken, _ := tokenRes["access_token"].(string)
 		if accessToken == "" {
-			return nil, fmt.Errorf("No access token in GitHub response: %v", tokenRes)
+			return nil, fmt.Errorf("no access token in GitHub response: %v", tokenRes)
 		}
 
 		uReq, _ := http.NewRequest("GET", "https://api.github.com/user", nil)
@@ -433,7 +433,7 @@ func (r *Runtime) exchangeCodeAndFetchUser(provider, clientID, clientSecret, cod
 		json.NewDecoder(resp.Body).Decode(&tokenRes)
 		accessToken, _ := tokenRes["access_token"].(string)
 		if accessToken == "" {
-			return nil, fmt.Errorf("No access token in Microsoft response: %v", tokenRes)
+			return nil, fmt.Errorf("no access token in Microsoft response: %v", tokenRes)
 		}
 
 		uReq, _ := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/me", nil)
@@ -477,7 +477,7 @@ func (r *Runtime) exchangeCodeAndFetchUser(provider, clientID, clientSecret, cod
 		json.NewDecoder(resp.Body).Decode(&tokenRes)
 		accessToken, _ := tokenRes["access_token"].(string)
 		if accessToken == "" {
-			return nil, fmt.Errorf("No access token in Facebook response: %v", tokenRes)
+			return nil, fmt.Errorf("no access token in Facebook response: %v", tokenRes)
 		}
 
 		uURL := fmt.Sprintf("https://graph.facebook.com/me?fields=id,name,first_name,last_name,email,picture.type(large)&access_token=%s", url.QueryEscape(accessToken))
@@ -527,7 +527,7 @@ func (r *Runtime) exchangeCodeAndFetchUser(provider, clientID, clientSecret, cod
 		json.NewDecoder(resp.Body).Decode(&tokenRes)
 		accessToken, _ := tokenRes["access_token"].(string)
 		if accessToken == "" {
-			return nil, fmt.Errorf("No access token in X response: %v", tokenRes)
+			return nil, fmt.Errorf("no access token in X response: %v", tokenRes)
 		}
 
 		uReq, _ := http.NewRequest("GET", "https://api.twitter.com/2/users/me?user.fields=profile_image_url,name,username", nil)
@@ -566,7 +566,7 @@ func (r *Runtime) exchangeCodeAndFetchUser(provider, clientID, clientSecret, cod
 		json.NewDecoder(resp.Body).Decode(&tokenRes)
 		accessToken, _ := tokenRes["access_token"].(string)
 		if accessToken == "" {
-			return nil, fmt.Errorf("No access token in Twitch response: %v", tokenRes)
+			return nil, fmt.Errorf("no access token in Twitch response: %v", tokenRes)
 		}
 
 		uReq, _ := http.NewRequest("GET", "https://api.twitch.tv/helix/users", nil)
@@ -610,7 +610,7 @@ func (r *Runtime) exchangeCodeAndFetchUser(provider, clientID, clientSecret, cod
 		json.NewDecoder(resp.Body).Decode(&tokenRes)
 		accessToken, _ := tokenRes["access_token"].(string)
 		if accessToken == "" {
-			return nil, fmt.Errorf("No access token in Yahoo response: %v", tokenRes)
+			return nil, fmt.Errorf("no access token in Yahoo response: %v", tokenRes)
 		}
 
 		uReq, _ := http.NewRequest("GET", "https://api.login.yahoo.com/v1/userinfo", nil)
@@ -654,17 +654,17 @@ func (r *Runtime) exchangeCodeAndFetchUser(provider, clientID, clientSecret, cod
 
 		idToken, _ := tokenRes["id_token"].(string)
 		if idToken == "" {
-			return nil, fmt.Errorf("No id_token in Apple response: %s", string(bodyBytes))
+			return nil, fmt.Errorf("no id_token in Apple response: %s", string(bodyBytes))
 		}
 
 		// Decode payload part of JWT
 		parts := strings.Split(idToken, ".")
 		if len(parts) < 2 {
-			return nil, fmt.Errorf("Invalid Apple id_token JWT structure")
+			return nil, fmt.Errorf("invalid Apple id_token JWT structure")
 		}
 		payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
 		if err != nil {
-			return nil, fmt.Errorf("Failed to decode Apple id_token payload: %w", err)
+			return nil, fmt.Errorf("failed to decode Apple id_token payload: %w", err)
 		}
 		var claims map[string]interface{}
 		json.Unmarshal(payloadBytes, &claims)
@@ -676,7 +676,7 @@ func (r *Runtime) exchangeCodeAndFetchUser(provider, clientID, clientSecret, cod
 		}, nil
 	}
 
-	return nil, fmt.Errorf("Provider %s not supported", provider)
+	return nil, fmt.Errorf("provider %s not supported", provider)
 }
 
 func generateRandomState() string {
