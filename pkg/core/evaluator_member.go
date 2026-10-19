@@ -109,11 +109,13 @@ func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 		removeModelConfigurationFields(instance.Fields)
 	}
 
-	capturedRuntime := r.Fork()
-	runtime.SetFinalizer(instance, func(inst *Instance) {
-		defer capturedRuntime.Free()
-		inst.AutoDestroy(capturedRuntime)
-	})
+	if instance.hasDestructorOrResources() {
+		capturedRuntime := r.Fork()
+		runtime.SetFinalizer(instance, func(inst *Instance) {
+			defer capturedRuntime.Free()
+			inst.AutoDestroy(capturedRuntime)
+		})
+	}
 
 	return instance
 }
@@ -431,7 +433,9 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 
 	if val, ok := instance.Fields[propName]; ok {
 		if declaration, owner := r.lookupInstanceFieldOwner(instance, propName); declaration != nil {
-			r.requireMemberAccess(declaration.Visibility, owner, propName, me.Property.Token.Line)
+			if declaration.Visibility != "public" && r.currentClass != owner {
+				r.requireMemberAccess(declaration.Visibility, owner, propName, me.Property.Token.Line)
+			}
 		}
 		return val
 	}

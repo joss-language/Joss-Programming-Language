@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/jossecurity/joss/pkg/parser"
+	runtimeplan "github.com/jossecurity/joss/pkg/runtime/plan"
 	"github.com/jossecurity/joss/pkg/typesystem"
 )
 
@@ -16,6 +17,7 @@ type classFieldInfo struct {
 type classMethodInfo struct {
 	Method     *parser.MethodStatement
 	OwnerClass string
+	Plan       *runtimeplan.Callable
 }
 
 type classMetadata struct {
@@ -95,9 +97,12 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 				if node.Name == nil {
 					continue
 				}
+				methodPlan := runtimeplan.CompileMethod(node, true)
+				methodPlan.Owner = cls.Name.Value
 				meta.Methods[node.Name.Value] = &classMethodInfo{
 					Method:     node,
 					OwnerClass: cls.Name.Value,
+					Plan:       methodPlan,
 				}
 				if node.Name.Value == "constructor" || node.Name.Value == "main" || node.Name.Value == "Init" {
 					if cls == classStmt {

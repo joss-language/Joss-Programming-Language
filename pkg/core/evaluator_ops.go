@@ -192,7 +192,7 @@ func (r *Runtime) collectionElementType(expression parser.Expression) *typesyste
 }
 
 func (r *Runtime) evaluateArray(al *parser.ArrayLiteral) []interface{} {
-	elements := []interface{}{}
+	elements := make([]interface{}, 0, len(al.Elements))
 	for _, el := range al.Elements {
 		if spread, ok := el.(*parser.SpreadExpression); ok {
 			val := r.evaluateExpression(spread.Expression)
@@ -214,7 +214,7 @@ func (r *Runtime) evaluateArray(al *parser.ArrayLiteral) []interface{} {
 }
 
 func (r *Runtime) evaluateMap(ml *parser.MapLiteral) map[string]interface{} {
-	m := make(map[string]interface{})
+	m := make(map[string]interface{}, len(ml.Pairs))
 	for k, v := range ml.Pairs {
 		if spread, ok := k.(*parser.SpreadExpression); ok {
 			val := r.evaluateExpression(spread.Expression)
@@ -354,7 +354,9 @@ func (r *Runtime) setInstanceField(instance *Instance, name string, value interf
 		}
 	}
 	if declaration, owner := r.lookupInstanceFieldOwner(instance, name); declaration != nil {
-		r.requireMemberAccess(declaration.Visibility, owner, name, line)
+		if declaration.Visibility != "public" && r.currentClass != owner {
+			r.requireMemberAccess(declaration.Visibility, owner, name, line)
+		}
 		declaredType := declaration.Token.Literal
 		if declaredType != "" && declaredType != "var" && declaredType != "mixed" {
 			prevClass := r.currentClass

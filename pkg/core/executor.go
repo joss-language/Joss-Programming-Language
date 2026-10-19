@@ -205,7 +205,9 @@ func (r *Runtime) executeMain(program *parser.Program) {
 }
 
 func (r *Runtime) executeBlock(block *parser.BlockStatement) interface{} {
-	r.checkExecutionCancelled()
+	if r.executionContext != nil {
+		r.checkExecutionCancelled()
+	}
 	var result interface{}
 	for _, stmt := range block.Statements {
 		result = r.executeStatement(stmt)
@@ -225,7 +227,9 @@ func (r *Runtime) registerClass(stmt *parser.ClassStatement) {
 }
 
 func (r *Runtime) executeStatement(stmt parser.Statement) interface{} {
-	r.checkExecutionCancelled()
+	if r.executionContext != nil {
+		r.checkExecutionCancelled()
+	}
 	switch s := stmt.(type) {
 	case *parser.LetStatement:
 		if _, resolved := r.slotForIdentifier(s.Name); resolved {

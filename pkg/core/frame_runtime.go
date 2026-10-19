@@ -142,12 +142,24 @@ func (r *Runtime) assignSlot(slot *runtimeframe.Slot, value interface{}, initial
 	if slot.Constant && slot.Initialized && !initializing {
 		panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede reasignarse", slot.Name), File: r.CurrentFile})
 	}
+	// Fast-path: reassigning an integer slot with an integer value
+	if !initializing && slot.Value.Kind == runtimeframe.Int {
+		if n, ok := value.(int64); ok {
+			slot.SetInt(n)
+			return n
+		}
+		if n, ok := value.(int); ok {
+			n64 := int64(n)
+			slot.SetInt(n64)
+			return n64
+		}
+	}
 	if slot.TypeName != "" && slot.Type.Kind != typesystem.Mixed && slot.Type.Kind != typesystem.Unknown {
 		value = r.coerceToParsedType(value, slot.Type)
 		if !r.checkParsedType(value, slot.Type) {
 			panic(&JossError{Type: "TypeError", Message: fmt.Sprintf("Error de Tipado: La variable '%s' requiere %s", slot.Name, slot.Type.String()), File: r.CurrentFile})
 		}
-	} else if slot.Inferred && value != nil {
+	} else if slot.Inferred && initializing && value != nil {
 		inferred := runtimeTypeOf(value)
 		if inferred.IsKnown() {
 			slot.Type = inferred

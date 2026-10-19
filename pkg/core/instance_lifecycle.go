@@ -64,6 +64,27 @@ func (i *Instance) findDestructor() *parser.MethodStatement {
 	return nil
 }
 
+func (i *Instance) hasDestructorOrResources() bool {
+	if i == nil {
+		return false
+	}
+	if i.findDestructor() != nil {
+		return true
+	}
+	for _, v := range i.Fields {
+		if v == nil {
+			continue
+		}
+		if _, ok := v.(io.Closer); ok {
+			return true
+		}
+		if ch, ok := v.(*Channel); ok && ch != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func closeFieldResource(val interface{}) {
 	if val == nil {
 		return

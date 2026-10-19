@@ -277,6 +277,9 @@ func isFalsy(val interface{}) bool {
 }
 
 func isTruthy(val interface{}) bool {
+	if b, ok := val.(bool); ok {
+		return b
+	}
 	return !isFalsy(val)
 }
 

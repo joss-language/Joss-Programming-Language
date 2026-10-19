@@ -81,6 +81,20 @@ func (slot *Slot) Set(value interface{}) {
 	slot.Initialized = true
 }
 
+func (slot *Slot) SetInt(value int64) {
+	slot.Value.Kind = Int
+	slot.Value.Integer = value
+	slot.Value.Dynamic = nil
+	slot.Initialized = true
+}
+
+func (slot *Slot) SetBool(value bool) {
+	slot.Value.Kind = Bool
+	slot.Value.Boolean = value
+	slot.Value.Dynamic = nil
+	slot.Initialized = true
+}
+
 func (slot *Slot) Clear() {
 	*slot = Slot{}
 }

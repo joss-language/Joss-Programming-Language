@@ -251,11 +251,24 @@ func (r *Runtime) slotIntegerOperand(expression parser.Expression) (int64, bool)
 	case *parser.IntegerLiteral:
 		return node.Value, true
 	case *parser.Identifier:
-		slot, resolved := r.slotForIdentifier(node)
-		if !resolved || !slot.Initialized || slot.Value.Kind != runtimeframe.Int {
-			return 0, false
+		if r.currentFrame != nil {
+			slot, resolved := r.slotForIdentifier(node)
+			if !resolved || !slot.Initialized || slot.Value.Kind != runtimeframe.Int {
+				return 0, false
+			}
+			return slot.Value.Integer, true
 		}
-		return slot.Value.Integer, true
+		if val, ok := r.Variables[node.Value]; ok {
+			return runtimeInteger(val)
+		}
+		return 0, false
+	case *parser.InfixExpression:
+		if res, handled := r.evaluateSlotIntegerInfix(node); handled {
+			if n, ok := res.(int64); ok {
+				return n, true
+			}
+		}
+		return 0, false
 	default:
 		return 0, false
 	}
