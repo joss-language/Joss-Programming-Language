@@ -1,0 +1,64 @@
+public class Sorter {
+    public array $arr = [];
+
+    public func setArr(array $a): void {
+        $this->arr = $a;
+    }
+
+    public func swap(int $i, int $j): void {
+        var $t = $this->arr[$i];
+        $this->arr[$i] = $this->arr[$j];
+        $this->arr[$j] = $t;
+    }
+
+    public func partition(int $low, int $high): int {
+        var $pivot = $this->arr[$high];
+        var $i = $low - 1;
+        var $j = $low;
+        while ($j < $high) {
+            ($this->arr[$j] <= $pivot) ? {
+                $i = $i + 1;
+                $this->swap($i, $j);
+            } : null;
+            $j = $j + 1;
+        }
+        $this->swap($i + 1, $high);
+        return $i + 1;
+    }
+
+    public func sort(int $low, int $high): void {
+        ($low < $high) ? {
+            var $pi = $this->partition($low, $high);
+            $this->sort($low, $pi - 1);
+            $this->sort($pi + 1, $high);
+        } : null;
+    }
+}
+
+var $N = 50000;
+var $state = 123456789;
+var $data = [];
+var $idx = 0;
+while ($idx < $N) {
+    $state = ($state * 1664525 + 1013904223) % 2147483648;
+    $data[] = $state;
+    $idx = $idx + 1;
+}
+
+var $sorter = new Sorter();
+$sorter->setArr($data);
+
+var $start = microtime(true);
+$sorter->sort(0, $N - 1);
+var $end = microtime(true);
+
+var $v = 0;
+while ($v < $N - 1) {
+    ($sorter->arr[$v] > $sorter->arr[$v + 1]) ? {
+        throw new Exception("Error: Array not sorted\n");
+    } : null;
+    $v = $v + 1;
+}
+
+var $elapsed_ms = ($end - $start) * 1000.0;
+echo("Quicksort sorted " . $N . " elements in " . $elapsed_ms . " ms\n");

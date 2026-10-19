@@ -1,0 +1,33 @@
+var $N = 50000;
+var $start = microtime(true);
+var $map = {};
+
+// Insertion
+var $i = 0;
+while ($i < $N) {
+    var $key = "user_key_" . $i;
+    var $val = "val_" . $i;
+    $map[$key] = $val;
+    $i = $i + 1;
+}
+
+// Lookup
+var $hits = 0;
+var $j = 0;
+while ($j < $N) {
+    var $key2 = "user_key_" . $j;
+    var $expected = "val_" . $j;
+    ($map[$key2] == $expected) ? {
+        $hits = $hits + 1;
+    } : null;
+    $j = $j + 1;
+}
+
+var $end = microtime(true);
+var $elapsed_ms = ($end - $start) * 1000.0;
+
+($hits != $N) ? {
+    throw new Exception("Verification failed: hits = " . $hits . " expected " . $N);
+} : null;
+
+echo("HashMap inserted and queried " . $N . " items (" . $hits . " hits) in " . $elapsed_ms . " ms\n");

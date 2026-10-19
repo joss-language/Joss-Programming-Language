@@ -1,0 +1,33 @@
+public func computeChunk(int $startK, int $endK): int {
+    var $total = 0;
+    var $k = $startK;
+    while ($k <= $endK) {
+        var $taskSum = 0;
+        var $j = 1;
+        while ($j <= 500) {
+            $taskSum = $taskSum + (($j * 17 + $k * 31) % 1000);
+            $j = $j + 1;
+        }
+        $total = $total + $taskSum;
+        $k = $k + 1;
+    }
+    return $total;
+}
+
+var $start = microtime(true);
+
+var $f0 = async { return computeChunk(1, 100); };
+var $f1 = async { return computeChunk(101, 200); };
+var $f2 = async { return computeChunk(201, 300); };
+var $f3 = async { return computeChunk(301, 400); };
+var $f4 = async { return computeChunk(401, 500); };
+var $f5 = async { return computeChunk(501, 600); };
+var $f6 = async { return computeChunk(601, 700); };
+var $f7 = async { return computeChunk(701, 800); };
+
+var $grandTotal = await($f0) + await($f1) + await($f2) + await($f3) + await($f4) + await($f5) + await($f6) + await($f7);
+
+var $end = microtime(true);
+var $elapsed_ms = ($end - $start) * 1000.0;
+
+echo("Concurrency 8 workers processed 800 tasks: checksum=" . $grandTotal . " in " . $elapsed_ms . " ms\n");

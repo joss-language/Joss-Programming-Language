@@ -1,0 +1,34 @@
+var $start = microtime(true);
+
+var $content = file_get_contents("benchmarks/io_csv_stats/data.csv");
+var $lines = explode("\n", $content);
+var $totalLines = count($lines);
+
+var $matchingCount = 0;
+var $totalRawSales = 0.0;
+var $totalTaxedValue = 0.0;
+
+var $i = 1;
+while ($i < $totalLines) {
+    var $line = $lines[$i];
+    (strlen($line) > 5) ? {
+        var $parts = explode(",", $line);
+        (count($parts) >= 6) ? {
+            var $region = $parts[1];
+            var $qty = intval($parts[4]);
+            ($region == "North" && $qty >= 5) ? {
+                var $sales = floatval($parts[3]);
+                var $tax = floatval($parts[5]);
+                $matchingCount = $matchingCount + 1;
+                $totalRawSales = $totalRawSales + $sales;
+                $totalTaxedValue = $totalTaxedValue + ($sales * floatval($qty) * (1.0 + $tax));
+            } : null;
+        } : null;
+    } : null;
+    $i = $i + 1;
+}
+
+var $end = microtime(true);
+var $elapsed_ms = ($end - $start) * 1000.0;
+
+echo("CSV Stats: matches=" . $matchingCount . ", raw=" . $totalRawSales . ", taxed=" . $totalTaxedValue . " in " . $elapsed_ms . " ms\n");

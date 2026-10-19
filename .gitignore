@@ -4,6 +4,11 @@
 *.exe.old
 *.dll
 *.so
+*.jar
+*.class
+*.o
+*.obj
+*.pdb
 *.dylib
 /build/
 /runner
@@ -77,4 +82,5 @@ coverage.html
 coverage
 
 # Configuración local del IDE (VS Code SonarLint/SonarQube)
-.sonarlint/
+.sonarlint/results.xml
+data.csv
