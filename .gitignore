@@ -84,3 +84,6 @@ coverage
 # Configuración local del IDE (VS Code SonarLint/SonarQube)
 .sonarlint/results.xml
 data.csv
+
+**/bin/
+**/obj/

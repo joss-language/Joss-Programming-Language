@@ -1,0 +1,40 @@
+funcion contarPrimos(limite) {
+    si limite < 2 {
+        retornar 0
+    }
+    var criba = []
+    var i = 0
+    mientras i <= limite {
+        criba.agregar(1)
+        i = i + 1
+    }
+    criba[0] = 0
+    criba[1] = 0
+    var p = 2
+    mientras p * p <= limite {
+        si criba[p] == 1 {
+            var k = p * p
+            mientras k <= limite {
+                criba[k] = 0
+                k = k + p
+            }
+        }
+        p = p + 1
+    }
+    var conteo = 0
+    var j = 2
+    mientras j <= limite {
+        si criba[j] == 1 {
+            conteo = conteo + 1
+        }
+        j = j + 1
+    }
+    retornar conteo
+}
+
+var inicio = reloj()
+var total = contarPrimos(1000000)
+var fin = reloj()
+var tiempoMs = (fin - inicio) * 1000.0
+
+imprimir("LIMIT=1000000 COUNT=" , total , " TIME_MS=" , tiempoMs)

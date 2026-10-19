@@ -1,0 +1,32 @@
+funcion mandelbrot(n, max_iter) {
+    var v_total = 0
+    var v_y = 0
+    var v_dim = n * 1.0
+    mientras v_y < n {
+        var v_ci = -1.25 + (2.5 * v_y / v_dim)
+        var v_x = 0
+        mientras v_x < n {
+            var v_cr = -2.0 + (2.5 * v_x / v_dim)
+            var v_zr = 0.0
+            var v_zi = 0.0
+            var v_it = 0
+            mientras v_it < max_iter y (v_zr * v_zr + v_zi * v_zi) <= 4.0 {
+                var v_zr2 = v_zr * v_zr
+                var v_zi2 = v_zi * v_zi
+                v_zi = 2.0 * v_zr * v_zi + v_ci
+                v_zr = v_zr2 - v_zi2 + v_cr
+                v_it = v_it + 1
+            }
+            v_total = v_total + v_it
+            v_x = v_x + 1
+        }
+        v_y = v_y + 1
+    }
+    retornar v_total
+}
+
+var t1 = reloj()
+var res = mandelbrot(500, 50)
+var t2 = reloj()
+var ms = (t2 - t1) * 1000.0
+imprimir("total=" , res , " time=" , ms , "ms")
