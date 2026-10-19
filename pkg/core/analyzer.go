@@ -68,7 +68,7 @@ func AnalyzeSourceUnitsForMigration(units []semanticanalyzer.SourceUnit) *Analys
 }
 
 func analyzeSourceUnits(units []semanticanalyzer.SourceUnit, migrationWarnings bool) *AnalysisReport {
-	environment := buildAnalysisEnvironment()
+	environment := BuildAnalysisEnvironment()
 	environment.MigrationWarnings = migrationWarnings
 	prepared := semanticanalyzer.PrepareProgram(units, environment)
 	return &AnalysisReport{Diagnostics: append([]diagnostics.Diagnostic(nil), prepared.Diagnostics...), Prepared: prepared}
@@ -78,9 +78,13 @@ func AnalysisReportFromDiagnostics(items []diagnostics.Diagnostic) *AnalysisRepo
 	return &AnalysisReport{Diagnostics: append([]diagnostics.Diagnostic(nil), items...)}
 }
 
-// buildAnalysisEnvironment adapts the runtime's actual registries. It avoids a
+// BuildAnalysisEnvironment adapts the runtime's actual registries. It avoids a
 // second hand-maintained class/function table: core natives and loaded plugin
 // symbol indexes are the source of truth for the analyzer as well as execution.
+func BuildAnalysisEnvironment() semanticanalyzer.Environment {
+	return buildAnalysisEnvironment()
+}
+
 func buildAnalysisEnvironment() semanticanalyzer.Environment {
 	environment := semanticanalyzer.NewEnvironment()
 	for _, definition := range builtinDefinitions {

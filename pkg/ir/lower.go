@@ -1489,6 +1489,22 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			if len(args) > 0 {
 				retType = args[0].Type()
 			}
+		case "abs", "intval", "strlen", "len", "count":
+			retType = TypeI64
+		case "boolval":
+			retType = TypeBool
+		case "min", "max":
+			if len(args) > 0 {
+				retType = args[0].Type()
+			} else {
+				retType = TypeI64
+			}
+		case "array_pop":
+			if len(args) > 0 && args[0].Type().Kind == TypeKindArray && args[0].Type().Elem != nil {
+				retType = *args[0].Type().Elem
+			} else {
+				retType = TypeI64
+			}
 		case "GranDB_table", "GranDB_where", "GranDB_orWhere", "GranDB_whereIn", "GranDB_orderBy", "GranDB_orderByDesc", "orderByDesc", "GranDB_whereLike", "whereLike", "GranDB_orWhereLike", "orWhereLike", "GranDB_limit", "GranDB_offset", "GranDB_select", "GranDB_join", "GranDB_leftJoin":
 			retType = PtrType(StructType("GranDB", nil))
 		case "GranDB_first", "GranDB_find", "GranDB_paginate", "paginate":
@@ -1544,7 +1560,8 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				Args:       args,
 			})
 		} else {
-			if calleeName == "strlen" || calleeName == "count" || calleeName == "len" || calleeName == "array_push" || calleeName == "append" || calleeName == "to_string" {
+			if calleeName == "strlen" || calleeName == "count" || calleeName == "len" || calleeName == "array_push" || calleeName == "append" || calleeName == "to_string" ||
+				calleeName == "abs" || calleeName == "min" || calleeName == "max" || calleeName == "intval" || calleeName == "boolval" || calleeName == "array_pop" {
 				l.currBlock.AddInstruction(&CallBuiltinInst{
 					Dest:      dest,
 					BuiltinID: calleeName,

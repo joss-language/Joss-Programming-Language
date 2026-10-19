@@ -8,6 +8,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/analyzer"
 	backend "github.com/jossecurity/joss/pkg/backend/native"
+	core "github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/mobile"
 	"github.com/jossecurity/joss/pkg/parser"
@@ -40,7 +41,7 @@ func compileAndRunNative(t *testing.T, source string, name string) (string, int,
 	}
 
 	units := []analyzer.SourceUnit{{Path: name + ".joss", Program: prog}}
-	prep := analyzer.PrepareProgram(units, analyzer.NewEnvironment())
+	prep := analyzer.PrepareProgram(units, core.BuildAnalysisEnvironment())
 	if prep.HasErrors() {
 		t.Fatalf("analyzer errors in %s: %v", name, prep.Diagnostics)
 	}
@@ -97,6 +98,7 @@ func assertDifferential(t *testing.T, name string, source string) {
 		t.Fatalf("[%s] compilador nativo falló: %v", name, err)
 	}
 	if nativeExit != 0 {
+		t.Logf("[%s] native stdout/stderr:\n%s", name, nativeOut)
 		t.Fatalf("[%s] binario nativo terminó con código de salida %d (esperado 0)", name, nativeExit)
 	}
 
@@ -538,4 +540,133 @@ func TestNativeAOT_StandaloneBinaryDoesNotContainASTInterpreter(t *testing.T) {
 	if outStr != "30" {
 		t.Errorf("expected output 30, got %q", outStr)
 	}
+}
+
+func TestDifferential_NativeBuiltins_MathAndCollections(t *testing.T) {
+	source := `
+		var $val1 = abs(-42);
+		var $val2 = abs(17);
+		int $m1 = min(15, 30);
+		int $m2 = max(15, 30);
+		int $iv = intval(123);
+		int $b1 = boolval(1) ? 1 : 0;
+		int $b2 = boolval(0) ? 1 : 0;
+
+		var $arr = [10, 20, 30, 40];
+		int $popped = array_pop($arr);
+
+		echo $val1;
+		echo $val2;
+		echo $m1;
+		echo $m2;
+		echo $iv;
+		echo $b1;
+		echo $b2;
+		echo $popped;
+		echo count($arr);
+	`
+	assertDifferential(t, "native_builtins_math_colls", source)
+}
+
+func TestDifferential_PrimitiveMethods_ArrayStringMap(t *testing.T) {
+	source := `
+		var $nums = [5, 10, 15];
+		echo $nums->length();
+		echo $nums->count();
+
+		var $nums2 = $nums->push(20);
+		echo $nums2->length();
+		echo $nums2[3];
+
+		string $txt = "Joss Lang";
+		echo $txt->length();
+
+		var $dict = {"alpha": 1, "beta": 2, "gamma": 3};
+		echo $dict->length();
+		echo $dict->count();
+	`
+	assertDifferential(t, "primitive_methods_asm", source)
+}
+
+func TestDifferential_Algorithms_SieveOfEratosthenes(t *testing.T) {
+	source := `
+		public func countPrimes(int $limit): int {
+			var $isPrime = [];
+			int $i = 0;
+			while ($i <= $limit) {
+				$isPrime = $isPrime->push(1);
+				$i = $i + 1;
+			}
+			$isPrime[0] = 0;
+			$isPrime[1] = 0;
+
+			int $p = 2;
+			while ($p * $p <= $limit) {
+				int $v = $isPrime[$p];
+				int $multiple = ($v == 1) ? ($p * $p) : ($limit + 1);
+				while ($multiple <= $limit) {
+					$isPrime[$multiple] = 0;
+					$multiple = $multiple + $p;
+				}
+				$p = $p + 1;
+			}
+
+			int $count = 0;
+			int $idx = 2;
+			while ($idx <= $limit) {
+				int $isP = $isPrime[$idx];
+				$count = ($isP == 1) ? ($count + 1) : $count;
+				$idx = $idx + 1;
+			}
+			return $count;
+		}
+
+		echo countPrimes(100);
+		echo countPrimes(1000);
+	`
+	assertDifferential(t, "sieve_algorithm", source)
+}
+
+func TestDifferential_Algorithms_Quicksort(t *testing.T) {
+	source := `
+		public func partition(var $arr, int $low, int $high): int {
+			int $pivot = $arr[$high];
+			int $i = $low;
+			int $j = $low;
+			while ($j < $high) {
+				int $val = $arr[$j];
+				int $less = ($val <= $pivot) ? 1 : 0;
+				int $tmp = $arr[$j];
+				$arr[$j] = ($less == 1) ? $arr[$i] : $arr[$j];
+				$arr[$i] = ($less == 1) ? $tmp : $arr[$i];
+				$i = ($less == 1) ? ($i + 1) : $i;
+				$j = $j + 1;
+			}
+			int $tmp2 = $arr[$i];
+			$arr[$i] = $arr[$high];
+			$arr[$high] = $tmp2;
+			return $i;
+		}
+
+		public func quicksort(var $arr, int $low, int $high): int {
+			guard ($low < $high) else {
+				return 0;
+			}
+			int $pi = partition($arr, $low, $high);
+			quicksort($arr, $low, $pi - 1);
+			quicksort($arr, $pi + 1, $high);
+			return 1;
+		}
+
+		var $items = [64, 25, 12, 22, 11, 90, 42, 1, 88, 55];
+		int $len = $items->length();
+		quicksort($items, 0, $len - 1);
+
+		int $k = 0;
+		while ($k < $len) {
+			echo $items[$k];
+			$k = $k + 1;
+		}
+	`
+	assertDifferential(t, "quicksort_algorithm", source)
 }

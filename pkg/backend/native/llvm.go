@@ -242,6 +242,32 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		}
 		return fmt.Sprintf("call void @%s(%s)", rtFunc, argsJoined), nil
 
+	case *ir.CallBuiltinInst:
+		rtFunc := "joss_" + i.BuiltinID
+		args := make([]string, len(i.Args))
+		for idx, a := range i.Args {
+			args[idx] = e.formatTypedValue(a)
+		}
+		argsJoined := strings.Join(args, ", ")
+		if i.Dest != nil && i.Dest.ValueType.Kind != ir.TypeKindVoid {
+			destType := MapLLVMType(i.Dest.ValueType)
+			return fmt.Sprintf("%s = call %s @%s(%s)", e.formatValue(i.Dest), destType, rtFunc, argsJoined), nil
+		}
+		return fmt.Sprintf("call void @%s(%s)", rtFunc, argsJoined), nil
+
+	case *ir.CallPrimitiveMethodInst:
+		rtFunc := fmt.Sprintf("joss_%s_%s", i.TypeKind, i.MethodName)
+		args := make([]string, len(i.Args))
+		for idx, a := range i.Args {
+			args[idx] = e.formatTypedValue(a)
+		}
+		argsJoined := strings.Join(args, ", ")
+		if i.Dest != nil && i.Dest.ValueType.Kind != ir.TypeKindVoid {
+			destType := MapLLVMType(i.Dest.ValueType)
+			return fmt.Sprintf("%s = call %s @%s(%s)", e.formatValue(i.Dest), destType, rtFunc, argsJoined), nil
+		}
+		return fmt.Sprintf("call void @%s(%s)", rtFunc, argsJoined), nil
+
 	case *ir.NewObjectInst:
 		clsSym := e.registerString(i.ClassName)
 		escaped, length := formatLLVMStringLiteral(i.ClassName)

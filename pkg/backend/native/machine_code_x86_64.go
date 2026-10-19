@@ -198,7 +198,11 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 						report("host service " + i.ClassName + "::" + i.MethodName)
 					}
 				case *ir.CallPrimitiveMethodInst:
-					report("primitive method " + i.TypeKind + "::" + i.MethodName)
+					if isNativePrimitiveMethod(i.TypeKind, i.MethodName) {
+						// Native direct
+					} else {
+						report("primitive method " + i.TypeKind + "::" + i.MethodName)
+					}
 				case *ir.CallBuiltinInst:
 					if isNativeBuiltin(i.BuiltinID) {
 						// Native direct
@@ -242,8 +246,31 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 // isNativeBuiltin reports builtins the backend emits as real machine code.
 func isNativeBuiltin(id string) bool {
 	switch id {
-	case "strlen", "len", "count", "array_push", "append", "to_string":
+	case "strlen", "len", "count", "array_push", "append", "to_string",
+		"abs", "min", "max", "intval", "boolval", "array_pop":
 		return true
+	}
+	return false
+}
+
+func isNativePrimitiveMethod(typeKind, methodName string) bool {
+	tk := strings.ToLower(typeKind)
+	switch {
+	case strings.HasPrefix(tk, "array"):
+		switch methodName {
+		case "length", "count", "push", "pop":
+			return true
+		}
+	case strings.HasPrefix(tk, "string"):
+		switch methodName {
+		case "length":
+			return true
+		}
+	case strings.HasPrefix(tk, "map"):
+		switch methodName {
+		case "length", "count":
+			return true
+		}
 	}
 	return false
 }
@@ -1070,6 +1097,69 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel(".utf8_strlen_done")
 	b.emitBytes(0xC3)
 
+	// fn_abs(rcx = val) -> rax = abs(val)
+	b.defineLabel("fn_abs")
+	b.emitBytes(0x48, 0x89, 0xC8) // mov rax, rcx
+	b.emitBytes(0x48, 0x99)       // cqo
+	b.emitBytes(0x48, 0x31, 0xD0) // xor rax, rdx
+	b.emitBytes(0x48, 0x29, 0xD0) // sub rax, rdx
+	b.emitBytes(0xC3)
+
+	// fn_min(rcx = a, rdx = b) -> rax = min(a, b)
+	b.defineLabel("fn_min")
+	b.emitBytes(0x48, 0x89, 0xC8)       // mov rax, rcx
+	b.emitBytes(0x48, 0x39, 0xD0)       // cmp rax, rdx
+	b.emitBytes(0x48, 0x0F, 0x4F, 0xC2) // cmovg rax, rdx
+	b.emitBytes(0xC3)
+
+	// fn_max(rcx = a, rdx = b) -> rax = max(a, b)
+	b.defineLabel("fn_max")
+	b.emitBytes(0x48, 0x89, 0xC8)       // mov rax, rcx
+	b.emitBytes(0x48, 0x39, 0xD0)       // cmp rax, rdx
+	b.emitBytes(0x48, 0x0F, 0x4C, 0xC2) // cmovl rax, rdx
+	b.emitBytes(0xC3)
+
+	// fn_intval(rcx = val) -> rax = val
+	b.defineLabel("fn_intval")
+	b.emitBytes(0x48, 0x89, 0xC8) // mov rax, rcx
+	b.emitBytes(0xC3)
+
+	// fn_boolval(rcx = val) -> rax = bool(val)
+	b.defineLabel("fn_boolval")
+	b.emitBytes(0x31, 0xC0)       // xor eax, eax
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitBytes(0x0F, 0x95, 0xC0) // setne al
+	b.emitBytes(0xC3)
+
+	// fn_array_pop(rcx = arrPtr) -> rax = last element (value semantics)
+	b.defineLabel("fn_array_pop")
+	b.emitBytes(0x31, 0xC0)       // xor eax, eax
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".arr_pop_done")
+	b.emitBytes(0x48, 0x8B, 0x11)       // mov rdx, [rcx + 0] (len)
+	b.emitBytes(0x48, 0x85, 0xD2)       // test rdx, rdx
+	b.emitJleLabel(".arr_pop_done")     // if len <= 0, return 0
+	b.emitBytes(0x48, 0xFF, 0xCA)       // dec rdx
+	b.emitBytes(0x4C, 0x8B, 0x41, 0x10) // mov r8, [rcx + 16] (dataPtr)
+	b.emitBytes(0x49, 0x8B, 0x04, 0xD0) // mov rax, [r8 + rdx*8]
+	b.defineLabel(".arr_pop_done")
+	b.emitBytes(0xC3)
+
+	// joss_map_len(rcx = mapPtr) -> rax = count of keys
+	b.defineLabel("joss_map_len")
+	b.emitBytes(0x31, 0xC0)       // xor eax, eax
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".map_len_done")
+	b.emitBytes(0x48, 0x8B, 0x49, 0x08) // mov rcx, [rcx + 8] (headNode)
+	b.defineLabel(".map_len_loop")
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".map_len_done")
+	b.emitBytes(0x48, 0xFF, 0xC0)       // inc rax
+	b.emitBytes(0x48, 0x8B, 0x49, 0x10) // mov rcx, [rcx + 16] (node.next)
+	b.emitJmpLabel(".map_len_loop")
+	b.defineLabel(".map_len_done")
+	b.emitBytes(0xC3)
+
 	// =========================================================================
 	// 7. Exception Helpers (Exception_constructor, Exception_getMessage, Exception_getCode, __joss_rt_throw)
 	// =========================================================================
@@ -1435,7 +1525,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
 	case *ir.CallBuiltinInst:
-		if i.BuiltinID == "strlen" || i.BuiltinID == "len" || i.BuiltinID == "count" || i.BuiltinID == "array_push" || i.BuiltinID == "append" || i.BuiltinID == "to_string" {
+		if isNativeBuiltin(i.BuiltinID) {
 			fnLabel := "fn_" + i.BuiltinID
 			if i.BuiltinID == "to_string" {
 				fnLabel = "joss_to_string"
@@ -1452,6 +1542,36 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			}
 		}
 	case *ir.CallPrimitiveMethodInst:
+		if isNativePrimitiveMethod(i.TypeKind, i.MethodName) {
+			fnLabel := ""
+			tk := strings.ToLower(i.TypeKind)
+			switch {
+			case strings.HasPrefix(tk, "array"):
+				switch i.MethodName {
+				case "length", "count":
+					fnLabel = "joss_arr_len"
+				case "push":
+					fnLabel = "joss_arr_push_i64"
+				case "pop":
+					fnLabel = "fn_array_pop"
+				}
+			case strings.HasPrefix(tk, "string"):
+				if i.MethodName == "length" {
+					fnLabel = "fn_strlen"
+				}
+			case strings.HasPrefix(tk, "map"):
+				if i.MethodName == "length" || i.MethodName == "count" {
+					fnLabel = "joss_map_len"
+				}
+			}
+			if fnLabel != "" {
+				b.emitCallWithArgs(layout, fnLabel, i.Args)
+				if i.Dest != nil {
+					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+				}
+				return nil
+			}
+		}
 		b.emitLeaRCXString(i.TypeKind + "::" + i.MethodName)
 		b.emitCallIAT(IATJossHostBridge)
 		if i.Dest != nil {
