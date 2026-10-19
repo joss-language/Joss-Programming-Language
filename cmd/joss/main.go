@@ -668,12 +668,15 @@ func executeScript(filename string) {
 			if err := verifier.Verify(irProg); err == nil {
 				mcBuilder := native.NewMachineCodeBuilder(native.HostTarget(), false)
 				if jitExe, err := mcBuilder.CompileInMemory(irProg); err == nil {
-					defer jitExe.Free()
-					exitCode, _ := jitExe.Execute()
-					if exitCode != 0 {
-						os.Exit(exitCode)
+					if !mcBuilder.NeedsHostBridge() {
+						defer jitExe.Free()
+						exitCode, _ := jitExe.Execute()
+						if exitCode != 0 {
+							os.Exit(exitCode)
+						}
+						return
 					}
-					return
+					jitExe.Free()
 				}
 			}
 		}

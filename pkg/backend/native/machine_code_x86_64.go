@@ -1010,6 +1010,10 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitCallLabel("__joss_os_write")
 	b.emitBytes(0xB9, 0x01, 0x00, 0x00, 0x00) // exit(1)
 	b.emitCallLabel("__joss_os_exit")
+	if b.isJITMode {
+		b.emitBytes(0x48, 0xC7, 0xC0, 0x01, 0x00, 0x00, 0x00) // mov rax, 1
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28, 0x5B, 0x5D, 0xC3) // add rsp, 40; pop rbx; pop rbp; ret
+	}
 
 	// =========================================================================
 	// 5. Objects & Maps Runtime (joss_obj_*, joss_map_*)
