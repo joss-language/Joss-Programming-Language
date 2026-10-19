@@ -5,7 +5,9 @@ import { getDocumentSettings } from '../server';
 
 export function setupDiagnostics() {
     documents.onDidChangeContent(change => {
-        validateTextDocument(change.document);
+        void validateTextDocument(change.document).catch(error => {
+            connection.console.error(`Error validating document ${change.document.uri}: ${error}`);
+        });
     });
 }
 
@@ -83,5 +85,5 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
         }
     }
 
-    connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+    await connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }

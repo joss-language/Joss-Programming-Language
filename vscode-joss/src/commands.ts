@@ -115,8 +115,8 @@ export function registerCommands(context: vscode.ExtensionContext, client: Langu
     context.subscriptions.push(
         vscode.commands.registerCommand('joss.restartServer', async () => {
             await client.stop();
-            client.start();
-            vscode.window.showInformationMessage('Language server restarted');
+            await client.start();
+            void vscode.window.showInformationMessage('Language server restarted');
         })
     );
 

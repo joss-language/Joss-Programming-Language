@@ -127,7 +127,7 @@ function startLanguageServer(context: vscode.ExtensionContext): LanguageClient {
         clientOptions
     );
 
-    client.start();
+    void client.start();
 
     return client;
 }

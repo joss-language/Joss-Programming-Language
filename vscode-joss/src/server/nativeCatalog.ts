@@ -303,7 +303,7 @@ for (const [owner, methods] of Object.entries(generatedNativeClasses)) {
     }
 }
 
-export const nativeClasses = Object.keys(generatedNativeClasses).sort();
+export const nativeClasses = Object.keys(generatedNativeClasses).sort((a, b) => a.localeCompare(b));
 
 export function nativeSignature(item: NativeCallable): string {
     const owner = item.owner ? `${item.owner}${item.static === false ? '->' : '::'}` : '';

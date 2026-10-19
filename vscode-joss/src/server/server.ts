@@ -86,7 +86,7 @@ connection.onInitialize((params: InitializeParams) => {
 
 connection.onInitialized(async () => {
     if (hasConfigurationCapability) {
-        connection.client.register(DidChangeConfigurationNotification.type, undefined);
+        await connection.client.register(DidChangeConfigurationNotification.type, undefined);
     }
 
     connection.console.log('JosSecurity Language Server initialized');
@@ -116,7 +116,7 @@ setupFormattingProvider();
 setupRenameProvider();
 
 // Configuration management
-export let globalSettings: JossSettings = getDefaultSettings();
+let globalSettings: JossSettings = getDefaultSettings();
 const documentSettings: Map<string, Thenable<JossSettings>> = new Map();
 
 export function getDocumentSettings(resource: string): Thenable<JossSettings> {
@@ -144,7 +144,7 @@ connection.onDidChangeConfiguration(change => {
     }
     documents.all().forEach(doc => {
         // Re-validate all documents
-        connection.sendDiagnostics({ uri: doc.uri, diagnostics: [] });
+        void connection.sendDiagnostics({ uri: doc.uri, diagnostics: [] });
     });
 });
 

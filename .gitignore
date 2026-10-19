@@ -74,6 +74,7 @@ sonar-project.properties
 # Cobertura y reportes de tests en Go
 *.out
 coverage.html
+coverage
 
 # Configuración local del IDE (VS Code SonarLint/SonarQube)
 .sonarlint/
