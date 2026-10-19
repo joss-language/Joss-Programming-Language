@@ -22,7 +22,7 @@ foreach ($bench in $benchmarks) {
     $times = @()
     for ($i = 1; $i -le $iterations; $i++) {
         $output = Invoke-Expression $bench.Cmd
-        $match = $output | Select-String -Pattern "in ([\d\.]+) ms"
+        $match = $output | Select-String -Pattern "(?:in\s+|TIME_MS=)([\d\.]+)"
         if ($match) {
             $ms = [double]$match.Matches[0].Groups[1].Value
             $times += $ms

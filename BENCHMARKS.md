@@ -83,22 +83,22 @@ Calcular la cantidad exacta de números primos en un rango dado ($N = 100,000$ y
 
 | Lenguaje / Runtime | Paradigma | Tiempo Medio (ms) | Mínimo (ms) | Máximo (ms) | Resultado Verificado |
 | :--- | :--- | :---:| :---:| :---:| :---: |
-| **C (gcc -O3)** | Nativo AOT | **4.00 ms** | 3.00 ms | 5.00 ms | PASS (78,498) |
-| **Rust (opt-level=3)** | Nativo AOT | **4.46 ms** | 3.92 ms | 4.75 ms | PASS (78,498) |
-| **Go (go build)** | Nativo AOT (GC) | **5.53 ms** | 4.97 ms | 6.33 ms | PASS (78,498) |
-| **C++ (g++ -O3, vector\<bool\>)** | Nativo AOT | **9.25 ms** | 8.14 ms | 10.87 ms | PASS (78,498) |
-| **Python 3.14 (bytearray)** | Interpretado | **15.15 ms** | 13.21 ms | 19.59 ms | PASS (78,498) |
-| **Kotlin 2.4 (JVM JIT)** | Bytecode JIT | **28.08 ms** | 23.61 ms | 34.59 ms | PASS (78,498) |
-| **Java 21 (JVM JIT)** | Bytecode JIT | **31.80 ms** | 29.47 ms | 35.62 ms | PASS (78,498) |
-| **PHP 8.4 (SplFixedArray)** | Interpretado | **334.52 ms** | 289.80 ms | 393.24 ms | PASS (78,498) |
-| **Joss Interpreter** | Interpretado (AST) | **2,410.00 ms** | 2,301.00 ms | 2,422.00 ms | PASS (78,498) |
+| **C (gcc -O3)** | Nativo AOT | **3.40 ms** | 3.00 ms | 4.00 ms | PASS (78,498) |
+| **Rust (opt-level=3)** | Nativo AOT | **3.44 ms** | 3.39 ms | 3.50 ms | PASS (78,498) |
+| **Go (go build)** | Nativo AOT (GC) | **4.81 ms** | 4.37 ms | 5.45 ms | PASS (78,498) |
+| **C++ (g++ -O3)** | Nativo AOT | **5.81 ms** | 5.43 ms | 6.36 ms | PASS (78,498) |
+| **Python 3.14 (bytearray)** | Interpretado | **12.85 ms** | 12.40 ms | 13.44 ms | PASS (78,498) |
+| **Java 21 (JVM JIT)** | Bytecode JIT | **23.17 ms** | 22.78 ms | 23.61 ms | PASS (78,498) |
+| **Kotlin 2.4 (JVM JIT)** | Bytecode JIT | **23.46 ms** | 21.27 ms | 25.00 ms | PASS (78,498) |
+| **Joss Interpreter** | Interpretado (AST) | **168.76 ms** | 156.37 ms | 193.20 ms | PASS (78,498) |
+| **PHP 8.4 (SplFixedArray)** | Interpretado | **274.85 ms** | 264.87 ms | 288.82 ms | PASS (78,498) |
 
 ```mermaid
 xychart-beta
     title "Tiempo de Ejecución - Criba 1M de Primos (Milisegundos - Menor es Mejor)"
-    x-axis ["C", "Rust", "Go", "C++", "Python", "Kotlin", "Java", "PHP"]
-    y-axis "Tiempo (ms)" 0 --> 350
-    bar [4.0, 4.5, 5.5, 9.3, 15.1, 28.1, 31.8, 334.5]
+    x-axis ["C", "Rust", "Go", "C++", "Python", "Java", "Kotlin", "Joss", "PHP"]
+    y-axis "Tiempo (ms)" 0 --> 300
+    bar [3.4, 3.4, 4.8, 5.8, 12.9, 23.2, 23.5, 168.8, 274.9]
 ```
 
 ---
@@ -112,22 +112,23 @@ Ordenar un arreglo de $N = 50,000$ enteros pseudoaleatorios generados mediante u
 
 | Lenguaje / Runtime | Paradigma | Tiempo Medio (ms) | Mínimo (ms) | Máximo (ms) | Verificación |
 | :--- | :--- | :---:| :---:| :---:| :---: |
-| **C (gcc -O3)** | Nativo AOT | **4.97 ms** | 4.89 ms | 5.10 ms | PASS (50,000 ordenados) |
-| **C++ (g++ -O3)** | Nativo AOT | **5.06 ms** | 4.82 ms | 5.65 ms | PASS (50,000 ordenados) |
-| **Rust (rustc -O)** | Nativo AOT | **5.12 ms** | 5.00 ms | 5.55 ms | PASS (50,000 ordenados) |
-| **Go (go build)** | Nativo AOT (GC) | **6.15 ms** | 5.27 ms | 7.53 ms | PASS (50,000 ordenados) |
-| **Java 21 (JVM)** | Bytecode JIT | **10.65 ms** | 9.63 ms | 12.60 ms | PASS (50,000 ordenados) |
-| **Kotlin 2.4 (JVM)** | Bytecode JIT | **16.96 ms** | 15.53 ms | 19.66 ms | PASS (50,000 ordenados) |
-| **PHP 8.4 (SplFixedArray)** | Interpretado | **135.10 ms** | 121.41 ms | 163.83 ms | PASS (50,000 ordenados) |
-| **Python 3.14** | Interpretado | **161.83 ms** | 153.86 ms | 178.12 ms | PASS (50,000 ordenados) |
-| **Joss Interpreter** | Interpretado (AST) | **3,550.41 ms** | 3,171.21 ms | 4,180.21 ms | PASS (50,000 ordenados) |
+| **C++ (g++ -O3)** | Nativo AOT | **4.93 ms** | 4.87 ms | 4.99 ms | PASS (50,000 ordenados) |
+| **C (gcc -O3)** | Nativo AOT | **5.27 ms** | 4.91 ms | 6.33 ms | PASS (50,000 ordenados) |
+| **Go (go build)** | Nativo AOT (GC) | **5.35 ms** | 5.08 ms | 5.54 ms | PASS (50,000 ordenados) |
+| **Rust (rustc -O)** | Nativo AOT | **5.45 ms** | 4.98 ms | 6.45 ms | PASS (50,000 ordenados) |
+| **Java 21 (JVM)** | Bytecode JIT | **11.06 ms** | 9.99 ms | 13.08 ms | PASS (50,000 ordenados) |
+| **Kotlin 2.4 (JVM)** | Bytecode JIT | **17.00 ms** | 15.22 ms | 19.94 ms | PASS (50,000 ordenados) |
+| **PHP 8.4** | Interpretado | **119.84 ms** | 115.67 ms | 124.96 ms | PASS (50,000 ordenados) |
+| **Python 3.14** | Interpretado | **148.26 ms** | 143.31 ms | 155.96 ms | PASS (50,000 ordenados) |
+| **Joss (Native AOT)** | Nativo x86_64 AOT | **~270 ms** | 260.00 ms | 330.00 ms | PASS (50,000 ordenados) |
+| **Joss (Interpreter)** | Interpretado (AST) | **2,324.45 ms** | 2,161.09 ms | 2,564.13 ms | PASS (50,000 ordenados) |
 
 ```mermaid
 xychart-beta
     title "Quicksort N=50,000 (Milisegundos - Menor es Mejor)"
-    x-axis ["C", "C++", "Rust", "Go", "Java", "Kotlin", "PHP", "Python"]
-    y-axis "Tiempo (ms)" 0 --> 180
-    bar [5.0, 5.1, 5.1, 6.2, 10.7, 17.0, 135.1, 161.8]
+    x-axis ["C++", "C", "Go", "Rust", "Java", "Kotlin", "PHP", "Python"]
+    y-axis "Tiempo (ms)" 0 --> 160
+    bar [4.9, 5.3, 5.4, 5.5, 11.1, 17.0, 119.8, 148.3]
 ```
 
 ---
@@ -141,15 +142,15 @@ Insertar $50,000$ pares clave-valor tipo cadena (`"user_key_XXXXX"` $\rightarrow
 
 | Lenguaje / Runtime | Tiempo Medio (ms) | Mínimo (ms) | Máximo (ms) | Memoria Pico (Peak Working Set) | Verificación |
 | :--- | :---:| :---:| :---:| :---:| :---: |
-| **C (gcc -O3)** | **32.07 ms** | 26.25 ms | 39.26 ms | **7.17 MB** | PASS (50,000 hits) |
-| **C++ (g++ -O3 unordered_map)** | **32.34 ms** | 30.73 ms | 34.48 ms | **8.76 MB** | PASS (50,000 hits) |
-| **Go (go build map[string]string)** | **33.38 ms** | 30.42 ms | 38.09 ms | **9.96 MB** | PASS (50,000 hits) |
-| **PHP 8.4 (Array asociativo)** | **46.90 ms** | 41.54 ms | 53.18 ms | **25.74 MB** | PASS (50,000 hits) |
-| **Rust (rustc -O HashMap)** | **66.23 ms** | 56.38 ms | 73.24 ms | **9.94 MB** | PASS (50,000 hits) |
-| **Python 3.14 (dict)** | **99.26 ms** | 79.57 ms | 122.95 ms | **19.32 MB** | PASS (50,000 hits) |
-| **Java 21 (java.util.HashMap)** | **113.05 ms** | 107.08 ms | 117.99 ms | **57.91 MB** | PASS (50,000 hits) |
-| **Kotlin 2.4 (HashMap)** | **119.30 ms** | 115.18 ms | 122.44 ms | **74.65 MB** | PASS (50,000 hits) |
-| **Joss Interpreter (Map asociativo)** | **444.86 ms** | 391.70 ms | 486.21 ms | **37.91 MB** | PASS (50,000 hits) |
+| **C (gcc -O3)** | **26.04 ms** | 23.94 ms | 27.75 ms | **7.17 MB** | PASS (50,000 hits) |
+| **Go (go build map[string]string)** | **29.56 ms** | 26.00 ms | 35.91 ms | **9.96 MB** | PASS (50,000 hits) |
+| **C++ (g++ -O3 unordered_map)** | **30.31 ms** | 28.22 ms | 32.78 ms | **8.76 MB** | PASS (50,000 hits) |
+| **PHP 8.4 (Array asociativo)** | **46.95 ms** | 41.75 ms | 63.65 ms | **25.74 MB** | PASS (50,000 hits) |
+| **Rust (rustc -O HashMap)** | **57.30 ms** | 52.92 ms | 63.54 ms | **9.94 MB** | PASS (50,000 hits) |
+| **Python 3.14 (dict)** | **83.64 ms** | 79.52 ms | 89.11 ms | **19.32 MB** | PASS (50,000 hits) |
+| **Java 21 (java.util.HashMap)** | **95.11 ms** | 92.58 ms | 98.56 ms | **57.91 MB** | PASS (50,000 hits) |
+| **Kotlin 2.4 (HashMap)** | **118.08 ms** | 100.51 ms | 153.16 ms | **74.65 MB** | PASS (50,000 hits) |
+| **Joss Interpreter (Map asociativo)** | **392.63 ms** | 370.92 ms | 411.73 ms | **37.91 MB** | PASS (50,000 hits) |
 
 *Nota sobre Rust*: El `HashMap` estándar de Rust utiliza por defecto `SipHash 1-3`, un hasher criptográficamente resistente contra ataques Hash-DoS, lo que explica su tiempo de ~66 ms frente a hashers no criptográficos más agresivos.
 
@@ -207,15 +208,15 @@ Ejecutar $800$ tareas de cómputo aritmético distribuido repartidas equitativam
 
 | Lenguaje / Runtime | Mecanismo Concurrente Idiomático | Tiempo Medio (ms) | Mínimo (ms) | Máximo (ms) | Checksum |
 | :--- | :--- | :---:| :---:| :---:| :---: |
-| **Go (go build)** | 8 Goroutines + `sync.WaitGroup` | **0.67 ms** | 0.54 ms | 1.07 ms | PASS (199,832,000) |
-| **Rust (rustc -O)** | 8 `std::thread` + `mpsc::channel` | **1.05 ms** | 1.02 ms | 1.08 ms | PASS (199,832,000) |
-| **C++ (g++ -O3)** | 8 `std::thread` + `join()` | **1.06 ms** | 0.99 ms | 1.10 ms | PASS (199,832,000) |
-| **C (gcc -O3)** | 8 Win32 Threads + `WaitForMultipleObjects` | **1.08 ms** | 1.03 ms | 1.13 ms | PASS (199,832,000) |
-| **Java 21 (JVM)** | `ExecutorService` (8 threads) + `Future` | **21.80 ms** | 20.27 ms | 23.56 ms | PASS (199,832,000) |
-| **Kotlin 2.4 (JVM)** | `ExecutorService` (8 threads) + `Future` | **22.91 ms** | 21.40 ms | 25.23 ms | PASS (199,832,000) |
-| **PHP 8.4** | CLI Secuencial Mono-Hilo (no threads) | **27.55 ms** | 27.50 ms | 27.71 ms | PASS (199,832,000) |
-| **Python 3.14** | `ThreadPoolExecutor` (max_workers=8) | **70.79 ms** | 67.54 ms | 78.19 ms | PASS (199,832,000) |
-| **Joss Interpreter** | 8 Runtimes forkeados (`async` / `await`) | **130.40 ms** | 127.09 ms | 137.02 ms | PASS (199,832,000) |
+| **Go (go build)** | 8 Goroutines + `sync.WaitGroup` | **0.86 ms** | 0.51 ms | 1.57 ms | PASS (199,832,000) |
+| **Rust (rustc -O)** | 8 `std::thread` + `mpsc::channel` | **1.05 ms** | 1.01 ms | 1.13 ms | PASS (199,832,000) |
+| **C++ (g++ -O3)** | 8 `std::thread` + `join()` | **1.06 ms** | 0.96 ms | 1.11 ms | PASS (199,832,000) |
+| **C (gcc -O3)** | 8 Win32 Threads + `WaitForMultipleObjects` | **11.13 ms** | 0.97 ms | 51.19 ms | PASS (199,832,000) |
+| **Java 21 (JVM)** | `ExecutorService` (8 threads) + `Future` | **23.38 ms** | 22.19 ms | 25.55 ms | PASS (199,832,000) |
+| **Kotlin 2.4 (JVM)** | `ExecutorService` (8 threads) + `Future` | **26.31 ms** | 24.45 ms | 29.38 ms | PASS (199,832,000) |
+| **PHP 8.4** | CLI Secuencial Mono-Hilo (no threads) | **32.70 ms** | 28.92 ms | 46.97 ms | PASS (199,832,000) |
+| **Python 3.14** | `ThreadPoolExecutor` (max_workers=8) | **83.94 ms** | 70.73 ms | 96.95 ms | PASS (199,832,000) |
+| **Joss Interpreter** | 8 Runtimes forkeados (`async` / `await`) | **116.77 ms** | 100.12 ms | 140.31 ms | PASS (199,832,000) |
 
 *Nota sobre PHP*: En entornos CLI convencionales de Windows, PHP no incluye extensiones de hilos compiladas por defecto (`parallel` o `pthreads`), por lo que los 8 chunks se ejecutan secuencialmente de forma mono-hilo.
 
