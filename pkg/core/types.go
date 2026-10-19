@@ -81,6 +81,8 @@ type Runtime struct {
 	callDepth          int
 	currentClass       string
 	callStack          []runtimeerrors.Frame
+	topHasReturn       bool
+	topReturnValue     interface{}
 	callablePlans      map[*parser.MethodStatement]*runtimeplan.Callable
 	functionPlans      map[*parser.FunctionLiteral]*runtimeplan.Callable
 	classMetadataCache map[string]*classMetadata

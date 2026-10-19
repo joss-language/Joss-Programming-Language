@@ -34,6 +34,7 @@ type Callable struct {
 	ThisSlot        int
 	ReturnTypeName  string
 	ReturnType      typesystem.Type
+	HasYield        bool
 }
 
 func CompileMethod(method *parser.MethodStatement, hasThis bool) *Callable {
@@ -271,6 +272,7 @@ func (callable *Callable) collectExpression(expression parser.Expression) {
 	case *parser.NamedArgument:
 		callable.collectExpression(node.Value)
 	case *parser.YieldExpression:
+		callable.HasYield = true
 		if node.Key != nil {
 			callable.collectExpression(node.Key)
 		}

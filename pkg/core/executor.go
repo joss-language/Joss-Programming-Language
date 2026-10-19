@@ -86,6 +86,9 @@ func (r *Runtime) ExecutePrepared(prep *semanticanalyzer.PreparedProgram) {
 				if _, ok := stmt.(*parser.ClassStatement); !ok {
 					if _, ok := stmt.(*parser.InterfaceStatement); !ok {
 						r.executeStatement(stmt)
+						if r.topHasReturn {
+							break
+						}
 					}
 				}
 			}
@@ -93,6 +96,9 @@ func (r *Runtime) ExecutePrepared(prep *semanticanalyzer.PreparedProgram) {
 	} else {
 		for _, stmt := range entry.Statements {
 			r.executeStatement(stmt)
+			if r.topHasReturn {
+				break
+			}
 		}
 	}
 }
@@ -155,6 +161,9 @@ func (r *Runtime) Execute(program *parser.Program) {
 				if _, ok := stmt.(*parser.ClassStatement); !ok {
 					if _, ok := stmt.(*parser.InterfaceStatement); !ok {
 						r.executeStatement(stmt)
+						if r.topHasReturn {
+							break
+						}
 					}
 				}
 			}
@@ -163,6 +172,9 @@ func (r *Runtime) Execute(program *parser.Program) {
 		// Script programs execute their top-level statements directly.
 		for _, stmt := range program.Statements {
 			r.executeStatement(stmt)
+			if r.topHasReturn {
+				break
+			}
 		}
 	}
 }
@@ -209,8 +221,21 @@ func (r *Runtime) executeBlock(block *parser.BlockStatement) interface{} {
 		r.checkExecutionCancelled()
 	}
 	var result interface{}
+	frame := r.currentFrame
+	if frame != nil {
+		for _, stmt := range block.Statements {
+			result = r.executeStatement(stmt)
+			if frame.hasReturn {
+				return frame.returnValue
+			}
+		}
+		return result
+	}
 	for _, stmt := range block.Statements {
 		result = r.executeStatement(stmt)
+		if r.topHasReturn {
+			return r.topReturnValue
+		}
 	}
 	return result
 }
@@ -232,14 +257,14 @@ func (r *Runtime) executeStatement(stmt parser.Statement) interface{} {
 	}
 	switch s := stmt.(type) {
 	case *parser.LetStatement:
-		if _, resolved := r.slotForIdentifier(s.Name); resolved {
+		if slot, resolved := r.slotForIdentifier(s.Name); resolved {
 			var value interface{}
 			if s.Value != nil {
 				value = r.evaluateExpression(s.Value)
 			} else {
 				value = r.getZeroValue(s.Token.Literal)
 			}
-			r.assignLocal(s.Name, value, true)
+			r.assignSlot(slot, value, true)
 			return nil
 		}
 		if r.Constants == nil {
@@ -322,10 +347,19 @@ func (r *Runtime) executeStatement(stmt parser.Statement) interface{} {
 			}
 		}
 	case *parser.ExpressionStatement:
-		if postfix, ok := s.Expression.(*parser.PostfixExpression); ok && r.executePostfixStatement(postfix) {
-			return nil
+		switch expr := s.Expression.(type) {
+		case *parser.PostfixExpression:
+			if r.executePostfixStatement(expr) {
+				return nil
+			}
+			return r.evaluatePostfix(expr)
+		case *parser.AssignExpression:
+			return r.evaluateAssign(expr)
+		case *parser.TernaryExpression:
+			return r.evaluateTernary(expr)
+		default:
+			return r.evaluateExpression(expr)
 		}
-		return r.evaluateExpression(s.Expression)
 	case *parser.ForeachStatement:
 		return r.executeForeach(s)
 	case *parser.EchoStatement:
@@ -380,7 +414,14 @@ func (r *Runtime) executeReturn(rs *parser.ReturnStatement) interface{} {
 	if rs.ReturnValue != nil {
 		val = r.evaluateExpression(rs.ReturnValue)
 	}
-	panic(&ReturnPanic{Value: val})
+	if r.currentFrame != nil {
+		r.currentFrame.hasReturn = true
+		r.currentFrame.returnValue = val
+		return val
+	}
+	r.topHasReturn = true
+	r.topReturnValue = val
+	return val
 }
 
 func (r *Runtime) executeBreak(bs *parser.BreakStatement) interface{} {
@@ -425,6 +466,9 @@ func (r *Runtime) executeForeach(fs *parser.ForeachStatement) interface{} {
 			return r.executeLoopBodyProtected(fs.Body)
 		}
 		r.executeBlock(fs.Body)
+		if (r.currentFrame != nil && r.currentFrame.hasReturn) || r.topHasReturn {
+			return true
+		}
 		return false
 	}
 
@@ -482,6 +526,25 @@ func (r *Runtime) executeForeach(fs *parser.ForeachStatement) interface{} {
 
 func (r *Runtime) executeWhile(ws *parser.WhileStatement) interface{} {
 	hasControl := r.blockHasControl(ws.Body)
+	frame := r.currentFrame
+	if frame != nil {
+		for {
+			if !r.evaluateCondition(ws.Condition) {
+				break
+			}
+			if hasControl {
+				if r.executeLoopBodyProtected(ws.Body) {
+					break
+				}
+			} else {
+				r.executeBlock(ws.Body)
+			}
+			if frame.hasReturn {
+				break
+			}
+		}
+		return nil
+	}
 	for {
 		if !r.evaluateCondition(ws.Condition) {
 			break
@@ -492,6 +555,9 @@ func (r *Runtime) executeWhile(ws *parser.WhileStatement) interface{} {
 			}
 		} else {
 			r.executeBlock(ws.Body)
+		}
+		if r.topHasReturn {
+			break
 		}
 	}
 	return nil
@@ -514,6 +580,9 @@ func (r *Runtime) executeDoWhile(dws *parser.DoWhileStatement) interface{} {
 		} else {
 			r.executeBlock(dws.Body)
 		}
+		if (r.currentFrame != nil && r.currentFrame.hasReturn) || r.topHasReturn {
+			break
+		}
 		if !r.evaluateCondition(dws.Condition) {
 			break
 		}
@@ -535,6 +604,9 @@ func (r *Runtime) executeLoopBodyProtected(body *parser.BlockStatement) (shouldB
 		}
 	}()
 	r.executeBlock(body)
+	if (r.currentFrame != nil && r.currentFrame.hasReturn) || r.topHasReturn {
+		return true
+	}
 	return false
 }
 

@@ -391,6 +391,12 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 
 				for _, stmt := range program.Statements {
 					r.executeStatement(stmt)
+					if r.topHasReturn {
+						result = r.topReturnValue
+						r.topHasReturn = false
+						r.topReturnValue = nil
+						break
+					}
 				}
 			}()
 

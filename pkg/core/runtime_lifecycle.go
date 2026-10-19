@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/jossecurity/joss/pkg/parser"
+	runtimeerrors "github.com/jossecurity/joss/pkg/runtime/errors"
 	runtimeplan "github.com/jossecurity/joss/pkg/runtime/plan"
 	"github.com/jossecurity/joss/pkg/version"
 )
@@ -68,6 +69,9 @@ func NewRuntimeWithProfile(profile RuntimeProfile) *Runtime {
 }
 
 func (r *Runtime) ensureLifecycleMaps() {
+	if r.callStack == nil {
+		r.callStack = make([]runtimeerrors.Frame, 0, 1024)
+	}
 	if r.Env == nil {
 		r.Env = make(map[string]string)
 	}
@@ -180,6 +184,8 @@ func (r *Runtime) Free() {
 	r.callDepth = 0
 	r.currentClass = ""
 	r.callStack = r.callStack[:0]
+	r.topHasReturn = false
+	r.topReturnValue = nil
 	r.currentFrame = nil
 	r.MaxCallDepth = DefaultMaxCallDepth
 	r.captureEnvironment = nil

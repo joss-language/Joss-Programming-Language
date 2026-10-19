@@ -29,7 +29,10 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 		return r.executeNativeMethod(instance, method.Name.Value, arguments)
 	}
 	arguments = r.bindArguments(method, arguments)
-	if containsYield(method.Body) && r.currentGenerator == nil {
+	if compiled == nil {
+		compiled = runtimeplan.CompileMethod(method, instance != nil)
+	}
+	if compiled.HasYield && r.currentGenerator == nil {
 		generator := newGenerator()
 		forked := r.Fork()
 		forked.currentGenerator = generator
@@ -45,9 +48,6 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 		}()
 
 		return generator
-	}
-	if compiled == nil {
-		compiled = runtimeplan.CompileMethod(method, instance != nil)
 	}
 	if len(arguments) < compiled.RequiredCount || len(arguments) > compiled.ParameterCount {
 		panic(fmt.Sprintf("Arity Error: %s() espera entre %d y %d argumentos, se recibieron %d", method.Name.Value, compiled.RequiredCount, compiled.ParameterCount, len(arguments)))
@@ -105,7 +105,6 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 		callFrame.defers = nil
 
 		r.callDepth--
-		defer func() { r.currentClass = previousClass }()
 		if writeBack != nil {
 			for name := range writeBack.Variables {
 				cleanName := strings.TrimPrefix(name, "$")
@@ -135,6 +134,7 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 					runtimeError.AttachStack(r.callStack)
 				}
 				r.callStack = r.callStack[:len(r.callStack)-1]
+				r.currentClass = previousClass
 				panic(panicValue)
 			}
 		} else {
@@ -143,6 +143,7 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 		if compiled.ReturnTypeName != "" {
 			if compiled.ReturnTypeName == "void" {
 				if result != nil {
+					r.currentClass = previousClass
 					panic(&JossError{
 						Type:    "ReturnTypeError",
 						Message: fmt.Sprintf("La función '%s' debe retornar void, recibió %T", method.Name.Value, result),
@@ -153,6 +154,7 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 			} else {
 				result = r.coerceToParsedType(result, compiled.ReturnType)
 				if !r.checkParsedType(result, compiled.ReturnType) {
+					r.currentClass = previousClass
 					panic(&JossError{
 						Type:    "ReturnTypeError",
 						Message: fmt.Sprintf("La función '%s' debe retornar %s, recibió %T", method.Name.Value, compiled.ReturnTypeName, result),
@@ -162,6 +164,7 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 				}
 			}
 		}
+		r.currentClass = previousClass
 	}()
 
 	for index, parameter := range method.Parameters {
@@ -200,9 +203,13 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 					panic(&JossError{Type: "ReferenceArgumentError", Message: fmt.Sprintf("El parámetro $%s no está declarado con ref", parameter.Name.Value), File: r.CurrentFile, Line: parameter.Name.Token.Line})
 				}
 				if slot.Type.Kind != typesystem.Mixed {
-					value = r.coerceToParsedType(value, slot.Type)
-					if !r.checkParsedType(value, slot.Type) {
-						panic(fmt.Sprintf("Type Error: El argumento %d ($%s) debe ser de tipo %s, se recibió %T", index+1, parameter.Name.Value, parameter.Type.Literal, value))
+					if _, ok := value.(int64); ok && slot.Type.Kind == typesystem.Int {
+						// Fast-path: already int64 for int parameter
+					} else {
+						value = r.coerceToParsedType(value, slot.Type)
+						if !r.checkParsedType(value, slot.Type) {
+							panic(fmt.Sprintf("Type Error: El argumento %d ($%s) debe ser de tipo %s, se recibió %T", index+1, parameter.Name.Value, parameter.Type.Literal, value))
+						}
 					}
 				}
 			}
@@ -227,6 +234,9 @@ func (r *Runtime) callMethodEvaluatedWithPlan(method *parser.MethodStatement, in
 	}
 
 	res := r.executeBlock(method.Body)
+	if callFrame.hasReturn {
+		res = callFrame.returnValue
+	}
 	if compiled != nil && compiled.ReturnTypeName == "void" {
 		return nil
 	}

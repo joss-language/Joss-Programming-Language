@@ -98,7 +98,7 @@ func assertDifferential(t *testing.T, name string, source string) {
 		t.Fatalf("[%s] compilador nativo falló: %v", name, err)
 	}
 	if nativeExit != 0 {
-		t.Logf("[%s] native stdout/stderr:\n%s", name, nativeOut)
+		t.Logf("[%s] native stdout/stderr: %q", name, nativeOut)
 		t.Fatalf("[%s] binario nativo terminó con código de salida %d (esperado 0)", name, nativeExit)
 	}
 

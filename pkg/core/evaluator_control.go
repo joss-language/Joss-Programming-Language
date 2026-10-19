@@ -5,34 +5,39 @@ import (
 )
 
 func (r *Runtime) evaluateTernary(expression *parser.TernaryExpression) interface{} {
-	condition := r.evaluateExpression(expression.Condition)
-	conditionIsTrue := isTruthy(condition)
-
-	var result interface{}
-	switch {
-	case expression.True == nil:
-		if conditionIsTrue {
-			result = condition
-		} else {
-			result = r.evaluateExpression(expression.False)
+	if expression.True == nil {
+		condition := r.evaluateExpression(expression.Condition)
+		if isTruthy(condition) {
+			return condition
 		}
-	case expression.False == nil:
-		if !conditionIsTrue {
+		if expression.False == nil {
 			return nil
 		}
-		result = r.evaluateExpression(expression.True)
-	default:
-		if conditionIsTrue {
-			result = r.evaluateExpression(expression.True)
-		} else {
-			result = r.evaluateExpression(expression.False)
-		}
+		return r.evaluateExpression(expression.False)
 	}
 
-	if block, ok := result.(*parser.BlockStatement); ok {
+	if r.evaluateCondition(expression.Condition) {
+		if blockExp, ok := expression.True.(*parser.BlockExpression); ok {
+			return r.executeBlock(blockExp.Block)
+		}
+		res := r.evaluateExpression(expression.True)
+		if block, ok := res.(*parser.BlockStatement); ok {
+			return r.executeBlock(block)
+		}
+		return res
+	}
+
+	if expression.False == nil {
+		return nil
+	}
+	if blockExp, ok := expression.False.(*parser.BlockExpression); ok {
+		return r.executeBlock(blockExp.Block)
+	}
+	res := r.evaluateExpression(expression.False)
+	if block, ok := res.(*parser.BlockStatement); ok {
 		return r.executeBlock(block)
 	}
-	return result
+	return res
 }
 
 // evaluateNullCoalescing handles absence only. Errors raised while evaluating

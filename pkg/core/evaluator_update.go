@@ -86,20 +86,50 @@ func (r *Runtime) updatePostfixSlot(expression *parser.PostfixExpression, return
 	if !ok || (expression.Operator != "++" && expression.Operator != "--") {
 		return nil, false
 	}
-	slot, resolved := r.slotForIdentifier(identifier)
-	if !resolved || !slot.Initialized || slot.ByReference {
+	var slot *runtimeframe.Slot
+	if identifier.ResolvedSlot > 0 && r.currentFrame != nil {
+		idx := identifier.ResolvedSlot - 1
+		if idx < len(r.currentFrame.slots) {
+			slot = &r.currentFrame.slots[idx]
+		}
+	}
+	if slot == nil {
+		var resolved bool
+		slot, resolved = r.slotForIdentifier(identifier)
+		if !resolved {
+			return nil, false
+		}
+	}
+	if !slot.Initialized || slot.ByReference {
 		return nil, false
 	}
 	if slot.Constant {
 		panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede modificarse", slot.Name), File: r.CurrentFile, Line: expression.Token.Line, Column: expression.Token.Column})
 	}
-	operator := "+"
-	if expression.Operator == "--" {
-		operator = "-"
-	}
 	switch slot.Value.Kind {
 	case runtimeframe.Int:
 		oldValue := slot.Value.Integer
+		if expression.Operator == "++" {
+			if oldValue < 9223372036854775807 {
+				slot.Value.Integer = oldValue + 1
+				if returnOld {
+					return oldValue, true
+				}
+				return nil, true
+			}
+		} else {
+			if oldValue > -9223372036854775808 {
+				slot.Value.Integer = oldValue - 1
+				if returnOld {
+					return oldValue, true
+				}
+				return nil, true
+			}
+		}
+		operator := "+"
+		if expression.Operator == "--" {
+			operator = "-"
+		}
 		updated, fault := typesystem.CheckedIntBinary(operator, oldValue, 1)
 		if fault != typesystem.ArithmeticOK {
 			panic(&JossError{Code: diagnostics.CodeArithmeticOverflow, Type: "ArithmeticError", Message: fmt.Sprintf("Overflow entero al operar %d", oldValue), File: r.CurrentFile, Line: expression.Token.Line, Column: expression.Token.Column})

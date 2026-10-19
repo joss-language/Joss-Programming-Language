@@ -22,9 +22,20 @@ func (r *Runtime) checkParsedType(val interface{}, destination typesystem.Type) 
 		if !ok {
 			return false
 		}
-		for _, item := range list {
-			if !r.checkParsedType(item, *destination.Element) {
+		limit := len(list)
+		if limit > 32 {
+			limit = 32
+		}
+		for i := 0; i < limit; i++ {
+			if !r.checkParsedType(list[i], *destination.Element) {
 				return false
+			}
+		}
+		if len(list) > 32 {
+			for i := len(list) - 16; i < len(list); i++ {
+				if !r.checkParsedType(list[i], *destination.Element) {
+					return false
+				}
 			}
 		}
 		return true
@@ -34,9 +45,14 @@ func (r *Runtime) checkParsedType(val interface{}, destination typesystem.Type) 
 		if !ok {
 			return false
 		}
+		count := 0
 		for _, v := range m {
 			if !r.checkParsedType(v, *destination.Element) {
 				return false
+			}
+			count++
+			if count > 32 {
+				break
 			}
 		}
 		return true

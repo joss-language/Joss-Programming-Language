@@ -15,15 +15,14 @@ func (r *Runtime) executeCall(call *parser.CallExpression) interface{} {
 	// Built-ins are considered only when no source function or local shadows the
 	// canonical built-in name.
 	if identifier, ok := call.Function.(*parser.Identifier); ok {
-		_, hasUserFunction := r.Functions[identifier.Value]
-		_, hasLocal, _ := r.localValue(identifier)
-		if !hasUserFunction && !hasLocal {
-			if hasVariableReference(arguments) && IsBuiltin(identifier.Value) {
-				panic(&JossError{Type: "ReferenceEscape", Message: fmt.Sprintf("La función nativa '%s' no declara parámetros ref", identifier.Value), File: r.CurrentFile, Line: identifier.Token.Line})
-			}
-			if result, ok := r.callBuiltin(identifier.Value, arguments); ok {
-				return result
-			}
+		if function, ok := r.Functions[identifier.Value]; ok {
+			return r.callMethodEvaluatedWithPlan(function, nil, arguments, nil, r.planForMethod(function))
+		}
+		if hasVariableReference(arguments) && IsBuiltin(identifier.Value) {
+			panic(&JossError{Type: "ReferenceEscape", Message: fmt.Sprintf("La función nativa '%s' no declara parámetros ref", identifier.Value), File: r.CurrentFile, Line: identifier.Token.Line})
+		}
+		if result, ok := r.callBuiltin(identifier.Value, arguments); ok {
+			return result
 		}
 	}
 

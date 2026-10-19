@@ -17,6 +17,8 @@ type executionFrame struct {
 	slots        []runtimeframe.Slot
 	allowDynamic bool
 	defers       []*parser.DeferStatement
+	hasReturn    bool
+	returnValue  interface{}
 }
 
 var executionFramePool = sync.Pool{New: func() interface{} { return &executionFrame{} }}
@@ -26,6 +28,8 @@ func acquireExecutionFrame(compiled *runtimeplan.Callable, allowDynamic bool) *e
 	frame.plan = compiled
 	frame.allowDynamic = allowDynamic
 	frame.defers = nil
+	frame.hasReturn = false
+	frame.returnValue = nil
 	if cap(frame.slots) < len(compiled.Slots) {
 		frame.slots = make([]runtimeframe.Slot, len(compiled.Slots))
 	} else {
@@ -57,6 +61,8 @@ func releaseExecutionFrame(frame *executionFrame) {
 	frame.defers = nil
 	frame.plan = nil
 	frame.allowDynamic = false
+	frame.hasReturn = false
+	frame.returnValue = nil
 	executionFramePool.Put(frame)
 }
 
@@ -152,17 +158,23 @@ func (r *Runtime) assignSlot(slot *runtimeframe.Slot, value interface{}, initial
 	if slot.Constant && slot.Initialized && !initializing {
 		panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede reasignarse", slot.Name), File: r.CurrentFile})
 	}
-	// Fast-path: reassigning an integer slot with an integer value
-	if !initializing && slot.Value.Kind == runtimeframe.Int {
-		if n, ok := value.(int64); ok {
-			slot.SetInt(n)
-			return n
+	// Fast-path: integer slot with an integer value (both initial and subsequent assignments)
+	if n, ok := value.(int64); ok && (slot.Value.Kind == runtimeframe.Int || slot.Type.Kind == typesystem.Int || (slot.Inferred && !slot.Initialized)) {
+		if !slot.Initialized {
+			slot.Type = typesystem.Type{Kind: typesystem.Int}
+			slot.TypeName = "int"
 		}
-		if n, ok := value.(int); ok {
-			n64 := int64(n)
-			slot.SetInt(n64)
-			return n64
+		slot.SetInt(n)
+		return n
+	}
+	if n, ok := value.(int); ok && (slot.Value.Kind == runtimeframe.Int || slot.Type.Kind == typesystem.Int || (slot.Inferred && !slot.Initialized)) {
+		n64 := int64(n)
+		if !slot.Initialized {
+			slot.Type = typesystem.Type{Kind: typesystem.Int}
+			slot.TypeName = "int"
 		}
+		slot.SetInt(n64)
+		return n64
 	}
 	if slot.TypeName != "" && slot.Type.Kind != typesystem.Mixed && slot.Type.Kind != typesystem.Unknown {
 		value = r.coerceToParsedType(value, slot.Type)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -139,6 +140,7 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	}
 
 	b.emitToStringStub()
+	b.emitF64ToStringStub()
 
 	// 4. Resolve all relocations and emit the final executable container (PE32+, ELF64, or Mach-O)
 	textBytes := append([]byte(nil), b.text.Bytes()...)
@@ -218,11 +220,13 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 						report("builtin " + i.BuiltinID)
 					}
 				case *ir.CallRuntimeInst:
-					if isSupportedRuntimeCallee(i.Func) {
+					if isNativeBuiltinHelper(i.Func) {
+						// Native direct helper
+					} else if isSupportedRuntimeCallee(i.Func) {
 						b.needsHostBridge = true
 					}
 				case *ir.CallInst:
-					if !isNativeBuiltin(i.Callee) {
+					if !isNativeBuiltin(i.Callee) && !isNativeBuiltinHelper(i.Callee) {
 						if _, exists := prog.Functions[i.Callee]; !exists {
 							b.needsHostBridge = true
 						}
@@ -253,7 +257,16 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 func isNativeBuiltin(id string) bool {
 	switch id {
 	case "strlen", "len", "count", "array_push", "append", "to_string",
-		"abs", "min", "max", "intval", "boolval", "array_pop":
+		"abs", "min", "max", "intval", "boolval", "array_pop", "microtime":
+		return true
+	}
+	return false
+}
+
+// isNativeBuiltinHelper reports internal runtime helpers emitted directly as machine code.
+func isNativeBuiltinHelper(name string) bool {
+	switch name {
+	case "Exception_constructor", "Exception_getMessage", "Exception_getCode":
 		return true
 	}
 	return false
@@ -435,6 +448,14 @@ func (b *MachineCodeBuilder) emitLeaRCXString(s string) {
 	b.relocs = append(b.relocs, machineReloc{kind: relocROData, patchOffset: patchOff, targetOff: off})
 }
 
+func (b *MachineCodeBuilder) emitLeaRCXLabel(target string) {
+	b.asmListing.WriteString(fmt.Sprintf("    lea rcx, [rip + %s]\n", target))
+	b.emitBytes(0x48, 0x8D, 0x0D)
+	patchOff := b.text.Len()
+	b.emitU32(0)
+	b.relocs = append(b.relocs, machineReloc{kind: relocTextLabel, patchOffset: patchOff, targetLabel: target})
+}
+
 func (b *MachineCodeBuilder) emitLeaRDXString(s string) {
 	off := b.internString(s)
 	b.asmListing.WriteString(fmt.Sprintf("    lea rdx, [rip + str_%d] ; %q\n", off, s))
@@ -442,6 +463,31 @@ func (b *MachineCodeBuilder) emitLeaRDXString(s string) {
 	patchOff := b.text.Len()
 	b.emitU32(0)
 	b.relocs = append(b.relocs, machineReloc{kind: relocROData, patchOffset: patchOff, targetOff: off})
+}
+
+func (b *MachineCodeBuilder) emitLeaRDXLabel(target string) {
+	b.asmListing.WriteString(fmt.Sprintf("    lea rdx, [rip + %s]\n", target))
+	b.emitBytes(0x48, 0x8D, 0x15)
+	patchOff := b.text.Len()
+	b.emitU32(0)
+	b.relocs = append(b.relocs, machineReloc{kind: relocTextLabel, patchOffset: patchOff, targetLabel: target})
+}
+
+func (b *MachineCodeBuilder) emitLeaR8String(s string) {
+	off := b.internString(s)
+	b.asmListing.WriteString(fmt.Sprintf("    lea r8, [rip + str_%d] ; %q\n", off, s))
+	b.emitBytes(0x4C, 0x8D, 0x05)
+	patchOff := b.text.Len()
+	b.emitU32(0)
+	b.relocs = append(b.relocs, machineReloc{kind: relocROData, patchOffset: patchOff, targetOff: off})
+}
+
+func (b *MachineCodeBuilder) emitLeaR8Label(target string) {
+	b.asmListing.WriteString(fmt.Sprintf("    lea r8, [rip + %s]\n", target))
+	b.emitBytes(0x4C, 0x8D, 0x05)
+	patchOff := b.text.Len()
+	b.emitU32(0)
+	b.relocs = append(b.relocs, machineReloc{kind: relocTextLabel, patchOffset: patchOff, targetLabel: target})
 }
 
 func (b *MachineCodeBuilder) emitMovRAXData(dataOff uint32) {
@@ -1053,8 +1099,6 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".arr_get_done")
-	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00) // cmp rdx, 0x10000
-	b.emitJgeLabel("joss_map_get_i64")
 	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
 	b.emitJlLabel(".arr_get_done")
 	b.emitBytes(0x48, 0x3B, 0x11) // cmp rdx, [rcx + 0] (idx vs len)
@@ -1077,8 +1121,6 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// joss_arr_set_i64 / joss_arr_set_str (rcx = arrPtr, rdx = idx, r8 = val64)
 	b.defineLabel("joss_arr_set_i64")
 	b.defineLabel("joss_arr_set_str")
-	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00) // cmp rdx, 0x10000
-	b.emitJgeLabel("joss_map_set_i64")
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".arr_set_leaf_ret")
 	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
@@ -1208,6 +1250,39 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel(".map_len_done")
 	b.emitBytes(0xC3)
 
+	// fn_microtime(rcx = asFloat) -> rax = float64 bits (seconds)
+	b.defineLabel("fn_microtime")
+	if b.target.OS == "linux" {
+		// Linux x86-64: syscall 228 (sys_clock_gettime(CLOCK_MONOTONIC=1, rsp-16))
+		b.emitBytes(0x48, 0x83, 0xEC, 0x18)                                     // sub rsp, 24
+		b.emitBytes(0xBF, 0x01, 0x00, 0x00, 0x00)                               // mov edi, 1 (CLOCK_MONOTONIC)
+		b.emitBytes(0x48, 0x8D, 0x74, 0x24, 0x08)                               // lea rsi, [rsp + 8] (timespec)
+		b.emitBytes(0xB8, 0xE4, 0x00, 0x00, 0x00)                               // mov eax, 228 (sys_clock_gettime)
+		b.emitBytes(0x0F, 0x05)                                                 // syscall
+		b.emitBytes(0x48, 0x8B, 0x44, 0x24, 0x08)                               // mov rax, [rsp + 8] (sec)
+		b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xC0)                               // cvtsi2sd xmm0, rax
+		b.emitBytes(0x48, 0x8B, 0x4C, 0x24, 0x10)                               // mov rcx, [rsp + 16] (nsec)
+		b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xC9)                               // cvtsi2sd xmm1, rcx
+		b.emitBytes(0x48, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x65, 0xCD, 0xCD, 0x41) // mov rax, 0x41CDCD6500000000 (1e9)
+		b.emitBytes(0x66, 0x48, 0x0F, 0x6E, 0xD0)                               // movq xmm2, rax
+		b.emitBytes(0xF2, 0x0F, 0x5E, 0xCA)                                     // divsd xmm1, xmm2 (nsec / 1e9)
+		b.emitBytes(0xF2, 0x0F, 0x58, 0xC1)                                     // addsd xmm0, xmm1 (sec + nsec/1e9)
+		b.emitBytes(0x66, 0x48, 0x0F, 0x7E, 0xC0)                               // movq rax, xmm0
+		b.emitBytes(0x48, 0x83, 0xC4, 0x18)                                     // add rsp, 24
+		b.emitBytes(0xC3)
+	} else {
+		// Windows x86-64: Read 0x7FFE0014 (KUSER_SHARED_DATA SystemTime)
+		b.emitBytes(0x48, 0xBA, 0x14, 0x00, 0xFE, 0x7F, 0x00, 0x00, 0x00, 0x00) // mov rdx, 0x7FFE0014
+		b.emitBytes(0x48, 0x8B, 0x02)                                           // mov rax, [rdx]
+		b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xC0)                               // cvtsi2sd xmm0, rax
+		b.emitBytes(0x48, 0xBA)                                                 // mov rdx, 1e7 (double)
+		b.emitU64(0x416312D000000000)
+		b.emitBytes(0x66, 0x48, 0x0F, 0x6E, 0xCA) // movq xmm1, rdx
+		b.emitBytes(0xF2, 0x0F, 0x5E, 0xC1)       // divsd xmm0, xmm1
+		b.emitBytes(0x66, 0x48, 0x0F, 0x7E, 0xC0) // movq rax, xmm0
+		b.emitBytes(0xC3)
+	}
+
 	// =========================================================================
 	// 7. Exception Helpers (Exception_constructor, Exception_getMessage, Exception_getCode, __joss_rt_throw)
 	// =========================================================================
@@ -1280,6 +1355,57 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 	for i := 0; i < fn.NextTempID; i++ {
 		tempOffsets[i] = -slotIdx * 8
 		slotIdx++
+	}
+
+	// SSA Load Offset Forwarding:
+	// Si un TempValue es el resultado directo de un Load de un puntero local (alloca),
+	// alias su stack offset directamente al puntero para evitar escribir/leer en la pila.
+	for _, blk := range fn.Blocks {
+		for _, inst := range blk.Instructions {
+			if load, ok := inst.(*ir.LoadInst); ok {
+				if ptrTemp, isTemp := load.Ptr.(*ir.TempValue); isTemp {
+					tempOffsets[load.Dest.ID] = tempOffsets[ptrTemp.ID]
+				}
+			}
+		}
+	}
+
+	// SSA Store Forwarding:
+	// Si un TempValue es usado ÚNICAMENTE por una StoreInst inmediatamente siguiente en el mismo bloque,
+	// alias su stack offset directamente al puntero destino para escribir el resultado directamente.
+	tempUseCount := make(map[int]int, fn.NextTempID)
+	for _, blk := range fn.Blocks {
+		for _, inst := range blk.Instructions {
+			for _, op := range inst.Operands() {
+				if t, ok := op.(*ir.TempValue); ok {
+					tempUseCount[t.ID]++
+				}
+			}
+		}
+		if blk.Terminator != nil {
+			for _, op := range blk.Terminator.Operands() {
+				if t, ok := op.(*ir.TempValue); ok {
+					tempUseCount[t.ID]++
+				}
+			}
+		}
+	}
+
+	for _, blk := range fn.Blocks {
+		for idx, inst := range blk.Instructions {
+			dest := inst.Result()
+			if dest != nil && tempUseCount[dest.ID] == 1 {
+				if idx+1 < len(blk.Instructions) {
+					if store, ok := blk.Instructions[idx+1].(*ir.StoreInst); ok {
+						if vTemp, ok2 := store.Val.(*ir.TempValue); ok2 && vTemp.ID == dest.ID {
+							if ptrTemp, ok3 := store.Ptr.(*ir.TempValue); ok3 {
+								tempOffsets[dest.ID] = tempOffsets[ptrTemp.ID]
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	maxCallArgs := 4
@@ -1360,14 +1486,6 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 		}
 	}
 
-	// Zero-initialize all temporary slots
-	if fn.NextTempID > 0 {
-		b.emitBytes(0x31, 0xC0) // xor eax, eax
-		for i := 0; i < fn.NextTempID; i++ {
-			b.emitStoreRAXToRBP(tempOffsets[i])
-		}
-	}
-
 	// Emit basic blocks
 	if err := b.emitBlocks(fn, layout, fn.Blocks); err != nil {
 		return err
@@ -1384,7 +1502,28 @@ func (b *MachineCodeBuilder) emitBlocks(fn *ir.Function, layout *fnFrameLayout, 
 		blkLabel := fmt.Sprintf("%s_blk_%s", layout.fnLabel, blk.Label)
 		b.defineLabel(blkLabel)
 
-		for _, inst := range blk.Instructions {
+		nInst := len(blk.Instructions)
+		fuseBranch := false
+		var cmpInst *ir.CompareInst
+		var brTerm *ir.BranchTerminator
+
+		if bt, ok := blk.Terminator.(*ir.BranchTerminator); ok && nInst > 0 {
+			if ci, isCmp := blk.Instructions[nInst-1].(*ir.CompareInst); isCmp && ci.Op != ir.OpSpaceship {
+				if condTemp, isTemp := bt.Cond.(*ir.TempValue); isTemp && condTemp.ID == ci.Dest.ID {
+					fuseBranch = true
+					cmpInst = ci
+					brTerm = bt
+				}
+			}
+		}
+
+		limit := nInst
+		if fuseBranch {
+			limit = nInst - 1
+		}
+
+		for idx := 0; idx < limit; idx++ {
+			inst := blk.Instructions[idx]
 			if tc, ok := inst.(*ir.TryCatchInst); ok {
 				if err := b.emitTryCatch(fn, layout, tc); err != nil {
 					return err
@@ -1396,12 +1535,60 @@ func (b *MachineCodeBuilder) emitBlocks(fn *ir.Function, layout *fnFrameLayout, 
 			}
 		}
 
-		if blk.Terminator != nil {
+		if fuseBranch {
+			if err := b.emitFusedCompareBranch(fn, layout, cmpInst, brTerm); err != nil {
+				return err
+			}
+		} else if blk.Terminator != nil {
 			if err := b.emitTerminator(fn, layout, blk.Terminator); err != nil {
 				return err
 			}
 		}
 	}
+	return nil
+}
+
+func (b *MachineCodeBuilder) emitFusedCompareBranch(fn *ir.Function, layout *fnFrameLayout, ci *ir.CompareInst, bt *ir.BranchTerminator) error {
+	trueLbl := fmt.Sprintf("%s_blk_%s", layout.fnLabel, bt.TrueBlock.Label)
+	falseLbl := fmt.Sprintf("%s_blk_%s", layout.fnLabel, bt.FalseBlock.Label)
+
+	_, leftIsNull := ci.Left.(*ir.ConstNull)
+	_, rightIsNull := ci.Right.(*ir.ConstNull)
+	if !leftIsNull && !rightIsNull && (ci.Left.Type().Kind == ir.TypeKindString || ci.Right.Type().Kind == ir.TypeKindString) && (ci.Op == ir.OpCmpEq || ci.Op == ir.OpCmpNe) {
+		b.emitCallWithArgs(layout, "__joss_rt_strcmp", []ir.Value{ci.Left, ci.Right})
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		if ci.Op == ir.OpCmpEq {
+			b.emitJeLabel(trueLbl)
+		} else {
+			b.emitJneLabel(trueLbl)
+		}
+		b.emitJmpLabel(falseLbl)
+		return nil
+	}
+
+	b.emitLoadValToRAX(layout, ci.Left)
+	b.emitLoadValToRCX(layout, ci.Right)
+	b.emitBytes(0x48, 0x39, 0xC8) // cmp rax, rcx
+
+	switch ci.Op {
+	case ir.OpCmpEq:
+		b.emitJeLabel(trueLbl)
+	case ir.OpCmpNe:
+		b.emitJneLabel(trueLbl)
+	case ir.OpCmpLt:
+		b.emitJlLabel(trueLbl)
+	case ir.OpCmpLe:
+		b.emitJleLabel(trueLbl)
+	case ir.OpCmpGt:
+		b.emitJgLabel(trueLbl)
+	case ir.OpCmpGe:
+		b.emitJgeLabel(trueLbl)
+	default:
+		b.emitInstruction(fn, layout, ci)
+		b.emitTerminator(fn, layout, bt)
+		return nil
+	}
+	b.emitJmpLabel(falseLbl)
 	return nil
 }
 
@@ -1462,14 +1649,24 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 
 	case *ir.StoreInst:
 		if temp, ok := i.Ptr.(*ir.TempValue); ok {
+			dstOff := layout.tempOffsets[temp.ID]
+			if vTemp, ok2 := i.Val.(*ir.TempValue); ok2 {
+				if layout.tempOffsets[vTemp.ID] == dstOff {
+					return nil
+				}
+			}
 			b.emitLoadValToRAX(layout, i.Val)
-			b.emitStoreRAXToRBP(layout.tempOffsets[temp.ID])
+			b.emitStoreRAXToRBP(dstOff)
 		}
 
 	case *ir.LoadInst:
 		if temp, ok := i.Ptr.(*ir.TempValue); ok {
-			b.emitLoadRAXFromRBP(layout.tempOffsets[temp.ID])
-			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			srcOff := layout.tempOffsets[temp.ID]
+			dstOff := layout.tempOffsets[i.Dest.ID]
+			if srcOff != dstOff {
+				b.emitLoadRAXFromRBP(srcOff)
+				b.emitStoreRAXToRBP(dstOff)
+			}
 		}
 
 	case *ir.MoveInst:
@@ -1477,11 +1674,40 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
 	case *ir.BinaryInst:
+		isFloat := (i.Dest != nil && (i.Dest.Type().Kind == ir.TypeKindF64 || i.Dest.Type().Kind == ir.TypeKindDecimal)) ||
+			i.Left.Type().Kind == ir.TypeKindF64 || i.Right.Type().Kind == ir.TypeKindF64 ||
+			i.Left.Type().Kind == ir.TypeKindDecimal || i.Right.Type().Kind == ir.TypeKindDecimal
+
+		if isFloat {
+			b.emitLoadValToRAX(layout, i.Left)
+			b.emitLoadValToRCX(layout, i.Right)
+			if i.Left.Type().Kind == ir.TypeKindI64 {
+				b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xC0) // cvtsi2sd xmm0, rax
+			} else {
+				b.emitBytes(0x66, 0x48, 0x0F, 0x6E, 0xC0) // movq xmm0, rax
+			}
+			if i.Right.Type().Kind == ir.TypeKindI64 {
+				b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xC9) // cvtsi2sd xmm1, rcx
+			} else {
+				b.emitBytes(0x66, 0x48, 0x0F, 0x6E, 0xC9) // movq xmm1, rcx
+			}
+			switch i.Op {
+			case ir.OpAdd:
+				b.emitBytes(0xF2, 0x0F, 0x58, 0xC1) // addsd xmm0, xmm1
+			case ir.OpSub:
+				b.emitBytes(0xF2, 0x0F, 0x5C, 0xC1) // subsd xmm0, xmm1
+			case ir.OpMul:
+				b.emitBytes(0xF2, 0x0F, 0x59, 0xC1) // mulsd xmm0, xmm1
+			case ir.OpDiv:
+				b.emitBytes(0xF2, 0x0F, 0x5E, 0xC1) // divsd xmm0, xmm1
+			}
+			b.emitBytes(0x66, 0x48, 0x0F, 0x7E, 0xC0) // movq rax, xmm0
+			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			return nil
+		}
+
 		b.emitLoadValToRAX(layout, i.Left)
-		b.emitBytes(0x50) // push rax (save Left while evaluating Right)
-		b.emitLoadValToRAX(layout, i.Right)
-		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax (Right)
-		b.emitBytes(0x58)             // pop rax (Left)
+		b.emitLoadValToRCX(layout, i.Right)
 
 		switch i.Op {
 		case ir.OpAdd:
@@ -1527,10 +1753,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 		b.emitLoadValToRAX(layout, i.Left)
-		b.emitBytes(0x50) // push rax
-		b.emitLoadValToRAX(layout, i.Right)
-		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
-		b.emitBytes(0x58)             // pop rax
+		b.emitLoadValToRCX(layout, i.Right)
 
 		b.emitBytes(0x48, 0x39, 0xC8) // cmp rax, rcx
 		switch i.Op {
@@ -1576,7 +1799,11 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		if isNativeBuiltin(i.BuiltinID) {
 			fnLabel := "fn_" + i.BuiltinID
 			if i.BuiltinID == "to_string" {
-				fnLabel = "joss_to_string"
+				if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+					fnLabel = "joss_f64_to_string"
+				} else {
+					fnLabel = "joss_to_string"
+				}
 			}
 			b.emitCallWithArgs(layout, fnLabel, i.Args)
 			if i.Dest != nil {
@@ -1658,9 +1885,15 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		if isNativeBuiltin(i.Callee) {
 			fnLabel := "fn_" + i.Callee
 			if i.Callee == "to_string" {
-				fnLabel = "joss_to_string"
+				if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+					fnLabel = "joss_f64_to_string"
+				} else {
+					fnLabel = "joss_to_string"
+				}
 			}
 			b.emitCallWithArgs(layout, fnLabel, i.Args)
+		} else if isNativeBuiltinHelper(i.Callee) {
+			b.emitCallWithArgs(layout, "fn_"+i.Callee, i.Args)
 		} else if _, exists := b.prog.Functions[i.Callee]; exists {
 			b.emitCallWithArgs(layout, "fn_"+i.Callee, i.Args)
 		} else {
@@ -1679,6 +1912,13 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 	case *ir.CallRuntimeInst:
+		if isNativeBuiltinHelper(i.Func) {
+			b.emitCallWithArgs(layout, "fn_"+i.Func, i.Args)
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
+			return nil
+		}
 		if isSupportedRuntimeCallee(i.Func) {
 			b.emitLeaRCXString(i.Func)
 			b.emitCallIAT(IATJossHostBridge)
@@ -1688,7 +1928,11 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			return nil
 		} else {
 			if i.Func == "to_string" || i.Func == "strval" {
-				b.emitCallWithArgs(layout, "joss_to_string", i.Args)
+				if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+					b.emitCallWithArgs(layout, "joss_f64_to_string", i.Args)
+				} else {
+					b.emitCallWithArgs(layout, "joss_to_string", i.Args)
+				}
 			} else if i.Func == "str_concat" {
 				b.emitCallWithArgs(layout, "joss_str_concat", i.Args)
 			} else {
@@ -1769,10 +2013,8 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		} else {
 			lblSlow := fmt.Sprintf(".arr_get_slow_%d", b.nextInlineLabelID())
 			lblDone := fmt.Sprintf(".arr_get_done_%d", b.nextInlineLabelID())
-			b.emitLoadValToRAX(layout, i.Array)
-			b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax (arr)
-			b.emitLoadValToRAX(layout, i.Index)
-			b.emitBytes(0x48, 0x89, 0xC2) // mov rdx, rax (idx)
+			b.emitLoadValToRCX(layout, i.Array)
+			b.emitLoadValToRDX(layout, i.Index)
 			b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 			b.emitJeLabel(lblSlow)
 			b.emitBytes(0x48, 0x3B, 0x11) // cmp rdx, [rcx + 0] (unsigned idx vs len)
@@ -1789,22 +2031,13 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 	case *ir.ArraySetInst:
 		lblSlow := fmt.Sprintf(".arr_set_slow_%d", b.nextInlineLabelID())
 		lblDone := fmt.Sprintf(".arr_set_done_%d", b.nextInlineLabelID())
-		lblWrite := fmt.Sprintf(".arr_set_w_%d", b.nextInlineLabelID())
-		b.emitLoadValToRAX(layout, i.Val)
-		b.emitBytes(0x49, 0x89, 0xC0) // mov r8, rax (val)
-		b.emitLoadValToRAX(layout, i.Index)
-		b.emitBytes(0x48, 0x89, 0xC2) // mov rdx, rax (idx)
-		b.emitLoadValToRAX(layout, i.Array)
-		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax (arr)
+		b.emitLoadValToR8(layout, i.Val)
+		b.emitLoadValToRDX(layout, i.Index)
+		b.emitLoadValToRCX(layout, i.Array)
 		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 		b.emitJeLabel(lblSlow)
-		b.emitBytes(0x48, 0x3B, 0x51, 0x08) // cmp rdx, [rcx + 8] (idx vs cap)
+		b.emitBytes(0x48, 0x3B, 0x11) // cmp rdx, [rcx + 0] (unsigned idx vs len)
 		b.emitJaeLabel(lblSlow)
-		b.emitBytes(0x48, 0x8D, 0x42, 0x01) // lea rax, [rdx + 1]
-		b.emitBytes(0x48, 0x3B, 0x01)       // cmp rax, [rcx + 0]
-		b.emitJleLabel(lblWrite)
-		b.emitBytes(0x48, 0x89, 0x01) // mov [rcx + 0], rax
-		b.defineLabel(lblWrite)
 		b.emitBytes(0x4C, 0x8B, 0x49, 0x10) // mov r9, [rcx + 16] (dataPtr)
 		b.emitBytes(0x4D, 0x89, 0x04, 0xD1) // mov [r9 + rdx*8], r8
 		b.emitJmpLabel(lblDone)
@@ -1945,6 +2178,14 @@ func (b *MachineCodeBuilder) emitLoadValToRAX(layout *fnFrameLayout, val ir.Valu
 			b.emitBytes(0x48, 0xB8) // movabs rax, imm64
 			b.emitU64(uint64(v.Val))
 		}
+	case *ir.ConstFloat:
+		bits := math.Float64bits(v.Val)
+		if bits == 0 {
+			b.emitBytes(0x31, 0xC0) // xor eax, eax
+		} else {
+			b.emitBytes(0x48, 0xB8) // movabs rax, imm64
+			b.emitU64(bits)
+		}
 	case *ir.ConstBool:
 		if v.Val {
 			b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1
@@ -1966,9 +2207,153 @@ func (b *MachineCodeBuilder) emitLoadValToRAX(layout *fnFrameLayout, val ir.Valu
 	}
 }
 
+func (b *MachineCodeBuilder) emitLoadValToRCX(layout *fnFrameLayout, val ir.Value) {
+	switch v := val.(type) {
+	case *ir.TempValue:
+		b.emitLoadRCXFromRBP(layout.tempOffsets[v.ID])
+	case *ir.ParamValue:
+		b.emitLoadRCXFromRBP(layout.paramOffsets[cleanName(v.Name)])
+	case *ir.ConstInt:
+		if v.Val == 0 {
+			b.emitBytes(0x31, 0xC9) // xor ecx, ecx
+		} else {
+			b.emitBytes(0x48, 0xB9) // movabs rcx, imm64
+			b.emitU64(uint64(v.Val))
+		}
+	case *ir.ConstFloat:
+		bits := math.Float64bits(v.Val)
+		if bits == 0 {
+			b.emitBytes(0x31, 0xC9) // xor ecx, ecx
+		} else {
+			b.emitBytes(0x48, 0xB9) // movabs rcx, imm64
+			b.emitU64(bits)
+		}
+	case *ir.ConstBool:
+		if v.Val {
+			b.emitBytes(0xB9, 0x01, 0x00, 0x00, 0x00) // mov ecx, 1
+		} else {
+			b.emitBytes(0x31, 0xC9) // xor ecx, ecx
+		}
+	case *ir.ConstString:
+		b.emitLeaRCXString(v.Val)
+	case *ir.ConstFnPtr:
+		target := v.FnName
+		if !strings.HasPrefix(target, "fn_") {
+			target = "fn_" + target
+		}
+		b.emitLeaRCXLabel(target)
+	case *ir.ConstNull:
+		b.emitBytes(0x31, 0xC9) // xor ecx, ecx
+	default:
+		b.emitBytes(0x31, 0xC9)
+	}
+}
+
+func (b *MachineCodeBuilder) emitLoadValToRDX(layout *fnFrameLayout, val ir.Value) {
+	switch v := val.(type) {
+	case *ir.TempValue:
+		b.emitLoadRDXFromRBP(layout.tempOffsets[v.ID])
+	case *ir.ParamValue:
+		b.emitLoadRDXFromRBP(layout.paramOffsets[cleanName(v.Name)])
+	case *ir.ConstInt:
+		if v.Val == 0 {
+			b.emitBytes(0x31, 0xD2) // xor edx, edx
+		} else {
+			b.emitBytes(0x48, 0xBA) // movabs rdx, imm64
+			b.emitU64(uint64(v.Val))
+		}
+	case *ir.ConstFloat:
+		bits := math.Float64bits(v.Val)
+		if bits == 0 {
+			b.emitBytes(0x31, 0xD2) // xor edx, edx
+		} else {
+			b.emitBytes(0x48, 0xBA) // movabs rdx, imm64
+			b.emitU64(bits)
+		}
+	case *ir.ConstBool:
+		if v.Val {
+			b.emitBytes(0xBA, 0x01, 0x00, 0x00, 0x00) // mov edx, 1
+		} else {
+			b.emitBytes(0x31, 0xD2) // xor edx, edx
+		}
+	case *ir.ConstString:
+		b.emitLeaRDXString(v.Val)
+	case *ir.ConstFnPtr:
+		target := v.FnName
+		if !strings.HasPrefix(target, "fn_") {
+			target = "fn_" + target
+		}
+		b.emitLeaRDXLabel(target)
+	case *ir.ConstNull:
+		b.emitBytes(0x31, 0xD2) // xor edx, edx
+	default:
+		b.emitBytes(0x31, 0xD2)
+	}
+}
+
+func (b *MachineCodeBuilder) emitLoadValToR8(layout *fnFrameLayout, val ir.Value) {
+	switch v := val.(type) {
+	case *ir.TempValue:
+		b.emitLoadR8FromRBP(layout.tempOffsets[v.ID])
+	case *ir.ParamValue:
+		b.emitLoadR8FromRBP(layout.paramOffsets[cleanName(v.Name)])
+	case *ir.ConstInt:
+		if v.Val == 0 {
+			b.emitBytes(0x4D, 0x31, 0xC0) // xor r8, r8
+		} else {
+			b.emitBytes(0x49, 0xB8) // movabs r8, imm64
+			b.emitU64(uint64(v.Val))
+		}
+	case *ir.ConstFloat:
+		bits := math.Float64bits(v.Val)
+		if bits == 0 {
+			b.emitBytes(0x4D, 0x31, 0xC0) // xor r8, r8
+		} else {
+			b.emitBytes(0x49, 0xB8) // movabs r8, imm64
+			b.emitU64(bits)
+		}
+	case *ir.ConstBool:
+		if v.Val {
+			b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00) // mov r8d, 1
+		} else {
+			b.emitBytes(0x4D, 0x31, 0xC0) // xor r8, r8
+		}
+	case *ir.ConstString:
+		b.emitLeaR8String(v.Val)
+	case *ir.ConstFnPtr:
+		target := v.FnName
+		if !strings.HasPrefix(target, "fn_") {
+			target = "fn_" + target
+		}
+		b.emitLeaR8Label(target)
+	case *ir.ConstNull:
+		b.emitBytes(0x4D, 0x31, 0xC0) // xor r8, r8
+	default:
+		b.emitBytes(0x4D, 0x31, 0xC0)
+	}
+}
+
 func (b *MachineCodeBuilder) emitLoadRAXFromRBP(disp int32) {
 	b.asmListing.WriteString(fmt.Sprintf("    mov rax, [rbp%+d]\n", disp))
 	b.emitBytes(0x48, 0x8B, 0x85)
+	b.emitU32(uint32(disp))
+}
+
+func (b *MachineCodeBuilder) emitLoadRCXFromRBP(disp int32) {
+	b.asmListing.WriteString(fmt.Sprintf("    mov rcx, [rbp%+d]\n", disp))
+	b.emitBytes(0x48, 0x8B, 0x8D)
+	b.emitU32(uint32(disp))
+}
+
+func (b *MachineCodeBuilder) emitLoadRDXFromRBP(disp int32) {
+	b.asmListing.WriteString(fmt.Sprintf("    mov rdx, [rbp%+d]\n", disp))
+	b.emitBytes(0x48, 0x8B, 0x95)
+	b.emitU32(uint32(disp))
+}
+
+func (b *MachineCodeBuilder) emitLoadR8FromRBP(disp int32) {
+	b.asmListing.WriteString(fmt.Sprintf("    mov r8, [rbp%+d]\n", disp))
+	b.emitBytes(0x4C, 0x8B, 0x85)
 	b.emitU32(uint32(disp))
 }
 
@@ -2058,6 +2443,70 @@ func (b *MachineCodeBuilder) emitToStringStub() {
 	b.emitBytes(0xC6, 0x07, 0x00) // mov byte ptr [rdi], 0
 	b.emitBytes(0x48, 0x89, 0xF0) // mov rax, rsi (origBuf)
 	b.defineLabel(".tostr_exit")
+	b.emitBytes(0x48, 0x83, 0xC4, 0x38)       // add rsp, 56
+	b.emitBytes(0x5E, 0x5F, 0x5B, 0x5D, 0xC3) // pop rsi; pop rdi; pop rbx; pop rbp; ret
+}
+
+func (b *MachineCodeBuilder) emitF64ToStringStub() {
+	b.defineLabel("joss_f64_to_string")
+	// rcx = float bits
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
+	b.emitBytes(0x53, 0x57, 0x56)             // push rbx; push rdi; push rsi
+	b.emitBytes(0x48, 0x83, 0xEC, 0x38)       // sub rsp, 56
+	b.emitBytes(0x66, 0x48, 0x0F, 0x6E, 0xC1) // movq xmm0, rcx (val)
+	b.emitBytes(0xF2, 0x48, 0x0F, 0x2C, 0xD8) // cvttsd2si rbx, xmm0 (int part)
+	b.emitBytes(0x48, 0x89, 0xD9)             // mov rcx, rbx
+	b.emitCallLabel("joss_to_string")         // rax = buffer with int part
+	b.emitBytes(0x48, 0x89, 0xC6)             // mov rsi, rax (origBuf)
+	b.emitBytes(0x48, 0x89, 0xC7)             // mov rdi, rax
+
+	// Find end of int part (null byte)
+	b.defineLabel(".f64_find_null")
+	b.emitBytes(0x80, 0x3F, 0x00) // cmp byte ptr [rdi], 0
+	b.emitJeLabel(".f64_found_null")
+	b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
+	b.emitJmpLabel(".f64_find_null")
+	b.defineLabel(".f64_found_null")
+
+	// Append '.'
+	b.emitBytes(0xC6, 0x07, 0x2E) // mov byte ptr [rdi], '.'
+	b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
+
+	// Compute fraction = (val - int(val)) * 10000.0
+	b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xCB) // cvtsi2sd xmm1, rbx
+	b.emitBytes(0xF2, 0x0F, 0x5C, 0xC1)       // subsd xmm0, xmm1
+	// Absolute value of fraction
+	b.emitBytes(0x66, 0x0F, 0x57, 0xDB) // xorpd xmm3, xmm3
+	b.emitBytes(0x66, 0x0F, 0x2F, 0xC3) // comisd xmm0, xmm3
+	b.emitJaeLabel(".f64_frac_pos")
+	b.emitBytes(0xF2, 0x0F, 0x5C, 0xD8) // subsd xmm3, xmm0
+	b.emitBytes(0x66, 0x0F, 0x28, 0xC3) // movapd xmm0, xmm3
+	b.defineLabel(".f64_frac_pos")
+
+	// 10000.0 in IEEE-754: 0x40C3880000000000
+	b.emitBytes(0x48, 0xB8) // mov rax, 10000.0 (double)
+	b.emitU64(0x40C3880000000000)
+	b.emitBytes(0x66, 0x48, 0x0F, 0x6E, 0xD0) // movq xmm2, rax
+	b.emitBytes(0xF2, 0x0F, 0x59, 0xC2)       // mulsd xmm0, xmm2
+	b.emitBytes(0xF2, 0x48, 0x0F, 0x2C, 0xC0) // cvttsd2si rax, xmm0 (rax = 4-digit int)
+
+	// Write 4 digits
+	b.emitBytes(0x49, 0xC7, 0xC0, 0x0A, 0x00, 0x00, 0x00) // mov r8, 10
+	b.emitBytes(0x4C, 0x8D, 0x4F, 0x04)                   // lea r9, [rdi + 4]
+	b.emitBytes(0x41, 0xC6, 0x01, 0x00)                   // mov byte ptr [r9], 0 (null terminator)
+	b.emitBytes(0x49, 0xFF, 0xC9)                         // dec r9
+	b.emitBytes(0xB9, 0x04, 0x00, 0x00, 0x00)             // mov ecx, 4
+
+	b.defineLabel(".f64_frac_loop")
+	b.emitBytes(0x31, 0xD2)       // xor edx, edx
+	b.emitBytes(0x49, 0xF7, 0xF0) // div r8
+	b.emitBytes(0x80, 0xC2, 0x30) // add dl, '0'
+	b.emitBytes(0x41, 0x88, 0x11) // mov [r9], dl
+	b.emitBytes(0x49, 0xFF, 0xC9) // dec r9
+	b.emitBytes(0xFF, 0xC9)       // dec ecx
+	b.emitJneLabel(".f64_frac_loop")
+
+	b.emitBytes(0x48, 0x89, 0xF0)             // mov rax, rsi (origBuf)
 	b.emitBytes(0x48, 0x83, 0xC4, 0x38)       // add rsp, 56
 	b.emitBytes(0x5E, 0x5F, 0x5B, 0x5D, 0xC3) // pop rsi; pop rdi; pop rbx; pop rbp; ret
 }

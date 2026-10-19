@@ -7,14 +7,27 @@ import (
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
+	runtimeframe "github.com/jossecurity/joss/pkg/runtime/frame"
 	runtimevalue "github.com/jossecurity/joss/pkg/runtime/value"
 	"github.com/jossecurity/joss/pkg/typesystem"
 )
 
 func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 	if ident, ok := ae.Left.(*parser.Identifier); ok {
-		if slot, resolved := r.slotForIdentifier(ident); resolved && slot.Constant && slot.Initialized {
-			panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede reasignarse", ident.Value), File: r.CurrentFile, Line: ident.Token.Line})
+		if ident.ResolvedSlot > 0 && r.currentFrame != nil {
+			slot := &r.currentFrame.slots[ident.ResolvedSlot-1]
+			if slot.Constant && slot.Initialized {
+				panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede reasignarse", ident.Value), File: r.CurrentFile, Line: ident.Token.Line})
+			}
+			val := r.evaluateExpression(ae.Value)
+			return r.assignSlot(slot, val, false)
+		}
+		if slot, resolved := r.slotForIdentifier(ident); resolved {
+			if slot.Constant && slot.Initialized {
+				panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede reasignarse", ident.Value), File: r.CurrentFile, Line: ident.Token.Line})
+			}
+			val := r.evaluateExpression(ae.Value)
+			return r.assignSlot(slot, val, false)
 		}
 		if r.Constants[ident.Value] && r.sourceMapVisible(ident.Value) {
 			panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede reasignarse", ident.Value), File: r.CurrentFile, Line: ident.Token.Line})
@@ -122,6 +135,26 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 	}
 
 	if indexExp, ok := ae.Left.(*parser.IndexExpression); ok {
+		if r.currentFrame != nil {
+			if idLeft, ok := indexExp.Left.(*parser.Identifier); ok && idLeft.ResolvedSlot > 0 {
+				leftSlot := &r.currentFrame.slots[idLeft.ResolvedSlot-1]
+				if leftSlot.Initialized {
+					if list, ok := leftSlot.Value.Dynamic.([]interface{}); ok {
+						if idIdx, ok := indexExp.Index.(*parser.Identifier); ok && idIdx.ResolvedSlot > 0 {
+							idxSlot := &r.currentFrame.slots[idIdx.ResolvedSlot-1]
+							if idxSlot.Initialized && idxSlot.Value.Kind == runtimeframe.Int {
+								idx := idxSlot.Value.Integer
+								if idx >= 0 && idx < int64(len(list)) {
+									list[idx] = val
+									return val
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
 		left := r.evaluateExpression(indexExp.Left)
 		if elementType := r.collectionElementType(indexExp.Left); elementType != nil {
 			if _, isInt := val.(int64); !isInt || elementType.Kind != typesystem.Int {
@@ -172,7 +205,7 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 
 func (r *Runtime) collectionElementType(expression parser.Expression) *typesystem.Type {
 	if identifier, ok := expression.(*parser.Identifier); ok {
-		if slot, resolved := r.slotForIdentifier(identifier); resolved && slot.Type.Element != nil {
+		if slot, resolved := r.slotForIdentifier(identifier); resolved {
 			return slot.Type.Element
 		}
 		if declared, exists := r.VarTypes[identifier.Value]; exists {
@@ -251,6 +284,25 @@ func (r *Runtime) evaluateMap(ml *parser.MapLiteral) map[string]interface{} {
 }
 
 func (r *Runtime) evaluateIndex(ie *parser.IndexExpression) interface{} {
+	if r.currentFrame != nil {
+		if idLeft, ok := ie.Left.(*parser.Identifier); ok && idLeft.ResolvedSlot > 0 {
+			leftSlot := &r.currentFrame.slots[idLeft.ResolvedSlot-1]
+			if leftSlot.Initialized {
+				if list, ok := leftSlot.Value.Dynamic.([]interface{}); ok {
+					if idIdx, ok := ie.Index.(*parser.Identifier); ok && idIdx.ResolvedSlot > 0 {
+						idxSlot := &r.currentFrame.slots[idIdx.ResolvedSlot-1]
+						if idxSlot.Initialized && idxSlot.Value.Kind == runtimeframe.Int {
+							idx := idxSlot.Value.Integer
+							if idx >= 0 && idx < int64(len(list)) {
+								return list[idx]
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	left := r.evaluateExpression(ie.Left)
 	index := r.evaluateExpression(ie.Index)
 

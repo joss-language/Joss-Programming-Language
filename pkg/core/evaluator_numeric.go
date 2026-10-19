@@ -251,6 +251,15 @@ func (r *Runtime) slotIntegerOperand(expression parser.Expression) (int64, bool)
 	case *parser.IntegerLiteral:
 		return node.Value, true
 	case *parser.Identifier:
+		if node.ResolvedSlot > 0 && r.currentFrame != nil {
+			idx := node.ResolvedSlot - 1
+			if idx < len(r.currentFrame.slots) {
+				slot := &r.currentFrame.slots[idx]
+				if slot.Initialized && slot.Value.Kind == runtimeframe.Int {
+					return slot.Value.Integer, true
+				}
+			}
+		}
 		if r.currentFrame != nil {
 			slot, resolved := r.slotForIdentifier(node)
 			if !resolved || !slot.Initialized || slot.Value.Kind != runtimeframe.Int {
@@ -270,24 +279,38 @@ func (r *Runtime) slotIntegerOperand(expression parser.Expression) (int64, bool)
 		}
 		return 0, false
 	case *parser.IndexExpression:
-		left := r.evaluateExpression(node.Left)
-		if list, ok := left.([]interface{}); ok {
-			var idx int64
-			var idxOK bool
-			if intLit, ok := node.Index.(*parser.IntegerLiteral); ok {
-				idx = intLit.Value
-				idxOK = true
-			} else {
-				idx, idxOK = r.slotIntegerOperand(node.Index)
-				if !idxOK {
-					rawIdx := r.evaluateExpression(node.Index)
-					idx, idxOK = runtimeInteger(rawIdx)
+		var list []interface{}
+		if r.currentFrame != nil {
+			if idLeft, ok := node.Left.(*parser.Identifier); ok && idLeft.ResolvedSlot > 0 {
+				leftSlot := &r.currentFrame.slots[idLeft.ResolvedSlot-1]
+				if leftSlot.Initialized {
+					list, _ = leftSlot.Value.Dynamic.([]interface{})
 				}
 			}
-			if idxOK && idx >= 0 && idx < int64(len(list)) {
-				if n, ok := list[idx].(int64); ok {
-					return n, true
-				}
+		}
+		if list == nil {
+			left := r.evaluateExpression(node.Left)
+			var ok bool
+			list, ok = left.([]interface{})
+			if !ok {
+				return 0, false
+			}
+		}
+		var idx int64
+		var idxOK bool
+		if intLit, ok := node.Index.(*parser.IntegerLiteral); ok {
+			idx = intLit.Value
+			idxOK = true
+		} else {
+			idx, idxOK = r.slotIntegerOperand(node.Index)
+			if !idxOK {
+				rawIdx := r.evaluateExpression(node.Index)
+				idx, idxOK = runtimeInteger(rawIdx)
+			}
+		}
+		if idxOK && idx >= 0 && idx < int64(len(list)) {
+			if n, ok := list[idx].(int64); ok {
+				return n, true
 			}
 		}
 		return 0, false

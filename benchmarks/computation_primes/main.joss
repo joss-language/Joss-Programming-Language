@@ -35,7 +35,7 @@ public func countPrimes(int $limit): int {
     return $count;
 }
 
-var $limit = 100000;
+var $limit = 1000000;
 var $start = microtime(true);
 var $count = countPrimes($limit);
 var $end = microtime(true);

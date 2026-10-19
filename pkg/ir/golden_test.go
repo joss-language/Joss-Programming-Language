@@ -34,6 +34,7 @@ func TestIR_GoldenArithmetic(t *testing.T) {
 	}
 
 	lowerer := ir.NewLowerer(prep, nil)
+	lowerer.OptLevel = 0
 	irProg, err := lowerer.LowerProgram("arithmetic")
 	if err != nil {
 		t.Fatalf("lowering failed: %v", err)

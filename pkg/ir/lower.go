@@ -23,6 +23,7 @@ type Lowerer struct {
 	tryCatchCount  int
 	closureCounter int
 	foreachCounter int
+	OptLevel       int
 }
 
 type loopContext struct {
@@ -36,6 +37,7 @@ func NewLowerer(prep *analyzer.PreparedProgram, reachGraph *analyzer.Reachabilit
 		reachGraph: reachGraph,
 		varLocals:  make(map[string]Value),
 		loopStack:  make([]loopContext, 0),
+		OptLevel:   1, // Por defecto habilitar optimizaciones IR canónicas
 	}
 }
 
@@ -158,6 +160,10 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 
 	if err := l.lowerProjectViewsAndRoutes(); err != nil {
 		return nil, err
+	}
+
+	if l.OptLevel > 0 {
+		OptimizeProgram(l.prog)
 	}
 
 	return l.prog, nil
@@ -337,6 +343,11 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 		return nil
 
 	case *parser.ExpressionStatement:
+		if l.OptLevel > 0 {
+			if ternary, ok := s.Expression.(*parser.TernaryExpression); ok {
+				return l.lowerTernaryStatement(ternary)
+			}
+		}
 		_, err := l.lowerExpression(s.Expression)
 		return err
 
@@ -812,6 +823,74 @@ func (l *Lowerer) lowerBlock(block *parser.BlockStatement) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (l *Lowerer) lowerTernaryStatement(e *parser.TernaryExpression) error {
+	condVal, err := l.lowerExpression(e.Condition)
+	if err != nil {
+		return err
+	}
+	condVal = l.ensureBoolCond(condVal)
+
+	trueBlock := l.currentFn.NewBlock("ternary_true")
+	mergeBlock := l.currentFn.NewBlock("ternary_merge")
+
+	isNullFalse := false
+	if e.False == nil {
+		isNullFalse = true
+	} else if _, ok := e.False.(*parser.NullLiteral); ok {
+		isNullFalse = true
+	}
+
+	if isNullFalse {
+		l.currBlock.SetTerminator(&BranchTerminator{
+			Cond:       condVal,
+			TrueBlock:  trueBlock,
+			FalseBlock: mergeBlock,
+		})
+
+		l.currBlock = trueBlock
+		if e.True != nil {
+			if _, err := l.lowerExpression(e.True); err != nil {
+				return err
+			}
+		}
+		if l.currBlock.Terminator == nil {
+			l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+		}
+		l.currBlock = mergeBlock
+		return nil
+	}
+
+	falseBlock := l.currentFn.NewBlock("ternary_false")
+	l.currBlock.SetTerminator(&BranchTerminator{
+		Cond:       condVal,
+		TrueBlock:  trueBlock,
+		FalseBlock: falseBlock,
+	})
+
+	l.currBlock = trueBlock
+	if e.True != nil {
+		if _, err := l.lowerExpression(e.True); err != nil {
+			return err
+		}
+	}
+	if l.currBlock.Terminator == nil {
+		l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+	}
+
+	l.currBlock = falseBlock
+	if e.False != nil {
+		if _, err := l.lowerExpression(e.False); err != nil {
+			return err
+		}
+	}
+	if l.currBlock.Terminator == nil {
+		l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+	}
+
+	l.currBlock = mergeBlock
 	return nil
 }
 

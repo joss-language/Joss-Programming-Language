@@ -8,10 +8,11 @@ $benchmarks = @(
     @{ Name = "C++ (g++ -O3)"; Cmd = "benchmarks\algo_quicksort\cpp_quicksort.exe" },
     @{ Name = "Rust (rustc -O)"; Cmd = "benchmarks\algo_quicksort\rust_quicksort.exe" },
     @{ Name = "Go (go build)"; Cmd = "benchmarks\algo_quicksort\go_quicksort.exe" },
+    @{ Name = "Joss (Native AOT)"; Cmd = "build\qs_pure.exe" },
     @{ Name = "Java 21 (JVM)"; Cmd = "java -cp benchmarks\algo_quicksort Main" },
     @{ Name = "Kotlin 2.4 (JVM)"; Cmd = "java -jar benchmarks\algo_quicksort\kt_quicksort.jar" },
-    @{ Name = "Python 3.14"; Cmd = "python benchmarks\algo_quicksort\main.py" },
     @{ Name = "PHP 8.4"; Cmd = "php benchmarks\algo_quicksort\main.php" },
+    @{ Name = "Python 3.14"; Cmd = "python benchmarks\algo_quicksort\main.py" },
     @{ Name = "Joss (Interpreter)"; Cmd = "build\joss.exe run benchmarks\algo_quicksort\main.joss" }
 )
 
