@@ -58,19 +58,3 @@ func DecryptAES(data, key []byte) ([]byte, error) {
 	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
 	return gcm.Open(nil, nonce, ciphertext, nil)
 }
-
-// ObfuscateKey XORs the key with a simple mask to avoid plain strings in binary.
-// This is NOT encryption, just obfuscation to prevent `strings` command from finding it easily.
-func ObfuscateKey(key []byte) []byte {
-	mask := []byte{0x5A, 0xA5, 0x12, 0x34} // Simple repeating pattern
-	obfuscated := make([]byte, len(key))
-	for i, b := range key {
-		obfuscated[i] = b ^ mask[i%len(mask)]
-	}
-	return obfuscated
-}
-
-// DeobfuscateKey reverses ObfuscateKey.
-func DeobfuscateKey(obfuscated []byte) []byte {
-	return ObfuscateKey(obfuscated) // XOR is its own inverse
-}

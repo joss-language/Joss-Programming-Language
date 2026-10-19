@@ -41,19 +41,3 @@ func MapLLVMType(t ir.Type) string {
 		return "i64"
 	}
 }
-
-// MapLLVMZeroValue retorna la constante cero de LLVM para inicializaciones.
-func MapLLVMZeroValue(t ir.Type) string {
-	switch t.Kind {
-	case ir.TypeKindVoid:
-		return ""
-	case ir.TypeKindBool:
-		return "false"
-	case ir.TypeKindF32, ir.TypeKindF64:
-		return "0.0"
-	case ir.TypeKindPtr, ir.TypeKindString:
-		return "null"
-	default:
-		return "0"
-	}
-}

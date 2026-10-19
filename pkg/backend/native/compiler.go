@@ -20,14 +20,6 @@ func (c *NativeCompiler) HasNativeToolchain() bool {
 	return false
 }
 
-// CompileLLVMToFile rechaza la invocación de compiladores externos (clang/gcc).
-func (c *NativeCompiler) CompileLLVMToFile(llvmIR string, outputPath string, runtimeSourcePath string) error {
-	return c.CompileLLVMWithOptions(llvmIR, outputPath, BuildOptions{
-		OutputPath:    outputPath,
-		RuntimeSource: runtimeSourcePath,
-	})
-}
-
 // CompileLLVMWithOptions rechaza el uso de clang/gcc externos conforme a la arquitectura autocontenida.
 func (c *NativeCompiler) CompileLLVMWithOptions(llvmIR string, outputPath string, opts BuildOptions) error {
 	return fmt.Errorf("native compiler: la invocación de compiladores externos (clang o gcc) está deshabilitada; usa el backend nativo integrado de Joss")

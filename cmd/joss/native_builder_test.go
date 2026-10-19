@@ -1,31 +1,38 @@
 package main
 
-import "testing"
+import (
+	"testing"
 
-func TestValidateBuildTarget(t *testing.T) {
+	"github.com/jossecurity/joss/pkg/backend/native"
+)
+
+func TestParseBuildTarget(t *testing.T) {
 	tests := []struct {
-		os       string
-		arch     string
+		target   string
 		expected bool
 	}{
-		{"windows", "amd64", true},
-		{"windows", "arm64", true},
-		{"linux", "amd64", true},
-		{"linux", "arm64", true},
-		{"darwin", "arm64", true},
-		{"darwin", "amd64", true},
-		{"android", "arm64", true},
-		{"android", "arm", true},
-		{"android", "386", true},
-		{"android", "amd64", true},
-		{"android", "mips", false},
-		{"unknownos", "amd64", false},
+		{"windows-amd64", true},
+		{"windows-arm64", true},
+		{"linux-amd64", true},
+		{"linux-arm64", true},
+		{"darwin-arm64", true},
+		{"darwin-amd64", true},
+		{"android-arm64", true},
+		{"android-arm", true},
+		{"windows", true},
+		{"linux", true},
+		{"macos", true},
+		{"android", true},
+		{"android-mips", false},
+		{"unknownos-amd64", false},
+		{"invalid-target-format-extra", false},
 	}
 
 	for _, tc := range tests {
-		_, _, valid := validateBuildTarget(tc.os, tc.arch)
+		_, err := native.ParseTarget(tc.target)
+		valid := err == nil
 		if valid != tc.expected {
-			t.Errorf("validateBuildTarget(%q, %q) = %v, want %v", tc.os, tc.arch, valid, tc.expected)
+			t.Errorf("native.ParseTarget(%q) valid = %v, want %v (err: %v)", tc.target, valid, tc.expected, err)
 		}
 	}
 }

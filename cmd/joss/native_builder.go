@@ -36,40 +36,6 @@ const (
 	sqliteWalFile = "database.sqlite-wal"
 )
 
-var supportedTargets = map[string][]string{
-	"windows": {"amd64", "arm64", "386"},
-	"linux":   {"amd64", "arm64", "arm", "386", "riscv64"},
-	"darwin":  {"amd64", "arm64"},
-	"android": {"arm64", "arm", "amd64", "386"},
-}
-
-func validateBuildTarget(targetOS, targetArch string) (string, string, bool) {
-	if targetOS == "" {
-		targetOS = runtime.GOOS
-	}
-	if targetArch == "" {
-		targetArch = runtime.GOARCH
-	}
-
-	tOS := strings.ToLower(targetOS)
-	tArch := strings.ToLower(targetArch)
-
-	archs, osValid := supportedTargets[tOS]
-	if !osValid {
-		fmt.Println(i18n.Tr("nativeBuildUnsupportedOS", map[string]interface{}{"os": targetOS}))
-		return tOS, tArch, false
-	}
-
-	for _, a := range archs {
-		if a == tArch {
-			return tOS, tArch, true
-		}
-	}
-
-	fmt.Println(i18n.Tr("nativeBuildUnsupportedArch", map[string]interface{}{"arch": targetArch, "os": targetOS, "options": strings.Join(archs, ", ")}))
-	return tOS, tArch, false
-}
-
 func collectProjectFiles(enableGUI bool) (map[string][]byte, map[string]bool, error) {
 	files := make(map[string][]byte)
 	ignoredDirs := map[string]bool{

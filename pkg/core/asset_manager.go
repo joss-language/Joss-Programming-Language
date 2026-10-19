@@ -5,20 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 )
 
 // AssetManager handles dynamic asset discovery and optimization
 type AssetManager struct {
-	ProjectRoot  string
-	NodeModules  map[string]PackageAssets // PkgName -> Assets
-	ViewCSSCache map[string]string        // ViewName -> OptimizedCSS
-	GlobalCSS    string                   // Content of public/css/app.css
-	CacheMutex   sync.RWMutex
-	initMutex    sync.Mutex
-	Initialized  bool
+	ProjectRoot string
+	NodeModules map[string]PackageAssets // PkgName -> Assets
+	GlobalCSS   string                   // Content of public/css/app.css
+	CacheMutex  sync.RWMutex
+	initMutex   sync.Mutex
+	Initialized bool
 }
 
 type PackageAssets struct {
@@ -37,9 +35,8 @@ var (
 func GetAssetManager() *AssetManager {
 	onceAM.Do(func() {
 		GlobalAssetManager = &AssetManager{
-			ProjectRoot:  ".",
-			NodeModules:  make(map[string]PackageAssets),
-			ViewCSSCache: make(map[string]string),
+			ProjectRoot: ".",
+			NodeModules: make(map[string]PackageAssets),
 		}
 	})
 	return GlobalAssetManager
@@ -178,64 +175,4 @@ func (am *AssetManager) GetVendorIncludes() (string, string) {
 		}
 	}
 	return css.String(), js.String()
-}
-
-// OptimizeViewCSS returns a style block specific to the view
-func (am *AssetManager) OptimizeViewCSS(viewName string, htmlContent string) string {
-	am.CacheMutex.RLock()
-	if css, ok := am.ViewCSSCache[viewName]; ok {
-		am.CacheMutex.RUnlock()
-		return fmt.Sprintf("<style>\n%s\n</style>", css)
-	}
-	am.CacheMutex.RUnlock()
-
-	// Optimization Logic (Similar to strict optimizer but dynamic)
-	am.CacheMutex.RLock()
-	globalCSS := am.GlobalCSS
-	am.CacheMutex.RUnlock()
-	if globalCSS == "" {
-		am.LoadGlobalCSS()
-		am.CacheMutex.RLock()
-		globalCSS = am.GlobalCSS
-		am.CacheMutex.RUnlock()
-	}
-
-	// 1. Extract tokens from HTML
-	viewTokens := make(map[string]bool)
-	reToken := regexp.MustCompile(`[\w-]+`)
-	matches := reToken.FindAllString(htmlContent, -1)
-	for _, m := range matches {
-		viewTokens[m] = true
-	}
-	// Whitelist tags
-	htmlTags := []string{"body", "html", "div", "span", "a", "p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "form", "input", "button", "nav", "header", "footer", "main", "section", "article", "*", ":root"}
-	for _, tag := range htmlTags {
-		viewTokens[tag] = true
-	}
-
-	// 2. Filter Global CSS
-	// REGEX WARNING: A simple regex cannot safely parse nested CSS (like @media { .class {} }).
-	// This was causing the layout breakage (stripping background/media queries).
-	// For now, we utilize "Safe Mode": Serve valid, compressed CSS without purging.
-	// Future: Implement a proper state-machine CSS parser.
-	optimized := globalCSS
-
-	/*
-		reBlock := regexp.MustCompile(`(?s)([^{}]+)\{([^{}]+)\}`)
-		optimized := reBlock.ReplaceAllStringFunc(am.GlobalCSS, func(block string) string {
-			// ... (Purge Logic Disabled for Safety)
-			return block
-		})
-	*/
-
-	// Compress
-	reSpace := regexp.MustCompile(`\s+`)
-	optimized = reSpace.ReplaceAllString(optimized, " ")
-
-	// Cache result
-	am.CacheMutex.Lock()
-	am.ViewCSSCache[viewName] = optimized
-	am.CacheMutex.Unlock()
-
-	return fmt.Sprintf("<style>\n%s\n</style>", optimized)
 }
