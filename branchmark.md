@@ -18,7 +18,7 @@ El objetivo de esta investigación **no** es promocional ni comercial; busca ide
 2. **Tiempo de Arranque (Startup Time)**:
    El motor de ejecución de Joss (`joss run`) arranca en **< 3 ms**, posicionándose entre los runtimes de desarrollo más rápidos del mercado, comparable a Lua o QuickJS y sustancialmente más ágil que la JVM (Java/Kotlin con 40–80 ms de cold start).
 3. **Cálculo Numérico e Iterativo (JIT Nativo en RAM vs Intérprete vs Otros)**:
-   Gracias al nuevo motor **JIT Nativo en Memoria**, el comando `joss run` compila el código en RAM a instrucciones de CPU en < 1.5 ms, ejecutando la Criba de Eratóstenes de 1M en **115.6 ms** (frente a los **296.4 ms** de PHP 8.4, superándolo por más de 2.5x).
+   Gracias al nuevo motor **JIT Nativo en Memoria**, el comando `joss run` compila el código en RAM a instrucciones de CPU en < 1.5 ms, ejecutando la Criba de Eratóstenes de 1M en **108.2 ms** (frente a los **295.4 ms** de PHP 8.4, superándolo por casi 3x).
 4. **Algoritmos y Recursión (Quicksort in-place N=50,000)**:
    En algoritmos recursivos con swapping intensivo en memoria ($N = 50,000$), la ejecución con JIT nativo en memoria de Joss corre en **14.8 ms** (y **15.4 ms** en AOT compilado), superando a Kotlin (18.3 ms), pulverizando a PHP 8.4 (120.6 ms) y a Python 3.14 (146.9 ms) por casi **10x** de aceleración, posicionándose justo al nivel de los motores JIT de alto rendimiento (Java 21 JVM a 9.9 ms) y compilados de bajo nivel (C a 4.9 ms, Go a 5.6 ms).
 5. **Memoria y Tablas Hash (50,000 elementos)**:
@@ -90,15 +90,15 @@ Calcular la cantidad exacta de números primos en un rango dado ($N = 100,000$ y
 | **Python 3.14 (bytearray)** | Interpretado | **14.06 ms** | 12.40 ms | 19.87 ms | PASS (78,498) |
 | **Kotlin 2.4 (JVM JIT)** | Bytecode JIT | **21.39 ms** | 20.36 ms | 22.67 ms | PASS (78,498) |
 | **Java 21 (JVM JIT)** | Bytecode JIT | **25.22 ms** | 21.70 ms | 30.19 ms | PASS (78,498) |
-| **Joss (JIT In-Memory / Run)** | JIT Nativo x86-64 en RAM | **115.60 ms** | 99.00 ms | 133.00 ms | PASS (78,498) |
-| **PHP 8.4** | Interpretado (Zend VM) | **296.45 ms** | 267.07 ms | 336.01 ms | PASS (78,498) |
+| **Joss (JIT In-Memory / Run)** | JIT Nativo x86-64 en RAM | **108.20 ms** | 105.00 ms | 112.00 ms | PASS (78,498) |
+| **PHP 8.4** | Interpretado (Zend VM) | **295.42 ms** | 282.23 ms | 322.01 ms | PASS (78,498) |
 
 ```mermaid
 xychart-beta
     title "Tiempo de Ejecución - Criba 1M de Primos (Milisegundos - Menor es Mejor)"
     x-axis ["C", "Rust", "Go", "C++", "Python", "Kotlin", "Java", "Joss", "PHP"]
     y-axis "Tiempo (ms)" 0 --> 320
-    bar [3.8, 3.5, 4.5, 6.0, 14.1, 21.4, 25.2, 115.6, 296.5]
+    bar [3.8, 3.5, 4.5, 6.0, 14.1, 21.4, 25.2, 108.2, 295.4]
 ```
 
 ---

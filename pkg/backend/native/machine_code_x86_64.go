@@ -1449,11 +1449,12 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 }
 
 type fnFrameLayout struct {
-	fnLabel      string
-	paramOffsets map[string]int32
-	tempOffsets  map[int]int32
-	frameSize    uint32
-	inTryDepth   int
+	fnLabel           string
+	paramOffsets      map[string]int32
+	tempOffsets       map[int]int32
+	frameSize         uint32
+	inTryDepth        int
+	deferredSlowPaths []func()
 }
 
 func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
@@ -1614,6 +1615,11 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 	// Default epilogue fallthrough
 	b.emitBytes(0x31, 0xC0)                   // xor eax, eax
 	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
+
+	// Out-of-line deferred cold/slow paths
+	for _, slow := range layout.deferredSlowPaths {
+		slow()
+	}
 	return nil
 }
 
@@ -1687,8 +1693,20 @@ func (b *MachineCodeBuilder) emitFusedCompareBranch(fn *ir.Function, layout *fnF
 	}
 
 	b.emitLoadValToRAX(layout, ci.Left)
-	b.emitLoadValToRCX(layout, ci.Right)
-	b.emitBytes(0x48, 0x39, 0xC8) // cmp rax, rcx
+	if cInt, ok := ci.Right.(*ir.ConstInt); ok && cInt.Val >= -0x80000000 && cInt.Val <= 0x7FFFFFFF {
+		val := cInt.Val
+		if val == 0 && (ci.Op == ir.OpCmpEq || ci.Op == ir.OpCmpNe) {
+			b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		} else if val >= -128 && val <= 127 {
+			b.emitBytes(0x48, 0x83, 0xF8, byte(val)) // cmp rax, imm8
+		} else {
+			b.emitBytes(0x48, 0x3D) // cmp rax, imm32
+			b.emitU32(uint32(val))
+		}
+	} else {
+		b.emitLoadValToRCX(layout, ci.Right)
+		b.emitBytes(0x48, 0x39, 0xC8) // cmp rax, rcx
+	}
 
 	switch ci.Op {
 	case ir.OpCmpEq:
@@ -1827,32 +1845,89 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 		b.emitLoadValToRAX(layout, i.Left)
-		b.emitLoadValToRCX(layout, i.Right)
+		emittedOp := false
+		if cInt, ok := i.Right.(*ir.ConstInt); ok {
+			val := cInt.Val
+			switch i.Op {
+			case ir.OpAdd:
+				if val == 1 {
+					b.emitBytes(0x48, 0xFF, 0xC0) // inc rax
+					emittedOp = true
+				} else if val == -1 {
+					b.emitBytes(0x48, 0xFF, 0xC8) // dec rax
+					emittedOp = true
+				} else if val >= -128 && val <= 127 {
+					b.emitBytes(0x48, 0x83, 0xC0, byte(val)) // add rax, imm8
+					emittedOp = true
+				} else if val >= -0x80000000 && val <= 0x7FFFFFFF {
+					b.emitBytes(0x48, 0x05) // add rax, imm32
+					b.emitU32(uint32(val))
+					emittedOp = true
+				}
+			case ir.OpSub:
+				if val == 1 {
+					b.emitBytes(0x48, 0xFF, 0xC8) // dec rax
+					emittedOp = true
+				} else if val == -1 {
+					b.emitBytes(0x48, 0xFF, 0xC0) // inc rax
+					emittedOp = true
+				} else if val >= -128 && val <= 127 {
+					b.emitBytes(0x48, 0x83, 0xE8, byte(val)) // sub rax, imm8
+					emittedOp = true
+				} else if val >= -0x80000000 && val <= 0x7FFFFFFF {
+					b.emitBytes(0x48, 0x2D) // sub rax, imm32
+					b.emitU32(uint32(val))
+					emittedOp = true
+				}
+			case ir.OpMul:
+				if val >= -128 && val <= 127 {
+					b.emitBytes(0x48, 0x6B, 0xC0, byte(val)) // imul rax, rax, imm8
+					emittedOp = true
+				} else if val >= -0x80000000 && val <= 0x7FFFFFFF {
+					b.emitBytes(0x48, 0x69, 0xC0) // imul rax, rax, imm32
+					b.emitU32(uint32(val))
+					emittedOp = true
+				}
+			case ir.OpAnd:
+				if val >= -128 && val <= 127 {
+					b.emitBytes(0x48, 0x83, 0xE0, byte(val)) // and rax, imm8
+					emittedOp = true
+				} else if val >= -0x80000000 && val <= 0x7FFFFFFF {
+					b.emitBytes(0x48, 0x25) // and rax, imm32
+					b.emitU32(uint32(val))
+					emittedOp = true
+				}
+			}
+		}
 
-		switch i.Op {
-		case ir.OpAdd:
-			b.emitBytes(0x48, 0x01, 0xC8) // add rax, rcx
-		case ir.OpSub:
-			b.emitBytes(0x48, 0x29, 0xC8) // sub rax, rcx
-		case ir.OpMul:
-			b.emitBytes(0x48, 0x0F, 0xAF, 0xC1) // imul rax, rcx
-		case ir.OpDiv:
-			b.emitBytes(0x48, 0x99)       // cqo
-			b.emitBytes(0x48, 0xF7, 0xF9) // idiv rcx
-		case ir.OpMod:
-			b.emitBytes(0x48, 0x99)       // cqo
-			b.emitBytes(0x48, 0xF7, 0xF9) // idiv rcx
-			b.emitBytes(0x48, 0x89, 0xD0) // mov rax, rdx
-		case ir.OpShl:
-			b.emitBytes(0x48, 0xD3, 0xE0) // sal rax, cl
-		case ir.OpShr:
-			b.emitBytes(0x48, 0xD3, 0xF8) // sar rax, cl
-		case ir.OpAnd:
-			b.emitBytes(0x48, 0x21, 0xC8) // and rax, rcx
-		case ir.OpOr:
-			b.emitBytes(0x48, 0x09, 0xC8) // or rax, rcx
-		case ir.OpXor:
-			b.emitBytes(0x48, 0x31, 0xC8) // xor rax, rcx
+		if !emittedOp {
+			b.emitLoadValToRCX(layout, i.Right)
+
+			switch i.Op {
+			case ir.OpAdd:
+				b.emitBytes(0x48, 0x01, 0xC8) // add rax, rcx
+			case ir.OpSub:
+				b.emitBytes(0x48, 0x29, 0xC8) // sub rax, rcx
+			case ir.OpMul:
+				b.emitBytes(0x48, 0x0F, 0xAF, 0xC1) // imul rax, rcx
+			case ir.OpDiv:
+				b.emitBytes(0x48, 0x99)       // cqo
+				b.emitBytes(0x48, 0xF7, 0xF9) // idiv rcx
+			case ir.OpMod:
+				b.emitBytes(0x48, 0x99)       // cqo
+				b.emitBytes(0x48, 0xF7, 0xF9) // idiv rcx
+				b.emitBytes(0x48, 0x89, 0xD0) // mov rax, rdx
+			case ir.OpShl:
+				b.emitBytes(0x48, 0xD3, 0xE0) // sal rax, cl
+			case ir.OpShr:
+				b.emitBytes(0x48, 0xD3, 0xF8) // sar rax, cl
+			case ir.OpAnd:
+				b.emitBytes(0x48, 0x21, 0xC8) // and rax, rcx
+			case ir.OpOr:
+				b.emitBytes(0x48, 0x09, 0xC8) // or rax, rcx
+			case ir.OpXor:
+				b.emitBytes(0x48, 0x31, 0xC8) // xor rax, rcx
+			}
 		}
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
@@ -1873,9 +1948,20 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 		b.emitLoadValToRAX(layout, i.Left)
-		b.emitLoadValToRCX(layout, i.Right)
-
-		b.emitBytes(0x48, 0x39, 0xC8) // cmp rax, rcx
+		if cInt, ok := i.Right.(*ir.ConstInt); ok && cInt.Val >= -0x80000000 && cInt.Val <= 0x7FFFFFFF {
+			val := cInt.Val
+			if val == 0 && (i.Op == ir.OpCmpEq || i.Op == ir.OpCmpNe) {
+				b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+			} else if val >= -128 && val <= 127 {
+				b.emitBytes(0x48, 0x83, 0xF8, byte(val)) // cmp rax, imm8
+			} else {
+				b.emitBytes(0x48, 0x3D) // cmp rax, imm32
+				b.emitU32(uint32(val))
+			}
+		} else {
+			b.emitLoadValToRCX(layout, i.Right)
+			b.emitBytes(0x48, 0x39, 0xC8) // cmp rax, rcx
+		}
 		switch i.Op {
 		case ir.OpCmpEq:
 			b.emitBytes(0x0F, 0x94, 0xC0)       // sete al
@@ -2141,11 +2227,14 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			b.emitJaeLabel(lblSlow)
 			b.emitBytes(0x4C, 0x8B, 0x41, 0x10) // mov r8, [rcx + 16] (dataPtr)
 			b.emitBytes(0x49, 0x8B, 0x04, 0xD0) // mov rax, [r8 + rdx*8]
-			b.emitJmpLabel(lblDone)
-			b.defineLabel(lblSlow)
-			b.emitCallLabel("joss_arr_get_i64")
 			b.defineLabel(lblDone)
 			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+
+			layout.deferredSlowPaths = append(layout.deferredSlowPaths, func() {
+				b.defineLabel(lblSlow)
+				b.emitCallLabel("joss_arr_get_i64")
+				b.emitJmpLabel(lblDone)
+			})
 		}
 
 	case *ir.ArraySetInst:
@@ -2160,10 +2249,13 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		b.emitJaeLabel(lblSlow)
 		b.emitBytes(0x4C, 0x8B, 0x49, 0x10) // mov r9, [rcx + 16] (dataPtr)
 		b.emitBytes(0x4D, 0x89, 0x04, 0xD1) // mov [r9 + rdx*8], r8
-		b.emitJmpLabel(lblDone)
-		b.defineLabel(lblSlow)
-		b.emitCallLabel("joss_arr_set_i64")
 		b.defineLabel(lblDone)
+
+		layout.deferredSlowPaths = append(layout.deferredSlowPaths, func() {
+			b.defineLabel(lblSlow)
+			b.emitCallLabel("joss_arr_set_i64")
+			b.emitJmpLabel(lblDone)
+		})
 
 	case *ir.NewMapInst:
 		b.emitCallLabel("joss_map_new")
@@ -2234,22 +2326,19 @@ func (b *MachineCodeBuilder) emitCallWithArgs(layout *fnFrameLayout, targetLabel
 		b.emitBytes(0x48, 0x89, 0x84, 0x24) // mov [rsp + disp32], rax
 		b.emitU32(stackOff)
 	}
-	// Load first up to 4 arguments into rcx, rdx, r8, r9
+	// Load first up to 4 arguments directly into target registers in reverse order
 	if len(args) >= 4 {
 		b.emitLoadValToRAX(layout, args[3])
 		b.emitBytes(0x49, 0x89, 0xC1) // mov r9, rax
 	}
 	if len(args) >= 3 {
-		b.emitLoadValToRAX(layout, args[2])
-		b.emitBytes(0x49, 0x89, 0xC0) // mov r8, rax
+		b.emitLoadValToR8(layout, args[2])
 	}
 	if len(args) >= 2 {
-		b.emitLoadValToRAX(layout, args[1])
-		b.emitBytes(0x48, 0x89, 0xC2) // mov rdx, rax
+		b.emitLoadValToRDX(layout, args[1])
 	}
 	if len(args) >= 1 {
-		b.emitLoadValToRAX(layout, args[0])
-		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
+		b.emitLoadValToRCX(layout, args[0])
 	}
 	b.emitCallLabel(targetLabel)
 }
@@ -2262,22 +2351,19 @@ func (b *MachineCodeBuilder) emitCallIndirectWithArgs(layout *fnFrameLayout, cal
 		b.emitBytes(0x48, 0x89, 0x84, 0x24) // mov [rsp + disp32], rax
 		b.emitU32(stackOff)
 	}
-	// Load first up to 4 arguments into rcx, rdx, r8, r9
+	// Load first up to 4 arguments directly into target registers
 	if len(args) >= 4 {
 		b.emitLoadValToRAX(layout, args[3])
 		b.emitBytes(0x49, 0x89, 0xC1) // mov r9, rax
 	}
 	if len(args) >= 3 {
-		b.emitLoadValToRAX(layout, args[2])
-		b.emitBytes(0x49, 0x89, 0xC0) // mov r8, rax
+		b.emitLoadValToR8(layout, args[2])
 	}
 	if len(args) >= 2 {
-		b.emitLoadValToRAX(layout, args[1])
-		b.emitBytes(0x48, 0x89, 0xC2) // mov rdx, rax
+		b.emitLoadValToRDX(layout, args[1])
 	}
 	if len(args) >= 1 {
-		b.emitLoadValToRAX(layout, args[0])
-		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
+		b.emitLoadValToRCX(layout, args[0])
 	}
 	// Load callee pointer into rax and call rax
 	b.emitLoadValToRAX(layout, calleeVal)
@@ -2294,6 +2380,12 @@ func (b *MachineCodeBuilder) emitLoadValToRAX(layout *fnFrameLayout, val ir.Valu
 	case *ir.ConstInt:
 		if v.Val == 0 {
 			b.emitBytes(0x31, 0xC0) // xor eax, eax
+		} else if v.Val > 0 && v.Val <= 0x7FFFFFFF {
+			b.emitBytes(0xB8) // mov eax, imm32
+			b.emitU32(uint32(v.Val))
+		} else if v.Val >= -0x80000000 && v.Val < 0 {
+			b.emitBytes(0x48, 0xC7, 0xC0) // mov rax, sign-extended imm32
+			b.emitU32(uint32(v.Val))
 		} else {
 			b.emitBytes(0x48, 0xB8) // movabs rax, imm64
 			b.emitU64(uint64(v.Val))
@@ -2336,6 +2428,12 @@ func (b *MachineCodeBuilder) emitLoadValToRCX(layout *fnFrameLayout, val ir.Valu
 	case *ir.ConstInt:
 		if v.Val == 0 {
 			b.emitBytes(0x31, 0xC9) // xor ecx, ecx
+		} else if v.Val > 0 && v.Val <= 0x7FFFFFFF {
+			b.emitBytes(0xB9) // mov ecx, imm32
+			b.emitU32(uint32(v.Val))
+		} else if v.Val >= -0x80000000 && v.Val < 0 {
+			b.emitBytes(0x48, 0xC7, 0xC1) // mov rcx, sign-extended imm32
+			b.emitU32(uint32(v.Val))
 		} else {
 			b.emitBytes(0x48, 0xB9) // movabs rcx, imm64
 			b.emitU64(uint64(v.Val))
@@ -2378,6 +2476,12 @@ func (b *MachineCodeBuilder) emitLoadValToRDX(layout *fnFrameLayout, val ir.Valu
 	case *ir.ConstInt:
 		if v.Val == 0 {
 			b.emitBytes(0x31, 0xD2) // xor edx, edx
+		} else if v.Val > 0 && v.Val <= 0x7FFFFFFF {
+			b.emitBytes(0xBA) // mov edx, imm32
+			b.emitU32(uint32(v.Val))
+		} else if v.Val >= -0x80000000 && v.Val < 0 {
+			b.emitBytes(0x48, 0xC7, 0xC2) // mov rdx, sign-extended imm32
+			b.emitU32(uint32(v.Val))
 		} else {
 			b.emitBytes(0x48, 0xBA) // movabs rdx, imm64
 			b.emitU64(uint64(v.Val))
@@ -2420,6 +2524,12 @@ func (b *MachineCodeBuilder) emitLoadValToR8(layout *fnFrameLayout, val ir.Value
 	case *ir.ConstInt:
 		if v.Val == 0 {
 			b.emitBytes(0x4D, 0x31, 0xC0) // xor r8, r8
+		} else if v.Val > 0 && v.Val <= 0x7FFFFFFF {
+			b.emitBytes(0x41, 0xB8) // mov r8d, imm32
+			b.emitU32(uint32(v.Val))
+		} else if v.Val >= -0x80000000 && v.Val < 0 {
+			b.emitBytes(0x49, 0xC7, 0xC0) // mov r8, sign-extended imm32
+			b.emitU32(uint32(v.Val))
 		} else {
 			b.emitBytes(0x49, 0xB8) // movabs r8, imm64
 			b.emitU64(uint64(v.Val))

@@ -22,5 +22,5 @@ Write-Host "`n[5/5] Running Concurrency Workers (Parallelism & Channels)..."
 
 Write-Host "`n=========================================================="
 Write-Host "  ALL BENCHMARKS COMPLETED SUCCESSFULLY."
-Write-Host "  Technical report available at: BENCHMARKS.md"
+Write-Host "  Technical report available at: branchmark.md"
 Write-Host "=========================================================="

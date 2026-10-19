@@ -20,6 +20,11 @@ func OptimizeProgram(prog *Program) {
 	for _, fn := range prog.Functions {
 		HoistLoopInvariantLoads(fn)
 	}
+
+	// Pase 4: Eliminación de lecturas redundantes de arrays (CSE)
+	for _, fn := range prog.Functions {
+		EliminateRedundantArrayGets(fn)
+	}
 }
 
 type inlineCandidate struct {
@@ -502,5 +507,149 @@ func HoistLoopInvariantLoads(fn *Function) {
 			}
 			blk.Instructions = remainingInsts
 		}
+	}
+}
+
+type arrayAccessKey struct {
+	arrID    int
+	idxTemp  int
+	idxConst int64
+	isConst  bool
+}
+
+// EliminateRedundantArrayGets rastrea lecturas de array (array_get) dentro de un bloque básico
+// y entre bloques con predecesor único, reutilizando el valor previamente cargado siempre que
+// el array no haya sido modificado por un array_set o una llamada a función.
+func EliminateRedundantArrayGets(fn *Function) {
+	predsMap := make(map[*BasicBlock][]*BasicBlock, len(fn.Blocks))
+	for _, blk := range fn.Blocks {
+		for _, succ := range blk.Successors() {
+			predsMap[succ] = append(predsMap[succ], blk)
+		}
+	}
+
+	blockOutMap := make(map[*BasicBlock]map[arrayAccessKey]Value, len(fn.Blocks))
+	moveMap := make(map[int]Value)
+
+	canonicalVal := func(v Value) Value {
+		for {
+			if temp, ok := v.(*TempValue); ok {
+				if src, exists := moveMap[temp.ID]; exists {
+					v = src
+					continue
+				}
+			}
+			break
+		}
+		return v
+	}
+
+	for _, blk := range fn.Blocks {
+		availMap := make(map[arrayAccessKey]Value)
+
+		preds := predsMap[blk]
+		if len(preds) == 1 {
+			if predOut, exists := blockOutMap[preds[0]]; exists {
+				for k, v := range predOut {
+					availMap[k] = v
+				}
+			}
+		}
+
+		newInsts := make([]Instruction, 0, len(blk.Instructions))
+		for _, inst := range blk.Instructions {
+			switch i := inst.(type) {
+			case *MoveInst:
+				if i.Dest != nil {
+					moveMap[i.Dest.ID] = i.Src
+				}
+				newInsts = append(newInsts, inst)
+
+			case *ArrayGetInst:
+				cArr := canonicalVal(i.Array)
+				cIdx := canonicalVal(i.Index)
+				if arrTemp, okArr := cArr.(*TempValue); okArr {
+					var key arrayAccessKey
+					key.arrID = arrTemp.ID
+					validKey := false
+					if idxConst, okConst := cIdx.(*ConstInt); okConst {
+						key.isConst = true
+						key.idxConst = idxConst.Val
+						validKey = true
+					} else if idxTemp, okTemp := cIdx.(*TempValue); okTemp {
+						key.idxTemp = idxTemp.ID
+						validKey = true
+					}
+
+					if validKey {
+						if existingVal, exists := availMap[key]; exists {
+							newInsts = append(newInsts, &MoveInst{
+								Dest: i.Dest,
+								Src:  existingVal,
+							})
+							moveMap[i.Dest.ID] = existingVal
+							continue
+						}
+						availMap[key] = i.Dest
+					}
+				}
+				newInsts = append(newInsts, inst)
+
+			case *ArraySetInst:
+				cArr := canonicalVal(i.Array)
+				if arrTemp, ok := cArr.(*TempValue); ok {
+					for k := range availMap {
+						if k.arrID == arrTemp.ID {
+							delete(availMap, k)
+						}
+					}
+				} else {
+					availMap = make(map[arrayAccessKey]Value)
+				}
+				newInsts = append(newInsts, inst)
+
+			case *CallInst, *CallIndirectInst, *CallPrimitiveMethodInst, *CallHostServiceInst, *CallRuntimeInst:
+				availMap = make(map[arrayAccessKey]Value)
+				newInsts = append(newInsts, inst)
+
+			default:
+				newInsts = append(newInsts, inst)
+			}
+		}
+		blk.Instructions = newInsts
+		blockOutMap[blk] = availMap
+	}
+}
+
+// EliminateDeadAllocasAndStores elimina variables locales (alloca) y sus escrituras (store)
+// cuando el puntero asignado nunca es leído por ninguna instrucción LoadInst de la función.
+func EliminateDeadAllocasAndStores(fn *Function) {
+	loadCount := make(map[int]int)
+	for _, blk := range fn.Blocks {
+		for _, inst := range blk.Instructions {
+			if load, ok := inst.(*LoadInst); ok {
+				if ptrTemp, okPtr := load.Ptr.(*TempValue); okPtr {
+					loadCount[ptrTemp.ID]++
+				}
+			}
+		}
+	}
+
+	for _, blk := range fn.Blocks {
+		newInsts := make([]Instruction, 0, len(blk.Instructions))
+		for _, inst := range blk.Instructions {
+			switch i := inst.(type) {
+			case *AllocaInst:
+				if i.Dest != nil && loadCount[i.Dest.ID] == 0 {
+					continue
+				}
+			case *StoreInst:
+				if ptrTemp, okPtr := i.Ptr.(*TempValue); okPtr && loadCount[ptrTemp.ID] == 0 {
+					continue
+				}
+			}
+			newInsts = append(newInsts, inst)
+		}
+		blk.Instructions = newInsts
 	}
 }
