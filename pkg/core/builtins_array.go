@@ -484,6 +484,27 @@ func (r *Runtime) callBuiltinArray(name string, args []interface{}) (interface{}
 		}
 		return []interface{}{}, true
 
+	case "array_fill":
+		if len(args) >= 3 {
+			startIdx := toInt(args[0])
+			num := toInt(args[1])
+			val := args[2]
+			if num > 0 {
+				total := startIdx + num
+				if total > 0 {
+					res := make([]interface{}, total)
+					for i := 0; i < startIdx; i++ {
+						res[i] = nil
+					}
+					for i := startIdx; i < total; i++ {
+						res[i] = val
+					}
+					return res, true
+				}
+			}
+		}
+		return []interface{}{}, true
+
 	case "array_column":
 		if len(args) >= 2 {
 			col := fmt.Sprintf("%v", args[1])

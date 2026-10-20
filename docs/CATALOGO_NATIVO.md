@@ -1031,6 +1031,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `any`
 - `append`
 - `array_column`
+- `array_fill`
 - `array_key_exists`
 - `array_keys`
 - `array_merge`
@@ -1152,4 +1153,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 55 clases, 673 métodos y 126 built-ins.
+Total: 55 clases, 673 métodos y 127 built-ins.

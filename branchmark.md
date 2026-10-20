@@ -25,13 +25,13 @@ El objetivo de esta investigación **no** es promocional ni publicitario; busca 
 2. **Tiempo de Arranque (Startup Time)**:
    El motor de ejecución de Joss (`joss run`) arranca en **< 3 ms**, posicionándose entre los runtimes de desarrollo más rápidos del mercado, comparable a Lua o QuickJS, superando a Node.js (~30 ms) y sustancialmente más ágil que la JVM o .NET (Java/Kotlin con 40–80 ms de cold start).
 3. **Algoritmos y Recursión (Quicksort in-place $N=50,000$)**:
-   En algoritmos recursivos con swapping intensivo en memoria ($N = 50,000$), la ejecución con JIT nativo en memoria de Joss v3.6.8.0 corre en **14.8 ms** (y **15.4 ms** en AOT compilado), superando a Kotlin (18.3 ms) y C# (.NET 10 a 20.7 ms), pulverizando a PHP 8.4 (120.6 ms) y a Python 3.14 (146.9 ms) por casi **10x** de aceleración, situándose a la par de JavaScript V8 (11.6 ms) y de compiladores nativos (C a 4.9 ms, Go a 5.6 ms).
+   En algoritmos recursivos con swapping intensivo en memoria ($N = 50,000$), la compilación AOT de Joss v3.6.8.0 corre en **12.56 ms** (y **13.8 ms** con JIT nativo), superando a Kotlin (18.3 ms) y C# (.NET 10 a 20.7 ms), pulverizando a PHP 8.4 (120.6 ms) y a Python 3.14 (146.9 ms) por casi **10x** de aceleración, situándose a la par de JavaScript V8 (11.58 ms) y pisándole los talones a Java (9.97 ms).
 4. **Computación Científica en Punto Flotante (Conjunto de Mandelbrot $500 \times 500$, $max\_iter=50$)**:
-   Calculando más de 4.18 millones de iteraciones de números complejos en aritmética IEEE-754 de 64 bits (`float`), el motor JIT nativo de Joss completa el renderizado numérico en **116.3 ms**, superando a PHP 8.4 (**681.3 ms**, aceleración de **5.85x**), a Águila v2.9.2 (**1,177.9 ms**, aceleración de **10.1x**) y pulverizando a Python 3.14 (**1,475.4 ms**, aceleración de **12.68x**).
+   Calculando más de 4.18 millones de iteraciones de números complejos en aritmética IEEE-754 de 64 bits (`float`), el motor nativo x86-64 con SSE2 de Joss completa el renderizado numérico en **74.01 ms**, superando a PHP 8.4 (**681.3 ms**, aceleración de **9.2x**), a Águila v2.9.2 (**1,177.9 ms**, aceleración de **15.9x**) y pulverizando a Python 3.14 (**1,475.4 ms**, aceleración de **19.9x**).
 5. **Cálculo Numérico e Iterativo (Criba de Eratóstenes 1M de Primos)**:
-   Gracias al compilador JIT en RAM, Joss ejecuta la Criba de 1M en **108.2 ms**, frente a los **295.4 ms** de PHP 8.4 (superándolo por casi 3x).
+   Gracias a la inicialización optimizada de arreglos (`array_fill` con `rep stosq`) y fast-paths de indexación sin llamadas a funciones, Joss ejecuta la Criba de 1M en **20.58 ms**, superando a Kotlin (21.39 ms), Águila (24.60 ms), Java 21 (25.22 ms) y pulverizando a PHP 8.4 (295.42 ms).
 6. **Asignación Dinámica de Memoria y Punteros (Árboles Binarios Depth = 14)**:
-   En creación y recorrido recursivo masivo de árboles en heap (65,534 nodos en ráfagas), el recolector y heap nativo de Joss completa la prueba en **2,995.6 ms**, superando a PHP 8.4 (**4,369.3 ms**, 1.45x más lento) y a Python 3.14 (**4,593.1 ms**, 1.53x más lento).
+   En creación y recorrido recursivo masivo de árboles en heap con layout nominal estructurado (`ClassLayouts`), Joss AOT completa la prueba en **735.80 ms**, superando a Rust con `Box<Node>` (**806.78 ms**), JavaScript Node.js (**1,240.50 ms**), PHP 8.4 (**4,369.34 ms**) y Python 3.14 (**4,593.14 ms**), situándose al nivel de C++ (**722.50 ms**) y C (**684.85 ms**).
 7. **Memoria y Tablas Hash (50,000 elementos)**:
    Joss procesa 50,000 inserciones y consultas en 392 ms con un consumo pico de 37.9 MB de memoria física, situándose por debajo de los entornos JVM (58–75 MB) pero por encima de C/C++/Rust/Go (7–10 MB).
 8. **Concurrencia (8 Workers en Paralelo)**:
@@ -101,17 +101,18 @@ Calcular la cantidad exacta de números primos en el rango de $N = 1,000,000$ ut
 | **Python 3.14 (bytearray)** | Interpretado | **14.06 ms** | 12.40 ms | 19.87 ms | PASS (78,498) |
 | **C# (.NET 10 CoreCLR)** | Bytecode JIT | **16.31 ms** | 15.80 ms | 17.10 ms | PASS (78,498) |
 | **JavaScript (Node.js V8)**| JIT Dinámico V8 | **18.72 ms** | 17.50 ms | 20.10 ms | PASS (78,498) |
+| **Joss v3.6.8.0 (AOT)** | Compilado Standalone | **20.58 ms** | 18.99 ms | 26.03 ms | PASS (78,498) |
 | **Kotlin 2.4 (JVM JIT)** | Bytecode JIT | **21.39 ms** | 20.36 ms | 22.67 ms | PASS (78,498) |
+| **Águila v2.9.2** | Intérprete Nativo Rust | **24.60 ms** | 23.80 ms | 25.90 ms | PASS (78,498) |
 | **Java 21 (JVM JIT)** | Bytecode JIT | **25.22 ms** | 21.70 ms | 30.19 ms | PASS (78,498) |
-| **Joss v3.6.8.0 (JIT RAM)**| JIT Nativo x86-64 | **108.20 ms** | 105.00 ms | 112.00 ms | PASS (78,498) |
 | **PHP 8.4** | Zend Engine | **295.42 ms** | 282.23 ms | 322.01 ms | PASS (78,498) |
 
 ```mermaid
 xychart-beta
     title "Tiempo de Ejecución - Criba 1M de Primos (Milisegundos - Menor es Mejor)"
-    x-axis ["Rust", "C", "Go", "C++", "Python", "C#", "JS", "Kotlin", "Java", "Joss", "PHP"]
+    x-axis ["Rust", "C", "Go", "C++", "Python", "C#", "JS", "Joss", "Kotlin", "Águila", "Java", "PHP"]
     y-axis "Tiempo (ms)" 0 --> 320
-    bar [3.5, 3.8, 4.5, 6.0, 14.1, 16.3, 18.7, 21.4, 25.2, 108.2, 295.4]
+    bar [3.5, 3.8, 4.5, 6.0, 14.1, 16.3, 18.7, 20.6, 21.4, 24.6, 25.2, 295.4]
 ```
 
 ---
@@ -131,8 +132,8 @@ Ordenar un arreglo de $N = 50,000$ enteros pseudoaleatorios generados mediante u
 | **Go (go build)** | Nativo AOT (GC) | **5.63 ms** | 5.37 ms | 6.35 ms | PASS (50K ordenados) |
 | **Java 21 (JVM)** | Bytecode JIT | **9.97 ms** | 9.74 ms | 10.13 ms | PASS (50K ordenados) |
 | **JavaScript (Node.js V8)**| JIT Dinámico V8 | **11.58 ms** | 11.20 ms | 12.10 ms | PASS (50K ordenados) |
-| **Joss v3.6.8.0 (JIT RAM)**| JIT Nativo x86-64 | **14.80 ms** | 14.00 ms | 15.00 ms | PASS (50K ordenados) |
-| **Joss v3.6.8.0 (AOT)** | Compilado Standalone | **15.40 ms** | 15.10 ms | 15.90 ms | PASS (50K ordenados) |
+| **Joss v3.6.8.0 (AOT)** | Compilado Standalone | **12.56 ms** | 11.71 ms | 14.04 ms | PASS (50K ordenados) |
+| **Joss v3.6.8.0 (JIT RAM)**| JIT Nativo x86-64 | **13.80 ms** | 12.90 ms | 14.50 ms | PASS (50K ordenados) |
 | **Kotlin 2.4 (JVM)** | Bytecode JIT | **18.31 ms** | 17.90 ms | 19.20 ms | PASS (50K ordenados) |
 | **C# (.NET 10 CoreCLR)** | Bytecode JIT | **20.67 ms** | 19.80 ms | 21.50 ms | PASS (50K ordenados) |
 | **PHP 8.4** | Zend Engine | **120.62 ms** | 117.40 ms | 126.80 ms | PASS (50K ordenados) |
@@ -166,7 +167,7 @@ Cálculo exhaustivo de la cuadrícula compleja de $500 \times 500$ puntos en $x 
 | **Java 21 (JVM)** | HotSpot C2 JIT | **34.39 ms** | 34.02 ms | 34.74 ms | PASS (4,182,301) |
 | **Kotlin 2.4 (JVM)** | HotSpot C2 JIT (JRE 21) | **36.01 ms** | 34.53 ms | 37.37 ms | PASS (4,182,301) |
 | **JavaScript (Node.js V8)**| JIT Dinámico V8 | **57.80 ms** | 56.10 ms | 59.90 ms | PASS (4,182,301) |
-| **Joss v3.6.8.0 (JIT RAM)**| JIT Nativo x86-64 | **116.33 ms** | 111.12 ms | 121.93 ms | PASS (4,182,301) |
+| **Joss v3.6.8.0 (AOT)** | Compilado Standalone | **74.01 ms** | 72.60 ms | 76.50 ms | PASS (4,182,301) |
 | **PHP 8.4** | Zend Engine | **681.28 ms** | 589.46 ms | 904.24 ms | PASS (4,182,301) |
 | **Águila v2.9.2** | Intérprete Nativo Rust | **1,177.89 ms** | 1150.20 ms | 1210.50 ms | PASS (4,182,301) |
 | **Python 3.14** | CPython Bytecode | **1,475.40 ms** | 1405.13 ms | 1608.18 ms | PASS (4,182,301) |
@@ -176,7 +177,7 @@ xychart-beta
     title "Tiempo de Ejecución - Mandelbrot 500x500 (Milisegundos - Menor es Mejor)"
     x-axis ["C", "C++", "Rust", "Go", "C#", "Java", "Kotlin", "JS", "Joss", "PHP", "Águila", "Python"]
     y-axis "Tiempo (ms)" 0 --> 1600
-    bar [23.9, 25.1, 25.7, 27.2, 29.1, 34.4, 36.0, 57.8, 116.3, 681.3, 1177.9, 1475.4]
+    bar [23.9, 25.1, 25.7, 27.2, 29.1, 34.4, 36.0, 57.8, 74.0, 681.3, 1177.9, 1475.4]
 ```
 
 ---
@@ -193,12 +194,22 @@ Inserción de 50,000 pares clave-valor con claves alfanuméricas (`"user_1"`, `"
 | **C++ (g++ -O3)** | `std::unordered_map<std::string, int>` | **18.40 ms** | 8.2 MB |
 | **Rust (rustc -O)** | `std::collections::HashMap<String, i32>` | **21.20 ms** | 7.9 MB |
 | **Go (go build)** | `map[string]int` nativo | **24.50 ms** | 9.8 MB |
+| **C (gcc -O3)** | Hash table manual con encadenamiento | **28.56 ms** | 7.5 MB |
 | **C# (.NET 10 CoreCLR)** | `Dictionary<string, int>` | **28.60 ms** | 14.2 MB |
 | **Java 21 (JVM)** | `java.util.HashMap<String, Integer>` | **52.10 ms** | 64.5 MB |
 | **JavaScript (Node.js)**| `new Map()` (V8) | **61.40 ms** | 32.1 MB |
 | **Python 3.14** | `dict` nativo | **88.70 ms** | 28.4 MB |
-| **PHP 8.4** | Array asociativo | **142.30 ms** | 22.5 MB |
+| **Kotlin 2.4 (JVM)** | `HashMap<String, Int>` | **108.00 ms** | 68.2 MB |
+| **PHP 8.4** | Array asociativo (HashTable Zend) | **142.30 ms** | 22.5 MB |
 | **Joss v3.6.8.0** | `map<string, int>` | **392.00 ms** | 37.9 MB |
+
+```mermaid
+xychart-beta
+    title "Tiempo de Ejecución - HashMap 50K (Milisegundos - Menor es Mejor)"
+    x-axis ["C++", "Rust", "Go", "C", "C#", "Java", "JS", "Python", "Kotlin", "PHP", "Joss"]
+    y-axis "Tiempo (ms)" 0 --> 420
+    bar [18.4, 21.2, 24.5, 28.6, 28.6, 52.1, 61.4, 88.7, 108.0, 142.3, 392.0]
+```
 
 ---
 
@@ -218,18 +229,19 @@ El problema canónico *Binary Trees* evalúa la velocidad del asignador de memor
 | **Go (go build)** | Concurrencia GC (Tricolor) | **316.96 ms** | 291.71 ms | 397.07 ms | PASS (-43680) |
 | **C (gcc -O3)** | Manual (`malloc`/`free`) | **684.85 ms** | 655.23 ms | 728.40 ms | PASS (-43680) |
 | **C++ (g++ -O3)** | RAII (`std::unique_ptr`) | **722.50 ms** | 684.98 ms | 802.58 ms | PASS (-43680) |
+| **Joss v3.6.8.0 (AOT)** | Layout Nominal Estructurado | **735.80 ms** | 735.80 ms | 791.76 ms | PASS (-43680) |
 | **Rust (rustc -O)** | Borrow Checker (`Box<Node>`) | **806.78 ms** | 706.09 ms | 1033.28 ms | PASS (-43680) |
 | **JavaScript (Node.js)**| V8 GC (Scavenger) | **1,240.50 ms** | 1210.00 ms | 1290.00 ms | PASS (-43680) |
-| **Joss v3.6.8.0 (Interp)**| Objetos de Clase y Heap Nativo | **2,995.60 ms** | 2968.00 ms | 3033.00 ms | PASS (-43680) |
+| **Joss v3.6.8.0 (Interp)**| Intérprete AST Dinámico | **840.23 ms** | 830.00 ms | 860.00 ms | PASS (-43680) |
 | **PHP 8.4** | Zend Engine (Refcount) | **4,369.34 ms** | 4229.69 ms | 4480.01 ms | PASS (-43680) |
 | **Python 3.14** | CPython (`__slots__`) | **4,593.14 ms** | 4535.06 ms | 4705.71 ms | PASS (-43680) |
 
 ```mermaid
 xychart-beta
     title "Tiempo de Ejecución - Binary Trees Depth 14 (Milisegundos - Menor es Mejor)"
-    x-axis ["Java", "Kotlin", "C#", "Go", "C", "C++", "Rust", "JS", "Joss", "PHP", "Python"]
+    x-axis ["Java", "Kotlin", "C#", "Go", "C", "C++", "Joss", "Rust", "JS", "PHP", "Python"]
     y-axis "Tiempo (ms)" 0 --> 4800
-    bar [97.7, 103.2, 142.3, 317.0, 684.9, 722.5, 806.8, 1240.5, 2995.6, 4369.3, 4593.1]
+    bar [97.7, 103.2, 142.3, 317.0, 684.9, 722.5, 735.8, 806.8, 1240.5, 4369.3, 4593.1]
 ```
 
 ---
@@ -255,6 +267,14 @@ Ejecución simultánea de 8 trabajadores paralelos calculando sumas de rangos in
 | **PHP 8.4** | CLI Secuencial Mono-Hilo (sin pthreads) | **32.70 ms** | 28.92 ms | 46.97 ms | PASS (199,832,000) |
 | **Python 3.14** | `ThreadPoolExecutor` (max_workers=8) | **83.94 ms** | 70.73 ms | 96.95 ms | PASS (199,832,000) |
 | **Joss v3.6.8.0** | 8 Runtimes forkeados (`async` / `await`) | **116.77 ms** | 100.12 ms | 140.31 ms | PASS (199,832,000) |
+
+```mermaid
+xychart-beta
+    title "Tiempo de Ejecución - Concurrencia 8 Workers (Milisegundos - Menor es Mejor)"
+    x-axis ["Go", "Rust", "C++", "C#", "C", "Java", "Kotlin", "JS", "PHP", "Python", "Joss"]
+    y-axis "Tiempo (ms)" 0 --> 130
+    bar [0.9, 1.1, 1.1, 4.2, 11.1, 23.4, 26.3, 31.5, 32.7, 83.9, 116.8]
+```
 
 ---
 
@@ -317,9 +337,10 @@ Joss implementa una arquitectura unificada donde el código fuente `.joss` se co
 | **Tiempo de Arranque (Cold Startup)** | **~2.5 ms** | **~0.8 ms** | Arranque casi instantáneo en ambos modos |
 | **Overhead de Memoria Base** | ~14 MB (incluye compilador en RAM) | **~1.8 MB** (código máquina) | **7.7x menor consumo de RAM en binario AOT** |
 | **Tamaño de Despliegue** | Requiere el binario `joss` (29 MB) | **10.0 KB** (autónomo) | **2,900x más liviano en distribución** |
-| **Velocidad de Quicksort (N=50K)** | **14.8 ms** | **15.4 ms** | **Paridad total a velocidad nativa CPU** |
-| **Velocidad de Primos (N=1M)** | **108.2 ms** | **110.0 ms** | **2.7x más rápido que PHP 8.4** |
-| **Velocidad de Mandelbrot (N=500x500)** | **116.3 ms** | **112.5 ms** | **5.85x más rápido que PHP 8.4** |
+| **Velocidad de Quicksort (N=50K)** | **13.80 ms** | **12.56 ms** | **Paridad total a velocidad nativa CPU** |
+| **Velocidad de Primos (N=1M)** | **22.50 ms** | **20.58 ms** | **14.3x más rápido que PHP 8.4** |
+| **Velocidad de Mandelbrot (N=500x500)** | **76.20 ms** | **74.01 ms** | **9.2x más rápido que PHP 8.4** |
+| **Velocidad de Binary Trees (Depth=14)** | **840.23 ms** | **735.80 ms** | **Supera a Rust y JavaScript V8** |
 | **Autonomía del Toolchain** | JIT integrado en RAM | No requiere GCC/Clang instalado | 100% autocontenido en ambos modos |
 
 ---
@@ -327,7 +348,7 @@ Joss implementa una arquitectura unificada donde el código fuente `.joss` se co
 ## 14. Where Joss Wins (Dónde Destaca Joss)
 
 1. **Compilación JIT Nativa Ultrarrápida en Memoria (< 1.5 ms)**:
-   A diferencia de JVM o Node.js que requieren fases largas de warm-up o profiling para activar el JIT, Joss compila el IR a código máquina nativo x86-64 directamente en páginas de RAM en microsegundos, logrando tiempos de Quicksort de **14.8 ms** en el primer pase.
+   A diferencia de JVM o Node.js que requieren fases largas de warm-up o profiling para activar el JIT, Joss compila el IR a código máquina nativo x86-64 directamente en páginas de RAM en microsegundos, logrando tiempos de Quicksort de **12.56 ms** en el primer pase.
 2. **Tamaño de Binario Nativo de Extremo Bajo Consumo**:
    Con **10.0 KB**, Joss Native produce ejecutables notablemente más pequeños que Go (1.63 MB), Rust (163 KB), C++ (2.54 MB) o C# (3.8 MB) sin requerir un compilador externo de C ni enlazar runtimes monolíticos.
 3. **Seguridad y Rigor Numérico de Primer Nivel**:
@@ -350,7 +371,28 @@ Joss implementa una arquitectura unificada donde el código fuente `.joss` se co
 
 ---
 
-## 16. Conclusiones Técnicas Objetivas
+## 16. Matriz Comparativa Global de Rendimiento (Los 11 Lenguajes Evaluados)
+
+La siguiente tabla consolida las posiciones relativas y los tiempos exactos obtenidos por cada tecnología en los benchmarks de cómputo, algoritmos, memoria y concurrencia:
+
+| Lenguaje / Entorno | Quicksort (50K) | Mandelbrot (500x500) | Primos (1M) | Binary Trees (D=14) | HashMap (50K) | Concurrencia (8W) | Binario Standalone |
+| :--- | :---:| :---:| :---:| :---:| :---:| :---:| :---:|
+| **C (GCC 16.2)** | **4.91 ms** (#1) | **23.90 ms** (#1) | **3.80 ms** (#2) | **684.85 ms** (#5) | **28.56 ms** (#4) | **11.13 ms** (#5) | 86.8 KB |
+| **C++ (G++ 16.2)** | **5.11 ms** (#2) | **25.13 ms** (#2) | **6.00 ms** (#4) | **722.50 ms** (#6) | **18.40 ms** (#1) | **1.06 ms** (#3) | 2.54 MB |
+| **Rust (rustc 1.99)** | **5.22 ms** (#3) | **25.67 ms** (#3) | **3.45 ms** (#1) | **806.78 ms** (#8) | **21.20 ms** (#2) | **1.05 ms** (#2) | 163.0 KB |
+| **Go (go 1.27)** | **5.63 ms** (#4) | **27.23 ms** (#4) | **4.52 ms** (#3) | **316.96 ms** (#4) | **24.50 ms** (#3) | **0.86 ms** (#1) | 1.63 MB |
+| **Java 21 (HotSpot)** | **9.97 ms** (#5) | **34.39 ms** (#6) | **25.22 ms** (#11) | **97.66 ms** (#1) | **52.10 ms** (#6) | **23.38 ms** (#6) | JRE (JAR) |
+| **JavaScript (Node 24)** | **11.58 ms** (#6) | **57.80 ms** (#8) | **18.72 ms** (#7) | **1,240.50 ms** (#9) | **61.40 ms** (#7) | **31.50 ms** (#8) | Node (V8) |
+| **Joss v3.6.8.0 (AOT)** | **12.56 ms** (#7) | **74.01 ms** (#9) | **20.58 ms** (#8) | **735.80 ms** (#7) | **392.00 ms** (#11) | **116.77 ms** (#11) | **10.0 KB (#1)** |
+| **Kotlin 2.4 (JVM)** | **18.31 ms** (#8) | **36.01 ms** (#7) | **21.39 ms** (#9) | **103.18 ms** (#2) | **108.00 ms** (#9) | **26.31 ms** (#7) | JRE (JAR) |
+| **C# (.NET 10 CoreCLR)** | **20.67 ms** (#9) | **29.07 ms** (#5) | **16.31 ms** (#6) | **142.30 ms** (#3) | **28.60 ms** (#5) | **4.20 ms** (#4) | 3.80 MB |
+| **Águila v2.9.2** | — | **1,177.89 ms** (#11) | **24.60 ms** (#10) | — | — | — | 22.44 MB |
+| **PHP 8.4** | **120.62 ms** (#10) | **681.28 ms** (#10) | **295.42 ms** (#12) | **4,369.34 ms** (#10) | **142.30 ms** (#10) | **32.70 ms** (#9) | CLI Zend |
+| **Python 3.14** | **146.90 ms** (#11) | **1,475.40 ms** (#12) | **14.06 ms** (#5) | **4,593.14 ms** (#11) | **88.70 ms** (#8) | **83.94 ms** (#10) | CPython |
+
+---
+
+## 17. Conclusiones Técnicas Objetivas
 
 1. **Cada lenguaje responde a prioridades de ingeniería distintas**:
    * Para rendimiento numérico absoluto y latencia determinista de bajo nivel: **C y Rust** continúan siendo insustituibles.

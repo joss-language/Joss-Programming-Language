@@ -9,10 +9,15 @@ public func mandelbrot(int $N, int $maxIter): int {
             var $cr = -2.0 + (2.5 * floatval($x) / $fn);
             var $zr = 0.0;
             var $zi = 0.0;
+            var $zr2 = 0.0;
+            var $zi2 = 0.0;
             var $it = 0;
-            while ($it < $maxIter && ($zr * $zr + $zi * $zi) <= 4.0) {
-                var $zr2 = $zr * $zr;
-                var $zi2 = $zi * $zi;
+            while ($it < $maxIter) {
+                $zr2 = $zr * $zr;
+                $zi2 = $zi * $zi;
+                ($zr2 + $zi2 > 4.0) ? {
+                    break;
+                } : 0;
                 $zi = 2.0 * $zr * $zi + $ci;
                 $zr = $zr2 - $zi2 + $cr;
                 $it = $it + 1;

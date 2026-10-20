@@ -52,7 +52,7 @@ var builtinDefinitions = joinBuiltinGroups(
 	builtinGroup(builtinCollections, typesystem.String, "strval"),
 	builtinGroup(builtinCollections, typesystem.Array,
 		"keys", "array_keys", "values", "array_values", "explode", "merge", "array_merge", "array_slice",
-		"array_unique", "array_reverse", "array_column", "map", "filter"),
+		"array_unique", "array_reverse", "array_column", "array_fill", "map", "filter"),
 	builtinGroup(builtinCollections, typesystem.Mixed,
 		"end", "append", "array_push", "array_pop", "array_shift", "reduce", "find", "sum"),
 

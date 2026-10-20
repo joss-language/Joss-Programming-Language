@@ -87,6 +87,37 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 					return nil, err
 				}
 			case *parser.ClassStatement:
+				if s.Name != nil && s.Body != nil {
+					clsLayout := &ClassLayout{
+						Name:         s.Name.Value,
+						FieldOffsets: make(map[string]int32),
+					}
+					var currentOffset int32 = 8 // [0..7] reservado para puntero de tipo/clase
+					for _, member := range s.Body.Statements {
+						switch m := member.(type) {
+						case *parser.LetStatement:
+							if m.Name != nil {
+								fName := cleanVarName(m.Name.Value)
+								clsLayout.FieldOffsets[fName] = currentOffset
+								currentOffset += 8
+							}
+						case *parser.MultiLetStatement:
+							for _, d := range m.Declarations {
+								if d.Name != nil {
+									fName := cleanVarName(d.Name.Value)
+									clsLayout.FieldOffsets[fName] = currentOffset
+									currentOffset += 8
+								}
+							}
+						}
+					}
+					allocSize := uint32((currentOffset + 15) & -16)
+					if allocSize < 16 {
+						allocSize = 16
+					}
+					clsLayout.AllocSize = allocSize
+					l.prog.ClassLayouts[s.Name.Value] = clsLayout
+				}
 				if s.Body != nil {
 					for _, member := range s.Body.Statements {
 						if m, ok := member.(*parser.MethodStatement); ok {

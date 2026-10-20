@@ -25,6 +25,11 @@ func OptimizeProgram(prog *Program) {
 	for _, fn := range prog.Functions {
 		EliminateRedundantArrayGets(fn)
 	}
+
+	// Pase 5: Propagación de copias y eliminación de MoveInst redundantes
+	for _, fn := range prog.Functions {
+		PropagateCopies(fn)
+	}
 }
 
 type inlineCandidate struct {
@@ -433,8 +438,11 @@ func HoistLoopInvariantLoads(fn *Function) {
 				continue
 			}
 
-			// Si 'hdr' puede alcanzar 'blk' sin volver a pasar por 'hdr', 'blk' está en el bucle y es back-edge.
-			if canReachWithout(hdr, blk, hdr) {
+			// Si blk es el EntryBlock o es alcanzable desde EntryBlock sin pasar por 'hdr',
+			// es un predecesor externo (preheader o entrada al bucle).
+			// Si no, 'hdr' domina a 'blk', por lo que 'blk' está en el bucle y es back-edge.
+			isBackEdge := blk != fn.EntryBlock && !canReachWithout(fn.EntryBlock, blk, hdr)
+			if isBackEdge {
 				backEdgeBlocks = append(backEdgeBlocks, blk)
 			} else {
 				// Es un predecesor externo (preheader o entrada al bucle)
@@ -511,10 +519,8 @@ func HoistLoopInvariantLoads(fn *Function) {
 }
 
 type arrayAccessKey struct {
-	arrID    int
-	idxTemp  int
-	idxConst int64
-	isConst  bool
+	arrVal string
+	idxVal string
 }
 
 // EliminateRedundantArrayGets rastrea lecturas de array (array_get) dentro de un bloque básico
@@ -568,40 +574,37 @@ func EliminateRedundantArrayGets(fn *Function) {
 			case *ArrayGetInst:
 				cArr := canonicalVal(i.Array)
 				cIdx := canonicalVal(i.Index)
-				if arrTemp, okArr := cArr.(*TempValue); okArr {
-					var key arrayAccessKey
-					key.arrID = arrTemp.ID
-					validKey := false
-					if idxConst, okConst := cIdx.(*ConstInt); okConst {
-						key.isConst = true
-						key.idxConst = idxConst.Val
-						validKey = true
-					} else if idxTemp, okTemp := cIdx.(*TempValue); okTemp {
-						key.idxTemp = idxTemp.ID
-						validKey = true
+				if cArr != nil && cIdx != nil {
+					key := arrayAccessKey{
+						arrVal: cArr.String(),
+						idxVal: cIdx.String(),
 					}
-
-					if validKey {
-						if existingVal, exists := availMap[key]; exists {
-							newInsts = append(newInsts, &MoveInst{
-								Dest: i.Dest,
-								Src:  existingVal,
-							})
-							moveMap[i.Dest.ID] = existingVal
-							continue
-						}
-						availMap[key] = i.Dest
+					if existingVal, exists := availMap[key]; exists {
+						newInsts = append(newInsts, &MoveInst{
+							Dest: i.Dest,
+							Src:  existingVal,
+						})
+						moveMap[i.Dest.ID] = existingVal
+						continue
 					}
+					availMap[key] = i.Dest
 				}
 				newInsts = append(newInsts, inst)
 
 			case *ArraySetInst:
 				cArr := canonicalVal(i.Array)
-				if arrTemp, ok := cArr.(*TempValue); ok {
+				cIdx := canonicalVal(i.Index)
+				cVal := canonicalVal(i.Val)
+				if cArr != nil && cIdx != nil {
+					arrKey := cArr.String()
+					idxKey := cIdx.String()
 					for k := range availMap {
-						if k.arrID == arrTemp.ID {
+						if k.arrVal == arrKey {
 							delete(availMap, k)
 						}
+					}
+					if cVal != nil {
+						availMap[arrayAccessKey{arrVal: arrKey, idxVal: idxKey}] = cVal
 					}
 				} else {
 					availMap = make(map[arrayAccessKey]Value)
@@ -651,5 +654,114 @@ func EliminateDeadAllocasAndStores(fn *Function) {
 			newInsts = append(newInsts, inst)
 		}
 		blk.Instructions = newInsts
+	}
+}
+
+// PropagateCopies rastrea MoveInsts redundantes (%dest = move %src) dentro de cada bloque básico
+// y propaga el valor original %src en todos los usos de %dest, eliminando la instrucción move.
+func PropagateCopies(fn *Function) {
+	for _, blk := range fn.Blocks {
+		valMap := make(map[Value]Value)
+		newInsts := make([]Instruction, 0, len(blk.Instructions))
+		for _, inst := range blk.Instructions {
+			remapInstructionValues(inst, valMap)
+			if mv, ok := inst.(*MoveInst); ok && mv.Dest != nil {
+				src := mv.Src
+				for {
+					if mapped, exists := valMap[src]; exists {
+						src = mapped
+						continue
+					}
+					break
+				}
+				valMap[mv.Dest] = src
+				continue
+			}
+			newInsts = append(newInsts, inst)
+		}
+		blk.Instructions = newInsts
+		if blk.Terminator != nil {
+			remapTerminatorValues(blk.Terminator, valMap)
+		}
+	}
+}
+
+func remapInstructionValues(inst Instruction, valMap map[Value]Value) {
+	remap := func(v Value) Value {
+		if mapped, exists := valMap[v]; exists {
+			return mapped
+		}
+		return v
+	}
+
+	switch i := inst.(type) {
+	case *StoreInst:
+		i.Val = remap(i.Val)
+		i.Ptr = remap(i.Ptr)
+	case *LoadInst:
+		i.Ptr = remap(i.Ptr)
+	case *MoveInst:
+		i.Src = remap(i.Src)
+	case *BinaryInst:
+		i.Left = remap(i.Left)
+		i.Right = remap(i.Right)
+	case *CompareInst:
+		i.Left = remap(i.Left)
+		i.Right = remap(i.Right)
+	case *UnaryInst:
+		i.Val = remap(i.Val)
+	case *ArrayGetInst:
+		i.Array = remap(i.Array)
+		i.Index = remap(i.Index)
+	case *ArraySetInst:
+		i.Val = remap(i.Val)
+		i.Array = remap(i.Array)
+		i.Index = remap(i.Index)
+	case *CallInst:
+		for idx := range i.Args {
+			i.Args[idx] = remap(i.Args[idx])
+		}
+	case *CallPrimitiveMethodInst:
+		i.Recv = remap(i.Recv)
+		for idx := range i.Args {
+			i.Args[idx] = remap(i.Args[idx])
+		}
+	case *CallBuiltinInst:
+		for idx := range i.Args {
+			i.Args[idx] = remap(i.Args[idx])
+		}
+	case *CallRuntimeInst:
+		for idx := range i.Args {
+			i.Args[idx] = remap(i.Args[idx])
+		}
+	case *LoadFieldInst:
+		i.Obj = remap(i.Obj)
+	case *StoreFieldInst:
+		i.Val = remap(i.Val)
+		i.Obj = remap(i.Obj)
+	case *MapGetInst:
+		i.Map = remap(i.Map)
+		i.Key = remap(i.Key)
+	case *MapSetInst:
+		i.Val = remap(i.Val)
+		i.Map = remap(i.Map)
+		i.Key = remap(i.Key)
+	}
+}
+
+func remapTerminatorValues(term Terminator, valMap map[Value]Value) {
+	remap := func(v Value) Value {
+		if mapped, exists := valMap[v]; exists {
+			return mapped
+		}
+		return v
+	}
+	switch t := term.(type) {
+	case *ReturnTerminator:
+		if t.Val != nil {
+			t.Val = remap(t.Val)
+		}
+	case *BranchTerminator:
+		t.Cond = remap(t.Cond)
 	}
 }

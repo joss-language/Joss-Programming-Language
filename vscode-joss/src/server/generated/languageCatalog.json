@@ -71,6 +71,7 @@
     "any",
     "append",
     "array_column",
+    "array_fill",
     "array_key_exists",
     "array_keys",
     "array_merge",

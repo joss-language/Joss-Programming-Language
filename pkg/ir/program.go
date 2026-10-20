@@ -105,12 +105,19 @@ type GlobalVar struct {
 	IsConst bool
 }
 
+type ClassLayout struct {
+	Name         string
+	FieldOffsets map[string]int32
+	AllocSize    uint32
+}
+
 // Program representa el módulo completo de IR que será verificado y compilado.
 type Program struct {
 	Name                string
 	Globals             map[string]*GlobalVar
 	Functions           map[string]*Function
 	Types               map[string]Type
+	ClassLayouts        map[string]*ClassLayout
 	RuntimeRequirements map[string]bool
 }
 
@@ -120,6 +127,7 @@ func NewProgram(name string) *Program {
 		Globals:             make(map[string]*GlobalVar),
 		Functions:           make(map[string]*Function),
 		Types:               make(map[string]Type),
+		ClassLayouts:        make(map[string]*ClassLayout),
 		RuntimeRequirements: make(map[string]bool),
 	}
 }
