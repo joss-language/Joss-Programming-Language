@@ -111,8 +111,8 @@ func TestMachineCodeBuilder_CompileInMemory_LoopAndWrite(t *testing.T) {
 }
 
 func TestMachineCodeBuilder_CompileInMemory_HostBridgeService(t *testing.T) {
-	if runtime.GOARCH != "amd64" {
-		t.Skip("JIT test is x86_64 amd64 only")
+	if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
+		t.Skip("In-memory HostBridge callback via IAT slot is only supported on Windows amd64")
 	}
 
 	var hostCalled bool
