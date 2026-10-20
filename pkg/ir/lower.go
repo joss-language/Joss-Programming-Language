@@ -49,6 +49,9 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 
 	l.prog = NewProgram(name)
 
+	// Registrar layouts de clases antes de procesar métodos
+	l.buildAllClassLayouts()
+
 	// Procesar unidades fuente
 	for _, unit := range l.prep.Units {
 		// Si hay reachability graph, validar si el archivo es alcanzable
@@ -87,37 +90,6 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 					return nil, err
 				}
 			case *parser.ClassStatement:
-				if s.Name != nil && s.Body != nil {
-					clsLayout := &ClassLayout{
-						Name:         s.Name.Value,
-						FieldOffsets: make(map[string]int32),
-					}
-					var currentOffset int32 = 8 // [0..7] reservado para puntero de tipo/clase
-					for _, member := range s.Body.Statements {
-						switch m := member.(type) {
-						case *parser.LetStatement:
-							if m.Name != nil {
-								fName := cleanVarName(m.Name.Value)
-								clsLayout.FieldOffsets[fName] = currentOffset
-								currentOffset += 8
-							}
-						case *parser.MultiLetStatement:
-							for _, d := range m.Declarations {
-								if d.Name != nil {
-									fName := cleanVarName(d.Name.Value)
-									clsLayout.FieldOffsets[fName] = currentOffset
-									currentOffset += 8
-								}
-							}
-						}
-					}
-					allocSize := uint32((currentOffset + 15) & -16)
-					if allocSize < 16 {
-						allocSize = 16
-					}
-					clsLayout.AllocSize = allocSize
-					l.prog.ClassLayouts[s.Name.Value] = clsLayout
-				}
 				if s.Body != nil {
 					for _, member := range s.Body.Statements {
 						if m, ok := member.(*parser.MethodStatement); ok {
@@ -2048,6 +2020,89 @@ func (l *Lowerer) lookupClassPropertyType(className, propName string) (Type, boo
 		curr = nextSuper
 	}
 	return TypeI64, false
+}
+
+func (l *Lowerer) buildAllClassLayouts() {
+	if l.prep == nil {
+		return
+	}
+	classMap := make(map[string]*parser.ClassStatement)
+	for _, unit := range l.prep.Units {
+		if unit.Program == nil {
+			continue
+		}
+		for _, stmt := range unit.Program.Statements {
+			if cs, ok := stmt.(*parser.ClassStatement); ok && cs.Name != nil {
+				classMap[cs.Name.Value] = cs
+			}
+		}
+	}
+
+	var getOrBuildLayout func(name string) *ClassLayout
+	getOrBuildLayout = func(name string) *ClassLayout {
+		if layout, ok := l.prog.ClassLayouts[name]; ok {
+			return layout
+		}
+		cs := classMap[name]
+		if cs == nil {
+			return nil
+		}
+
+		layout := &ClassLayout{
+			Name:         name,
+			FieldOffsets: make(map[string]int32),
+		}
+
+		var currentOffset int32 = 8 // [0..7] reservado para puntero de clase/RTTI
+		if cs.SuperClass != nil && cs.SuperClass.Value != "" {
+			parentLayout := getOrBuildLayout(cs.SuperClass.Value)
+			if parentLayout != nil {
+				for fName, off := range parentLayout.FieldOffsets {
+					layout.FieldOffsets[fName] = off
+					if off+8 > currentOffset {
+						currentOffset = off + 8
+					}
+				}
+			}
+		}
+
+		if cs.Body != nil {
+			for _, member := range cs.Body.Statements {
+				switch m := member.(type) {
+				case *parser.LetStatement:
+					if m.Name != nil {
+						fName := cleanVarName(m.Name.Value)
+						if _, exists := layout.FieldOffsets[fName]; !exists {
+							layout.FieldOffsets[fName] = currentOffset
+							currentOffset += 8
+						}
+					}
+				case *parser.MultiLetStatement:
+					for _, d := range m.Declarations {
+						if d.Name != nil {
+							fName := cleanVarName(d.Name.Value)
+							if _, exists := layout.FieldOffsets[fName]; !exists {
+								layout.FieldOffsets[fName] = currentOffset
+								currentOffset += 8
+							}
+						}
+					}
+				}
+			}
+		}
+
+		allocSize := uint32((currentOffset + 15) & -16)
+		if allocSize < 16 {
+			allocSize = 16
+		}
+		layout.AllocSize = allocSize
+		l.prog.ClassLayouts[name] = layout
+		return layout
+	}
+
+	for className := range classMap {
+		getOrBuildLayout(className)
+	}
 }
 
 func (l *Lowerer) resolveClassMethod(className, methodName string) (string, Type, bool) {

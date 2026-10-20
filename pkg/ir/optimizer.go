@@ -22,14 +22,14 @@ func OptimizeProgram(prog *Program) {
 	}
 
 	// Pase 4: Eliminación de lecturas redundantes de arrays (CSE)
-	for _, fn := range prog.Functions {
-		EliminateRedundantArrayGets(fn)
-	}
+	// for _, fn := range prog.Functions {
+	// 	EliminateRedundantArrayGets(fn)
+	// }
 
 	// Pase 5: Propagación de copias y eliminación de MoveInst redundantes
-	for _, fn := range prog.Functions {
-		PropagateCopies(fn)
-	}
+	// for _, fn := range prog.Functions {
+	// 	PropagateCopies(fn)
+	// }
 }
 
 type inlineCandidate struct {
@@ -593,18 +593,12 @@ func EliminateRedundantArrayGets(fn *Function) {
 
 			case *ArraySetInst:
 				cArr := canonicalVal(i.Array)
-				cIdx := canonicalVal(i.Index)
-				cVal := canonicalVal(i.Val)
-				if cArr != nil && cIdx != nil {
+				if cArr != nil {
 					arrKey := cArr.String()
-					idxKey := cIdx.String()
 					for k := range availMap {
 						if k.arrVal == arrKey {
 							delete(availMap, k)
 						}
-					}
-					if cVal != nil {
-						availMap[arrayAccessKey{arrVal: arrKey, idxVal: idxKey}] = cVal
 					}
 				} else {
 					availMap = make(map[arrayAccessKey]Value)
@@ -746,6 +740,17 @@ func remapInstructionValues(inst Instruction, valMap map[Value]Value) {
 		i.Val = remap(i.Val)
 		i.Map = remap(i.Map)
 		i.Key = remap(i.Key)
+	case *NewArrayInst:
+		for idx := range i.Elements {
+			i.Elements[idx] = remap(i.Elements[idx])
+		}
+	case *CallIndirectInst:
+		i.CalleeVal = remap(i.CalleeVal)
+		for idx := range i.Args {
+			i.Args[idx] = remap(i.Args[idx])
+		}
+	case *ThrowInst:
+		i.Val = remap(i.Val)
 	}
 }
 

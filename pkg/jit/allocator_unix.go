@@ -13,6 +13,7 @@ import (
 type ExecutableBlock struct {
 	Addr uintptr
 	Size uintptr
+	data []byte
 }
 
 // AllocateExecutable allocates memory via mmap with PROT_READ|PROT_WRITE,
@@ -48,17 +49,18 @@ func AllocateExecutable(code []byte) (*ExecutableBlock, error) {
 	return &ExecutableBlock{
 		Addr: addr,
 		Size: uintptr(size),
+		data: data,
 	}, nil
 }
 
 // Free releases the mmap'd memory.
 func (b *ExecutableBlock) Free() error {
-	if b == nil || b.Addr == 0 {
+	if b == nil || len(b.data) == 0 {
 		return nil
 	}
-	data := unsafe.Slice((*byte)(unsafe.Pointer(b.Addr)), int(b.Size))
-	err := syscall.Munmap(data)
+	err := syscall.Munmap(b.data)
 	b.Addr = 0
 	b.Size = 0
+	b.data = nil
 	return err
 }

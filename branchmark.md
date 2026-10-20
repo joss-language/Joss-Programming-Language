@@ -144,7 +144,7 @@ xychart-beta
     title "Tiempo de Ejecución - Quicksort N=50,000 (Milisegundos - Menor es Mejor)"
     x-axis ["C", "C++", "Rust", "Go", "Java", "JS", "Joss", "Kotlin", "C#", "PHP", "Python"]
     y-axis "Tiempo (ms)" 0 --> 160
-    bar [4.9, 5.1, 5.2, 5.6, 10.0, 11.6, 14.8, 18.3, 20.7, 120.6, 146.9]
+    bar [4.9, 5.1, 5.2, 5.6, 10.0, 11.6, 12.6, 18.3, 20.7, 120.6, 146.9]
 ```
 
 ---
@@ -307,7 +307,10 @@ xychart-beta
 
 ## 12. Benchmark 8: Perfil de Operaciones Atómicas de Joss (Microbenchmarks Canónicos)
 
-La suite oficial de microbenchmarks del runtime `pkg/core` de Joss registra la latencia exacta por operación atómica en CPU:
+La suite oficial de microbenchmarks del runtime dinámico e intérprete en Go (`pkg/core`) de Joss registra la latencia exacta por operación atómica:
+
+> [!NOTE]
+> **Alcance de los microbenchmarks**: Estos tiempos miden exclusivamente la sobrecarga del runtime dinámico/evaluador Go (`pkg/core`) en estructuras de datos en memoria, despacho de interfaces y verificación dinámica de contratos semánticos. **No reflejan el rendimiento de las instrucciones en código máquina emitidas por el motor Native AOT (`pkg/backend/native`)**, donde operaciones atómicas como sumas enteras (`ADD`), saltos o invocaciones directas toman menos de $1\text{ ns}$ en procesadores x86-64 modernos (evidenciado en los 74 ms de Mandelbrot con más de 4.1 millones de iteraciones numéricas).
 
 | Dominio Operativo | Operación Específica | Latencia Promedio (ns/op) | Huella de Memoria (B/op) | Asignaciones (allocs/op) |
 | :--- | :--- | :---:| :---:| :---:|
@@ -364,14 +367,18 @@ Joss implementa una arquitectura unificada donde el código fuente `.joss` se co
 
 ## 15. Where Joss Loses (Dónde Pierde Joss y Límites Actuales)
 
-1. **Optimización Avanzada de Registros y Vectorización SIMD**:
+1. **Rendimiento de Tablas Hash asociativas (`map<K, V>`)**:
+   En el Benchmark 4, Joss procesa 50,000 inserciones/lecturas en **392.00 ms**, mientras Python lo realiza en **88.70 ms** y C++/Rust en ~20 ms. Esta diferencia se debe a que la implementación actual de mapas en el core delega en estructuras con boxing dinámico de claves/valores y sincronización de tipos en cada acceso. La optimización de un motor de tablas hash nativas compactas (open addressing con Swiss Tables / Robin Hood hashing y layout tipado directo) está planificada en el roadmap de **Joss v3.9**.
+2. **Sobrecarga de Concurrencia por Aislamiento Estricto (`async`/`await`)**:
+   El tiempo de concurrencia de Joss (**116.77 ms**) es superior al de Go (0.86 ms) o C# (4.20 ms) porque cada bloque `async` realiza un `Runtime.Fork()` completo creando entornos aislados e independientes para los 8 workers para garantizar **cero condiciones de carrera (data races)** por diseño estructural. Para **Joss v3.9**, se tiene planificada la introducción de un **Runtime Pool** reutilizable con lightweight context switching y workers precalentados, lo que reducirá la sobrecarga de instanciación a fracciones de milisegundo sin comprometer la seguridad de aislamiento.
+3. **Optimización Avanzada de Registros y Vectorización SIMD**:
    Compiladores maduros como GCC, Clang y LLVM (Rust) cuentan con décadas de algoritmos de optimización para vectorización automática AVX2/AVX-512 y desenrollado agresivo de bucles. El compilador nativo de Joss actualmente genera código máquina 3AC/SSA lineal correcto, pero no cuenta aún con pasadas de auto-vectorización SIMD (donde C y Rust alcanzan 3–5 ms en algoritmos vectorizables).
-2. **Ecosistema de Bibliotecas de Terceros**:
+4. **Ecosistema de Bibliotecas de Terceros**:
    Lenguajes como Python, Java o Go cuentan con millones de paquetes open-source. Aunque Joss cuenta con su gestor oficial `pub` y soporte para plugins binarios `.jp`, su catálogo de módulos es joven en comparación con crates.io, Maven Central o PyPI.
 
 ---
 
-## 16. Matriz Comparativa Global de Rendimiento (Los 11 Lenguajes Evaluados)
+## 16. Matriz Comparativa Global de Rendimiento (Comparativa de 12 Lenguajes: Joss frente a 11 estándares de la industria)
 
 La siguiente tabla consolida las posiciones relativas y los tiempos exactos obtenidos por cada tecnología en los benchmarks de cómputo, algoritmos, memoria y concurrencia:
 
@@ -386,9 +393,11 @@ La siguiente tabla consolida las posiciones relativas y los tiempos exactos obte
 | **Joss v3.6.8.0 (AOT)** | **12.56 ms** (#7) | **74.01 ms** (#9) | **20.58 ms** (#8) | **735.80 ms** (#7) | **392.00 ms** (#11) | **116.77 ms** (#11) | **10.0 KB (#1)** |
 | **Kotlin 2.4 (JVM)** | **18.31 ms** (#8) | **36.01 ms** (#7) | **21.39 ms** (#9) | **103.18 ms** (#2) | **108.00 ms** (#9) | **26.31 ms** (#7) | JRE (JAR) |
 | **C# (.NET 10 CoreCLR)** | **20.67 ms** (#9) | **29.07 ms** (#5) | **16.31 ms** (#6) | **142.30 ms** (#3) | **28.60 ms** (#5) | **4.20 ms** (#4) | 3.80 MB |
-| **Águila v2.9.2** | — | **1,177.89 ms** (#11) | **24.60 ms** (#10) | — | — | — | 22.44 MB |
+| **Águila v2.9.2** | —* | **1,177.89 ms** (#11) | **24.60 ms** (#10) | —* | —* | —* | 22.44 MB |
 | **PHP 8.4** | **120.62 ms** (#10) | **681.28 ms** (#10) | **295.42 ms** (#12) | **4,369.34 ms** (#10) | **142.30 ms** (#10) | **32.70 ms** (#9) | CLI Zend |
 | **Python 3.14** | **146.90 ms** (#11) | **1,475.40 ms** (#12) | **14.06 ms** (#5) | **4,593.14 ms** (#11) | **88.70 ms** (#8) | **83.94 ms** (#10) | CPython |
+
+*\* Nota metodológica sobre Águila v2.9.2: Los guiones (—) representan pruebas no ejecutadas debido a que la versión actual evaluada de Águila carece de primitivas nativas comparables de concurrencia multihilo/workers, o por limitaciones y discrepancias en soporte de recursión profunda/estructuras dinámicas en el heap (árboles binarios con punteros y mapas hash asociativos) que impedían ejecutar de forma idéntica e inalterada el algoritmo canónico establecido en la metodología.*
 
 ---
 

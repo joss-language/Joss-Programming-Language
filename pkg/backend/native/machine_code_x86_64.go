@@ -805,7 +805,7 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitJgeLabel(".os_alloc_ok")
 		b.emitBytes(0x49, 0xC7, 0xC0, 0x10, 0x00, 0x00, 0x00) // mov r8, 16
 		b.defineLabel(".os_alloc_ok")
-		b.emitBytes(0x31, 0xD2) // xor edx, edx (dwFlags = 0)
+		b.emitBytes(0xBA, 0x08, 0x00, 0x00, 0x00) // mov edx, 8 (HEAP_ZERO_MEMORY)
 		b.emitMovRCXData(dataOffHeap)
 		b.emitCallIAT(IATHeapAlloc)
 		b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
@@ -2549,12 +2549,6 @@ func (b *MachineCodeBuilder) emitCallIndirectWithArgs(layout *fnFrameLayout, cal
 }
 
 func (b *MachineCodeBuilder) emitLoadValToRAX(layout *fnFrameLayout, val ir.Value) {
-	if b.cachedRAXVal != nil && b.cachedRAXVal == val {
-		return
-	}
-	defer func() {
-		b.cachedRAXVal = val
-	}()
 	switch v := val.(type) {
 	case *ir.TempValue:
 		b.emitLoadRAXFromRBP(layout.tempOffsets[v.ID])
