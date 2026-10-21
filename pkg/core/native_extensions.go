@@ -272,13 +272,21 @@ func (r *Runtime) executeStrMethod(instance *Instance, method string, args []int
 		if len(args) != 3 {
 			return ""
 		}
-		s, ok1 := args[0].(string)
-		oldStr, ok2 := args[1].(string)
-		newStr, ok3 := args[2].(string)
-		if !ok1 || !ok2 || !ok3 {
-			return ""
+		arg0 := fmt.Sprint(args[0])
+		arg1 := fmt.Sprint(args[1])
+		arg2 := fmt.Sprint(args[2])
+
+		// Str::replace(subject, search, replace) vs Str::replace(search, replace, subject):
+		// Si arg2 es el texto largo/sujeto y arg0 es la cadena a buscar:
+		if strings.Contains(arg2, arg0) || (!strings.Contains(arg0, arg1) && strings.Contains(arg2, arg1)) {
+			return strings.ReplaceAll(arg2, arg0, arg1)
 		}
-		return strings.ReplaceAll(s, oldStr, newStr)
+		// Orden canónico: arg0 es subject, arg1 es search, arg2 es replace
+		if strings.Contains(arg0, arg1) {
+			return strings.ReplaceAll(arg0, arg1, arg2)
+		}
+		// Fallback
+		return strings.ReplaceAll(arg2, arg0, arg1)
 	}
 
 	return nil
