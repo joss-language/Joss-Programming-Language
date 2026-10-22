@@ -46,6 +46,11 @@ func handleEarlySpecialRoutes(w http.ResponseWriter, r *http.Request, rt *core.R
 		return true
 	}
 
+	if r.URL.Path == "/__hot_reload" {
+		hotReloadHandler(w, r)
+		return true
+	}
+
 	return false
 }
 

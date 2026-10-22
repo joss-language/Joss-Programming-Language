@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jossecurity/joss/pkg/core"
 )
@@ -36,6 +37,9 @@ func writeExecutionResult(w http.ResponseWriter, request *http.Request, runtime 
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		}
 		_, _ = w.Write([]byte(text))
+		if strings.Contains(w.Header().Get("Content-Type"), "text/html") {
+			_, _ = fmt.Fprint(w, getHotReloadScript())
+		}
 		return true
 	}
 	return false
