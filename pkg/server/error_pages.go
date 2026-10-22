@@ -8,15 +8,15 @@ import (
 	"github.com/jossecurity/joss/pkg/core"
 )
 
-// isDeceptionEnabled returns true if SECURITY_DECEPTION=true in env or environment variables.
+// isDeceptionEnabled returns true unless SECURITY_DECEPTION=false (enabled by default for stealth).
 func isDeceptionEnabled(env map[string]string) bool {
 	if env != nil {
 		val := strings.ToLower(strings.TrimSpace(env["SECURITY_DECEPTION"]))
-		if val == "true" || val == "1" || val == "yes" || val == "on" {
-			return true
+		if val == "false" || val == "0" || val == "no" || val == "off" {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // isDebugEnabled returns true unless APP_DEBUG=false or DEBUG=false.
@@ -162,7 +162,7 @@ func buildDefaultErrorHTML(statusCode int, title, message, host string) string {
 		</div>
 		<a href="/" class="btn">Volver al inicio</a>
 		<div class="footer">
-			<strong>Host:</strong> %s &bull; Joss Web Engine
+			<strong>Host:</strong> %s
 		</div>
 	</div>
 </body>
@@ -172,16 +172,16 @@ func buildDefaultErrorHTML(statusCode int, title, message, host string) string {
 func getErrorSVG(status int) string {
 	switch status {
 	case 403, 401:
-		// Shield / Lock
-		return `<svg class="danger icon-large" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+		// Shield / Lock (Yellow/Amber fa-shield-alt style)
+		return `<svg class="warning icon-large" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M466.5 83.7l-192-80a48.15 48.15 0 0 0-36.9 0l-192 80C27.7 91.1 16 108.6 16 128c0 198.5 114.5 335.7 221.5 380.3 11.8 4.9 25.1 4.9 36.9 0C360.1 472.6 496 334.3 496 128c0-19.4-11.7-36.9-29.5-44.3zM256 461.3C161.7 419.6 64 294.6 64 128l192-80 192 80c0 166.6-97.7 291.6-192 333.3z"/></svg>`
 	case 404:
-		// Compass / Search
-		return `<svg class="warning icon-large" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`
+		// Hard hat / Under construction (Warning icon from index.html)
+		return `<svg class="warning icon-large" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M480 288c0-80.25-49.28-148.92-119.19-177.62L320 192V80a16 16 0 0 0-16-16h-96a16 16 0 0 0-16 16v112l-40.81-81.62C81.28 139.08 32 207.75 32 288v64h448zm16 96H16a16 16 0 0 0-16 16v32a16 16 0 0 0 16 16h480a16 16 0 0 0 16-16v-32a16 16 0 0 0-16-16z"></path></svg>`
 	case 500, 502, 503:
-		// Server / Alert
-		return `<svg class="danger icon-large" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>`
+		// Server / Alert (Amber warning style)
+		return `<svg class="warning icon-large" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M448 64H64A64 64 0 0 0 0 128v64a64 64 0 0 0 64 64h384a64 64 0 0 0 64-64v-64a64 64 0 0 0-64-64zm-48 88a24 24 0 1 1 24-24 24 24 0 0 1-24 24zm48 104H64a64 64 0 0 0-64 64v64a64 64 0 0 0 64 64h384a64 64 0 0 0 64-64v-64a64 64 0 0 0-64-64zm-48 88a24 24 0 1 1 24-24 24 24 0 0 1-24 24z"/></svg>`
 	default:
-		// General alert
-		return `<svg class="warning icon-large" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+		// General alert circle
+		return `<svg class="warning icon-large" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm0 448c-110.5 0-200-89.5-200-200S145.5 56 256 56s200 89.5 200 200-89.5 200-200 200zm-32-316v152c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12V140c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12zm32 260c17.7 0 32-14.3 32-32s-14.3-32-32-32-32 14.3-32 32 14.3 32 32 32z"/></svg>`
 	}
 }
