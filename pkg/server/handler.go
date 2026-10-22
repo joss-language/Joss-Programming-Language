@@ -53,8 +53,11 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 			errMsg := core.FormatPanicAsError(recovered)
 			fmt.Printf("[SERVER PANIC] %s\n", errMsg)
 			if !webSocketUpgraded {
-				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "<h1>500 Internal Server Error</h1><pre>%s</pre>", errMsg)
+				msg := "Ocurrió un error inesperado al procesar la solicitud."
+				if isDebugEnabled(rt.Env) {
+					msg = errMsg
+				}
+				renderErrorPage(w, r, rt, http.StatusInternalServerError, "Error interno del servidor", msg)
 			}
 		}
 		rt.Free()
@@ -99,8 +102,8 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 8. Save Session
 	if err := saveSession(rt.Env, driver, sessionID, sessData); err != nil {
-		http.Error(w, "Unable to persist session storage", http.StatusInternalServerError)
 		fmt.Printf("[Session ERROR] %v\n", err)
+		renderErrorPage(w, r, rt, http.StatusInternalServerError, "Error interno del servidor", "No se pudo persistir el almacenamiento de sesión.")
 		return
 	}
 
@@ -112,6 +115,15 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("[Server WARN] writeExecutionResult no pudo representar el resultado para %s %s (tipo: %T)\n", r.Method, r.URL.Path, result)
 	} else {
 		fmt.Printf("[Server ERROR] Dispatch falló para %s %s: %v\n", r.Method, r.URL.Path, err)
+		if !strings.Contains(err.Error(), "route not found") {
+			// Es un error interno de ejecución 500
+			msg := "Ocurrió un error inesperado al procesar la solicitud."
+			if isDebugEnabled(rt.Env) {
+				msg = fmt.Sprintf("Error de ejecución: %v", err)
+			}
+			renderErrorPage(w, r, rt, http.StatusInternalServerError, "Error interno del servidor", msg)
+			return
+		}
 	}
 
 	// Try serving static files from public/ directory before 404 (e.g. /ads.txt, /robots.txt, etc.)
@@ -133,7 +145,7 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("[Server RESP] %s %s -> 404 Not Found\n", r.Method, r.URL.Path)
-	http.NotFound(w, r)
+	renderErrorPage(w, r, rt, http.StatusNotFound, "Página no encontrada", "El recurso o página que intentas acceder no existe en este servidor.")
 }
 
 func servePublicFile(w http.ResponseWriter, r *http.Request) bool {

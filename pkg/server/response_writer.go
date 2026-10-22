@@ -49,8 +49,14 @@ func writeResponseFields(w http.ResponseWriter, request *http.Request, runtime *
 	kind, _ := fields["_type"].(string)
 	switch kind {
 	case "JSON":
+		status := httpStatus(fields["status_code"], http.StatusOK)
+		if (status == http.StatusForbidden || status == http.StatusUnauthorized) && isDeceptionEnabled(runtime.Env) {
+			fmt.Printf("[SECURITY DECEPTION] %s %s -> Ocultando status %d como 404 Not Found (Cliente: %s)\n", request.Method, request.URL.Path, status, request.RemoteAddr)
+			renderErrorPage(w, request, runtime, http.StatusNotFound, "Página no encontrada", "El recurso que buscas no existe o ha sido movido.")
+			return true
+		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(httpStatus(fields["status_code"], http.StatusOK))
+		w.WriteHeader(status)
 		_ = json.NewEncoder(w).Encode(fields["data"])
 		return true
 	case "RAW":
@@ -58,9 +64,15 @@ func writeResponseFields(w http.ResponseWriter, request *http.Request, runtime *
 		if contentType == "" {
 			contentType = "text/plain"
 		}
+		status := httpStatus(fields["status_code"], http.StatusOK)
+		if (status == http.StatusForbidden || status == http.StatusUnauthorized) && isDeceptionEnabled(runtime.Env) {
+			fmt.Printf("[SECURITY DECEPTION] %s %s -> Ocultando status %d como 404 Not Found (Cliente: %s)\n", request.Method, request.URL.Path, status, request.RemoteAddr)
+			renderErrorPage(w, request, runtime, http.StatusNotFound, "Página no encontrada", "El recurso que buscas no existe o ha sido movido.")
+			return true
+		}
 		w.Header().Set("Content-Type", contentType)
 		writeResponseHeaders(w, fields)
-		w.WriteHeader(httpStatus(fields["status_code"], http.StatusOK))
+		w.WriteHeader(status)
 		switch value := fields["data"].(type) {
 		case string:
 			_, _ = w.Write([]byte(value))
