@@ -680,6 +680,20 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 
 				query := fmt.Sprintf("UPDATE %s SET %s WHERE id = ?", usersTable, strings.Join(sets, ", "))
 				_, err := r.databaseExecutor().Exec(query, vals...)
+				if err == nil {
+					if sessVal, ok := r.Variables["$__session"]; ok {
+						if sessInst, ok := sessVal.(*Instance); ok {
+							if uid, ok := sessInst.Fields["user_id"]; ok && toInt(uid) == id {
+								if newEmail, ok := data["email"]; ok && newEmail != nil {
+									sessInst.Fields["user_email"] = fmt.Sprintf("%v", newEmail)
+								}
+								if newUsername, ok := data["username"]; ok && newUsername != nil {
+									sessInst.Fields["user_name"] = fmt.Sprintf("%v", newUsername)
+								}
+							}
+						}
+					}
+				}
 				return err == nil
 			}
 		}
