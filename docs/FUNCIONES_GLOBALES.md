@@ -51,6 +51,7 @@ necesites. Véase [tipos](SISTEMA_TIPOS.md) y [sintaxis](SINTAXIS.md).
 | `array_shift(array)` | Primer elemento o null. **No reduce el array**. | `array_shift([1,2])` → 1 |
 | `array_slice(array,inicio,[longitud])` | Vista superficial; negativos relativos al final; fuera da []. Comparte almacenamiento. | `array_slice([1,2,3],1)` |
 | `array_unique(array)` | Array nuevo, igualdad por representación textual; puede fusionar valores de tipos diferentes. | `array_unique([1,1,2])` |
+| `array_fill(inicio_o_longitud, cantidad_o_valor, [valor])` | Array nuevo rellenado con el valor indicado. Acepta `(longitud, valor)` o `(inicio, cantidad, valor)`. Inválido da []. | `array_fill(3, "x")` → `["x","x","x"]` |
 | `array_reverse(array)` | Array nuevo invertido; inválido da []. | `array_reverse([1,2])` |
 | `array_column(array,clave)` | Valores de esa clave en elementos map; omite otros elementos/claves ausentes. | `array_column([{"id":1}],"id")` |
 | `in_array(valor,array)` | Bool; en arrays Joss admite igualdad profunda o textual. | `in_array(1,["1"])` → true |

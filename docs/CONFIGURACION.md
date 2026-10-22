@@ -102,6 +102,17 @@ REDIS_DB="0"
 - `JOSS_PLUGIN_SIGNING_KEY` permite seleccionar una llave privada Ed25519 existente para compilar JP. Si no se especifica, Joss genera y gestiona una llave automáticamente por plugin bajo `~/.joss/keys/`.
 - Los plugins `.jp` se ejecutan directamente en memoria (bytecode VM y AST Engine), con acceso al mapa de entorno `r.Env` según su ejecutor; esto no constituye un sandbox del sistema operativo.
 
+## Seguridad, Páginas de Error y Modo Engaño
+
+```env
+APP_DEBUG="false"
+SECURITY_DECEPTION="true"
+```
+
+- **Páginas de Error Nativas**: En lugar de texto plano, Joss sirve páginas de error visuales integradas con diseño moderno (SVG animado, código de estado y navegación al inicio). Puedes personalizar las vistas por proyecto en `app/views/errors/{status}.joss.html` (por ejemplo `errors/404` o `errors/500`). Si el cliente envía `Accept: application/json` o solicita rutas bajo `/api/`, responde automáticamente un JSON estructurado.
+- **Modo Engaño (`SECURITY_DECEPTION="true"`)**: Ofusca accesos no autorizados o prohibidos (códigos `403 Forbidden` y `401 Unauthorized`) respondiendo al cliente con `404 Not Found`. Para el atacante o escáner externo el recurso parece inexistente, mientras que la consola del servidor registra el evento real con el prefijo `[SECURITY DECEPTION]` y la IP del cliente para auditoría.
+- **Protección de Errores Internos (`APP_DEBUG="false"`)**: Evita la filtración de trazas de pila (stack traces), rutas de archivos o código fuente ante excepciones internas no controladas (código 500), mostrando un mensaje genérico seguro y enviando el diagnóstico detallado a los logs de consola.
+
 No publiques archivos de entorno ni llaves privadas.
 
 ## CLI de base de datos

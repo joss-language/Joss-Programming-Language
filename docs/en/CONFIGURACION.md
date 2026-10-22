@@ -2,7 +2,7 @@
 
 [Index](README.md)
 
-The runtime looks for `env.joss`, then `env.enc` and finally `.env`; development also tries parent directories. Operating system variables overwrite the file. `System::env("KEY", "default")` queries the loaded environment.
+The runtime looks for `env.joss` , then `env.enc` , and finally `.env` ;development also tries parent directories.Operating system variables overwrite the file.`System::env("KEY", "default")` queries the loaded environment.
 
 ```env
 APP_ENV="development"
@@ -13,7 +13,7 @@ JWT_SECRET="secreto-largo-y-unico"
 APP_KEY="clave-larga-y-unica"
 ```
 
-`PREFIX` is the canonical key; `DB_PREFIX` is kept as an alias.
+`PREFIX` is the canonical key;`DB_PREFIX` is retained as an alias.
 
 ## Databases
 
@@ -34,7 +34,7 @@ DB_USER="usuario"
 DB_PASS="secreto"
 ```
 
-PostgreSQL uses port 5432 and accepts `DB_SSLMODE`:
+PostgreSQL uses port 5432 and accepts `DB_SSLMODE` :
 
 ```env
 DB="postgres"
@@ -47,7 +47,7 @@ DB_SSLMODE="require"
 
 The aliases `postgresql` and `pgx` are also normalized to PostgreSQL.
 
-Microsoft SQL Server uses port 1433 and accepts `DB_ENCRYPT`:
+Microsoft SQL Server uses port 1433 and accepts `DB_ENCRYPT` :
 
 ```env
 DB="sqlserver"
@@ -72,10 +72,10 @@ TLS_KEY_FILE="certs/private.key"
 CORS_WEB="https://app.example.com"
 ```
 
-- `file` is the default session driver and persists across reboots. `memory` is explicitly volatile.
+- `file` is the default session driver and persists reboots.`memory` is explicitly volatile.
 - `SESSION_DRIVER="redis"` stores web sessions in Redis instead of disk.
 - TLS certificate and key must be configured together.
-- `CORS_WEB=*` allows any origin without credentials; a comma separated list creates an exact whitelist.
+- `CORS_WEB=*` allows any origin without credentials;a comma separated list creates an exact whitelist.
 
 ## Redis and Distributed Cache
 
@@ -93,14 +93,25 @@ REDIS_PASSWORD="password"
 REDIS_DB="0"
 ```
 
-- If `REDIS_URL` or `REDIS_HOST` are present, the class `Redis::set()`, `Redis::get()`, etc. It auto-connects on the first call.
+- If `REDIS_URL` or `REDIS_HOST` are present, the class `Redis::set()` , `Redis::get()` , etc.It auto-connects on the first call.
 - `SESSION_DRIVER="redis"` automatically uses these credentials.
 
 ## Processes and plugins
 
-- `ALLOW_SYSTEM_RUN=true` enables `System::Run()`.
-- `JOSS_PLUGIN_SIGNING_KEY` allows you to select an existing Ed25519 private key to compile JP. If not specified, Joss generates and manages a key automatically per plugin under `~/.joss/keys/`.
-- `.jp` plugins run directly in memory (VM and AST Engine bytecode), with access to the `r.Env` environment map depending on their executor; this does not constitute an operating system sandbox.
+- `ALLOW_SYSTEM_RUN=true` enables `System::Run()` .
+- `JOSS_PLUGIN_SIGNING_KEY` allows selecting an existing Ed25519 private key to compile JP.If not specified, Joss generates and manages one key automatically per plugin under `~/.joss/keys/` .
+- `.jp` plugins run directly in memory (VM and AST Engine bytecode), with access to the `r.Env` environment map according to their executor;this does not constitute an operating system sandbox.
+
+## Security, Error Pages and Deception Mode
+
+```env
+APP_DEBUG="false"
+SECURITY_DECEPTION="true"
+```
+
+- **Native Error Pages**: Instead of plain text, Joss serves integrated visual error pages with modern design (animated SVG, status code and home navigation).You can customize views per project in `app/views/errors/{status}.joss.html` (for example `errors/404` or `errors/500` ).If the client sends `Accept: application/json` or requests routes under `/api/` , it automatically responds with a structured JSON.
+- **Deception Mode ( `SECURITY_DECEPTION="true"` )**: Obfuscates unauthorized or prohibited access (codes `403 Forbidden` and `401 Unauthorized` ) by responding to the client with `404 Not Found` .To the attacker or external scanner the resource appears non-existent, while the server console logs the actual event with the prefix `[SECURITY DECEPTION]` and the client IP for audit.
+- **Internal Error Protection ( `APP_DEBUG="false"` )**: Prevents leakage of stack traces, file paths or source code in the event of uncontrolled internal exceptions (code 500), displaying a safe generic message and sending detailed diagnostics to the console logs.
 
 Do not publish environment files or private keys.
 
@@ -113,4 +124,4 @@ joss change db postgres
 joss change db prefix app_
 ```
 
-The interactive migration `joss change db migrate` is still aimed at preparing a new MySQL server. The runtime, CRUD, migrations and Schema Builder do work with adapters for four engines, with differences per operation.
+The `joss change db migrate` interactive migration continues to focus on preparing a new MySQL server.The runtime, CRUD, migrations and Schema Builder do work with adapters for four engines, with differences per operation.

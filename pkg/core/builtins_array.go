@@ -485,6 +485,18 @@ func (r *Runtime) callBuiltinArray(name string, args []interface{}) (interface{}
 		return []interface{}{}, true
 
 	case "array_fill":
+		if len(args) == 2 {
+			num := toInt(args[0])
+			val := args[1]
+			if num > 0 {
+				res := make([]interface{}, num)
+				for i := 0; i < num; i++ {
+					res[i] = val
+				}
+				return res, true
+			}
+			return []interface{}{}, true
+		}
 		if len(args) >= 3 {
 			startIdx := toInt(args[0])
 			num := toInt(args[1])
