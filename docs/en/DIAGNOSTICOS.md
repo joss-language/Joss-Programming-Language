@@ -116,6 +116,25 @@ Unlike generic error messages in older tools, every Joss diagnostic is designed 
 | `JOSS-INDEX-001` | Runtime | Index out of bounds: accessing a negative position or one greater than/equal to the length. | Check `count($arr)` before indexing or verify existence with `array_key_exists`. |
 | `JOSS-INDEX-002` | Runtime | Index type incompatible with the data structure. | Index arrays with integers and maps with text strings. |
 
+### Storage (`joss doctor storage`)
+
+Configuration findings reported by `joss doctor storage`. They are not language syntax/type errors, but share the same diagnostic model.
+
+| Code | What it means | How to fix it |
+|---|---|---|
+| `JOSS-STORAGE-000` | Check passed (severity `info`). | Nothing to do. |
+| `JOSS-STORAGE-001` | `STORAGE` has an unknown value. | Use `STORAGE=local` or `STORAGE=OCI`. |
+| `JOSS-STORAGE-002` | Private key is missing, not PEM, not RSA, or encrypted without `OCI_PASSPHRASE`. | Fix `OCI_PRIVATE_KEY_PATH` or generate a new API key. |
+| `JOSS-STORAGE-003` | Local PEM key fingerprint does not match `OCI_FINGERPRINT`. | Use the PEM corresponding to the registered fingerprint in OCI, or update `OCI_FINGERPRINT`. |
+| `JOSS-STORAGE-004` | Missing `OCI_*` variable or invalid format. | Copy exact values from OCI console. |
+| `JOSS-STORAGE-005` | OCI rejected authentication (401) or was unreachable. | Register public key in user profile; if recently added, wait a couple minutes. |
+| `JOSS-STORAGE-006` | `OCI_NAMESPACE` does not belong to tenancy; suggestion includes real one. | Use suggested namespace. |
+| `JOSS-STORAGE-007` | Bucket does not exist in namespace or lacks IAM permissions. | Create bucket, fix `OCI_BUCKET_NAME`, or review IAM policies. |
+| `JOSS-STORAGE-008` | `./storage` is not writable when `STORAGE=local`. | Review permissions and disk space. |
+| `JOSS-STORAGE-009` | Provider (`s3`, `aws`, `azure`) has no runtime driver yet. | Use `local` or `OCI`. |
+
+Invalid example: `OCI_NAMESPACE=axghxqmjl3jf` with credentials of another tenancy produces `JOSS-STORAGE-006`. Valid neighbor: same file with the namespace indicated in suggestion.
+
 ---
 
 ## 6. Verified complete test cases

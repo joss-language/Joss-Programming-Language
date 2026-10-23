@@ -116,6 +116,24 @@ A diferencia de los mensajes de error genéricos de herramientas antiguas, cada 
 | `JOSS-INDEX-001` | Runtime | Índice fuera de rango: acceso a posición negativa o mayor/igual a la longitud. | Verificar `count($arr)` antes de indexar o comprobar la existencia con `array_key_exists`. |
 | `JOSS-INDEX-002` | Runtime | Tipo de índice no compatible con la estructura de datos. | Indexar arrays con números enteros y maps con cadenas de texto. |
 
+### Almacenamiento (`joss doctor storage`)
+
+Hallazgos de configuración emitidos por `joss doctor storage`. No son errores del lenguaje, pero comparten el mismo modelo de diagnóstico.
+
+| Código | Qué indica | Cómo resolverlo |
+|---|---|---|
+| `JOSS-STORAGE-000` | Comprobación superada (severidad `info`). | Nada que hacer. |
+| `JOSS-STORAGE-001` | `STORAGE` tiene un valor desconocido. | Usar `STORAGE=local` o `STORAGE=OCI`. |
+| `JOSS-STORAGE-002` | La llave privada falta, no es PEM, no es RSA o está cifrada sin `OCI_PASSPHRASE`. | Corregir `OCI_PRIVATE_KEY_PATH` o generar una API key nueva. |
+| `JOSS-STORAGE-003` | El fingerprint del PEM local no coincide con `OCI_FINGERPRINT`. | Usar el PEM que corresponde al fingerprint registrado en OCI, o actualizar `OCI_FINGERPRINT`. |
+| `JOSS-STORAGE-004` | Falta una variable `OCI_*` o su formato es inválido. | Copiar los valores exactos desde la consola de OCI. |
+| `JOSS-STORAGE-005` | OCI rechazó la autenticación (401) o no fue alcanzable. | Registrar la clave pública en el usuario; si es reciente, esperar un par de minutos. |
+| `JOSS-STORAGE-006` | `OCI_NAMESPACE` no pertenece al tenancy; la sugerencia incluye el real. | Usar el namespace sugerido. |
+| `JOSS-STORAGE-007` | El bucket no existe en el namespace o no hay permisos. | Crear el bucket, corregir `OCI_BUCKET_NAME` o revisar las políticas IAM. |
+| `JOSS-STORAGE-008` | `./storage` no es escribible con `STORAGE=local`. | Revisar permisos y espacio en disco. |
+| `JOSS-STORAGE-009` | El proveedor (`s3`, `aws`, `azure`) aún no tiene driver. | Usar `local` u `OCI`. |
+
+Ejemplo inválido: `OCI_NAMESPACE=axghxqmjl3jf` con credenciales de otro tenancy produce `JOSS-STORAGE-006`. Vecino válido: el mismo archivo con el namespace que indica la sugerencia.
 ---
 
 ## 6. Casos completos de prueba verificados

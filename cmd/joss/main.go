@@ -286,6 +286,8 @@ func main() {
 			return
 		}
 		handleUserStorage(os.Args[2])
+	case "doctor":
+		os.Exit(handleDoctor(os.Args[2:]))
 	case "version":
 		fmt.Printf("%s v%s (%s)\n", version.Name, version.Version, version.NameVersion)
 	case "pub":

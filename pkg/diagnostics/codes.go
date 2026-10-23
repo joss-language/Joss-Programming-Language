@@ -12,3 +12,17 @@ const (
 	CodeChannelClosed      = "JOSS-CHANNEL-001"
 	CodeChannelCapacity    = "JOSS-CHANNEL-002"
 )
+
+// Códigos de `joss doctor storage`. Son hallazgos de configuración, no errores del lenguaje.
+const (
+	CodeStorageOK                  = "JOSS-STORAGE-000"
+	CodeStorageUnknownProvider     = "JOSS-STORAGE-001"
+	CodeStorageKey                 = "JOSS-STORAGE-002"
+	CodeStorageFingerprint         = "JOSS-STORAGE-003"
+	CodeStorageConfig              = "JOSS-STORAGE-004"
+	CodeStorageAuth                = "JOSS-STORAGE-005"
+	CodeStorageNamespace           = "JOSS-STORAGE-006"
+	CodeStorageBucket              = "JOSS-STORAGE-007"
+	CodeStorageLocalNotWritable    = "JOSS-STORAGE-008"
+	CodeStorageProviderUnsupported = "JOSS-STORAGE-009"
+)

@@ -52,6 +52,7 @@ func printHelp(topics ...string) {
 	fmt.Println()
 	fmt.Println(i18n.Tr("cliSectionQuality"))
 	fmt.Printf("  check [ruta]                   %s\n", i18n.Tr("cliCmdCheck"))
+	fmt.Println("  doctor [storage]               Diagnostica configuraci\u00f3n y conectividad de almacenamiento")
 	fmt.Printf("  format [ruta] [--write|--check] %s\n", i18n.Tr("cliCmdFormat"))
 	fmt.Printf("  lint [ruta] [--json]           %s\n", i18n.Tr("cliCmdLint"))
 	fmt.Printf("  fix [ruta] [--dry-run]         %s\n", i18n.Tr("cliCmdFix"))

@@ -2,6 +2,6 @@ package version
 
 const Name = "Joss"
 
-const Version = "3.6.8.0"
+const Version = "3.6.8.1"
 
-const NameVersion = "Prime release Global"
+const NameVersion = "Prime standard " + Name + " version " + Version

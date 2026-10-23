@@ -205,15 +205,17 @@ joss notify:send <canal> <mensaje>
 
 ---
 
-## 9. Almacenamiento y Servicios en la Nube (`userstorage` e `indexnow`)
+## 9. Almacenamiento y Servicios en la Nube (`userstorage`, `doctor` e `indexnow`)
 
 ```bash
 joss userstorage local
 joss userstorage oci
 joss userstorage sync-oci
 joss userstorage sync-local
+joss doctor storage
 joss indexnow generate
 ```
 
 - `userstorage`: Conmuta el proveedor de almacenamiento entre disco local y **Oracle Cloud Infrastructure (OCI)**, permitiendo sincronización bidireccional mediante `sync-oci` y `sync-local`.
+- `doctor storage`: Diagnostica por capas el almacenamiento declarado en `STORAGE` (`local` u `OCI`) sin imprimir secretos. Para OCI comprueba las variables `OCI_*`, el formato de los OCIDs, la llave PEM, que su fingerprint coincida con `OCI_FINGERPRINT`, la autenticación real, el namespace del tenancy y la existencia del bucket (si no existe, lista los que sí hay). Para `local` verifica que `./storage` sea escribible. Cada hallazgo usa un código `JOSS-STORAGE-...` ([Diagnósticos](DIAGNOSTICOS.md)) y el comando termina con código 1 si hay errores. `STORAGE=s3` todavía no tiene driver y se reporta como `JOSS-STORAGE-009`.
 - `indexnow generate`: Genera y configura la clave para indexación instantánea IndexNow en el entorno del proyecto.

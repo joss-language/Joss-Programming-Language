@@ -147,6 +147,13 @@ func printTopicHelpTools(cmd string) bool {
 		fmt.Println("  joss fix --dry-run .")
 		return true
 
+	case "doctor":
+		fmt.Printf("%s joss doctor [storage]\n", i18n.Tr("cliUsageLabel"))
+		fmt.Println("Diagnostica por capas la configuraci\u00f3n del entorno y la conectividad de los servicios del sistema.")
+		fmt.Println(helpHeaderExamples)
+		fmt.Println("  joss doctor")
+		fmt.Println("  joss doctor storage")
+		return true
 	case "check":
 		fmt.Printf("%s joss check [ruta]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicCheck"))
