@@ -437,6 +437,7 @@ func reloadPreparedJossRuntime() bool {
 			fmt.Printf("[Security] %v\n", err)
 			return false
 		}
+		fmt.Println("[Security] Redis conectado para sesiones")
 	}
 	for _, unit := range report.Prepared.Units {
 		cleanPath := filepath.ToSlash(unit.Path)
