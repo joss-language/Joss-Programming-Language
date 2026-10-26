@@ -11,7 +11,7 @@ $benchmarks = @(
     @{ Name = "Java 21 (JVM ExecutorService)"; Cmd = "java -cp benchmarks\concurrency_workers Main" },
     @{ Name = "Kotlin 2.4 (JVM ExecutorService)"; Cmd = "java -jar benchmarks\concurrency_workers\kt_concurrency.jar" },
     @{ Name = "Python 3.14 (ThreadPoolExecutor)"; Cmd = "python benchmarks\concurrency_workers\main.py" },
-    @{ Name = "PHP 8.4 (Sequential CLI)"; Cmd = "php benchmarks\concurrency_workers\main.php" },
+    @{ Name = "PHP 8.5 (Sequential CLI)"; Cmd = "php benchmarks\concurrency_workers\main.php" },
     @{ Name = "Joss (Interpreter Async/Await)"; Cmd = "build\joss.exe run benchmarks\concurrency_workers\main.joss" }
 )
 

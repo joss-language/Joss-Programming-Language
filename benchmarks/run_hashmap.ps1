@@ -8,10 +8,10 @@ $benchmarks = @(
     @{ Name = "C++ (g++ -O3)"; Cmd = "benchmarks\memory_hashmap\cpp_hashmap.exe" },
     @{ Name = "Rust (rustc -O)"; Cmd = "benchmarks\memory_hashmap\rust_hashmap.exe" },
     @{ Name = "Go (go build)"; Cmd = "benchmarks\memory_hashmap\go_hashmap.exe" },
-    @{ Name = "Java 21 (JVM)"; Cmd = "java -cp benchmarks\memory_hashmap Main" },
+    @{ Name = "Java 25 (JVM)"; Cmd = "java -cp benchmarks\memory_hashmap Main" },
     @{ Name = "Kotlin 2.4 (JVM)"; Cmd = "java -jar benchmarks\memory_hashmap\kt_hashmap.jar" },
     @{ Name = "Python 3.14"; Cmd = "python benchmarks\memory_hashmap\main.py" },
-    @{ Name = "PHP 8.4"; Cmd = "php benchmarks\memory_hashmap\main.php" },
+    @{ Name = "PHP 8.5"; Cmd = "php benchmarks\memory_hashmap\main.php" },
     @{ Name = "Joss (Interpreter)"; Cmd = "build\joss.exe run benchmarks\memory_hashmap\main.joss" }
 )
 

@@ -8,10 +8,10 @@ $benchmarks = @(
     @{ Name = "C++ (g++ -O3)"; Cmd = "benchmarks\io_csv_stats\cpp_csv.exe" },
     @{ Name = "Rust (rustc -O)"; Cmd = "benchmarks\io_csv_stats\rust_csv.exe" },
     @{ Name = "Go (go build)"; Cmd = "benchmarks\io_csv_stats\go_csv.exe" },
-    @{ Name = "Java 21 (JVM)"; Cmd = "java -cp benchmarks\io_csv_stats Main" },
+    @{ Name = "Java 25 (JVM)"; Cmd = "java -cp benchmarks\io_csv_stats Main" },
     @{ Name = "Kotlin 2.4 (JVM)"; Cmd = "java -jar benchmarks\io_csv_stats\kt_csv.jar" },
     @{ Name = "Python 3.14"; Cmd = "python benchmarks\io_csv_stats\main.py" },
-    @{ Name = "PHP 8.4"; Cmd = "php benchmarks\io_csv_stats\main.php" },
+    @{ Name = "PHP 8.5"; Cmd = "php benchmarks\io_csv_stats\main.php" },
     @{ Name = "Joss (Interpreter)"; Cmd = "build\joss.exe run benchmarks\io_csv_stats\main.joss" }
 )
 

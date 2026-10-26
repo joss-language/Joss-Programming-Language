@@ -10,8 +10,8 @@ $benchmarks = @(
     @{ Name = "C++ (g++ -O3)"; Cmd = "benchmarks\computation_primes\cpp_primes.exe 1000000" },
     @{ Name = "Python 3.14"; Cmd = "python benchmarks\computation_primes\main.py 1000000" },
     @{ Name = "Kotlin 2.4 (JVM)"; Cmd = "java -jar benchmarks\computation_primes\kt_primes.jar 1000000" },
-    @{ Name = "Java 21 (JVM)"; Cmd = "java -cp benchmarks\computation_primes Main 1000000" },
-    @{ Name = "PHP 8.4"; Cmd = "php benchmarks\computation_primes\main.php 1000000" },
+    @{ Name = "Java 25 (JVM)"; Cmd = "java -cp benchmarks\computation_primes Main 1000000" },
+    @{ Name = "PHP 8.5"; Cmd = "php benchmarks\computation_primes\main.php 1000000" },
     @{ Name = "Joss (Interpreter)"; Cmd = "build\joss.exe run benchmarks\computation_primes\main.joss 1000000" }
 )
 

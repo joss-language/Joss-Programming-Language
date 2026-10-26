@@ -37,10 +37,10 @@ $results += Measure-Exec "C (gcc -O3)" { .\benchmarks\computation_mandelbrot\c_m
 $results += Measure-Exec "C++ (g++ -O3)" { .\benchmarks\computation_mandelbrot\cpp_mandelbrot.exe }
 $results += Measure-Exec "Rust (rustc -O)" { .\benchmarks\computation_mandelbrot\rust_mandelbrot.exe }
 $results += Measure-Exec "Go (go build)" { .\benchmarks\computation_mandelbrot\go_mandelbrot.exe }
-$results += Measure-Exec "Java 21 (JVM)" { java -cp benchmarks\computation_mandelbrot Main }
+$results += Measure-Exec "Java 25 (JVM)" { java -cp benchmarks\computation_mandelbrot Main }
 $results += Measure-Exec "Kotlin 2.4 (JVM)" { java -jar benchmarks\computation_mandelbrot\kt_mandelbrot.jar }
 $results += Measure-Exec "Joss (JIT In-Memory)" { joss run benchmarks\computation_mandelbrot\main.joss }
-$results += Measure-Exec "PHP 8.4" { php benchmarks\computation_mandelbrot\main.php }
+$results += Measure-Exec "PHP 8.5" { php benchmarks\computation_mandelbrot\main.php }
 $results += Measure-Exec "Python 3.14" { python benchmarks\computation_mandelbrot\main.py }
 
 Write-Host "`n=== RESULTADOS MANDELBROT SET (N = 500x500, MAX_ITER = 50) ==="

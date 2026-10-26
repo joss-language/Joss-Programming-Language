@@ -8,10 +8,10 @@ $benchmarks = @(
     @{ Name = "C++ (g++ -O3)"; Cmd = "benchmarks\memory_binarytrees\cpp_binarytrees.exe" },
     @{ Name = "Rust (rustc -O)"; Cmd = "benchmarks\memory_binarytrees\rust_binarytrees.exe" },
     @{ Name = "Go (go build)"; Cmd = "benchmarks\memory_binarytrees\go_binarytrees.exe" },
-    @{ Name = "Java 21 (JVM)"; Cmd = "java -cp benchmarks\memory_binarytrees Main" },
+    @{ Name = "Java 25 (JVM)"; Cmd = "java -cp benchmarks\memory_binarytrees Main" },
     @{ Name = "Kotlin 2.4 (JVM)"; Cmd = "java -jar benchmarks\memory_binarytrees\kt_binarytrees.jar" },
     @{ Name = "Python 3.14"; Cmd = "python benchmarks\memory_binarytrees\main.py" },
-    @{ Name = "PHP 8.4"; Cmd = "php benchmarks\memory_binarytrees\main.php" },
+    @{ Name = "PHP 8.5"; Cmd = "php benchmarks\memory_binarytrees\main.php" },
     @{ Name = "Joss (Interpreter)"; Cmd = "build\joss.exe run benchmarks\memory_binarytrees\main.joss" }
 )
 
