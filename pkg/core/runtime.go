@@ -48,18 +48,18 @@ func ReadFileBytes(filePath string) ([]byte, error) {
 func (r *Runtime) Fork() *Runtime {
 	// fmt.Printf("[RUNTIME] Forking from %p\n", r)
 	newR := &Runtime{
-		Env:                make(map[string]string),
+		Env:                make(map[string]string, len(r.Env)),
 		Classes:            copyClassMap(r.Classes),
 		Interfaces:         copyInterfaceMap(r.Interfaces),
 		Enums:              copyEnumMap(r.Enums),
 		Functions:          copyMethodMap(r.Functions),
-		Routes:             make(map[string]map[string]interface{}),
+		Routes:             make(map[string]map[string]interface{}, len(r.Routes)),
 		CurrentMiddleware:  make([]string, 0),
-		CustomMiddlewares:  make(map[string]interface{}),
+		CustomMiddlewares:  make(map[string]interface{}, len(r.CustomMiddlewares)),
 		DB:                 r.DB, // Share DB Connection (Thread-Safe)
 		executionContext:   r.executionContext,
-		Variables:          make(map[string]interface{}),
-		VarTypes:           make(map[string]string),
+		Variables:          make(map[string]interface{}, len(r.Variables)+8),
+		VarTypes:           make(map[string]string, len(r.VarTypes)),
 		Constants:          copyBoolMap(r.Constants),
 		HostGlobals:        copyBoolMap(r.HostGlobals),
 		NativeHandlers:     copyNativeHandlerMap(r.NativeHandlers),
@@ -100,7 +100,7 @@ func (r *Runtime) Fork() *Runtime {
 
 	// Copy Routes (Deep Copy to allow dynamic route modification per request without race)
 	for method, routes := range r.Routes {
-		newR.Routes[method] = make(map[string]interface{})
+		newR.Routes[method] = make(map[string]interface{}, len(routes))
 		for path, handler := range routes {
 			newR.Routes[method][path] = handler
 		}
@@ -121,13 +121,6 @@ func (r *Runtime) Fork() *Runtime {
 
 	copyForkVariables(r.Variables, newR)
 
-	// Copy Functions and Classes
-	for k, v := range r.Functions {
-		newR.Functions[k] = v
-	}
-	for k, v := range r.Classes {
-		newR.Classes[k] = v
-	}
 	for k, v := range r.VarTypes {
 		newR.VarTypes[k] = v
 	}

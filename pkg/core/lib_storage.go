@@ -95,13 +95,17 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 
 	switch method {
 	case "path":
+		cwd, _ := os.Getwd()
+		storageRoot := filepath.Join(cwd, "storage")
 		if len(args) > 0 {
 			relPath := fmt.Sprintf("%v", args[0])
-			cwd, _ := os.Getwd()
-			return filepath.Join(cwd, "storage", relPath)
+			cleanRel, err := safeStorageDestinationPath(storageRoot, relPath)
+			if err != nil {
+				return storageRoot
+			}
+			return cleanRel
 		}
-		cwd, _ := os.Getwd()
-		return filepath.Join(cwd, "storage")
+		return storageRoot
 
 	case "put":
 		if len(args) < 3 {
@@ -189,19 +193,25 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 		if pathErr != nil {
 			return false
 		}
+		cwd, _ := os.Getwd()
+		safeDest, destErr := safeStorageDestinationPath(cwd, destPath)
+		if destErr != nil {
+			fmt.Printf("[Storage] Ruta de destino rechazada: %v\n", destErr)
+			return false
+		}
 
 		if storageType == "OCI" {
-			return r.ociGetToFile(storagePrefix, fileName, destPath)
+			return r.ociGetToFile(storagePrefix, fileName, safeDest)
 		} else {
 			// Local: just copy the file
 			content, err := os.ReadFile(srcPath)
 			if err != nil {
 				return false
 			}
-			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(safeDest), 0755); err != nil {
 				return false
 			}
-			return os.WriteFile(destPath, content, 0644) == nil
+			return os.WriteFile(safeDest, content, 0644) == nil
 		}
 
 	case "delete":
@@ -253,6 +263,30 @@ func safeUserStoragePath(basePath, userToken, fileName string) (string, error) {
 		return "", fmt.Errorf("token o nombre de archivo fuera del almacenamiento")
 	}
 	return target, nil
+}
+
+func safeStorageDestinationPath(rootDir, destPath string) (string, error) {
+	trimmed := strings.TrimSpace(destPath)
+	if trimmed == "" {
+		return "", fmt.Errorf("ruta de destino vacia")
+	}
+	clean := filepath.Clean(trimmed)
+	if clean == "." || clean == ".." || filepath.IsAbs(trimmed) || strings.HasPrefix(clean, ".."+string(filepath.Separator)) || strings.Contains(filepath.ToSlash(trimmed), "../") {
+		return "", fmt.Errorf("ruta de destino fuera del directorio permitido")
+	}
+	rootAbs, err := filepath.Abs(rootDir)
+	if err != nil {
+		return "", err
+	}
+	targetAbs, err := filepath.Abs(filepath.Join(rootAbs, clean))
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(rootAbs, targetAbs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("ruta de destino fuera del directorio permitido")
+	}
+	return targetAbs, nil
 }
 
 // Helper to get User ID

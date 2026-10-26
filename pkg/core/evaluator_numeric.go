@@ -309,6 +309,96 @@ func (r *Runtime) slotIntegerOperand(expression parser.Expression) (int64, bool)
 	}
 }
 
+func (r *Runtime) evaluateSlotFloatInfix(expression *parser.InfixExpression) (interface{}, bool) {
+	left, leftIsFloat, leftOK := r.slotFloatOperand(expression.Left)
+	right, rightIsFloat, rightOK := r.slotFloatOperand(expression.Right)
+	if !leftOK || !rightOK || (!leftIsFloat && !rightIsFloat) {
+		return nil, false
+	}
+	switch expression.Operator {
+	case "+":
+		return left + right, true
+	case "-":
+		return left - right, true
+	case "*":
+		return left * right, true
+	case "/":
+		if right == 0 {
+			panic(r.divisionByZeroError(expression))
+		}
+		return left / right, true
+	case "<":
+		return left < right, true
+	case ">":
+		return left > right, true
+	case ">=":
+		return left >= right, true
+	case "<=":
+		return left <= right, true
+	case "==", "===":
+		return left == right && leftIsFloat == rightIsFloat, true
+	case "!=", "!==":
+		return left != right || leftIsFloat != rightIsFloat, true
+	default:
+		return nil, false
+	}
+}
+
+func (r *Runtime) slotFloatOperand(expression parser.Expression) (float64, bool, bool) {
+	switch node := expression.(type) {
+	case *parser.FloatLiteral:
+		return node.Value, true, true
+	case *parser.IntegerLiteral:
+		if !typesystem.IntExactlyRepresentableAsFloat64(node.Value) {
+			return 0, false, false
+		}
+		return float64(node.Value), false, true
+	case *parser.Identifier:
+		if r.currentFrame != nil {
+			slot, resolved := r.slotForIdentifier(node)
+			if !resolved || !slot.Initialized {
+				return 0, false, false
+			}
+			if slot.Value.Kind == runtimeframe.Float {
+				return slot.Value.Float, true, true
+			}
+			if slot.Value.Kind == runtimeframe.Int {
+				if !typesystem.IntExactlyRepresentableAsFloat64(slot.Value.Integer) {
+					return 0, false, false
+				}
+				return float64(slot.Value.Integer), false, true
+			}
+			return 0, false, false
+		}
+		if val, ok := r.Variables[node.Value]; ok {
+			if f, isF := val.(float64); isF {
+				return f, true, true
+			}
+			if n, isI := runtimeInteger(val); isI && typesystem.IntExactlyRepresentableAsFloat64(n) {
+				return float64(n), false, true
+			}
+		}
+		return 0, false, false
+	case *parser.InfixExpression:
+		if res, handled := r.evaluateSlotFloatInfix(node); handled {
+			if f, ok := res.(float64); ok {
+				return f, true, true
+			}
+		}
+		if res, handled := r.evaluateSlotIntegerInfix(node); handled {
+			if f, ok := res.(float64); ok {
+				return f, true, true
+			}
+			if n, ok := res.(int64); ok && typesystem.IntExactlyRepresentableAsFloat64(n) {
+				return float64(n), false, true
+			}
+		}
+		return 0, false, false
+	default:
+		return 0, false, false
+	}
+}
+
 func runtimeInteger(value interface{}) (int64, bool) {
 	switch number := value.(type) {
 	case int64:

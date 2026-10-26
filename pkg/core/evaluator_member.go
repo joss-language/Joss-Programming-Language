@@ -48,57 +48,76 @@ func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 		})
 	}
 
+	meta := r.lookupClassMetadata(className)
+	fieldCount := 0
+	if meta != nil {
+		fieldCount = len(meta.FieldOrder)
+	}
 	instance := &Instance{
-		Class:     classStmt,
-		Fields:    make(map[string]interface{}),
-		Constants: make(map[string]bool),
+		Class:  classStmt,
+		Fields: make(map[string]interface{}, fieldCount),
 	}
 
-	meta := r.lookupClassMetadata(className)
 	if meta != nil {
 		for _, field := range meta.FieldOrder {
 			var value interface{}
-			if field.Declaration.Value != nil {
-				value = r.evaluateExpression(field.Declaration.Value)
+			if field.IsSimpleDefault {
+				value = field.SimpleDefaultVal
 			} else {
-				value = r.getZeroValue(field.DeclaredType)
-			}
-			if field.DeclaredType != "" && field.DeclaredType != "var" && field.DeclaredType != "mixed" {
-				prevClass := r.currentClass
-				if field.OwnerClass != "" {
-					r.currentClass = field.OwnerClass
+				if field.Declaration.Value != nil {
+					value = r.evaluateExpression(field.Declaration.Value)
 				} else {
-					r.currentClass = className
+					value = r.getZeroValue(field.DeclaredType)
 				}
-				value = r.coerceToParsedType(value, field.ParsedType)
-				valid := r.checkParsedType(value, field.ParsedType)
-				r.currentClass = prevClass
-				if !valid {
-					panic(&JossError{
-						Type:    "PropertyTypeError",
-						Message: fmt.Sprintf("La propiedad '%s' requiere %s", field.Declaration.Name.Value, field.DeclaredType),
-						File:    r.CurrentFile,
-						Line:    field.Declaration.Name.Token.Line,
-					})
+				if field.DeclaredType != "" && field.DeclaredType != "var" && field.DeclaredType != "mixed" {
+					prevClass := r.currentClass
+					if field.OwnerClass != "" {
+						r.currentClass = field.OwnerClass
+					} else {
+						r.currentClass = className
+					}
+					value = r.coerceToParsedType(value, field.ParsedType)
+					valid := r.checkParsedType(value, field.ParsedType)
+					r.currentClass = prevClass
+					if !valid {
+						panic(&JossError{
+							Type:    "PropertyTypeError",
+							Message: fmt.Sprintf("La propiedad '%s' requiere %s", field.Declaration.Name.Value, field.DeclaredType),
+							File:    r.CurrentFile,
+							Line:    field.Declaration.Name.Token.Line,
+						})
+					}
 				}
 			}
-			instance.Fields[field.Declaration.Name.Value] = value
 			instance.Fields[field.Declaration.Name.Value] = value
 			if field.IsConst && meta.Constructor == nil {
+				if instance.Constants == nil {
+					instance.Constants = make(map[string]bool)
+				}
 				instance.Constants[field.Declaration.Name.Value] = true
 			}
 		}
 
 		if meta.Constructor != nil {
 			r.requireMemberAccess(meta.Constructor.Visibility, className, meta.Constructor.Name.Value, meta.Constructor.Name.Token.Line)
-			r.CallMethod(meta.Constructor, instance, ne.Arguments)
-			for _, field := range meta.Fields {
+			plan := meta.ConstructorPlan
+			if plan == nil {
+				plan = r.planForMethod(meta.Constructor)
+			}
+			r.callMethodEvaluatedWithPlan(meta.Constructor, instance, evalArgs, nil, plan)
+			for _, field := range meta.FieldOrder {
 				if field.IsConst {
+					if instance.Constants == nil {
+						instance.Constants = make(map[string]bool)
+					}
 					instance.Constants[field.Declaration.Name.Value] = true
 				}
 			}
 		}
 		if meta.Class != nil && meta.Class.IsRecord {
+			if instance.Constants == nil {
+				instance.Constants = make(map[string]bool, len(instance.Fields))
+			}
 			for name := range instance.Fields {
 				instance.Constants[name] = true
 			}
@@ -109,7 +128,7 @@ func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 		removeModelConfigurationFields(instance.Fields)
 	}
 
-	if instance.hasDestructorOrResources() {
+	if (meta != nil && meta.HasDestructor) || instance.hasDestructorOrResources() {
 		capturedRuntime := r.Fork()
 		runtime.SetFinalizer(instance, func(inst *Instance) {
 			defer capturedRuntime.Free()

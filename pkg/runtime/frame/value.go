@@ -88,6 +88,20 @@ func (slot *Slot) SetInt(value int64) {
 	slot.Initialized = true
 }
 
+func (slot *Slot) SetFloat(value float64) {
+	slot.Value.Kind = Float
+	slot.Value.Float = value
+	slot.Value.Dynamic = nil
+	slot.Initialized = true
+}
+
+func (slot *Slot) SetString(value string) {
+	slot.Value.Kind = String
+	slot.Value.String = value
+	slot.Value.Dynamic = nil
+	slot.Initialized = true
+}
+
 func (slot *Slot) SetBool(value bool) {
 	slot.Value.Kind = Bool
 	slot.Value.Boolean = value

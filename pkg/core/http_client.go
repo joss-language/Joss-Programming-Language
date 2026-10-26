@@ -307,7 +307,8 @@ func (r *Runtime) performFullHttpRequest(method, urlStr, bodyStr string, headers
 	}
 	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	const maxHTTPResponseBytes = 64 << 20
+	respBytes, err := io.ReadAll(io.LimitReader(resp.Body, maxHTTPResponseBytes))
 	if err != nil {
 		r.checkExecutionCancelled()
 		return map[string]interface{}{

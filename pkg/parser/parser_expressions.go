@@ -9,6 +9,17 @@ import (
 )
 
 func (p *Parser) parseExpression(precedence int) Expression {
+	p.exprDepth++
+	defer func() {
+		p.exprDepth--
+	}()
+	if p.exprDepth > MaxParseDepth {
+		if p.exprDepth == MaxParseDepth+1 {
+			p.addError(p.curToken, fmt.Sprintf("profundidad de anidamiento de expresiones excedida (%d)", MaxParseDepth))
+		}
+		return nil
+	}
+
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)

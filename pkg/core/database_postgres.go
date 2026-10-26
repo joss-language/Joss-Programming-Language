@@ -134,7 +134,7 @@ func OpenConfiguredDatabase(driverName string, env map[string]string) (*sql.DB, 
 	if !strings.Contains(host, ":") {
 		host += ":3306"
 	}
-	dsn := env["DB_USER"] + ":" + env["DB_PASS"] + "@tcp(" + host + ")/" + env["DB_NAME"] + "?parseTime=true&multiStatements=true"
+	dsn := env["DB_USER"] + ":" + env["DB_PASS"] + "@tcp(" + host + ")/" + env["DB_NAME"] + "?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=true&multiStatements=true"
 	return sql.Open("mysql", dsn)
 }
 

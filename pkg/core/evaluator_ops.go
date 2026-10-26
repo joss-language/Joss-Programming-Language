@@ -18,6 +18,24 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 			if slot.Constant && slot.Initialized {
 				panic(&JossError{Type: "ConstantAssignment", Message: fmt.Sprintf("La constante '%s' no puede reasignarse", ident.Value), File: r.CurrentFile, Line: ident.Token.Line})
 			}
+			if !slot.ByReference {
+				if n, ok := r.slotIntegerOperand(ae.Value); ok && (slot.Value.Kind == runtimeframe.Int || slot.Type.Kind == typesystem.Int || (slot.Inferred && !slot.Initialized)) {
+					if !slot.Initialized {
+						slot.Type = typesystem.Type{Kind: typesystem.Int}
+						slot.TypeName = "int"
+					}
+					slot.SetInt(n)
+					return n
+				}
+				if f, isF, ok := r.slotFloatOperand(ae.Value); ok && isF && (slot.Value.Kind == runtimeframe.Float || slot.Type.Kind == typesystem.Float || (slot.Inferred && !slot.Initialized)) {
+					if !slot.Initialized {
+						slot.Type = typesystem.Type{Kind: typesystem.Float}
+						slot.TypeName = "float"
+					}
+					slot.SetFloat(f)
+					return f
+				}
+			}
 			val := r.evaluateExpression(ae.Value)
 			return r.assignSlot(slot, val, false)
 		}
@@ -399,26 +417,51 @@ func (r *Runtime) setInstanceField(instance *Instance, name string, value interf
 			value = r.CallMethodEvaluated(mutator, instance, []interface{}{value})
 		}
 	}
-	if declaration, owner := r.lookupInstanceFieldOwner(instance, name); declaration != nil {
-		if declaration.Visibility != "public" && r.currentClass != owner {
-			r.requireMemberAccess(declaration.Visibility, owner, name, line)
-		}
-		declaredType := declaration.Token.Literal
-		if declaredType != "" && declaredType != "var" && declaredType != "mixed" {
-			prevClass := r.currentClass
-			if owner != "" {
-				r.currentClass = owner
-			}
-			value = r.coerceToTypedValue(value, declaredType)
-			valid := r.checkType(value, declaredType)
-			r.currentClass = prevClass
-			if !valid {
-				panic(&JossError{
-					Type:    "PropertyTypeError",
-					Message: fmt.Sprintf("La propiedad '%s' requiere %s", name, declaredType),
-					File:    r.CurrentFile,
-					Line:    line,
-				})
+	if instance.Class != nil && instance.Class.Name != nil {
+		if meta := r.lookupClassMetadata(instance.Class.Name.Value); meta != nil {
+			if field, ok := meta.Fields[name]; ok && field.Declaration != nil {
+				declaration := field.Declaration
+				owner := field.OwnerClass
+				if declaration.Visibility != "public" && r.currentClass != owner {
+					r.requireMemberAccess(declaration.Visibility, owner, name, line)
+				}
+				declaredType := declaration.Token.Literal
+				if declaredType != "" && declaredType != "var" && declaredType != "mixed" && field.ParsedType.Kind != typesystem.Mixed && field.ParsedType.Kind != typesystem.Unknown {
+					if _, isInt := value.(int64); isInt && field.ParsedType.Kind == typesystem.Int {
+						// Fast-path: int64 value for int property
+					} else if value == nil && field.ParsedType.Kind == typesystem.Union {
+						prevClass := r.currentClass
+						if owner != "" {
+							r.currentClass = owner
+						}
+						valid := r.checkParsedType(nil, field.ParsedType)
+						r.currentClass = prevClass
+						if !valid {
+							panic(&JossError{
+								Type:    "PropertyTypeError",
+								Message: fmt.Sprintf("La propiedad '%s' requiere %s", name, declaredType),
+								File:    r.CurrentFile,
+								Line:    line,
+							})
+						}
+					} else {
+						prevClass := r.currentClass
+						if owner != "" {
+							r.currentClass = owner
+						}
+						value = r.coerceToParsedType(value, field.ParsedType)
+						valid := r.checkParsedType(value, field.ParsedType)
+						r.currentClass = prevClass
+						if !valid {
+							panic(&JossError{
+								Type:    "PropertyTypeError",
+								Message: fmt.Sprintf("La propiedad '%s' requiere %s", name, declaredType),
+								File:    r.CurrentFile,
+								Line:    line,
+							})
+						}
+					}
+				}
 			}
 		}
 	}

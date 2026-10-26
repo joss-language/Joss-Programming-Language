@@ -72,11 +72,14 @@ type (
 	infixParseFn  func(Expression) Expression
 )
 
+const MaxParseDepth = 512
+
 type Parser struct {
 	l         *Lexer
 	curToken  Token
 	peekToken Token
 	issues    []diagnostics.Diagnostic
+	exprDepth int
 
 	prefixParseFns map[TokenType]prefixParseFn
 	infixParseFns  map[TokenType]infixParseFn

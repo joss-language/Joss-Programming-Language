@@ -87,6 +87,7 @@ func MainHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Translate the HTTP request into the stable map exposed to Joss code.
 	reqData := decodeRequestData(r, host, scheme)
+	defer cleanupRequestTempFiles(reqData, r)
 
 	sessionID, driver, sessData, ok := setupSessionAndSecurity(w, r, rt)
 	if !ok {
@@ -203,4 +204,17 @@ func generateSessionID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func isValidSessionID(id string) bool {
+	if len(id) != 32 {
+		return false
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
 }

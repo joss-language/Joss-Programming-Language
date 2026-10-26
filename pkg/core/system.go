@@ -35,7 +35,10 @@ func (r *Runtime) executeSystemMethod(instance *Instance, method string, args []
 		return false
 	case "env":
 		if len(args) > 0 {
-			key := args[0].(string)
+			key, ok := args[0].(string)
+			if !ok {
+				key = fmt.Sprintf("%v", args[0])
+			}
 			if val, ok := r.Env[key]; ok {
 				return val
 			}
@@ -50,7 +53,10 @@ func (r *Runtime) executeSystemMethod(instance *Instance, method string, args []
 		}
 
 		if len(args) > 0 {
-			cmdName := args[0].(string)
+			cmdName, ok := args[0].(string)
+			if !ok || strings.TrimSpace(cmdName) == "" {
+				return ""
+			}
 			cmdArgs := []string{}
 
 			// Auto-correct 'joss' to current executable

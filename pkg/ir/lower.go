@@ -355,6 +355,11 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 		return err
 
 	case *parser.ReturnStatement:
+		if l.OptLevel > 0 && s.ReturnValue != nil {
+			if ternary, ok := s.ReturnValue.(*parser.TernaryExpression); ok && ternary.True != nil && ternary.False != nil {
+				return l.lowerReturnTernary(ternary)
+			}
+		}
 		var retVal Value
 		if s.ReturnValue != nil {
 			v, err := l.lowerExpression(s.ReturnValue)
@@ -897,6 +902,43 @@ func (l *Lowerer) lowerTernaryStatement(e *parser.TernaryExpression) error {
 	return nil
 }
 
+func (l *Lowerer) lowerReturnTernary(e *parser.TernaryExpression) error {
+	condVal, err := l.lowerExpression(e.Condition)
+	if err != nil {
+		return err
+	}
+	condVal = l.ensureBoolCond(condVal)
+
+	trueBlock := l.currentFn.NewBlock("ret_true")
+	falseBlock := l.currentFn.NewBlock("ret_false")
+	l.currBlock.SetTerminator(&BranchTerminator{
+		Cond:       condVal,
+		TrueBlock:  trueBlock,
+		FalseBlock: falseBlock,
+	})
+
+	l.currBlock = trueBlock
+	trueVal, err := l.lowerExpression(e.True)
+	if err != nil {
+		return err
+	}
+	if l.currBlock.Terminator == nil {
+		l.currBlock.SetTerminator(&ReturnTerminator{Val: trueVal})
+	}
+
+	l.currBlock = falseBlock
+	falseVal, err := l.lowerExpression(e.False)
+	if err != nil {
+		return err
+	}
+	if l.currBlock.Terminator == nil {
+		l.currBlock.SetTerminator(&ReturnTerminator{Val: falseVal})
+	}
+
+	l.currBlock = l.currentFn.NewBlock("dead")
+	return nil
+}
+
 func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 	if expr == nil {
 		return NewConstInt(0, TypeI64), nil
@@ -1007,6 +1049,15 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		}
 
 		if e.Operator == "." || (e.Operator == "+" && (left.Type().Kind == TypeKindString || right.Type().Kind == TypeKindString)) {
+			if left.Type().Kind == TypeKindString && right.Type().Kind == TypeKindI64 {
+				dest := l.currentFn.NewTemp(TypeString, "strcat_i64")
+				l.currBlock.AddInstruction(&CallRuntimeInst{
+					Dest: dest,
+					Func: "str_concat_i64",
+					Args: []Value{left, right},
+				})
+				return dest, nil
+			}
 			l.prog.RequireRuntime("str_concat")
 			if left.Type().Kind != TypeKindString {
 				convLeft := l.currentFn.NewTemp(TypeString, "tostr_l")
@@ -1296,7 +1347,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 								fName := cleanVarName(letStmt.Name.Value)
 								if letStmt.Value != nil {
 									val, err := l.lowerExpression(letStmt.Value)
-									if err == nil {
+									if err == nil && !isZeroInitConstant(val) {
 										l.currBlock.AddInstruction(&StoreFieldInst{
 											Val:       val,
 											Obj:       objTemp,
@@ -1350,7 +1401,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		}
 		propName := e.Property.Value
 		fieldType := l.inferNodeType(e)
-		if fieldType.Kind == TypeKindI64 && objVal.Type().Kind == TypeKindPtr && objVal.Type().Elem != nil {
+		if (fieldType.Kind == TypeKindI64 || fieldType.Kind == TypeKindUnion || fieldType.Kind == TypeKindUnknown) && objVal.Type().Kind == TypeKindPtr && objVal.Type().Elem != nil {
 			if resolvedPropType, ok := l.lookupClassPropertyType(objVal.Type().Elem.Name, propName); ok {
 				fieldType = resolvedPropType
 			}
@@ -1565,8 +1616,16 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 		}
 		switch calleeName {
-		case "view", "SEO_render", "html_escape", "csrf_field", "Markdown_readFile", "Markdown_toHtml", "Str_trim":
+		case "view", "SEO_render", "html_escape", "csrf_field", "Markdown_readFile", "Markdown_toHtml", "Str_trim", "file_get_contents":
 			retType = TypeString
+		case "explode":
+			retType = ArrayType(TypeString)
+		case "floatval", "microtime":
+			retType = TypeF64
+		case "async":
+			retType = TypeI64
+		case "await":
+			retType = TypeI64
 		case "array_push", "append":
 			if len(args) > 0 {
 				retType = args[0].Type()
@@ -1643,7 +1702,8 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			})
 		} else {
 			if calleeName == "strlen" || calleeName == "count" || calleeName == "len" || calleeName == "array_push" || calleeName == "append" || calleeName == "to_string" ||
-				calleeName == "abs" || calleeName == "min" || calleeName == "max" || calleeName == "intval" || calleeName == "boolval" || calleeName == "array_pop" {
+				calleeName == "abs" || calleeName == "min" || calleeName == "max" || calleeName == "intval" || calleeName == "floatval" || calleeName == "boolval" || calleeName == "array_pop" ||
+				calleeName == "microtime" || calleeName == "array_fill" || calleeName == "file_get_contents" || calleeName == "explode" || calleeName == "async" || calleeName == "await" {
 				l.currBlock.AddInstruction(&CallBuiltinInst{
 					Dest:      dest,
 					BuiltinID: calleeName,
@@ -1962,6 +2022,12 @@ func (l *Lowerer) mapTypeSystemType(t typesystem.Type) Type {
 	case typesystem.Mixed:
 		return TypeMixed
 	case typesystem.Union:
+		if t.Name != "" {
+			mapped := l.mapType(t.Name)
+			if mapped.Kind != TypeKindI64 || strings.Contains(t.Name, "int") {
+				return mapped
+			}
+		}
 		return Type{Kind: TypeKindUnion}
 	case typesystem.Channel:
 		elem := TypeI64
@@ -2140,6 +2206,17 @@ func (l *Lowerer) resolveClassMethod(className, methodName string) (string, Type
 
 func (l *Lowerer) mapType(lit string) Type {
 	lit = strings.TrimSpace(lit)
+	if strings.HasSuffix(lit, "?") {
+		return l.mapType(strings.TrimSuffix(lit, "?"))
+	}
+	if strings.Contains(lit, "|") {
+		for _, part := range strings.Split(lit, "|") {
+			part = strings.TrimSpace(part)
+			if part != "" && part != "null" && part != "nil" {
+				return l.mapType(part)
+			}
+		}
+	}
 	if strings.HasSuffix(lit, "[]") {
 		elem := l.mapType(strings.TrimSuffix(lit, "[]"))
 		return ArrayType(elem)
@@ -2221,6 +2298,20 @@ func mapInfixOp(op string) (Opcode, bool) {
 
 func cleanVarName(name string) string {
 	return strings.TrimPrefix(name, "$")
+}
+
+func isZeroInitConstant(v Value) bool {
+	switch c := v.(type) {
+	case *ConstInt:
+		return c.Val == 0
+	case *ConstFloat:
+		return c.Val == 0.0
+	case *ConstBool:
+		return !c.Val
+	case *ConstNull:
+		return true
+	}
+	return false
 }
 
 func (t Type) ElemType() Type {

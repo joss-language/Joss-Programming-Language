@@ -55,6 +55,14 @@ func CompileFunction(function *parser.FunctionLiteral) *Callable {
 	return compile("anonymous", function.Parameters, function.ReturnType, function.Body, false)
 }
 
+func CompileScript(program *parser.Program) *Callable {
+	if program == nil {
+		return nil
+	}
+	body := &parser.BlockStatement{Statements: program.Statements}
+	return compile("script", nil, parser.Token{}, body, false)
+}
+
 func compile(name string, parameters []*parser.Parameter, returnToken parser.Token, body *parser.BlockStatement, hasThis bool) *Callable {
 	result := &Callable{
 		Name:            name,
@@ -465,11 +473,32 @@ func statementHasBreakOrContinue(statement parser.Statement) bool {
 	switch node := statement.(type) {
 	case *parser.BreakStatement, *parser.ContinueStatement:
 		return true
+	case *parser.BlockStatement:
+		return BlockHasBreakOrContinue(node)
+	case *parser.GuardStatement:
+		return BlockHasBreakOrContinue(node.Body)
 	case *parser.TryCatchStatement:
 		return BlockHasBreakOrContinue(node.TryBlock) || BlockHasBreakOrContinue(node.CatchBlock)
 	case *parser.ExpressionStatement:
-		if blockExp, ok := node.Expression.(*parser.BlockExpression); ok {
-			return BlockHasBreakOrContinue(blockExp.Block)
+		return expressionHasBreakOrContinue(node.Expression)
+	}
+	return false
+}
+
+func expressionHasBreakOrContinue(expression parser.Expression) bool {
+	if expression == nil {
+		return false
+	}
+	switch node := expression.(type) {
+	case *parser.BlockExpression:
+		return BlockHasBreakOrContinue(node.Block)
+	case *parser.TernaryExpression:
+		return expressionHasBreakOrContinue(node.True) || expressionHasBreakOrContinue(node.False)
+	case *parser.MatchExpression:
+		for _, arm := range node.Arms {
+			if expressionHasBreakOrContinue(arm.Value) {
+				return true
+			}
 		}
 	}
 	return false

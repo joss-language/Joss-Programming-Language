@@ -7,11 +7,13 @@ import (
 )
 
 type classFieldInfo struct {
-	Declaration  *parser.LetStatement
-	OwnerClass   string
-	IsConst      bool
-	DeclaredType string
-	ParsedType   typesystem.Type
+	Declaration      *parser.LetStatement
+	OwnerClass       string
+	IsConst          bool
+	DeclaredType     string
+	ParsedType       typesystem.Type
+	IsSimpleDefault  bool
+	SimpleDefaultVal interface{}
 }
 
 type classMethodInfo struct {
@@ -21,13 +23,71 @@ type classMethodInfo struct {
 }
 
 type classMetadata struct {
-	Class       *parser.ClassStatement
-	SuperClass  string
-	Methods     map[string]*classMethodInfo
-	Fields      map[string]*classFieldInfo
-	FieldOrder  []*classFieldInfo
-	Constructor *parser.MethodStatement
-	Model       *modelMetadata
+	Class           *parser.ClassStatement
+	SuperClass      string
+	Methods         map[string]*classMethodInfo
+	Fields          map[string]*classFieldInfo
+	FieldOrder      []*classFieldInfo
+	Constructor     *parser.MethodStatement
+	ConstructorPlan *runtimeplan.Callable
+	HasDestructor   bool
+	Model           *modelMetadata
+}
+
+func computeSimpleFieldDefault(r *Runtime, info *classFieldInfo) {
+	if info == nil || info.Declaration == nil {
+		return
+	}
+	var val interface{}
+	isSimple := false
+	if info.Declaration.Value == nil {
+		val = r.getZeroValue(info.DeclaredType)
+		isSimple = true
+	} else {
+		switch lit := info.Declaration.Value.(type) {
+		case *parser.NullLiteral:
+			val = nil
+			isSimple = true
+		case *parser.IntegerLiteral:
+			val = lit.Value
+			isSimple = true
+		case *parser.FloatLiteral:
+			val = lit.Value
+			isSimple = true
+		case *parser.DecimalLiteral:
+			val = lit.Value
+			isSimple = true
+		case *parser.Boolean:
+			val = lit.Value
+			isSimple = true
+		case *parser.StringLiteral:
+			val = lit.Value
+			isSimple = true
+		case *parser.Identifier:
+			if lit.Value == "null" || lit.Value == "nil" {
+				val = nil
+				isSimple = true
+			} else if lit.Value == "true" {
+				val = true
+				isSimple = true
+			} else if lit.Value == "false" {
+				val = false
+				isSimple = true
+			}
+		}
+	}
+	if !isSimple {
+		return
+	}
+	if info.DeclaredType != "" && info.DeclaredType != "var" && info.DeclaredType != "mixed" {
+		coerced := r.coerceToParsedType(val, info.ParsedType)
+		if !r.checkParsedType(coerced, info.ParsedType) {
+			return
+		}
+		val = coerced
+	}
+	info.IsSimpleDefault = true
+	info.SimpleDefaultVal = val
 }
 
 func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
@@ -91,6 +151,7 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 					DeclaredType: declaredType,
 					ParsedType:   typesystem.Parse(declaredType),
 				}
+				computeSimpleFieldDefault(r, info)
 				meta.Fields[node.Name.Value] = info
 				meta.FieldOrder = append(meta.FieldOrder, info)
 			case *parser.MethodStatement:
@@ -104,9 +165,13 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 					OwnerClass: cls.Name.Value,
 					Plan:       methodPlan,
 				}
+				if node.Name.Value == "destructor" || node.Name.Value == "destroy" || node.Name.Value == "__destruct" {
+					meta.HasDestructor = true
+				}
 				if node.Name.Value == "constructor" || node.Name.Value == "main" || node.Name.Value == "Init" {
 					if cls == classStmt {
 						meta.Constructor = node
+						meta.ConstructorPlan = methodPlan
 					}
 					for _, param := range node.Parameters {
 						if param != nil && param.Name != nil && param.Visibility.Literal != "" {
@@ -130,6 +195,7 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 									DeclaredType: declaredType,
 									ParsedType:   typesystem.Parse(declaredType),
 								}
+								computeSimpleFieldDefault(r, info)
 								meta.Fields[fieldName] = info
 								meta.FieldOrder = append(meta.FieldOrder, info)
 							}
@@ -140,6 +206,9 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 				if node.Name == nil {
 					continue
 				}
+				if node.Name.Value == "destructor" || node.Name.Value == "destroy" || node.Name.Value == "__destruct" {
+					meta.HasDestructor = true
+				}
 				if node.Name.Value == "constructor" || node.Name.Value == "main" || node.Name.Value == "Init" {
 					method := &parser.MethodStatement{
 						Token:      node.Token,
@@ -147,12 +216,16 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 						Parameters: node.Parameters,
 						Body:       node.Body,
 					}
+					methodPlan := runtimeplan.CompileMethod(method, true)
+					methodPlan.Owner = cls.Name.Value
 					if cls == classStmt {
 						meta.Constructor = method
+						meta.ConstructorPlan = methodPlan
 					}
 					meta.Methods[node.Name.Value] = &classMethodInfo{
 						Method:     method,
 						OwnerClass: cls.Name.Value,
+						Plan:       methodPlan,
 					}
 					for _, param := range node.Parameters {
 						if param != nil && param.Name != nil && param.Visibility.Literal != "" {
@@ -176,6 +249,7 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 									DeclaredType: declaredType,
 									ParsedType:   typesystem.Parse(declaredType),
 								}
+								computeSimpleFieldDefault(r, info)
 								meta.Fields[fieldName] = info
 								meta.FieldOrder = append(meta.FieldOrder, info)
 							}

@@ -83,6 +83,8 @@ type Runtime struct {
 	callStack          []runtimeerrors.Frame
 	topHasReturn       bool
 	topReturnValue     interface{}
+	hasBreak           bool
+	hasContinue        bool
 	callablePlans      map[*parser.MethodStatement]*runtimeplan.Callable
 	functionPlans      map[*parser.FunctionLiteral]*runtimeplan.Callable
 	classMetadataCache map[string]*classMetadata

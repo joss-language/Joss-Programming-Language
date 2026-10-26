@@ -14,15 +14,28 @@ type HostContext interface {
 
 // Map of host functions to required permissions for PermissionGuard
 var hostFunctionPermissions = map[string]string{
-	"http_get":   "network.http",
-	"http_post":  "network.http",
-	"fetch":      "network.http",
-	"file_read":  "filesystem.read",
-	"file_write": "filesystem.write",
-	"env_read":   "env.read",
-	"env_write":  "env.write",
-	"db_query":   "database.query",
-	"db_exec":    "database.exec",
+	"http_get":          "network.http",
+	"http_post":         "network.http",
+	"fetch":             "network.http",
+	"file_read":         "filesystem.read",
+	"file_get_contents": "filesystem.read",
+	"file_exists":       "filesystem.read",
+	"is_dir":            "filesystem.read",
+	"is_file":           "filesystem.read",
+	"hive_read_box":     "filesystem.read",
+	"view":              "filesystem.read",
+	"file_write":        "filesystem.write",
+	"file_put_contents": "filesystem.write",
+	"unlink":            "filesystem.write",
+	"file_delete":       "filesystem.write",
+	"mkdir":             "filesystem.write",
+	"env_read":          "env.read",
+	"env":               "env.read",
+	"config":            "env.read",
+	"env_write":         "env.write",
+	"db_query":          "database.query",
+	"db_exec":           "database.exec",
+	"run":               "process.exec",
 }
 
 // JPBCVM es la maquina virtual para la ejecucion de bytecode multilenguaje JPBC.

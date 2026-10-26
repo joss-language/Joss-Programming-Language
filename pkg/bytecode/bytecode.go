@@ -67,7 +67,14 @@ func Decode(data []byte) (*parser.Program, error) {
 	if bytes.Equal(data[:8], magicCompressed) {
 		fr := flate.NewReader(bytes.NewReader(data[8:]))
 		defer fr.Close()
-		reader = fr
+		uncompressed, err := io.ReadAll(io.LimitReader(fr, MaxProgramSize+1))
+		if err != nil {
+			return nil, fmt.Errorf("bytecode: error descomprimiendo payload: %w", err)
+		}
+		if len(uncompressed) > MaxProgramSize {
+			return nil, fmt.Errorf("bytecode: payload descomprimido excede %d MiB", MaxProgramSize>>20)
+		}
+		reader = bytes.NewReader(uncompressed)
 	} else {
 		return nil, fmt.Errorf("bytecode: cabecera JP v2 invalida")
 	}

@@ -2,12 +2,18 @@ package server
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
-const maxMultipartMemory = 10 << 20
+const (
+	maxMultipartMemory = 10 << 20
+	maxJSONBodyBytes   = 10 << 20
+	maxUploadFileBytes = 50 << 20
+)
 
 // decodeRequestData is the transport boundary between net/http and the map
 // shape consumed by the Joss runtime. Keeping it isolated makes request
@@ -34,12 +40,32 @@ func decodeJSONBody(request *http.Request, data map[string]interface{}) {
 		return
 	}
 	var body map[string]interface{}
-	if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+	if err := json.NewDecoder(io.LimitReader(request.Body, maxJSONBodyBytes)).Decode(&body); err != nil {
 		return
 	}
 	for key, value := range body {
 		data[key] = value
 	}
+}
+
+func sanitizeTempUploadName(filename string) string {
+	base := filepath.Base(strings.ReplaceAll(filename, "\\", "/"))
+	var b strings.Builder
+	for _, r := range base {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	out := b.String()
+	if out == "" || out == "." || out == ".." {
+		return "upload.bin"
+	}
+	if len(out) > 64 {
+		out = out[len(out)-64:]
+	}
+	return out
 }
 
 func decodeFormBody(request *http.Request, data map[string]interface{}) {
@@ -59,16 +85,22 @@ func decodeFormBody(request *http.Request, data map[string]interface{}) {
 			continue
 		}
 		header := headers[0]
+		if header.Size < 0 || header.Size > maxUploadFileBytes {
+			continue
+		}
 		file, err := header.Open()
 		if err != nil {
 			continue
 		}
-		content := make([]byte, header.Size)
-		_, _ = file.Read(content)
+		content, err := io.ReadAll(io.LimitReader(file, maxUploadFileBytes))
 		_ = file.Close()
+		if err != nil {
+			continue
+		}
 
 		path := ""
-		temporary, err := os.CreateTemp("", "joss_upload_*_"+header.Filename)
+		safeSuffix := sanitizeTempUploadName(header.Filename)
+		temporary, err := os.CreateTemp("", "joss_upload_*_"+safeSuffix)
 		if err == nil {
 			_, _ = temporary.Write(content)
 			path = temporary.Name()
@@ -76,10 +108,27 @@ func decodeFormBody(request *http.Request, data map[string]interface{}) {
 		}
 		files[field] = map[string]interface{}{
 			"name": header.Filename, "path": path, "type": header.Header.Get("Content-Type"),
-			"size": header.Size, "content": string(content),
+			"size": int64(len(content)), "content": string(content),
 		}
 	}
 	data["_files"] = files
+}
+
+func cleanupRequestTempFiles(reqData map[string]interface{}, r *http.Request) {
+	if reqData != nil {
+		if filesMap, ok := reqData["_files"].(map[string]interface{}); ok {
+			for _, v := range filesMap {
+				if entry, ok := v.(map[string]interface{}); ok {
+					if p, ok := entry["path"].(string); ok && p != "" {
+						_ = os.Remove(p)
+					}
+				}
+			}
+		}
+	}
+	if r != nil && r.MultipartForm != nil {
+		_ = r.MultipartForm.RemoveAll()
+	}
 }
 
 func addRequestMetadata(request *http.Request, data map[string]interface{}, host, scheme string) {

@@ -670,7 +670,7 @@ Implementación: [executeProcessMethod](../pkg/core/native_process.go#L13).
 
 ## Redirect
 
-Implementación: [executeRedirectMethod](../pkg/core/response.go#L177).
+Implementación: [executeRedirectMethod](../pkg/core/response.go#L182).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -957,7 +957,7 @@ Implementación: [executeUserStorageMethod](../pkg/core/lib_storage.go#L15).
 
 ## View
 
-Implementación: [executeViewMethod](../pkg/core/view.go#L20).
+Implementación: [executeViewMethod](../pkg/core/view.go#L34).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -975,7 +975,7 @@ Implementación: [executeViewMethod](../pkg/core/view.go#L20).
 
 ## WebResponse
 
-Implementación: [executeWebResponseMethod](../pkg/core/response.go#L132).
+Implementación: [executeWebResponseMethod](../pkg/core/response.go#L137).
 
 | Método | Retorno publicado al analizador |
 |---|---|

@@ -6,7 +6,7 @@ import (
 
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/parser"
-	runtimeplan "github.com/jossecurity/joss/pkg/runtime/plan"
+	"github.com/jossecurity/joss/pkg/typesystem"
 )
 
 // ExecutePrepared runs a fully validated PreparedProgram produced by the semantic analyzer.
@@ -228,6 +228,9 @@ func (r *Runtime) executeBlock(block *parser.BlockStatement) interface{} {
 			if frame.hasReturn {
 				return frame.returnValue
 			}
+			if r.hasBreak || r.hasContinue {
+				return result
+			}
 		}
 		return result
 	}
@@ -235,6 +238,9 @@ func (r *Runtime) executeBlock(block *parser.BlockStatement) interface{} {
 		result = r.executeStatement(stmt)
 		if r.topHasReturn {
 			return r.topReturnValue
+		}
+		if r.hasBreak || r.hasContinue {
+			return result
 		}
 	}
 	return result
@@ -258,6 +264,24 @@ func (r *Runtime) executeStatement(stmt parser.Statement) interface{} {
 	switch s := stmt.(type) {
 	case *parser.LetStatement:
 		if slot, resolved := r.slotForIdentifier(s.Name); resolved {
+			if s.Value != nil {
+				if n, ok := r.slotIntegerOperand(s.Value); ok && (slot.Type.Kind == typesystem.Int || slot.Inferred) {
+					if !slot.Initialized {
+						slot.Type = typesystem.Type{Kind: typesystem.Int}
+						slot.TypeName = "int"
+					}
+					slot.SetInt(n)
+					return nil
+				}
+				if f, isF, ok := r.slotFloatOperand(s.Value); ok && isF && (slot.Type.Kind == typesystem.Float || slot.Inferred) {
+					if !slot.Initialized {
+						slot.Type = typesystem.Type{Kind: typesystem.Float}
+						slot.TypeName = "float"
+					}
+					slot.SetFloat(f)
+					return nil
+				}
+			}
 			var value interface{}
 			if s.Value != nil {
 				value = r.evaluateExpression(s.Value)
@@ -425,11 +449,13 @@ func (r *Runtime) executeReturn(rs *parser.ReturnStatement) interface{} {
 }
 
 func (r *Runtime) executeBreak(bs *parser.BreakStatement) interface{} {
-	panic(&BreakPanic{})
+	r.hasBreak = true
+	return nil
 }
 
 func (r *Runtime) executeContinue(cs *parser.ContinueStatement) interface{} {
-	panic(&ContinuePanic{})
+	r.hasContinue = true
+	return nil
 }
 
 func (r *Runtime) executeForeach(fs *parser.ForeachStatement) interface{} {
@@ -447,7 +473,6 @@ func (r *Runtime) executeForeach(fs *parser.ForeachStatement) interface{} {
 			}
 		}
 	}
-	hasControl := r.blockHasControl(fs.Body)
 
 	executeIter := func(key interface{}, item interface{}) (shouldBreak bool) {
 		if fs.Key != "" {
@@ -462,10 +487,14 @@ func (r *Runtime) executeForeach(fs *parser.ForeachStatement) interface{} {
 		} else {
 			r.Variables[fs.Value] = item
 		}
-		if hasControl {
-			return r.executeLoopBodyProtected(fs.Body)
-		}
 		r.executeBlock(fs.Body)
+		if r.hasBreak {
+			r.hasBreak = false
+			return true
+		}
+		if r.hasContinue {
+			r.hasContinue = false
+		}
 		if (r.currentFrame != nil && r.currentFrame.hasReturn) || r.topHasReturn {
 			return true
 		}
@@ -525,19 +554,19 @@ func (r *Runtime) executeForeach(fs *parser.ForeachStatement) interface{} {
 }
 
 func (r *Runtime) executeWhile(ws *parser.WhileStatement) interface{} {
-	hasControl := r.blockHasControl(ws.Body)
 	frame := r.currentFrame
 	if frame != nil {
 		for {
 			if !r.evaluateCondition(ws.Condition) {
 				break
 			}
-			if hasControl {
-				if r.executeLoopBodyProtected(ws.Body) {
-					break
-				}
-			} else {
-				r.executeBlock(ws.Body)
+			r.executeBlock(ws.Body)
+			if r.hasBreak {
+				r.hasBreak = false
+				break
+			}
+			if r.hasContinue {
+				r.hasContinue = false
 			}
 			if frame.hasReturn {
 				break
@@ -549,12 +578,13 @@ func (r *Runtime) executeWhile(ws *parser.WhileStatement) interface{} {
 		if !r.evaluateCondition(ws.Condition) {
 			break
 		}
-		if hasControl {
-			if r.executeLoopBodyProtected(ws.Body) {
-				break
-			}
-		} else {
-			r.executeBlock(ws.Body)
+		r.executeBlock(ws.Body)
+		if r.hasBreak {
+			r.hasBreak = false
+			break
+		}
+		if r.hasContinue {
+			r.hasContinue = false
 		}
 		if r.topHasReturn {
 			break
@@ -571,14 +601,14 @@ func (r *Runtime) executeGuard(gs *parser.GuardStatement) interface{} {
 }
 
 func (r *Runtime) executeDoWhile(dws *parser.DoWhileStatement) interface{} {
-	hasControl := r.blockHasControl(dws.Body)
 	for {
-		if hasControl {
-			if r.executeLoopBodyProtected(dws.Body) {
-				break
-			}
-		} else {
-			r.executeBlock(dws.Body)
+		r.executeBlock(dws.Body)
+		if r.hasBreak {
+			r.hasBreak = false
+			break
+		}
+		if r.hasContinue {
+			r.hasContinue = false
 		}
 		if (r.currentFrame != nil && r.currentFrame.hasReturn) || r.topHasReturn {
 			break
@@ -590,38 +620,14 @@ func (r *Runtime) executeDoWhile(dws *parser.DoWhileStatement) interface{} {
 	return nil
 }
 
-func (r *Runtime) executeLoopBodyProtected(body *parser.BlockStatement) (shouldBreak bool) {
-	defer func() {
-		if err := recover(); err != nil {
-			switch err.(type) {
-			case *BreakPanic:
-				shouldBreak = true
-			case *ContinuePanic:
-				// Skip
-			default:
-				panic(err)
-			}
-		}
-	}()
-	r.executeBlock(body)
-	if (r.currentFrame != nil && r.currentFrame.hasReturn) || r.topHasReturn {
-		return true
-	}
-	return false
-}
-
-func (r *Runtime) blockHasControl(body *parser.BlockStatement) bool {
-	if r.currentFrame != nil && r.currentFrame.plan != nil && r.currentFrame.plan.LoopControl != nil {
-		if has, ok := r.currentFrame.plan.LoopControl[body]; ok {
-			return has
-		}
-	}
-	return runtimeplan.BlockHasBreakOrContinue(body)
-}
-
 func (r *Runtime) evaluateCondition(expression parser.Expression) bool {
 	if infix, ok := expression.(*parser.InfixExpression); ok {
 		if result, handled := r.evaluateSlotIntegerInfix(infix); handled {
+			if b, ok := result.(bool); ok {
+				return b
+			}
+		}
+		if result, handled := r.evaluateSlotFloatInfix(infix); handled {
 			if b, ok := result.(bool); ok {
 				return b
 			}

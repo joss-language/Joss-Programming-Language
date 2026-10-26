@@ -36,8 +36,17 @@ func (r *Runtime) executeZipMethod(instance *Instance, method string, args []int
 
 		// Clean dest path and make sure it has trailing slash for prefix check
 		destClean := filepath.Clean(destPath)
+		const (
+			maxSingleExtractedFile int64 = 128 << 20
+			maxTotalExtractedBytes int64 = 512 << 20
+		)
+		var totalExtracted int64
 
 		for _, f := range archive.File {
+			if f.Mode()&os.ModeSymlink != 0 {
+				fmt.Printf("[Zip Error] Symlink entry rejected in zip: %s\n", f.Name)
+				return false
+			}
 			filePath := filepath.Join(destClean, f.Name)
 
 			// Prevent Zip Slip without relying on unsafe string-prefix checks.
@@ -48,16 +57,16 @@ func (r *Runtime) executeZipMethod(instance *Instance, method string, args []int
 			}
 
 			if f.FileInfo().IsDir() {
-				os.MkdirAll(filePath, os.ModePerm)
+				os.MkdirAll(filePath, 0755)
 				continue
 			}
 
-			if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
+			if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
 				fmt.Printf("[Zip Error] MkdirAll failed: %v\n", err)
 				return false
 			}
 
-			dstFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+			dstFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode().Perm())
 			if err != nil {
 				fmt.Printf("[Zip Error] OpenFile failed: %v\n", err)
 				return false
@@ -70,12 +79,20 @@ func (r *Runtime) executeZipMethod(instance *Instance, method string, args []int
 				return false
 			}
 
-			if _, err := io.Copy(dstFile, fileInArchive); err != nil {
+			remainingBudget := maxTotalExtractedBytes - totalExtracted
+			limit := maxSingleExtractedFile
+			if remainingBudget < limit {
+				limit = remainingBudget
+			}
+			written, err := io.Copy(dstFile, io.LimitReader(fileInArchive, limit+1))
+			if err != nil || written > limit {
 				dstFile.Close()
 				fileInArchive.Close()
-				fmt.Printf("[Zip Error] Copy failed: %v\n", err)
+				_ = os.Remove(filePath)
+				fmt.Printf("[Zip Error] Copy failed or size limit exceeded for: %s\n", f.Name)
 				return false
 			}
+			totalExtracted += written
 
 			dstFile.Close()
 			fileInArchive.Close()

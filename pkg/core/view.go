@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/viewtemplate"
@@ -14,7 +15,20 @@ import (
 
 var (
 	GlobalViewSharedData = make(map[string]interface{})
+	globalViewSharedMu   sync.RWMutex
 )
+
+func resolveSafeViewSubpath(viewName string) (string, bool) {
+	trimmed := strings.TrimSpace(viewName)
+	if trimmed == "" || strings.Contains(trimmed, "..") || strings.Contains(trimmed, "\\") || strings.HasPrefix(trimmed, "/") {
+		return "", false
+	}
+	sub := path.Clean(strings.ReplaceAll(trimmed, ".", "/"))
+	if sub == "." || sub == ".." || strings.HasPrefix(sub, "../") || strings.HasPrefix(sub, "/") {
+		return "", false
+	}
+	return sub, true
+}
 
 // View Implementation
 func (r *Runtime) executeViewMethod(instance *Instance, method string, args []interface{}) interface{} {
@@ -30,7 +44,10 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 		if !ok {
 			return false
 		}
-		viewPath := strings.ReplaceAll(viewName, ".", "/")
+		viewPath, safe := resolveSafeViewSubpath(viewName)
+		if !safe {
+			return false
+		}
 		if GlobalFileSystem != nil {
 			p1 := path.Join("app", "views", viewPath+".joss.html")
 			if _, err := GlobalFileSystem.Open(p1); err == nil {
@@ -56,14 +73,18 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 	if method == "share" {
 		if len(args) >= 2 {
 			if key, ok := args[0].(string); ok {
+				globalViewSharedMu.Lock()
 				GlobalViewSharedData[key] = args[1]
+				globalViewSharedMu.Unlock()
 				return true
 			}
 		} else if len(args) == 1 {
 			if m, ok := args[0].(map[string]interface{}); ok {
+				globalViewSharedMu.Lock()
 				for k, v := range m {
 					GlobalViewSharedData[k] = v
 				}
+				globalViewSharedMu.Unlock()
 				return true
 			}
 		}
@@ -72,12 +93,17 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 
 	if method == "render" {
 		if len(args) >= 1 {
-			viewName := args[0].(string)
+			viewName, ok := args[0].(string)
+			if !ok {
+				return ""
+			}
 			data := make(map[string]interface{})
 			// Inject globally shared data
+			globalViewSharedMu.RLock()
 			for k, v := range GlobalViewSharedData {
 				data[k] = v
 			}
+			globalViewSharedMu.RUnlock()
 			if len(args) > 1 {
 				if d, ok := args[1].(map[string]interface{}); ok {
 					for k, v := range d {
@@ -148,7 +174,10 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 			}
 
 			// 1. Read View Content
-			viewPath := strings.ReplaceAll(viewName, ".", "/")
+			viewPath, safeView := resolveSafeViewSubpath(viewName)
+			if !safeView {
+				return fmt.Sprintf("Error: Vista '%s' inválida", viewName)
+			}
 
 			var content []byte
 			var err error
@@ -202,7 +231,10 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 				match := reExtends.FindStringSubmatch(viewContent)
 				if len(match) > 1 {
 					layoutName := match[1]
-					layoutPath := strings.ReplaceAll(layoutName, ".", "/")
+					layoutPath, safeLayout := resolveSafeViewSubpath(layoutName)
+					if !safeLayout {
+						return fmt.Sprintf("Error: Layout '%s' inválido", layoutName)
+					}
 
 					if GlobalFileSystem != nil {
 						// VFS Layout
@@ -281,7 +313,11 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 				}
 				fullMatch := match[0]
 				includeName := match[1]
-				includePath := strings.ReplaceAll(includeName, ".", "/")
+				includePath, safeInc := resolveSafeViewSubpath(includeName)
+				if !safeInc {
+					finalHtml = strings.Replace(finalHtml, fullMatch, fmt.Sprintf("<!-- Error: Include '%s' invalid -->", includeName), 1)
+					continue
+				}
 				var includeContent []byte
 
 				// Resolve Path (reuse logic or simplify)

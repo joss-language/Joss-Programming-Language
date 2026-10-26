@@ -726,7 +726,10 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 
 	case "validateToken":
 		if len(args) == 1 {
-			tokenString := args[0].(string)
+			tokenString, ok := args[0].(string)
+			if !ok {
+				return false
+			}
 			if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
 				tokenString = tokenString[7:]
 			}
@@ -735,7 +738,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			if valid {
 				if sessVal, ok := r.Variables["$__session"]; ok {
 					if sessInst, ok := sessVal.(*Instance); ok {
-						sessInst.Fields["user_id"] = int(claims["user_id"].(float64))
+						sessInst.Fields["user_id"] = claimUserID(claims["user_id"])
 						sessInst.Fields["user_email"] = claims["email"]
 						sessInst.Fields["user_name"] = claims["name"]
 						sessInst.Fields["user_role"] = claims["role"]

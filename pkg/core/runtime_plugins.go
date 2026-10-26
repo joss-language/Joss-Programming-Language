@@ -69,125 +69,164 @@ func (e *PluginASTEngine) RegisterProgram(prog *parser.Program) error {
 	return nil
 }
 
-func (e *PluginASTEngine) CallFunction(fnName string, args []interface{}) (interface{}, error) {
-	if fn, ok := e.Functions[fnName]; ok {
-		return e.Runtime.CallMethodEvaluated(fn, nil, args), nil
+func (r *Runtime) withPluginCapabilities(pluginName string, target string, fn func() (interface{}, error)) (interface{}, error) {
+	if r == nil {
+		return fn()
 	}
-	if e.Runtime != nil {
-		if fn, ok := e.Runtime.Functions[fnName]; ok {
-			return e.Runtime.CallMethodEvaluated(fn, nil, args), nil
+	prevCaps := r.Capabilities
+	if r.PluginRegistry != nil {
+		if plugin := r.PluginRegistry.Get(pluginName); plugin != nil {
+			guard := pluginruntime.NewPermissionGuard(plugin.Metadata.Permissions)
+			allowFS := guard.HasPermission("filesystem.read") || guard.HasPermission("filesystem.write") || guard.HasPermission("fs")
+			allowNet := guard.HasPermission("network.http") || guard.HasPermission("network") || guard.HasPermission("net")
+			allowProc := guard.HasPermission("process.exec") || guard.HasPermission("process") || guard.HasPermission("exec")
+			r.Capabilities = HostCapabilities{
+				AllowFS:      prevCaps.AllowFS && allowFS,
+				AllowNetwork: prevCaps.AllowNetwork && allowNet,
+				AllowProcess: prevCaps.AllowProcess && allowProc,
+			}
 		}
+	}
+	defer func() {
+		r.Capabilities = prevCaps
+	}()
+	return pluginruntime.SafeCall(pluginName, target, fn)
+}
+
+func (e *PluginASTEngine) CallFunction(fnName string, args []interface{}) (interface{}, error) {
+	if e.Runtime != nil {
+		return e.Runtime.withPluginCapabilities(e.PluginName, fnName, func() (interface{}, error) {
+			if fn, ok := e.Functions[fnName]; ok {
+				return e.Runtime.CallMethodEvaluated(fn, nil, args), nil
+			}
+			if fn, ok := e.Runtime.Functions[fnName]; ok {
+				return e.Runtime.CallMethodEvaluated(fn, nil, args), nil
+			}
+			return nil, fmt.Errorf("funcion %s no encontrada en plugin %s", fnName, e.PluginName)
+		})
 	}
 	return nil, fmt.Errorf("funcion %s no encontrada en plugin %s", fnName, e.PluginName)
 }
 
 func (e *PluginASTEngine) Instantiate(className string, args []interface{}) (interface{}, error) {
-	classStmt, ok := e.Classes[className]
-	if !ok && e.Runtime != nil {
-		classStmt = e.Runtime.Classes[className]
-	}
-	if classStmt == nil {
+	if e.Runtime == nil {
 		return nil, fmt.Errorf("clase %s no encontrada en plugin %s", className, e.PluginName)
 	}
-	inst := &Instance{
-		Class:     classStmt,
-		Fields:    make(map[string]interface{}),
-		Constants: make(map[string]bool),
-	}
-	inst.Fields["__plugin__"] = e.PluginName
+	return e.Runtime.withPluginCapabilities(e.PluginName, className+".Init", func() (interface{}, error) {
+		classStmt, ok := e.Classes[className]
+		if !ok {
+			classStmt = e.Runtime.Classes[className]
+		}
+		if classStmt == nil {
+			return nil, fmt.Errorf("clase %s no encontrada en plugin %s", className, e.PluginName)
+		}
+		inst := &Instance{
+			Class:     classStmt,
+			Fields:    make(map[string]interface{}),
+			Constants: make(map[string]bool),
+		}
+		inst.Fields["__plugin__"] = e.PluginName
 
-	if classStmt.Body != nil {
-		for _, member := range classStmt.Body.Statements {
-			if letStmt, ok := member.(*parser.LetStatement); ok && letStmt.Name != nil {
-				var val interface{}
-				if letStmt.Value != nil && e.Runtime != nil {
-					val = e.Runtime.evaluateExpression(letStmt.Value)
+		if classStmt.Body != nil {
+			for _, member := range classStmt.Body.Statements {
+				if letStmt, ok := member.(*parser.LetStatement); ok && letStmt.Name != nil {
+					var val interface{}
+					if letStmt.Value != nil {
+						val = e.Runtime.evaluateExpression(letStmt.Value)
+					}
+					if letStmt.Token.Literal != "" && letStmt.Token.Literal != "var" && letStmt.Token.Literal != "mixed" {
+						val = e.Runtime.coerceToParsedType(val, typesystem.Parse(letStmt.Token.Literal))
+					}
+					inst.Fields[letStmt.Name.Value] = val
+					if letStmt.IsConst {
+						inst.Constants[letStmt.Name.Value] = true
+					}
 				}
-				if letStmt.Token.Literal != "" && letStmt.Token.Literal != "var" && letStmt.Token.Literal != "mixed" && e.Runtime != nil {
-					val = e.Runtime.coerceToParsedType(val, typesystem.Parse(letStmt.Token.Literal))
+			}
+
+			for _, member := range classStmt.Body.Statements {
+				if initStmt, ok := member.(*parser.InitStatement); ok {
+					method := &parser.MethodStatement{
+						Token:      initStmt.Token,
+						Name:       initStmt.Name,
+						Parameters: initStmt.Parameters,
+						Body:       initStmt.Body,
+					}
+					e.Runtime.CallMethodEvaluated(method, inst, args)
+					break
 				}
-				inst.Fields[letStmt.Name.Value] = val
-				if letStmt.IsConst {
-					inst.Constants[letStmt.Name.Value] = true
+				if methodStmt, ok := member.(*parser.MethodStatement); ok && methodStmt.Name != nil && (methodStmt.Name.Value == "constructor" || methodStmt.Name.Value == "init") {
+					e.Runtime.CallMethodEvaluated(methodStmt, inst, args)
+					break
 				}
 			}
 		}
-
-		for _, member := range classStmt.Body.Statements {
-			if initStmt, ok := member.(*parser.InitStatement); ok {
-				method := &parser.MethodStatement{
-					Token:      initStmt.Token,
-					Name:       initStmt.Name,
-					Parameters: initStmt.Parameters,
-					Body:       initStmt.Body,
-				}
-				e.Runtime.CallMethodEvaluated(method, inst, args)
-				break
-			}
-			if methodStmt, ok := member.(*parser.MethodStatement); ok && methodStmt.Name != nil && (methodStmt.Name.Value == "constructor" || methodStmt.Name.Value == "init") {
-				e.Runtime.CallMethodEvaluated(methodStmt, inst, args)
-				break
-			}
-		}
-	}
-	return inst, nil
+		return inst, nil
+	})
 }
 
 func (e *PluginASTEngine) CallMethod(instance interface{}, methodName string, args []interface{}) (interface{}, error) {
-	var inst *Instance
-	if instance != nil {
-		if i, ok := instance.(*Instance); ok {
-			inst = i
-		}
+	if e.Runtime == nil {
+		return nil, fmt.Errorf("metodo %s no encontrado en plugin %s", methodName, e.PluginName)
 	}
-
-	// 1. If an instance is provided, search its class
-	if inst != nil && inst.Class != nil && inst.Class.Body != nil {
-		for _, member := range inst.Class.Body.Statements {
-			if methodStmt, ok := member.(*parser.MethodStatement); ok {
-				if methodStmt.Name.Value == methodName {
-					return e.Runtime.CallMethodEvaluated(methodStmt, inst, args), nil
-				}
+	return e.Runtime.withPluginCapabilities(e.PluginName, methodName, func() (interface{}, error) {
+		var inst *Instance
+		if instance != nil {
+			if i, ok := instance.(*Instance); ok {
+				inst = i
 			}
 		}
-		return nil, fmt.Errorf("metodo %s no encontrado en clase %s", methodName, inst.Class.Name.Value)
-	}
 
-	// 2. Static method call (instance is nil): search in plugin classes
-	for _, classStmt := range e.Classes {
-		if classStmt != nil && classStmt.Body != nil {
-			for _, member := range classStmt.Body.Statements {
+		// 1. If an instance is provided, search its class
+		if inst != nil && inst.Class != nil && inst.Class.Body != nil {
+			for _, member := range inst.Class.Body.Statements {
 				if methodStmt, ok := member.(*parser.MethodStatement); ok {
 					if methodStmt.Name.Value == methodName {
-						dummyInst := &Instance{
-							Class:  classStmt,
-							Fields: make(map[string]interface{}),
+						return e.Runtime.CallMethodEvaluated(methodStmt, inst, args), nil
+					}
+				}
+			}
+			return nil, fmt.Errorf("metodo %s no encontrado en clase %s", methodName, inst.Class.Name.Value)
+		}
+
+		// 2. Static method call (instance is nil): search in plugin classes
+		for _, classStmt := range e.Classes {
+			if classStmt != nil && classStmt.Body != nil {
+				for _, member := range classStmt.Body.Statements {
+					if methodStmt, ok := member.(*parser.MethodStatement); ok {
+						if methodStmt.Name.Value == methodName {
+							dummyInst := &Instance{
+								Class:  classStmt,
+								Fields: make(map[string]interface{}),
+							}
+							dummyInst.Fields["__plugin__"] = e.PluginName
+							return e.Runtime.CallMethodEvaluated(methodStmt, dummyInst, args), nil
 						}
-						dummyInst.Fields["__plugin__"] = e.PluginName
-						return e.Runtime.CallMethodEvaluated(methodStmt, dummyInst, args), nil
 					}
 				}
 			}
 		}
-	}
 
-	// 3. Fallback: search in functions
-	if fn, ok := e.Functions[methodName]; ok {
-		return e.Runtime.CallMethodEvaluated(fn, nil, args), nil
-	}
+		// 3. Fallback: search in functions
+		if fn, ok := e.Functions[methodName]; ok {
+			return e.Runtime.CallMethodEvaluated(fn, nil, args), nil
+		}
 
-	return nil, fmt.Errorf("metodo %s no encontrado en plugin %s", methodName, e.PluginName)
+		return nil, fmt.Errorf("metodo %s no encontrado en plugin %s", methodName, e.PluginName)
+	})
 }
 
 // CallHostFunction implementa pluginruntime.HostContext para callbacks de plugins.
 func (r *Runtime) CallHostFunction(name string, args []interface{}) (interface{}, error) {
-	if fn, ok := r.Functions[name]; ok {
-		return r.CallMethodEvaluated(fn, nil, args), nil
-	}
-	if res, ok := r.callBuiltin(name, args); ok {
-		return res, nil
-	}
-	return nil, fmt.Errorf("funcion de host '%s' no encontrada", name)
+	return pluginruntime.SafeCall("host", name, func() (interface{}, error) {
+		if fn, ok := r.Functions[name]; ok {
+			return r.CallMethodEvaluated(fn, nil, args), nil
+		}
+		if res, ok := r.callBuiltin(name, args); ok {
+			return res, nil
+		}
+		return nil, fmt.Errorf("funcion de host '%s' no encontrada", name)
+	})
 }
 
 func (r *Runtime) ensurePluginASTEngines() {

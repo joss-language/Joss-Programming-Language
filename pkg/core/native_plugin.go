@@ -35,8 +35,13 @@ func (r *Runtime) executePluginMethod(_ *Instance, method string, args []interfa
 			}
 		}
 		// Fallback para paquetes .jp cargados como AST/JPBC
+		cleanName, errName := safePluginRelativePath(name)
+		cleanRel, errRel := safePluginRelativePath(relative)
 		cwd, _ := os.Getwd()
-		return filepath.Clean(filepath.Join(cwd, "plugins", name, relative))
+		if errName != nil || errRel != nil || strings.Contains(cleanName, "/") {
+			return filepath.Clean(filepath.Join(cwd, "plugins"))
+		}
+		return filepath.Clean(filepath.Join(cwd, "plugins", cleanName, filepath.FromSlash(cleanRel)))
 	case "call":
 		if len(args) < 2 || len(args) > 3 {
 			panic("Plugin::call requiere (plugin, metodo, args_opcionales)")

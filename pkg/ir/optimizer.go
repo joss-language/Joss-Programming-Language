@@ -21,9 +21,9 @@ func OptimizeProgram(prog *Program) {
 		HoistLoopInvariantLoads(fn)
 	}
 
-	// Pase 4: Eliminación de lecturas redundantes de arrays (CSE)
+	// Pase 4: Eliminación de variables locales muertas (alloca/store sin loads)
 	// for _, fn := range prog.Functions {
-	// 	EliminateRedundantArrayGets(fn)
+	// 	EliminateDeadAllocasAndStores(fn)
 	// }
 
 	// Pase 5: Propagación de copias y eliminación de MoveInst redundantes
@@ -622,62 +622,90 @@ func EliminateRedundantArrayGets(fn *Function) {
 // cuando el puntero asignado nunca es leído por ninguna instrucción LoadInst de la función.
 func EliminateDeadAllocasAndStores(fn *Function) {
 	loadCount := make(map[int]int)
-	for _, blk := range fn.Blocks {
-		for _, inst := range blk.Instructions {
-			if load, ok := inst.(*LoadInst); ok {
-				if ptrTemp, okPtr := load.Ptr.(*TempValue); okPtr {
-					loadCount[ptrTemp.ID]++
+	var scanLoads func(blocks []*BasicBlock)
+	scanLoads = func(blocks []*BasicBlock) {
+		for _, blk := range blocks {
+			for _, inst := range blk.Instructions {
+				switch i := inst.(type) {
+				case *LoadInst:
+					if ptrTemp, okPtr := i.Ptr.(*TempValue); okPtr {
+						loadCount[ptrTemp.ID]++
+					}
+				case *TryCatchInst:
+					if ptrTemp, okPtr := i.CatchVarPtr.(*TempValue); okPtr {
+						loadCount[ptrTemp.ID]++
+					}
+					scanLoads(i.TryBlocks)
+					scanLoads(i.CatchBlocks)
 				}
 			}
 		}
 	}
+	scanLoads(fn.Blocks)
 
-	for _, blk := range fn.Blocks {
-		newInsts := make([]Instruction, 0, len(blk.Instructions))
-		for _, inst := range blk.Instructions {
-			switch i := inst.(type) {
-			case *AllocaInst:
-				if i.Dest != nil && loadCount[i.Dest.ID] == 0 {
-					continue
+	var pruneBlocks func(blocks []*BasicBlock)
+	pruneBlocks = func(blocks []*BasicBlock) {
+		for _, blk := range blocks {
+			newInsts := make([]Instruction, 0, len(blk.Instructions))
+			for _, inst := range blk.Instructions {
+				switch i := inst.(type) {
+				case *AllocaInst:
+					if i.Dest != nil && loadCount[i.Dest.ID] == 0 {
+						continue
+					}
+				case *StoreInst:
+					if ptrTemp, okPtr := i.Ptr.(*TempValue); okPtr && loadCount[ptrTemp.ID] == 0 {
+						continue
+					}
+				case *TryCatchInst:
+					pruneBlocks(i.TryBlocks)
+					pruneBlocks(i.CatchBlocks)
 				}
-			case *StoreInst:
-				if ptrTemp, okPtr := i.Ptr.(*TempValue); okPtr && loadCount[ptrTemp.ID] == 0 {
-					continue
-				}
+				newInsts = append(newInsts, inst)
 			}
-			newInsts = append(newInsts, inst)
+			blk.Instructions = newInsts
 		}
-		blk.Instructions = newInsts
 	}
+	pruneBlocks(fn.Blocks)
 }
 
 // PropagateCopies rastrea MoveInsts redundantes (%dest = move %src) dentro de cada bloque básico
 // y propaga el valor original %src en todos los usos de %dest, eliminando la instrucción move.
 func PropagateCopies(fn *Function) {
-	for _, blk := range fn.Blocks {
-		valMap := make(map[Value]Value)
-		newInsts := make([]Instruction, 0, len(blk.Instructions))
-		for _, inst := range blk.Instructions {
-			remapInstructionValues(inst, valMap)
-			if mv, ok := inst.(*MoveInst); ok && mv.Dest != nil {
-				src := mv.Src
-				for {
-					if mapped, exists := valMap[src]; exists {
-						src = mapped
-						continue
-					}
-					break
+	var propBlocks func(blocks []*BasicBlock)
+	propBlocks = func(blocks []*BasicBlock) {
+		for _, blk := range blocks {
+			valMap := make(map[Value]Value)
+			newInsts := make([]Instruction, 0, len(blk.Instructions))
+			for _, inst := range blk.Instructions {
+				if tc, ok := inst.(*TryCatchInst); ok {
+					propBlocks(tc.TryBlocks)
+					propBlocks(tc.CatchBlocks)
+					newInsts = append(newInsts, inst)
+					continue
 				}
-				valMap[mv.Dest] = src
-				continue
+				remapInstructionValues(inst, valMap)
+				if mv, ok := inst.(*MoveInst); ok && mv.Dest != nil {
+					src := mv.Src
+					for {
+						if mapped, exists := valMap[src]; exists {
+							src = mapped
+							continue
+						}
+						break
+					}
+					valMap[mv.Dest] = src
+					continue
+				}
+				newInsts = append(newInsts, inst)
 			}
-			newInsts = append(newInsts, inst)
-		}
-		blk.Instructions = newInsts
-		if blk.Terminator != nil {
-			remapTerminatorValues(blk.Terminator, valMap)
+			blk.Instructions = newInsts
+			if blk.Terminator != nil {
+				remapTerminatorValues(blk.Terminator, valMap)
+			}
 		}
 	}
+	propBlocks(fn.Blocks)
 }
 
 func remapInstructionValues(inst Instruction, valMap map[Value]Value) {

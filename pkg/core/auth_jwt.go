@@ -1,8 +1,11 @@
 package core
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,7 +13,41 @@ import (
 	"github.com/google/uuid"
 )
 
-var usedMFAChallenges sync.Map
+var (
+	usedMFAChallenges sync.Map
+	ephemeralJWTOnce  sync.Once
+	ephemeralJWTKey   []byte
+)
+
+func isWeakJWTSecret(sec string) bool {
+	s := strings.TrimSpace(sec)
+	return s == "" || s == "joss_default_secret_change_in_production" || s == "joss_default_secret"
+}
+
+func (r *Runtime) resolveJWTSecret() []byte {
+	if r != nil && r.Env != nil {
+		if sec := r.Env["JWT_SECRET"]; !isWeakJWTSecret(sec) {
+			return []byte(sec)
+		}
+	}
+	if sec := os.Getenv("JWT_SECRET"); !isWeakJWTSecret(sec) {
+		return []byte(sec)
+	}
+	if r != nil && r.Env != nil {
+		if sec := r.Env["APP_KEY"]; !isWeakJWTSecret(sec) {
+			return []byte(sec)
+		}
+	}
+	if sec := os.Getenv("APP_KEY"); !isWeakJWTSecret(sec) {
+		return []byte(sec)
+	}
+	ephemeralJWTOnce.Do(func() {
+		raw := make([]byte, 32)
+		_, _ = rand.Read(raw)
+		ephemeralJWTKey = []byte(hex.EncodeToString(raw))
+	})
+	return ephemeralJWTKey
+}
 
 func claimUserID(value interface{}) int {
 	switch typed := value.(type) {
@@ -35,10 +72,7 @@ func (r *Runtime) generateJWT(userId int, email string, userName string, roleNam
 		tokenType = "refresh"
 	}
 
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "joss_default_secret_change_in_production"
-	}
+	jwtSecret := r.resolveJWTSecret()
 
 	claims := jwt.MapClaims{
 		"user_id":    userId,
@@ -50,7 +84,7 @@ func (r *Runtime) generateJWT(userId int, email string, userName string, roleNam
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(jwtSecret))
+	tokenString, err := token.SignedString(jwtSecret)
 	if err != nil {
 		fmt.Printf("[Security] Error generando JWT: %v\n", err)
 		return false
@@ -67,10 +101,7 @@ func (r *Runtime) generateMFAChallengeJWT(userId int, email string) interface{} 
 		return true
 	})
 
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "joss_default_secret_change_in_production"
-	}
+	jwtSecret := r.resolveJWTSecret()
 
 	claims := jwt.MapClaims{
 		"user_id":    userId,
@@ -83,7 +114,7 @@ func (r *Runtime) generateMFAChallengeJWT(userId int, email string) interface{} 
 		"exp":        time.Now().Add(5 * time.Minute).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(jwtSecret))
+	tokenString, err := token.SignedString(jwtSecret)
 	if err != nil {
 		LogError("[Security] Error generating MFA challenge: %v", err)
 		return false
@@ -92,16 +123,13 @@ func (r *Runtime) generateMFAChallengeJWT(userId int, email string) interface{} 
 }
 
 func (r *Runtime) parseJWT(tokenString string) (map[string]interface{}, bool) {
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "joss_default_secret_change_in_production"
-	}
+	jwtSecret := r.resolveJWTSecret()
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(jwtSecret), nil
+		return jwtSecret, nil
 	})
 
 	if err != nil {

@@ -20,6 +20,9 @@ func (r *Runtime) evaluateInfix(expression *parser.InfixExpression) interface{} 
 	if result, handled := r.evaluateSlotIntegerInfix(expression); handled {
 		return result
 	}
+	if result, handled := r.evaluateSlotFloatInfix(expression); handled {
+		return result
+	}
 
 	left := r.evaluateExpression(expression.Left)
 	if expression.Operator == "&&" {

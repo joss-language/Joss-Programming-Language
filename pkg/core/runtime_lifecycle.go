@@ -186,6 +186,8 @@ func (r *Runtime) Free() {
 	r.callStack = r.callStack[:0]
 	r.topHasReturn = false
 	r.topReturnValue = nil
+	r.hasBreak = false
+	r.hasContinue = false
 	r.currentFrame = nil
 	r.MaxCallDepth = DefaultMaxCallDepth
 	r.captureEnvironment = nil

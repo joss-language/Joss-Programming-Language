@@ -103,6 +103,7 @@ func writeResponseFields(w http.ResponseWriter, request *http.Request, runtime *
 		if downloadName == "" {
 			downloadName = filepath.Base(absolute)
 		}
+		downloadName = strings.NewReplacer("\r", "", "\n", "", "\"", "'", "\\", "_").Replace(filepath.Base(downloadName))
 		contentType, _ := fields["content_type"].(string)
 		if contentType == "" {
 			contentType = mime.TypeByExtension(filepath.Ext(downloadName))
@@ -142,7 +143,11 @@ func writeResponseFields(w http.ResponseWriter, request *http.Request, runtime *
 				return true
 			}
 		}
-		url := fields["url"].(string)
+		url, _ := fields["url"].(string)
+		if url == "" {
+			url = "/"
+		}
+		url = strings.NewReplacer("\r", "", "\n", "").Replace(url)
 		status := http.StatusFound
 		if instance {
 			status = httpStatus(fields["status_code"], http.StatusFound)

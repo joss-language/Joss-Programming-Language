@@ -239,7 +239,7 @@ func handleWebSocketRoute(w http.ResponseWriter, r *http.Request, rt *core.Runti
 func setupSessionAndSecurity(w http.ResponseWriter, r *http.Request, rt *core.Runtime) (string, string, map[string]interface{}, bool) {
 	sessionID := ""
 	cookie, err := r.Cookie("joss_session")
-	if err != nil {
+	if err != nil || !isValidSessionID(cookie.Value) {
 		sessionID = generateSessionID()
 		http.SetCookie(w, &http.Cookie{Name: "joss_session", Value: sessionID, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode})
 	} else {

@@ -25,7 +25,7 @@ import (
 
 var (
 	hotReloadUpgrader = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool { return true },
+		CheckOrigin: checkWebSocketOrigin,
 	}
 	hotReloadClients   = make(map[*websocket.Conn]bool)
 	hotReloadClientsMu sync.Mutex

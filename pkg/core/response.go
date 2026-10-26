@@ -20,7 +20,10 @@ func (r *Runtime) executeResponseMethod(instance *Instance, method string, args 
 
 	case "redirect":
 		if len(args) > 0 {
-			url := args[0].(string)
+			url, ok := args[0].(string)
+			if !ok {
+				url = fmt.Sprintf("%v", args[0])
+			}
 			statusCode := 302
 			if len(args) > 1 {
 				statusCode = toInt(args[1])
@@ -32,7 +35,9 @@ func (r *Runtime) executeResponseMethod(instance *Instance, method string, args 
 		if reqVal, ok := r.Variables["$__request"]; ok {
 			if reqInstance, ok := reqVal.(*Instance); ok {
 				if ref, ok := reqInstance.Fields["_referer"]; ok && ref != "" {
-					referer = ref.(string)
+					if refStr, okStr := ref.(string); okStr {
+						referer = refStr
+					}
 				}
 			}
 		}
@@ -133,7 +138,7 @@ func (r *Runtime) executeWebResponseMethod(instance *Instance, method string, ar
 	switch method {
 	case "with":
 		if len(args) >= 2 {
-			key := args[0].(string)
+			key := fmt.Sprintf("%v", args[0])
 			val := args[1]
 			if flash, ok := instance.Fields["flash"].(map[string]interface{}); ok {
 				flash[key] = val
@@ -144,7 +149,7 @@ func (r *Runtime) executeWebResponseMethod(instance *Instance, method string, ar
 	case "withCookie":
 		// ->withCookie(name, value)
 		if len(args) >= 2 {
-			key := args[0].(string)
+			key := fmt.Sprintf("%v", args[0])
 			val := args[1]
 			if cookies, ok := instance.Fields["cookies"].(map[string]interface{}); ok {
 				cookies[key] = val
@@ -155,7 +160,7 @@ func (r *Runtime) executeWebResponseMethod(instance *Instance, method string, ar
 	case "withHeader":
 		// ->withHeader(key, value)
 		if len(args) >= 2 {
-			key := args[0].(string)
+			key := fmt.Sprintf("%v", args[0])
 			val := args[1]
 			if headers, ok := instance.Fields["headers"].(map[string]interface{}); ok {
 				headers[key] = val

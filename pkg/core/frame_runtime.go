@@ -166,6 +166,22 @@ func (r *Runtime) assignSlot(slot *runtimeframe.Slot, value interface{}, initial
 		slot.SetInt(n64)
 		return n64
 	}
+	if f, ok := value.(float64); ok && (slot.Value.Kind == runtimeframe.Float || slot.Type.Kind == typesystem.Float || (slot.Inferred && !slot.Initialized)) {
+		if !slot.Initialized {
+			slot.Type = typesystem.Type{Kind: typesystem.Float}
+			slot.TypeName = "float"
+		}
+		slot.SetFloat(f)
+		return f
+	}
+	if s, ok := value.(string); ok && (slot.Value.Kind == runtimeframe.String || slot.Type.Kind == typesystem.String || (slot.Inferred && !slot.Initialized)) {
+		if !slot.Initialized {
+			slot.Type = typesystem.Type{Kind: typesystem.String}
+			slot.TypeName = "string"
+		}
+		slot.SetString(s)
+		return s
+	}
 	if slot.TypeName != "" && slot.Type.Kind != typesystem.Mixed && slot.Type.Kind != typesystem.Unknown {
 		value = r.coerceToParsedType(value, slot.Type)
 		if !r.checkParsedType(value, slot.Type) {

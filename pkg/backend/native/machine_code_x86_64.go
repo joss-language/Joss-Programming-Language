@@ -15,17 +15,24 @@ import (
 
 // Fixed offsets in .data section (all 8-byte aligned)
 const (
-	dataOffStdout       uint32 = 0x0000
-	dataOffStderr       uint32 = 0x0008
-	dataOffHeap         uint32 = 0x0010
-	dataOffTryDepth     uint32 = 0x0018
-	dataOffExceptionVal uint32 = 0x0020
-	dataOffTryRSP       uint32 = 0x0028 // 64 * 8 = 512 bytes (0x0028 .. 0x0228)
-	dataOffTryRBP       uint32 = 0x0228 // 64 * 8 = 512 bytes (0x0228 .. 0x0428)
-	dataOffTryRIP       uint32 = 0x0428 // 64 * 8 = 512 bytes (0x0428 .. 0x0628)
-	dataOffArenaCur     uint32 = 0x0630
-	dataOffArenaEnd     uint32 = 0x0638
-	dataFixedSize       uint32 = 0x1000 // 4096 bytes reserved for runtime + globals
+	dataOffStdout           uint32 = 0x0000
+	dataOffStderr           uint32 = 0x0008
+	dataOffHeap             uint32 = 0x0010
+	dataOffTryDepth         uint32 = 0x0018
+	dataOffExceptionVal     uint32 = 0x0020
+	dataOffTryRSP           uint32 = 0x0028 // 64 * 8 = 512 bytes (0x0028 .. 0x0228)
+	dataOffTryRBP           uint32 = 0x0228 // 64 * 8 = 512 bytes (0x0228 .. 0x0428)
+	dataOffTryRIP           uint32 = 0x0428 // 64 * 8 = 512 bytes (0x0428 .. 0x0628)
+	dataOffArenaCur         uint32 = 0x0630
+	dataOffArenaEnd         uint32 = 0x0638
+	dataOffKernel32         uint32 = 0x0640
+	dataOffCreateFileA      uint32 = 0x0648
+	dataOffGetFileSize      uint32 = 0x0650
+	dataOffReadFile         uint32 = 0x0658
+	dataOffCloseHandle      uint32 = 0x0660
+	dataOffCreateThread     uint32 = 0x0668
+	dataOffWaitSingleObject uint32 = 0x0670
+	dataFixedSize           uint32 = 0x1000 // 4096 bytes reserved for runtime + globals
 )
 
 type relocKind int
@@ -323,10 +330,20 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 			for _, inst := range blk.Instructions {
 				switch i := inst.(type) {
 				case *ir.CallHostServiceInst:
-					if isSupportedHostService(i.ClassName, i.MethodName) {
-						b.needsHostBridge = true
+					if b.isJITMode {
+						if isSupportedHostService(i.ClassName, i.MethodName) {
+							b.needsHostBridge = true
+						} else {
+							report("host service " + i.ClassName + "::" + i.MethodName)
+						}
 					} else {
-						report("host service " + i.ClassName + "::" + i.MethodName)
+						if i.ClassName == "GranDB" || i.ClassName == "UserStorage" || i.ClassName == "OCIStorage" {
+							// Fully supported standalone without host bridge DLL
+						} else if isSupportedHostService(i.ClassName, i.MethodName) {
+							b.needsHostBridge = true
+						} else {
+							report("host service " + i.ClassName + "::" + i.MethodName)
+						}
 					}
 				case *ir.CallPrimitiveMethodInst:
 					if isNativePrimitiveMethod(i.TypeKind, i.MethodName) {
@@ -380,7 +397,8 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 func isNativeBuiltin(id string) bool {
 	switch id {
 	case "strlen", "len", "count", "array_push", "append", "to_string",
-		"abs", "min", "max", "intval", "floatval", "boolval", "array_pop", "microtime", "array_fill":
+		"abs", "min", "max", "intval", "floatval", "boolval", "array_pop", "microtime", "array_fill",
+		"file_get_contents", "explode", "async", "await":
 		return true
 	}
 	return false
@@ -451,6 +469,8 @@ func (b *MachineCodeBuilder) defineLabel(name string) {
 }
 
 func (b *MachineCodeBuilder) emitBytes(code ...byte) {
+	b.cachedRAXVal = nil
+	b.cachedRCXVal = nil
 	b.text.Write(code)
 }
 
@@ -721,24 +741,51 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// 1. _start (Executable Entrypoint at offset 0 of .text)
 	// =========================================================================
 	b.defineLabel("_start")
-	b.emitBytes(0x55)                   // push rbp
-	b.emitBytes(0x48, 0x89, 0xE5)       // mov rbp, rsp
-	b.emitBytes(0x48, 0x83, 0xE4, 0xF0) // and rsp, -16
-	b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
-	b.emitCallLabel("__joss_os_init")
-	if hasUserMain {
-		b.emitCallLabel("fn_main")
-		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
-	} else {
-		b.emitBytes(0x31, 0xC9) // xor ecx, ecx
-	}
-	b.emitCallLabel("__joss_os_exit")
 	if b.isJITMode {
-		b.emitBytes(0x48, 0x89, 0xC8) // mov rax, rcx (return exit code in rax)
-		b.emitBytes(0x48, 0x89, 0xEC) // mov rsp, rbp
-		b.emitBytes(0x5D)             // pop rbp
-		b.emitBytes(0xC3)             // ret
+		// Save callee-saved registers to protect Go's runtime stack and registers
+		b.emitBytes(0x55)                   // push rbp
+		b.emitBytes(0x48, 0x89, 0xE5)       // mov rbp, rsp
+		b.emitBytes(0x53)                   // push rbx
+		b.emitBytes(0x56)                   // push rsi
+		b.emitBytes(0x57)                   // push rdi
+		b.emitBytes(0x41, 0x54)             // push r12
+		b.emitBytes(0x41, 0x55)             // push r13
+		b.emitBytes(0x41, 0x56)             // push r14
+		b.emitBytes(0x41, 0x57)             // push r15
+		b.emitBytes(0x48, 0x83, 0xE4, 0xF0) // and rsp, -16
+		b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
+		b.emitCallLabel("__joss_os_init")
+		if hasUserMain {
+			b.emitCallLabel("fn_main")
+			b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
+		} else {
+			b.emitBytes(0x31, 0xC9) // xor ecx, ecx
+		}
+		b.emitCallLabel("__joss_os_exit")
+		b.emitBytes(0x48, 0x89, 0xC8)       // mov rax, rcx (exit code in rax)
+		b.emitBytes(0x48, 0x8D, 0x65, 0xC8) // lea rsp, [rbp - 56] (point to saved r15)
+		b.emitBytes(0x41, 0x5F)             // pop r15
+		b.emitBytes(0x41, 0x5E)             // pop r14
+		b.emitBytes(0x41, 0x5D)             // pop r13
+		b.emitBytes(0x41, 0x5C)             // pop r12
+		b.emitBytes(0x5F)                   // pop rdi
+		b.emitBytes(0x5E)                   // pop rsi
+		b.emitBytes(0x5B)                   // pop rbx
+		b.emitBytes(0x5D)                   // pop rbp
+		b.emitBytes(0xC3)                   // ret
 	} else {
+		b.emitBytes(0x55)                   // push rbp
+		b.emitBytes(0x48, 0x89, 0xE5)       // mov rbp, rsp
+		b.emitBytes(0x48, 0x83, 0xE4, 0xF0) // and rsp, -16
+		b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
+		b.emitCallLabel("__joss_os_init")
+		if hasUserMain {
+			b.emitCallLabel("fn_main")
+			b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
+		} else {
+			b.emitBytes(0x31, 0xC9) // xor ecx, ecx
+		}
+		b.emitCallLabel("__joss_os_exit")
 		b.emitBytes(0x0F, 0x0B) // ud2
 	}
 
@@ -761,6 +808,41 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		// GetProcessHeap() -> heap
 		b.emitCallIAT(IATGetProcessHeap)
 		b.emitMovDataRAX(dataOffHeap)
+		// LoadLibraryA("KERNEL32.dll") -> hKernel32
+		b.emitLeaRCXString("KERNEL32.dll")
+		b.emitCallIAT(IATLoadLibraryA)
+		b.emitMovDataRAX(dataOffKernel32)
+		// Resolve CreateFileA, GetFileSize, ReadFile, CloseHandle, CreateThread, WaitForSingleObject
+		b.emitMovRCXData(dataOffKernel32)
+		b.emitLeaRDXString("CreateFileA")
+		b.emitCallIAT(IATGetProcAddress)
+		b.emitMovDataRAX(dataOffCreateFileA)
+
+		b.emitMovRCXData(dataOffKernel32)
+		b.emitLeaRDXString("GetFileSize")
+		b.emitCallIAT(IATGetProcAddress)
+		b.emitMovDataRAX(dataOffGetFileSize)
+
+		b.emitMovRCXData(dataOffKernel32)
+		b.emitLeaRDXString("ReadFile")
+		b.emitCallIAT(IATGetProcAddress)
+		b.emitMovDataRAX(dataOffReadFile)
+
+		b.emitMovRCXData(dataOffKernel32)
+		b.emitLeaRDXString("CloseHandle")
+		b.emitCallIAT(IATGetProcAddress)
+		b.emitMovDataRAX(dataOffCloseHandle)
+
+		b.emitMovRCXData(dataOffKernel32)
+		b.emitLeaRDXString("CreateThread")
+		b.emitCallIAT(IATGetProcAddress)
+		b.emitMovDataRAX(dataOffCreateThread)
+
+		b.emitMovRCXData(dataOffKernel32)
+		b.emitLeaRDXString("WaitForSingleObject")
+		b.emitCallIAT(IATGetProcAddress)
+		b.emitMovDataRAX(dataOffWaitSingleObject)
+
 		b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
 	} else {
 		b.emitBytes(0xC3) // ret
@@ -796,27 +878,76 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	// __joss_os_alloc(rcx = size) -> rax = zeroed memory pointer
 	b.defineLabel("__joss_os_alloc")
+	b.emitBytes(0x48, 0x83, 0xF9, 0x10) // cmp rcx, 16
+	b.emitJgeLabel(".os_alloc_align")
+	b.emitBytes(0x48, 0xC7, 0xC1, 0x10, 0x00, 0x00, 0x00) // mov rcx, 16
+	b.defineLabel(".os_alloc_align")
+	b.emitBytes(0x48, 0x83, 0xC1, 0x07) // add rcx, 7
+	b.emitBytes(0x48, 0x83, 0xE1, 0xF8) // and rcx, -8
+	// Fast bump-pointer arena path for allocations <= 65536 bytes
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 65536
+	b.emitJgLabel(".os_alloc_direct")
+	b.emitMovRAXData(dataOffArenaCur)
+	b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+	b.emitJeLabel(".os_alloc_refill")
+	b.emitBytes(0x48, 0x8D, 0x14, 0x08) // lea rdx, [rax + rcx]
+	b.emitBytes(0x4C, 0x8B, 0x05)       // mov r8, [rip + dataOffArenaEnd]
+	patchArenaEnd := b.text.Len()
+	b.emitU32(0)
+	b.relocs = append(b.relocs, machineReloc{kind: relocData, patchOffset: patchArenaEnd, targetOff: dataOffArenaEnd})
+	b.emitBytes(0x4C, 0x39, 0xC2) // cmp rdx, r8
+	b.emitJaLabel(".os_alloc_refill")
+	b.emitMovDataRDX(dataOffArenaCur)
+	b.emitBytes(0xC3) // ret (6-instruction fast path!)
+
+	b.defineLabel(".os_alloc_refill")
 	if b.target.OS == "windows" {
 		b.emitBytes(0x55)                   // push rbp
 		b.emitBytes(0x48, 0x89, 0xE5)       // mov rbp, rsp
-		b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
-		b.emitBytes(0x49, 0x89, 0xC8)       // mov r8, rcx (dwBytes)
-		b.emitBytes(0x49, 0x83, 0xF8, 0x10) // cmp r8, 16
-		b.emitJgeLabel(".os_alloc_ok")
-		b.emitBytes(0x49, 0xC7, 0xC0, 0x10, 0x00, 0x00, 0x00) // mov r8, 16
-		b.defineLabel(".os_alloc_ok")
+		b.emitBytes(0x53)                   // push rbx
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+		b.emitBytes(0x48, 0x89, 0xCB)       // mov rbx, rcx (save requested size)
+		// Allocate 4 MiB chunk (0x400000) from Process Heap
+		b.emitBytes(0x49, 0xC7, 0xC0, 0x00, 0x00, 0x40, 0x00) // mov r8, 0x400000
+		b.emitBytes(0xBA, 0x08, 0x00, 0x00, 0x00)             // mov edx, 8 (HEAP_ZERO_MEMORY)
+		b.emitMovRCXData(dataOffHeap)
+		b.emitCallIAT(IATHeapAlloc)
+		b.emitBytes(0x48, 0x8D, 0x14, 0x18)                   // lea rdx, [rax + rbx] (new arenaCur)
+		b.emitMovDataRDX(dataOffArenaCur)                     // arenaCur = chunk + size
+		b.emitBytes(0x48, 0x8D, 0x90, 0x00, 0x00, 0x40, 0x00) // lea rdx, [rax + 0x400000] (arenaEnd)
+		b.emitMovDataRDX(dataOffArenaEnd)
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28, 0x5B, 0x5D, 0xC3) // add rsp, 40; pop rbx; pop rbp; ret
+
+		b.defineLabel(".os_alloc_direct")
+		b.emitBytes(0x55)                         // push rbp
+		b.emitBytes(0x48, 0x89, 0xE5)             // mov rbp, rsp
+		b.emitBytes(0x48, 0x83, 0xEC, 0x20)       // sub rsp, 32
+		b.emitBytes(0x49, 0x89, 0xC8)             // mov r8, rcx (dwBytes)
 		b.emitBytes(0xBA, 0x08, 0x00, 0x00, 0x00) // mov edx, 8 (HEAP_ZERO_MEMORY)
 		b.emitMovRCXData(dataOffHeap)
 		b.emitCallIAT(IATHeapAlloc)
 		b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
 	} else {
-		// Linux x86_64: sys_mmap(NULL, size, PROT_READ|PROT_WRITE=3, MAP_PRIVATE|MAP_ANONYMOUS=0x22, -1, 0)
-		b.emitBytes(0x56, 0x57)             // push rsi; push rdi
-		b.emitBytes(0x48, 0x89, 0xCE)       // mov rsi, rcx (len)
-		b.emitBytes(0x48, 0x83, 0xFE, 0x10) // cmp rsi, 16
-		b.emitJgeLabel(".linux_alloc_ok")
-		b.emitBytes(0x48, 0xC7, 0xC6, 0x10, 0x00, 0x00, 0x00) // mov rsi, 16
-		b.defineLabel(".linux_alloc_ok")
+		// Linux x86_64: refill 4 MiB chunk via sys_mmap
+		b.emitBytes(0x53, 0x56, 0x57)                         // push rbx; push rsi; push rdi
+		b.emitBytes(0x48, 0x89, 0xCB)                         // mov rbx, rcx (save size)
+		b.emitBytes(0x31, 0xFF)                               // xor edi, edi (addr = NULL)
+		b.emitBytes(0x48, 0xC7, 0xC6, 0x00, 0x00, 0x40, 0x00) // mov rsi, 0x400000 (4 MiB)
+		b.emitBytes(0xBA, 0x03, 0x00, 0x00, 0x00)             // mov edx, 3 (PROT_READ|PROT_WRITE)
+		b.emitBytes(0x41, 0xBA, 0x22, 0x00, 0x00, 0x00)       // mov r10d, 0x22 (MAP_PRIVATE|MAP_ANONYMOUS)
+		b.emitBytes(0x49, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0xFF) // mov r8, -1 (fd)
+		b.emitBytes(0x45, 0x31, 0xC9)                         // xor r9d, r9d (offset = 0)
+		b.emitBytes(0xB8, 0x09, 0x00, 0x00, 0x00)             // mov eax, 9 (sys_mmap)
+		b.emitBytes(0x0F, 0x05)                               // syscall
+		b.emitBytes(0x48, 0x8D, 0x14, 0x18)                   // lea rdx, [rax + rbx]
+		b.emitMovDataRDX(dataOffArenaCur)
+		b.emitBytes(0x48, 0x8D, 0x90, 0x00, 0x00, 0x40, 0x00) // lea rdx, [rax + 0x400000]
+		b.emitMovDataRDX(dataOffArenaEnd)
+		b.emitBytes(0x5F, 0x5E, 0x5B, 0xC3) // pop rdi; pop rsi; pop rbx; ret
+
+		b.defineLabel(".os_alloc_direct")
+		b.emitBytes(0x56, 0x57)                               // push rsi; push rdi
+		b.emitBytes(0x48, 0x89, 0xCE)                         // mov rsi, rcx (len)
 		b.emitBytes(0x31, 0xFF)                               // xor edi, edi (addr = NULL)
 		b.emitBytes(0xBA, 0x03, 0x00, 0x00, 0x00)             // mov edx, 3 (PROT_READ|PROT_WRITE)
 		b.emitBytes(0x41, 0xBA, 0x22, 0x00, 0x00, 0x00)       // mov r10d, 0x22 (MAP_PRIVATE|MAP_ANONYMOUS)
@@ -930,6 +1061,74 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x48, 0x83, 0xC4, 0x20)                         // add rsp, 32
 	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C) // pop r15..r12
 	b.emitBytes(0x5D, 0xC3)                                     // pop rbp; ret
+
+	// joss_str_concat_i64(rcx = strA, rdx = intB) -> rax = newStr
+	b.defineLabel("joss_str_concat_i64")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+	b.emitBytes(0x53, 0x56, 0x57)       // push rbx; push rsi; push rdi
+	b.emitBytes(0x41, 0x54, 0x41, 0x55) // push r12; push r13
+	b.emitBytes(0x48, 0x83, 0xEC, 0x48) // sub rsp, 72
+	b.emitBytes(0x49, 0x89, 0xCC)       // mov r12, rcx (strA)
+	b.emitBytes(0x49, 0x89, 0xD5)       // mov r13, rdx (intB)
+	b.emitCallLabel("__joss_rt_strlen") // rax = lenA
+	b.emitBytes(0x48, 0x89, 0xC3)       // mov rbx, rax (lenA)
+	b.emitBytes(0x48, 0x8D, 0x48, 0x20) // lea rcx, [rax + 32]
+	b.emitCallLabel("__joss_os_alloc")  // rax = dst
+	b.emitBytes(0x48, 0x89, 0xC6)       // mov rsi, rax (origDst)
+	b.emitBytes(0x48, 0x89, 0xC7)       // mov rdi, rax (cursor)
+	// Copy lenA bytes from r12 to rdi
+	b.emitBytes(0x4C, 0x89, 0xE2) // mov rdx, r12
+	b.emitBytes(0x48, 0x89, 0xD9) // mov rcx, rbx
+	b.defineLabel(".strcat_i64_cp_a")
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".strcat_i64_cp_a_done")
+	b.emitBytes(0x8A, 0x02)       // mov al, [rdx]
+	b.emitBytes(0x88, 0x07)       // mov [rdi], al
+	b.emitBytes(0x48, 0xFF, 0xC2) // inc rdx
+	b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
+	b.emitBytes(0x48, 0xFF, 0xC9) // dec rcx
+	b.emitJmpLabel(".strcat_i64_cp_a")
+	b.defineLabel(".strcat_i64_cp_a_done")
+	// Format r13 (intB) into rdi
+	b.emitBytes(0x4D, 0x85, 0xED) // test r13, r13
+	b.emitJneLabel(".strcat_i64_nonzero")
+	b.emitBytes(0xC6, 0x07, 0x30)       // mov byte ptr [rdi], '0'
+	b.emitBytes(0xC6, 0x47, 0x01, 0x00) // mov byte ptr [rdi+1], 0
+	b.emitJmpLabel(".strcat_i64_done")
+	b.defineLabel(".strcat_i64_nonzero")
+	b.emitBytes(0x4D, 0x85, 0xED) // test r13, r13
+	b.emitJnsLabel(".strcat_i64_pos")
+	b.emitBytes(0xC6, 0x07, 0x2D) // mov byte ptr [rdi], '-'
+	b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
+	b.emitBytes(0x49, 0xF7, 0xDD) // neg r13
+	b.defineLabel(".strcat_i64_pos")
+	b.emitBytes(0x4C, 0x8D, 0x4D, 0xD0) // lea r9, [rbp - 48]
+	b.emitBytes(0x4C, 0x89, 0xE8)       // mov rax, r13
+	b.defineLabel(".strcat_i64_digits")
+	b.emitBytes(0x31, 0xD2)                               // xor edx, edx
+	b.emitBytes(0x49, 0xC7, 0xC3, 0x0A, 0x00, 0x00, 0x00) // mov r11, 10
+	b.emitBytes(0x49, 0xF7, 0xF3)                         // div r11
+	b.emitBytes(0x80, 0xC2, 0x30)                         // add dl, '0'
+	b.emitBytes(0x49, 0xFF, 0xC9)                         // dec r9
+	b.emitBytes(0x41, 0x88, 0x11)                         // mov [r9], dl
+	b.emitBytes(0x48, 0x85, 0xC0)                         // test rax, rax
+	b.emitJneLabel(".strcat_i64_digits")
+	b.emitBytes(0x4C, 0x8D, 0x45, 0xD0) // lea r8, [rbp - 48]
+	b.defineLabel(".strcat_i64_copy_digits")
+	b.emitBytes(0x4D, 0x39, 0xC1) // cmp r9, r8
+	b.emitJgeLabel(".strcat_i64_term")
+	b.emitBytes(0x41, 0x8A, 0x11) // mov dl, [r9]
+	b.emitBytes(0x88, 0x17)       // mov [rdi], dl
+	b.emitBytes(0x49, 0xFF, 0xC1) // inc r9
+	b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
+	b.emitJmpLabel(".strcat_i64_copy_digits")
+	b.defineLabel(".strcat_i64_term")
+	b.emitBytes(0xC6, 0x07, 0x00) // mov byte ptr [rdi], 0
+	b.defineLabel(".strcat_i64_done")
+	b.emitBytes(0x48, 0x89, 0xF0)                         // mov rax, rsi (origDst)
+	b.emitBytes(0x48, 0x83, 0xC4, 0x48)                   // add rsp, 72
+	b.emitBytes(0x41, 0x5D, 0x41, 0x5C, 0x5F, 0x5E, 0x5B) // pop r13, r12, rdi, rsi, rbx
+	b.emitBytes(0x5D, 0xC3)
 
 	// joss_is_truthy(rcx = val) -> rax = 1 (truthy) or 0 (falsy)
 	b.defineLabel("joss_is_truthy")
@@ -1058,9 +1257,14 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// =========================================================================
 	// 5. Objects & Maps Runtime (joss_obj_*, joss_map_*)
 	// =========================================================================
-	// joss_obj_new(rcx = className) / joss_map_new() -> rax = ptr (16 bytes: [0]=className, [8]=headNode)
+	// joss_map_new() -> rax = ptr (262160 bytes: [0]=0, [8]=count, [16..262159]=32768 FNV-1a bucket heads)
 	b.defineLabel("joss_map_new")
-	b.emitBytes(0x31, 0xC9) // xor ecx, ecx
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x48, 0x83, 0xEC, 0x20)
+	b.emitBytes(0xB9, 0x10, 0x00, 0x04, 0x00) // mov ecx, 262160 (16 + 32768*8)
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3)
+
+	// joss_obj_new(rcx = className) -> rax = ptr (16 bytes: [0]=className, [8]=headNode)
 	b.defineLabel("joss_obj_new")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x53, 0x48, 0x83, 0xEC, 0x28)
 	b.emitBytes(0x48, 0x89, 0xCB)             // mov rbx, rcx
@@ -1069,11 +1273,145 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x48, 0x89, 0x18)                         // mov [rax], rbx
 	b.emitBytes(0x48, 0x83, 0xC4, 0x28, 0x5B, 0x5D, 0xC3) // add rsp, 40; pop rbx; pop rbp; ret
 
-	// __joss_rt_kv_set(rcx = objOrMap, rdx = keyStr, r8 = val64)
-	b.defineLabel("joss_obj_set_field_i64")
-	b.defineLabel("joss_obj_set_field_str")
+	// joss_map_set_i64 / joss_map_set_str (rcx = mapPtr, rdx = keyStr, r8 = val64)
 	b.defineLabel("joss_map_set_i64")
 	b.defineLabel("joss_map_set_str")
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".map_set_ret_null")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
+	b.emitBytes(0x53, 0x56)                                     // push rbx; push rsi
+	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
+	b.emitBytes(0x48, 0x83, 0xEC, 0x20)                         // sub rsp, 32
+	b.emitBytes(0x49, 0x89, 0xCC)                               // mov r12, rcx (mapPtr)
+	b.emitBytes(0x49, 0x89, 0xD5)                               // mov r13, rdx (keyStr)
+	b.emitBytes(0x4D, 0x89, 0xC6)                               // mov r14, r8  (val64)
+	// Compute FNV-1a 64-bit hash of keyStr
+	b.emitBytes(0x48, 0xB8) // movabs rax, 0xCBF29CE484222325
+	b.emitU64(0xCBF29CE484222325)
+	b.emitBytes(0x49, 0xBA) // movabs r10, 0x100000001B3
+	b.emitU64(0x00000100000001B3)
+	b.emitBytes(0x4C, 0x89, 0xEA)                         // mov rdx, r13
+	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00) // cmp rdx, 0x10000
+	b.emitJlLabel(".map_set_hash_done")
+	b.defineLabel(".map_set_hash_loop")
+	b.emitBytes(0x0F, 0xB6, 0x0A) // movzx ecx, byte ptr [rdx]
+	b.emitBytes(0x85, 0xC9)       // test ecx, ecx
+	b.emitJeLabel(".map_set_hash_done")
+	b.emitBytes(0x48, 0x31, 0xC8)       // xor rax, rcx
+	b.emitBytes(0x49, 0x0F, 0xAF, 0xC2) // imul rax, r10
+	b.emitBytes(0x48, 0xFF, 0xC2)       // inc rdx
+	b.emitJmpLabel(".map_set_hash_loop")
+	b.defineLabel(".map_set_hash_done")
+	b.emitBytes(0x48, 0x89, 0xC3)                         // mov rbx, rax (hash64)
+	b.emitBytes(0x48, 0x89, 0xC6)                         // mov rsi, rax
+	b.emitBytes(0x48, 0x81, 0xE6, 0xFF, 0x7F, 0x00, 0x00) // and rsi, 32767 (bucketIdx)
+	b.emitBytes(0x4D, 0x8B, 0x7C, 0xF4, 0x10)             // mov r15, [r12 + rsi*8 + 16] (bucket head)
+	b.defineLabel(".map_set_chain_loop")
+	b.emitBytes(0x4D, 0x85, 0xFF) // test r15, r15
+	b.emitJeLabel(".map_set_alloc")
+	b.emitBytes(0x49, 0x39, 0x5F, 0x18) // cmp [r15 + 24], rbx (node.hash vs hash64)
+	b.emitJneLabel(".map_set_next")
+	b.emitBytes(0x49, 0x8B, 0x0F) // mov rcx, [r15 + 0] (node.key)
+	b.emitBytes(0x4C, 0x89, 0xEA) // mov rdx, r13 (keyStr)
+	b.emitBytes(0x48, 0x39, 0xD1) // cmp rcx, rdx (pointer equality)
+	b.emitJeLabel(".map_set_found")
+	b.emitCallLabel("__joss_rt_strcmp")
+	b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+	b.emitJeLabel(".map_set_found")
+	b.defineLabel(".map_set_next")
+	b.emitBytes(0x4D, 0x8B, 0x7F, 0x10) // mov r15, [r15 + 16] (node.next)
+	b.emitJmpLabel(".map_set_chain_loop")
+	b.defineLabel(".map_set_found")
+	b.emitBytes(0x4D, 0x89, 0x77, 0x08) // mov [r15 + 8], r14 (node.val = val)
+	b.emitJmpLabel(".map_set_done")
+	b.defineLabel(".map_set_alloc")
+	b.emitBytes(0xB9, 0x20, 0x00, 0x00, 0x00) // mov ecx, 32 (node size: [0]=key, [8]=val, [16]=next, [24]=hash)
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x4C, 0x89, 0x28)             // mov [rax + 0], r13 (key)
+	b.emitBytes(0x4C, 0x89, 0x70, 0x08)       // mov [rax + 8], r14 (val)
+	b.emitBytes(0x49, 0x8B, 0x4C, 0xF4, 0x10) // mov rcx, [r12 + rsi*8 + 16] (old bucket head)
+	b.emitBytes(0x48, 0x89, 0x48, 0x10)       // mov [rax + 16], rcx (next)
+	b.emitBytes(0x48, 0x89, 0x58, 0x18)       // mov [rax + 24], rbx (hash)
+	b.emitBytes(0x49, 0x89, 0x44, 0xF4, 0x10) // mov [r12 + rsi*8 + 16], rax (new bucket head)
+	b.emitBytes(0x49, 0xFF, 0x44, 0x24, 0x08) // inc qword ptr [r12 + 8] (count++)
+	b.defineLabel(".map_set_done")
+	b.emitBytes(0x48, 0x83, 0xC4, 0x20)                                     // add rsp, 32
+	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5E, 0x5B) // pop r15..r12, rsi, rbx
+	b.emitBytes(0x5D)                                                       // pop rbp
+	b.defineLabel(".map_set_ret_null")
+	b.emitBytes(0xC3)
+
+	// joss_map_get_i64 (rcx = mapPtr, rdx = keyStr) -> rax = val64 (0 if missing)
+	b.defineLabel("joss_map_get_i64")
+	b.emitBytes(0x31, 0xC0)       // xor eax, eax
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".map_get_ret_null")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
+	b.emitBytes(0x53)                                           // push rbx
+	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
+	b.emitBytes(0x48, 0x83, 0xEC, 0x28)                         // sub rsp, 40
+	b.emitBytes(0x49, 0x89, 0xCC)                               // mov r12, rcx (mapPtr)
+	b.emitBytes(0x49, 0x89, 0xD5)                               // mov r13, rdx (keyStr)
+	// Compute FNV-1a 64-bit hash of keyStr
+	b.emitBytes(0x48, 0xB8) // movabs rax, 0xCBF29CE484222325
+	b.emitU64(0xCBF29CE484222325)
+	b.emitBytes(0x49, 0xBA) // movabs r10, 0x100000001B3
+	b.emitU64(0x00000100000001B3)
+	b.emitBytes(0x4C, 0x89, 0xEA)                         // mov rdx, r13
+	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00) // cmp rdx, 0x10000
+	b.emitJlLabel(".map_get_hash_done")
+	b.defineLabel(".map_get_hash_loop")
+	b.emitBytes(0x0F, 0xB6, 0x0A) // movzx ecx, byte ptr [rdx]
+	b.emitBytes(0x85, 0xC9)       // test ecx, ecx
+	b.emitJeLabel(".map_get_hash_done")
+	b.emitBytes(0x48, 0x31, 0xC8)       // xor rax, rcx
+	b.emitBytes(0x49, 0x0F, 0xAF, 0xC2) // imul rax, r10
+	b.emitBytes(0x48, 0xFF, 0xC2)       // inc rdx
+	b.emitJmpLabel(".map_get_hash_loop")
+	b.defineLabel(".map_get_hash_done")
+	b.emitBytes(0x48, 0x89, 0xC3)                   // mov rbx, rax (hash64)
+	b.emitBytes(0x48, 0x25, 0xFF, 0x7F, 0x00, 0x00) // and rax, 32767 (bucketIdx)
+	b.emitBytes(0x4D, 0x8B, 0x7C, 0xC4, 0x10)       // mov r15, [r12 + rax*8 + 16] (bucket head)
+	b.defineLabel(".map_get_chain_loop")
+	b.emitBytes(0x4D, 0x85, 0xFF) // test r15, r15
+	b.emitJeLabel(".map_get_notfound")
+	b.emitBytes(0x49, 0x39, 0x5F, 0x18) // cmp [r15 + 24], rbx (node.hash vs hash64)
+	b.emitJneLabel(".map_get_next")
+	b.emitBytes(0x49, 0x8B, 0x0F) // mov rcx, [r15 + 0] (node.key)
+	b.emitBytes(0x4C, 0x89, 0xEA) // mov rdx, r13 (keyStr)
+	b.emitBytes(0x48, 0x39, 0xD1) // cmp rcx, rdx (pointer equality)
+	b.emitJeLabel(".map_get_found")
+	b.emitCallLabel("__joss_rt_strcmp")
+	b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+	b.emitJeLabel(".map_get_found")
+	b.defineLabel(".map_get_next")
+	b.emitBytes(0x4D, 0x8B, 0x7F, 0x10) // mov r15, [r15 + 16] (node.next)
+	b.emitJmpLabel(".map_get_chain_loop")
+	b.defineLabel(".map_get_found")
+	b.emitBytes(0x49, 0x8B, 0x47, 0x08) // mov rax, [r15 + 8] (node.val)
+	b.emitJmpLabel(".map_get_exit")
+	b.defineLabel(".map_get_notfound")
+	b.emitBytes(0x31, 0xC0) // xor eax, eax
+	b.defineLabel(".map_get_exit")
+	b.emitBytes(0x48, 0x83, 0xC4, 0x28)                               // add rsp, 40
+	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B) // pop r15..r12, rbx
+	b.emitBytes(0x5D)                                                 // pop rbp
+	b.defineLabel(".map_get_ret_null")
+	b.emitBytes(0xC3)
+
+	// joss_map_get_str -> returns "" if missing/null
+	b.defineLabel("joss_map_get_str")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x48, 0x83, 0xEC, 0x20)
+	b.emitCallLabel("joss_map_get_i64")
+	b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+	b.emitJneLabel(".map_get_str_ok")
+	b.emitLeaRAXString("")
+	b.defineLabel(".map_get_str_ok")
+	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3)
+
+	// __joss_rt_kv_set(rcx = obj, rdx = keyStr, r8 = val64)
+	b.defineLabel("joss_obj_set_field_i64")
+	b.defineLabel("joss_obj_set_field_str")
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".kv_set_leaf_ret")
 	// Fast leaf path: check if head node exists and matches key pointer directly
@@ -1121,9 +1459,8 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C) // pop r15..r12
 	b.emitBytes(0x5D, 0xC3)
 
-	// __joss_rt_kv_get_i64(rcx = objOrMap, rdx = keyStr) -> rax = val64 (0 if missing)
+	// __joss_rt_kv_get_i64(rcx = obj, rdx = keyStr) -> rax = val64 (0 if missing)
 	b.defineLabel("joss_obj_get_field_i64")
-	b.defineLabel("joss_map_get_i64")
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".kv_get_leaf_ret")
@@ -1164,9 +1501,8 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C)
 	b.emitBytes(0x5D, 0xC3)
 
-	// joss_obj_get_field_str / joss_map_get_str -> returns "" if missing/null
+	// joss_obj_get_field_str -> returns "" if missing/null
 	b.defineLabel("joss_obj_get_field_str")
-	b.defineLabel("joss_map_get_str")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x48, 0x83, 0xEC, 0x20)
 	b.emitCallLabel("joss_obj_get_field_i64")
 	b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
@@ -1402,9 +1738,46 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x48, 0x0F, 0x4C, 0xC2) // cmovl rax, rdx
 	b.emitBytes(0xC3)
 
-	// fn_intval(rcx = val) -> rax = val
+	// fn_intval(rcx = val) -> rax = integer value (parses ASCII if rcx is a string pointer >= 0x10000)
 	b.defineLabel("fn_intval")
-	b.emitBytes(0x48, 0x89, 0xC8) // mov rax, rcx
+	b.emitBytes(0x48, 0x89, 0xC8)                         // mov rax, rcx
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".intval_done")
+	b.emitBytes(0x31, 0xC0)                         // xor eax, eax (acc = 0)
+	b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00) // mov r8d, 1 (sign = 1)
+	b.defineLabel(".intval_skip_ws")
+	b.emitBytes(0x0F, 0xB6, 0x11) // movzx edx, byte ptr [rcx]
+	b.emitBytes(0x80, 0xFA, 0x20) // cmp dl, ' '
+	b.emitJeLabel(".intval_ws_next")
+	b.emitBytes(0x80, 0xFA, 0x09) // cmp dl, '\t'
+	b.emitJeLabel(".intval_ws_next")
+	b.emitBytes(0x80, 0xFA, 0x0D) // cmp dl, '\r'
+	b.emitJneLabel(".intval_check_sign")
+	b.defineLabel(".intval_ws_next")
+	b.emitBytes(0x48, 0xFF, 0xC1) // inc rcx
+	b.emitJmpLabel(".intval_skip_ws")
+	b.defineLabel(".intval_check_sign")
+	b.emitBytes(0x80, 0xFA, 0x2D) // cmp dl, '-'
+	b.emitJneLabel(".intval_check_plus")
+	b.emitBytes(0x49, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0xFF) // mov r8, -1
+	b.emitBytes(0x48, 0xFF, 0xC1)                         // inc rcx
+	b.emitJmpLabel(".intval_loop")
+	b.defineLabel(".intval_check_plus")
+	b.emitBytes(0x80, 0xFA, 0x2B) // cmp dl, '+'
+	b.emitJneLabel(".intval_loop")
+	b.emitBytes(0x48, 0xFF, 0xC1) // inc rcx
+	b.defineLabel(".intval_loop")
+	b.emitBytes(0x0F, 0xB6, 0x11) // movzx edx, byte ptr [rcx]
+	b.emitBytes(0x80, 0xEA, 0x30) // sub dl, '0'
+	b.emitBytes(0x80, 0xFA, 0x09) // cmp dl, 9
+	b.emitJaLabel(".intval_apply_sign")
+	b.emitBytes(0x48, 0x6B, 0xC0, 0x0A) // imul rax, rax, 10
+	b.emitBytes(0x48, 0x01, 0xD0)       // add rax, rdx
+	b.emitBytes(0x48, 0xFF, 0xC1)       // inc rcx
+	b.emitJmpLabel(".intval_loop")
+	b.defineLabel(".intval_apply_sign")
+	b.emitBytes(0x49, 0x0F, 0xAF, 0xC0) // imul rax, r8
+	b.defineLabel(".intval_done")
 	b.emitBytes(0xC3)
 
 	// fn_boolval(rcx = val) -> rax = bool(val)
@@ -1414,10 +1787,75 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x0F, 0x95, 0xC0) // setne al
 	b.emitBytes(0xC3)
 
-	// fn_floatval(rcx = val) -> rax = float64 bits
+	// fn_floatval(rcx = intVal) -> rax = float64 bits
 	b.defineLabel("fn_floatval")
 	b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xC1) // cvtsi2sd xmm0, rcx
 	b.emitBytes(0x66, 0x48, 0x0F, 0x7E, 0xC0) // movq rax, xmm0
+	b.emitBytes(0xC3)
+
+	// fn_floatval_str(rcx = strPtr) -> rax = float64 bits parsed from ASCII decimal string
+	b.defineLabel("fn_floatval_str")
+	b.emitBytes(0x31, 0xC0)                               // xor eax, eax
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".fval_str_done")
+	b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00) // mov r8d, 1 (sign = 1)
+	b.defineLabel(".fval_skip_ws")
+	b.emitBytes(0x0F, 0xB6, 0x11) // movzx edx, byte ptr [rcx]
+	b.emitBytes(0x80, 0xFA, 0x20) // cmp dl, ' '
+	b.emitJeLabel(".fval_ws_next")
+	b.emitBytes(0x80, 0xFA, 0x09) // cmp dl, '\t'
+	b.emitJeLabel(".fval_ws_next")
+	b.emitBytes(0x80, 0xFA, 0x0D) // cmp dl, '\r'
+	b.emitJneLabel(".fval_check_sign")
+	b.defineLabel(".fval_ws_next")
+	b.emitBytes(0x48, 0xFF, 0xC1) // inc rcx
+	b.emitJmpLabel(".fval_skip_ws")
+	b.defineLabel(".fval_check_sign")
+	b.emitBytes(0x80, 0xFA, 0x2D) // cmp dl, '-'
+	b.emitJneLabel(".fval_check_plus")
+	b.emitBytes(0x49, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0xFF) // mov r8, -1
+	b.emitBytes(0x48, 0xFF, 0xC1)                         // inc rcx
+	b.emitJmpLabel(".fval_int_loop")
+	b.defineLabel(".fval_check_plus")
+	b.emitBytes(0x80, 0xFA, 0x2B) // cmp dl, '+'
+	b.emitJneLabel(".fval_int_loop")
+	b.emitBytes(0x48, 0xFF, 0xC1) // inc rcx
+	b.defineLabel(".fval_int_loop")
+	b.emitBytes(0x0F, 0xB6, 0x11) // movzx edx, byte ptr [rcx]
+	b.emitBytes(0x80, 0xEA, 0x30) // sub dl, '0'
+	b.emitBytes(0x80, 0xFA, 0x09) // cmp dl, 9
+	b.emitJaLabel(".fval_check_dot")
+	b.emitBytes(0x48, 0x6B, 0xC0, 0x0A) // imul rax, rax, 10
+	b.emitBytes(0x48, 0x01, 0xD0)       // add rax, rdx
+	b.emitBytes(0x48, 0xFF, 0xC1)       // inc rcx
+	b.emitJmpLabel(".fval_int_loop")
+	b.defineLabel(".fval_check_dot")
+	b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xC0) // cvtsi2sd xmm0, rax (intPart)
+	b.emitBytes(0x80, 0x39, 0x2E)             // cmp byte ptr [rcx], '.'
+	b.emitJneLabel(".fval_apply_sign")
+	b.emitBytes(0x48, 0xFF, 0xC1)                   // inc rcx
+	b.emitBytes(0x45, 0x31, 0xC9)                   // xor r9d, r9d (fracAcc = 0)
+	b.emitBytes(0x41, 0xBA, 0x01, 0x00, 0x00, 0x00) // mov r10d, 1 (fracScale = 1)
+	b.defineLabel(".fval_frac_loop")
+	b.emitBytes(0x0F, 0xB6, 0x11) // movzx edx, byte ptr [rcx]
+	b.emitBytes(0x80, 0xEA, 0x30) // sub dl, '0'
+	b.emitBytes(0x80, 0xFA, 0x09) // cmp dl, 9
+	b.emitJaLabel(".fval_frac_done")
+	b.emitBytes(0x4D, 0x6B, 0xC9, 0x0A) // imul r9, r9, 10
+	b.emitBytes(0x49, 0x01, 0xD1)       // add r9, rdx
+	b.emitBytes(0x4D, 0x6B, 0xD2, 0x0A) // imul r10, r10, 10
+	b.emitBytes(0x48, 0xFF, 0xC1)       // inc rcx
+	b.emitJmpLabel(".fval_frac_loop")
+	b.defineLabel(".fval_frac_done")
+	b.emitBytes(0xF2, 0x49, 0x0F, 0x2A, 0xC9) // cvtsi2sd xmm1, r9 (fracAcc)
+	b.emitBytes(0xF2, 0x49, 0x0F, 0x2A, 0xD2) // cvtsi2sd xmm2, r10 (fracScale)
+	b.emitBytes(0xF2, 0x0F, 0x5E, 0xCA)       // divsd xmm1, xmm2
+	b.emitBytes(0xF2, 0x0F, 0x58, 0xC1)       // addsd xmm0, xmm1
+	b.defineLabel(".fval_apply_sign")
+	b.emitBytes(0xF2, 0x49, 0x0F, 0x2A, 0xC8) // cvtsi2sd xmm1, r8 (sign)
+	b.emitBytes(0xF2, 0x0F, 0x59, 0xC1)       // mulsd xmm0, xmm1
+	b.emitBytes(0x66, 0x48, 0x0F, 0x7E, 0xC0) // movq rax, xmm0
+	b.defineLabel(".fval_str_done")
 	b.emitBytes(0xC3)
 
 	// fn_array_pop(rcx = arrPtr) -> rax = last element (value semantics)
@@ -1434,18 +1872,12 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel(".arr_pop_done")
 	b.emitBytes(0xC3)
 
-	// joss_map_len(rcx = mapPtr) -> rax = count of keys
+	// joss_map_len(rcx = mapPtr) -> rax = count of keys in O(1)
 	b.defineLabel("joss_map_len")
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".map_len_done")
-	b.emitBytes(0x48, 0x8B, 0x49, 0x08) // mov rcx, [rcx + 8] (headNode)
-	b.defineLabel(".map_len_loop")
-	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-	b.emitJeLabel(".map_len_done")
-	b.emitBytes(0x48, 0xFF, 0xC0)       // inc rax
-	b.emitBytes(0x48, 0x8B, 0x49, 0x10) // mov rcx, [rcx + 16] (node.next)
-	b.emitJmpLabel(".map_len_loop")
+	b.emitBytes(0x48, 0x8B, 0x41, 0x08) // mov rax, [rcx + 8] (count)
 	b.defineLabel(".map_len_done")
 	b.emitBytes(0xC3)
 
@@ -1481,6 +1913,269 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x66, 0x48, 0x0F, 0x7E, 0xC0) // movq rax, xmm0
 		b.emitBytes(0xC3)
 	}
+
+	// fn_explode(rcx = delimPtr, rdx = strPtr) -> rax = arrPtr of substring pointers
+	b.defineLabel("fn_explode")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
+	b.emitBytes(0x53, 0x56, 0x57)                               // push rbx; push rsi; push rdi
+	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
+	b.emitBytes(0x48, 0x83, 0xEC, 0x28)                         // sub rsp, 40
+	b.emitBytes(0x48, 0x89, 0xCE)                               // mov rsi, rcx (delimPtr)
+	b.emitBytes(0x48, 0x89, 0xD7)                               // mov rdi, rdx (strPtr)
+	b.emitBytes(0x48, 0x81, 0xFE, 0x00, 0x00, 0x01, 0x00)       // cmp rsi, 0x10000
+	b.emitJgeLabel(".explode_delim_ok")
+	b.emitLeaRCXString("")
+	b.emitBytes(0x48, 0x89, 0xCE) // mov rsi, rcx
+	b.defineLabel(".explode_delim_ok")
+	b.emitBytes(0x48, 0x81, 0xFF, 0x00, 0x00, 0x01, 0x00) // cmp rdi, 0x10000
+	b.emitJgeLabel(".explode_str_ok")
+	b.emitLeaRCXString("")
+	b.emitBytes(0x48, 0x89, 0xCF) // mov rdi, rcx
+	b.defineLabel(".explode_str_ok")
+	b.emitBytes(0x0F, 0xB6, 0x1E) // movzx ebx, byte ptr [rsi] (delimChar)
+	// First pass: count occurrences of delimChar in strPtr to pre-allocate exact capacity
+	b.emitBytes(0x48, 0x89, 0xF9)                   // mov rcx, rdi
+	b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00) // mov r8d, 1 (tokenCount = 1)
+	b.emitBytes(0x85, 0xDB)                         // test ebx, ebx
+	b.emitJeLabel(".explode_count_done")
+	b.defineLabel(".explode_count_loop")
+	b.emitBytes(0x0F, 0xB6, 0x11) // movzx edx, byte ptr [rcx]
+	b.emitBytes(0x85, 0xD2)       // test edx, edx
+	b.emitJeLabel(".explode_count_done")
+	b.emitBytes(0x39, 0xDA) // cmp edx, ebx
+	b.emitJneLabel(".explode_count_next")
+	b.emitBytes(0x49, 0xFF, 0xC0) // inc r8
+	b.defineLabel(".explode_count_next")
+	b.emitBytes(0x48, 0xFF, 0xC1) // inc rcx
+	b.emitJmpLabel(".explode_count_loop")
+	b.defineLabel(".explode_count_done")
+	b.emitBytes(0x4C, 0x89, 0xC1)       // mov rcx, r8 (cap = tokenCount)
+	b.emitBytes(0x48, 0x83, 0xF9, 0x08) // cmp rcx, 8
+	b.emitJgeLabel(".explode_cap_ok")
+	b.emitBytes(0x48, 0xC7, 0xC1, 0x08, 0x00, 0x00, 0x00) // mov rcx, 8
+	b.defineLabel(".explode_cap_ok")
+	b.emitBytes(0x49, 0x89, 0xCD)             // mov r13, rcx (save cap)
+	b.emitBytes(0xB9, 0x18, 0x00, 0x00, 0x00) // mov ecx, 24 (arrHeader)
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x49, 0x89, 0xC4)       // mov r12, rax (arrPtr)
+	b.emitBytes(0x4C, 0x89, 0xE9)       // mov rcx, r13
+	b.emitBytes(0x48, 0xC1, 0xE1, 0x03) // shl rcx, 3 (cap * 8)
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x4D, 0x89, 0x6C, 0x24, 0x08) // mov [r12 + 8], r13 (arr.cap = cap)
+	b.emitBytes(0x49, 0x89, 0x44, 0x24, 0x10) // mov [r12 + 16], rax (arr.dataPtr = dataPtr)
+	b.emitBytes(0x49, 0x89, 0xC5)             // mov r13, rax (dataPtr)
+	b.emitBytes(0x45, 0x31, 0xF6)             // xor r14d, r14d (outIdx = 0)
+	b.emitBytes(0x49, 0x89, 0xFF)             // mov r15, rdi (cursor = strPtr)
+	b.defineLabel(".explode_token_loop")
+	b.emitBytes(0x4C, 0x89, 0xFA) // mov rdx, r15 (scan = cursor)
+	b.defineLabel(".explode_scan_loop")
+	b.emitBytes(0x0F, 0xB6, 0x0A) // movzx ecx, byte ptr [rdx]
+	b.emitBytes(0x85, 0xC9)       // test ecx, ecx
+	b.emitJeLabel(".explode_found_end")
+	b.emitBytes(0x85, 0xDB) // test ebx, ebx
+	b.emitJeLabel(".explode_scan_next")
+	b.emitBytes(0x39, 0xD9) // cmp ecx, ebx
+	b.emitJeLabel(".explode_found_end")
+	b.defineLabel(".explode_scan_next")
+	b.emitBytes(0x48, 0xFF, 0xC2) // inc rdx
+	b.emitJmpLabel(".explode_scan_loop")
+	b.defineLabel(".explode_found_end")
+	b.emitBytes(0x41, 0x89, 0xC8) // mov r8d, ecx (save endByte: 0 or delimChar)
+	b.emitBytes(0x48, 0x89, 0xD6) // mov rsi, rdx (endPtr)
+	// Strip trailing '\r' when splitting by '\n' (CRLF normalization)
+	b.emitBytes(0x83, 0xFB, 0x0A) // cmp ebx, 10 ('\n')
+	b.emitJneLabel(".explode_store_tok")
+	b.emitBytes(0x4C, 0x39, 0xFA) // cmp rdx, r15 (endPtr > cursor?)
+	b.emitJleLabel(".explode_store_tok")
+	b.emitBytes(0x80, 0x7A, 0xFF, 0x0D) // cmp byte ptr [rdx - 1], 13 ('\r')
+	b.emitJneLabel(".explode_store_tok")
+	b.emitBytes(0xC6, 0x42, 0xFF, 0x00) // mov byte ptr [rdx - 1], 0
+	b.defineLabel(".explode_store_tok")
+	b.emitBytes(0xC6, 0x06, 0x00)             // mov byte ptr [rsi], 0 (null-terminate token in-place)
+	b.emitBytes(0x4F, 0x89, 0x7C, 0xF5, 0x00) // mov [r13 + r14*8], r15 (store token pointer)
+	b.emitBytes(0x49, 0xFF, 0xC6)             // inc r14
+	// Check if endByte was 0 (end of string)
+	b.emitBytes(0x45, 0x85, 0xC0) // test r8d, r8d
+	b.emitJeLabel(".explode_finish")
+	b.emitBytes(0x4C, 0x8D, 0x7E, 0x01) // lea r15, [rsi + 1] (cursor = endPtr + 1)
+	b.emitJmpLabel(".explode_token_loop")
+	b.defineLabel(".explode_finish")
+	b.emitBytes(0x4D, 0x89, 0x34, 0x24)                                           // mov [r12 + 0], r14 (arr.len = outIdx)
+	b.emitBytes(0x4C, 0x89, 0xE0)                                                 // mov rax, r12 (return arrPtr)
+	b.emitBytes(0x48, 0x83, 0xC4, 0x28)                                           // add rsp, 40
+	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5F, 0x5E, 0x5B) // pop r15..r12, rdi, rsi, rbx
+	b.emitBytes(0x5D, 0xC3)
+
+	// fn_file_get_contents(rcx = pathPtr) -> rax = strPtr
+	b.defineLabel("fn_file_get_contents")
+	if b.target.OS == "windows" {
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
+		b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55) // push rbx; push r12; push r13
+		b.emitBytes(0x48, 0x83, 0xEC, 0x48)       // sub rsp, 72
+		// CreateFileA(pathPtr, GENERIC_READ=0x80000000, FILE_SHARE_READ=1, NULL=0, OPEN_EXISTING=3, FILE_ATTRIBUTE_NORMAL=0x80, NULL=0)
+		b.emitBytes(0xBA, 0x00, 0x00, 0x00, 0x80)                         // mov edx, 0x80000000
+		b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00)                   // mov r8d, 1
+		b.emitBytes(0x45, 0x31, 0xC9)                                     // xor r9d, r9d
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x03, 0x00, 0x00, 0x00) // mov qword ptr [rsp+32], 3
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x28, 0x80, 0x00, 0x00, 0x00) // mov qword ptr [rsp+40], 0x80
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x30, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp+48], 0
+		b.emitMovRAXData(dataOffCreateFileA)
+		b.emitBytes(0xFF, 0xD0)             // call rax
+		b.emitBytes(0x48, 0x83, 0xF8, 0xFF) // cmp rax, -1 (INVALID_HANDLE_VALUE)
+		b.emitJeLabel(".fgc_win_fail")
+		b.emitBytes(0x48, 0x89, 0xC3) // mov rbx, rax (hFile)
+		// GetFileSize(hFile, NULL)
+		b.emitBytes(0x48, 0x89, 0xD9) // mov rcx, rbx
+		b.emitBytes(0x31, 0xD2)       // xor edx, edx
+		b.emitMovRAXData(dataOffGetFileSize)
+		b.emitBytes(0xFF, 0xD0)                   // call rax
+		b.emitBytes(0x49, 0x89, 0xC4)             // mov r12, rax (fileSize)
+		b.emitBytes(0x49, 0x8D, 0x4C, 0x24, 0x01) // lea rcx, [r12 + 1]
+		b.emitCallLabel("__joss_os_alloc")
+		b.emitBytes(0x49, 0x89, 0xC5) // mov r13, rax (bufPtr)
+		// ReadFile(hFile, bufPtr, fileSize, &bytesRead, NULL)
+		b.emitBytes(0x48, 0x89, 0xD9)                                     // mov rcx, rbx
+		b.emitBytes(0x4C, 0x89, 0xEA)                                     // mov rdx, r13
+		b.emitBytes(0x4D, 0x89, 0xE0)                                     // mov r8, r12
+		b.emitBytes(0x4C, 0x8D, 0x4D, 0xE0)                               // lea r9, [rbp - 32] (&bytesRead)
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp+32], 0
+		b.emitMovRAXData(dataOffReadFile)
+		b.emitBytes(0xFF, 0xD0) // call rax
+		// CloseHandle(hFile)
+		b.emitBytes(0x48, 0x89, 0xD9) // mov rcx, rbx
+		b.emitMovRAXData(dataOffCloseHandle)
+		b.emitBytes(0xFF, 0xD0)                         // call rax
+		b.emitBytes(0x43, 0xC6, 0x44, 0x25, 0x00, 0x00) // mov byte ptr [r13 + r12], 0
+		b.emitBytes(0x4C, 0x89, 0xE8)                   // mov rax, r13
+		b.emitJmpLabel(".fgc_win_exit")
+		b.defineLabel(".fgc_win_fail")
+		b.emitLeaRAXString("")
+		b.defineLabel(".fgc_win_exit")
+		b.emitBytes(0x48, 0x83, 0xC4, 0x48)             // add rsp, 72
+		b.emitBytes(0x41, 0x5D, 0x41, 0x5C, 0x5B, 0x5D) // pop r13, r12, rbx, rbp
+		b.emitBytes(0xC3)
+	} else {
+		// Linux x86-64: sys_open(2), sys_lseek(8), sys_read(0), sys_close(3)
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5)                   // push rbp; mov rbp, rsp
+		b.emitBytes(0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55) // push rbx, rsi, rdi, r12, r13
+		b.emitBytes(0x48, 0x83, 0xEC, 0x18)                   // sub rsp, 24
+		b.emitBytes(0x48, 0x89, 0xCF)                         // mov rdi, rcx (pathPtr)
+		b.emitBytes(0x31, 0xF6)                               // xor esi, esi (O_RDONLY = 0)
+		b.emitBytes(0x31, 0xD2)                               // xor edx, edx
+		b.emitBytes(0xB8, 0x02, 0x00, 0x00, 0x00)             // mov eax, 2 (sys_open)
+		b.emitBytes(0x0F, 0x05)                               // syscall
+		b.emitBytes(0x48, 0x85, 0xC0)                         // test rax, rax
+		b.emitJlLabel(".fgc_linux_fail")
+		b.emitBytes(0x48, 0x89, 0xC3)             // mov rbx, rax (fd)
+		b.emitBytes(0x48, 0x89, 0xDF)             // mov rdi, rbx
+		b.emitBytes(0x31, 0xF6)                   // xor esi, esi (offset = 0)
+		b.emitBytes(0xBA, 0x02, 0x00, 0x00, 0x00) // mov edx, 2 (SEEK_END)
+		b.emitBytes(0xB8, 0x08, 0x00, 0x00, 0x00) // mov eax, 8 (sys_lseek)
+		b.emitBytes(0x0F, 0x05)                   // syscall
+		b.emitBytes(0x49, 0x89, 0xC4)             // mov r12, rax (fileSize)
+		b.emitBytes(0x48, 0x89, 0xDF)             // mov rdi, rbx
+		b.emitBytes(0x31, 0xF6)                   // xor esi, esi
+		b.emitBytes(0x31, 0xD2)                   // xor edx, edx (SEEK_SET)
+		b.emitBytes(0xB8, 0x08, 0x00, 0x00, 0x00) // mov eax, 8 (sys_lseek)
+		b.emitBytes(0x0F, 0x05)                   // syscall
+		b.emitBytes(0x49, 0x8D, 0x4C, 0x24, 0x01) // lea rcx, [r12 + 1]
+		b.emitCallLabel("__joss_os_alloc")
+		b.emitBytes(0x49, 0x89, 0xC5)                   // mov r13, rax (bufPtr)
+		b.emitBytes(0x48, 0x89, 0xDF)                   // mov rdi, rbx
+		b.emitBytes(0x4C, 0x89, 0xEE)                   // mov rsi, r13
+		b.emitBytes(0x4C, 0x89, 0xE2)                   // mov rdx, r12
+		b.emitBytes(0x31, 0xC0)                         // xor eax, eax (sys_read = 0)
+		b.emitBytes(0x0F, 0x05)                         // syscall
+		b.emitBytes(0x48, 0x89, 0xDF)                   // mov rdi, rbx
+		b.emitBytes(0xB8, 0x03, 0x00, 0x00, 0x00)       // mov eax, 3 (sys_close)
+		b.emitBytes(0x0F, 0x05)                         // syscall
+		b.emitBytes(0x43, 0xC6, 0x44, 0x25, 0x00, 0x00) // mov byte ptr [r13 + r12], 0
+		b.emitBytes(0x4C, 0x89, 0xE8)                   // mov rax, r13
+		b.emitJmpLabel(".fgc_linux_exit")
+		b.defineLabel(".fgc_linux_fail")
+		b.emitLeaRAXString("")
+		b.defineLabel(".fgc_linux_exit")
+		b.emitBytes(0x48, 0x83, 0xC4, 0x18)                         // add rsp, 24
+		b.emitBytes(0x41, 0x5D, 0x41, 0x5C, 0x5F, 0x5E, 0x5B, 0x5D) // pop r13, r12, rdi, rsi, rbx, rbp
+		b.emitBytes(0xC3)
+	}
+
+	// __joss_thread_trampoline(rcx = taskBox) -> eax = 0 (Win32 LPTHREAD_START_ROUTINE)
+	// taskBox layout: [0] = fnPtr, [8] = result, [16] = hThread
+	b.defineLabel("__joss_thread_trampoline")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+	b.emitBytes(0x53)                   // push rbx
+	b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+	b.emitBytes(0x48, 0x89, 0xCB)       // mov rbx, rcx (taskBox)
+	b.emitBytes(0x48, 0x8B, 0x03)       // mov rax, [rbx + 0] (fnPtr)
+	b.emitBytes(0xFF, 0xD0)             // call rax
+	b.emitBytes(0x48, 0x89, 0x43, 0x08) // mov [rbx + 8], rax (result)
+	b.emitBytes(0x31, 0xC0)             // xor eax, eax
+	b.emitBytes(0x48, 0x83, 0xC4, 0x28, 0x5B, 0x5D, 0xC3)
+
+	// fn_async(rcx = fnPtr) -> rax = taskBox
+	b.defineLabel("fn_async")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
+	b.emitBytes(0x53, 0x41, 0x54)             // push rbx; push r12
+	b.emitBytes(0x48, 0x83, 0xEC, 0x40)       // sub rsp, 64
+	b.emitBytes(0x48, 0x89, 0xCB)             // mov rbx, rcx (fnPtr)
+	b.emitBytes(0xB9, 0x18, 0x00, 0x00, 0x00) // mov ecx, 24 (taskBox)
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x49, 0x89, 0xC4)       // mov r12, rax (taskBox)
+	b.emitBytes(0x49, 0x89, 0x1C, 0x24) // mov [r12 + 0], rbx (fnPtr)
+	if b.target.OS == "windows" {
+		b.emitMovRAXData(dataOffCreateThread)
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJeLabel(".async_sync_fallback")
+		// CreateThread(NULL=0, 0, __joss_thread_trampoline, taskBox, 0, NULL=0)
+		b.emitBytes(0x31, 0xC9)                                           // xor ecx, ecx
+		b.emitBytes(0x31, 0xD2)                                           // xor edx, edx
+		b.emitLeaR8Label("__joss_thread_trampoline")                      // r8 = trampoline
+		b.emitBytes(0x4D, 0x89, 0xE1)                                     // mov r9, r12 (taskBox)
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp+32], 0
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x28, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp+40], 0
+		b.emitMovRAXData(dataOffCreateThread)
+		b.emitBytes(0xFF, 0xD0)       // call rax
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJeLabel(".async_sync_fallback")
+		b.emitBytes(0x49, 0x89, 0x44, 0x24, 0x10) // mov [r12 + 16], rax (hThread)
+		b.emitBytes(0x4C, 0x89, 0xE0)             // mov rax, r12
+		b.emitJmpLabel(".async_done")
+	}
+	b.defineLabel(".async_sync_fallback")
+	b.emitBytes(0xFF, 0xD3)                   // call rbx (fnPtr)
+	b.emitBytes(0x49, 0x89, 0x44, 0x24, 0x08) // mov [r12 + 8], rax (result)
+	b.emitBytes(0x4C, 0x89, 0xE0)             // mov rax, r12
+	b.defineLabel(".async_done")
+	b.emitBytes(0x48, 0x83, 0xC4, 0x40)       // add rsp, 64
+	b.emitBytes(0x41, 0x5C, 0x5B, 0x5D, 0xC3) // pop r12, rbx, rbp; ret
+
+	// fn_await(rcx = taskBox) -> rax = result
+	b.defineLabel("fn_await")
+	b.emitBytes(0x31, 0xC0)       // xor eax, eax
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".await_ret_null")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+	b.emitBytes(0x53)                   // push rbx
+	b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+	b.emitBytes(0x48, 0x89, 0xCB)       // mov rbx, rcx (taskBox)
+	if b.target.OS == "windows" {
+		b.emitBytes(0x48, 0x8B, 0x4B, 0x10) // mov rcx, [rbx + 16] (hThread)
+		b.emitBytes(0x48, 0x85, 0xC9)       // test rcx, rcx
+		b.emitJeLabel(".await_load_res")
+		b.emitBytes(0xBA, 0xFF, 0xFF, 0xFF, 0xFF) // mov edx, 0xFFFFFFFF (INFINITE)
+		b.emitMovRAXData(dataOffWaitSingleObject)
+		b.emitBytes(0xFF, 0xD0)             // call rax
+		b.emitBytes(0x48, 0x8B, 0x4B, 0x10) // mov rcx, [rbx + 16]
+		b.emitMovRAXData(dataOffCloseHandle)
+		b.emitBytes(0xFF, 0xD0)                                     // call rax
+		b.emitBytes(0x48, 0xC7, 0x43, 0x10, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rbx + 16], 0
+	}
+	b.defineLabel(".await_load_res")
+	b.emitBytes(0x48, 0x8B, 0x43, 0x08)             // mov rax, [rbx + 8] (result)
+	b.emitBytes(0x48, 0x83, 0xC4, 0x28, 0x5B, 0x5D) // add rsp, 40; pop rbx; pop rbp
+	b.defineLabel(".await_ret_null")
+	b.emitBytes(0xC3)
 
 	// =========================================================================
 	// 7. Exception Helpers (Exception_constructor, Exception_getMessage, Exception_getCode, __joss_rt_throw)
@@ -1531,6 +2226,7 @@ type fnFrameLayout struct {
 	fnLabel           string
 	paramOffsets      map[string]int32
 	tempOffsets       map[int]int32
+	aliasedOffsets    map[int32]bool
 	frameSize         uint32
 	inTryDepth        int
 	deferredSlowPaths []func()
@@ -1557,6 +2253,8 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 		slotIdx++
 	}
 
+	aliasedOffsets := make(map[int32]bool)
+
 	// SSA Load Offset Forwarding:
 	// Si un TempValue es el resultado directo de un Load de un puntero local (alloca),
 	// alias su stack offset directamente al puntero para evitar escribir/leer en la pila.
@@ -1564,7 +2262,9 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 		for _, inst := range blk.Instructions {
 			if load, ok := inst.(*ir.LoadInst); ok {
 				if ptrTemp, isTemp := load.Ptr.(*ir.TempValue); isTemp {
-					tempOffsets[load.Dest.ID] = tempOffsets[ptrTemp.ID]
+					off := tempOffsets[ptrTemp.ID]
+					tempOffsets[load.Dest.ID] = off
+					aliasedOffsets[off] = true
 				}
 			}
 		}
@@ -1599,7 +2299,9 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 					if store, ok := blk.Instructions[idx+1].(*ir.StoreInst); ok {
 						if vTemp, ok2 := store.Val.(*ir.TempValue); ok2 && vTemp.ID == dest.ID {
 							if ptrTemp, ok3 := store.Ptr.(*ir.TempValue); ok3 {
-								tempOffsets[dest.ID] = tempOffsets[ptrTemp.ID]
+								off := tempOffsets[ptrTemp.ID]
+								tempOffsets[dest.ID] = off
+								aliasedOffsets[off] = true
 							}
 						}
 					}
@@ -1655,17 +2357,22 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 	}
 
 	layout := &fnFrameLayout{
-		fnLabel:      fnLabel,
-		paramOffsets: paramOffsets,
-		tempOffsets:  tempOffsets,
-		frameSize:    frameSize,
+		fnLabel:        fnLabel,
+		paramOffsets:   paramOffsets,
+		tempOffsets:    tempOffsets,
+		aliasedOffsets: aliasedOffsets,
+		frameSize:      frameSize,
 	}
 
 	// Prologue: push rbp; mov rbp, rsp; sub rsp, frameSize
 	b.emitBytes(0x55)             // push rbp
 	b.emitBytes(0x48, 0x89, 0xE5) // mov rbp, rsp
-	b.emitBytes(0x48, 0x81, 0xEC) // sub rsp, imm32
-	b.emitU32(frameSize)
+	if frameSize <= 127 {
+		b.emitBytes(0x48, 0x83, 0xEC, byte(frameSize)) // sub rsp, imm8
+	} else {
+		b.emitBytes(0x48, 0x81, 0xEC) // sub rsp, imm32
+		b.emitU32(frameSize)
+	}
 
 	// Spill incoming register/stack parameters into their frame slots
 	for idx, p := range fn.Params {
@@ -1673,6 +2380,7 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 		switch idx {
 		case 0:
 			b.emitStoreRCXToRBP(off)
+			b.cachedRCXVal = p
 		case 1:
 			b.emitStoreRDXToRBP(off)
 		case 2:
@@ -2020,6 +2728,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			}
 		}
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+		b.cachedRAXVal = i.Dest
 
 	case *ir.CompareInst:
 		_, leftIsNull := i.Left.(*ir.ConstNull)
@@ -2136,6 +2845,17 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 				} else {
 					fnLabel = "joss_to_string"
 				}
+			} else if i.BuiltinID == "floatval" && len(i.Args) > 0 {
+				argKind := i.Args[0].Type().Kind
+				if argKind == ir.TypeKindString {
+					fnLabel = "fn_floatval_str"
+				} else if argKind == ir.TypeKindF64 || argKind == ir.TypeKindDecimal {
+					b.emitLoadValToRAX(layout, i.Args[0])
+					if i.Dest != nil {
+						b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+					}
+					return nil
+				}
 			}
 			b.emitCallWithArgs(layout, fnLabel, i.Args)
 			if i.Dest != nil {
@@ -2185,8 +2905,74 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 		}
 	case *ir.CallHostServiceInst:
+		target := i.ClassName + "::" + i.MethodName
+		if b.isJITMode {
+			b.needsHostBridge = true
+			b.emitLeaRCXString(target)
+			b.emitCallIAT(IATJossHostBridge)
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
+			return nil
+		}
+		if i.ClassName == "GranDB" {
+			// In-memory or standalone GranDB stub/builder
+			if i.Dest != nil {
+				if i.MethodName == "get" {
+					b.emitBytes(0x48, 0xC7, 0xC1, 0x00, 0x00, 0x00, 0x00) // mov rcx, 0
+					b.emitCallLabel("joss_arr_new")
+				} else if i.MethodName == "first" || i.MethodName == "find" || i.MethodName == "paginate" {
+					b.emitCallLabel("joss_map_new")
+				} else if i.MethodName == "count" {
+					b.emitBytes(0x31, 0xC0) // xor eax, eax
+				} else {
+					// Fluent return (this / builder)
+					if len(i.Args) > 0 {
+						b.emitLoadValToRAX(layout, i.Args[0])
+					} else {
+						b.emitBytes(0x31, 0xC0)
+					}
+				}
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
+			return nil
+		}
+		if i.ClassName == "UserStorage" || i.ClassName == "OCIStorage" {
+			switch i.MethodName {
+			case "put":
+				// UserStorage::put($user, $filename, $content) -> returns true (1)
+				if i.Dest != nil {
+					b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1
+					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+				}
+				return nil
+			case "get":
+				// UserStorage::get($user, $filename) -> returns string
+				if i.Dest != nil {
+					b.emitLeaRAXString("")
+					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+				}
+				return nil
+			case "path":
+				// UserStorage::path($subpath) -> returns path string
+				if i.Dest != nil {
+					if len(i.Args) > 0 && i.Args[0].Type().Kind == ir.TypeKindString {
+						b.emitLoadValToRAX(layout, i.Args[0])
+					} else {
+						b.emitLeaRAXString("storage")
+					}
+					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+				}
+				return nil
+			case "delete":
+				if i.Dest != nil {
+					b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1
+					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+				}
+				return nil
+			}
+		}
 		if isSupportedHostService(i.ClassName, i.MethodName) {
-			target := i.ClassName + "::" + i.MethodName
 			b.emitLeaRCXString(target)
 			b.emitCallIAT(IATJossHostBridge)
 			if i.Dest != nil {
@@ -2221,6 +3007,17 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 					fnLabel = "joss_f64_to_string"
 				} else {
 					fnLabel = "joss_to_string"
+				}
+			} else if i.Callee == "floatval" && len(i.Args) > 0 {
+				argKind := i.Args[0].Type().Kind
+				if argKind == ir.TypeKindString {
+					fnLabel = "fn_floatval_str"
+				} else if argKind == ir.TypeKindF64 || argKind == ir.TypeKindDecimal {
+					b.emitLoadValToRAX(layout, i.Args[0])
+					if i.Dest != nil {
+						b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+					}
+					return nil
 				}
 			}
 			b.emitCallWithArgs(layout, fnLabel, i.Args)
@@ -2282,13 +3079,41 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 				allocSize = clsLayout.AllocSize
 			}
 		}
-		b.emitBytes(0xB9) // mov ecx, allocSize
-		b.emitU32(allocSize)
-		b.emitCallLabel("__joss_os_alloc")
-		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+		alignedSize := (allocSize + 7) & ^uint32(7)
+		if alignedSize < 16 {
+			alignedSize = 16
+		}
+		lblRefill := fmt.Sprintf(".newobj_refill_%d", b.nextInlineLabelID())
+		lblDone := fmt.Sprintf(".newobj_done_%d", b.nextInlineLabelID())
+		b.emitMovRAXData(dataOffArenaCur)
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJeLabel(lblRefill)
+		if alignedSize <= 127 {
+			b.emitBytes(0x48, 0x8D, 0x50, byte(alignedSize)) // lea rdx, [rax + alignedSize]
+		} else {
+			b.emitBytes(0x48, 0x8D, 0x90)
+			b.emitU32(alignedSize)
+		}
+		b.emitBytes(0x4C, 0x8B, 0x05) // mov r8, [rip + dataOffArenaEnd]
+		patchArenaEnd := b.text.Len()
+		b.emitU32(0)
+		b.relocs = append(b.relocs, machineReloc{kind: relocData, patchOffset: patchArenaEnd, targetOff: dataOffArenaEnd})
+		b.emitBytes(0x4C, 0x39, 0xC2) // cmp rdx, r8
+		b.emitJaLabel(lblRefill)
+		b.emitMovDataRDX(dataOffArenaCur)
+		b.defineLabel(lblDone)
 		b.emitLeaRCXString(i.ClassName)
-		b.emitLoadRAXFromRBP(layout.tempOffsets[i.Dest.ID])
 		b.emitBytes(0x48, 0x89, 0x08) // mov [rax], rcx (class name at [rax+0])
+		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+		b.cachedRAXVal = i.Dest
+
+		layout.deferredSlowPaths = append(layout.deferredSlowPaths, func() {
+			b.defineLabel(lblRefill)
+			b.emitBytes(0xB9) // mov ecx, alignedSize
+			b.emitU32(alignedSize)
+			b.emitCallLabel("__joss_os_alloc")
+			b.emitJmpLabel(lblDone)
+		})
 
 	case *ir.LoadFieldInst:
 		var fixedOffset int32 = -1
@@ -2302,6 +3127,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 
 		if fixedOffset >= 0 {
 			b.emitLoadValToRCX(layout, i.Obj)
+			savedRCX := i.Obj
 			if fixedOffset <= 127 {
 				b.emitBytes(0x48, 0x8B, 0x41, byte(fixedOffset)) // mov rax, [rcx + fixedOffset]
 			} else {
@@ -2309,6 +3135,8 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 				b.emitU32(uint32(fixedOffset))
 			}
 			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			b.cachedRAXVal = i.Dest
+			b.cachedRCXVal = savedRCX
 		} else {
 			lblSlow := fmt.Sprintf(".obj_get_slow_%d", b.nextInlineLabelID())
 			lblDone := fmt.Sprintf(".obj_get_done_%d", b.nextInlineLabelID())
@@ -2345,15 +3173,16 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 		if fixedOffset >= 0 {
-			b.emitLoadValToRAX(layout, i.Val)
-			b.emitBytes(0x49, 0x89, 0xC0) // mov r8, rax (val)
+			b.emitLoadValToR8(layout, i.Val)
 			b.emitLoadValToRCX(layout, i.Obj)
+			savedRCX := i.Obj
 			if fixedOffset <= 127 {
 				b.emitBytes(0x4C, 0x89, 0x41, byte(fixedOffset)) // mov [rcx + fixedOffset], r8
 			} else {
 				b.emitBytes(0x4C, 0x89, 0x81)
 				b.emitU32(uint32(fixedOffset))
 			}
+			b.cachedRCXVal = savedRCX
 		} else {
 			lblSlow := fmt.Sprintf(".obj_set_slow_%d", b.nextInlineLabelID())
 			lblDone := fmt.Sprintf(".obj_set_done_%d", b.nextInlineLabelID())
@@ -2390,29 +3219,30 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 	case *ir.ArrayGetInst:
+		lblSlow := fmt.Sprintf(".arr_get_slow_%d", b.nextInlineLabelID())
+		lblDone := fmt.Sprintf(".arr_get_done_%d", b.nextInlineLabelID())
+		b.emitLoadValToRCX(layout, i.Array)
+		b.emitLoadValToRDX(layout, i.Index)
+		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+		b.emitJeLabel(lblSlow)
+		b.emitBytes(0x48, 0x3B, 0x11) // cmp rdx, [rcx + 0] (unsigned idx vs len)
+		b.emitJaeLabel(lblSlow)
+		b.emitBytes(0x4C, 0x8B, 0x41, 0x10) // mov r8, [rcx + 16] (dataPtr)
+		b.emitBytes(0x49, 0x8B, 0x04, 0xD0) // mov rax, [r8 + rdx*8]
 		if i.Dest.Type().Kind == ir.TypeKindString {
-			b.emitCallWithArgs(layout, "joss_arr_get_str", []ir.Value{i.Array, i.Index})
-			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-		} else {
-			lblSlow := fmt.Sprintf(".arr_get_slow_%d", b.nextInlineLabelID())
-			lblDone := fmt.Sprintf(".arr_get_done_%d", b.nextInlineLabelID())
-			b.emitLoadValToRCX(layout, i.Array)
-			b.emitLoadValToRDX(layout, i.Index)
-			b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+			b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
 			b.emitJeLabel(lblSlow)
-			b.emitBytes(0x48, 0x3B, 0x11) // cmp rdx, [rcx + 0] (unsigned idx vs len)
-			b.emitJaeLabel(lblSlow)
-			b.emitBytes(0x4C, 0x8B, 0x41, 0x10) // mov r8, [rcx + 16] (dataPtr)
-			b.emitBytes(0x49, 0x8B, 0x04, 0xD0) // mov rax, [r8 + rdx*8]
-			b.defineLabel(lblDone)
-			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-
-			layout.deferredSlowPaths = append(layout.deferredSlowPaths, func() {
-				b.defineLabel(lblSlow)
-				b.emitCallLabel("joss_arr_get_i64")
-				b.emitJmpLabel(lblDone)
-			})
 		}
+		b.defineLabel(lblDone)
+		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+		b.cachedRAXVal = i.Dest
+
+		helperName := b.selectArrayGetHelper(i.Dest.Type())
+		layout.deferredSlowPaths = append(layout.deferredSlowPaths, func() {
+			b.defineLabel(lblSlow)
+			b.emitCallLabel(helperName)
+			b.emitJmpLabel(lblDone)
+		})
 
 	case *ir.ArraySetInst:
 		lblSlow := fmt.Sprintf(".arr_set_slow_%d", b.nextInlineLabelID())
@@ -2548,7 +3378,29 @@ func (b *MachineCodeBuilder) emitCallIndirectWithArgs(layout *fnFrameLayout, cal
 	b.emitBytes(0xFF, 0xD0) // call rax
 }
 
+func (b *MachineCodeBuilder) isSafeCacheVal(layout *fnFrameLayout, val ir.Value) bool {
+	if val == nil || layout == nil {
+		return false
+	}
+	if _, ok := val.(*ir.ParamValue); ok {
+		return true
+	}
+	if tv, ok := val.(*ir.TempValue); ok {
+		off := layout.tempOffsets[tv.ID]
+		return !layout.aliasedOffsets[off]
+	}
+	return false
+}
+
 func (b *MachineCodeBuilder) emitLoadValToRAX(layout *fnFrameLayout, val ir.Value) {
+	if b.cachedRAXVal != nil && b.cachedRAXVal == val && b.isSafeCacheVal(layout, val) {
+		return
+	}
+	defer func() {
+		if b.isSafeCacheVal(layout, val) {
+			b.cachedRAXVal = val
+		}
+	}()
 	switch v := val.(type) {
 	case *ir.TempValue:
 		b.emitLoadRAXFromRBP(layout.tempOffsets[v.ID])
@@ -2597,6 +3449,14 @@ func (b *MachineCodeBuilder) emitLoadValToRAX(layout *fnFrameLayout, val ir.Valu
 }
 
 func (b *MachineCodeBuilder) emitLoadValToRCX(layout *fnFrameLayout, val ir.Value) {
+	if b.cachedRCXVal != nil && b.cachedRCXVal == val && b.isSafeCacheVal(layout, val) {
+		return
+	}
+	defer func() {
+		if b.isSafeCacheVal(layout, val) {
+			b.cachedRCXVal = val
+		}
+	}()
 	switch v := val.(type) {
 	case *ir.TempValue:
 		b.emitLoadRCXFromRBP(layout.tempOffsets[v.ID])
@@ -2741,57 +3601,105 @@ func (b *MachineCodeBuilder) emitLoadValToR8(layout *fnFrameLayout, val ir.Value
 }
 
 func (b *MachineCodeBuilder) emitLoadRAXFromRBP(disp int32) {
+	b.cachedRAXVal = nil
 	b.asmListing.WriteString(fmt.Sprintf("    mov rax, [rbp%+d]\n", disp))
-	b.emitBytes(0x48, 0x8B, 0x85)
-	b.emitU32(uint32(disp))
+	if disp >= -128 && disp <= 127 {
+		b.emitBytes(0x48, 0x8B, 0x45, byte(disp))
+	} else {
+		b.emitBytes(0x48, 0x8B, 0x85)
+		b.emitU32(uint32(disp))
+	}
 }
 
 func (b *MachineCodeBuilder) emitLoadRCXFromRBP(disp int32) {
+	b.cachedRCXVal = nil
 	b.asmListing.WriteString(fmt.Sprintf("    mov rcx, [rbp%+d]\n", disp))
-	b.emitBytes(0x48, 0x8B, 0x8D)
-	b.emitU32(uint32(disp))
+	if disp >= -128 && disp <= 127 {
+		b.emitBytes(0x48, 0x8B, 0x4D, byte(disp))
+	} else {
+		b.emitBytes(0x48, 0x8B, 0x8D)
+		b.emitU32(uint32(disp))
+	}
 }
 
 func (b *MachineCodeBuilder) emitLoadRDXFromRBP(disp int32) {
 	b.asmListing.WriteString(fmt.Sprintf("    mov rdx, [rbp%+d]\n", disp))
-	b.emitBytes(0x48, 0x8B, 0x95)
-	b.emitU32(uint32(disp))
+	if disp >= -128 && disp <= 127 {
+		b.emitBytes(0x48, 0x8B, 0x55, byte(disp))
+	} else {
+		b.emitBytes(0x48, 0x8B, 0x95)
+		b.emitU32(uint32(disp))
+	}
 }
 
 func (b *MachineCodeBuilder) emitLoadR8FromRBP(disp int32) {
 	b.asmListing.WriteString(fmt.Sprintf("    mov r8, [rbp%+d]\n", disp))
-	b.emitBytes(0x4C, 0x8B, 0x85)
-	b.emitU32(uint32(disp))
+	if disp >= -128 && disp <= 127 {
+		b.emitBytes(0x4C, 0x8B, 0x45, byte(disp))
+	} else {
+		b.emitBytes(0x4C, 0x8B, 0x85)
+		b.emitU32(uint32(disp))
+	}
 }
 
 func (b *MachineCodeBuilder) emitStoreRAXToRBP(disp int32) {
+	b.cachedRAXVal = nil
+	b.cachedRCXVal = nil
 	b.asmListing.WriteString(fmt.Sprintf("    mov [rbp%+d], rax\n", disp))
-	b.emitBytes(0x48, 0x89, 0x85)
-	b.emitU32(uint32(disp))
+	if disp >= -128 && disp <= 127 {
+		b.emitBytes(0x48, 0x89, 0x45, byte(disp))
+	} else {
+		b.emitBytes(0x48, 0x89, 0x85)
+		b.emitU32(uint32(disp))
+	}
 }
 
 func (b *MachineCodeBuilder) emitStoreRCXToRBP(disp int32) {
+	b.cachedRAXVal = nil
+	b.cachedRCXVal = nil
 	b.asmListing.WriteString(fmt.Sprintf("    mov [rbp%+d], rcx\n", disp))
-	b.emitBytes(0x48, 0x89, 0x8D)
-	b.emitU32(uint32(disp))
+	if disp >= -128 && disp <= 127 {
+		b.emitBytes(0x48, 0x89, 0x4D, byte(disp))
+	} else {
+		b.emitBytes(0x48, 0x89, 0x8D)
+		b.emitU32(uint32(disp))
+	}
 }
 
 func (b *MachineCodeBuilder) emitStoreRDXToRBP(disp int32) {
+	b.cachedRAXVal = nil
+	b.cachedRCXVal = nil
 	b.asmListing.WriteString(fmt.Sprintf("    mov [rbp%+d], rdx\n", disp))
-	b.emitBytes(0x48, 0x89, 0x95)
-	b.emitU32(uint32(disp))
+	if disp >= -128 && disp <= 127 {
+		b.emitBytes(0x48, 0x89, 0x55, byte(disp))
+	} else {
+		b.emitBytes(0x48, 0x89, 0x95)
+		b.emitU32(uint32(disp))
+	}
 }
 
 func (b *MachineCodeBuilder) emitStoreR8ToRBP(disp int32) {
+	b.cachedRAXVal = nil
+	b.cachedRCXVal = nil
 	b.asmListing.WriteString(fmt.Sprintf("    mov [rbp%+d], r8\n", disp))
-	b.emitBytes(0x4C, 0x89, 0x85)
-	b.emitU32(uint32(disp))
+	if disp >= -128 && disp <= 127 {
+		b.emitBytes(0x4C, 0x89, 0x45, byte(disp))
+	} else {
+		b.emitBytes(0x4C, 0x89, 0x85)
+		b.emitU32(uint32(disp))
+	}
 }
 
 func (b *MachineCodeBuilder) emitStoreR9ToRBP(disp int32) {
+	b.cachedRAXVal = nil
+	b.cachedRCXVal = nil
 	b.asmListing.WriteString(fmt.Sprintf("    mov [rbp%+d], r9\n", disp))
-	b.emitBytes(0x4C, 0x89, 0x8D)
-	b.emitU32(uint32(disp))
+	if disp >= -128 && disp <= 127 {
+		b.emitBytes(0x4C, 0x89, 0x4D, byte(disp))
+	} else {
+		b.emitBytes(0x4C, 0x89, 0x8D)
+		b.emitU32(uint32(disp))
+	}
 }
 
 func getFloatStackDisp(layout *fnFrameLayout, val ir.Value) (int32, bool) {

@@ -27,7 +27,10 @@ func (r *Runtime) executeProcessMethod(instance *Instance, method string, args [
 			return instance
 		}
 
-		command := args[0].(string)
+		command, ok := args[0].(string)
+		if !ok || command == "" {
+			return instance
+		}
 		var cmdArgs []string
 
 		if len(args) > 1 {

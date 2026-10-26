@@ -32,6 +32,12 @@ func (r *Runtime) evaluateExpression(exp parser.Expression) interface{} {
 			if slot.Value.Kind == runtimeframe.Int {
 				return slot.Value.Integer
 			}
+			if slot.Value.Kind == runtimeframe.Float {
+				return slot.Value.Float
+			}
+			if slot.Value.Kind == runtimeframe.String {
+				return slot.Value.String
+			}
 			if !slot.ByReference {
 				return slot.Value.Interface()
 			}
