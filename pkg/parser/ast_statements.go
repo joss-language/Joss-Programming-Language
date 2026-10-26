@@ -94,6 +94,7 @@ func (es *ExpressionStatement) String() string {
 
 type ClassStatement struct {
 	Token          Token // CLASS or RECORD
+	StartToken     Token // The first token (e.g. public, private, abstract) if modified, else CLASS/RECORD
 	Name           *Identifier
 	TypeParameters []*Identifier
 	SuperClass     *Identifier
@@ -359,7 +360,8 @@ func (ds *DeferStatement) String() string {
 }
 
 type MethodStatement struct {
-	Token          Token // FUNCTION
+	Token          Token // FUNCTION (or Init)
+	StartToken     Token // The first token (e.g. public, protected, private, static, abstract) if modified, else FUNCTION
 	Name           *Identifier
 	TypeParameters []*Identifier
 	Parameters     []*Parameter

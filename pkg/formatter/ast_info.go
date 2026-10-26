@@ -10,22 +10,61 @@ type SourcePos struct {
 }
 
 type ASTInfo struct {
-	blocks map[SourcePos]bool
-	maps   map[SourcePos]bool
+	blocks        map[SourcePos]bool
+	maps          map[SourcePos]bool
+	blankBefore   map[SourcePos]bool
 }
 
 func AnalyzeAST(prog *parser.Program) *ASTInfo {
 	info := &ASTInfo{
-		blocks: make(map[SourcePos]bool),
-		maps:   make(map[SourcePos]bool),
+		blocks:      make(map[SourcePos]bool),
+		maps:        make(map[SourcePos]bool),
+		blankBefore: make(map[SourcePos]bool),
 	}
 	if prog == nil {
 		return info
 	}
-	for _, stmt := range prog.Statements {
+	for i, stmt := range prog.Statements {
+		if i > 0 {
+			switch stmt.(type) {
+			case *parser.ClassStatement, *parser.InterfaceStatement, *parser.EnumStatement, *parser.MethodStatement:
+				info.blankBefore[tokenPos(stmt)] = true
+			}
+		}
 		info.walkStatement(stmt)
 	}
 	return info
+}
+
+func tokenPos(stmt parser.Statement) SourcePos {
+	switch s := stmt.(type) {
+	case *parser.ClassStatement:
+		tok := s.Token
+		if s.StartToken.Type != "" {
+			tok = s.StartToken
+		}
+		return SourcePos{Line: tok.Line, Col: tok.Column}
+	case *parser.InterfaceStatement:
+		return SourcePos{Line: s.Token.Line, Col: s.Token.Column}
+	case *parser.EnumStatement:
+		return SourcePos{Line: s.Token.Line, Col: s.Token.Column}
+	case *parser.MethodStatement:
+		tok := s.Token
+		if s.StartToken.Type != "" {
+			tok = s.StartToken
+		}
+		return SourcePos{Line: tok.Line, Col: tok.Column}
+	case *parser.InitStatement:
+		return SourcePos{Line: s.Token.Line, Col: s.Token.Column}
+	case *parser.LetStatement:
+		return SourcePos{Line: s.Token.Line, Col: s.Token.Column}
+	default:
+		return SourcePos{}
+	}
+}
+
+func (info *ASTInfo) ShouldBlankBefore(line, col int) bool {
+	return info.blankBefore[SourcePos{Line: line, Col: col}]
 }
 
 func (info *ASTInfo) IsBlock(line, col int) bool {
@@ -48,7 +87,16 @@ func (info *ASTInfo) walkStatement(stmt parser.Statement) {
 		}
 	case *parser.ClassStatement:
 		if s.Body != nil {
-			info.walkStatement(s.Body)
+			info.blocks[SourcePos{Line: s.Body.Token.Line, Col: s.Body.Token.Column}] = true
+			for i, member := range s.Body.Statements {
+				if i > 0 {
+					switch member.(type) {
+					case *parser.MethodStatement, *parser.InitStatement:
+						info.blankBefore[tokenPos(member)] = true
+					}
+				}
+				info.walkStatement(member)
+			}
 		}
 	case *parser.InterfaceStatement:
 		for _, m := range s.Methods {

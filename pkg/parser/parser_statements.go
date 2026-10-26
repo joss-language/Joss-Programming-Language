@@ -30,6 +30,7 @@ func (p *Parser) parseStatement() Statement {
 
 	// Modifiers before class, interface, enum, function or property: public, private, protected, static, abstract
 	if p.curToken.Type == PUBLIC || p.curToken.Type == PRIVATE || p.curToken.Type == PROTECTED || p.curToken.Type == STATIC || p.curToken.Type == ABSTRACT {
+		startTok := p.curToken
 		vis := ""
 		isStatic := false
 		isAbstract := false
@@ -61,6 +62,7 @@ func (p *Parser) parseStatement() Statement {
 			p.nextToken() // move to CLASS or RECORD
 			classStmt := p.parseClassStatement()
 			if classStmt != nil {
+				classStmt.StartToken = startTok
 				classStmt.Visibility = vis
 				classStmt.IsAbstract = isAbstract
 				classStmt.IsRecord = isRecord
@@ -99,6 +101,7 @@ func (p *Parser) parseStatement() Statement {
 			p.nextToken() // move to FUNCTION
 			methodStmt := p.parseMethodStatement(isAbstract)
 			if methodStmt != nil {
+				methodStmt.StartToken = startTok
 				methodStmt.Visibility = vis
 				methodStmt.IsStatic = isStatic
 				methodStmt.IsAbstract = isAbstract
@@ -561,6 +564,7 @@ func (p *Parser) parseClassBody() *BlockStatement {
 
 		var stmt Statement
 		if p.curToken.Type == PUBLIC || p.curToken.Type == PRIVATE || p.curToken.Type == PROTECTED || p.curToken.Type == STATIC || p.curToken.Type == ABSTRACT {
+			startTok := p.curToken
 			vis := ""
 			isStatic := false
 			isAbstract := false
@@ -588,6 +592,7 @@ func (p *Parser) parseClassBody() *BlockStatement {
 				p.nextToken() // move to FUNCTION
 				mStmt := p.parseMethodStatement(isAbstract)
 				if mStmt != nil {
+					mStmt.StartToken = startTok
 					mStmt.Visibility = vis
 					mStmt.IsStatic = isStatic
 					mStmt.IsAbstract = isAbstract

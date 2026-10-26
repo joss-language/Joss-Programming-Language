@@ -237,6 +237,13 @@ func (f *Formatter) formatTokens() string {
 			ternaryPending--
 		}
 
+		// If this is the start of a member declaration that needs separation
+		if f.tokensOnLine == 0 && f.astInfo != nil && f.astInfo.ShouldBlankBefore(tok.Line, tok.Col) {
+			if f.consecLines < 2 && f.out.Len() > 0 {
+				f.writeNewline()
+			}
+		}
+
 		// Ensure indentation at start of line
 		f.writeIndent(tok)
 

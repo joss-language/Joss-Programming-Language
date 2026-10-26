@@ -50,6 +50,34 @@ public func compute(): int {
 	}
 }
 
+func TestFormatterClassMethodSpacing(t *testing.T) {
+	src := `public class Service {
+    public func first(): void {
+        int $a = 1;
+    }
+    public func second(): void {
+        int $b = 2;
+    }
+}`
+	expected := `public class Service {
+    public func first(): void {
+        int $a = 1;
+    }
+
+    public func second(): void {
+        int $b = 2;
+    }
+}
+`
+	res, err := FormatSource(src)
+	if err != nil {
+		t.Fatalf("format error: %v", err)
+	}
+	if res != expected {
+		t.Fatalf("expected:\n%q\ngot:\n%q", expected, res)
+	}
+}
+
 func TestFormatterNormalizesSpaces(t *testing.T) {
 	input := `public   func   add( int $a,int $b ):int{return $a+$b;}`
 	expected := `public func add(int $a, int $b): int {
