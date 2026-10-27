@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -588,6 +589,39 @@ func optimizeHostBridgeDLL(outDir string, detectedCaps map[string]bool) {
 		}
 	}
 
+	// 1. Fast path: Check user cache or repo prebuilt DLL to avoid 20-30s recompilation + UPX
+	sort.Strings(tags)
+	tagKey := strings.Join(tags, "_")
+	if tagKey == "" {
+		tagKey = "default"
+	}
+
+	userHome, _ := os.UserHomeDir()
+	cacheDir := filepath.Join(userHome, ".joss", "cache", "host_bridge")
+	cachedDLL := filepath.Join(cacheDir, "joss_host_"+tagKey+".dll")
+
+	if fi, statErr := os.Stat(cachedDLL); statErr == nil && fi.Size() > 0 {
+		if copyErr := copyFile(cachedDLL, absTargetDll); copyErr == nil {
+			fmt.Printf("⚡ Host bridge reutilizado desde caché nativa (%s)\n", strings.Join(tags, ", "))
+			return
+		}
+	}
+
+	// Fallback to prebuilt template in repo if tags match or cache is absent
+	if repoRoot != "" {
+		repoPrebuilt := filepath.Join(repoRoot, "pkg", "backend", "native", "abi", "build", "joss_host.dll")
+		if fi, statErr := os.Stat(repoPrebuilt); statErr == nil && fi.Size() > 0 && len(tags) <= 5 {
+			if copyErr := copyFile(repoPrebuilt, absTargetDll); copyErr == nil {
+				fmt.Printf("⚡ Host bridge desplegado desde runtime nativo preconstruido (%s)\n", strings.Join(tags, ", "))
+				// Cache it for future instant builds
+				_ = os.MkdirAll(cacheDir, 0755)
+				_ = copyFile(repoPrebuilt, cachedDLL)
+				return
+			}
+		}
+	}
+
+	// 2. Slow path: Recompile with go build and UPX only when strictly necessary
 	if repoRoot != "" {
 		if _, lookErr := exec.LookPath("go"); lookErr == nil {
 			args := []string{"build", "-buildmode=c-shared", "-trimpath", "-buildvcs=false", "-ldflags=-s -w"}
@@ -608,6 +642,10 @@ func optimizeHostBridgeDLL(outDir string, detectedCaps map[string]bool) {
 		upxCmd := exec.Command(upxPath, "-9", absTargetDll)
 		_ = upxCmd.Run()
 	}
+
+	// Save to cache for subsequent builds
+	_ = os.MkdirAll(cacheDir, 0755)
+	_ = copyFile(absTargetDll, cachedDLL)
 }
 
 func copyDatabaseFiles(buildDir string) {

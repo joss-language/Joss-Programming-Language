@@ -10,9 +10,9 @@ type SourcePos struct {
 }
 
 type ASTInfo struct {
-	blocks        map[SourcePos]bool
-	maps          map[SourcePos]bool
-	blankBefore   map[SourcePos]bool
+	blocks      map[SourcePos]bool
+	maps        map[SourcePos]bool
+	blankBefore map[SourcePos]bool
 }
 
 func AnalyzeAST(prog *parser.Program) *ASTInfo {
