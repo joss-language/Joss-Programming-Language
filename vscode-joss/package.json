@@ -251,9 +251,10 @@
   },
   "overrides": {
     "js-yaml": "4.3.2",
-    "qs": "6.16.0",
+    "qs": "^6.17.0",
     "braces": "^3.0.3",
-    "micromatch": "^4.0.8"
+    "micromatch": "^4.0.8",
+    "@azure/msal-node": "^7.1.0"
   },
   "repository": {
     "type": "git",
