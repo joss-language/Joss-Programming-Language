@@ -344,15 +344,21 @@ func (ctx *reachabilityContext) scanRouteUnit(unit SourceUnit) {
 		if !ok {
 			continue
 		}
-		// Pattern: Router::get("/path", "Controller@action") or Router::post(...)
+		// Pattern: Router::get("/path", "Controller@action") or Router::match("GET|POST", "/path", "Controller@action1@action2")
 		for _, arg := range call.Arguments {
 			if strLit, ok := arg.(*parser.StringLiteral); ok {
 				if strings.Contains(strLit.Value, "@") {
-					parts := strings.SplitN(strLit.Value, "@", 2)
-					ctrl := parts[0]
-					action := parts[1]
-					ctx.markClassInstantiated(ctrl)
-					ctx.markMethodLive(ctrl, action)
+					parts := strings.Split(strLit.Value, "@")
+					if len(parts) >= 2 {
+						ctrl := parts[0]
+						ctx.markClassInstantiated(ctrl)
+						for _, action := range parts[1:] {
+							action = strings.TrimSpace(action)
+							if action != "" {
+								ctx.markMethodLive(ctrl, action)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -499,6 +505,23 @@ func (ctx *reachabilityContext) scanNode(node parser.Node) {
 func (ctx *reachabilityContext) inspectCall(call *parser.CallExpression) {
 	if call == nil {
 		return
+	}
+
+	// Route handler detection in any CallExpression (e.g. nested in Router::group closures)
+	for _, arg := range call.Arguments {
+		if strLit, ok := arg.(*parser.StringLiteral); ok && strings.Contains(strLit.Value, "@") {
+			parts := strings.Split(strLit.Value, "@")
+			if len(parts) >= 2 {
+				ctrl := parts[0]
+				ctx.markClassInstantiated(ctrl)
+				for _, action := range parts[1:] {
+					action = strings.TrimSpace(action)
+					if action != "" {
+						ctx.markMethodLive(ctrl, action)
+					}
+				}
+			}
+		}
 	}
 
 	// 1. Static call: Class::method(...)

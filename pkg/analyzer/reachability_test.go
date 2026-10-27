@@ -130,6 +130,52 @@ public class UserController {
 	}
 }
 
+func TestReachabilityGraphDetectsMultiActionMatchRoutes(t *testing.T) {
+	entrySrc := `print("Starting server")`
+	routeSrc := `Router::match("GET|POST", "/register", "AuthController@showRegister@doRegister")`
+	authCtrlSrc := `
+public class AuthController {
+    public static func showRegister(): void {
+        print("show register form")
+    }
+    public static func doRegister(): void {
+        print("do register submit")
+    }
+    public static func unused(): void {
+        print("dead")
+    }
+}
+`
+
+	units := []SourceUnit{
+		parseReachUnit("main.joss", entrySrc),
+		parseReachUnit("routes.joss", routeSrc),
+		parseReachUnit("app/controllers/AuthController.joss", authCtrlSrc),
+	}
+
+	prep := PrepareProgram(units, NewEnvironment())
+	graph := BuildReachabilityGraph(prep, ReachabilityOptions{Entrypoint: "main.joss", RouteFiles: []string{"routes.joss"}})
+
+	if !graph.IsClassReachable("AuthController") {
+		t.Errorf("AuthController must be reachable via routes.joss")
+	}
+	if !graph.IsMethodReachable("AuthController", "showRegister") {
+		t.Errorf("AuthController::showRegister must be reachable")
+	}
+	if !graph.IsMethodReachable("AuthController", "doRegister") {
+		t.Errorf("AuthController::doRegister must be reachable")
+	}
+	if graph.IsMethodReachable("AuthController", "unused") {
+		t.Errorf("AuthController::unused must NOT be reachable")
+	}
+
+	pruned := PruneProgramAST(units[2], graph)
+	cls := pruned.Program.Statements[0].(*parser.ClassStatement)
+	if len(cls.Body.Statements) != 2 {
+		t.Errorf("expected 2 methods retained in AuthController, got %d", len(cls.Body.Statements))
+	}
+}
+
 func TestReachabilityGraphPrunesDeadFunctions(t *testing.T) {
 	entrySrc := `
 var $res = helper_1()

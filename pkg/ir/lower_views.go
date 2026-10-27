@@ -659,17 +659,37 @@ func extractRouteFromCallExpr(call *parser.CallExpression, walkStmts func([]pars
 		}
 	case "match":
 		if len(call.Arguments) >= 3 {
+			methodsLit, _ := call.Arguments[0].(*parser.StringLiteral)
 			pathLit, ok1 := call.Arguments[1].(*parser.StringLiteral)
 			targetLit, ok2 := call.Arguments[2].(*parser.StringLiteral)
 			if ok1 && ok2 && strings.Contains(targetLit.Value, "@") {
 				parts := strings.Split(targetLit.Value, "@")
-				if len(parts) >= 2 {
+				if len(parts) == 2 {
 					out = append(out, compiledRouteEntry{
 						method:     "ANY",
 						path:       pathLit.Value,
 						controller: parts[0],
 						action:     parts[1],
 					})
+				} else if len(parts) > 2 {
+					controller := parts[0]
+					actions := parts[1:]
+					methods := []string{"ANY"}
+					if methodsLit != nil && methodsLit.Value != "" {
+						methods = strings.Split(methodsLit.Value, "|")
+					}
+					for i, action := range actions {
+						m := "ANY"
+						if i < len(methods) {
+							m = strings.ToUpper(strings.TrimSpace(methods[i]))
+						}
+						out = append(out, compiledRouteEntry{
+							method:     m,
+							path:       pathLit.Value,
+							controller: controller,
+							action:     action,
+						})
+					}
 				}
 			}
 		}
