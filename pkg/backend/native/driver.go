@@ -48,6 +48,20 @@ type BuildResult struct {
 	BootstrapPath   string
 }
 
+// NativeCodeEmitter define el contrato que deben cumplir los generadores de código máquina por arquitectura.
+type NativeCodeEmitter interface {
+	Compile(prog *ir.Program) ([]byte, string, error)
+	NeedsHostBridge() bool
+}
+
+// SelectCodeEmitter devuelve el generador nativo correspondiente a la arquitectura objetivo.
+func SelectCodeEmitter(target Target, guiMode bool) NativeCodeEmitter {
+	if target.Arch == "arm64" || target.Arch == "aarch64" {
+		return NewARM64Builder(target, guiMode)
+	}
+	return NewMachineCodeBuilder(target, guiMode)
+}
+
 // BuildProgram compila un ir.Program directamente a código máquina nativo (PE32+ / ELF64)
 // sin invocar compiladores externos (sin Go, sin GCC, sin Clang, sin MSVC).
 func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
@@ -134,7 +148,7 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 	// 5. Compilación según el backend seleccionado
 	switch selectedBackend {
 	case BackendNative, BackendStandalone:
-		mcBuilder := NewMachineCodeBuilder(target, opts.GUI)
+		mcBuilder := SelectCodeEmitter(target, opts.GUI)
 		binBytes, asmListing, err := mcBuilder.Compile(prog)
 		if err != nil {
 			return nil, err

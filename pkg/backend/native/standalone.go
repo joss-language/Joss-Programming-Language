@@ -61,7 +61,7 @@ func (b *StandaloneBuilder) BuildNativeExecutableWithOptions(prog *ir.Program, o
 		}
 	}
 	// Optimizamos el binario final: si no usa Stdlib o GranDB, no inyectamos dependencias (Binarios ultra-ligeros)
-	mc := NewMachineCodeBuilder(target, opts.GUI)
+	mc := SelectCodeEmitter(target, opts.GUI)
 	binBytes, asmSource, err := mc.Compile(prog)
 	if err != nil {
 		return err
