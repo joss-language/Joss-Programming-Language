@@ -5,7 +5,8 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -24,11 +25,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Check formatting
+      - name: Auto-format Go code
+        id: gofmt
         shell: bash
         run: |
-          files=$(gofmt -l $(find cmd pkg tools -name '*.go' -type f))
-          test -z "$files" || { echo "$files"; exit 1; }
+          unformatted=$(gofmt -l $(find cmd pkg tools tests -name '*.go' -type f))
+          if [ -n "$unformatted" ]; then
+            echo "Archivos sin formato detectados:"
+            echo "$unformatted"
+            gofmt -w $unformatted
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Check generated language catalog
         run: go run ./tools/cataloggen --check
@@ -65,6 +74,32 @@ jobs:
         run: |
           cd ejemplos/Joss-Red-JosSecurity
           "$RUNNER_TEMP/joss" analyze
+
+      - name: Create Pull Request with formatting fixes
+        if: steps.gofmt.outputs.has_changes == 'true' && github.event_name == 'push'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          branch="auto-gofmt-fixes"
+          git checkout -B "$branch"
+          git add -u
+          git commit -m "style: auto-format Go code with gofmt"
+          git push -f origin "$branch"
+          gh pr create --title "style: auto-format Go code with gofmt" \
+                       --body "Se detectaron archivos de código Go sin el formato canónico (gofmt). Se aplicó gofmt -w tras verificar que todas las pruebas pasaron exitosamente." \
+                       --base "${{ github.ref_name }}" \
+                       --head "$branch" || true
+
+      - name: Fail if formatting missing on Pull Request
+        if: steps.gofmt.outputs.has_changes == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          echo "::error::Se detectaron archivos sin formato gofmt. Ejecuta 'gofmt -w <archivos>' en tu rama local."
+          exit 1
 
   windows:
     name: Windows build and test

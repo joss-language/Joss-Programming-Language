@@ -61,9 +61,9 @@ const (
 type arm64RelocKind int
 
 const (
-	arm64RelocBranch arm64RelocKind = iota // B o BL (imm26)
-	arm64RelocCondBranch                  // B.cond (imm19)
-	arm64RelocDataOffset                  // Puntero absoluto o relativo a ROData
+	arm64RelocBranch     arm64RelocKind = iota // B o BL (imm26)
+	arm64RelocCondBranch                       // B.cond (imm19)
+	arm64RelocDataOffset                       // Puntero absoluto o relativo a ROData
 )
 
 type arm64Reloc struct {
