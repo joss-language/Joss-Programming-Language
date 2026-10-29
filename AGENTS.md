@@ -158,6 +158,7 @@ Al modificar invocación u operadores:
 6. **Tests obligatorios de compilación nativa y paridad diferencial**:
    - **Toda nueva funcionalidad que se integre al lenguaje debe incluir obligatoriamente pruebas de compilación nativa.**
    - No es suficiente con implementar y probar el intérprete: se debe implementar el lowering en `pkg/ir/lower.go`, la verificación en `pkg/ir/verifier.go` y la emisión en `pkg/backend/native`.
+   - **Paridad Obligatoria Multi-Arquitectura (`x86_64` y `AArch64`)**: Siempre se deben considerar tanto `machine_code_aarch64` como `machine_code_x86_64` para asegurar que el backend emita código para ambas arquitecturas, garantizando que funcione en Linux, Windows y macOS sin importar su arquitectura.
    - Se debe crear o ampliar un test diferencial en `tests/native/differential_test.go` que compile el programa a un ejecutable nativo real (`joss build`), lo ejecute y verifique que la salida (stdout, stderr y exit code) coincide byte a byte con la ejecución interpretada (`joss run`).
    - Ninguna característica del lenguaje se considera completa sin su correspondiente test de compilación nativa exitoso.
 7. **Actualización obligatoria de documentación e internacionalización**:
