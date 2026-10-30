@@ -54,65 +54,6 @@ func (g *Generator) Close() {
 	}
 }
 
-func containsYield(node parser.Node) bool {
-	if node == nil {
-		return false
-	}
-	found := false
-	var inspect func(n parser.Node)
-	inspect = func(n parser.Node) {
-		if n == nil || found {
-			return
-		}
-		if _, ok := n.(*parser.YieldExpression); ok {
-			found = true
-			return
-		}
-		switch x := n.(type) {
-		case *parser.BlockStatement:
-			for _, s := range x.Statements {
-				inspect(s)
-			}
-		case *parser.ExpressionStatement:
-			inspect(x.Expression)
-		case *parser.AssignExpression:
-			inspect(x.Left)
-			inspect(x.Value)
-		case *parser.TernaryExpression:
-			inspect(x.Condition)
-			inspect(x.True)
-			inspect(x.False)
-		case *parser.WhileStatement:
-			inspect(x.Condition)
-			inspect(x.Body)
-		case *parser.DoWhileStatement:
-			inspect(x.Condition)
-			inspect(x.Body)
-		case *parser.ForeachStatement:
-			inspect(x.Iterable)
-			inspect(x.Body)
-		case *parser.CallExpression:
-			inspect(x.Function)
-			for _, arg := range x.Arguments {
-				inspect(arg)
-			}
-		case *parser.InfixExpression:
-			inspect(x.Left)
-			inspect(x.Right)
-		case *parser.PrefixExpression:
-			inspect(x.Right)
-		case *parser.ReturnStatement:
-			if x.ReturnValue != nil {
-				inspect(x.ReturnValue)
-			}
-		case *parser.YieldExpression:
-			found = true
-		}
-	}
-	inspect(node)
-	return found
-}
-
 func (r *Runtime) evaluateYield(ye *parser.YieldExpression) interface{} {
 	if r.currentGenerator == nil {
 		panic(&JossError{Type: "YieldError", Message: "yield solo puede ser utilizado dentro de una funcion generadora", File: r.CurrentFile, Line: ye.Token.Line})

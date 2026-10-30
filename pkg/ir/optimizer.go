@@ -64,7 +64,6 @@ func InlineLeafFunctions(prog *Program) {
 				// Permitidas para inlining ultrarrápido
 			default:
 				hasDisallowedInst = true
-				break
 			}
 		}
 		if hasDisallowedInst {

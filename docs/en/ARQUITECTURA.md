@@ -57,7 +57,6 @@ flowchart TD
 | `pkg/bytecode` | Compressed AST serialization (`JOSSBC2Z` format exclusively for `.jp` plugins, never for AOT native binaries). |
 | `pkg/ir` | Canonical Joss Native IR: CFG, basic blocks, typed SSA/3AC instructions, lowerer from `PreparedProgram`, and verifier. |
 | `pkg/backend/native` | Native compilation backend: real machine-code generator and LLVM emission for standalone executables. |
-| `pkg/vm` | Independent experimental compiler/VM. The CLI and `pkg/core` do not use them as the default path. |
 | `cmd/joss` | CLI, project analysis, execution (`run`), server (`server start`), native compilation (`build`) with selective pruning (`no<driver>`), and tools. |
 | `vscode-joss` | LSP/editor. Consumes the generated core catalog. |
 
@@ -105,10 +104,8 @@ Official native compilation (`joss build`) transforms the analyzed and validated
 - **Pure CLI programs**: Compiled to pure machine code (~5.5 KB - 32 KB) without `joss_host.dll` and without a VFS trailer (`JOSS_RUNNER_DATA`).
 - **Applications with web/DB services**: Selectively link `_joss_host_bridge` (applying automatic pruning via `no<driver>` build tags to exclude engines such as SQLite, MySQL, PostgreSQL, SQL Server, Redis, or OCI when unused by the project) and seal the AES-256 encrypted VFS (`env.enc`).
 
-The `pkg/vm` tree contains opcodes and an experimental VM. Its arithmetic and
-errors do not define published semantics while it is not connected to the pipeline
-above. Likewise, JPBC only defines plugin execution. When documenting
-“compilation”, state which of the three representations is being used.
+Likewise, JPBC only defines plugin execution. When documenting
+“compilation”, state which of the representations is being used.
 
 ## Dependency rule
 

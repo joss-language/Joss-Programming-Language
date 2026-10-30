@@ -57,7 +57,6 @@ flowchart TD
 | `pkg/bytecode` | Serialização comprimida do AST (formato `JOSSBC2Z` exclusivo para plugins `.jp`, nunca para binários nativos AOT). |
 | `pkg/ir` | Joss Native IR canônico: CFG, blocos básicos, instruções SSA/3AC tipadas, lowerer a partir de `PreparedProgram` e verifier. |
 | `pkg/backend/native` | Backend de compilação nativa: gerador de código de máquina real e emissão LLVM para executáveis autônomos. |
-| `pkg/vm` | Compilador/VM experimental independentes. A CLI e `pkg/core` não os utilizam como rota padrão. |
 | `cmd/joss` | CLI, análise de projeto, execução (`run`), servidor (`server start`), compilação nativa (`build`) com poda seletiva (`no<driver>`) e ferramentas. |
 | `vscode-joss` | LSP/editor. Consome o catálogo gerado do núcleo. |
 
