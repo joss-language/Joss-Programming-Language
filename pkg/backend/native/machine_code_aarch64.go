@@ -717,6 +717,14 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 
 	case *ir.CallRuntimeInst:
 		b.needsHostBridge = true
+
+	case *ir.CallHostServiceInst:
+		b.needsHostBridge = true
+		if i.Dest != nil {
+			disp := layout.tempOffsets[i.Dest.ID]
+			b.emitLoadImm64(regX0, 0)
+			b.emitStr(regX0, regSP, uint32(disp))
+		}
 	}
 
 	return nil

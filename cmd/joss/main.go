@@ -614,7 +614,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		_, hasApi := os.Stat("api.joss")
 		_, hasApp := os.Stat("app")
 		if hasRoutes == nil || hasApi == nil || hasApp == nil {
-			if newSize, sealErr := appendSealedAssetsToExecutable(outExe, enableGUI); sealErr == nil && newSize > 0 {
+			if newSize, sealErr := appendSealedAssetsToExecutable(outExe, enableGUI, target); sealErr == nil && newSize > 0 {
 				res.ExecutableSize = newSize
 				fmt.Println("🔒 Assets, vistas, rutas y entorno (env.enc AES-256) sellados dentro del ejecutable.")
 			}

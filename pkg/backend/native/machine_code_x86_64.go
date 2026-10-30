@@ -708,6 +708,26 @@ func (b *MachineCodeBuilder) emitCallIAT(slot WinImportSlot) {
 	b.relocs = append(b.relocs, machineReloc{kind: relocIAT, patchOffset: patchOff, iatSlot: slot})
 }
 
+func (b *MachineCodeBuilder) emitLeaRDIString(s string) {
+	off := b.internString(s)
+	b.asmListing.WriteString(fmt.Sprintf("    lea rdi, [rip + str_%d] ; %q\n", off, s))
+	b.emitBytes(0x48, 0x8D, 0x3D)
+	patchOff := b.text.Len()
+	b.emitU32(0)
+	b.relocs = append(b.relocs, machineReloc{kind: relocROData, patchOffset: patchOff, targetOff: off})
+}
+
+func (b *MachineCodeBuilder) emitCallHostBridge(target string) {
+	b.needsHostBridge = true
+	if b.target.OS == "windows" {
+		b.emitLeaRCXString(target)
+		b.emitCallIAT(IATJossHostBridge)
+	} else {
+		b.emitLeaRDIString(target)
+		b.emitCallLabel("_joss_host_bridge")
+	}
+}
+
 func (b *MachineCodeBuilder) applyRelocations(textBytes []byte, textRVA, rodataRVA, dataRVA uint32, iatRVAs []uint32) error {
 	for _, r := range b.relocs {
 		ripNext := int64(textRVA) + int64(r.patchOffset) + 4
@@ -2220,6 +2240,10 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLeaRDXData(dataOffTryRIP)
 	b.emitBytes(0x48, 0x8B, 0x14, 0xC2) // mov rdx, [rdx + rax*8]
 	b.emitBytes(0xFF, 0xE2)             // jmp rdx
+
+	b.defineLabel("_joss_host_bridge")
+	b.asmListing.WriteString("    xor eax, eax\n    ret\n")
+	b.emitBytes(0x31, 0xC0, 0xC3)
 }
 
 type fnFrameLayout struct {
@@ -2862,8 +2886,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 			}
 		} else {
-			b.emitLeaRCXString("builtin::" + i.BuiltinID)
-			b.emitCallIAT(IATJossHostBridge)
+			b.emitCallHostBridge("builtin::" + i.BuiltinID)
 			if i.Dest != nil {
 				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 			}
@@ -2899,17 +2922,14 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 				return nil
 			}
 		}
-		b.emitLeaRCXString(i.TypeKind + "::" + i.MethodName)
-		b.emitCallIAT(IATJossHostBridge)
+		b.emitCallHostBridge(i.TypeKind + "::" + i.MethodName)
 		if i.Dest != nil {
 			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 		}
 	case *ir.CallHostServiceInst:
 		target := i.ClassName + "::" + i.MethodName
 		if b.isJITMode {
-			b.needsHostBridge = true
-			b.emitLeaRCXString(target)
-			b.emitCallIAT(IATJossHostBridge)
+			b.emitCallHostBridge(target)
 			if i.Dest != nil {
 				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 			}
@@ -2973,8 +2993,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			}
 		}
 		if isSupportedHostService(i.ClassName, i.MethodName) {
-			b.emitLeaRCXString(target)
-			b.emitCallIAT(IATJossHostBridge)
+			b.emitCallHostBridge(target)
 			if i.Dest != nil {
 				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 			}
@@ -3027,8 +3046,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			b.emitCallWithArgs(layout, "fn_"+i.Callee, i.Args)
 		} else {
 			// External host function or runtime method
-			b.emitLeaRCXString(i.Callee)
-			b.emitCallIAT(IATJossHostBridge)
+			b.emitCallHostBridge(i.Callee)
 		}
 		if i.Dest != nil {
 			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
@@ -3049,8 +3067,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			return nil
 		}
 		if isSupportedRuntimeCallee(i.Func) {
-			b.emitLeaRCXString(i.Func)
-			b.emitCallIAT(IATJossHostBridge)
+			b.emitCallHostBridge(i.Func)
 			if i.Dest != nil {
 				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 			}

@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jossecurity/joss/pkg/backend/native"
 	"github.com/jossecurity/joss/pkg/buildmanifest"
 	"github.com/jossecurity/joss/pkg/bytecode"
 	"github.com/jossecurity/joss/pkg/core"
@@ -485,7 +486,127 @@ func getUPXDownloadURL() (string, string) {
 	return "", ""
 }
 
-func appendSealedAssetsToExecutable(outExe string, enableGUI bool) (int64, error) {
+func computePruningTags(detectedCaps map[string]bool) []string {
+	var tags []string
+	if detectedCaps != nil {
+		if !detectedCaps["database"] && !detectedCaps["sqlite"] && !detectedCaps["mysql"] && !detectedCaps["postgres"] && !detectedCaps["mssql"] {
+			tags = append(tags, "nodb")
+		} else {
+			if !detectedCaps["mysql"] {
+				tags = append(tags, "nomysql")
+			}
+			if !detectedCaps["sqlite"] {
+				tags = append(tags, "nosqlite")
+			}
+			if !detectedCaps["postgres"] {
+				tags = append(tags, "nopostgres")
+			}
+			if !detectedCaps["mssql"] {
+				tags = append(tags, "nomssql")
+			}
+		}
+		if !detectedCaps["oci"] {
+			tags = append(tags, "nooci")
+		}
+		if !detectedCaps["redis"] {
+			tags = append(tags, "noredis")
+		}
+		if !detectedCaps["gui"] {
+			tags = append(tags, "nogui")
+		}
+	}
+	return tags
+}
+
+func findRepoRoot() string {
+	for check := "."; ; check = filepath.Join("..", check) {
+		absCheck, absErr := filepath.Abs(check)
+		if absErr != nil {
+			break
+		}
+		if _, statErr := os.Stat(filepath.Join(absCheck, "pkg", "backend", "native", "abi", "host_bridge.go")); statErr == nil {
+			return absCheck
+		}
+		parent := filepath.Dir(absCheck)
+		if parent == absCheck {
+			break
+		}
+	}
+	return ""
+}
+
+func compileRunnerBinary(outExe string, target native.Target, detectedCaps map[string]bool) error {
+	absOutExe, err := filepath.Abs(outExe)
+	if err != nil {
+		absOutExe = outExe
+	}
+
+	tags := computePruningTags(detectedCaps)
+	sort.Strings(tags)
+	tagKey := strings.Join(tags, "_")
+	if tagKey == "" {
+		tagKey = "default"
+	}
+
+	userHome, _ := os.UserHomeDir()
+	cacheDir := filepath.Join(userHome, ".joss", "cache", "host_runner")
+	cachedRunner := filepath.Join(cacheDir, fmt.Sprintf("runner_%s_%s_%s", target.OS, target.Arch, tagKey))
+
+	// 1. Check user cache
+	if fi, statErr := os.Stat(cachedRunner); statErr == nil && fi.Size() > 0 {
+		if copyErr := copyFile(cachedRunner, absOutExe); copyErr == nil {
+			_ = os.Chmod(absOutExe, 0755)
+			fmt.Printf("⚡ Host runner reutilizado desde caché nativa (%s/%s, tags: %s)\n", target.OS, target.Arch, tagKey)
+			return nil
+		}
+	}
+
+	// 2. Compile host runner using Go toolchain
+	repoRoot := findRepoRoot()
+	if repoRoot == "" {
+		return fmt.Errorf("no se encontró la raíz del repositorio de Joss para compilar el runner")
+	}
+
+	if _, lookErr := exec.LookPath("go"); lookErr != nil {
+		return fmt.Errorf("se requiere 'go' en el PATH para construir el runner nativo")
+	}
+
+	fmt.Printf("⚡ Compilando host runner autónomo para %s/%s (%s)...\n", target.OS, target.Arch, tagKey)
+	args := []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w"}
+	if len(tags) > 0 {
+		args = append(args, "-tags="+strings.Join(tags, ","))
+	}
+	args = append(args, "-o", absOutExe, "./pkg/backend/native/abi/")
+
+	cmd := exec.Command("go", args...)
+	cmd.Dir = repoRoot
+	cmd.Env = append(os.Environ(),
+		"CGO_ENABLED=0",
+		"GOOS="+target.OS,
+		"GOARCH="+target.Arch,
+	)
+
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("error compilando host runner: %v\n%s", err, string(out))
+	}
+
+	_ = os.Chmod(absOutExe, 0755)
+
+	// 3. Compress with UPX if available
+	if upx := resolveOrDownloadUPX(); upx != "" {
+		fmt.Printf("⚡ Optimizando host runner con UPX...\n")
+		upxCmd := exec.Command(upx, "-9", absOutExe)
+		_ = upxCmd.Run()
+	}
+
+	// 4. Cache the resulting runner for subsequent instant builds
+	_ = os.MkdirAll(cacheDir, 0755)
+	_ = copyFile(absOutExe, cachedRunner)
+
+	return nil
+}
+
+func appendSealedAssetsToExecutable(outExe string, enableGUI bool, target native.Target) (int64, error) {
 	if _, err := os.Stat("assets/css"); err == nil {
 		server.CompileStyles()
 	}
@@ -500,7 +621,16 @@ func appendSealedAssetsToExecutable(outExe string, enableGUI bool) (int64, error
 	if outDir != "" && outDir != "." {
 		_ = os.MkdirAll(filepath.Join(outDir, "Storage"), 0755)
 		copyDatabaseFiles(outDir)
-		optimizeHostBridgeDLL(outDir, detectedCaps)
+	}
+
+	if target.OS == "windows" {
+		if outDir != "" && outDir != "." {
+			optimizeHostBridgeDLL(outDir, detectedCaps)
+		}
+	} else {
+		if err := compileRunnerBinary(outExe, target, detectedCaps); err != nil {
+			return 0, err
+		}
 	}
 
 	outFile, err := os.OpenFile(outExe, os.O_WRONLY|os.O_APPEND, 0755)
@@ -544,50 +674,8 @@ func optimizeHostBridgeDLL(outDir string, detectedCaps map[string]bool) {
 		absTargetDll = targetDll
 	}
 
-	var tags []string
-	if detectedCaps != nil {
-		if !detectedCaps["database"] && !detectedCaps["sqlite"] && !detectedCaps["mysql"] && !detectedCaps["postgres"] && !detectedCaps["mssql"] {
-			tags = append(tags, "nodb")
-		} else {
-			if !detectedCaps["mysql"] {
-				tags = append(tags, "nomysql")
-			}
-			if !detectedCaps["sqlite"] {
-				tags = append(tags, "nosqlite")
-			}
-			if !detectedCaps["postgres"] {
-				tags = append(tags, "nopostgres")
-			}
-			if !detectedCaps["mssql"] {
-				tags = append(tags, "nomssql")
-			}
-		}
-		if !detectedCaps["oci"] {
-			tags = append(tags, "nooci")
-		}
-		if !detectedCaps["redis"] {
-			tags = append(tags, "noredis")
-		}
-		if !detectedCaps["gui"] {
-			tags = append(tags, "nogui")
-		}
-	}
-
-	repoRoot := ""
-	for check := "."; ; check = filepath.Join("..", check) {
-		absCheck, absErr := filepath.Abs(check)
-		if absErr != nil {
-			break
-		}
-		if _, statErr := os.Stat(filepath.Join(absCheck, "pkg", "backend", "native", "abi", "host_bridge.go")); statErr == nil {
-			repoRoot = absCheck
-			break
-		}
-		parent := filepath.Dir(absCheck)
-		if parent == absCheck {
-			break
-		}
-	}
+	tags := computePruningTags(detectedCaps)
+	repoRoot := findRepoRoot()
 
 	// 1. Fast path: Check user cache or repo prebuilt DLL to avoid 20-30s recompilation + UPX
 	sort.Strings(tags)

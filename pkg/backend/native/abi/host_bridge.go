@@ -1,7 +1,5 @@
 package main
 
-import "C"
-
 import (
 	"bytes"
 	"compress/gzip"
@@ -109,12 +107,7 @@ func loadEmbeddedVFS() *vfs.MemFS {
 	return embeddedVFS
 }
 
-//export _joss_host_bridge
-func _joss_host_bridge(methodNamePtr *C.char) {
-	if methodNamePtr == nil {
-		return
-	}
-	methodName := C.GoString(methodNamePtr)
+func ExecuteHostBridge(methodName string) {
 	fmt.Printf("[HostBridge ABI] Llamada nativa recibida para: %s\n", methodName)
 
 	memFS := loadEmbeddedVFS()
@@ -130,4 +123,6 @@ func _joss_host_bridge(methodNamePtr *C.char) {
 	}
 }
 
-func main() {}
+func main() {
+	ExecuteHostBridge("Server::start")
+}
