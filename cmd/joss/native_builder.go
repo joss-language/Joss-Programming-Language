@@ -561,49 +561,70 @@ func compileRunnerBinary(outExe string, target native.Target, detectedCaps map[s
 		}
 	}
 
-	// 2. Compile host runner using Go toolchain
+	// 2. Compile host runner using Go toolchain if available
 	repoRoot := findRepoRoot()
-	if repoRoot == "" {
-		return fmt.Errorf("no se encontró la raíz del repositorio de Joss para compilar el runner")
+	hasGo := false
+	if _, lookErr := exec.LookPath("go"); lookErr == nil {
+		hasGo = true
 	}
 
-	if _, lookErr := exec.LookPath("go"); lookErr != nil {
-		return fmt.Errorf("se requiere 'go' en el PATH para construir el runner nativo")
+	if repoRoot != "" && hasGo {
+		fmt.Printf("⚡ Compilando host runner autónomo para %s/%s (%s)...\n", target.OS, target.Arch, tagKey)
+		args := []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w"}
+		if len(tags) > 0 {
+			args = append(args, "-tags="+strings.Join(tags, ","))
+		}
+		args = append(args, "-o", absOutExe, "./pkg/backend/native/abi/")
+
+		cmd := exec.Command("go", args...)
+		cmd.Dir = repoRoot
+		cmd.Env = append(os.Environ(),
+			"CGO_ENABLED=0",
+			"GOOS="+target.OS,
+			"GOARCH="+target.Arch,
+		)
+
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("error compilando host runner: %v\n%s", err, string(out))
+		}
+
+		_ = os.Chmod(absOutExe, 0755)
+
+		// 3. Compress with UPX if available
+		if upx := resolveOrDownloadUPX(); upx != "" {
+			fmt.Printf("⚡ Optimizando host runner con UPX...\n")
+			upxCmd := exec.Command(upx, "-9", absOutExe)
+			_ = upxCmd.Run()
+		}
+
+		// 4. Cache the resulting runner for subsequent instant builds
+		_ = os.MkdirAll(cacheDir, 0755)
+		_ = copyFile(absOutExe, cachedRunner)
+
+		return nil
 	}
 
-	fmt.Printf("⚡ Compilando host runner autónomo para %s/%s (%s)...\n", target.OS, target.Arch, tagKey)
-	args := []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w"}
-	if len(tags) > 0 {
-		args = append(args, "-tags="+strings.Join(tags, ","))
-	}
-	args = append(args, "-o", absOutExe, "./pkg/backend/native/abi/")
-
-	cmd := exec.Command("go", args...)
-	cmd.Dir = repoRoot
-	cmd.Env = append(os.Environ(),
-		"CGO_ENABLED=0",
-		"GOOS="+target.OS,
-		"GOARCH="+target.Arch,
-	)
-
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("error compilando host runner: %v\n%s", err, string(out))
-	}
-
-	_ = os.Chmod(absOutExe, 0755)
-
-	// 3. Compress with UPX if available
-	if upx := resolveOrDownloadUPX(); upx != "" {
-		fmt.Printf("⚡ Optimizando host runner con UPX...\n")
-		upxCmd := exec.Command(upx, "-9", absOutExe)
-		_ = upxCmd.Run()
+	// 3. Si no hay toolchain de Go ni código fuente, pero estamos en la misma plataforma (ej. contenedor Docker o instalación binaria)
+	if target.OS == runtime.GOOS && target.Arch == runtime.GOARCH {
+		selfExe, selfErr := os.Executable()
+		if selfErr == nil && selfExe != "" {
+			if copyErr := copyFile(selfExe, absOutExe); copyErr == nil {
+				_ = os.Chmod(absOutExe, 0755)
+				fmt.Printf("⚡ Host runner autónomo reutilizado desde la instalación local de Joss (%s/%s)\n", target.OS, target.Arch)
+				if upx := resolveOrDownloadUPX(); upx != "" {
+					upxCmd := exec.Command(upx, "-9", absOutExe)
+					_ = upxCmd.Run()
+				}
+				// Cachear para siguientes ejecuciones
+				_ = os.MkdirAll(cacheDir, 0755)
+				_ = copyFile(absOutExe, cachedRunner)
+				return nil
+			}
+		}
+		return fmt.Errorf("no se pudo copiar el ejecutable actual de Joss como runner: %v", selfErr)
 	}
 
-	// 4. Cache the resulting runner for subsequent instant builds
-	_ = os.MkdirAll(cacheDir, 0755)
-	_ = copyFile(absOutExe, cachedRunner)
-
-	return nil
+	return fmt.Errorf("se requiere 'go' en el PATH y el repositorio de Joss para compilar un host runner cruzado para %s/%s", target.OS, target.Arch)
 }
 
 func appendSealedAssetsToExecutable(outExe string, enableGUI bool, target native.Target) (int64, error) {

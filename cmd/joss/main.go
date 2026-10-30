@@ -27,6 +27,10 @@ import (
 )
 
 func main() {
+	if runEmbeddedRunnerIfSealed() {
+		return
+	}
+
 	if len(os.Args) >= 2 {
 		cmd := os.Args[1]
 		if cmd == "server" || cmd == "program" {
@@ -614,7 +618,9 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		_, hasApi := os.Stat("api.joss")
 		_, hasApp := os.Stat("app")
 		if hasRoutes == nil || hasApi == nil || hasApp == nil {
-			if newSize, sealErr := appendSealedAssetsToExecutable(outExe, enableGUI, target); sealErr == nil && newSize > 0 {
+			if newSize, sealErr := appendSealedAssetsToExecutable(outExe, enableGUI, target); sealErr != nil {
+				fmt.Printf("⚠️  Advertencia: No se pudieron sellar los assets en el ejecutable: %v\n", sealErr)
+			} else if newSize > 0 {
 				res.ExecutableSize = newSize
 				fmt.Println("🔒 Assets, vistas, rutas y entorno (env.enc AES-256) sellados dentro del ejecutable.")
 			}
