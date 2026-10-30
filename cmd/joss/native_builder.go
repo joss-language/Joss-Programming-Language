@@ -601,21 +601,38 @@ func optimizeHostBridgeDLL(outDir string, detectedCaps map[string]bool) {
 	cachedDLL := filepath.Join(cacheDir, "joss_host_"+tagKey+".dll")
 
 	if fi, statErr := os.Stat(cachedDLL); statErr == nil && fi.Size() > 0 {
-		if copyErr := copyFile(cachedDLL, absTargetDll); copyErr == nil {
-			fmt.Printf("⚡ Host bridge reutilizado desde caché nativa (%s)\n", strings.Join(tags, ", "))
-			return
+		// Auto-heal: If cached DLL is larger than 12MB, it was stored without UPX compression
+		if fi.Size() > 12*1024*1024 {
+			if upxPath := resolveOrDownloadUPX(); upxPath != "" {
+				fmt.Printf("⚡ Optimizando host bridge en caché con UPX...\n")
+				upxCmd := exec.Command(upxPath, "-9", cachedDLL)
+				_ = upxCmd.Run()
+			}
+		}
+		if newFi, statErr2 := os.Stat(cachedDLL); statErr2 == nil && newFi.Size() < 12*1024*1024 {
+			if copyErr := copyFile(cachedDLL, absTargetDll); copyErr == nil {
+				fmt.Printf("⚡ Host bridge reutilizado desde caché nativa (%s)\n", strings.Join(tags, ", "))
+				return
+			}
 		}
 	}
 
-	// Fallback to prebuilt template in repo if tags match or cache is absent
-	if repoRoot != "" {
+	// Fallback to prebuilt template in repo ONLY if tags match default (no pruned features requested)
+	if repoRoot != "" && tagKey == "default" {
 		repoPrebuilt := filepath.Join(repoRoot, "pkg", "backend", "native", "abi", "build", "joss_host.dll")
-		if fi, statErr := os.Stat(repoPrebuilt); statErr == nil && fi.Size() > 0 && len(tags) <= 5 {
+		if fi, statErr := os.Stat(repoPrebuilt); statErr == nil && fi.Size() > 0 {
 			if copyErr := copyFile(repoPrebuilt, absTargetDll); copyErr == nil {
+				if fi.Size() > 12*1024*1024 {
+					if upxPath := resolveOrDownloadUPX(); upxPath != "" {
+						fmt.Printf("⚡ Optimizando host bridge con UPX...\n")
+						upxCmd := exec.Command(upxPath, "-9", absTargetDll)
+						_ = upxCmd.Run()
+					}
+				}
 				fmt.Printf("⚡ Host bridge desplegado desde runtime nativo preconstruido (%s)\n", strings.Join(tags, ", "))
 				// Cache it for future instant builds
 				_ = os.MkdirAll(cacheDir, 0755)
-				_ = copyFile(repoPrebuilt, cachedDLL)
+				_ = copyFile(absTargetDll, cachedDLL)
 				return
 			}
 		}
@@ -639,6 +656,7 @@ func optimizeHostBridgeDLL(outDir string, detectedCaps map[string]bool) {
 	}
 
 	if upxPath := resolveOrDownloadUPX(); upxPath != "" {
+		fmt.Printf("⚡ Optimizando host bridge con UPX...\n")
 		upxCmd := exec.Command(upxPath, "-9", absTargetDll)
 		_ = upxCmd.Run()
 	}
