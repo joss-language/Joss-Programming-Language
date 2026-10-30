@@ -58,8 +58,6 @@ bytecode input. The runtime detects two different formats:
 | `JPBC` | `pkg/pluginruntime.JPBCVM` | Plugin-specific instructions machine. |
 
 None of these plugin formats replace the main program's native compilation performed by `joss build` (which uses Joss Native IR and the native backend).
-The experimental VM in `pkg/vm` is an independent component and is not the default
-executor of `joss run` nor `joss build`.
 
 ## Compilation from other languages: state and limits
 

@@ -13,7 +13,6 @@ previously downloaded version.
 | Concurrency | Goroutines using async, Future, blocking wait and channels. Mobile execution supports cooperative cancellation and safe capture of late output; a blocking native call may continue after timeout. No general structured cancellation or deep isolation exists. | [Concurrency](CONCURRENCIA.md) |
 | Analyzer | Declarations, scopes, assignability, known members, returns and diagnostics; local narrowing in ternaries, guard and null comparisons. No general CFG or complete termination proof exists. | [Parser](ANALIZADOR.md) |
 | Main execution | Unified dual-path: Interpreter for scripting (`joss run`) and web server (`joss server start`); Official native compiler (`joss build`) via Joss Native IR and LLVM / Standalone native backend. | [Architecture](ARQUITECTURA.md) |
-| Experimental VM | pkg/vm contains separate compiler and VM; it is not default backend of CLI/core. | [Internal](ARQUITECTURA.md) |
 | Web | HTTP/WS router, views, Request/Response, session, CSRF, CORS, TLS and configurable limits. | [Web project](PROYECTO_WEB.md) |
 | SQL | SQLite/MySQL/PostgreSQL/SQL Server adapters, builder, Schema and migrations. Partial portability per operation; ordinary runtime SQL queries during GranDB::transaction use the active Tx. Nested transactions are not supported. | [Models](MODELOS.md) |
 | Plugins | Signed container and index, AST and JPBC; partial compilers. Route Wasm generates text stubs, it does not run Wasm. | [Plugins](PLUGINS.md) |

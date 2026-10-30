@@ -104,10 +104,8 @@ A compilação nativa oficial (`joss build`) transforma o `PreparedProgram` anal
 - **Programas CLI puros**: São compilados para código de máquina puro (~5.5 KB - 32 KB) sem `joss_host.dll` e sem trailer VFS (`JOSS_RUNNER_DATA`).
 - **Aplicações com serviços web/DB**: Vinculam seletivamente `_joss_host_bridge` (aplicando poda automática por build tags `no<driver>` para excluir motores como SQLite, MySQL, PostgreSQL, SQL Server, Redis ou OCI quando o projeto não os utiliza) e selam o VFS criptografado com AES-256 (`env.enc`).
 
-A árvore `pkg/vm` contém opcodes e uma VM experimental. Sua aritmética e seus
-erros não definem a semântica publicada enquanto não estiver conectada ao pipeline
-anterior. Do mesmo modo, JPBC só define execução de plugins. Ao documentar
-“compilação”, indique qual das três representações está sendo usada.
+Do mesmo modo, JPBC só define execução de plugins. Ao documentar
+“compilação”, indique qual das representações está sendo usada.
 
 ## Regra de dependência
 

@@ -58,8 +58,6 @@ entrada de bytecode. O tempo de execução detecta dois formatos diferentes:
 | `JPBC` | `pkg/pluginruntime.JPBCVM` | Máquina de instruções específicas do plug-in. |
 
 Nenhum desses formatos de plugin substitui a compilação nativa do programa principal realizada por `joss build` (que utiliza Joss Native IR e o backend nativo).
-A VM experimental de `pkg/vm` é um componente independente e não é o executor
-padrão de `joss run` nem de `joss build`.
 
 ## Compilação de outras linguagens: estado e limites
 
