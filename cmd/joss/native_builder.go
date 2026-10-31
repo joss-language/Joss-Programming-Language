@@ -754,7 +754,7 @@ func optimizeHostBridgeDLL(outDir string, detectedCaps map[string]bool) {
 			if len(tags) > 0 {
 				args = append(args, "-tags="+strings.Join(tags, ","))
 			}
-			args = append(args, "-o", absTargetDll, "./pkg/backend/native/abi/host_bridge.go")
+			args = append(args, "-o", absTargetDll, "./pkg/backend/native/abi/")
 			cmd := exec.Command("go", args...)
 			cmd.Dir = repoRoot
 			if err := cmd.Run(); err == nil {

@@ -614,6 +614,13 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	}
 
 	if res.NeedsHostBridge {
+		if target.OS == "windows" {
+			outDir := filepath.Dir(outExe)
+			if outDir == "" {
+				outDir = "."
+			}
+			optimizeHostBridgeDLL(outDir, nil)
+		}
 		_, hasRoutes := os.Stat("routes.joss")
 		_, hasApi := os.Stat("api.joss")
 		_, hasApp := os.Stat("app")
