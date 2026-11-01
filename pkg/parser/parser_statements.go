@@ -522,7 +522,9 @@ func (p *Parser) parseInterfaceBody() []*MethodStatement {
 
 		stmt := &MethodStatement{Token: p.curToken, Visibility: vis}
 
-		if !p.expectPeek(IDENT) {
+		if isIdentifierOrKeyword(p.peekToken.Type) {
+			p.nextToken()
+		} else if !p.expectPeek(IDENT) {
 			return methods
 		}
 		stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
@@ -1080,7 +1082,9 @@ func (p *Parser) parseMethodStatement(isAbstract ...bool) *MethodStatement {
 		stmt.IsAbstract = true
 	}
 
-	if !p.expectPeek(IDENT) {
+	if isIdentifierOrKeyword(p.peekToken.Type) {
+		p.nextToken()
+	} else if !p.expectPeek(IDENT) {
 		return nil
 	}
 	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}

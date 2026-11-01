@@ -5,7 +5,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 
@@ -19,15 +18,7 @@ var (
 )
 
 func resolveSafeViewSubpath(viewName string) (string, bool) {
-	trimmed := strings.TrimSpace(viewName)
-	if trimmed == "" || strings.Contains(trimmed, "..") || strings.Contains(trimmed, "\\") || strings.HasPrefix(trimmed, "/") {
-		return "", false
-	}
-	sub := path.Clean(strings.ReplaceAll(trimmed, ".", "/"))
-	if sub == "." || sub == ".." || strings.HasPrefix(sub, "../") || strings.HasPrefix(sub, "/") {
-		return "", false
-	}
-	return sub, true
+	return viewtemplate.ResolveSafeSubpath(viewName)
 }
 
 // View Implementation
@@ -220,167 +211,54 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 
 			viewContent := string(content)
 
-			// 2. Handle Inheritance (@extends)
-			var layoutContent string
-			sections := make(map[string]string)
-
-			if strings.HasPrefix(strings.TrimSpace(viewContent), "@extends") {
-				// Extract layout name
-				// Support both ' and " quotes
-				reExtends := regexp.MustCompile(`@extends\s*\(\s*['"]([^'"]+)['"]\s*\)`)
-				match := reExtends.FindStringSubmatch(viewContent)
-				if len(match) > 1 {
-					layoutName := match[1]
-					layoutPath, safeLayout := resolveSafeViewSubpath(layoutName)
-					if !safeLayout {
-						return fmt.Sprintf("Error: Layout '%s' inválido", layoutName)
-					}
-
-					if GlobalFileSystem != nil {
-						// VFS Layout
-						lPath := path.Join("app", "views", layoutPath+".joss.html")
-						f, err := GlobalFileSystem.Open(lPath)
-						if err == nil {
-							stat, _ := f.Stat()
-							lContent := make([]byte, stat.Size())
-							f.Read(lContent)
-							f.Close()
-							layoutContent = string(lContent)
-						} else {
-							// Try .html
-							lPath = path.Join("app", "views", layoutPath+".html")
-							f, err = GlobalFileSystem.Open(lPath)
-							if err == nil {
-								stat, _ := f.Stat()
-								lContent := make([]byte, stat.Size())
-								f.Read(lContent)
-								f.Close()
-								layoutContent = string(lContent)
-							} else {
-								return fmt.Sprintf("Error: Layout '%s' no encontrado (VFS)", layoutName)
-							}
-						}
-					} else {
-						// Disk Layout
-						lPath := filepath.Join("app", "views", layoutPath+".joss.html")
-						lContent, err := os.ReadFile(lPath)
-						if err == nil {
-							layoutContent = string(lContent)
-						} else {
-							// Try .html
-							lPath = filepath.Join("app", "views", layoutPath+".html")
-							lContent, err = os.ReadFile(lPath)
-							if err == nil {
-								layoutContent = string(lContent)
-							} else {
-								return fmt.Sprintf("Error: Layout '%s' no encontrado", layoutName)
-							}
-						}
-					}
+			readViewFile := func(name string) (string, bool) {
+				subPath, safe := resolveSafeViewSubpath(name)
+				if !safe {
+					return "", false
 				}
-
-				// Extract Sections
-				// @section('name') ... @endsection
-				// Support both ' and " quotes
-				reSection := regexp.MustCompile(`@section\s*\(\s*['"]([^'"]+)['"]\s*\)([\s\S]*?)@endsection`)
-				sectionMatches := reSection.FindAllStringSubmatch(viewContent, -1)
-				for _, sm := range sectionMatches {
-					sections[sm[1]] = sm[2]
-				}
-			}
-
-			// 3. Merge Layout and View
-			finalHtml := viewContent
-			if layoutContent != "" {
-				finalHtml = layoutContent
-				// Replace @yield('name') with section content
-				for name, content := range sections {
-					// Make placeholder regex-safe or try both quote types
-					finalHtml = strings.ReplaceAll(finalHtml, fmt.Sprintf("@yield('%s')", name), content)
-					finalHtml = strings.ReplaceAll(finalHtml, fmt.Sprintf("@yield(\"%s\")", name), content)
-				}
-				// Remove any remaining @yields
-				reYield := regexp.MustCompile(`@yield\s*\(\s*['"][^'"]+['"]\s*\)`)
-				finalHtml = reYield.ReplaceAllString(finalHtml, "")
-			}
-
-			// 3.4 Handle @include('view.name')
-			reInclude := regexp.MustCompile(`@include\s*\(\s*['"]([^'"]+)['"]\s*\)`)
-			for {
-				match := reInclude.FindStringSubmatch(finalHtml)
-				if match == nil {
-					break
-				}
-				fullMatch := match[0]
-				includeName := match[1]
-				includePath, safeInc := resolveSafeViewSubpath(includeName)
-				if !safeInc {
-					finalHtml = strings.Replace(finalHtml, fullMatch, fmt.Sprintf("<!-- Error: Include '%s' invalid -->", includeName), 1)
-					continue
-				}
-				var includeContent []byte
-
-				// Resolve Path (reuse logic or simplify)
-				// Note: We are repeating file reading logic here. In a full refactor we should extract 'readView(name)' helper.
-				// For now, inline to be safe.
-
 				if GlobalFileSystem != nil {
-					// VFS
-					iPath := path.Join("app", "views", includePath+".joss.html")
-					f, err := GlobalFileSystem.Open(iPath)
-					if err == nil {
+					p1 := path.Join("app", "views", subPath+".joss.html")
+					if f, errOpen := GlobalFileSystem.Open(p1); errOpen == nil {
 						stat, _ := f.Stat()
-						c := make([]byte, stat.Size())
-						f.Read(c)
+						buf := make([]byte, stat.Size())
+						f.Read(buf)
 						f.Close()
-						includeContent = c
-					} else {
-						// Try .html
-						iPath = path.Join("app", "views", includePath+".html")
-						f, err = GlobalFileSystem.Open(iPath)
-						if err == nil {
-							stat, _ := f.Stat()
-							c := make([]byte, stat.Size())
-							f.Read(c)
-							f.Close()
-							includeContent = c
-						} else {
-							includeContent = []byte(fmt.Sprintf("<!-- Error: Include '%s' not found -->", includeName))
-						}
+						return string(buf), true
 					}
-				} else {
-					// Disk
-					iPath := filepath.Join("app", "views", includePath+".joss.html")
-					c, err := os.ReadFile(iPath)
-					if err == nil {
-						includeContent = c
-					} else {
-						iPath = filepath.Join("app", "views", includePath+".html")
-						c, err := os.ReadFile(iPath)
-						if err == nil {
-							includeContent = c
-						} else {
-							includeContent = []byte(fmt.Sprintf("<!-- Error: Include '%s' not found -->", includeName))
-						}
+					p2 := path.Join("app", "views", subPath+".html")
+					if f, errOpen := GlobalFileSystem.Open(p2); errOpen == nil {
+						stat, _ := f.Stat()
+						buf := make([]byte, stat.Size())
+						f.Read(buf)
+						f.Close()
+						return string(buf), true
 					}
+					return "", false
 				}
-
-				finalHtml = strings.Replace(finalHtml, fullMatch, string(includeContent), 1)
+				p1 := filepath.Join("app", "views", subPath+".joss.html")
+				if buf, errRead := os.ReadFile(p1); errRead == nil {
+					return string(buf), true
+				}
+				p2 := filepath.Join("app", "views", subPath+".html")
+				if buf, errRead := os.ReadFile(p2); errRead == nil {
+					return string(buf), true
+				}
+				return "", false
 			}
 
-			// Pre-process Blade comments: {{-- comment content --}}
-			reBladeComments := regexp.MustCompile(`\{\{--[\s\S]*?--\}\}`)
-			finalHtml = reBladeComments.ReplaceAllString(finalHtml, "")
-
-			// Pre-process directives through the syntax shared with tooling.
-			finalHtml, err = viewtemplate.RewriteJSON(finalHtml)
+			finalHtml, err := viewtemplate.PreprocessDirectives(viewContent, readViewFile, viewtemplate.PreprocessOptions{
+				FailOnMissingLayout:  true,
+				AnnotateIncludeError: true,
+			})
 			if err != nil {
+				if strings.HasPrefix(err.Error(), "Layout ") {
+					if GlobalFileSystem != nil && strings.HasSuffix(err.Error(), "no encontrado") {
+						return fmt.Sprintf("Error: %s (VFS)", err.Error())
+					}
+					return fmt.Sprintf("Error: %s", err.Error())
+				}
 				return fmt.Sprintf("Error compiling view directive: %v", err)
 			}
-
-			// Pre-process csrf_field() to be raw output
-			reCsrfPre := regexp.MustCompile(`\{\{\s*csrf_field\(\)\s*\}\}`)
-			finalHtml = reCsrfPre.ReplaceAllString(finalHtml, `{{! csrf_field() }}`)
 
 			// Compile HTML to JOSS script
 			jossScript, errCompile := CompileViewToJOSS(finalHtml)
@@ -472,226 +350,7 @@ func (r *Runtime) executeViewMethod(instance *Instance, method string, args []in
 	return nil
 }
 
-// CompileViewToJOSS translates HTML view to JOSS script
+// CompileViewToJOSS translates HTML view to JOSS script via the canonical viewtemplate compiler.
 func CompileViewToJOSS(htmlStr string) (string, error) {
-	var jossCode strings.Builder
-
-	escapeJossString := func(s string) string {
-		s = strings.ReplaceAll(s, "\\", "\\\\")
-		s = strings.ReplaceAll(s, "\"", "\\\"")
-		s = strings.ReplaceAll(s, "\n", "\\n")
-		s = strings.ReplaceAll(s, "\r", "\\r")
-		s = strings.ReplaceAll(s, "${", "\\${")
-		return s
-	}
-
-	reForeachStart := regexp.MustCompile(`^@foreach\s*\(\s*(.*?)\s+as\s+\$([a-zA-Z0-9_]+)\s*\)`)
-	reExprRaw := regexp.MustCompile(`^\{\{!(.*?)\}\}`)
-	reExprEscaped := regexp.MustCompile(`^\{\{(.*?)\}\}`)
-
-	translateExpr := func(expr string) string {
-		reDot := regexp.MustCompile(`\$([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)`)
-		for reDot.MatchString(expr) {
-			expr = reDot.ReplaceAllString(expr, "$$$1->$2")
-		}
-		return expr
-	}
-
-	var compileRange func(str string) string
-	compileRange = func(str string) string {
-		var code strings.Builder
-		i := 0
-		n := len(str)
-
-		flushText := func(start, end int) {
-			if start >= end {
-				return
-			}
-			txt := str[start:end]
-			code.WriteString(fmt.Sprintf("$__output = $__output . \"%s\";\n", escapeJossString(txt)))
-		}
-
-		lastIdx := 0
-
-		for i < n {
-			// 1. Check @foreach
-			if strings.HasPrefix(str[i:], "@foreach") {
-				if m := reForeachStart.FindStringSubmatch(str[i:]); m != nil {
-					flushText(lastIdx, i)
-
-					listExpr := translateExpr(m[1])
-					itemVar := m[2]
-					fullMatchLen := len(m[0])
-
-					depth := 1
-					j := i + fullMatchLen
-					endIdx := -1
-					for j < n {
-						if strings.HasPrefix(str[j:], "@foreach") {
-							depth++
-							j += 8
-						} else if strings.HasPrefix(str[j:], "@endforeach") {
-							depth--
-							if depth == 0 {
-								endIdx = j
-								break
-							}
-							j += 11
-						} else {
-							j++
-						}
-					}
-
-					if endIdx != -1 {
-						innerHtml := str[i+fullMatchLen : endIdx]
-						compiledInner := compileRange(innerHtml)
-
-						code.WriteString(fmt.Sprintf("foreach (%s as $%s) {\n", listExpr, itemVar))
-						code.WriteString(compiledInner)
-						code.WriteString("}\n")
-
-						i = endIdx + 11
-						lastIdx = i
-						continue
-					}
-				}
-			}
-
-			// 2. Check Block Ternary
-			if i+4 < n && str[i] == '{' && str[i+1] == '{' {
-				k := i + 2
-				for k < n && (str[k] == ' ' || str[k] == '\t' || str[k] == '\n' || str[k] == '\r') {
-					k++
-				}
-				if k < n && str[k] == '(' {
-					condStart := k + 1
-					condEnd := findMatchingPair(str, k, '(', ')')
-					if condEnd != -1 {
-						q := condEnd + 1
-						for q < n && (str[q] == ' ' || str[q] == '\t' || str[q] == '\n' || str[q] == '\r') {
-							q++
-						}
-						if q < n && str[q] == '?' {
-							tbStart := q + 1
-							for tbStart < n && (str[tbStart] == ' ' || str[tbStart] == '\t' || str[tbStart] == '\n' || str[tbStart] == '\r') {
-								tbStart++
-							}
-							if tbStart < n && str[tbStart] == '{' {
-								tbEnd := findMatchingPair(str, tbStart, '{', '}')
-								if tbEnd != -1 {
-									col := tbEnd + 1
-									for col < n && (str[col] == ' ' || str[col] == '\t' || str[col] == '\n' || str[col] == '\r') {
-										col++
-									}
-									if col < n && str[col] == ':' {
-										fbStart := col + 1
-										for fbStart < n && (str[fbStart] == ' ' || str[fbStart] == '\t' || str[fbStart] == '\n' || str[fbStart] == '\r') {
-											fbStart++
-										}
-										if fbStart < n && str[fbStart] == '{' {
-											fbEnd := findMatchingPair(str, fbStart, '{', '}')
-											if fbEnd != -1 {
-												closeBraces := fbEnd + 1
-												for closeBraces < n && (str[closeBraces] == ' ' || str[closeBraces] == '\t' || str[closeBraces] == '\n' || str[closeBraces] == '\r') {
-													closeBraces++
-												}
-												if closeBraces+1 < n && str[closeBraces] == '}' && str[closeBraces+1] == '}' {
-													flushText(lastIdx, i)
-
-													condExpr := str[condStart:condEnd]
-													trueBody := str[tbStart+1 : tbEnd]
-													falseBody := str[fbStart+1 : fbEnd]
-
-													code.WriteString(fmt.Sprintf("(%s) ? {\n", translateExpr(condExpr)))
-													code.WriteString(compileRange(trueBody))
-													code.WriteString("} : {\n")
-													code.WriteString(compileRange(falseBody))
-													code.WriteString("};\n")
-
-													i = closeBraces + 2
-													lastIdx = i
-													continue
-												}
-											}
-										}
-									} else if col+1 < n && str[col] == '}' && str[col+1] == '}' {
-										flushText(lastIdx, i)
-
-										condExpr := str[condStart:condEnd]
-										trueBody := str[tbStart+1 : tbEnd]
-
-										code.WriteString(fmt.Sprintf("(%s) ? {\n", translateExpr(condExpr)))
-										code.WriteString(compileRange(trueBody))
-										code.WriteString("};\n")
-
-										i = col + 2
-										lastIdx = i
-										continue
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-
-			// 3. Check Raw Expression: {{! expr }}
-			if strings.HasPrefix(str[i:], "{{!") {
-				if m := reExprRaw.FindStringSubmatch(str[i:]); m != nil {
-					flushText(lastIdx, i)
-
-					expr := strings.TrimSpace(m[1])
-					fullMatchLen := len(m[0])
-
-					code.WriteString(fmt.Sprintf("$__output = $__output . (%s);\n", translateExpr(expr)))
-
-					i += fullMatchLen
-					lastIdx = i
-					continue
-				}
-			}
-
-			// 4. Check Escaped Expression: {{ expr }}
-			if strings.HasPrefix(str[i:], "{{") {
-				if m := reExprEscaped.FindStringSubmatch(str[i:]); m != nil {
-					flushText(lastIdx, i)
-
-					expr := strings.TrimSpace(m[1])
-					fullMatchLen := len(m[0])
-
-					code.WriteString(fmt.Sprintf("$__output = $__output . html_escape(%s);\n", translateExpr(expr)))
-
-					i += fullMatchLen
-					lastIdx = i
-					continue
-				}
-			}
-
-			i++
-		}
-
-		flushText(lastIdx, n)
-		return code.String()
-	}
-
-	jossCode.WriteString("let string $__output = \"\";\n")
-	jossCode.WriteString(compileRange(htmlStr))
-	jossCode.WriteString("return $__output;\n")
-
-	return jossCode.String(), nil
-}
-
-func findMatchingPair(s string, startPos int, startChar, endChar rune) int {
-	depth := 0
-	for idx, r := range s[startPos:] {
-		if r == startChar {
-			depth++
-		} else if r == endChar {
-			depth--
-			if depth == 0 {
-				return startPos + idx
-			}
-		}
-	}
-	return -1
+	return viewtemplate.CompileHTMLToJoss(htmlStr)
 }

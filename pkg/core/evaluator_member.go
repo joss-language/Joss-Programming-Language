@@ -48,6 +48,11 @@ func (r *Runtime) evaluateNew(ne *parser.NewExpression) interface{} {
 		})
 	}
 
+	return r.newInitializedInstance(classStmt, evalArgs)
+}
+
+func (r *Runtime) newInitializedInstance(classStmt *parser.ClassStatement, evalArgs []interface{}) *Instance {
+	className := classStmt.Name.Value
 	meta := r.lookupClassMetadata(className)
 	fieldCount := 0
 	if meta != nil {
@@ -206,7 +211,7 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 			if meta != nil {
 				if methodInfo, ok := meta.Methods[me.Property.Value]; ok {
 					r.requireMemberAccess(methodInfo.Method.Visibility, className, methodInfo.Method.Name.Value, methodInfo.Method.Name.Token.Line)
-					return &BoundMethod{Method: methodInfo.Method, Instance: &Instance{Class: classStmt, Fields: make(map[string]interface{})}}
+					return &BoundMethod{Method: methodInfo.Method, Instance: r.newInitializedInstance(classStmt, nil)}
 				}
 			}
 		}
@@ -349,7 +354,7 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 				}
 				for _, stmt := range classStmt.Body.Statements {
 					if method, methodOK := stmt.(*parser.MethodStatement); methodOK && method.Name.Value == me.Property.Value {
-						return &BoundMethod{Method: method, Instance: &Instance{Class: classStmt, Fields: make(map[string]interface{})}}
+						return &BoundMethod{Method: method, Instance: r.newInitializedInstance(classStmt, nil)}
 					}
 				}
 			} else if r.isNativeClass(className) {

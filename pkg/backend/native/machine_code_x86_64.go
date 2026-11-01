@@ -56,22 +56,23 @@ type machineReloc struct {
 // and links it into a standalone PE32+ (Windows) or ELF64 (Linux) executable without invoking
 // any external compiler, assembler, or linker (no Go, no GCC, no Clang, no MSVC).
 type MachineCodeBuilder struct {
-	target           Target
-	guiMode          bool
-	isJITMode        bool
-	needsHostBridge  bool
-	prog             *ir.Program
-	text             bytes.Buffer
-	rodata           bytes.Buffer
-	stringPool       map[string]uint32
-	labels           map[string]int
-	relocs           []machineReloc
-	asmListing       bytes.Buffer
-	inlineLabelID    int
-	cachedRAXVal     ir.Value
-	cachedXMM0Val    ir.Value
-	cachedRCXVal     ir.Value
-	cachedDataPtrArr ir.Value
+	target             Target
+	guiMode            bool
+	isJITMode          bool
+	needsHostBridge    bool
+	usesExtendedStdlib bool
+	prog               *ir.Program
+	text               bytes.Buffer
+	rodata             bytes.Buffer
+	stringPool         map[string]uint32
+	labels             map[string]int
+	relocs             []machineReloc
+	asmListing         bytes.Buffer
+	inlineLabelID      int
+	cachedRAXVal       ir.Value
+	cachedXMM0Val      ir.Value
+	cachedRCXVal       ir.Value
+	cachedDataPtrArr   ir.Value
 }
 
 func (b *MachineCodeBuilder) invalidateRegCache() {
@@ -163,6 +164,11 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 
 	b.emitToStringStub()
 	b.emitF64ToStringStub()
+	if b.usesExtendedStdlib {
+		b.emitNativeIntrinsics()
+		b.emitNativeServer()
+		b.emitHostFrameworkAdapters()
+	}
 
 	// 4. Resolve all relocations and emit the final executable container (PE32+, ELF64, or Mach-O)
 	textBytes := append([]byte(nil), b.text.Bytes()...)
@@ -246,6 +252,11 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, 
 
 	b.emitToStringStub()
 	b.emitF64ToStringStub()
+	if b.usesExtendedStdlib {
+		b.emitNativeIntrinsics()
+		b.emitNativeServer()
+		b.emitHostFrameworkAdapters()
+	}
 
 	// 4. Memory Layout Layout in RAM:
 	// [.text code bytes]
@@ -302,14 +313,34 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, 
 	}, nil
 }
 
-// isSupportedHostService reports whether the given host class and method are handled by the C-ABI host bridge.
+// isSupportedHostService reports whether the given host class and method are handled natively.
 func isSupportedHostService(className, methodName string) bool {
 	return true
 }
 
-// isHostBridgeBuiltin reports builtins that can be routed through the C-ABI host bridge.
+// isHostBridgeBuiltin reports builtins that can be routed through the C-ABI host bridge in JIT mode.
 func isHostBridgeBuiltin(id string) bool {
 	return true
+}
+
+// isExtendedStdlibCallee reports functions/methods emitted by native intrinsics and server modules.
+func isExtendedStdlibCallee(name string) bool {
+	switch name {
+	case "env", "request", "csrf_field", "html_escape", "view", "__joss_http_dispatch",
+		"joss_map_key_at", "joss_map_val_at", "fn_joss_map_key_at", "fn_joss_map_val_at":
+		return true
+	}
+	if strings.HasPrefix(name, "Server_") ||
+		strings.HasPrefix(name, "Router_") || strings.HasPrefix(name, "Schema_") ||
+		strings.HasPrefix(name, "SEO_") || strings.HasPrefix(name, "Markdown_") ||
+		strings.HasPrefix(name, "Auth_") || strings.HasPrefix(name, "Turnstile_") ||
+		strings.HasPrefix(name, "Request_") || strings.HasPrefix(name, "Response_") ||
+		strings.HasPrefix(name, "Session_") || strings.HasPrefix(name, "Str_") ||
+		strings.HasPrefix(name, "Math_") || strings.HasPrefix(name, "View_") ||
+		strings.HasPrefix(name, "__joss_view_") {
+		return true
+	}
+	return false
 }
 
 // validateProgramCalls rejects, with an explicit JOSS-NATIVE-001 diagnostic, every IR call
@@ -330,20 +361,12 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 			for _, inst := range blk.Instructions {
 				switch i := inst.(type) {
 				case *ir.CallHostServiceInst:
-					if b.isJITMode {
-						if isSupportedHostService(i.ClassName, i.MethodName) {
-							b.needsHostBridge = true
-						} else {
-							report("host service " + i.ClassName + "::" + i.MethodName)
+					if isSupportedHostService(i.ClassName, i.MethodName) {
+						if i.ClassName != "UserStorage" && i.ClassName != "OCIStorage" {
+							b.usesExtendedStdlib = true
 						}
 					} else {
-						if i.ClassName == "GranDB" || i.ClassName == "UserStorage" || i.ClassName == "OCIStorage" {
-							// Fully supported standalone without host bridge DLL
-						} else if isSupportedHostService(i.ClassName, i.MethodName) {
-							b.needsHostBridge = true
-						} else {
-							report("host service " + i.ClassName + "::" + i.MethodName)
-						}
+						report("host service " + i.ClassName + "::" + i.MethodName)
 					}
 				case *ir.CallPrimitiveMethodInst:
 					if isNativePrimitiveMethod(i.TypeKind, i.MethodName) {
@@ -353,22 +376,23 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 					}
 				case *ir.CallBuiltinInst:
 					if isNativeBuiltin(i.BuiltinID) {
-						// Native direct
-					} else if isHostBridgeBuiltin(i.BuiltinID) {
-						b.needsHostBridge = true
+						if isExtendedStdlibCallee(i.BuiltinID) {
+							b.usesExtendedStdlib = true
+						}
 					} else {
-						report("builtin " + i.BuiltinID)
+						b.usesExtendedStdlib = true
 					}
 				case *ir.CallRuntimeInst:
-					if isNativeBuiltinHelper(i.Func) {
-						// Native direct helper
-					} else if isSupportedRuntimeCallee(i.Func) {
-						b.needsHostBridge = true
+					if isExtendedStdlibCallee(i.Func) {
+						b.usesExtendedStdlib = true
 					}
 				case *ir.CallInst:
-					if !isNativeBuiltin(i.Callee) && !isNativeBuiltinHelper(i.Callee) {
+					if isExtendedStdlibCallee(i.Callee) {
+						b.usesExtendedStdlib = true
+					} else if !isNativeBuiltin(i.Callee) && !isNativeBuiltinHelper(i.Callee) {
 						if _, exists := prog.Functions[i.Callee]; !exists {
-							b.needsHostBridge = true
+							// Fluent method calls on dynamic/untyped receivers (e.g. $table->id() in Schema migrations)
+							b.usesExtendedStdlib = true
 						}
 					}
 				case *ir.TryCatchInst:
@@ -396,9 +420,12 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 // isNativeBuiltin reports builtins the backend emits as real machine code.
 func isNativeBuiltin(id string) bool {
 	switch id {
-	case "strlen", "len", "count", "array_push", "append", "to_string",
+	case "strlen", "len", "count", "array_push", "append", "to_string", "strval",
 		"abs", "min", "max", "intval", "floatval", "boolval", "array_pop", "microtime", "array_fill",
-		"file_get_contents", "explode", "async", "await":
+		"file_get_contents", "explode", "async", "await",
+		"env", "request", "csrf_field", "html_escape", "view",
+		"joss_map_len", "joss_map_key_at", "joss_map_val_at",
+		"__joss_db_get_table", "__joss_db_set_table", "__joss_db_is_connected":
 		return true
 	}
 	return false
@@ -437,14 +464,7 @@ func isNativePrimitiveMethod(typeKind, methodName string) bool {
 
 func isSupportedRuntimeCallee(name string) bool {
 	switch name {
-	case "Exception_constructor", "Exception_getMessage", "Exception_getCode",
-		"GranDB_table", "GranDB_where", "where", "GranDB_orWhere", "orWhere",
-		"GranDB_select", "select", "GranDB_orderBy", "orderBy",
-		"GranDB_limit", "limit", "GranDB_offset", "offset",
-		"GranDB_join", "join", "GranDB_leftJoin", "leftJoin", "GranDB_whereIn", "whereIn",
-		"GranDB_insert", "insert", "GranDB_insertGetId", "insertGetId",
-		"GranDB_count", "GranDB_first", "first", "GranDB_find", "find",
-		"GranDB_get", "get", "GranDB_update", "update", "GranDB_delete", "delete":
+	case "Exception_constructor", "Exception_getMessage", "Exception_getCode":
 		return true
 	default:
 		return false
@@ -728,6 +748,20 @@ func (b *MachineCodeBuilder) emitCallHostBridge(target string) {
 	}
 }
 
+func (b *MachineCodeBuilder) emitCallHostBridgeWithArgs(layout *fnFrameLayout, target string, args []ir.Value) {
+	if len(args) >= 3 {
+		b.emitLoadValToRAX(layout, args[2])
+		b.emitBytes(0x49, 0x89, 0xC1) // mov r9, rax
+	}
+	if len(args) >= 2 {
+		b.emitLoadValToR8(layout, args[1])
+	}
+	if len(args) >= 1 {
+		b.emitLoadValToRDX(layout, args[0])
+	}
+	b.emitCallHostBridge(target)
+}
+
 func (b *MachineCodeBuilder) applyRelocations(textBytes []byte, textRVA, rodataRVA, dataRVA uint32, iatRVAs []uint32) error {
 	for _, r := range b.relocs {
 		ripNext := int64(textRVA) + int64(r.patchOffset) + 4
@@ -886,14 +920,18 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitCallIAT(IATWriteFile)
 		b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
 	} else {
-		// Linux x86_64: sys_write(fd = rcx+1, buf = rdx, count = r8)
-		b.emitBytes(0x56, 0x57)                   // push rsi; push rdi
-		b.emitBytes(0x48, 0x8D, 0x79, 0x01)       // lea rdi, [rcx + 1]
-		b.emitBytes(0x48, 0x89, 0xD6)             // mov rsi, rdx
-		b.emitBytes(0x4C, 0x89, 0xC2)             // mov rdx, r8
-		b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1 (sys_write)
-		b.emitBytes(0x0F, 0x05)                   // syscall
-		b.emitBytes(0x5F, 0x5E, 0xC3)             // pop rdi; pop rsi; ret
+		// Linux / Darwin x86_64: sys_write(fd = rcx+1, buf = rdx, count = r8)
+		b.emitBytes(0x56, 0x57)             // push rsi; push rdi
+		b.emitBytes(0x48, 0x8D, 0x79, 0x01) // lea rdi, [rcx + 1]
+		b.emitBytes(0x48, 0x89, 0xD6)       // mov rsi, rdx
+		b.emitBytes(0x4C, 0x89, 0xC2)       // mov rdx, r8
+		if b.target.OS == "darwin" {
+			b.emitBytes(0xB8, 0x04, 0x00, 0x00, 0x02) // mov eax, 0x2000004 (Darwin sys_write)
+		} else {
+			b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1 (Linux sys_write)
+		}
+		b.emitBytes(0x0F, 0x05)       // syscall
+		b.emitBytes(0x5F, 0x5E, 0xC3) // pop rdi; pop rsi; ret
 	}
 
 	// __joss_os_alloc(rcx = size) -> rax = zeroed memory pointer
@@ -948,34 +986,48 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitCallIAT(IATHeapAlloc)
 		b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
 	} else {
-		// Linux x86_64: refill 4 MiB chunk via sys_mmap
+		// Linux / Darwin x86_64: refill 4 MiB chunk via sys_mmap
 		b.emitBytes(0x53, 0x56, 0x57)                         // push rbx; push rsi; push rdi
 		b.emitBytes(0x48, 0x89, 0xCB)                         // mov rbx, rcx (save size)
 		b.emitBytes(0x31, 0xFF)                               // xor edi, edi (addr = NULL)
 		b.emitBytes(0x48, 0xC7, 0xC6, 0x00, 0x00, 0x40, 0x00) // mov rsi, 0x400000 (4 MiB)
 		b.emitBytes(0xBA, 0x03, 0x00, 0x00, 0x00)             // mov edx, 3 (PROT_READ|PROT_WRITE)
-		b.emitBytes(0x41, 0xBA, 0x22, 0x00, 0x00, 0x00)       // mov r10d, 0x22 (MAP_PRIVATE|MAP_ANONYMOUS)
-		b.emitBytes(0x49, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0xFF) // mov r8, -1 (fd)
-		b.emitBytes(0x45, 0x31, 0xC9)                         // xor r9d, r9d (offset = 0)
-		b.emitBytes(0xB8, 0x09, 0x00, 0x00, 0x00)             // mov eax, 9 (sys_mmap)
-		b.emitBytes(0x0F, 0x05)                               // syscall
-		b.emitBytes(0x48, 0x8D, 0x14, 0x18)                   // lea rdx, [rax + rbx]
+		if b.target.OS == "darwin" {
+			b.emitBytes(0x41, 0xBA, 0x02, 0x10, 0x00, 0x00)       // mov r10d, 0x1002 (MAP_PRIVATE|MAP_ANON)
+			b.emitBytes(0x49, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0xFF) // mov r8, -1 (fd)
+			b.emitBytes(0x45, 0x31, 0xC9)                         // xor r9d, r9d (offset = 0)
+			b.emitBytes(0xB8, 0xC5, 0x00, 0x00, 0x02)             // mov eax, 0x20000C5 (Darwin sys_mmap = 197)
+		} else {
+			b.emitBytes(0x41, 0xBA, 0x22, 0x00, 0x00, 0x00)       // mov r10d, 0x22 (MAP_PRIVATE|MAP_ANONYMOUS)
+			b.emitBytes(0x49, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0xFF) // mov r8, -1 (fd)
+			b.emitBytes(0x45, 0x31, 0xC9)                         // xor r9d, r9d (offset = 0)
+			b.emitBytes(0xB8, 0x09, 0x00, 0x00, 0x00)             // mov eax, 9 (Linux sys_mmap)
+		}
+		b.emitBytes(0x0F, 0x05)             // syscall
+		b.emitBytes(0x48, 0x8D, 0x14, 0x18) // lea rdx, [rax + rbx]
 		b.emitMovDataRDX(dataOffArenaCur)
 		b.emitBytes(0x48, 0x8D, 0x90, 0x00, 0x00, 0x40, 0x00) // lea rdx, [rax + 0x400000]
 		b.emitMovDataRDX(dataOffArenaEnd)
 		b.emitBytes(0x5F, 0x5E, 0x5B, 0xC3) // pop rdi; pop rsi; pop rbx; ret
 
 		b.defineLabel(".os_alloc_direct")
-		b.emitBytes(0x56, 0x57)                               // push rsi; push rdi
-		b.emitBytes(0x48, 0x89, 0xCE)                         // mov rsi, rcx (len)
-		b.emitBytes(0x31, 0xFF)                               // xor edi, edi (addr = NULL)
-		b.emitBytes(0xBA, 0x03, 0x00, 0x00, 0x00)             // mov edx, 3 (PROT_READ|PROT_WRITE)
-		b.emitBytes(0x41, 0xBA, 0x22, 0x00, 0x00, 0x00)       // mov r10d, 0x22 (MAP_PRIVATE|MAP_ANONYMOUS)
-		b.emitBytes(0x49, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0xFF) // mov r8, -1 (fd)
-		b.emitBytes(0x45, 0x31, 0xC9)                         // xor r9d, r9d (offset = 0)
-		b.emitBytes(0xB8, 0x09, 0x00, 0x00, 0x00)             // mov eax, 9 (sys_mmap)
-		b.emitBytes(0x0F, 0x05)                               // syscall
-		b.emitBytes(0x5F, 0x5E, 0xC3)                         // pop rdi; pop rsi; ret
+		b.emitBytes(0x56, 0x57)                   // push rsi; push rdi
+		b.emitBytes(0x48, 0x89, 0xCE)             // mov rsi, rcx (len)
+		b.emitBytes(0x31, 0xFF)                   // xor edi, edi (addr = NULL)
+		b.emitBytes(0xBA, 0x03, 0x00, 0x00, 0x00) // mov edx, 3 (PROT_READ|PROT_WRITE)
+		if b.target.OS == "darwin" {
+			b.emitBytes(0x41, 0xBA, 0x02, 0x10, 0x00, 0x00)       // mov r10d, 0x1002
+			b.emitBytes(0x49, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0xFF) // mov r8, -1
+			b.emitBytes(0x45, 0x31, 0xC9)                         // xor r9d, r9d
+			b.emitBytes(0xB8, 0xC5, 0x00, 0x00, 0x02)             // mov eax, 0x20000C5
+		} else {
+			b.emitBytes(0x41, 0xBA, 0x22, 0x00, 0x00, 0x00)       // mov r10d, 0x22
+			b.emitBytes(0x49, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0xFF) // mov r8, -1
+			b.emitBytes(0x45, 0x31, 0xC9)                         // xor r9d, r9d
+			b.emitBytes(0xB8, 0x09, 0x00, 0x00, 0x00)             // mov eax, 9
+		}
+		b.emitBytes(0x0F, 0x05)       // syscall
+		b.emitBytes(0x5F, 0x5E, 0xC3) // pop rdi; pop rsi; ret
 	}
 
 	// __joss_os_exit(rcx = exitCode)
@@ -988,9 +1040,13 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitCallIAT(IATExitProcess)
 		b.emitBytes(0x0F, 0x0B)
 	} else {
-		b.emitBytes(0x48, 0x89, 0xCF)             // mov rdi, rcx
-		b.emitBytes(0xB8, 0x3C, 0x00, 0x00, 0x00) // mov eax, 60 (sys_exit)
-		b.emitBytes(0x0F, 0x05)                   // syscall
+		b.emitBytes(0x48, 0x89, 0xCF) // mov rdi, rcx
+		if b.target.OS == "darwin" {
+			b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x02) // mov eax, 0x2000001 (Darwin sys_exit)
+		} else {
+			b.emitBytes(0xB8, 0x3C, 0x00, 0x00, 0x00) // mov eax, 60 (Linux sys_exit)
+		}
+		b.emitBytes(0x0F, 0x05) // syscall
 		b.emitBytes(0x0F, 0x0B)
 	}
 
@@ -1084,6 +1140,9 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	// joss_str_concat_i64(rcx = strA, rdx = intB) -> rax = newStr
 	b.defineLabel("joss_str_concat_i64")
+	// If rdx >= 0x400000 (a user-space string pointer from a mixed map/object), delegate to joss_str_concat
+	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x40, 0x00) // cmp rdx, 0x400000
+	b.emitJgeLabel("joss_str_concat")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
 	b.emitBytes(0x53, 0x56, 0x57)       // push rbx; push rsi; push rdi
 	b.emitBytes(0x41, 0x54, 0x41, 0x55) // push r12; push r13
@@ -1152,17 +1211,31 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	// joss_is_truthy(rcx = val) -> rax = 1 (truthy) or 0 (falsy)
 	b.defineLabel("joss_is_truthy")
-	b.emitBytes(0x48, 0x85, 0xC9)       // test rcx, rcx
-	b.emitBytes(0x0F, 0x95, 0xC0)       // setne al
-	b.emitBytes(0x48, 0x0F, 0xB6, 0xC0) // movzx rax, al
-	b.emitBytes(0xC3)                   // ret
+	b.defineLabel("fn_is_truthy")
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".truthy_false")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x40, 0x00) // cmp rcx, 0x400000
+	b.emitJlLabel(".truthy_true")
+	b.emitBytes(0x80, 0x39, 0x00) // cmp byte ptr [rcx], 0
+	b.emitJeLabel(".truthy_false")
+	b.defineLabel(".truthy_true")
+	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // mov eax, 1; ret
+	b.defineLabel(".truthy_false")
+	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
 
 	// joss_is_empty(rcx = val) -> rax = 1 (empty/zero/null) or 0 (not empty)
 	b.defineLabel("joss_is_empty")
-	b.emitBytes(0x48, 0x85, 0xC9)       // test rcx, rcx
-	b.emitBytes(0x0F, 0x94, 0xC0)       // sete al
-	b.emitBytes(0x48, 0x0F, 0xB6, 0xC0) // movzx rax, al
-	b.emitBytes(0xC3)                   // ret
+	b.defineLabel("fn_is_empty")
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".empty_true")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x40, 0x00) // cmp rcx, 0x400000
+	b.emitJlLabel(".empty_false")
+	b.emitBytes(0x80, 0x39, 0x00) // cmp byte ptr [rcx], 0
+	b.emitJeLabel(".empty_true")
+	b.defineLabel(".empty_false")
+	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
+	b.defineLabel(".empty_true")
+	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // mov eax, 1; ret
 
 	// =========================================================================
 	// 4. Console I/O (joss_print_string, joss_print_i64, joss_print_bool, joss_panic)
@@ -1645,6 +1718,8 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	// joss_arr_get_i64 (rcx = arrPtr, rdx = idx) -> rax = val64
 	b.defineLabel("joss_arr_get_i64")
+	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00) // cmp rdx, 0x10000 (string pointer key on mixed map?)
+	b.emitJgeLabel("joss_map_get_i64")
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".arr_get_done")
@@ -1670,6 +1745,8 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// joss_arr_set_i64 / joss_arr_set_str (rcx = arrPtr, rdx = idx, r8 = val64)
 	b.defineLabel("joss_arr_set_i64")
 	b.defineLabel("joss_arr_set_str")
+	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00) // cmp rdx, 0x10000 (string pointer key on mixed map?)
+	b.emitJgeLabel("joss_map_set_i64")
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".arr_set_leaf_ret")
 	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
@@ -1893,6 +1970,7 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0xC3)
 
 	// joss_map_len(rcx = mapPtr) -> rax = count of keys in O(1)
+	b.defineLabel("fn_joss_map_len")
 	b.defineLabel("joss_map_len")
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
@@ -1918,6 +1996,24 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x66, 0x48, 0x0F, 0x6E, 0xD0)                               // movq xmm2, rax
 		b.emitBytes(0xF2, 0x0F, 0x5E, 0xCA)                                     // divsd xmm1, xmm2 (nsec / 1e9)
 		b.emitBytes(0xF2, 0x0F, 0x58, 0xC1)                                     // addsd xmm0, xmm1 (sec + nsec/1e9)
+		b.emitBytes(0x66, 0x48, 0x0F, 0x7E, 0xC0)                               // movq rax, xmm0
+		b.emitBytes(0x48, 0x83, 0xC4, 0x18)                                     // add rsp, 24
+		b.emitBytes(0xC3)
+	} else if b.target.OS == "darwin" {
+		// Darwin x86-64: syscall 0x2000074 (sys_gettimeofday(rsp+8, NULL))
+		b.emitBytes(0x48, 0x83, 0xEC, 0x18)                                     // sub rsp, 24
+		b.emitBytes(0x48, 0x8D, 0x7C, 0x24, 0x08)                               // lea rdi, [rsp + 8] (timeval: tv_sec, tv_usec)
+		b.emitBytes(0x31, 0xF6)                                                 // xor esi, esi
+		b.emitBytes(0xB8, 0x74, 0x00, 0x00, 0x02)                               // mov eax, 0x2000074 (Darwin sys_gettimeofday = 116)
+		b.emitBytes(0x0F, 0x05)                                                 // syscall
+		b.emitBytes(0x48, 0x8B, 0x44, 0x24, 0x08)                               // mov rax, [rsp + 8] (tv_sec)
+		b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xC0)                               // cvtsi2sd xmm0, rax
+		b.emitBytes(0x48, 0x63, 0x4C, 0x24, 0x10)                               // movsxd rcx, dword ptr [rsp + 16] (tv_usec)
+		b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xC9)                               // cvtsi2sd xmm1, rcx
+		b.emitBytes(0x48, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x80, 0x84, 0x2E, 0x41) // mov rax, 0x412E848000000000 (1e6)
+		b.emitBytes(0x66, 0x48, 0x0F, 0x6E, 0xD0)                               // movq xmm2, rax
+		b.emitBytes(0xF2, 0x0F, 0x5E, 0xCA)                                     // divsd xmm1, xmm2
+		b.emitBytes(0xF2, 0x0F, 0x58, 0xC1)                                     // addsd xmm0, xmm1
 		b.emitBytes(0x66, 0x48, 0x0F, 0x7E, 0xC0)                               // movq rax, xmm0
 		b.emitBytes(0x48, 0x83, 0xC4, 0x18)                                     // add rsp, 24
 		b.emitBytes(0xC3)
@@ -2075,39 +2171,54 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x41, 0x5D, 0x41, 0x5C, 0x5B, 0x5D) // pop r13, r12, rbx, rbp
 		b.emitBytes(0xC3)
 	} else {
-		// Linux x86-64: sys_open(2), sys_lseek(8), sys_read(0), sys_close(3)
+		// Linux / Darwin x86-64: sys_open, sys_lseek, sys_read, sys_close
+		sysOpen := uint32(2)
+		sysLseek := uint32(8)
+		sysRead := uint32(0)
+		sysClose := uint32(3)
+		if b.target.OS == "darwin" {
+			sysOpen = 0x2000005
+			sysLseek = 0x20000C7
+			sysRead = 0x2000003
+			sysClose = 0x2000006
+		}
 		b.emitBytes(0x55, 0x48, 0x89, 0xE5)                   // push rbp; mov rbp, rsp
 		b.emitBytes(0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55) // push rbx, rsi, rdi, r12, r13
 		b.emitBytes(0x48, 0x83, 0xEC, 0x18)                   // sub rsp, 24
 		b.emitBytes(0x48, 0x89, 0xCF)                         // mov rdi, rcx (pathPtr)
 		b.emitBytes(0x31, 0xF6)                               // xor esi, esi (O_RDONLY = 0)
 		b.emitBytes(0x31, 0xD2)                               // xor edx, edx
-		b.emitBytes(0xB8, 0x02, 0x00, 0x00, 0x00)             // mov eax, 2 (sys_open)
-		b.emitBytes(0x0F, 0x05)                               // syscall
-		b.emitBytes(0x48, 0x85, 0xC0)                         // test rax, rax
+		b.emitBytes(0xB8)                                     // mov eax, sysOpen
+		b.emitU32(sysOpen)
+		b.emitBytes(0x0F, 0x05)       // syscall
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
 		b.emitJlLabel(".fgc_linux_fail")
 		b.emitBytes(0x48, 0x89, 0xC3)             // mov rbx, rax (fd)
 		b.emitBytes(0x48, 0x89, 0xDF)             // mov rdi, rbx
 		b.emitBytes(0x31, 0xF6)                   // xor esi, esi (offset = 0)
 		b.emitBytes(0xBA, 0x02, 0x00, 0x00, 0x00) // mov edx, 2 (SEEK_END)
-		b.emitBytes(0xB8, 0x08, 0x00, 0x00, 0x00) // mov eax, 8 (sys_lseek)
-		b.emitBytes(0x0F, 0x05)                   // syscall
-		b.emitBytes(0x49, 0x89, 0xC4)             // mov r12, rax (fileSize)
-		b.emitBytes(0x48, 0x89, 0xDF)             // mov rdi, rbx
-		b.emitBytes(0x31, 0xF6)                   // xor esi, esi
-		b.emitBytes(0x31, 0xD2)                   // xor edx, edx (SEEK_SET)
-		b.emitBytes(0xB8, 0x08, 0x00, 0x00, 0x00) // mov eax, 8 (sys_lseek)
+		b.emitBytes(0xB8)                         // mov eax, sysLseek
+		b.emitU32(sysLseek)
+		b.emitBytes(0x0F, 0x05)       // syscall
+		b.emitBytes(0x49, 0x89, 0xC4) // mov r12, rax (fileSize)
+		b.emitBytes(0x48, 0x89, 0xDF) // mov rdi, rbx
+		b.emitBytes(0x31, 0xF6)       // xor esi, esi
+		b.emitBytes(0x31, 0xD2)       // xor edx, edx (SEEK_SET)
+		b.emitBytes(0xB8)             // mov eax, sysLseek
+		b.emitU32(sysLseek)
 		b.emitBytes(0x0F, 0x05)                   // syscall
 		b.emitBytes(0x49, 0x8D, 0x4C, 0x24, 0x01) // lea rcx, [r12 + 1]
 		b.emitCallLabel("__joss_os_alloc")
-		b.emitBytes(0x49, 0x89, 0xC5)                   // mov r13, rax (bufPtr)
-		b.emitBytes(0x48, 0x89, 0xDF)                   // mov rdi, rbx
-		b.emitBytes(0x4C, 0x89, 0xEE)                   // mov rsi, r13
-		b.emitBytes(0x4C, 0x89, 0xE2)                   // mov rdx, r12
-		b.emitBytes(0x31, 0xC0)                         // xor eax, eax (sys_read = 0)
-		b.emitBytes(0x0F, 0x05)                         // syscall
-		b.emitBytes(0x48, 0x89, 0xDF)                   // mov rdi, rbx
-		b.emitBytes(0xB8, 0x03, 0x00, 0x00, 0x00)       // mov eax, 3 (sys_close)
+		b.emitBytes(0x49, 0x89, 0xC5) // mov r13, rax (bufPtr)
+		b.emitBytes(0x48, 0x89, 0xDF) // mov rdi, rbx
+		b.emitBytes(0x4C, 0x89, 0xEE) // mov rsi, r13
+		b.emitBytes(0x4C, 0x89, 0xE2) // mov rdx, r12
+		b.emitBytes(0xB8)             // mov eax, sysRead
+		b.emitU32(sysRead)
+		b.emitBytes(0x0F, 0x05)       // syscall
+		b.emitBytes(0x48, 0x89, 0xDF) // mov rdi, rbx
+		b.emitBytes(0xB8)             // mov eax, sysClose
+		b.emitU32(sysClose)
 		b.emitBytes(0x0F, 0x05)                         // syscall
 		b.emitBytes(0x43, 0xC6, 0x44, 0x25, 0x00, 0x00) // mov byte ptr [r13 + r12], 0
 		b.emitBytes(0x4C, 0x89, 0xE8)                   // mov rax, r13
@@ -2861,35 +2972,28 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
 	case *ir.CallBuiltinInst:
-		if isNativeBuiltin(i.BuiltinID) {
-			fnLabel := "fn_" + i.BuiltinID
-			if i.BuiltinID == "to_string" {
-				if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
-					fnLabel = "joss_f64_to_string"
-				} else {
-					fnLabel = "joss_to_string"
+		fnLabel := "fn_" + i.BuiltinID
+		if i.BuiltinID == "to_string" || i.BuiltinID == "strval" {
+			if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+				fnLabel = "joss_f64_to_string"
+			} else {
+				fnLabel = "joss_to_string"
+			}
+		} else if i.BuiltinID == "floatval" && len(i.Args) > 0 {
+			argKind := i.Args[0].Type().Kind
+			if argKind == ir.TypeKindString {
+				fnLabel = "fn_floatval_str"
+			} else if argKind == ir.TypeKindF64 || argKind == ir.TypeKindDecimal {
+				b.emitLoadValToRAX(layout, i.Args[0])
+				if i.Dest != nil {
+					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 				}
-			} else if i.BuiltinID == "floatval" && len(i.Args) > 0 {
-				argKind := i.Args[0].Type().Kind
-				if argKind == ir.TypeKindString {
-					fnLabel = "fn_floatval_str"
-				} else if argKind == ir.TypeKindF64 || argKind == ir.TypeKindDecimal {
-					b.emitLoadValToRAX(layout, i.Args[0])
-					if i.Dest != nil {
-						b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-					}
-					return nil
-				}
+				return nil
 			}
-			b.emitCallWithArgs(layout, fnLabel, i.Args)
-			if i.Dest != nil {
-				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-			}
-		} else {
-			b.emitCallHostBridge("builtin::" + i.BuiltinID)
-			if i.Dest != nil {
-				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-			}
+		}
+		b.emitCallWithArgs(layout, fnLabel, i.Args)
+		if i.Dest != nil {
+			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 		}
 	case *ir.CallPrimitiveMethodInst:
 		if isNativePrimitiveMethod(i.TypeKind, i.MethodName) {
@@ -2922,41 +3026,9 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 				return nil
 			}
 		}
-		b.emitCallHostBridge(i.TypeKind + "::" + i.MethodName)
-		if i.Dest != nil {
-			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-		}
+		return fmt.Errorf("%s", analyzer.FormatCapabilityError("primitive method "+i.TypeKind+"::"+i.MethodName))
+
 	case *ir.CallHostServiceInst:
-		target := i.ClassName + "::" + i.MethodName
-		if b.isJITMode {
-			b.emitCallHostBridge(target)
-			if i.Dest != nil {
-				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-			}
-			return nil
-		}
-		if i.ClassName == "GranDB" {
-			// In-memory or standalone GranDB stub/builder
-			if i.Dest != nil {
-				if i.MethodName == "get" {
-					b.emitBytes(0x48, 0xC7, 0xC1, 0x00, 0x00, 0x00, 0x00) // mov rcx, 0
-					b.emitCallLabel("joss_arr_new")
-				} else if i.MethodName == "first" || i.MethodName == "find" || i.MethodName == "paginate" {
-					b.emitCallLabel("joss_map_new")
-				} else if i.MethodName == "count" {
-					b.emitBytes(0x31, 0xC0) // xor eax, eax
-				} else {
-					// Fluent return (this / builder)
-					if len(i.Args) > 0 {
-						b.emitLoadValToRAX(layout, i.Args[0])
-					} else {
-						b.emitBytes(0x31, 0xC0)
-					}
-				}
-				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-			}
-			return nil
-		}
 		if i.ClassName == "UserStorage" || i.ClassName == "OCIStorage" {
 			switch i.MethodName {
 			case "put":
@@ -2993,7 +3065,18 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			}
 		}
 		if isSupportedHostService(i.ClassName, i.MethodName) {
-			b.emitCallHostBridge(target)
+			if b.isJITMode {
+				b.emitCallHostBridgeWithArgs(layout, i.ClassName+"::"+i.MethodName, i.Args)
+				if i.Dest != nil {
+					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+				}
+				return nil
+			}
+			fnLabel := "fn_" + i.ClassName + "_" + i.MethodName
+			if i.ClassName == "View" && i.MethodName == "render" {
+				fnLabel = "fn_view"
+			}
+			b.emitCallWithArgs(layout, fnLabel, i.Args)
 			if i.Dest != nil {
 				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 			}
@@ -3019,35 +3102,26 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			}
 			return nil
 		}
-		if isNativeBuiltin(i.Callee) {
-			fnLabel := "fn_" + i.Callee
-			if i.Callee == "to_string" {
-				if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
-					fnLabel = "joss_f64_to_string"
-				} else {
-					fnLabel = "joss_to_string"
-				}
-			} else if i.Callee == "floatval" && len(i.Args) > 0 {
-				argKind := i.Args[0].Type().Kind
-				if argKind == ir.TypeKindString {
-					fnLabel = "fn_floatval_str"
-				} else if argKind == ir.TypeKindF64 || argKind == ir.TypeKindDecimal {
-					b.emitLoadValToRAX(layout, i.Args[0])
-					if i.Dest != nil {
-						b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-					}
-					return nil
-				}
+		fnLabel := "fn_" + i.Callee
+		if i.Callee == "to_string" || i.Callee == "strval" {
+			if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+				fnLabel = "joss_f64_to_string"
+			} else {
+				fnLabel = "joss_to_string"
 			}
-			b.emitCallWithArgs(layout, fnLabel, i.Args)
-		} else if isNativeBuiltinHelper(i.Callee) {
-			b.emitCallWithArgs(layout, "fn_"+i.Callee, i.Args)
-		} else if _, exists := b.prog.Functions[i.Callee]; exists {
-			b.emitCallWithArgs(layout, "fn_"+i.Callee, i.Args)
-		} else {
-			// External host function or runtime method
-			b.emitCallHostBridge(i.Callee)
+		} else if i.Callee == "floatval" && len(i.Args) > 0 {
+			argKind := i.Args[0].Type().Kind
+			if argKind == ir.TypeKindString {
+				fnLabel = "fn_floatval_str"
+			} else if argKind == ir.TypeKindF64 || argKind == ir.TypeKindDecimal {
+				b.emitLoadValToRAX(layout, i.Args[0])
+				if i.Dest != nil {
+					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+				}
+				return nil
+			}
 		}
+		b.emitCallWithArgs(layout, fnLabel, i.Args)
 		if i.Dest != nil {
 			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 		}
@@ -3059,31 +3133,23 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 	case *ir.CallRuntimeInst:
-		if isNativeBuiltinHelper(i.Func) {
+		if isNativeBuiltinHelper(i.Func) || isSupportedRuntimeCallee(i.Func) {
 			b.emitCallWithArgs(layout, "fn_"+i.Func, i.Args)
 			if i.Dest != nil {
 				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 			}
 			return nil
 		}
-		if isSupportedRuntimeCallee(i.Func) {
-			b.emitCallHostBridge(i.Func)
-			if i.Dest != nil {
-				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-			}
-			return nil
-		} else {
-			if i.Func == "to_string" || i.Func == "strval" {
-				if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
-					b.emitCallWithArgs(layout, "joss_f64_to_string", i.Args)
-				} else {
-					b.emitCallWithArgs(layout, "joss_to_string", i.Args)
-				}
-			} else if i.Func == "str_concat" {
-				b.emitCallWithArgs(layout, "joss_str_concat", i.Args)
+		if i.Func == "to_string" || i.Func == "strval" {
+			if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+				b.emitCallWithArgs(layout, "joss_f64_to_string", i.Args)
 			} else {
-				b.emitCallWithArgs(layout, "joss_"+i.Func, i.Args)
+				b.emitCallWithArgs(layout, "joss_to_string", i.Args)
 			}
+		} else if i.Func == "str_concat" {
+			b.emitCallWithArgs(layout, "joss_str_concat", i.Args)
+		} else {
+			b.emitCallWithArgs(layout, "joss_"+i.Func, i.Args)
 		}
 		if i.Dest != nil {
 			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
@@ -3285,7 +3351,6 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		b.emitCallLabel("joss_map_new")
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 		for _, pair := range i.Pairs {
-			b.emitLoadRAXFromRBP(layout.tempOffsets[i.Dest.ID])
 			b.emitCallWithArgs(layout, "joss_map_set_i64", []ir.Value{i.Dest, pair[0], pair[1]})
 		}
 
@@ -3837,6 +3902,11 @@ func (b *MachineCodeBuilder) emitToStringStub() {
 	b.defineLabel("joss_to_string")
 	b.defineLabel("fn_to_string")
 	b.defineLabel("fn_strval")
+	// If rcx >= 0x400000 (a user-space string pointer in .rodata or heap), return it directly
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x40, 0x00) // cmp rcx, 0x400000
+	b.emitJlLabel(".tostr_not_ptr")
+	b.emitBytes(0x48, 0x89, 0xC8, 0xC3) // mov rax, rcx; ret
+	b.defineLabel(".tostr_not_ptr")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
 	b.emitBytes(0x53, 0x57, 0x56)             // push rbx; push rdi; push rsi
 	b.emitBytes(0x48, 0x83, 0xEC, 0x38)       // sub rsp, 56

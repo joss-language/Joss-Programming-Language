@@ -22,7 +22,6 @@ import (
 // that exercises GranDB::table, insert, insertGetId, where, count, first, get (with foreach),
 // update, and delete, together with newly lowered AST constructs (foreach, match, ??, ++, isset, empty, '.' concat).
 func TestNativeGranDBInsertionAndQuery(t *testing.T) {
-	t.Skip("GranDB native execution requires Host Bridge linking")
 	src := `
 		// 1. Insert rows into 'users' table using GranDB::table()->insert() and insertGetId()
 		int $id1 = GranDB::table("users")->insert({
@@ -115,11 +114,76 @@ func TestNativeGranDBInsertionAndQuery(t *testing.T) {
 	}
 }
 
+// TestNativeGranDBToSqlMultiDialect verifies dynamic SQL generation (toSql) across dialects (MySQL, Postgres, SQLite, SQL Server)
+// including SELECT TOP N, OFFSET ... ROWS FETCH NEXT ... ROWS ONLY, LIMIT/OFFSET, and dynamic table prefix PREFIX.
+func TestNativeGranDBToSqlMultiDialect(t *testing.T) {
+	src := `
+		// 1. Default dialect toSql() with select, where, orderBy, limit, offset
+		var $q1 = GranDB::table("users")->select("id, name")->where("role", "admin")->orderBy("id", "ASC")->limit(10)->offset(5);
+		string $sql1 = $q1->toSql();
+		echo "SQL1:" . $sql1;
+
+		// 2. Simple query without limit or offset
+		var $q2 = GranDB::table("logs")->where("level", "error");
+		string $sql2 = $q2->toSql();
+		echo "SQL2:" . $sql2;
+	`
+	irProg := prepareTestProgram(t, src, "test_grandb_tosql")
+	tempDir := t.TempDir()
+	outExe := filepath.Join(tempDir, "grandb_tosql.exe")
+
+	_, err := backend.BuildProgram(irProg, backend.BuildOptions{
+		Backend:    backend.BackendStandalone,
+		OutputPath: outExe,
+	})
+	if err != nil {
+		t.Fatalf("BuildProgram failed for GranDB toSql test: %v", err)
+	}
+
+	if runtime.GOOS == "windows" {
+		cmd := exec.Command(outExe)
+		cmd.Dir = tempDir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("GranDB toSql executable failed: %v\nOutput:\n%s", err, string(out))
+		}
+		outStr := string(out)
+		expectedSQL1 := "SQL1:SELECT id, name FROM users WHERE role = ? ORDER BY id ASC LIMIT 10 OFFSET 5"
+		expectedSQL2 := "SQL2:SELECT * FROM logs WHERE level = ?"
+		if !strings.Contains(outStr, expectedSQL1) {
+			t.Errorf("Expected %q in output, got:\n%s", expectedSQL1, outStr)
+		}
+		if !strings.Contains(outStr, expectedSQL2) {
+			t.Errorf("Expected %q in output, got:\n%s", expectedSQL2, outStr)
+		}
+
+		// Test dynamic SQL Server dialect & table prefix loading from .env
+		envFile := filepath.Join(tempDir, ".env")
+		if err := os.WriteFile(envFile, []byte("DB=sqlserver\nPREFIX=sec_\n"), 0644); err != nil {
+			t.Fatalf("Failed to write .env: %v", err)
+		}
+		cmdSS := exec.Command(outExe)
+		cmdSS.Dir = tempDir
+		outSS, err := cmdSS.CombinedOutput()
+		if err != nil {
+			t.Fatalf("GranDB toSql with sqlserver failed: %v\nOutput:\n%s", err, string(outSS))
+		}
+		outSSStr := string(outSS)
+		expectedSS1 := "SQL1:SELECT id, name FROM sec_users WHERE role = ? ORDER BY id ASC OFFSET 5 ROWS FETCH NEXT 10 ROWS ONLY"
+		expectedSS2 := "SQL2:SELECT * FROM sec_logs WHERE level = ?"
+		if !strings.Contains(outSSStr, expectedSS1) {
+			t.Errorf("Expected SQL Server %q in output, got:\n%s", expectedSS1, outSSStr)
+		}
+		if !strings.Contains(outSSStr, expectedSS2) {
+			t.Errorf("Expected SQL Server %q in output, got:\n%s", expectedSS2, outSSStr)
+		}
+	}
+}
+
 // TestNativeJosSecurityFullProjectCompilationAndExecution compiles the entire
 // ejemplos/Joss-Red-JosSecurity application into standalone Windows PE32+ and Linux ELF64
 // native binaries, verifies zero Go runtime / zero AST interpreter embedding, and executes it.
 func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
-	t.Skip("Full project native compilation requires Host Bridge linking")
 	josSecurityDir, err := filepath.Abs(filepath.Join("..", "..", "ejemplos", "Joss-Red-JosSecurity"))
 	if err != nil {
 		t.Fatalf("filepath.Abs failed: %v", err)
@@ -193,7 +257,7 @@ func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
 		}
 	}
 
-	// 2. Build Linux ELF64 standalone executable
+	// 2. Build Linux ELF64 standalone executable (amd64)
 	linuxElf := filepath.Join(tempDir, "JosSecurity-linux")
 	_, err = backend.BuildProgram(irProg, backend.BuildOptions{
 		Backend:    backend.BackendStandalone,
@@ -212,13 +276,40 @@ func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
 		t.Fatalf("invalid ELF64 header in JosSecurity-linux (size=%d)", len(elfBytes))
 	}
 
+	// 2b. Verify all other targets (darwin/amd64, linux/arm64, darwin/arm64, windows/arm64) compile Joss-Red-JosSecurity cleanly
+	for _, crossTarget := range []backend.Target{
+		{OS: "darwin", Arch: "amd64"},
+		{OS: "linux", Arch: "arm64"},
+		{OS: "darwin", Arch: "arm64"},
+		{OS: "windows", Arch: "arm64"},
+	} {
+		outCross := filepath.Join(tempDir, "JosSecurity-"+crossTarget.OS+"-"+crossTarget.Arch)
+		buildRes, err := backend.BuildProgram(irProg, backend.BuildOptions{
+			Backend:    backend.BackendStandalone,
+			Target:     crossTarget,
+			OutputPath: outCross,
+		})
+		if err != nil {
+			t.Fatalf("Cross-compilation of Joss-Red-JosSecurity for %s/%s failed: %v", crossTarget.OS, crossTarget.Arch, err)
+		}
+		crossBytes, err := os.ReadFile(buildRes.OutputPath)
+		if err != nil || len(crossBytes) < 4096 {
+			t.Fatalf("invalid cross-compiled binary for %s/%s (size=%d, err=%v)", crossTarget.OS, crossTarget.Arch, len(crossBytes), err)
+		}
+		for _, forbidden := range []string{"JOSS_RUNNER_DATA", "go.buildid", "runtime.main", "github.com/jossecurity/joss/pkg/core"} {
+			if bytes.Contains(crossBytes, []byte(forbidden)) {
+				t.Fatalf("JosSecurity (%s/%s) contains forbidden non-standalone marker %q", crossTarget.OS, crossTarget.Arch, forbidden)
+			}
+		}
+	}
+
 	// 3. Execute JosSecurity.exe on Windows host:
 	//    (a) Verify check-only startup output
 	//    (b) Launch live native HTTP server on port 8000 and verify dynamic MVC routes & static assets
 	if runtime.GOOS == "windows" {
 		checkCmd := exec.Command(winExe)
 		checkCmd.Dir = josSecurityDir
-		checkCmd.Env = append(os.Environ(), "JOSS_NATIVE_CHECK_ONLY=1")
+		checkCmd.Env = append(os.Environ(), "JOSS_NATIVE_CHECK_ONLY=1", "PORT=8000")
 		out, err := checkCmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("JosSecurity.exe check-only execution failed: %v\nOutput:\n%s", err, string(out))
@@ -234,6 +325,10 @@ func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
 		// Launch live HTTP server without JOSS_NATIVE_CHECK_ONLY
 		srvCmd := exec.Command(winExe)
 		srvCmd.Dir = josSecurityDir
+		srvCmd.Env = append(os.Environ(), "PORT=8000")
+		var srvBuf bytes.Buffer
+		srvCmd.Stdout = &srvBuf
+		srvCmd.Stderr = &srvBuf
 		if err := srvCmd.Start(); err != nil {
 			t.Fatalf("failed to start live JosSecurity.exe HTTP server: %v", err)
 		}
@@ -255,7 +350,7 @@ func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
 			}
 		}
 		if reqErr != nil {
-			t.Fatalf("live HTTP GET to http://127.0.0.1:8000/ failed: %v", reqErr)
+			t.Fatalf("live HTTP GET to http://127.0.0.1:8000/ failed: %v\nServer output:\n%s", reqErr, srvBuf.String())
 		}
 		bodyBytes, err := io.ReadAll(resp.Body)
 		resp.Body.Close()

@@ -32,6 +32,15 @@ type loopContext struct {
 }
 
 func NewLowerer(prep *analyzer.PreparedProgram, reachGraph *analyzer.ReachabilityGraph) *Lowerer {
+	if reachGraph == nil && prep != nil {
+		ep := ""
+		if len(prep.Units) > 0 {
+			ep = prep.Units[0].Path
+		}
+		reachGraph = analyzer.BuildReachabilityGraph(prep, analyzer.ReachabilityOptions{
+			Entrypoint: ep,
+		})
+	}
 	return &Lowerer{
 		prep:       prep,
 		reachGraph: reachGraph,
@@ -90,6 +99,9 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 					return nil, err
 				}
 			case *parser.ClassStatement:
+				if l.reachGraph != nil && !l.reachGraph.IsClassReachable(s.Name.Value) {
+					continue
+				}
 				if s.Body != nil {
 					for _, member := range s.Body.Statements {
 						if m, ok := member.(*parser.MethodStatement); ok {
@@ -97,7 +109,7 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 								continue
 							}
 							qualifiedName := s.Name.Value + "::" + m.Name.Value
-							if l.reachGraph != nil && !l.reachGraph.IsFunctionReachable(qualifiedName) && !l.reachGraph.IsFunctionReachable(m.Name.Value) {
+							if l.reachGraph != nil && !l.reachGraph.IsMethodReachable(s.Name.Value, m.Name.Value) && !l.reachGraph.IsFunctionReachable(qualifiedName) && !l.reachGraph.IsFunctionReachable(m.Name.Value) {
 								continue
 							}
 							if err := l.lowerClassMethod(s.Name.Value, m); err != nil {
@@ -1498,6 +1510,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 	case *parser.CallExpression:
 		calleeName := ""
 		var receiverObj Value
+		var resolvedMethodStmt *parser.MethodStatement
 
 		if member, ok := e.Function.(*parser.MemberExpression); ok {
 			if identLeft, ok := member.Left.(*parser.Identifier); ok && member.Property != nil {
@@ -1509,6 +1522,10 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 					calleeName = member.Property.Value
 				} else {
 					calleeName = identLeft.Value + "_" + member.Property.Value
+					if targetFn, _, mStmt, found := l.resolveClassMethod(identLeft.Value, member.Property.Value); found {
+						calleeName = targetFn
+						resolvedMethodStmt = mStmt
+					}
 				}
 			} else {
 				recv, err := l.lowerExpression(member.Left)
@@ -1521,8 +1538,9 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			if receiverObj != nil && receiverObj.Type().Kind == TypeKindPtr && receiverObj.Type().Elem != nil {
 				clsName := receiverObj.Type().Elem.Name
 				if clsName != "" && clsName != "map" {
-					if targetFn, _, found := l.resolveClassMethod(clsName, member.Property.Value); found {
+					if targetFn, _, mStmt, found := l.resolveClassMethod(clsName, member.Property.Value); found {
 						calleeName = targetFn
+						resolvedMethodStmt = mStmt
 					} else {
 						calleeName = clsName + "_" + member.Property.Value
 					}
@@ -1553,8 +1571,9 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 						prefix := resolved.TargetID[:lastColons]
 						className := prefix[strings.LastIndex(prefix, ":")+1:]
 						methodName := resolved.TargetID[lastColons+2:]
-						if targetFn, _, found := l.resolveClassMethod(className, methodName); found {
+						if targetFn, _, mStmt, found := l.resolveClassMethod(className, methodName); found {
 							calleeName = targetFn
+							resolvedMethodStmt = mStmt
 						} else {
 							calleeName = className + "_" + methodName
 						}
@@ -1564,7 +1583,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		}
 
 		var args []Value
-		if receiverObj != nil {
+		if receiverObj != nil && (resolvedMethodStmt == nil || !resolvedMethodStmt.IsStatic) {
 			args = append(args, receiverObj)
 		}
 		for _, a := range e.Arguments {
@@ -1575,10 +1594,38 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			args = append(args, v)
 		}
 
-		if (calleeName == "GranDB_where" || calleeName == "where") && len(args) == 4 {
-			// Normalize 3-argument where(col, op, val) -> where(col, val)
-			args = []Value{args[0], args[1], args[3]}
+		// Auto-fill default arguments when fewer arguments were provided than callee declared
+		if resolvedMethodStmt != nil {
+			expectedParams := resolvedMethodStmt.Parameters
+			startIdx := len(args)
+			if receiverObj != nil && !resolvedMethodStmt.IsStatic {
+				startIdx = len(args) - 1
+			}
+			for pIdx := startIdx; pIdx < len(expectedParams); pIdx++ {
+				param := expectedParams[pIdx]
+				if param.DefaultValue != nil {
+					defVal, err := l.lowerExpression(param.DefaultValue)
+					if err == nil && defVal != nil {
+						args = append(args, defVal)
+						continue
+					}
+				}
+				args = append(args, NewConstNull(PtrType(TypeVoid)))
+			}
+		} else if fnStmt, foundFn := l.resolveFunction(calleeName); foundFn {
+			for pIdx := len(args); pIdx < len(fnStmt.Parameters); pIdx++ {
+				param := fnStmt.Parameters[pIdx]
+				if param.DefaultValue != nil {
+					defVal, err := l.lowerExpression(param.DefaultValue)
+					if err == nil && defVal != nil {
+						args = append(args, defVal)
+						continue
+					}
+				}
+				args = append(args, NewConstNull(PtrType(TypeVoid)))
+			}
 		}
+
 		if (calleeName == "GranDB_table" || calleeName == "table") && len(args) == 2 {
 			calleeName = "GranDB_table"
 			args = []Value{args[1]}
@@ -1610,13 +1657,13 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		}
 		if retType.Kind == TypeKindI64 && receiverObj != nil && receiverObj.Type().Kind == TypeKindPtr && receiverObj.Type().Elem != nil {
 			if member, ok := e.Function.(*parser.MemberExpression); ok && member.Property != nil {
-				if _, mRet, found := l.resolveClassMethod(receiverObj.Type().Elem.Name, member.Property.Value); found {
+				if _, mRet, _, found := l.resolveClassMethod(receiverObj.Type().Elem.Name, member.Property.Value); found {
 					retType = mRet
 				}
 			}
 		}
 		switch calleeName {
-		case "view", "SEO_render", "html_escape", "csrf_field", "Markdown_readFile", "Markdown_toHtml", "Str_trim", "file_get_contents":
+		case "view", "SEO_render", "html_escape", "csrf_field", "Markdown_readFile", "Markdown_toHtml", "Str_trim", "file_get_contents", "toSql", "GranDB_toSql":
 			retType = TypeString
 		case "explode":
 			retType = ArrayType(TypeString)
@@ -1708,17 +1755,6 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 					Dest:      dest,
 					BuiltinID: calleeName,
 					Args:      args,
-				})
-			} else if strings.HasPrefix(calleeName, "GranDB_") {
-				parts := strings.SplitN(calleeName, "_", 2)
-				className := parts[0]
-				methodName := parts[1]
-				l.currBlock.AddInstruction(&CallHostServiceInst{
-					Dest:       dest,
-					ClassName:  className,
-					MethodName: methodName,
-					Recv:       receiverObj,
-					Args:       args,
 				})
 			} else {
 				// Check if calleeName is a local closure variable
@@ -2171,9 +2207,9 @@ func (l *Lowerer) buildAllClassLayouts() {
 	}
 }
 
-func (l *Lowerer) resolveClassMethod(className, methodName string) (string, Type, bool) {
+func (l *Lowerer) resolveClassMethod(className, methodName string) (string, Type, *parser.MethodStatement, bool) {
 	if l.prep == nil {
-		return "", TypeI64, false
+		return "", TypeI64, nil, false
 	}
 	curr := className
 	for curr != "" {
@@ -2193,7 +2229,7 @@ func (l *Lowerer) resolveClassMethod(className, methodName string) (string, Type
 				if cls.Body != nil {
 					for _, member := range cls.Body.Statements {
 						if m, ok := member.(*parser.MethodStatement); ok && m.Name != nil && m.Name.Value == methodName {
-							return curr + "_" + methodName, l.mapType(m.ReturnType.Literal), true
+							return curr + "_" + methodName, l.mapType(m.ReturnType.Literal), m, true
 						}
 					}
 				}
@@ -2201,7 +2237,24 @@ func (l *Lowerer) resolveClassMethod(className, methodName string) (string, Type
 		}
 		curr = nextSuper
 	}
-	return "", TypeI64, false
+	return "", TypeI64, nil, false
+}
+
+func (l *Lowerer) resolveFunction(fnName string) (*parser.MethodStatement, bool) {
+	if l.prep == nil {
+		return nil, false
+	}
+	for _, unit := range l.prep.Units {
+		if unit.Program == nil {
+			continue
+		}
+		for _, stmt := range unit.Program.Statements {
+			if fn, ok := stmt.(*parser.MethodStatement); ok && fn.Name != nil && fn.Name.Value == fnName {
+				return fn, true
+			}
+		}
+	}
+	return nil, false
 }
 
 func (l *Lowerer) mapType(lit string) Type {

@@ -60,7 +60,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 				r.CustomMiddlewares = make(map[string]interface{})
 			}
 			r.CustomMiddlewares[name] = handler
-			fmt.Printf("[DEBUG] Middleware registered: %s\n", name)
 		}
 		return nil
 
@@ -76,7 +75,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 			path := args[0].(string)
 			handler := args[1]
 			addRoute("GET", path, handler)
-			fmt.Printf("[DEBUG] executeRouterMethod called: get (%s)\n", path)
 		}
 		return nil
 
@@ -85,7 +83,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 			path := args[0].(string)
 			handler := args[1]
 			addRoute("POST", path, handler)
-			fmt.Printf("[DEBUG] executeRouterMethod called: post (%s)\n", path)
 		}
 		return nil
 
@@ -94,7 +91,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 			path := args[0].(string)
 			handler := args[1]
 			addRoute("PUT", path, handler)
-			fmt.Printf("[DEBUG] executeRouterMethod called: put (%s)\n", path)
 		}
 		return nil
 
@@ -103,7 +99,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 			path := args[0].(string)
 			handler := args[1]
 			addRoute("DELETE", path, handler)
-			fmt.Printf("[DEBUG] executeRouterMethod called: delete (%s)\n", path)
 		}
 		return nil
 
@@ -112,7 +107,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 			path := args[0].(string)
 			handler := args[1]
 			addRoute("PATCH", path, handler)
-			fmt.Printf("[DEBUG] executeRouterMethod called: patch (%s)\n", path)
 		}
 		return nil
 
@@ -121,7 +115,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 			path := args[0].(string)
 			handler := args[1]
 			addRoute("OPTIONS", path, handler)
-			fmt.Printf("[DEBUG] executeRouterMethod called: options (%s)\n", path)
 		}
 		return nil
 
@@ -130,7 +123,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 			path := args[0].(string)
 			handler := args[1]
 			addRoute("HEAD", path, handler)
-			fmt.Printf("[DEBUG] executeRouterMethod called: head (%s)\n", path)
 		}
 		return nil
 
@@ -139,7 +131,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 			path := args[0].(string)
 			handler := args[1]
 			addRoute("QUERY", path, handler)
-			fmt.Printf("[DEBUG] executeRouterMethod called: query (%s)\n", path)
 		}
 		return nil
 
@@ -175,7 +166,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 					addRoute(m, path, handler)
 				}
 			}
-			fmt.Printf("[DEBUG] executeRouterMethod called: any (%s)\n", path)
 		}
 		return nil
 
@@ -206,7 +196,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 					}
 				}
 			}
-			fmt.Printf("[DEBUG] executeRouterMethod called: match (%s)\n", path)
 		}
 		return nil
 
@@ -217,7 +206,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 			handler := args[1]
 			addRoute("GET", path, handler)
 			addRoute("POST", path, handler)
-			fmt.Printf("[DEBUG] executeRouterMethod called: api (%s)\n", path)
 		}
 		return nil
 
@@ -228,7 +216,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 			handler := args[1]
 			// Internally we treat WS as a special method "WS"
 			addRoute("WS", path, handler)
-			fmt.Printf("[DEBUG] executeRouterMethod called: ws (%s)\n", path)
 		}
 		return nil
 
@@ -256,7 +243,6 @@ func (r *Runtime) executeRouterMethod(instance *Instance, method string, args []
 			if len(r.CurrentMiddleware) > 0 {
 				r.CurrentMiddleware = r.CurrentMiddleware[:len(r.CurrentMiddleware)-1]
 			}
-			fmt.Printf("[DEBUG] executeRouterMethod called: group (%s)\n", mwName)
 		}
 		return nil
 

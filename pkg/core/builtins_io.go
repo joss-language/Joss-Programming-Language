@@ -226,6 +226,78 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 			return string(output), true
 		}
 		return "", true
+
+	case "__joss_db_query":
+		if len(args) == 0 {
+			return []interface{}{}, true
+		}
+		sqlStr, ok := args[0].(string)
+		if !ok {
+			return []interface{}{}, true
+		}
+		var bindings []interface{}
+		if len(args) > 1 {
+			if bArr, isArr := args[1].([]interface{}); isArr {
+				bindings = bArr
+			}
+		}
+		return r.executeRawDBQuery(sqlStr, bindings), true
+
+	case "__joss_db_execute":
+		if len(args) == 0 {
+			return int64(0), true
+		}
+		sqlStr, ok := args[0].(string)
+		if !ok {
+			return int64(0), true
+		}
+		var bindings []interface{}
+		if len(args) > 1 {
+			if bArr, isArr := args[1].([]interface{}); isArr {
+				bindings = bArr
+			}
+		}
+		return r.executeRawDBExecute(sqlStr, bindings), true
+
+	case "__joss_db_get_table":
+		if len(args) == 0 {
+			return []interface{}{}, true
+		}
+		tblName := fmt.Sprintf("%v", args[0])
+		if r.Variables == nil {
+			r.Variables = make(map[string]interface{})
+		}
+		tables, ok := r.Variables["__joss_db_tables"].(map[string]interface{})
+		if !ok {
+			tables = make(map[string]interface{})
+			r.Variables["__joss_db_tables"] = tables
+		}
+		if rows, exists := tables[tblName]; exists {
+			return rows, true
+		}
+		newRows := []interface{}{}
+		tables[tblName] = newRows
+		return newRows, true
+
+	case "__joss_db_set_table":
+		if len(args) < 2 {
+			return true, true
+		}
+		tblName := fmt.Sprintf("%v", args[0])
+		rows := args[1]
+		if r.Variables == nil {
+			r.Variables = make(map[string]interface{})
+		}
+		tables, ok := r.Variables["__joss_db_tables"].(map[string]interface{})
+		if !ok {
+			tables = make(map[string]interface{})
+			r.Variables["__joss_db_tables"] = tables
+		}
+		tables[tblName] = rows
+		return true, true
+
+	case "__joss_db_is_connected":
+		return r.GetDB() != nil, true
 	}
 
 	return nil, false

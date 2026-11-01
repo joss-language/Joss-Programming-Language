@@ -189,3 +189,211 @@ func TestARM64_ArithmeticAndFunctions(t *testing.T) {
 
 	_ = asmListing
 }
+
+func TestARM64_WindowsPE32Plus_And_ObjectsCollections(t *testing.T) {
+	prog := ir.NewProgram("full_arm64")
+	fnMain := ir.NewFunction("main", ir.TypeI64)
+
+	tObj := fnMain.NewTemp(ir.PtrType(ir.StructType("User", nil)), "obj")
+	fnMain.EntryBlock.AddInstruction(&ir.NewObjectInst{
+		Dest:      tObj,
+		ClassName: "User",
+	})
+	fnMain.EntryBlock.AddInstruction(&ir.StoreFieldInst{
+		Obj:       tObj,
+		FieldName: "name",
+		Val:       ir.NewConstString("Ada"),
+	})
+	tField := fnMain.NewTemp(ir.TypeString, "field")
+	fnMain.EntryBlock.AddInstruction(&ir.LoadFieldInst{
+		Dest:      tField,
+		Obj:       tObj,
+		FieldName: "name",
+	})
+	tConcat := fnMain.NewTemp(ir.TypeString, "concat")
+	fnMain.EntryBlock.AddInstruction(&ir.CallRuntimeInst{
+		Dest: tConcat,
+		Func: "str_concat",
+		Args: []ir.Value{ir.NewConstString("Hello "), tField},
+	})
+	fnMain.EntryBlock.AddInstruction(&ir.CallInst{
+		Callee: "print",
+		Args:   []ir.Value{tConcat},
+	})
+	fnMain.EntryBlock.SetTerminator(&ir.ReturnTerminator{Val: ir.NewConstInt(0, ir.TypeI64)})
+	prog.AddFunction(fnMain)
+
+	for _, target := range []backend.Target{
+		{OS: "linux", Arch: "arm64"},
+		{OS: "darwin", Arch: "arm64"},
+		{OS: "windows", Arch: "arm64"},
+	} {
+		builder := backend.NewARM64Builder(target, false)
+		binBytes, _, err := builder.Compile(prog)
+		if err != nil {
+			t.Fatalf("ARM64Builder.Compile(%s) falló: %v", target, err)
+		}
+		if builder.NeedsHostBridge() {
+			t.Errorf("ARM64Builder(%s) no debe activar NeedsHostBridge", target)
+		}
+		if target.OS == "windows" {
+			if string(binBytes[0:2]) != "MZ" {
+				t.Errorf("Cabecera MZ inválida para windows/arm64")
+			}
+			machine := binary.LittleEndian.Uint16(binBytes[0x44:0x46])
+			if machine != 0xAA64 {
+				t.Errorf("PE Machine esperado 0xAA64 (IMAGE_FILE_MACHINE_ARM64), obtenido 0x%04X", machine)
+			}
+		}
+	}
+}
+
+func TestARM64_FloatingPoint_TryCatch_And_GranDB(t *testing.T) {
+	prog := ir.NewProgram("fp_try_grandb_arm64")
+
+	fnMain := ir.NewFunction("main", ir.TypeI64)
+	tSum := fnMain.NewTemp(ir.TypeF64, "fp_sum")
+	fnMain.EntryBlock.AddInstruction(&ir.BinaryInst{
+		Op:    ir.OpAdd,
+		Dest:  tSum,
+		Left:  ir.NewConstFloat(1.5, ir.TypeF64),
+		Right: ir.NewConstFloat(2.5, ir.TypeF64),
+	})
+	tCmp := fnMain.NewTemp(ir.TypeBool, "fp_cmp")
+	fnMain.EntryBlock.AddInstruction(&ir.CompareInst{
+		Op:    ir.OpCmpEq,
+		Dest:  tCmp,
+		Left:  tSum,
+		Right: ir.NewConstFloat(4.0, ir.TypeF64),
+	})
+
+	tryBlock := &ir.BasicBlock{Label: "try_body"}
+	catchBlock := &ir.BasicBlock{Label: "catch_body"}
+	excTemp := fnMain.NewTemp(ir.TypeString, "err")
+
+	tTable := fnMain.NewTemp(ir.TypeI64, "tbl")
+	tryBlock.AddInstruction(&ir.CallHostServiceInst{
+		Dest:       tTable,
+		ClassName:  "GranDB",
+		MethodName: "table",
+		Args:       []ir.Value{ir.NewConstString("users")},
+	})
+	tryBlock.AddInstruction(&ir.ThrowInst{Val: ir.NewConstString("boom")})
+
+	catchBlock.AddInstruction(&ir.CallInst{
+		Callee: "print",
+		Args:   []ir.Value{excTemp},
+	})
+
+	fnMain.EntryBlock.AddInstruction(&ir.TryCatchInst{
+		ID:          1,
+		TryBlocks:   []*ir.BasicBlock{tryBlock},
+		CatchBlocks: []*ir.BasicBlock{catchBlock},
+		CatchVarPtr: excTemp,
+	})
+	fnMain.EntryBlock.SetTerminator(&ir.ReturnTerminator{Val: ir.NewConstInt(0, ir.TypeI64)})
+	prog.AddFunction(fnMain)
+
+	for _, target := range []backend.Target{
+		{OS: "linux", Arch: "arm64"},
+		{OS: "darwin", Arch: "arm64"},
+		{OS: "windows", Arch: "arm64"},
+	} {
+		builder := backend.NewARM64Builder(target, false)
+		binBytes, asmListing, err := builder.Compile(prog)
+		if err != nil {
+			t.Fatalf("ARM64Builder.Compile(%s) falló en FP/TryCatch/GranDB: %v", target, err)
+		}
+		if len(binBytes) < 4096 {
+			t.Fatalf("Binario(%s) demasiado pequeño: %d", target, len(binBytes))
+		}
+		// Verificar presencia de fadd d2, d0, d1 (0x1E612802)
+		foundFadd := false
+		for i := 0; i <= len(binBytes)-4; i += 4 {
+			if binary.LittleEndian.Uint32(binBytes[i:i+4]) == 0x1E612802 {
+				foundFadd = true
+				break
+			}
+		}
+		if !foundFadd {
+			t.Errorf("No se encontró instrucción hardware 'fadd d2, d0, d1' (0x1E612802) en %s\nASM:\n%s", target, asmListing)
+		}
+	}
+}
+
+func TestARM64_GranDB_MultiDialect_QueryBuilder(t *testing.T) {
+	prog := ir.NewProgram("grandb_arm64")
+	fnMain := ir.NewFunction("main", ir.TypeI64)
+
+	tTable := fnMain.NewTemp(ir.TypeI64, "q1")
+	fnMain.EntryBlock.AddInstruction(&ir.CallHostServiceInst{
+		Dest:       tTable,
+		ClassName:  "GranDB",
+		MethodName: "table",
+		Args:       []ir.Value{ir.NewConstString("users")},
+	})
+
+	tWhere := fnMain.NewTemp(ir.TypeI64, "q2")
+	fnMain.EntryBlock.AddInstruction(&ir.CallHostServiceInst{
+		Dest:       tWhere,
+		ClassName:  "GranDB",
+		MethodName: "where",
+		Args:       []ir.Value{tTable, ir.NewConstString("role"), ir.NewConstString("="), ir.NewConstString("admin")},
+	})
+
+	tSql := fnMain.NewTemp(ir.TypeString, "sql")
+	fnMain.EntryBlock.AddInstruction(&ir.CallHostServiceInst{
+		Dest:       tSql,
+		ClassName:  "GranDB",
+		MethodName: "toSql",
+		Args:       []ir.Value{tWhere},
+	})
+
+	fnMain.EntryBlock.AddInstruction(&ir.CallInst{
+		Callee: "print",
+		Args:   []ir.Value{tSql},
+	})
+	fnMain.EntryBlock.SetTerminator(&ir.ReturnTerminator{Val: ir.NewConstInt(0, ir.TypeI64)})
+	prog.AddFunction(fnMain)
+
+	for _, target := range []backend.Target{
+		{OS: "linux", Arch: "arm64"},
+		{OS: "darwin", Arch: "arm64"},
+		{OS: "windows", Arch: "arm64"},
+	} {
+		builder := backend.NewARM64Builder(target, false)
+		binBytes, asmListing, err := builder.Compile(prog)
+		if err != nil {
+			t.Fatalf("ARM64Builder.Compile(%s) falló en GranDB MultiDialect: %v", target, err)
+		}
+		if len(binBytes) < 4096 {
+			t.Fatalf("Binario ARM64(%s) demasiado pequeño: %d", target, len(binBytes))
+		}
+
+		switch target.OS {
+		case "linux":
+			if string(binBytes[0:4]) != "\x7fELF" {
+				t.Errorf("Cabecera ELF inválida en %s", target)
+			}
+			eMachine := binary.LittleEndian.Uint16(binBytes[18:20])
+			if eMachine != 0x00B7 {
+				t.Errorf("e_machine esperado 0x00B7 (EM_AARCH64), obtenido 0x%04X", eMachine)
+			}
+		case "darwin":
+			magic := binary.LittleEndian.Uint32(binBytes[0:4])
+			if magic != 0xfeedfacf {
+				t.Errorf("Mach-O magic inválido en %s: 0x%08X", target, magic)
+			}
+		case "windows":
+			if string(binBytes[0:2]) != "MZ" {
+				t.Errorf("Cabecera MZ inválida para windows/arm64")
+			}
+			machine := binary.LittleEndian.Uint16(binBytes[0x44:0x46])
+			if machine != 0xAA64 {
+				t.Errorf("PE Machine esperado 0xAA64 (IMAGE_FILE_MACHINE_ARM64), obtenido 0x%04X", machine)
+			}
+		}
+
+		_ = asmListing
+	}
+}

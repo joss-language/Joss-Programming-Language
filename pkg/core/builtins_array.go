@@ -202,6 +202,13 @@ func (r *Runtime) callBuiltinArray(name string, args []interface{}) (interface{}
 		if len(args) == 0 || args[0] == nil {
 			return "", true
 		}
+		if arr, ok := args[0].([]interface{}); ok {
+			strs := make([]string, len(arr))
+			for i, v := range arr {
+				strs[i] = fmt.Sprintf("%v", v)
+			}
+			return strings.Join(strs, ", "), true
+		}
 		return fmt.Sprintf("%v", args[0]), true
 
 	case "boolval":

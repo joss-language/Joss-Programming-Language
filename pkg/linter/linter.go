@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
@@ -291,22 +290,13 @@ func isViewTemplateFile(path string) bool {
 func (l *Linter) LintViewSource(filename, content string) []LintIssue {
 	var issues []LintIssue
 
-	// Pre-process Blade comments
-	reBladeComments := regexp.MustCompile(`\{\{--[\s\S]*?--\}\}`)
-	cleanHtml := reBladeComments.ReplaceAllString(content, "")
-
-	// Pre-process directives through the syntax shared with runtime rendering.
-	cleanHtml, directiveErr := viewtemplate.RewriteJSON(cleanHtml)
+	cleanHtml, directiveErr := viewtemplate.PreprocessDirectives(content, nil, viewtemplate.PreprocessOptions{})
 	if directiveErr != nil {
 		return []LintIssue{{RuleID: "JOSS-VIEW-001", Category: CategoryCorrectness, Severity: diagnostics.SeverityError, File: filename, Line: 1, Message: fmt.Sprintf("Directiva de vista invalida: %v", directiveErr), Explanation: "La directiva no cierra correctamente sus argumentos.", Suggestion: "Cierra los parentesis y comillas de la directiva."}}
 	}
 
-	// Pre-process csrf_field() to be raw output
-	reCsrfPre := regexp.MustCompile(`\{\{\s*csrf_field\(\)\s*\}\}`)
-	cleanHtml = reCsrfPre.ReplaceAllString(cleanHtml, `{{! csrf_field() }}`)
-
 	// 1. Check template compilation
-	jossScript, errCompile := core.CompileViewToJOSS(cleanHtml)
+	jossScript, errCompile := viewtemplate.CompileHTMLToJoss(cleanHtml)
 	if errCompile != nil {
 		issues = append(issues, LintIssue{
 			RuleID:      "JOSS-VIEW-001",

@@ -3,12 +3,14 @@ package core
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/typesystem"
+	"github.com/jossecurity/joss/std"
 )
 
 // AnalysisReport exposes the canonical structured diagnostics produced by the
@@ -68,9 +70,24 @@ func AnalyzeSourceUnitsForMigration(units []semanticanalyzer.SourceUnit) *Analys
 }
 
 func analyzeSourceUnits(units []semanticanalyzer.SourceUnit, migrationWarnings bool) *AnalysisReport {
+	hasStd := false
+	for _, u := range units {
+		if strings.HasPrefix(u.Path, "<std/") {
+			hasStd = true
+			break
+		}
+	}
+	allUnits := units
+	if !hasStd {
+		stdUnits := std.GetStdlibUnits()
+		allUnits = make([]semanticanalyzer.SourceUnit, 0, len(units)+len(stdUnits))
+		allUnits = append(allUnits, units...)
+		allUnits = append(allUnits, stdUnits...)
+	}
+
 	environment := BuildAnalysisEnvironment()
 	environment.MigrationWarnings = migrationWarnings
-	prepared := semanticanalyzer.PrepareProgram(units, environment)
+	prepared := semanticanalyzer.PrepareProgram(allUnits, environment)
 	return &AnalysisReport{Diagnostics: append([]diagnostics.Diagnostic(nil), prepared.Diagnostics...), Prepared: prepared}
 }
 

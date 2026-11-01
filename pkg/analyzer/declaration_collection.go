@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jossecurity/joss/pkg/diagnostics"
 	"github.com/jossecurity/joss/pkg/parser"
@@ -105,16 +106,20 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 	}
 	name := classNode.Name.Value
 	if previous, exists := a.classes[name]; exists {
-		where := "the runtime environment"
-		if declaration, ok := a.classTokens[name]; ok {
-			where = fmt.Sprintf("%s:%d", declaration.file, declaration.token.Line)
-		} else if previous.Name != "" {
-			where = "a native or plugin class"
+		if previous.File == "" && (strings.HasPrefix(file, "<std/") || a.classTokens[name].file == "") {
+			delete(a.classes, name)
+		} else {
+			where := "the runtime environment"
+			if declaration, ok := a.classTokens[name]; ok {
+				where = fmt.Sprintf("%s:%d", declaration.file, declaration.token.Line)
+			} else if previous.Name != "" {
+				where = "a native or plugin class"
+			}
+			a.add("JOSS-DECL-002", diagnostics.SeverityError, file, classNode.Name.Token,
+				fmt.Sprintf("Class `%s` conflicts with %s.", name, where),
+				"Class names share one project-wide namespace.", "Choose a unique class name.")
+			return
 		}
-		a.add("JOSS-DECL-002", diagnostics.SeverityError, file, classNode.Name.Token,
-			fmt.Sprintf("Class `%s` conflicts with %s.", name, where),
-			"Class names share one project-wide namespace.", "Choose a unique class name.")
-		return
 	}
 	if ifaceDecl, exists := a.interfaceTokens[name]; exists {
 		a.add("JOSS-DECL-004", diagnostics.SeverityError, file, classNode.Name.Token,

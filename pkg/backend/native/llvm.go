@@ -229,6 +229,33 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		}
 		return fmt.Sprintf("call void @%s(%s)", i.Callee, argsJoined), nil
 
+	case *ir.CallIndirectInst:
+		args := make([]string, len(i.Args))
+		for idx, a := range i.Args {
+			args[idx] = e.formatTypedValue(a)
+		}
+		argsJoined := strings.Join(args, ", ")
+		calleeVal := e.formatValue(i.CalleeVal)
+		destType := "i64"
+		if i.Dest != nil {
+			destType = MapLLVMType(i.Dest.ValueType)
+			return fmt.Sprintf("%s = call %s %s(%s)", e.formatValue(i.Dest), destType, calleeVal, argsJoined), nil
+		}
+		return fmt.Sprintf("call void %s(%s)", calleeVal, argsJoined), nil
+
+	case *ir.CallHostServiceInst:
+		args := make([]string, len(i.Args))
+		for idx, a := range i.Args {
+			args[idx] = e.formatTypedValue(a)
+		}
+		argsJoined := strings.Join(args, ", ")
+		fnName := "fn_" + i.ClassName + "_" + i.MethodName
+		if i.Dest != nil {
+			destType := MapLLVMType(i.Dest.ValueType)
+			return fmt.Sprintf("%s = call %s @%s(%s)", e.formatValue(i.Dest), destType, fnName, argsJoined), nil
+		}
+		return fmt.Sprintf("call void @%s(%s)", fnName, argsJoined), nil
+
 	case *ir.CallRuntimeInst:
 		rtFunc := "joss_" + i.Func
 		args := make([]string, len(i.Args))

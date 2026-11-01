@@ -7,6 +7,7 @@ import (
 	runtimeerrors "github.com/jossecurity/joss/pkg/runtime/errors"
 	runtimeplan "github.com/jossecurity/joss/pkg/runtime/plan"
 	"github.com/jossecurity/joss/pkg/version"
+	"github.com/jossecurity/joss/std"
 )
 
 var runtimePool sync.Pool
@@ -137,9 +138,34 @@ func (r *Runtime) installStandardBindings() {
 	r.Variables["JOSS_VERSION"] = version.Version
 }
 
+func (r *Runtime) loadStdlib() {
+	units := std.GetStdlibUnits()
+	for _, unit := range units {
+		if unit.Program == nil {
+			continue
+		}
+		for _, stmt := range unit.Program.Statements {
+			if classStmt, ok := stmt.(*parser.ClassStatement); ok {
+				r.registerClass(classStmt)
+			}
+			if ifaceStmt, ok := stmt.(*parser.InterfaceStatement); ok {
+				r.RegisterInterface(ifaceStmt)
+			}
+			if enumStmt, ok := stmt.(*parser.EnumStatement); ok {
+				r.RegisterEnum(enumStmt)
+			}
+			if methodStmt, ok := stmt.(*parser.MethodStatement); ok {
+				r.Functions[methodStmt.Name.Value] = methodStmt
+				r.planForMethod(methodStmt)
+			}
+		}
+	}
+}
+
 func (r *Runtime) registerCanonicalHostState() {
 	r.installStandardBindings()
 	r.RegisterNativeClasses()
+	r.loadStdlib()
 	r.markCurrentVariablesAsHostGlobals()
 }
 

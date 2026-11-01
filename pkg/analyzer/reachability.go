@@ -202,23 +202,34 @@ func BuildReachabilityGraph(prepared *PreparedProgram, opts ReachabilityOptions)
 		ctx.markFunctionLive(s)
 	}
 
-	// Inspect route files if provided or matching routes.joss / api.joss
-	for _, unit := range prepared.Units {
-		cPath := canonicalSourcePath(unit.Path)
-		isRoute := cPath == "routes.joss" || cPath == "api.joss" || strings.HasSuffix(cPath, "/routes.joss") || strings.HasSuffix(cPath, "/api.joss")
-		for _, rf := range opts.RouteFiles {
-			if canonicalSourcePath(rf) == cPath {
-				isRoute = true
-				break
+	// Inspect route files only when the entrypoint or explicitly kept files are web/server-related or when RouteFiles are explicitly passed
+	scanRoutes := len(opts.RouteFiles) > 0 || graph.Entrypoint == "main.joss" || strings.HasSuffix(graph.Entrypoint, "/main.joss")
+	if !scanRoutes {
+		if entryU, ok := unitByPath[graph.Entrypoint]; ok && entryU.Program != nil {
+			ctx.scanStatements(entryU.Program.Statements)
+			if graph.RuntimeCapabilities[CapServer] || graph.RuntimeCapabilities[CapHTTP] {
+				scanRoutes = true
 			}
 		}
-		if isRoute {
-			graph.LiveFiles[cPath] = true
-			graph.RuntimeCapabilities[CapServer] = true
-			graph.RuntimeCapabilities[CapHTTP] = true
-			ctx.scanRouteUnit(unit)
-			if unit.Program != nil {
-				ctx.scanStatements(unit.Program.Statements)
+	}
+	if scanRoutes {
+		for _, unit := range prepared.Units {
+			cPath := canonicalSourcePath(unit.Path)
+			isRoute := cPath == "routes.joss" || cPath == "api.joss" || strings.HasSuffix(cPath, "/routes.joss") || strings.HasSuffix(cPath, "/api.joss")
+			for _, rf := range opts.RouteFiles {
+				if canonicalSourcePath(rf) == cPath {
+					isRoute = true
+					break
+				}
+			}
+			if isRoute {
+				graph.LiveFiles[cPath] = true
+				graph.RuntimeCapabilities[CapServer] = true
+				graph.RuntimeCapabilities[CapHTTP] = true
+				ctx.scanRouteUnit(unit)
+				if unit.Program != nil {
+					ctx.scanStatements(unit.Program.Statements)
+				}
 			}
 		}
 	}

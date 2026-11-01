@@ -166,7 +166,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L384).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L385).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -185,164 +185,6 @@ Implementación: [executeExceptionMethod](../pkg/core/native.go#L384).
 | `seek` | `int` |
 | `size` | `int` |
 | `write` | `int` |
-
-## GranDB
-
-Implementación: [executeGranDBMethod](../pkg/core/database.go#L11).
-
-| Método | Retorno publicado al analizador |
-|---|---|
-| `avg` | `float\|null` |
-| `changeDB` | `GranDB` |
-| `changedb` | `GranDB` |
-| `chunk` | `bool` |
-| `chunkById` | `bool` |
-| `chunkbyid` | `bool` |
-| `connection` | `GranDB` |
-| `count` | `int` |
-| `crossJoin` | `GranDB` |
-| `crossjoin` | `GranDB` |
-| `cursorPaginate` | `map` |
-| `cursorpaginate` | `map` |
-| `dd` | `mixed` |
-| `decrement` | `mixed` |
-| `delete` | `mixed` |
-| `deleteAll` | `mixed` |
-| `distinct` | `GranDB` |
-| `doesntExist` | `bool` |
-| `dump` | `mixed` |
-| `exists` | `bool` |
-| `explain` | `array` |
-| `find` | `mixed` |
-| `findMany` | `mixed` |
-| `findOrFail` | `mixed` |
-| `findmany` | `mixed` |
-| `findorfail` | `mixed` |
-| `first` | `mixed` |
-| `firstOrFail` | `mixed` |
-| `firstWhere` | `mixed` |
-| `firstofail` | `mixed` |
-| `firstwhere` | `mixed` |
-| `forPage` | `GranDB` |
-| `forpage` | `GranDB` |
-| `get` | `array` |
-| `getBindings` | `array` |
-| `getbindings` | `array` |
-| `groupBy` | `GranDB` |
-| `groupby` | `GranDB` |
-| `having` | `GranDB` |
-| `inRandomOrder` | `GranDB` |
-| `increment` | `mixed` |
-| `innerJoin` | `GranDB` |
-| `insert` | `mixed` |
-| `insertGetId` | `mixed` |
-| `insertMany` | `int` |
-| `insertgetid` | `mixed` |
-| `insertmany` | `int` |
-| `join` | `GranDB` |
-| `latest` | `GranDB` |
-| `leftJoin` | `GranDB` |
-| `limit` | `GranDB` |
-| `max` | `mixed` |
-| `min` | `mixed` |
-| `offset` | `GranDB` |
-| `oldest` | `GranDB` |
-| `orHaving` | `GranDB` |
-| `orWhere` | `GranDB` |
-| `orWhereBetween` | `GranDB` |
-| `orWhereColumn` | `GranDB` |
-| `orWhereDate` | `mixed` |
-| `orWhereDay` | `mixed` |
-| `orWhereIn` | `GranDB` |
-| `orWhereJsonContains` | `mixed` |
-| `orWhereLike` | `GranDB` |
-| `orWhereMonth` | `mixed` |
-| `orWhereNot` | `GranDB` |
-| `orWhereNotBetween` | `GranDB` |
-| `orWhereNotIn` | `GranDB` |
-| `orWhereNotNull` | `GranDB` |
-| `orWhereNull` | `GranDB` |
-| `orWhereTime` | `mixed` |
-| `orWhereYear` | `mixed` |
-| `orderBy` | `GranDB` |
-| `orderByAsc` | `GranDB` |
-| `orderByDesc` | `GranDB` |
-| `orderby` | `GranDB` |
-| `orderbyasc` | `GranDB` |
-| `orderbydesc` | `GranDB` |
-| `orhaving` | `GranDB` |
-| `orwhere` | `GranDB` |
-| `orwherebetween` | `GranDB` |
-| `orwherecolumn` | `GranDB` |
-| `orwheredate` | `mixed` |
-| `orwhereday` | `mixed` |
-| `orwherein` | `GranDB` |
-| `orwherejsoncontains` | `mixed` |
-| `orwherelike` | `GranDB` |
-| `orwheremonth` | `mixed` |
-| `orwherenot` | `GranDB` |
-| `orwherenotbetween` | `GranDB` |
-| `orwherenotin` | `GranDB` |
-| `orwherenotnull` | `GranDB` |
-| `orwherenull` | `GranDB` |
-| `orwheretime` | `mixed` |
-| `orwhereyear` | `mixed` |
-| `paginate` | `map` |
-| `pluck` | `array` |
-| `reorder` | `GranDB` |
-| `rightJoin` | `GranDB` |
-| `select` | `GranDB` |
-| `simplePaginate` | `map` |
-| `simplepaginate` | `map` |
-| `skip` | `GranDB` |
-| `sole` | `mixed` |
-| `sum` | `float` |
-| `table` | `GranDB` |
-| `take` | `GranDB` |
-| `toSql` | `string` |
-| `tosql` | `string` |
-| `touch` | `mixed` |
-| `transaction` | `mixed` |
-| `truncate` | `mixed` |
-| `unless` | `GranDB` |
-| `update` | `mixed` |
-| `updateOrInsert` | `mixed` |
-| `updateorinsert` | `mixed` |
-| `upsert` | `int` |
-| `use` | `GranDB` |
-| `value` | `mixed` |
-| `when` | `GranDB` |
-| `where` | `GranDB` |
-| `whereBetween` | `GranDB` |
-| `whereColumn` | `GranDB` |
-| `whereDate` | `mixed` |
-| `whereDay` | `mixed` |
-| `whereIn` | `GranDB` |
-| `whereJsonContains` | `mixed` |
-| `whereLike` | `GranDB` |
-| `whereMonth` | `mixed` |
-| `whereNot` | `GranDB` |
-| `whereNotBetween` | `GranDB` |
-| `whereNotIn` | `GranDB` |
-| `whereNotNull` | `GranDB` |
-| `whereNull` | `GranDB` |
-| `whereTime` | `mixed` |
-| `whereYear` | `mixed` |
-| `wherebetween` | `GranDB` |
-| `wherecolumn` | `GranDB` |
-| `wheredate` | `mixed` |
-| `whereday` | `mixed` |
-| `wherein` | `GranDB` |
-| `wherejsoncontains` | `mixed` |
-| `wherelike` | `GranDB` |
-| `wheremonth` | `mixed` |
-| `wherenot` | `GranDB` |
-| `wherenotbetween` | `GranDB` |
-| `wherenotin` | `GranDB` |
-| `wherenotnull` | `GranDB` |
-| `wherenull` | `GranDB` |
-| `wheretime` | `mixed` |
-| `whereyear` | `mixed` |
 
 ## Http
 
@@ -957,7 +799,7 @@ Implementación: [executeUserStorageMethod](../pkg/core/lib_storage.go#L15).
 
 ## View
 
-Implementación: [executeViewMethod](../pkg/core/view.go#L34).
+Implementación: [executeViewMethod](../pkg/core/view.go#L25).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -1026,6 +868,11 @@ Contratos: [funciones globales](FUNCIONES_GLOBALES.md). Variantes que comparten 
 se explican juntas allí; esta lista conserva todas las grafías registradas.
 
 - `__`
+- `__joss_db_execute`
+- `__joss_db_get_table`
+- `__joss_db_is_connected`
+- `__joss_db_query`
+- `__joss_db_set_table`
 - `abs`
 - `all`
 - `any`
@@ -1153,4 +1000,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 55 clases, 673 métodos y 127 built-ins.
+Total: 54 clases, 522 métodos y 132 built-ins.

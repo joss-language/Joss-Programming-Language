@@ -169,34 +169,6 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 		}
 
 		res.NeedsHostBridge = mcBuilder.NeedsHostBridge()
-		if mcBuilder.NeedsHostBridge() && target.OS == "windows" {
-			// Ensure joss_host.dll is placed alongside the generated executable
-			targetDll := filepath.Join(filepath.Dir(outExe), "joss_host.dll")
-			// Try locating joss_host.dll from build directory or runtime location
-			builtDllLocations := []string{
-				"pkg/backend/native/abi/build/joss_host.dll",
-				"../pkg/backend/native/abi/build/joss_host.dll",
-				"../../pkg/backend/native/abi/build/joss_host.dll",
-			}
-			if selfExe, exeErr := os.Executable(); exeErr == nil {
-				selfDir := filepath.Dir(selfExe)
-				builtDllLocations = append(builtDllLocations,
-					filepath.Join(selfDir, "joss_host.dll"),
-					filepath.Join(selfDir, "pkg", "backend", "native", "abi", "build", "joss_host.dll"),
-					filepath.Join(selfDir, "..", "pkg", "backend", "native", "abi", "build", "joss_host.dll"),
-				)
-			}
-			var dllBytes []byte
-			for _, loc := range builtDllLocations {
-				if b, readErr := os.ReadFile(loc); readErr == nil {
-					dllBytes = b
-					break
-				}
-			}
-			if len(dllBytes) > 0 {
-				_ = os.WriteFile(targetDll, dllBytes, 0755)
-			}
-		}
 
 	case BackendLLVM:
 		compiler := NewNativeCompiler()

@@ -672,3 +672,52 @@ func (r *Runtime) isCallable(val interface{}) bool {
 		return false
 	}
 }
+
+func (r *Runtime) executeRawDBQuery(sqlStr string, bindings []interface{}) interface{} {
+	if r.GetDB() == nil {
+		return []interface{}{}
+	}
+	rows, err := r.databaseExecutor().Query(sqlStr, bindings...)
+	if err != nil {
+		fmt.Printf("[GranDB Error] Query failed: %v | SQL: %s\n", err, sqlStr)
+		if len(r.callStack) > 0 {
+			fmt.Printf("Joss Stack:\n")
+			for _, frame := range r.callStack {
+				fmt.Printf("  at %s::%s (%s:%d)\n", frame.Class, frame.Function, frame.File, frame.Line)
+			}
+		}
+		return []interface{}{}
+	}
+	defer rows.Close()
+	rowsMap := rowsToMap(rows)
+	res := make([]interface{}, len(rowsMap))
+	for i, rm := range rowsMap {
+		res[i] = rm
+	}
+	return res
+}
+
+func (r *Runtime) executeRawDBExecute(sqlStr string, bindings []interface{}) interface{} {
+	if r.GetDB() == nil {
+		return int64(0)
+	}
+	res, err := r.databaseExecutor().Exec(sqlStr, bindings...)
+	if err != nil {
+		fmt.Printf("[GranDB Error] Exec failed: %v | SQL: %s\n", err, sqlStr)
+		if len(r.callStack) > 0 {
+			fmt.Printf("Joss Stack:\n")
+			for _, frame := range r.callStack {
+				fmt.Printf("  at %s::%s (%s:%d)\n", frame.Class, frame.Function, frame.File, frame.Line)
+			}
+		}
+		return int64(0)
+	}
+	trimmed := strings.ToUpper(strings.TrimSpace(sqlStr))
+	if strings.HasPrefix(trimmed, "INSERT") {
+		if id, err := res.LastInsertId(); err == nil && id > 0 {
+			return id
+		}
+	}
+	n, _ := res.RowsAffected()
+	return n
+}

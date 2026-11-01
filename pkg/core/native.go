@@ -150,7 +150,8 @@ func (r *Runtime) RegisterNativeClasses() {
 		"groupBy", "groupby", "having", "orHaving", "orhaving",
 		"when", "unless", "transaction", "toSql", "tosql", "getBindings", "getbindings", "explain", "dump", "dd",
 	}
-	r.registerNative("GranDB", granDBMethods, (*Runtime).executeGranDBMethod)
+	// GranDB is now a canonical Pure Joss class defined in std/database/grandb.joss
+	// r.registerNative("GranDB", granDBMethods, (*Runtime).executeGranDBMethod)
 	modelMethods := append([]string{"query", "all", "create", "firstOrNew", "firstOrCreate", "updateOrCreate", "fill", "forceFill", "save", "refresh", "delete", "restore", "forceDelete", "withTrashed", "onlyTrashed", "withoutTrashed", "scope", "withoutGlobalScope", "withoutGlobalScopes", "isDirty", "isClean", "wasChanged", "getOriginal", "getChanges", "toMap", "toJSON", "belongsTo", "hasOne", "hasMany", "belongsToMany", "attach", "detach", "sync", "with", "load", "loadMissing"}, granDBMethods...)
 	r.registerNative("Model", modelMethods, (*Runtime).executeModelMethod)
 

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/viewtemplate"
 )
@@ -24,6 +24,9 @@ type compiledViewEntry struct {
 //  2. view(viewName, dataMap): dispatches viewName to the compiled view IR function
 //  3. __joss_http_dispatch(path): dispatches HTTP request paths to compiled native Controller_method functions
 func (l *Lowerer) lowerProjectViewsAndRoutes() error {
+	if l.reachGraph != nil && !l.reachGraph.HasCapability(analyzer.CapServer) && !l.reachGraph.HasCapability(analyzer.CapHTTP) {
+		return nil
+	}
 	views, err := l.compileProjectViewsToIR("app/views")
 	if err != nil {
 		return err
@@ -47,7 +50,10 @@ func (l *Lowerer) compileProjectViewsToIR(viewsRoot string) ([]compiledViewEntry
 	}
 
 	readViewFile := func(viewName string) (string, bool) {
-		relPath := strings.ReplaceAll(strings.TrimSpace(viewName), ".", "/")
+		relPath, safe := viewtemplate.ResolveSafeSubpath(viewName)
+		if !safe {
+			return "", false
+		}
 		p1 := filepath.Join(viewsRoot, filepath.FromSlash(relPath)+".joss.html")
 		if data, err := os.ReadFile(p1); err == nil {
 			return string(data), true
@@ -58,13 +64,6 @@ func (l *Lowerer) compileProjectViewsToIR(viewsRoot string) ([]compiledViewEntry
 		}
 		return "", false
 	}
-
-	reExtends := regexp.MustCompile(`@extends\s*\(\s*['"]([^'"]+)['"]\s*\)`)
-	reSection := regexp.MustCompile(`@section\s*\(\s*['"]([^'"]+)['"]\s*\)([\s\S]*?)@endsection`)
-	reYield := regexp.MustCompile(`@yield\s*\(\s*['"][^'"]+['"]\s*\)`)
-	reInclude := regexp.MustCompile(`@include\s*\(\s*['"]([^'"]+)['"]\s*\)`)
-	reBladeComments := regexp.MustCompile(`\{\{--[\s\S]*?--\}\}`)
-	reCsrfPre := regexp.MustCompile(`\{\{\s*csrf_field\(\)\s*\}\}`)
 
 	var relPaths []string
 	rawViews := make(map[string]string)
@@ -98,53 +97,16 @@ func (l *Lowerer) compileProjectViewsToIR(viewsRoot string) ([]compiledViewEntry
 
 	var entries []compiledViewEntry
 	for idx, rel := range relPaths {
+		dotName := strings.ReplaceAll(rel, "/", ".")
 		viewContent := rawViews[rel]
 
-		// 1. Handle @extends and @section -> @yield
-		finalHTML := viewContent
-		if strings.HasPrefix(strings.TrimSpace(viewContent), "@extends") {
-			if m := reExtends.FindStringSubmatch(viewContent); len(m) > 1 {
-				if layoutContent, ok := readViewFile(m[1]); ok {
-					sections := make(map[string]string)
-					for _, sm := range reSection.FindAllStringSubmatch(viewContent, -1) {
-						sections[sm[1]] = sm[2]
-					}
-					finalHTML = layoutContent
-					for secName, secBody := range sections {
-						finalHTML = strings.ReplaceAll(finalHTML, fmt.Sprintf("@yield('%s')", secName), secBody)
-						finalHTML = strings.ReplaceAll(finalHTML, fmt.Sprintf("@yield(\"%s\")", secName), secBody)
-					}
-					finalHTML = reYield.ReplaceAllString(finalHTML, "")
-				}
-			}
+		finalHTML, errPre := viewtemplate.PreprocessDirectives(viewContent, readViewFile, viewtemplate.PreprocessOptions{})
+		if errPre != nil {
+			finalHTML = viewContent
 		}
 
-		// 2. Expand @include directives
-		for depth := 0; depth < 8; depth++ {
-			m := reInclude.FindStringSubmatch(finalHTML)
-			if m == nil {
-				break
-			}
-			incContent, ok := readViewFile(m[1])
-			if !ok {
-				incContent = ""
-			}
-			finalHTML = strings.Replace(finalHTML, m[0], incContent, 1)
-		}
-
-		// 3. Strip Blade comments {{-- ... --}}
-		finalHTML = reBladeComments.ReplaceAllString(finalHTML, "")
-
-		// 4. Shared directive rewrite (@json)
-		if rewritten, err := viewtemplate.RewriteJSON(finalHTML); err == nil {
-			finalHTML = rewritten
-		}
-
-		// 5. csrf_field() outputs raw HTML input
-		finalHTML = reCsrfPre.ReplaceAllString(finalHTML, `{{! csrf_field() }}`)
-
-		// 6. Translate HTML view to Joss source code and parse into AST
-		jossScript := compileViewHTMLToJossScript(finalHTML)
+		// Translate HTML view to Joss source code and parse into AST via the shared compiler
+		jossScript, _ := viewtemplate.CompileHTMLToJoss(finalHTML)
 		lex := parser.NewLexer(jossScript)
 		p := parser.NewParser(lex)
 		program := p.ParseProgram()
@@ -154,7 +116,6 @@ func (l *Lowerer) compileProjectViewsToIR(viewsRoot string) ([]compiledViewEntry
 			return nil, err
 		}
 
-		dotName := strings.ReplaceAll(rel, "/", ".")
 		entries = append(entries, compiledViewEntry{
 			dotName:   dotName,
 			slashName: rel,
@@ -212,229 +173,6 @@ func (l *Lowerer) lowerSingleViewAST(fnName string, program *parser.Program, par
 
 	l.prog.AddFunction(fn)
 	return nil
-}
-
-// compileViewHTMLToJossScript translates a preprocessed .joss.html template into Joss source code,
-// matching pkg/core.CompileViewToJOSS.
-func compileViewHTMLToJossScript(htmlStr string) string {
-	var jossCode strings.Builder
-
-	escapeJossString := func(s string) string {
-		s = strings.ReplaceAll(s, "\\", "\\\\")
-		s = strings.ReplaceAll(s, "\"", "\\\"")
-		s = strings.ReplaceAll(s, "\n", "\\n")
-		s = strings.ReplaceAll(s, "\r", "\\r")
-		s = strings.ReplaceAll(s, "${", "\\${")
-		return s
-	}
-
-	reForeachStart := regexp.MustCompile(`^@foreach\s*\(\s*(.*?)\s+as\s+\$([a-zA-Z0-9_]+)(?:\s*=>\s*\$([a-zA-Z0-9_]+))?\s*\)`)
-	reExprRaw := regexp.MustCompile(`(?s)^\{\{!(.*?)\}\}`)
-	reExprEscaped := regexp.MustCompile(`(?s)^\{\{(.*?)\}\}`)
-	reDot := regexp.MustCompile(`\$([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)`)
-
-	translateExpr := func(expr string) string {
-		for reDot.MatchString(expr) {
-			expr = reDot.ReplaceAllString(expr, "$$$1->$2")
-		}
-		return expr
-	}
-
-	var compileRange func(str string) string
-	compileRange = func(str string) string {
-		var code strings.Builder
-		i := 0
-		n := len(str)
-
-		flushText := func(start, end int) {
-			if start >= end {
-				return
-			}
-			txt := str[start:end]
-			code.WriteString(fmt.Sprintf("$__output = $__output . \"%s\";\n", escapeJossString(txt)))
-		}
-
-		lastIdx := 0
-
-		for i < n {
-			// 1. @foreach
-			if strings.HasPrefix(str[i:], "@foreach") {
-				if m := reForeachStart.FindStringSubmatch(str[i:]); m != nil {
-					flushText(lastIdx, i)
-
-					listExpr := translateExpr(m[1])
-					firstVar := m[2]
-					secondVar := m[3]
-					fullMatchLen := len(m[0])
-
-					depth := 1
-					j := i + fullMatchLen
-					endIdx := -1
-					for j < n {
-						if strings.HasPrefix(str[j:], "@foreach") {
-							depth++
-							j += 8
-						} else if strings.HasPrefix(str[j:], "@endforeach") {
-							depth--
-							if depth == 0 {
-								endIdx = j
-								break
-							}
-							j += 11
-						} else {
-							j++
-						}
-					}
-
-					if endIdx != -1 {
-						innerHTML := str[i+fullMatchLen : endIdx]
-						compiledInner := compileRange(innerHTML)
-
-						if secondVar != "" {
-							code.WriteString(fmt.Sprintf("foreach (%s as $%s => $%s) {\n", listExpr, firstVar, secondVar))
-						} else {
-							code.WriteString(fmt.Sprintf("foreach (%s as $%s) {\n", listExpr, firstVar))
-						}
-						code.WriteString(compiledInner)
-						code.WriteString("}\n")
-
-						i = endIdx + 11
-						lastIdx = i
-						continue
-					}
-				}
-			}
-
-			// 2. Block Ternary: {{ (cond) ? { trueBody } : { falseBody } }} or {{ (cond) ? { trueBody } }}
-			if i+4 < n && str[i] == '{' && str[i+1] == '{' {
-				k := i + 2
-				for k < n && (str[k] == ' ' || str[k] == '\t' || str[k] == '\n' || str[k] == '\r') {
-					k++
-				}
-				if k < n && str[k] == '(' {
-					condStart := k + 1
-					condEnd := findMatchingRunePair(str, k, '(', ')')
-					if condEnd != -1 {
-						q := condEnd + 1
-						for q < n && (str[q] == ' ' || str[q] == '\t' || str[q] == '\n' || str[q] == '\r') {
-							q++
-						}
-						if q < n && str[q] == '?' {
-							tbStart := q + 1
-							for tbStart < n && (str[tbStart] == ' ' || str[tbStart] == '\t' || str[tbStart] == '\n' || str[tbStart] == '\r') {
-								tbStart++
-							}
-							if tbStart < n && str[tbStart] == '{' {
-								tbEnd := findMatchingRunePair(str, tbStart, '{', '}')
-								if tbEnd != -1 {
-									col := tbEnd + 1
-									for col < n && (str[col] == ' ' || str[col] == '\t' || str[col] == '\n' || str[col] == '\r') {
-										col++
-									}
-									if col < n && str[col] == ':' {
-										fbStart := col + 1
-										for fbStart < n && (str[fbStart] == ' ' || str[fbStart] == '\t' || str[fbStart] == '\n' || str[fbStart] == '\r') {
-											fbStart++
-										}
-										if fbStart < n && str[fbStart] == '{' {
-											fbEnd := findMatchingRunePair(str, fbStart, '{', '}')
-											if fbEnd != -1 {
-												closeBraces := fbEnd + 1
-												for closeBraces < n && (str[closeBraces] == ' ' || str[closeBraces] == '\t' || str[closeBraces] == '\n' || str[closeBraces] == '\r') {
-													closeBraces++
-												}
-												if closeBraces+1 < n && str[closeBraces] == '}' && str[closeBraces+1] == '}' {
-													flushText(lastIdx, i)
-
-													condExpr := str[condStart:condEnd]
-													trueBody := str[tbStart+1 : tbEnd]
-													falseBody := str[fbStart+1 : fbEnd]
-
-													code.WriteString(fmt.Sprintf("(%s) ? {\n", translateExpr(condExpr)))
-													code.WriteString(compileRange(trueBody))
-													code.WriteString("} : {\n")
-													code.WriteString(compileRange(falseBody))
-													code.WriteString("};\n")
-
-													i = closeBraces + 2
-													lastIdx = i
-													continue
-												}
-											}
-										}
-									} else if col+1 < n && str[col] == '}' && str[col+1] == '}' {
-										flushText(lastIdx, i)
-
-										condExpr := str[condStart:condEnd]
-										trueBody := str[tbStart+1 : tbEnd]
-
-										code.WriteString(fmt.Sprintf("(%s) ? {\n", translateExpr(condExpr)))
-										code.WriteString(compileRange(trueBody))
-										code.WriteString("};\n")
-
-										i = col + 2
-										lastIdx = i
-										continue
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-
-			// 3. Raw Expression: {{! expr }}
-			if strings.HasPrefix(str[i:], "{{!") {
-				if m := reExprRaw.FindStringSubmatch(str[i:]); m != nil {
-					flushText(lastIdx, i)
-					expr := strings.TrimSpace(m[1])
-					fullMatchLen := len(m[0])
-					code.WriteString(fmt.Sprintf("$__output = $__output . (%s);\n", translateExpr(expr)))
-					i += fullMatchLen
-					lastIdx = i
-					continue
-				}
-			}
-
-			// 4. Escaped Expression: {{ expr }}
-			if strings.HasPrefix(str[i:], "{{") {
-				if m := reExprEscaped.FindStringSubmatch(str[i:]); m != nil {
-					flushText(lastIdx, i)
-					expr := strings.TrimSpace(m[1])
-					fullMatchLen := len(m[0])
-					code.WriteString(fmt.Sprintf("$__output = $__output . html_escape(%s);\n", translateExpr(expr)))
-					i += fullMatchLen
-					lastIdx = i
-					continue
-				}
-			}
-
-			i++
-		}
-
-		flushText(lastIdx, n)
-		return code.String()
-	}
-
-	jossCode.WriteString("var $__output = \"\";\n")
-	jossCode.WriteString(compileRange(htmlStr))
-	jossCode.WriteString("return $__output;\n")
-	return jossCode.String()
-}
-
-func findMatchingRunePair(s string, startPos int, startChar, endChar rune) int {
-	depth := 0
-	for idx, r := range s[startPos:] {
-		if r == startChar {
-			depth++
-		} else if r == endChar {
-			depth--
-			if depth == 0 {
-				return startPos + idx
-			}
-		}
-	}
-	return -1
 }
 
 // synthesizeViewDispatcherFunction creates the IR function `view(name, data)` (`fn_view`)

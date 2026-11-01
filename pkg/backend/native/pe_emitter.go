@@ -183,6 +183,12 @@ func PreparePERData(textLen int, rodata []byte, withHostBridge bool) *PEImageLay
 // EmitPE32PlusExecutable serializes a complete Windows x86_64 PE32+ executable (.exe)
 // from the assembled .text, .rdata (via PEImageLayout), and .data sections.
 func EmitPE32PlusExecutable(layout *PEImageLayout, textBytes []byte, dataSize uint32, guiSubsystem bool, withHostBridge bool) []byte {
+	return EmitPE32PlusExecutableForArch(layout, textBytes, dataSize, guiSubsystem, withHostBridge, "amd64")
+}
+
+// EmitPE32PlusExecutableForArch serializes a complete Windows PE32+ executable (.exe)
+// for the given architecture ("amd64" -> 0x8664, "arm64" -> 0xAA64).
+func EmitPE32PlusExecutableForArch(layout *PEImageLayout, textBytes []byte, dataSize uint32, guiSubsystem bool, withHostBridge bool, arch string) []byte {
 	const headersFileSize = 0x0200 // 512 bytes (DOS 64 + PE 4 + COFF 20 + Opt 240 + 3*40 SecHdr = 448 <= 512)
 	var idtOffsetInRDat, idtSize, iatOffsetInRDat, iatSize uint32
 	if withHostBridge {
@@ -219,7 +225,11 @@ func EmitPE32PlusExecutable(layout *PEImageLayout, textBytes []byte, dataSize ui
 	out.WriteString("PE\x00\x00")
 
 	// 3. COFF File Header (20 bytes)
-	_ = binary.Write(&out, binary.LittleEndian, uint16(0x8664)) // Machine = IMAGE_FILE_MACHINE_AMD64
+	machine := uint16(0x8664) // IMAGE_FILE_MACHINE_AMD64
+	if arch == "arm64" || arch == "aarch64" {
+		machine = 0xAA64 // IMAGE_FILE_MACHINE_ARM64
+	}
+	_ = binary.Write(&out, binary.LittleEndian, machine)
 	_ = binary.Write(&out, binary.LittleEndian, uint16(3))      // NumberOfSections = 3 (.text, .rdata, .data)
 	_ = binary.Write(&out, binary.LittleEndian, uint32(0))      // TimeDateStamp
 	_ = binary.Write(&out, binary.LittleEndian, uint32(0))      // PointerToSymbolTable

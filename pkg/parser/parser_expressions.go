@@ -418,52 +418,55 @@ func (p *Parser) parseBraceExpression() Expression {
 		return &BlockExpression{Token: block.Token, Block: block}
 	}
 
-	if p.peekToken.Type == COLON {
-		// It's a Map!
-		// Convert firstStmt to Key.
-		mapLit := &MapLiteral{Token: block.Token, Pairs: make(map[Expression]Expression)}
-		key := exprStmt.Expression
+	if p.curToken.Type != RBRACE && p.peekToken.Type == COLON {
+		// Only consider it a map if the key is not an assignment or complex statement
+		if _, isAssign := exprStmt.Expression.(*AssignExpression); !isAssign {
+			// It's a Map!
+			// Convert firstStmt to Key.
+			mapLit := &MapLiteral{Token: block.Token, Pairs: make(map[Expression]Expression)}
+			key := exprStmt.Expression
 
-		p.nextToken() // curToken is :
-		p.nextToken() // curToken is start of value
+			p.nextToken() // curToken is :
+			p.nextToken() // curToken is start of value
 
-		val := p.parseExpression(LOWEST)
-		mapLit.Pairs[key] = val
-
-		// Continue parsing map
-		for !p.peekTokenIs(RBRACE) {
-			if p.peekTokenIs(NEWLINE) {
-				p.nextToken()
-			}
-			if p.peekTokenIs(COMMA) {
-				p.nextToken()
-			}
-			if p.peekTokenIs(NEWLINE) {
-				p.nextToken()
-			}
-			if p.peekTokenIs(RBRACE) {
-				break
-			}
-
-			p.nextToken() // start of next key
-			key := p.parseExpression(LOWEST)
-
-			if p.peekTokenIs(NEWLINE) {
-				p.nextToken()
-			}
-
-			if !p.expectPeek(COLON) {
-				return nil
-			}
-			p.nextToken()
 			val := p.parseExpression(LOWEST)
 			mapLit.Pairs[key] = val
-		}
 
-		if !p.expectPeek(RBRACE) {
-			return nil
+			// Continue parsing map
+			for !p.peekTokenIs(RBRACE) {
+				if p.peekTokenIs(NEWLINE) {
+					p.nextToken()
+				}
+				if p.peekTokenIs(COMMA) {
+					p.nextToken()
+				}
+				if p.peekTokenIs(NEWLINE) {
+					p.nextToken()
+				}
+				if p.peekTokenIs(RBRACE) {
+					break
+				}
+
+				p.nextToken() // start of next key
+				key := p.parseExpression(LOWEST)
+
+				if p.peekTokenIs(NEWLINE) {
+					p.nextToken()
+				}
+
+				if !p.expectPeek(COLON) {
+					return nil
+				}
+				p.nextToken()
+				val := p.parseExpression(LOWEST)
+				mapLit.Pairs[key] = val
+			}
+
+			if !p.expectPeek(RBRACE) {
+				return nil
+			}
+			return mapLit
 		}
-		return mapLit
 	}
 
 	// Not a map. It's a Block.
