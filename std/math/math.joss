@@ -3,23 +3,11 @@
 
 public class MathUtils {
     public static func clamp(int $val, int $min, int $max): int {
-        if ($val < $min) {
-            return $min;
-        }
-        if ($val > $max) {
-            return $max;
-        }
-        return $val;
+        return ($val < $min) ? $min : (($val > $max) ? $max : $val);
     }
 
     public static func sign(int $n): int {
-        if ($n > 0) {
-            return 1;
-        }
-        if ($n < 0) {
-            return -1;
-        }
-        return 0;
+        return ($n > 0) ? 1 : (($n < 0) ? -1 : 0);
     }
 
     public static func gcd(int $a, int $b): int {
@@ -30,9 +18,6 @@ public class MathUtils {
             $y = $x % $y;
             $x = $t;
         }
-        if ($x < 0) {
-            return -$x;
-        }
-        return $x;
+        return ($x < 0) ? -$x : $x;
     }
 }

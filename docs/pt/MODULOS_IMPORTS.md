@@ -47,8 +47,8 @@ O Joss inclui uma biblioteca padrão escrita no próprio Joss localizada no dire
 
 ### Exemplo de uso
 
-```joss
 <!-- joss-check: uso directo de la biblioteca estándar -->
+```joss
 int $minimo = MathUtils::clamp(150, 0, 100);
 echo $minimo; // 100
 
@@ -63,8 +63,8 @@ echo $codigo; // "00042"
 
 Para interagir com bibliotecas dinâmicas nativas (`.dll`, `.so`, `.dylib`), o Joss fornece a sintaxe de bloco `extern`:
 
-```joss
 <!-- joss-check: declaración FFI externa -->
+```joss
 extern "C" library "user32.dll" {
     public func MessageBoxA(int $hWnd, string $lpText, string $lpCaption, int $uType): int;
 }

@@ -11,9 +11,9 @@ public class StringUtils {
     }
 
     public static func padZero(int $num, int $width): string {
-        string $s = to_string($num);
+        string $s = strval($num);
         while (strlen($s) < $width) {
-            $s = "0" + $s;
+            $s = "0" . $s;
         }
         return $s;
     }
