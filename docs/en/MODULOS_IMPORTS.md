@@ -29,14 +29,31 @@ An external symbol missing from the index is neither invented nor added to a man
 
 Routes, controllers, models, services, libraries, and middleware under `app/` are discovered automatically according to the project layout. This physical inclusion does not create a per-file namespace; top-level `public` functions and classes share the project declaration space, and duplicates are diagnosed (`JOSS-SYM-002`, `JOSS-DECL-004`).
 
-Likewise, any file located under the root `stdlib/` directory (Joss Standard Library) is automatically discovered by the compiler and semantic analyzer without requiring manual import statements.
+## Standard Library (`stdlib/`)
 
-For example, math and string utility classes in `stdlib/` are directly available:
+Joss includes a standard library written in pure Joss located in the `stdlib/` directory. All files and submodules within `stdlib/` are automatically discovered and analyzed in every project without manual imports or path configurations.
+
+### Available Modules and Capabilities
+
+1. **`MathUtils` (`stdlib/math/math.joss`):**
+   - `MathUtils::clamp(int $val, int $min, int $max): int`: Restricts a value within an inclusive minimum and maximum range.
+   - `MathUtils::sign(int $n): int`: Returns `1` if positive, `-1` if negative, and `0` if zero.
+   - `MathUtils::gcd(int $a, int $b): int`: Computes the greatest common divisor of two integers using Euclid's algorithm.
+
+2. **`StringUtils` (`stdlib/strings/strings.joss`):**
+   - `StringUtils::isEmpty(string $s): bool`: Efficiently checks if a string has a length of 0.
+   - `StringUtils::isNotEmpty(string $s): bool`: Checks if a string contains at least one character.
+   - `StringUtils::padZero(int $num, int $width): string`: Left-pads a number with zeros until reaching the specified width.
+
+### Usage Example
 
 ```joss
 <!-- joss-check: uso directo de la biblioteca estándar -->
 int $minimo = MathUtils::clamp(150, 0, 100);
 echo $minimo; // 100
+
+int $signo = MathUtils::sign(-45);
+echo $signo; // -1
 
 string $codigo = StringUtils::padZero(42, 5);
 echo $codigo; // "00042"

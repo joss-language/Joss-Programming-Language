@@ -29,14 +29,31 @@ Um símbolo externo que não conste no índice não é inventado nem adicionado 
 
 Rotas, controladores, modelos, serviços, bibliotecas e middleware sob `app/` são descobertos automaticamente segundo o layout de projeto. Esta inclusão física não cria um namespace por arquivo; as funções e classes `public` top-level compartilham o espaço de declarações do projeto e suas duplicatas são diagnosticadas (`JOSS-SYM-002`, `JOSS-DECL-004`).
 
-Da mesma forma, qualquer arquivo localizado no diretório raiz `stdlib/` (biblioteca padrão do Joss) é descoberto automaticamente pelo compilador e analisador semântico sem exigir instruções de importação manual.
+## Biblioteca Padrão (`stdlib/`)
 
-Por exemplo, as classes de utilidade matemática e manipulação de strings em `stdlib/` estão disponíveis diretamente:
+O Joss inclui uma biblioteca padrão escrita no próprio Joss localizada no diretório `stdlib/`. Todos os arquivos e submódulos dentro de `stdlib/` são descobertos e analisados automaticamente em cada projeto sem importações manuais ou configurações de caminho.
+
+### Módulos disponíveis e recursos
+
+1. **`MathUtils` (`stdlib/math/math.joss`):**
+   - `MathUtils::clamp(int $val, int $min, int $max): int`: Restringe um valor dentro de um intervalo inclusivo mínimo e máximo.
+   - `MathUtils::sign(int $n): int`: Retorna `1` se positivo, `-1` se negativo e `0` se zero.
+   - `MathUtils::gcd(int $a, int $b): int`: Calcula o máximo divisor comum de dois inteiros usando o algoritmo de Euclides.
+
+2. **`StringUtils` (`stdlib/strings/strings.joss`):**
+   - `StringUtils::isEmpty(string $s): bool`: Verifica com eficiência se uma string tem tamanho 0.
+   - `StringUtils::isNotEmpty(string $s): bool`: Verifica se uma string contém pelo menos um caractere.
+   - `StringUtils::padZero(int $num, int $width): string`: Preenche um número com zeros à esquerda até atingir a largura especificada.
+
+### Exemplo de uso
 
 ```joss
 <!-- joss-check: uso directo de la biblioteca estándar -->
 int $minimo = MathUtils::clamp(150, 0, 100);
 echo $minimo; // 100
+
+int $signo = MathUtils::sign(-45);
+echo $signo; // -1
 
 string $codigo = StringUtils::padZero(42, 5);
 echo $codigo; // "00042"

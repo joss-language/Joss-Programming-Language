@@ -29,14 +29,31 @@ Un símbolo externo que no figure en el índice no se inventa ni se añade a una
 
 Rutas, controladores, modelos, servicios, librerías y middleware bajo `app/` se descubren automáticamente según el layout de proyecto. Esta inclusión física no crea un namespace por archivo; las funciones y clases `public` top-level comparten el espacio de declaraciones del proyecto y sus duplicados son diagnosticados (`JOSS-SYM-002`, `JOSS-DECL-004`).
 
-Asimismo, cualquier archivo ubicado bajo el directorio raíz `stdlib/` (biblioteca estándar de Joss) es descubierto automáticamente por el compilador y analizador semántico sin requerir sentencias de importación manual.
+## Biblioteca Estándar (`stdlib/`)
 
-Por ejemplo, las clases y funciones de utilidad matemática y de manipulación de cadenas en `stdlib/` están disponibles directamente:
+Joss incluye una biblioteca estándar escrita en el propio lenguaje Joss alojada en la carpeta `stdlib/`. Todos los archivos y submódulos dentro de `stdlib/` se cargan y analizan automáticamente en cada proyecto sin necesidad de importar archivos a mano ni configurar rutas de dependencias.
+
+### Módulos disponibles y capacidades
+
+1. **`MathUtils` (`stdlib/math/math.joss`):**
+   - `MathUtils::clamp(int $val, int $min, int $max): int`: Restringe un valor dentro de un rango inclusivo mínimo y máximo.
+   - `MathUtils::sign(int $n): int`: Retorna `1` si el número es positivo, `-1` si es negativo y `0` si es cero.
+   - `MathUtils::gcd(int $a, int $b): int`: Calcula el máximo común divisor entre dos números enteros mediante el algoritmo de Euclides.
+
+2. **`StringUtils` (`stdlib/strings/strings.joss`):**
+   - `StringUtils::isEmpty(string $s): bool`: Verifica de forma rápida si una cadena tiene longitud 0.
+   - `StringUtils::isNotEmpty(string $s): bool`: Verifica si una cadena contiene al menos un carácter.
+   - `StringUtils::padZero(int $num, int $width): string`: Rellena un número con ceros a la izquierda hasta alcanzar la longitud especificada.
+
+### Ejemplo de uso
 
 ```joss
 <!-- joss-check: uso directo de la biblioteca estándar -->
 int $minimo = MathUtils::clamp(150, 0, 100);
 echo $minimo; // 100
+
+int $signo = MathUtils::sign(-45);
+echo $signo; // -1
 
 string $codigo = StringUtils::padZero(42, 5);
 echo $codigo; // "00042"
