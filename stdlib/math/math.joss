@@ -1,0 +1,38 @@
+// Standard Library: Math module
+// Rutinas matemáticas puras en lenguaje Joss
+
+public class MathUtils {
+    public static func clamp(int $val, int $min, int $max): int {
+        if ($val < $min) {
+            return $min;
+        }
+        if ($val > $max) {
+            return $max;
+        }
+        return $val;
+    }
+
+    public static func sign(int $n): int {
+        if ($n > 0) {
+            return 1;
+        }
+        if ($n < 0) {
+            return -1;
+        }
+        return 0;
+    }
+
+    public static func gcd(int $a, int $b): int {
+        int $x = $a;
+        int $y = $b;
+        while ($y != 0) {
+            int $t = $y;
+            $y = $x % $y;
+            $x = $t;
+        }
+        if ($x < 0) {
+            return -$x;
+        }
+        return $x;
+    }
+}

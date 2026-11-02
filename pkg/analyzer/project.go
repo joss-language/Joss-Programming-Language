@@ -67,6 +67,33 @@ func LoadProject(entrypoint string, sourceDirs ...string) ([]SourceUnit, []diagn
 		})
 	}
 
+	// Always discover stdlib/ if present in current directory
+	if info, err := os.Stat("stdlib"); err == nil && info.IsDir() {
+		_ = filepath.Walk("stdlib", func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil || info == nil {
+				return nil
+			}
+			if info.IsDir() {
+				if parser.IsIgnoredDirectory(info.Name()) {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if !parser.IsJossSourceFile(path) {
+				return nil
+			}
+			absolute, err := filepath.Abs(path)
+			if err == nil && seen[filepath.Clean(absolute)] {
+				return nil
+			}
+			if err == nil {
+				seen[filepath.Clean(absolute)] = true
+			}
+			paths = append(paths, path)
+			return nil
+		})
+	}
+
 	if len(paths) > 1 {
 		sort.Strings(paths[1:])
 	}

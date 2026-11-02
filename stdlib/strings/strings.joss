@@ -1,0 +1,20 @@
+// Standard Library: Strings module
+// Rutinas auxiliares de cadenas en lenguaje Joss
+
+public class StringUtils {
+    public static func isEmpty(string $s): bool {
+        return strlen($s) == 0;
+    }
+
+    public static func isNotEmpty(string $s): bool {
+        return strlen($s) > 0;
+    }
+
+    public static func padZero(int $num, int $width): string {
+        string $s = to_string($num);
+        while (strlen($s) < $width) {
+            $s = "0" + $s;
+        }
+        return $s;
+    }
+}
