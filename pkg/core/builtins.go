@@ -67,10 +67,10 @@ var builtinDefinitions = joinBuiltinGroups(
 	builtinGroup(builtinIO, typesystem.String, "env", "config", "view", "json", "toon_encode"),
 	builtinGroup(builtinIO, typesystem.Array, "__joss_db_query", "__joss_db_get_table"),
 	builtinGroup(builtinIO, typesystem.Int, "__joss_db_execute"),
-	builtinGroup(builtinIO, typesystem.Bool, "__joss_db_set_table", "__joss_db_is_connected"),
+	builtinGroup(builtinIO, typesystem.Bool, "__joss_db_set_table", "__joss_db_is_connected", "__joss_storage_put", "__joss_storage_delete"),
 	builtinGroup(builtinIO, typesystem.Mixed,
 		"back", "response", "request", "session", "redirect", "file_get_contents", "file_put_contents", "unlink",
-		"file_delete", "mkdir", "toon_decode", "hive_read_box", "run"),
+		"file_delete", "mkdir", "toon_decode", "hive_read_box", "run", "__joss_storage_get"),
 
 	builtinGroup(builtinSerialization, typesystem.Bool, "json_verify"),
 	builtinGroup(builtinSerialization, typesystem.String, "json_encode"),

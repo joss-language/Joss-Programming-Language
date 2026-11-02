@@ -873,6 +873,9 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `__joss_db_is_connected`
 - `__joss_db_query`
 - `__joss_db_set_table`
+- `__joss_storage_delete`
+- `__joss_storage_get`
+- `__joss_storage_put`
 - `abs`
 - `all`
 - `any`
@@ -1000,4 +1003,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 54 clases, 522 métodos y 132 built-ins.
+Total: 54 clases, 522 métodos y 135 built-ins.

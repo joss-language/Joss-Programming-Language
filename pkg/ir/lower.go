@@ -1401,8 +1401,8 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		return objTemp, nil
 
 	case *parser.MemberExpression:
-		if identLeft, ok := e.Left.(*parser.Identifier); ok && !strings.HasPrefix(identLeft.Value, "$") {
-			if _, isLocal := l.varLocals[cleanVarName(identLeft.Value)]; !isLocal {
+		if e.Token.Type == parser.DOUBLE_COLON {
+			if identLeft, ok := e.Left.(*parser.Identifier); ok {
 				// Acceso estático a constante de clase o caso de enum: Class::CONST / Enum::CASE
 				return NewConstString(identLeft.Value + "::" + e.Property.Value), nil
 			}
@@ -1663,7 +1663,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 		}
 		switch calleeName {
-		case "view", "SEO_render", "html_escape", "csrf_field", "Markdown_readFile", "Markdown_toHtml", "Str_trim", "file_get_contents", "toSql", "GranDB_toSql":
+		case "view", "SEO_render", "html_escape", "csrf_field", "Markdown_readFile", "Markdown_toHtml", "Str_trim", "file_get_contents", "toSql", "GranDB_toSql", "json", "response", "redirect":
 			retType = TypeString
 		case "explode":
 			retType = ArrayType(TypeString)

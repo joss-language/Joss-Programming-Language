@@ -166,6 +166,7 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	b.emitF64ToStringStub()
 	if b.usesExtendedStdlib {
 		b.emitNativeIntrinsics()
+		b.emitStorageIntrinsics()
 		b.emitNativeServer()
 		b.emitHostFrameworkAdapters()
 	}
@@ -254,6 +255,7 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, 
 	b.emitF64ToStringStub()
 	if b.usesExtendedStdlib {
 		b.emitNativeIntrinsics()
+		b.emitStorageIntrinsics()
 		b.emitNativeServer()
 		b.emitHostFrameworkAdapters()
 	}
@@ -362,9 +364,7 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 				switch i := inst.(type) {
 				case *ir.CallHostServiceInst:
 					if isSupportedHostService(i.ClassName, i.MethodName) {
-						if i.ClassName != "UserStorage" && i.ClassName != "OCIStorage" {
-							b.usesExtendedStdlib = true
-						}
+						b.usesExtendedStdlib = true
 					} else {
 						report("host service " + i.ClassName + "::" + i.MethodName)
 					}
@@ -425,7 +425,8 @@ func isNativeBuiltin(id string) bool {
 		"file_get_contents", "explode", "async", "await",
 		"env", "request", "csrf_field", "html_escape", "view",
 		"joss_map_len", "joss_map_key_at", "joss_map_val_at",
-		"__joss_db_get_table", "__joss_db_set_table", "__joss_db_is_connected":
+		"__joss_db_get_table", "__joss_db_set_table", "__joss_db_is_connected",
+		"__joss_storage_get", "__joss_storage_put", "__joss_storage_delete":
 		return true
 	}
 	return false
@@ -738,14 +739,9 @@ func (b *MachineCodeBuilder) emitLeaRDIString(s string) {
 }
 
 func (b *MachineCodeBuilder) emitCallHostBridge(target string) {
-	b.needsHostBridge = true
-	if b.target.OS == "windows" {
-		b.emitLeaRCXString(target)
-		b.emitCallIAT(IATJossHostBridge)
-	} else {
-		b.emitLeaRDIString(target)
-		b.emitCallLabel("_joss_host_bridge")
-	}
+	b.needsHostBridge = false
+	b.emitLeaRCXString(target)
+	b.emitCallLabel("_joss_host_bridge")
 }
 
 func (b *MachineCodeBuilder) emitCallHostBridgeWithArgs(layout *fnFrameLayout, target string, args []ir.Value) {
@@ -1091,6 +1087,162 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel(".strcmp_diff")
 	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // mov eax, 1; ret
 
+	// __joss_rt_route_matches(rcx = path, rdx = pattern) -> rax = 1 (match), 0 (no match)
+	b.defineLabel("__joss_rt_route_matches")
+	b.defineLabel("fn___joss_rt_route_matches")
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".rm_nomatch")
+	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
+	b.emitJeLabel(".rm_nomatch")
+	b.emitBytes(0x49, 0x89, 0xC9) // mov r9, rcx (p = path)
+	b.emitBytes(0x49, 0x89, 0xD2) // mov r10, rdx (pat = pattern)
+
+	b.defineLabel(".rm_loop")
+	b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10] (*pat)
+	b.emitBytes(0x84, 0xC0)             // test al, al
+	b.emitJeLabel(".rm_pat_end")
+	b.emitBytes(0x3C, 0x7B) // cmp al, '{'
+	b.emitJneLabel(".rm_literal")
+
+	// Placeholder '{...}': scan r10 until '}'
+	b.defineLabel(".rm_skip_ph")
+	b.emitBytes(0x49, 0xFF, 0xC2)       // inc r10
+	b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10]
+	b.emitBytes(0x84, 0xC0)             // test al, al
+	b.emitJeLabel(".rm_nomatch")
+	b.emitBytes(0x3C, 0x7D) // cmp al, '}'
+	b.emitJneLabel(".rm_skip_ph")
+	b.emitBytes(0x49, 0xFF, 0xC2) // inc r10 (skip '}')
+
+	// Match non-empty segment in r9 until '/', '?', or '\0'
+	b.emitBytes(0x41, 0x0F, 0xB6, 0x01) // movzx eax, byte ptr [r9]
+	b.emitBytes(0x84, 0xC0)             // test al, al
+	b.emitJeLabel(".rm_nomatch")
+	b.emitBytes(0x3C, 0x2F) // cmp al, '/'
+	b.emitJeLabel(".rm_nomatch")
+	b.emitBytes(0x3C, 0x3F) // cmp al, '?'
+	b.emitJeLabel(".rm_nomatch")
+
+	b.defineLabel(".rm_scan_seg")
+	b.emitBytes(0x49, 0xFF, 0xC1)       // inc r9
+	b.emitBytes(0x41, 0x0F, 0xB6, 0x01) // movzx eax, byte ptr [r9]
+	b.emitBytes(0x84, 0xC0)             // test al, al
+	b.emitJeLabel(".rm_loop")
+	b.emitBytes(0x3C, 0x2F) // cmp al, '/'
+	b.emitJeLabel(".rm_loop")
+	b.emitBytes(0x3C, 0x3F) // cmp al, '?'
+	b.emitJeLabel(".rm_loop")
+	b.emitJmpLabel(".rm_scan_seg")
+
+	b.defineLabel(".rm_literal")
+	b.emitBytes(0x41, 0x0F, 0xB6, 0x09) // movzx ecx, byte ptr [r9] (*p)
+	b.emitBytes(0x38, 0xC8)             // cmp al, cl
+	b.emitJneLabel(".rm_nomatch")
+	b.emitBytes(0x49, 0xFF, 0xC1) // inc r9
+	b.emitBytes(0x49, 0xFF, 0xC2) // inc r10
+	b.emitJmpLabel(".rm_loop")
+
+	b.defineLabel(".rm_pat_end")
+	b.emitBytes(0x41, 0x0F, 0xB6, 0x01) // movzx eax, byte ptr [r9]
+	b.emitBytes(0x84, 0xC0)             // test al, al
+	b.emitJeLabel(".rm_match")
+	b.emitBytes(0x3C, 0x3F) // cmp al, '?'
+	b.emitJeLabel(".rm_match")
+	b.emitBytes(0x3C, 0x2F) // cmp al, '/'
+	b.emitJneLabel(".rm_nomatch")
+	b.emitBytes(0x41, 0x0F, 0xB6, 0x41, 0x01) // movzx eax, byte ptr [r9 + 1]
+	b.emitBytes(0x84, 0xC0)                   // test al, al
+	b.emitJeLabel(".rm_match")
+	b.emitBytes(0x3C, 0x3F) // cmp al, '?'
+	b.emitJeLabel(".rm_match")
+
+	b.defineLabel(".rm_nomatch")
+	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
+
+	b.defineLabel(".rm_match")
+	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // mov eax, 1; ret
+
+	// __joss_rt_route_param(rcx = path, rdx = pattern, r8 = paramIdx) -> rax = newStr
+	b.defineLabel("__joss_rt_route_param")
+	b.defineLabel("fn___joss_rt_route_param")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                               // push rbp; mov rbp, rsp
+	b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push rbx, r12..r15
+	b.emitBytes(0x56, 0x57)                                           // push rsi, rdi
+	b.emitBytes(0x48, 0x83, 0xEC, 0x28)                               // sub rsp, 40 (shadow space)
+
+	b.emitBytes(0x48, 0x89, 0xCE) // mov rsi, rcx (p = path)
+	b.emitBytes(0x49, 0x89, 0xD2) // mov r10, rdx (pat = pattern)
+	b.emitBytes(0x4D, 0x89, 0xC6) // mov r14, r8  (targetIdx)
+	b.emitBytes(0x45, 0x31, 0xFF) // xor r15d, r15d (currIdx = 0)
+
+	b.defineLabel(".rp_loop")
+	b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10]
+	b.emitBytes(0x84, 0xC0)             // test al, al
+	b.emitJeLabel(".rp_not_found")
+	b.emitBytes(0x3C, 0x7B) // cmp al, '{'
+	b.emitJneLabel(".rp_literal")
+
+	// Skip '{...}' in r10
+	b.defineLabel(".rp_skip_ph")
+	b.emitBytes(0x49, 0xFF, 0xC2)       // inc r10
+	b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10]
+	b.emitBytes(0x84, 0xC0)             // test al, al
+	b.emitJeLabel(".rp_not_found")
+	b.emitBytes(0x3C, 0x7D) // cmp al, '}'
+	b.emitJneLabel(".rp_skip_ph")
+	b.emitBytes(0x49, 0xFF, 0xC2) // inc r10 (skip '}')
+
+	// rbx = start = rsi
+	b.emitBytes(0x48, 0x89, 0xF3) // mov rbx, rsi
+
+	b.defineLabel(".rp_scan_val")
+	b.emitBytes(0x0F, 0xB6, 0x06) // movzx eax, byte ptr [rsi]
+	b.emitBytes(0x84, 0xC0)       // test al, al
+	b.emitJeLabel(".rp_val_ended")
+	b.emitBytes(0x3C, 0x2F) // cmp al, '/'
+	b.emitJeLabel(".rp_val_ended")
+	b.emitBytes(0x3C, 0x3F) // cmp al, '?'
+	b.emitJeLabel(".rp_val_ended")
+	b.emitBytes(0x48, 0xFF, 0xC6) // inc rsi
+	b.emitJmpLabel(".rp_scan_val")
+
+	b.defineLabel(".rp_val_ended")
+	b.emitBytes(0x4D, 0x39, 0xFE) // cmp r14, r15 (targetIdx == currIdx?)
+	b.emitJneLabel(".rp_next_param")
+
+	// Matched parameter! len in r14 = rsi - rbx
+	b.emitBytes(0x49, 0x89, 0xF6)       // mov r14, rsi
+	b.emitBytes(0x49, 0x29, 0xDE)       // sub r14, rbx (len)
+	b.emitBytes(0x4D, 0x8D, 0x4E, 0x01) // lea r9, [r14 + 1]
+	b.emitBytes(0x4C, 0x89, 0xC9)       // mov rcx, r9 (len + 1)
+	b.emitCallLabel("__joss_os_alloc")  // rax = dest buffer
+
+	b.emitBytes(0x48, 0x89, 0xC7) // mov rdi, rax (dest)
+	b.emitBytes(0x48, 0x89, 0xDE) // mov rsi, rbx (start)
+	b.emitBytes(0x4C, 0x89, 0xF1) // mov rcx, r14 (len)
+	b.emitBytes(0xF3, 0xA4)       // rep movsb
+	b.emitBytes(0xC6, 0x07, 0x00) // mov byte ptr [rdi], 0
+	b.emitJmpLabel(".rp_exit")
+
+	b.defineLabel(".rp_next_param")
+	b.emitBytes(0x49, 0xFF, 0xC7) // inc r15 (currIdx++)
+	b.emitJmpLabel(".rp_loop")
+
+	b.defineLabel(".rp_literal")
+	b.emitBytes(0x48, 0xFF, 0xC6) // inc rsi
+	b.emitBytes(0x49, 0xFF, 0xC2) // inc r10
+	b.emitJmpLabel(".rp_loop")
+
+	b.defineLabel(".rp_not_found")
+	b.emitLeaRCXString("")
+	b.emitBytes(0x48, 0x89, 0xC8) // mov rax, rcx
+
+	b.defineLabel(".rp_exit")
+	b.emitBytes(0x48, 0x83, 0xC4, 0x28)                               // add rsp, 40
+	b.emitBytes(0x5F, 0x5E)                                           // pop rdi, rsi
+	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B) // pop r15..r12, rbx
+	b.emitBytes(0x5D, 0xC3)                                           // pop rbp; ret
+
 	// joss_str_concat(rcx = a, rdx = b) -> rax = newStr
 	b.defineLabel("joss_str_concat")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
@@ -1143,6 +1295,9 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// If rdx >= 0x400000 (a user-space string pointer from a mixed map/object), delegate to joss_str_concat
 	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x40, 0x00) // cmp rdx, 0x400000
 	b.emitJgeLabel("joss_str_concat")
+	// If rdx == 0 (null/nil from dynamic map/object access), delegate to joss_str_concat to treat as empty string
+	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
+	b.emitJeLabel("joss_str_concat")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
 	b.emitBytes(0x53, 0x56, 0x57)       // push rbx; push rsi; push rdi
 	b.emitBytes(0x41, 0x54, 0x41, 0x55) // push r12; push r13
@@ -1350,11 +1505,15 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// =========================================================================
 	// 5. Objects & Maps Runtime (joss_obj_*, joss_map_*)
 	// =========================================================================
-	// joss_map_new() -> rax = ptr (262160 bytes: [0]=0, [8]=count, [16..262159]=32768 FNV-1a bucket heads)
+	// joss_map_new() -> rax = ptr (262160 bytes: [0]=0x4A4F53534D415021, [8]=count, [16..262159]=32768 FNV-1a bucket heads)
 	b.defineLabel("joss_map_new")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x48, 0x83, 0xEC, 0x20)
 	b.emitBytes(0xB9, 0x10, 0x00, 0x04, 0x00) // mov ecx, 262160 (16 + 32768*8)
 	b.emitCallLabel("__joss_os_alloc")
+	// Set magic marker: [rax] = 0x4A4F53534D415021 ("JOSSMAP!")
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x4A4F53534D415021)
+	b.emitBytes(0x4C, 0x89, 0x10) // mov [rax], r10
 	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3)
 
 	// joss_obj_new(rcx = className) -> rax = ptr (16 bytes: [0]=className, [8]=headNode)
@@ -1371,6 +1530,13 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("joss_map_set_str")
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".map_set_ret_null")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".map_set_ret_null")
+	// If rcx is an Object (NOT a map), delegate to joss_obj_set_field_i64
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x4A4F53534D415021)
+	b.emitBytes(0x4C, 0x39, 0x11) // cmp [rcx], r10
+	b.emitJneLabel("joss_obj_set_field_i64")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
 	b.emitBytes(0x53, 0x56)                                     // push rbx; push rsi
 	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
@@ -1439,6 +1605,13 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".map_get_ret_null")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".map_get_ret_null")
+	// If rcx is an Object (NOT a map), delegate to joss_obj_get_field_i64
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x4A4F53534D415021)
+	b.emitBytes(0x4C, 0x39, 0x11) // cmp [rcx], r10
+	b.emitJneLabel("joss_obj_get_field_i64")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
 	b.emitBytes(0x53)                                           // push rbx
 	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
@@ -1507,10 +1680,19 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("joss_obj_set_field_str")
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".kv_set_leaf_ret")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".kv_set_leaf_ret")
+	// If rcx is a Map (magic 0x4A4F53534D415021), delegate to joss_map_set_i64
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x4A4F53534D415021)
+	b.emitBytes(0x4C, 0x39, 0x11) // cmp [rcx], r10
+	b.emitJeLabel("joss_map_set_i64")
 	// Fast leaf path: check if head node exists and matches key pointer directly
 	b.emitBytes(0x4C, 0x8B, 0x49, 0x08) // mov r9, [rcx + 8] (head)
 	b.emitBytes(0x4D, 0x85, 0xC9)       // test r9, r9
 	b.emitJeLabel(".kv_set_need_frame")
+	b.emitBytes(0x49, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp r9, 0x10000
+	b.emitJlLabel(".kv_set_need_frame")
 	b.emitBytes(0x49, 0x39, 0x11) // cmp [r9], rdx (head.key vs key)
 	b.emitJneLabel(".kv_set_need_frame")
 	b.emitBytes(0x4D, 0x89, 0x41, 0x08) // mov [r9 + 8], r8 (head.val = val)
@@ -1557,10 +1739,19 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".kv_get_leaf_ret")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".kv_get_leaf_ret")
+	// If rcx is a Map (magic 0x4A4F53534D415021), delegate to joss_map_get_i64
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x4A4F53534D415021)
+	b.emitBytes(0x4C, 0x39, 0x11) // cmp [rcx], r10
+	b.emitJeLabel("joss_map_get_i64")
 	// Fast leaf path: check if head node exists and matches key pointer directly
 	b.emitBytes(0x4C, 0x8B, 0x49, 0x08) // mov r9, [rcx + 8] (head)
 	b.emitBytes(0x4D, 0x85, 0xC9)       // test r9, r9
 	b.emitJeLabel(".kv_get_leaf_ret")
+	b.emitBytes(0x49, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp r9, 0x10000
+	b.emitJlLabel(".kv_get_leaf_ret")
 	b.emitBytes(0x49, 0x39, 0x11) // cmp [r9], rdx (head.key vs key)
 	b.emitJneLabel(".kv_get_need_frame")
 	b.emitBytes(0x49, 0x8B, 0x41, 0x08) // mov rax, [r9 + 8] (head.val)
@@ -1723,6 +1914,13 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".arr_get_done")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".arr_get_done")
+	// If rcx is a Map (magic marker 0x4A4F53534D415021), delegate to joss_map_get_i64
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x4A4F53534D415021)
+	b.emitBytes(0x4C, 0x39, 0x11) // cmp [rcx], r10
+	b.emitJeLabel("joss_map_get_i64")
 	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
 	b.emitJlLabel(".arr_get_done")
 	b.emitBytes(0x48, 0x3B, 0x11) // cmp rdx, [rcx + 0] (idx vs len)
@@ -1749,6 +1947,13 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitJgeLabel("joss_map_set_i64")
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".arr_set_leaf_ret")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".arr_set_leaf_ret")
+	// If rcx is a Map (magic marker 0x4A4F53534D415021), delegate to joss_map_set_i64
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x4A4F53534D415021)
+	b.emitBytes(0x4C, 0x39, 0x11) // cmp [rcx], r10
+	b.emitJeLabel("joss_map_set_i64")
 	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
 	b.emitJlLabel(".arr_set_leaf_ret")
 	b.emitBytes(0x48, 0x3B, 0x51, 0x08) // cmp rdx, [rcx + 8] (idx vs cap)
@@ -1791,7 +1996,16 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
 	b.emitJeLabel(".arr_len_done")
-	b.emitBytes(0x48, 0x8B, 0x01) // mov rax, [rcx + 0]
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".arr_len_done")
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x4A4F53534D415021)
+	b.emitBytes(0x4C, 0x39, 0x11) // cmp [rcx], r10
+	b.emitJeLabel(".arr_len_map")
+	b.emitBytes(0x48, 0x8B, 0x01) // mov rax, [rcx + 0] (array len)
+	b.emitJmpLabel(".arr_len_done")
+	b.defineLabel(".arr_len_map")
+	b.emitBytes(0x48, 0x8B, 0x41, 0x08) // mov rax, [rcx + 8] (map count)
 	b.defineLabel(".arr_len_done")
 	b.emitBytes(0xC3)
 
@@ -2125,9 +2339,12 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// fn_file_get_contents(rcx = pathPtr) -> rax = strPtr
 	b.defineLabel("fn_file_get_contents")
 	if b.target.OS == "windows" {
-		b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
-		b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55) // push rbx; push r12; push r13
-		b.emitBytes(0x48, 0x83, 0xEC, 0x48)       // sub rsp, 72
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5)                   // push rbp; mov rbp, rsp
+		b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56) // push rbx; push r12; push r13; push r14
+		b.emitBytes(0x48, 0x83, 0xEC, 0x40)                   // sub rsp, 64 (16-byte aligned before call)
+		b.emitBytes(0x49, 0x89, 0xCE)                         // mov r14, rcx (save pathPtr)
+		b.emitBytes(0x49, 0x81, 0xFE, 0x00, 0x00, 0x01, 0x00) // cmp r14, 0x10000
+		b.emitJlLabel(".fgc_win_fail")
 		// CreateFileA(pathPtr, GENERIC_READ=0x80000000, FILE_SHARE_READ=1, NULL=0, OPEN_EXISTING=3, FILE_ATTRIBUTE_NORMAL=0x80, NULL=0)
 		b.emitBytes(0xBA, 0x00, 0x00, 0x00, 0x80)                         // mov edx, 0x80000000
 		b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00)                   // mov r8d, 1
@@ -2138,7 +2355,35 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitMovRAXData(dataOffCreateFileA)
 		b.emitBytes(0xFF, 0xD0)             // call rax
 		b.emitBytes(0x48, 0x83, 0xF8, 0xFF) // cmp rax, -1 (INVALID_HANDLE_VALUE)
+		b.emitJneLabel(".fgc_win_opened")
+
+		// Fallback: If not found, check if relative path and retry with "../" prefix
+		b.emitBytes(0x66, 0x41, 0x81, 0x3E, 0x2E, 0x2E) // cmp word ptr [r14], 0x2E2E ("..")
 		b.emitJeLabel(".fgc_win_fail")
+		b.emitBytes(0x41, 0x80, 0x7E, 0x01, 0x3A) // cmp byte ptr [r14 + 1], 0x3A (':')
+		b.emitJeLabel(".fgc_win_fail")
+		b.emitBytes(0x41, 0x80, 0x3E, 0x2F) // cmp byte ptr [r14], 0x2F ('/')
+		b.emitJeLabel(".fgc_win_fail")
+		b.emitBytes(0x41, 0x80, 0x3E, 0x5C) // cmp byte ptr [r14], 0x5C ('\\')
+		b.emitJeLabel(".fgc_win_fail")
+
+		b.emitLeaRCXString("../")
+		b.emitBytes(0x4C, 0x89, 0xF2) // mov rdx, r14
+		b.emitCallLabel("joss_str_concat")
+		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
+
+		b.emitBytes(0xBA, 0x00, 0x00, 0x00, 0x80)                         // mov edx, 0x80000000
+		b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00)                   // mov r8d, 1
+		b.emitBytes(0x45, 0x31, 0xC9)                                     // xor r9d, r9d
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x03, 0x00, 0x00, 0x00) // mov qword ptr [rsp+32], 3
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x28, 0x80, 0x00, 0x00, 0x00) // mov qword ptr [rsp+40], 0x80
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x30, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp+48], 0
+		b.emitMovRAXData(dataOffCreateFileA)
+		b.emitBytes(0xFF, 0xD0)             // call rax
+		b.emitBytes(0x48, 0x83, 0xF8, 0xFF) // cmp rax, -1
+		b.emitJeLabel(".fgc_win_fail")
+
+		b.defineLabel(".fgc_win_opened")
 		b.emitBytes(0x48, 0x89, 0xC3) // mov rbx, rax (hFile)
 		// GetFileSize(hFile, NULL)
 		b.emitBytes(0x48, 0x89, 0xD9) // mov rcx, rbx
@@ -2146,6 +2391,7 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitMovRAXData(dataOffGetFileSize)
 		b.emitBytes(0xFF, 0xD0)                   // call rax
 		b.emitBytes(0x49, 0x89, 0xC4)             // mov r12, rax (fileSize)
+		b.emitMovDataRAX(dataOffLastFileSize)     // save last fileSize for binary media
 		b.emitBytes(0x49, 0x8D, 0x4C, 0x24, 0x01) // lea rcx, [r12 + 1]
 		b.emitCallLabel("__joss_os_alloc")
 		b.emitBytes(0x49, 0x89, 0xC5) // mov r13, rax (bufPtr)
@@ -2153,22 +2399,24 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x48, 0x89, 0xD9)                                     // mov rcx, rbx
 		b.emitBytes(0x4C, 0x89, 0xEA)                                     // mov rdx, r13
 		b.emitBytes(0x4D, 0x89, 0xE0)                                     // mov r8, r12
-		b.emitBytes(0x4C, 0x8D, 0x4D, 0xE0)                               // lea r9, [rbp - 32] (&bytesRead)
+		b.emitBytes(0x4C, 0x8D, 0x4C, 0x24, 0x38)                         // lea r9, [rsp + 56] (&bytesRead)
 		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp+32], 0
 		b.emitMovRAXData(dataOffReadFile)
 		b.emitBytes(0xFF, 0xD0) // call rax
 		// CloseHandle(hFile)
 		b.emitBytes(0x48, 0x89, 0xD9) // mov rcx, rbx
 		b.emitMovRAXData(dataOffCloseHandle)
-		b.emitBytes(0xFF, 0xD0)                         // call rax
-		b.emitBytes(0x43, 0xC6, 0x44, 0x25, 0x00, 0x00) // mov byte ptr [r13 + r12], 0
-		b.emitBytes(0x4C, 0x89, 0xE8)                   // mov rax, r13
+		b.emitBytes(0xFF, 0xD0)       // call rax
+		b.emitBytes(0x4C, 0x89, 0xEA) // mov rdx, r13 (bufPtr)
+		b.emitBytes(0x4C, 0x01, 0xE2) // add rdx, r12 (bufPtr + fileSize)
+		b.emitBytes(0xC6, 0x02, 0x00) // mov byte ptr [rdx], 0
+		b.emitBytes(0x4C, 0x89, 0xE8) // mov rax, r13
 		b.emitJmpLabel(".fgc_win_exit")
 		b.defineLabel(".fgc_win_fail")
 		b.emitLeaRAXString("")
 		b.defineLabel(".fgc_win_exit")
-		b.emitBytes(0x48, 0x83, 0xC4, 0x48)             // add rsp, 72
-		b.emitBytes(0x41, 0x5D, 0x41, 0x5C, 0x5B, 0x5D) // pop r13, r12, rbx, rbp
+		b.emitBytes(0x48, 0x83, 0xC4, 0x40)                         // add rsp, 64
+		b.emitBytes(0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B, 0x5D) // pop r14, r13, r12, rbx, rbp
 		b.emitBytes(0xC3)
 	} else {
 		// Linux / Darwin x86-64: sys_open, sys_lseek, sys_read, sys_close
@@ -2219,9 +2467,11 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x48, 0x89, 0xDF) // mov rdi, rbx
 		b.emitBytes(0xB8)             // mov eax, sysClose
 		b.emitU32(sysClose)
-		b.emitBytes(0x0F, 0x05)                         // syscall
-		b.emitBytes(0x43, 0xC6, 0x44, 0x25, 0x00, 0x00) // mov byte ptr [r13 + r12], 0
-		b.emitBytes(0x4C, 0x89, 0xE8)                   // mov rax, r13
+		b.emitBytes(0x0F, 0x05)       // syscall
+		b.emitBytes(0x4C, 0x89, 0xEA) // mov rdx, r13 (bufPtr)
+		b.emitBytes(0x4C, 0x01, 0xE2) // add rdx, r12 (bufPtr + fileSize)
+		b.emitBytes(0xC6, 0x02, 0x00) // mov byte ptr [rdx], 0
+		b.emitBytes(0x4C, 0x89, 0xE8) // mov rax, r13
 		b.emitJmpLabel(".fgc_linux_exit")
 		b.defineLabel(".fgc_linux_fail")
 		b.emitLeaRAXString("")
@@ -2965,9 +3215,23 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 				b.emitBytes(0x48, 0xF7, 0xD8) // neg rax
 			}
 		case ir.OpNot:
-			b.emitBytes(0x48, 0x85, 0xC0)       // test rax, rax
-			b.emitBytes(0x0F, 0x94, 0xC0)       // sete al
-			b.emitBytes(0x48, 0x0F, 0xB6, 0xC0) // movzx rax, al
+			lblNotZero := fmt.Sprintf(".not_zero_%d", b.text.Len())
+			lblNotDone := fmt.Sprintf(".not_done_%d", b.text.Len())
+			b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+			b.emitJneLabel(lblNotZero)
+			b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1 (null is falsy)
+			b.emitJmpLabel(lblNotDone)
+			b.defineLabel(lblNotZero)
+			// Check if pointer to empty string (falsy)
+			b.emitBytes(0x48, 0x81, 0xF8, 0x00, 0x00, 0x01, 0x00) // cmp rax, 0x10000
+			b.emitJlLabel(lblNotDone + "_falsy")
+			b.emitBytes(0x80, 0x38, 0x00) // cmp byte ptr [rax], 0
+			b.emitJneLabel(lblNotDone + "_falsy")
+			b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1 (empty string is falsy)
+			b.emitJmpLabel(lblNotDone)
+			b.defineLabel(lblNotDone + "_falsy")
+			b.emitBytes(0x31, 0xC0) // xor eax, eax (truthy -> not is 0)
+			b.defineLabel(lblNotDone)
 		}
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
@@ -3029,40 +3293,20 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		return fmt.Errorf("%s", analyzer.FormatCapabilityError("primitive method "+i.TypeKind+"::"+i.MethodName))
 
 	case *ir.CallHostServiceInst:
-		if i.ClassName == "UserStorage" || i.ClassName == "OCIStorage" {
-			switch i.MethodName {
-			case "put":
-				// UserStorage::put($user, $filename, $content) -> returns true (1)
-				if i.Dest != nil {
-					b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1
-					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-				}
-				return nil
-			case "get":
-				// UserStorage::get($user, $filename) -> returns string
-				if i.Dest != nil {
-					b.emitLeaRAXString("")
-					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-				}
-				return nil
-			case "path":
-				// UserStorage::path($subpath) -> returns path string
-				if i.Dest != nil {
-					if len(i.Args) > 0 && i.Args[0].Type().Kind == ir.TypeKindString {
-						b.emitLoadValToRAX(layout, i.Args[0])
-					} else {
-						b.emitLeaRAXString("storage")
-					}
-					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-				}
-				return nil
-			case "delete":
-				if i.Dest != nil {
-					b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1
-					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-				}
-				return nil
+		if i.ClassName == "Server" && i.MethodName == "start" {
+			b.emitCallWithArgs(layout, "fn_Server_start", i.Args)
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 			}
+			return nil
+		}
+		if i.ClassName == "Plugin" {
+			fnLabel := "fn_" + i.ClassName + "_" + i.MethodName
+			b.emitCallWithArgs(layout, fnLabel, i.Args)
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
+			return nil
 		}
 		if isSupportedHostService(i.ClassName, i.MethodName) {
 			if b.isJITMode {
@@ -3103,6 +3347,9 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			return nil
 		}
 		fnLabel := "fn_" + i.Callee
+		if strings.HasPrefix(i.Callee, "__joss_rt_") || strings.HasPrefix(i.Callee, "joss_") {
+			fnLabel = i.Callee
+		}
 		if i.Callee == "to_string" || i.Callee == "strval" {
 			if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
 				fnLabel = "joss_f64_to_string"
@@ -3221,27 +3468,13 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			b.cachedRAXVal = i.Dest
 			b.cachedRCXVal = savedRCX
 		} else {
-			lblSlow := fmt.Sprintf(".obj_get_slow_%d", b.nextInlineLabelID())
-			lblDone := fmt.Sprintf(".obj_get_done_%d", b.nextInlineLabelID())
-			b.emitLoadValToRAX(layout, i.Obj)
-			b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax (obj)
+			b.emitLoadValToRCX(layout, i.Obj)
 			b.emitLeaRDXString(i.FieldName)
-			b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-			b.emitJeLabel(lblSlow)
-			b.emitBytes(0x4C, 0x8B, 0x49, 0x08) // mov r9, [rcx + 8] (head)
-			b.emitBytes(0x4D, 0x85, 0xC9)       // test r9, r9
-			b.emitJeLabel(lblSlow)
-			b.emitBytes(0x49, 0x39, 0x11) // cmp [r9], rdx (head.key vs key)
-			b.emitJneLabel(lblSlow)
-			b.emitBytes(0x49, 0x8B, 0x41, 0x08) // mov rax, [r9 + 8] (head.val)
-			b.emitJmpLabel(lblDone)
-			b.defineLabel(lblSlow)
 			if i.Dest.Type().Kind == ir.TypeKindString {
 				b.emitCallLabel("joss_obj_get_field_str")
 			} else {
 				b.emitCallLabel("joss_obj_get_field_i64")
 			}
-			b.defineLabel(lblDone)
 			b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 		}
 
@@ -3267,25 +3500,10 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			}
 			b.cachedRCXVal = savedRCX
 		} else {
-			lblSlow := fmt.Sprintf(".obj_set_slow_%d", b.nextInlineLabelID())
-			lblDone := fmt.Sprintf(".obj_set_done_%d", b.nextInlineLabelID())
-			b.emitLoadValToRAX(layout, i.Val)
-			b.emitBytes(0x49, 0x89, 0xC0) // mov r8, rax (val)
-			b.emitLoadValToRAX(layout, i.Obj)
-			b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax (obj)
+			b.emitLoadValToR8(layout, i.Val)
+			b.emitLoadValToRCX(layout, i.Obj)
 			b.emitLeaRDXString(i.FieldName)
-			b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-			b.emitJeLabel(lblSlow)
-			b.emitBytes(0x4C, 0x8B, 0x49, 0x08) // mov r9, [rcx + 8] (head)
-			b.emitBytes(0x4D, 0x85, 0xC9)       // test r9, r9
-			b.emitJeLabel(lblSlow)
-			b.emitBytes(0x49, 0x39, 0x11) // cmp [r9], rdx (head.key vs key)
-			b.emitJneLabel(lblSlow)
-			b.emitBytes(0x4D, 0x89, 0x41, 0x08) // mov [r9 + 8], r8
-			b.emitJmpLabel(lblDone)
-			b.defineLabel(lblSlow)
 			b.emitCallLabel("joss_obj_set_field_i64")
-			b.defineLabel(lblDone)
 		}
 
 	case *ir.NewArrayInst:
@@ -3302,50 +3520,17 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 	case *ir.ArrayGetInst:
-		lblSlow := fmt.Sprintf(".arr_get_slow_%d", b.nextInlineLabelID())
-		lblDone := fmt.Sprintf(".arr_get_done_%d", b.nextInlineLabelID())
 		b.emitLoadValToRCX(layout, i.Array)
 		b.emitLoadValToRDX(layout, i.Index)
-		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-		b.emitJeLabel(lblSlow)
-		b.emitBytes(0x48, 0x3B, 0x11) // cmp rdx, [rcx + 0] (unsigned idx vs len)
-		b.emitJaeLabel(lblSlow)
-		b.emitBytes(0x4C, 0x8B, 0x41, 0x10) // mov r8, [rcx + 16] (dataPtr)
-		b.emitBytes(0x49, 0x8B, 0x04, 0xD0) // mov rax, [r8 + rdx*8]
-		if i.Dest.Type().Kind == ir.TypeKindString {
-			b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
-			b.emitJeLabel(lblSlow)
-		}
-		b.defineLabel(lblDone)
-		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
-		b.cachedRAXVal = i.Dest
-
 		helperName := b.selectArrayGetHelper(i.Dest.Type())
-		layout.deferredSlowPaths = append(layout.deferredSlowPaths, func() {
-			b.defineLabel(lblSlow)
-			b.emitCallLabel(helperName)
-			b.emitJmpLabel(lblDone)
-		})
+		b.emitCallLabel(helperName)
+		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
 	case *ir.ArraySetInst:
-		lblSlow := fmt.Sprintf(".arr_set_slow_%d", b.nextInlineLabelID())
-		lblDone := fmt.Sprintf(".arr_set_done_%d", b.nextInlineLabelID())
 		b.emitLoadValToR8(layout, i.Val)
 		b.emitLoadValToRDX(layout, i.Index)
 		b.emitLoadValToRCX(layout, i.Array)
-		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-		b.emitJeLabel(lblSlow)
-		b.emitBytes(0x48, 0x3B, 0x11) // cmp rdx, [rcx + 0] (unsigned idx vs len)
-		b.emitJaeLabel(lblSlow)
-		b.emitBytes(0x4C, 0x8B, 0x49, 0x10) // mov r9, [rcx + 16] (dataPtr)
-		b.emitBytes(0x4D, 0x89, 0x04, 0xD1) // mov [r9 + rdx*8], r8
-		b.defineLabel(lblDone)
-
-		layout.deferredSlowPaths = append(layout.deferredSlowPaths, func() {
-			b.defineLabel(lblSlow)
-			b.emitCallLabel("joss_arr_set_i64")
-			b.emitJmpLabel(lblDone)
-		})
+		b.emitCallLabel("joss_arr_set_i64")
 
 	case *ir.NewMapInst:
 		b.emitCallLabel("joss_map_new")

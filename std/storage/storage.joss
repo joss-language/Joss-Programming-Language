@@ -1,0 +1,115 @@
+// Standard Library - Pure Joss Storage Engine
+// Canonical standard library module for unified storage, user isolated buckets and cloud providers.
+
+public class UserStorage {
+
+    public static func get(mixed $userId, mixed $objectPath): mixed {
+        var $uid = strval($userId)
+        var $obj = strval($objectPath)
+
+        // 1. Comprobar copia local primero en rutas conocidas
+        var $candidates = [
+            "storage/user_storage/" . $uid . "/" . $obj,
+            "../storage/user_storage/" . $uid . "/" . $obj,
+            "assets/users/" . $uid . "/" . $obj,
+            "../assets/users/" . $uid . "/" . $obj
+        ]
+
+        foreach ($candidates as $cand) {
+            (file_exists($cand)) ? {
+                try {
+                    var $content = file_get_contents($cand)
+                    ($content) ? {
+                        return $content
+                    } : {}
+                } catch ($e) {
+                }
+            } : {}
+        }
+
+        // 2. Consultar al proveedor configurado en el entorno (OCI / local)
+        var $provider = env("STORAGE") ?? "local"
+        return __joss_storage_get($provider, $uid, $obj)
+    }
+
+    public static func put(mixed $userId, mixed $objectPath, mixed $content): bool {
+        var $uid = strval($userId)
+        var $obj = strval($objectPath)
+        var $provider = env("STORAGE") ?? "local"
+        return __joss_storage_put($provider, $uid, $obj, $content)
+    }
+
+    public static func delete(mixed $userId, mixed $objectPath): bool {
+        var $uid = strval($userId)
+        var $obj = strval($objectPath)
+        var $provider = env("STORAGE") ?? "local"
+        return __joss_storage_delete($provider, $uid, $obj)
+    }
+
+    public static func getToFile(mixed $userId, mixed $objectPath, string $destPath): bool {
+        var $content = self::get($userId, $objectPath)
+        ($content != null) ? {
+            return file_put_contents($destPath, strval($content))
+        } : {}
+        return false
+    }
+
+    public static func path(mixed $userId, mixed $objectPath): string {
+        var $uid = strval($userId)
+        var $obj = strval($objectPath)
+        var $candidates = [
+            "storage/user_storage/" . $uid . "/" . $obj,
+            "../storage/user_storage/" . $uid . "/" . $obj,
+            "assets/users/" . $uid . "/" . $obj
+        ]
+        foreach ($candidates as $cand) {
+            (file_exists($cand)) ? {
+                return $cand
+            } : {}
+        }
+        return "storage/user_storage/" . $uid . "/" . $obj
+    }
+}
+
+public class OCIStorage {
+
+    public static func get(mixed $userId, mixed $objectPath): mixed {
+        return UserStorage::get($userId, $objectPath)
+    }
+
+    public static func put(mixed $userId, mixed $objectPath, mixed $content): bool {
+        return UserStorage::put($userId, $objectPath, $content)
+    }
+
+    public static func delete(mixed $userId, mixed $objectPath): bool {
+        return UserStorage::delete($userId, $objectPath)
+    }
+
+    public static func path(mixed $userId, mixed $objectPath): string {
+        return UserStorage::path($userId, $objectPath)
+    }
+}
+
+public class Storage {
+
+    public static func get(mixed $path): mixed {
+        return UserStorage::get(1, $path)
+    }
+
+    public static func put(mixed $path, mixed $content): bool {
+        return UserStorage::put(1, $path, $content)
+    }
+
+    public static func exists(mixed $path): bool {
+        var $content = self::get($path)
+        return ($content != null)
+    }
+
+    public static func delete(mixed $path): bool {
+        return UserStorage::delete(1, $path)
+    }
+
+    public static func path(mixed $path): string {
+        return UserStorage::path(1, $path)
+    }
+}

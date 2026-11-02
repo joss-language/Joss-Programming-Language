@@ -1840,9 +1840,30 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.emitLoadImm64(regX0, 0)
 	b.emitRet(regX30)
 
+	b.defineLabel("fn_response")
+	b.emitRet(regX30)
+
+	b.defineLabel("fn_redirect")
+	b.defineLabel("fn_json")
 	b.defineLabel("fn_Turnstile_siteKey")
 	b.defineLabel("fn_Markdown_readFile")
+	b.defineLabel("fn_Markdown_toHtml")
+	b.defineLabel("Markdown_toHtml")
 	b.defineLabel("fn_file_get_contents")
+	b.emitLoadStringAddr(regX0, "")
+	b.emitRet(regX30)
+
+	b.defineLabel("fn_file_exists")
+	b.emitLoadImm64(regX0, 1)
+	b.emitRet(regX30)
+
+	b.defineLabel("__joss_rt_route_matches")
+	b.defineLabel("fn___joss_rt_route_matches")
+	b.emitLoadImm64(regX0, 1)
+	b.emitRet(regX30)
+
+	b.defineLabel("__joss_rt_route_param")
+	b.defineLabel("fn___joss_rt_route_param")
 	b.emitLoadStringAddr(regX0, "")
 	b.emitRet(regX30)
 
@@ -1893,6 +1914,15 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 
 	b.defineLabel("fn___joss_db_is_connected")
 	b.emitLoadImm64(regX0, 0)
+	b.emitRet(regX30)
+
+	b.defineLabel("fn___joss_storage_get")
+	b.emitLoadImm64(regX0, 0)
+	b.emitRet(regX30)
+
+	b.defineLabel("fn___joss_storage_put")
+	b.defineLabel("fn___joss_storage_delete")
+	b.emitLoadImm64(regX0, 1)
 	b.emitRet(regX30)
 
 	// String and Math helper passthroughs

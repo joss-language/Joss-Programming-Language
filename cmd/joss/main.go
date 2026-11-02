@@ -27,6 +27,10 @@ import (
 )
 
 func main() {
+	if runEmbeddedRunnerIfSealed() {
+		return
+	}
+
 	if len(os.Args) >= 2 {
 		cmd := os.Args[1]
 		if cmd == "server" || cmd == "program" {
@@ -615,8 +619,8 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		os.Exit(1)
 	}
 
-	// Host Bridge selectivo: solo los proyectos que necesitan una base de datos
-	// real enlazan el runner con drivers y sellan assets + env.enc en el mismo .exe.
+	// Host Runner autónomo sellado: solo los proyectos que necesitan una base de datos
+	// real compilan y sellan assets + env.enc en el mismo .exe sin ninguna DLL externa.
 	// Los proyectos sin DB permanecen como binario nativo puro.
 	if strings.TrimSpace(core.DetectAndLoadEnv(nil).EnvMap["DB"]) != "" {
 		_, hasRoutes := os.Stat("routes.joss")

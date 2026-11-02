@@ -11,7 +11,7 @@ import (
 	"github.com/jossecurity/joss/pkg/parser"
 )
 
-//go:embed database/*.joss
+//go:embed database/*.joss storage/*.joss
 var stdlibFS embed.FS
 
 var (

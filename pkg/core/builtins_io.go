@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -298,6 +299,52 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 
 	case "__joss_db_is_connected":
 		return r.GetDB() != nil, true
+
+	case "__joss_storage_get":
+		if len(args) < 3 {
+			return nil, true
+		}
+		provider := strings.ToLower(fmt.Sprintf("%v", args[0]))
+		userId := fmt.Sprintf("%v", args[1])
+		objectPath := fmt.Sprintf("%v", args[2])
+		if provider == "oci" {
+			return r.ociGet(userId, objectPath), true
+		}
+		localPath := filepath.Join("storage", "user_storage", userId, objectPath)
+		if data, err := ReadFileBytes(localPath); err == nil {
+			return string(data), true
+		}
+		return nil, true
+
+	case "__joss_storage_put":
+		if len(args) < 4 {
+			return false, true
+		}
+		provider := strings.ToLower(fmt.Sprintf("%v", args[0]))
+		userId := fmt.Sprintf("%v", args[1])
+		objectPath := fmt.Sprintf("%v", args[2])
+		content := fmt.Sprintf("%v", args[3])
+		if provider == "oci" {
+			return r.ociPut(userId, objectPath, content), true
+		}
+		localPath := filepath.Join("storage", "user_storage", userId, objectPath)
+		_ = os.MkdirAll(filepath.Dir(localPath), 0755)
+		err := os.WriteFile(localPath, []byte(content), 0644)
+		return err == nil, true
+
+	case "__joss_storage_delete":
+		if len(args) < 3 {
+			return false, true
+		}
+		provider := strings.ToLower(fmt.Sprintf("%v", args[0]))
+		userId := fmt.Sprintf("%v", args[1])
+		objectPath := fmt.Sprintf("%v", args[2])
+		if provider == "oci" {
+			return r.ociDelete(userId, objectPath), true
+		}
+		localPath := filepath.Join("storage", "user_storage", userId, objectPath)
+		_ = os.Remove(localPath)
+		return true, true
 	}
 
 	return nil, false

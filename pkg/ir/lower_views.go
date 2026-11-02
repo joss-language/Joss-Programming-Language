@@ -260,12 +260,15 @@ func (l *Lowerer) synthesizeHTTPDispatchFunction() error {
 		if rt.method != "GET" && rt.method != "ANY" {
 			continue
 		}
-		if strings.Contains(rt.path, "{") {
-			continue
-		}
 		targetFnName := rt.controller + "_" + rt.action
 		targetFn, exists := l.prog.Functions[targetFnName]
-		if !exists || len(targetFn.Params) != 1 {
+		if !exists || len(targetFn.Params) < 1 {
+			continue
+		}
+
+		numPlaceholders := strings.Count(rt.path, "{")
+		expectedParams := len(targetFn.Params) - 1
+		if numPlaceholders > expectedParams {
 			continue
 		}
 
@@ -273,12 +276,20 @@ func (l *Lowerer) synthesizeHTTPDispatchFunction() error {
 		nextBlk := fn.NewBlock(fmt.Sprintf("route_next_%d", idx))
 
 		cmpTemp := fn.NewTemp(TypeBool, fmt.Sprintf("rcmp_%d", idx))
-		curr.AddInstruction(&CompareInst{
-			Op:    OpCmpEq,
-			Dest:  cmpTemp,
-			Left:  pathParam,
-			Right: NewConstString(rt.path),
-		})
+		if numPlaceholders == 0 {
+			curr.AddInstruction(&CompareInst{
+				Op:    OpCmpEq,
+				Dest:  cmpTemp,
+				Left:  pathParam,
+				Right: NewConstString(rt.path),
+			})
+		} else {
+			curr.AddInstruction(&CallInst{
+				Dest:   cmpTemp,
+				Callee: "__joss_rt_route_matches",
+				Args:   []Value{pathParam, NewConstString(rt.path)},
+			})
+		}
 		curr.SetTerminator(&BranchTerminator{
 			Cond:       cmpTemp,
 			TrueBlock:  matchBlk,
@@ -292,11 +303,25 @@ func (l *Lowerer) synthesizeHTTPDispatchFunction() error {
 			ClassName: rt.controller,
 		})
 
+		callArgs := []Value{ctrlTemp}
+		for pIdx := 0; pIdx < numPlaceholders; pIdx++ {
+			pTemp := fn.NewTemp(TypeString, fmt.Sprintf("parg_%d_%d", idx, pIdx))
+			matchBlk.AddInstruction(&CallInst{
+				Dest:   pTemp,
+				Callee: "__joss_rt_route_param",
+				Args:   []Value{pathParam, NewConstString(rt.path), NewConstInt(int64(pIdx), TypeI64)},
+			})
+			callArgs = append(callArgs, pTemp)
+		}
+		for pIdx := numPlaceholders; pIdx < expectedParams; pIdx++ {
+			callArgs = append(callArgs, NewConstString(""))
+		}
+
 		retTemp := fn.NewTemp(TypeString, fmt.Sprintf("rret_%d", idx))
 		matchBlk.AddInstruction(&CallInst{
 			Dest:   retTemp,
 			Callee: targetFnName,
-			Args:   []Value{ctrlTemp},
+			Args:   callArgs,
 		})
 		matchBlk.SetTerminator(&ReturnTerminator{Val: retTemp})
 
@@ -308,25 +333,9 @@ func (l *Lowerer) synthesizeHTTPDispatchFunction() error {
 		return nil
 	}
 
-	if homeFn, ok := l.prog.Functions["HomeController_index"]; ok && len(homeFn.Params) == 1 {
-		objType := PtrType(StructType("HomeController", nil))
-		ctrlTemp := fn.NewTemp(objType, "ctrl_default")
-		curr.AddInstruction(&NewObjectInst{
-			Dest:      ctrlTemp,
-			ClassName: "HomeController",
-		})
-		retTemp := fn.NewTemp(TypeString, "rret_default")
-		curr.AddInstruction(&CallInst{
-			Dest:   retTemp,
-			Callee: "HomeController_index",
-			Args:   []Value{ctrlTemp},
-		})
-		curr.SetTerminator(&ReturnTerminator{Val: retTemp})
-	} else {
-		curr.SetTerminator(&ReturnTerminator{
-			Val: NewConstString("<!DOCTYPE html><html><body><h1>404 Not Found</h1></body></html>"),
-		})
-	}
+	curr.SetTerminator(&ReturnTerminator{
+		Val: NewConstString("<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\"><title>404 Not Found</title></head><body><h1>404 No Encontrado</h1><p>La página solicitada no existe.</p></body></html>"),
+	})
 
 	l.prog.AddFunction(fn)
 	return nil

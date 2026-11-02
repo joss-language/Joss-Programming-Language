@@ -5,10 +5,12 @@ package native
 func (b *MachineCodeBuilder) emitNativeServer() {
 	const (
 		httpHeaderHTML  = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderJSON  = "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
 		httpHeaderCSS   = "HTTP/1.1 200 OK\r\nContent-Type: text/css; charset=utf-8\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
 		httpHeaderJS    = "HTTP/1.1 200 OK\r\nContent-Type: application/javascript; charset=utf-8\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
 		httpHeaderSVG   = "HTTP/1.1 200 OK\r\nContent-Type: image/svg+xml\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
 		httpHeaderPNG   = "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderJPG   = "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
 		httpHeaderWEBP  = "HTTP/1.1 200 OK\r\nContent-Type: image/webp\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
 		httpHeaderICO   = "HTTP/1.1 200 OK\r\nContent-Type: image/x-icon\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
 		httpHeader404   = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\n404 Not Found"
@@ -557,8 +559,63 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 			b.emitBytes(0x49, 0x89, 0xCF) // mov r15, rcx
 		}
 
-		// Send HTTP 200 HTML header
+		// Guard against null r15
+		b.emitBytes(0x4D, 0x85, 0xFF) // test r15, r15
+		b.emitJneLabel(".srv_resp_not_null")
+		b.emitLeaRCXString("")
+		b.emitBytes(0x49, 0x89, 0xCF) // mov r15, rcx
+		b.defineLabel(".srv_resp_not_null")
+
+		// Determine response Content-Type & length
+		// Check PNG magic: 0x89, 0x50 ('P')
+		b.emitBytes(0x41, 0x80, 0x3F, 0x89) // cmp byte ptr [r15], 0x89
+		b.emitJneLabel(".srv_check_jpg")
+		b.emitBytes(0x41, 0x80, 0x7F, 0x01, 0x50) // cmp byte ptr [r15 + 1], 0x50 ('P')
+		b.emitJeLabel(".srv_resp_png")
+
+		b.defineLabel(".srv_check_jpg")
+		// Check JPEG magic: 0xFF, 0xD8
+		b.emitBytes(0x41, 0x80, 0x3F, 0xFF) // cmp byte ptr [r15], 0xFF
+		b.emitJneLabel(".srv_check_webp")
+		b.emitBytes(0x41, 0x80, 0x7F, 0x01, 0xD8) // cmp byte ptr [r15 + 1], 0xD8
+		b.emitJeLabel(".srv_resp_jpg")
+
+		b.defineLabel(".srv_check_webp")
+		// Check WEBP magic: 'R', 'I'
+		b.emitBytes(0x41, 0x80, 0x3F, 0x52) // cmp byte ptr [r15], 'R'
+		b.emitJneLabel(".srv_check_json")
+		b.emitBytes(0x41, 0x80, 0x7F, 0x01, 0x49) // cmp byte ptr [r15 + 1], 'I'
+		b.emitJeLabel(".srv_resp_webp")
+
+		b.defineLabel(".srv_check_json")
+		// Check JSON: '{' (0x7B) or '[' (0x5B)
+		b.emitBytes(0x41, 0x80, 0x3F, 0x7B)
+		b.emitJeLabel(".srv_resp_json")
+		b.emitBytes(0x41, 0x80, 0x3F, 0x5B)
+		b.emitJeLabel(".srv_resp_json")
+
+		// Default: HTML
 		b.emitLeaRCXString(httpHeaderHTML)
+		b.emitJmpLabel(".srv_resp_send_hdr_text")
+
+		b.defineLabel(".srv_resp_png")
+		b.emitLeaRCXString(httpHeaderPNG)
+		b.emitJmpLabel(".srv_resp_send_hdr_bin")
+
+		b.defineLabel(".srv_resp_jpg")
+		b.emitLeaRCXString(httpHeaderJPG)
+		b.emitJmpLabel(".srv_resp_send_hdr_bin")
+
+		b.defineLabel(".srv_resp_webp")
+		b.emitLeaRCXString(httpHeaderWEBP)
+		b.emitJmpLabel(".srv_resp_send_hdr_bin")
+
+		b.defineLabel(".srv_resp_json")
+		b.emitLeaRCXString(httpHeaderJSON)
+		b.emitJmpLabel(".srv_resp_send_hdr_text")
+
+		b.defineLabel(".srv_resp_send_hdr_bin")
+		// Send binary header (PNG/JPG/WEBP)
 		b.emitBytes(0x48, 0x89, 0xCB) // mov rbx, rcx
 		b.emitCallLabel("__joss_rt_strlen")
 		b.emitBytes(0x49, 0x89, 0xC0)       // mov r8, rax
@@ -568,7 +625,33 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x48, 0x8B, 0x45, 0xC0) // mov rax, [rbp - 64] (pSend)
 		b.emitBytes(0xFF, 0xD0)             // call rax
 
-		// Send HTML body in r15
+		// Binary body length from dataOffLastFileSize
+		b.emitMovRAXData(dataOffLastFileSize)
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJneLabel(".srv_resp_send_bin_body")
+		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15
+		b.emitCallLabel("__joss_rt_strlen")
+
+		b.defineLabel(".srv_resp_send_bin_body")
+		b.emitBytes(0x49, 0x89, 0xC0)       // mov r8, rax (len)
+		b.emitBytes(0x4C, 0x89, 0xFA)       // mov rdx, r15 (bodyPtr)
+		b.emitBytes(0x4C, 0x89, 0xF1)       // mov rcx, r14 (clientSock)
+		b.emitBytes(0x45, 0x31, 0xC9)       // xor r9d, r9d
+		b.emitBytes(0x48, 0x8B, 0x45, 0xC0) // mov rax, [rbp - 64] (pSend)
+		b.emitBytes(0xFF, 0xD0)             // call rax
+		b.emitJmpLabel(".srv_close_client")
+
+		b.defineLabel(".srv_resp_send_hdr_text")
+		b.emitBytes(0x48, 0x89, 0xCB) // mov rbx, rcx
+		b.emitCallLabel("__joss_rt_strlen")
+		b.emitBytes(0x49, 0x89, 0xC0)       // mov r8, rax
+		b.emitBytes(0x48, 0x89, 0xDA)       // mov rdx, rbx
+		b.emitBytes(0x4C, 0x89, 0xF1)       // mov rcx, r14 (clientSock)
+		b.emitBytes(0x45, 0x31, 0xC9)       // xor r9d, r9d
+		b.emitBytes(0x48, 0x8B, 0x45, 0xC0) // mov rax, [rbp - 64] (pSend)
+		b.emitBytes(0xFF, 0xD0)             // call rax
+
+		// Send text body
 		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15
 		b.emitCallLabel("__joss_rt_strlen")
 		b.emitBytes(0x49, 0x89, 0xC0)       // mov r8, rax (len)

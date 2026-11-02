@@ -12,7 +12,7 @@ const (
 	peTextRVA          uint32 = 0x1000
 )
 
-// WinImportSlot identifies the KERNEL32.dll and joss_host.dll IAT slots in the PE32+ binary.
+// WinImportSlot identifies the KERNEL32.dll IAT slots in the PE32+ binary.
 type WinImportSlot int
 
 const (
@@ -23,7 +23,6 @@ const (
 	IATExitProcess
 	IATLoadLibraryA
 	IATGetProcAddress
-	IATJossHostBridge // For _joss_host_bridge in joss_host.dll (slot 7)
 	iatSlotCount
 )
 
@@ -39,28 +38,17 @@ type PEImageLayout struct {
 
 // PreparePERData constructs the .rdata section containing the Import Table
 // (IAT, Import Directory Table, ILT, Hint/Name table) followed by read-only program data (rodata).
-// If withHostBridge is false, only KERNEL32.dll is imported (zero external dependencies).
+// Only KERNEL32.dll is imported (zero external dependencies, zero joss_host.dll).
 func PreparePERData(textLen int, rodata []byte, withHostBridge bool) *PEImageLayout {
 	rdataRVA := alignUpU32(peTextRVA+uint32(textLen), peSectionAlignment)
 
-	var iatOffset, iltOffset, strOffset uint32
-	if withHostBridge {
-		// [0x00 .. 0x50): IAT for KERNEL32 (64b) + IAT for joss_host (16b) = 80b
-		// [0x50 .. 0x8C): IDT (3 * 20 = 60b)
-		// [0x8C .. 0xDC): ILT (80b)
-		// [0xDC ..     ): Names & Hint/Names
-		iatOffset = 0x00
-		iltOffset = 0x8C
-		strOffset = 0xDC
-	} else {
-		// [0x00 .. 0x40): IAT for KERNEL32 (64b)
-		// [0x40 .. 0x68): IDT (2 * 20 = 40b)
-		// [0x68 .. 0xA8): ILT (64b)
-		// [0xA8 ..     ): Names & Hint/Names
-		iatOffset = 0x00
-		iltOffset = 0x68
-		strOffset = 0xA8
-	}
+	// [0x00 .. 0x40): IAT for KERNEL32 (64b)
+	// [0x40 .. 0x68): IDT (2 * 20 = 40b)
+	// [0x68 .. 0xA8): ILT (64b)
+	// [0xA8 ..     ): Names & Hint/Names
+	iatOffset := uint32(0x00)
+	iltOffset := uint32(0x68)
+	strOffset := uint32(0xA8)
 
 	var tail bytes.Buffer
 	dll1NameRVA := rdataRVA + strOffset
@@ -69,19 +57,7 @@ func PreparePERData(textLen int, rodata []byte, withHostBridge bool) *PEImageLay
 		tail.WriteByte(0)
 	}
 
-	var dll2NameRVA uint32
-	if withHostBridge {
-		dll2NameRVA = rdataRVA + strOffset + uint32(tail.Len())
-		tail.WriteString("joss_host.dll\x00")
-		if tail.Len()%2 != 0 {
-			tail.WriteByte(0)
-		}
-	}
-
-	numSlots := 7
-	if withHostBridge {
-		numSlots = int(iatSlotCount)
-	}
+	numSlots := int(iatSlotCount)
 
 	funcNames := [iatSlotCount]string{
 		"GetStdHandle",
@@ -91,7 +67,6 @@ func PreparePERData(textLen int, rodata []byte, withHostBridge bool) *PEImageLay
 		"ExitProcess",
 		"LoadLibraryA",
 		"GetProcAddress",
-		"_joss_host_bridge", // slot 7
 	}
 
 	var hintNameRVAs [iatSlotCount]uint32
@@ -116,17 +91,11 @@ func PreparePERData(textLen int, rodata []byte, withHostBridge bool) *PEImageLay
 	var iatRVAs [iatSlotCount]uint32
 
 	// 1. IAT
-	for i := 0; i < 7; i++ {
+	for i := 0; i < numSlots; i++ {
 		iatRVAs[i] = rdataRVA + iatOffset + uint32(i*8)
 		_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[i]))
 	}
 	_ = binary.Write(&rdata, binary.LittleEndian, uint64(0)) // Null terminator for KERNEL32
-
-	if withHostBridge {
-		iatRVAs[7] = rdataRVA + iatOffset + 64
-		_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[7]))
-		_ = binary.Write(&rdata, binary.LittleEndian, uint64(0)) // Null terminator for joss_host.dll
-	}
 
 	// 2. Import Directory Table
 	// Entry 0: KERNEL32.dll
@@ -136,28 +105,14 @@ func PreparePERData(textLen int, rodata []byte, withHostBridge bool) *PEImageLay
 	_ = binary.Write(&rdata, binary.LittleEndian, dll1NameRVA)        // Name RVA
 	_ = binary.Write(&rdata, binary.LittleEndian, rdataRVA+iatOffset) // FirstThunk (IAT RVA)
 
-	if withHostBridge {
-		// Entry 1: joss_host.dll
-		_ = binary.Write(&rdata, binary.LittleEndian, rdataRVA+iltOffset+64) // OriginalFirstThunk (ILT RVA)
-		_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))             // TimeDateStamp
-		_ = binary.Write(&rdata, binary.LittleEndian, uint32(0))             // ForwarderChain
-		_ = binary.Write(&rdata, binary.LittleEndian, dll2NameRVA)           // Name RVA
-		_ = binary.Write(&rdata, binary.LittleEndian, rdataRVA+iatOffset+64) // FirstThunk (IAT RVA)
-	}
-
 	// Null terminator IDT entry (20 bytes)
 	rdata.Write(make([]byte, 20))
 
 	// 3. ILT
-	for i := 0; i < 7; i++ {
+	for i := 0; i < numSlots; i++ {
 		_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[i]))
 	}
 	_ = binary.Write(&rdata, binary.LittleEndian, uint64(0))
-
-	if withHostBridge {
-		_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[7]))
-		_ = binary.Write(&rdata, binary.LittleEndian, uint64(0))
-	}
 
 	// 4. Strings + Hint/Name table
 	rdata.Write(tail.Bytes())
