@@ -31,6 +31,17 @@ Rotas, controladores, modelos, serviços, bibliotecas e middleware sob `app/` s�
 
 Da mesma forma, qualquer arquivo localizado no diretório raiz `stdlib/` (biblioteca padrão do Joss) é descoberto automaticamente pelo compilador e analisador semântico sem exigir instruções de importação manual.
 
+Por exemplo, as classes de utilidade matemática e manipulação de strings em `stdlib/` estão disponíveis diretamente:
+
+```joss
+<!-- joss-check: uso directo de la biblioteca estándar -->
+int $minimo = MathUtils::clamp(150, 0, 100);
+echo $minimo; // 100
+
+string $codigo = StringUtils::padZero(42, 5);
+echo $codigo; // "00042"
+```
+
 ## Interface de funções externas (C FFI)
 
 Para interagir com bibliotecas dinâmicas nativas (`.dll`, `.so`, `.dylib`), o Joss fornece a sintaxe de bloco `extern`:

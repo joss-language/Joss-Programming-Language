@@ -31,6 +31,17 @@ Routes, controllers, models, services, libraries, and middleware under `app/` ar
 
 Likewise, any file located under the root `stdlib/` directory (Joss Standard Library) is automatically discovered by the compiler and semantic analyzer without requiring manual import statements.
 
+For example, math and string utility classes in `stdlib/` are directly available:
+
+```joss
+<!-- joss-check: uso directo de la biblioteca estándar -->
+int $minimo = MathUtils::clamp(150, 0, 100);
+echo $minimo; // 100
+
+string $codigo = StringUtils::padZero(42, 5);
+echo $codigo; // "00042"
+```
+
 ## Foreign Function Interface (C FFI)
 
 To interact with native dynamic libraries (`.dll`, `.so`, `.dylib`), Joss provides the `extern` block syntax:
