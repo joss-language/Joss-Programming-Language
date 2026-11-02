@@ -615,6 +615,23 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		os.Exit(1)
 	}
 
+	// Host Bridge selectivo: solo los proyectos que necesitan una base de datos
+	// real enlazan el runner con drivers y sellan assets + env.enc en el mismo .exe.
+	// Los proyectos sin DB permanecen como binario nativo puro.
+	if strings.TrimSpace(core.DetectAndLoadEnv(nil).EnvMap["DB"]) != "" {
+		_, hasRoutes := os.Stat("routes.joss")
+		_, hasApi := os.Stat("api.joss")
+		_, hasApp := os.Stat("app")
+		if hasRoutes == nil || hasApi == nil || hasApp == nil {
+			if newSize, sealErr := appendSealedAssetsToExecutable(outExe, enableGUI, target); sealErr != nil {
+				fmt.Printf("⚠️  Advertencia: No se pudieron sellar los assets en el ejecutable: %v\n", sealErr)
+			} else if newSize > 0 {
+				res.ExecutableSize = newSize
+				fmt.Println("🔒 Assets, vistas, rutas y entorno (env.enc AES-256) sellados dentro del ejecutable.")
+			}
+		}
+	}
+
 	sizeKB := float64(res.ExecutableSize) / 1024.0
 	fmt.Printf("✓ Ejecutable nativo real generado con éxito: %s (%.1f KB) [backend: %s, target: %s]\n", outExe, sizeKB, res.BackendUsed, res.Target.DashString())
 	if trace {

@@ -108,8 +108,6 @@ func loadEmbeddedVFS() *vfs.MemFS {
 }
 
 func ExecuteHostBridge(methodName string) {
-	fmt.Printf("[HostBridge ABI] Llamada nativa recibida para: %s\n", methodName)
-
 	memFS := loadEmbeddedVFS()
 
 	if methodName == "Server::start" || strings.HasSuffix(methodName, "Server_start") {

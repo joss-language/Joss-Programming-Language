@@ -639,21 +639,17 @@ func appendSealedAssetsToExecutable(outExe string, enableGUI bool, target native
 	}
 
 	outDir := filepath.Dir(outExe)
-	if outDir != "" && outDir != "." {
-		_ = os.MkdirAll(filepath.Join(outDir, "Storage"), 0755)
-		copyDatabaseFiles(outDir)
-	}
-
-	if target.OS == "windows" {
+	if _, err := os.Stat(sqliteDbFile); err == nil {
 		if outDir != "" && outDir != "." {
-			optimizeHostBridgeDLL(outDir, detectedCaps)
-		}
-	} else {
-		if err := compileRunnerBinary(outExe, target, detectedCaps); err != nil {
-			return 0, err
+			_ = os.MkdirAll(filepath.Join(outDir, "Storage"), 0755)
+			copyDatabaseFiles(outDir)
 		}
 	}
 
+	_ = os.Remove(outExe)
+	if err := compileRunnerBinary(outExe, target, detectedCaps); err != nil {
+		return 0, err
+	}
 	outFile, err := os.OpenFile(outExe, os.O_WRONLY|os.O_APPEND, 0755)
 	if err != nil {
 		return 0, err

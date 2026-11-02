@@ -1902,7 +1902,7 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 
 	b.defineLabel("fn_Server_start")
 	b.emitProlog(16)
-	b.emitLoadStringAddr(regX0, "🚀 [Joss Native Server AArch64] Escuchando en http://localhost:8000 (Ctrl+C para detener)")
+	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:8000 (Ctrl+C para detener)")
 	b.emitCall("joss_print_string")
 	b.emitLoadImm64(regX0, 0)
 	b.emitEpilog(16)

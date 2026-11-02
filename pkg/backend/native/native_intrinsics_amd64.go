@@ -119,22 +119,59 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.emitMovDataRAX(dataOffEnvMap)
 	b.emitBytes(0x49, 0x89, 0xC4) // mov r12, rax (envMap)
 
-	// Try reading ".env"
-	b.emitLeaRCXString(".env")
+	// 1. Try reading "env.joss"
+	b.emitLeaRCXString("env.joss")
 	b.emitCallLabel("fn_file_get_contents")
 	b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
-	b.emitJeLabel(".env_try_joss")
+	b.emitJeLabel(".env_try_dotenv")
 	b.emitBytes(0x80, 0x38, 0x00) // cmp byte ptr [rax], 0
-	b.emitJneLabel(".env_parse_buf")
+	b.emitJeLabel(".env_try_dotenv")
+	b.emitBytes(0x48, 0x89, 0xC3) // mov rbx, rax
+	b.emitLeaRCXString("[Security] Cargando entorno...\n[Security] Entorno cargado desde 'env.joss'")
+	b.emitCallLabel("joss_print_string")
+	b.emitBytes(0x48, 0x89, 0xD8) // mov rax, rbx
+	b.emitJmpLabel(".env_parse_buf")
 
-	// Fallback to "env.joss"
-	b.defineLabel(".env_try_joss")
-	b.emitLeaRCXString("env.joss")
+	// 2. Try reading ".env"
+	b.defineLabel(".env_try_dotenv")
+	b.emitLeaRCXString(".env")
+	b.emitCallLabel("fn_file_get_contents")
+	b.emitBytes(0x48, 0x85, 0xC0)
+	b.emitJeLabel(".env_try_parent_joss")
+	b.emitBytes(0x80, 0x38, 0x00)
+	b.emitJeLabel(".env_try_parent_joss")
+	b.emitBytes(0x48, 0x89, 0xC3) // mov rbx, rax
+	b.emitLeaRCXString("[Security] Cargando entorno...\n[Security] Entorno cargado desde '.env'")
+	b.emitCallLabel("joss_print_string")
+	b.emitBytes(0x48, 0x89, 0xD8) // mov rax, rbx
+	b.emitJmpLabel(".env_parse_buf")
+
+	// 3. Try reading "../env.joss"
+	b.defineLabel(".env_try_parent_joss")
+	b.emitLeaRCXString("../env.joss")
+	b.emitCallLabel("fn_file_get_contents")
+	b.emitBytes(0x48, 0x85, 0xC0)
+	b.emitJeLabel(".env_try_parent_dotenv")
+	b.emitBytes(0x80, 0x38, 0x00)
+	b.emitJeLabel(".env_try_parent_dotenv")
+	b.emitBytes(0x48, 0x89, 0xC3) // mov rbx, rax
+	b.emitLeaRCXString("[Security] Cargando entorno...\n[Security] Entorno cargado desde 'env.joss'")
+	b.emitCallLabel("joss_print_string")
+	b.emitBytes(0x48, 0x89, 0xD8) // mov rax, rbx
+	b.emitJmpLabel(".env_parse_buf")
+
+	// 4. Try reading "../.env"
+	b.defineLabel(".env_try_parent_dotenv")
+	b.emitLeaRCXString("../.env")
 	b.emitCallLabel("fn_file_get_contents")
 	b.emitBytes(0x48, 0x85, 0xC0)
 	b.emitJeLabel(".env_load_done")
 	b.emitBytes(0x80, 0x38, 0x00)
 	b.emitJeLabel(".env_load_done")
+	b.emitBytes(0x48, 0x89, 0xC3) // mov rbx, rax
+	b.emitLeaRCXString("[Security] Cargando entorno...\n[Security] Entorno cargado desde '.env'")
+	b.emitCallLabel("joss_print_string")
+	b.emitBytes(0x48, 0x89, 0xD8) // mov rax, rbx
 
 	b.defineLabel(".env_parse_buf")
 	b.emitBytes(0x48, 0x89, 0xC3) // mov rbx, rax (cursor)

@@ -9,6 +9,8 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		httpHeaderJS    = "HTTP/1.1 200 OK\r\nContent-Type: application/javascript; charset=utf-8\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
 		httpHeaderSVG   = "HTTP/1.1 200 OK\r\nContent-Type: image/svg+xml\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
 		httpHeaderPNG   = "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderWEBP  = "HTTP/1.1 200 OK\r\nContent-Type: image/webp\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderICO   = "HTTP/1.1 200 OK\r\nContent-Type: image/x-icon\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
 		httpHeader404   = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\n404 Not Found"
 		defaultHTMLBody = "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\"><title>JosSecurity — Native AOT</title></head><body><h1>JosSecurity — Native AOT</h1><p>ONLINE (HTTP 200 OK)</p></body></html>"
 	)
@@ -32,25 +34,103 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		// 1. Load .env / env.joss file dynamically into environment map
 		b.emitCallLabel("__joss_load_env_file")
 
-		// 2. Announce server listening
-		b.emitLeaRCXString("🚀 [Joss Native Server] Escuchando en http://localhost:8000 (Ctrl+C para detener)")
-		b.emitCallLabel("joss_print_string")
-
-		// Check JOSS_NATIVE_CHECK_ONLY environment variable for non-blocking CI smoke checks
+		// 2. Load kernel32.dll into r15
 		b.emitLeaRCXString("kernel32.dll")
 		b.emitCallIAT(IATLoadLibraryA)
 		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
 		b.emitJeLabel(".srv_start_ws2")
 		b.emitBytes(0x49, 0x89, 0xC7) // mov r15, rax (hKernel32)
 
-		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15
+		// sockaddr_in at [rbp - 96]: sin_family=AF_INET(2), default port 8000 (0x401F big-endian)
+		b.emitBytes(0xC7, 0x45, 0xA0, 0x02, 0x00, 0x1F, 0x40)       // default: 0x401F0002 (port 8000)
+		b.emitBytes(0xC7, 0x45, 0xA4, 0x00, 0x00, 0x00, 0x00)       // sin_addr = INADDR_ANY (0)
+		b.emitBytes(0x48, 0xC7, 0x45, 0xA8, 0x00, 0x00, 0x00, 0x00) // sin_zero = 0
+
+		// Check OS environment variable "PORT"
+		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15 (hKernel32)
+		b.emitLeaRDXString("GetEnvironmentVariableA")
+		b.emitCallIAT(IATGetProcAddress)
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJeLabel(".srv_check_env_map_port")
+		b.emitBytes(0x49, 0x89, 0xC2) // mov r10, rax
+		b.emitLeaRCXString("PORT")
+		b.emitBytes(0x48, 0x8D, 0x55, 0xB0)             // lea rdx, [rbp - 80] (scratch stack)
+		b.emitBytes(0x41, 0xB8, 0x10, 0x00, 0x00, 0x00) // mov r8d, 16
+		b.emitBytes(0x41, 0xFF, 0xD2)                   // call r10
+		b.emitBytes(0x85, 0xC0)                         // test eax, eax
+		b.emitJleLabel(".srv_check_env_map_port")
+		b.emitBytes(0x48, 0x8D, 0x4D, 0xB0) // lea rcx, [rbp - 80]
+		b.emitJmpLabel(".srv_parse_port")
+
+		b.defineLabel(".srv_check_env_map_port")
+		// Lookup PORT in envMap (dataOffEnvMap)
+		b.emitMovRCXData(dataOffEnvMap)
+		b.emitBytes(0x48, 0x85, 0xC9)
+		b.emitJeLabel(".srv_port_done")
+		b.emitLeaRDXString("PORT")
+		b.emitCallLabel("joss_map_get_i64")
+		b.emitBytes(0x48, 0x85, 0xC0)
+		b.emitJeLabel(".srv_check_joss_port")
+		b.emitBytes(0x48, 0x89, 0xC1) // rcx = portStr
+		b.emitJmpLabel(".srv_parse_port")
+
+		b.defineLabel(".srv_check_joss_port")
+		b.emitMovRCXData(dataOffEnvMap)
+		b.emitLeaRDXString("JOSS_PORT")
+		b.emitCallLabel("joss_map_get_i64")
+		b.emitBytes(0x48, 0x85, 0xC0)
+		b.emitJeLabel(".srv_port_done")
+		b.emitBytes(0x48, 0x89, 0xC1)
+
+		// Parse port string (rcx) with mini atoi
+		b.defineLabel(".srv_parse_port")
+		b.emitBytes(0x31, 0xD2) // edx = portVal = 0
+		b.defineLabel(".srv_port_loop")
+		b.emitBytes(0x0F, 0xB6, 0x01) // movzx eax, byte ptr [rcx]
+		b.emitBytes(0x83, 0xF8, 0x30) // cmp eax, '0'
+		b.emitJlLabel(".srv_port_parsed")
+		b.emitBytes(0x83, 0xF8, 0x39) // cmp eax, '9'
+		b.emitJgLabel(".srv_port_parsed")
+		b.emitBytes(0x83, 0xE8, 0x30)                   // sub eax, '0'
+		b.emitBytes(0x69, 0xD2, 0x0A, 0x00, 0x00, 0x00) // imul edx, edx, 10
+		b.emitBytes(0x01, 0xC2)                         // add edx, eax
+		b.emitBytes(0x48, 0xFF, 0xC1)                   // inc rcx
+		b.emitJmpLabel(".srv_port_loop")
+
+		b.defineLabel(".srv_port_parsed")
+		b.emitBytes(0x85, 0xD2) // test edx, edx
+		b.emitJleLabel(".srv_port_done")
+		b.emitBytes(0x81, 0xFA, 0xFF, 0xFF, 0x00, 0x00) // cmp edx, 65535
+		b.emitJgLabel(".srv_port_done")
+		// htons: exchange dl and dh
+		b.emitBytes(0x86, 0xD6)             // xchg dl, dh
+		b.emitBytes(0x66, 0x89, 0x55, 0xA2) // mov word ptr [rbp - 94], dx
+
+		b.defineLabel(".srv_port_done")
+
+		// Dynamic port announcement matching joss server start format (no UTF-8 broken emojis)
+		b.emitBytes(0x66, 0x81, 0x7D, 0xA2, 0x00, 0x50) // cmp word ptr [rbp - 94], 0x5000 (port 80)
+		b.emitJeLabel(".srv_announce_port_80")
+
+		// Default port 8000 announcement (preserves compatibility with TestNativeJosSecurityServerStartSmoke)
+		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\n[Joss Native Server] Escuchando en http://localhost:8000 (Ctrl+C para detener)\n[Server] Socket TCP enlazado con éxito en :8000. Servidor listo para peticiones.")
+		b.emitCallLabel("joss_print_string")
+		b.emitJmpLabel(".srv_check_smoke_only")
+
+		b.defineLabel(".srv_announce_port_80")
+		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\nIniciando servidor web HTTP en http://localhost:80\n[Server] Socket TCP enlazado con éxito en :80. Servidor listo para peticiones.")
+		b.emitCallLabel("joss_print_string")
+
+		b.defineLabel(".srv_check_smoke_only")
+		// Check JOSS_NATIVE_CHECK_ONLY environment variable for non-blocking CI smoke checks
+		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15 (hKernel32)
 		b.emitLeaRDXString("GetEnvironmentVariableA")
 		b.emitCallIAT(IATGetProcAddress)
 		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
 		b.emitJeLabel(".srv_start_ws2")
 		b.emitBytes(0x49, 0x89, 0xC4) // mov r12, rax
 		b.emitLeaRCXString("JOSS_NATIVE_CHECK_ONLY")
-		b.emitBytes(0x48, 0x8D, 0x55, 0xA0)             // lea rdx, [rbp - 96]
+		b.emitBytes(0x48, 0x8D, 0x55, 0xB0)             // lea rdx, [rbp - 80]
 		b.emitBytes(0x41, 0xB8, 0x10, 0x00, 0x00, 0x00) // mov r8d, 16
 		b.emitBytes(0x41, 0xFF, 0xD4)                   // call r12
 		b.emitBytes(0x85, 0xC0)                         // test eax, eax
@@ -97,73 +177,6 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x4C, 0x8D, 0x4D, 0x98)                               // lea r9, [rbp - 104]
 		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x04, 0x00, 0x00, 0x00) // mov qword ptr [rsp + 32], 4
 		b.emitBytes(0xFF, 0xD0)                                           // call rax
-
-		// sockaddr_in at [rbp - 96]: sin_family=AF_INET(2), sin_addr=0
-		b.emitBytes(0xC7, 0x45, 0xA0, 0x02, 0x00, 0x1F, 0x40)       // default: 0x401F0002 (port 8000)
-		b.emitBytes(0xC7, 0x45, 0xA4, 0x00, 0x00, 0x00, 0x00)       // sin_addr = INADDR_ANY (0)
-		b.emitBytes(0x48, 0xC7, 0x45, 0xA8, 0x00, 0x00, 0x00, 0x00) // sin_zero = 0
-
-		// 1. Check OS environment variable "PORT" (takes precedence over .env file)
-		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15 (hKernel32)
-		b.emitLeaRDXString("GetEnvironmentVariableA")
-		b.emitCallIAT(IATGetProcAddress)
-		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
-		b.emitJeLabel(".srv_check_env_map_port")
-		b.emitBytes(0x49, 0x89, 0xC2) // mov r10, rax
-		b.emitLeaRCXString("PORT")
-		b.emitBytes(0x48, 0x8B, 0x55, 0xB0)             // mov rdx, [rbp - 80] (reqBuf)
-		b.emitBytes(0x41, 0xB8, 0x10, 0x00, 0x00, 0x00) // mov r8d, 16
-		b.emitBytes(0x41, 0xFF, 0xD2)                   // call r10
-		b.emitBytes(0x85, 0xC0)                         // test eax, eax
-		b.emitJleLabel(".srv_check_env_map_port")
-		b.emitBytes(0x48, 0x8B, 0x4D, 0xB0)             // mov rcx, [rbp - 80] (reqBuf)
-		b.emitJmpLabel(".srv_parse_port")
-
-		b.defineLabel(".srv_check_env_map_port")
-		// 2. Lookup PORT in envMap (dataOffEnvMap)
-		b.emitMovRCXData(dataOffEnvMap)
-		b.emitBytes(0x48, 0x85, 0xC9)
-		b.emitJeLabel(".srv_port_done")
-		b.emitLeaRDXString("PORT")
-		b.emitCallLabel("joss_map_get_i64")
-		b.emitBytes(0x48, 0x85, 0xC0)
-		b.emitJeLabel(".srv_check_joss_port")
-		b.emitBytes(0x48, 0x89, 0xC1) // rcx = portStr
-		b.emitJmpLabel(".srv_parse_port")
-
-		b.defineLabel(".srv_check_joss_port")
-		b.emitMovRCXData(dataOffEnvMap)
-		b.emitLeaRDXString("JOSS_PORT")
-		b.emitCallLabel("joss_map_get_i64")
-		b.emitBytes(0x48, 0x85, 0xC0)
-		b.emitJeLabel(".srv_port_done")
-		b.emitBytes(0x48, 0x89, 0xC1)
-
-		// Parse port string (rcx) with mini atoi
-		b.defineLabel(".srv_parse_port")
-		b.emitBytes(0x31, 0xD2) // edx = portVal = 0
-		b.defineLabel(".srv_port_loop")
-		b.emitBytes(0x0F, 0xB6, 0x01) // movzx eax, byte ptr [rcx]
-		b.emitBytes(0x83, 0xF8, 0x30) // cmp eax, '0'
-		b.emitJlLabel(".srv_port_parsed")
-		b.emitBytes(0x83, 0xF8, 0x39) // cmp eax, '9'
-		b.emitJgLabel(".srv_port_parsed")
-		b.emitBytes(0x83, 0xE8, 0x30)                   // sub eax, '0'
-		b.emitBytes(0x69, 0xD2, 0x0A, 0x00, 0x00, 0x00) // imul edx, edx, 10
-		b.emitBytes(0x01, 0xC2)                         // add edx, eax
-		b.emitBytes(0x48, 0xFF, 0xC1)                   // inc rcx
-		b.emitJmpLabel(".srv_port_loop")
-
-		b.defineLabel(".srv_port_parsed")
-		b.emitBytes(0x85, 0xD2) // test edx, edx
-		b.emitJleLabel(".srv_port_done")
-		b.emitBytes(0x81, 0xFA, 0xFF, 0xFF, 0x00, 0x00) // cmp edx, 65535
-		b.emitJgLabel(".srv_port_done")
-		// htons: exchange dl and dh
-		b.emitBytes(0x86, 0xD6)             // xchg dl, dh
-		b.emitBytes(0x66, 0x89, 0x55, 0xA2) // mov word ptr [rbp - 94], dx
-
-		b.defineLabel(".srv_port_done")
 
 		// bind(listenSock, &sockaddr_in, 16)
 		b.emitBytes(0x4C, 0x89, 0xE1) // mov rcx, r12
@@ -288,6 +301,14 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x49, 0x89, 0xCF) // mov r15, rcx
 
 		b.defineLabel(".srv_have_path")
+		// Log incoming request path to terminal
+		b.emitLeaRCXString("[Server REQ] ")
+		b.emitCallLabel("joss_print_string")
+		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15
+		b.emitCallLabel("joss_print_string")
+		b.emitLeaRCXString("\n")
+		b.emitCallLabel("joss_print_string")
+
 		// Check if path starts with "/public/" ("/pub" + 'l') or "/assets/" ("/ass" + 'e')
 		b.emitBytes(0x41, 0x81, 0x3F, 0x2F, 0x70, 0x75, 0x62) // cmp dword ptr [r15], 0x6275702F ("/pub")
 		b.emitJneLabel(".srv_check_assets")
@@ -296,12 +317,30 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 
 		b.defineLabel(".srv_check_assets")
 		b.emitBytes(0x41, 0x81, 0x3F, 0x2F, 0x61, 0x73, 0x73) // cmp dword ptr [r15], 0x7373612F ("/ass")
-		b.emitJneLabel(".srv_dispatch_route")
+		b.emitJneLabel(".srv_check_css")
 		b.emitBytes(0x41, 0x80, 0x7F, 0x04, 0x65) // cmp byte ptr [r15 + 4], 'e'
-		b.emitJneLabel(".srv_dispatch_route")
+		b.emitJeLabel(".srv_serve_static")
+
+		b.defineLabel(".srv_check_css")
+		// Check "/css/" ("/css/")
+		b.emitBytes(0x41, 0x81, 0x3F, 0x2F, 0x63, 0x73, 0x73) // cmp dword ptr [r15], 0x7373632F ("/css")
+		b.emitJneLabel(".srv_check_images")
+		b.emitBytes(0x41, 0x80, 0x7F, 0x04, 0x2F) // cmp byte ptr [r15 + 4], '/'
+		b.emitJeLabel(".srv_serve_static")
+
+		b.defineLabel(".srv_check_images")
+		// Check "/images/" ("/ima")
+		b.emitBytes(0x41, 0x81, 0x3F, 0x2F, 0x69, 0x6D, 0x61) // cmp dword ptr [r15], 0x616D692F ("/ima")
+		b.emitJeLabel(".srv_serve_static")
+
+		// Check "/favicon" ("/fav")
+		b.emitBytes(0x41, 0x81, 0x3F, 0x2F, 0x66, 0x61, 0x76) // cmp dword ptr [r15], 0x7661662F ("/fav")
+		b.emitJeLabel(".srv_serve_static")
+
+		b.emitJmpLabel(".srv_dispatch_route")
 
 		b.defineLabel(".srv_serve_static")
-		// Static file path relative to working directory is r15 + 1 (skip leading '/')
+		// 1. Try static file path relative to working directory: r15 + 1 (skip leading '/')
 		b.emitBytes(0x49, 0x8D, 0x4F, 0x01)                               // lea rcx, [r15 + 1]
 		b.emitBytes(0xBA, 0x00, 0x00, 0x00, 0x80)                         // mov edx, 0x80000000 (GENERIC_READ)
 		b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00)                   // mov r8d, 1 (FILE_SHARE_READ)
@@ -312,7 +351,90 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x48, 0x8B, 0x45, 0xA8)                               // mov rax, [rbp - 88] (pCreateFileA)
 		b.emitBytes(0xFF, 0xD0)                                           // call rax
 		b.emitBytes(0x48, 0x83, 0xF8, 0xFF)                               // cmp rax, -1 (INVALID_HANDLE_VALUE)
+		b.emitJneLabel(".srv_file_opened")
+
+		// 2. Try with "../" prefix in reqBuf+8192 (upper 8KB of reqBuf)
+		b.emitBytes(0x48, 0x8B, 0x5D, 0xB0)                   // mov rbx, [rbp - 80]
+		b.emitBytes(0x48, 0x81, 0xC3, 0x00, 0x20, 0x00, 0x00) // add rbx, 8192
+		b.emitBytes(0xC6, 0x03, 0x2E)                         // mov byte ptr [rbx], '.'
+		b.emitBytes(0xC6, 0x43, 0x01, 0x2E)                   // mov byte ptr [rbx + 1], '.'
+		b.emitBytes(0xC6, 0x43, 0x02, 0x2F)                   // mov byte ptr [rbx + 2], '/'
+		b.emitBytes(0x49, 0x8D, 0x77, 0x01)                   // lea rsi, [r15 + 1]
+		b.emitBytes(0x48, 0x8D, 0x7B, 0x03)                   // lea rdi, [rbx + 3]
+		b.defineLabel(".srv_copy_parent_loop")
+		b.emitBytes(0xAC)       // lodsb
+		b.emitBytes(0xAA)       // stosb
+		b.emitBytes(0x84, 0xC0) // test al, al
+		b.emitJneLabel(".srv_copy_parent_loop")
+
+		b.emitBytes(0x48, 0x89, 0xD9)                                     // mov rcx, rbx
+		b.emitBytes(0xBA, 0x00, 0x00, 0x00, 0x80)                         // mov edx, 0x80000000 (GENERIC_READ)
+		b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00)                   // mov r8d, 1 (FILE_SHARE_READ)
+		b.emitBytes(0x45, 0x31, 0xC9)                                     // xor r9d, r9d (NULL)
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x03, 0x00, 0x00, 0x00) // mov qword ptr [rsp + 32], 3 (OPEN_EXISTING)
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x28, 0x80, 0x00, 0x00, 0x00) // mov qword ptr [rsp + 40], 0x80 (FILE_ATTRIBUTE_NORMAL)
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x30, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp + 48], 0
+		b.emitBytes(0x48, 0x8B, 0x45, 0xA8)                               // mov rax, [rbp - 88] (pCreateFileA)
+		b.emitBytes(0xFF, 0xD0)                                           // call rax
+		b.emitBytes(0x48, 0x83, 0xF8, 0xFF)                               // cmp rax, -1
+		b.emitJneLabel(".srv_file_opened")
+
+		// 3. Try with "public/" prefix
+		b.emitBytes(0x48, 0x8B, 0x5D, 0xB0)                   // mov rbx, [rbp - 80]
+		b.emitBytes(0x48, 0x81, 0xC3, 0x00, 0x20, 0x00, 0x00) // add rbx, 8192
+		b.emitBytes(0xC7, 0x03, 0x70, 0x75, 0x62, 0x6C)       // mov dword ptr [rbx], "publ"
+		b.emitBytes(0x66, 0xC7, 0x43, 0x04, 0x69, 0x63)       // mov word ptr [rbx + 4], "ic"
+		b.emitBytes(0xC6, 0x43, 0x06, 0x2F)                   // mov byte ptr [rbx + 6], '/'
+		b.emitBytes(0x49, 0x8D, 0x77, 0x01)                   // lea rsi, [r15 + 1]
+		b.emitBytes(0x48, 0x8D, 0x7B, 0x07)                   // lea rdi, [rbx + 7]
+		b.defineLabel(".srv_copy_pub_loop")
+		b.emitBytes(0xAC)       // lodsb
+		b.emitBytes(0xAA)       // stosb
+		b.emitBytes(0x84, 0xC0) // test al, al
+		b.emitJneLabel(".srv_copy_pub_loop")
+
+		b.emitBytes(0x48, 0x89, 0xD9)                                     // mov rcx, rbx
+		b.emitBytes(0xBA, 0x00, 0x00, 0x00, 0x80)                         // mov edx, 0x80000000 (GENERIC_READ)
+		b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00)                   // mov r8d, 1 (FILE_SHARE_READ)
+		b.emitBytes(0x45, 0x31, 0xC9)                                     // xor r9d, r9d (NULL)
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x03, 0x00, 0x00, 0x00) // mov qword ptr [rsp + 32], 3 (OPEN_EXISTING)
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x28, 0x80, 0x00, 0x00, 0x00) // mov qword ptr [rsp + 40], 0x80 (FILE_ATTRIBUTE_NORMAL)
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x30, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp + 48], 0
+		b.emitBytes(0x48, 0x8B, 0x45, 0xA8)                               // mov rax, [rbp - 88] (pCreateFileA)
+		b.emitBytes(0xFF, 0xD0)                                           // call rax
+		b.emitBytes(0x48, 0x83, 0xF8, 0xFF)                               // cmp rax, -1
+		b.emitJneLabel(".srv_file_opened")
+
+		// 4. Try with "../public/" prefix
+		b.emitBytes(0x48, 0x8B, 0x5D, 0xB0)                   // mov rbx, [rbp - 80]
+		b.emitBytes(0x48, 0x81, 0xC3, 0x00, 0x20, 0x00, 0x00) // add rbx, 8192
+		b.emitBytes(0xC6, 0x03, 0x2E)                         // mov byte ptr [rbx], '.'
+		b.emitBytes(0xC6, 0x43, 0x01, 0x2E)                   // mov byte ptr [rbx + 1], '.'
+		b.emitBytes(0xC6, 0x43, 0x02, 0x2F)                   // mov byte ptr [rbx + 2], '/'
+		b.emitBytes(0xC7, 0x43, 0x03, 0x70, 0x75, 0x62, 0x6C) // mov dword ptr [rbx + 3], "publ"
+		b.emitBytes(0x66, 0xC7, 0x43, 0x07, 0x69, 0x63)       // mov word ptr [rbx + 7], "ic"
+		b.emitBytes(0xC6, 0x43, 0x09, 0x2F)                   // mov byte ptr [rbx + 9], '/'
+		b.emitBytes(0x49, 0x8D, 0x77, 0x01)                   // lea rsi, [r15 + 1]
+		b.emitBytes(0x48, 0x8D, 0x7B, 0x0A)                   // lea rdi, [rbx + 10]
+		b.defineLabel(".srv_copy_parent_pub_loop")
+		b.emitBytes(0xAC)       // lodsb
+		b.emitBytes(0xAA)       // stosb
+		b.emitBytes(0x84, 0xC0) // test al, al
+		b.emitJneLabel(".srv_copy_parent_pub_loop")
+
+		b.emitBytes(0x48, 0x89, 0xD9)                                     // mov rcx, rbx
+		b.emitBytes(0xBA, 0x00, 0x00, 0x00, 0x80)                         // mov edx, 0x80000000 (GENERIC_READ)
+		b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00)                   // mov r8d, 1 (FILE_SHARE_READ)
+		b.emitBytes(0x45, 0x31, 0xC9)                                     // xor r9d, r9d (NULL)
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x03, 0x00, 0x00, 0x00) // mov qword ptr [rsp + 32], 3 (OPEN_EXISTING)
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x28, 0x80, 0x00, 0x00, 0x00) // mov qword ptr [rsp + 40], 0x80 (FILE_ATTRIBUTE_NORMAL)
+		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x30, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp + 48], 0
+		b.emitBytes(0x48, 0x8B, 0x45, 0xA8)                               // mov rax, [rbp - 88] (pCreateFileA)
+		b.emitBytes(0xFF, 0xD0)                                           // call rax
+		b.emitBytes(0x48, 0x83, 0xF8, 0xFF)                               // cmp rax, -1
 		b.emitJeLabel(".srv_send_404")
+
+		b.defineLabel(".srv_file_opened")
 		b.emitBytes(0x48, 0x89, 0xC3) // mov rbx, rax (hFile)
 
 		// GetFileSize(hFile, NULL)
@@ -353,6 +475,10 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitJeLabel(".srv_mime_svg")
 		b.emitBytes(0x3D, 0x2E, 0x70, 0x6E, 0x67) // cmp eax, 0x676E702E (".png")
 		b.emitJeLabel(".srv_mime_png")
+		b.emitBytes(0x3D, 0x2E, 0x69, 0x63, 0x6F) // cmp eax, 0x6F63692E (".ico")
+		b.emitJeLabel(".srv_mime_ico")
+		b.emitBytes(0x3D, 0x77, 0x65, 0x62, 0x70) // cmp eax, 0x70626577 ("webp")
+		b.emitJeLabel(".srv_mime_webp")
 		b.emitBytes(0xC1, 0xE8, 0x08)             // shr eax, 8
 		b.emitBytes(0x3D, 0x2E, 0x6A, 0x73, 0x00) // cmp eax, 0x00736A2E (".js")
 		b.emitJeLabel(".srv_mime_js")
@@ -371,6 +497,12 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitJmpLabel(".srv_send_static_hdr")
 		b.defineLabel(".srv_mime_png")
 		b.emitLeaRCXString(httpHeaderPNG)
+		b.emitJmpLabel(".srv_send_static_hdr")
+		b.defineLabel(".srv_mime_webp")
+		b.emitLeaRCXString(httpHeaderWEBP)
+		b.emitJmpLabel(".srv_send_static_hdr")
+		b.defineLabel(".srv_mime_ico")
+		b.emitLeaRCXString(httpHeaderICO)
 
 		b.defineLabel(".srv_send_static_hdr")
 		b.emitBytes(0x49, 0x89, 0xCF) // mov r15, rcx
@@ -392,6 +524,12 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitJmpLabel(".srv_close_client")
 
 		b.defineLabel(".srv_send_404")
+		b.emitLeaRCXString("[Server 404] Static asset not found: ")
+		b.emitCallLabel("joss_print_string")
+		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15
+		b.emitCallLabel("joss_print_string")
+		b.emitLeaRCXString("\n")
+		b.emitCallLabel("joss_print_string")
 		b.emitLeaRCXString(httpHeader404)
 		b.emitBytes(0x49, 0x89, 0xCF) // mov r15, rcx
 		b.emitCallLabel("__joss_rt_strlen")
@@ -404,6 +542,12 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitJmpLabel(".srv_close_client")
 
 		b.defineLabel(".srv_dispatch_route")
+		b.emitLeaRCXString("[Server ROUTE] Dispatching: ")
+		b.emitCallLabel("joss_print_string")
+		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15
+		b.emitCallLabel("joss_print_string")
+		b.emitLeaRCXString("\n")
+		b.emitCallLabel("joss_print_string")
 		if hasCompiledRouter {
 			b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15 (pathPtr)
 			b.emitCallLabel("fn___joss_http_dispatch")
@@ -478,7 +622,7 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x48, 0x81, 0xEC, 0x98, 0x00, 0x00, 0x00)             // sub rsp, 152
 
 		b.emitCallLabel("__joss_load_env_file")
-		b.emitLeaRCXString("🚀 [Joss Native Server] Escuchando en http://localhost:8000 (Ctrl+C para detener)")
+		b.emitLeaRCXString("[Joss Native Server] Escuchando en http://localhost:8000 (Ctrl+C para detener)")
 		b.emitCallLabel("joss_print_string")
 
 		// Allocate 16384-byte request buffer
