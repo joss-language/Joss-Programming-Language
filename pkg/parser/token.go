@@ -118,6 +118,7 @@ const (
 	YIELD      = "YIELD"
 	AWAIT      = "AWAIT"
 	RECORD     = "RECORD"
+	EXTERN     = "EXTERN"
 
 	// Modifiers & Visibility
 	PUBLIC    = "PUBLIC"
@@ -172,6 +173,7 @@ var keywords = map[string]TokenType{
 	"async":      ASYNC,
 	"await":      AWAIT,
 	"record":     RECORD,
+	"extern":     EXTERN,
 	"defer":      DEFER,
 	"abstract":   ABSTRACT,
 	"enum":       ENUM,

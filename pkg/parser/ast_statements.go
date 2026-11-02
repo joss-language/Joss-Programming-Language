@@ -569,3 +569,29 @@ func (gs *GuardStatement) String() string {
 	}
 	return out.String()
 }
+
+// ExternLibraryStatement: extern "C" library "user32.dll" { ... }
+type ExternLibraryStatement struct {
+	Token       Token              // 'extern'
+	ABI         string             // "C"
+	LibraryPath string             // "user32.dll", "libm.so.6"
+	Functions   []*MethodStatement // Declaraciones de firmas de funciones externas
+}
+
+func (els *ExternLibraryStatement) statementNode()       {}
+func (els *ExternLibraryStatement) TokenLiteral() string { return els.Token.Literal }
+func (els *ExternLibraryStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("extern \"")
+	out.WriteString(els.ABI)
+	out.WriteString("\" library \"")
+	out.WriteString(els.LibraryPath)
+	out.WriteString("\" {\n")
+	for _, fn := range els.Functions {
+		out.WriteString("    ")
+		out.WriteString(fn.String())
+		out.WriteString("\n")
+	}
+	out.WriteString("}")
+	return out.String()
+}

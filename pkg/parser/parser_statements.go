@@ -226,6 +226,9 @@ func (p *Parser) parseStatement() Statement {
 	if p.curToken.Type == CONST {
 		return p.parseConstStatement()
 	}
+	if p.curToken.Type == EXTERN {
+		return p.parseExternLibraryStatement()
+	}
 	// Check for 'let' keyword variable declaration: let int $x = 10, let $x = 10, let ($a, $b) = val
 	if p.curToken.Type == LET || p.curToken.Literal == "let" {
 		if p.peekToken.Type == LPAREN {
@@ -1365,4 +1368,68 @@ func (p *Parser) parseDestructureStatement() *DestructureStatement {
 		Names: names,
 		Value: value,
 	}
+}
+
+// parseExternLibraryStatement parses: extern "C" library "libname.dll" { public func ...; }
+func (p *Parser) parseExternLibraryStatement() Statement {
+	tok := p.curToken // 'extern'
+
+	if !p.expectPeek(STRING) {
+		p.addError(p.curToken, "Se esperaba la especificación de ABI (ej: \"C\") tras 'extern'")
+		return nil
+	}
+	abi := p.curToken.Literal
+
+	// Expect identifier or keyword 'library'
+	p.nextToken()
+	if p.curToken.Literal != "library" {
+		p.addError(p.curToken, "Se esperaba 'library' tras la especificación de ABI en bloque 'extern'")
+		return nil
+	}
+
+	if !p.expectPeek(STRING) {
+		p.addError(p.curToken, "Se esperaba la ruta o nombre de la biblioteca dinámica (ej: \"user32.dll\") tras 'library'")
+		return nil
+	}
+	libPath := p.curToken.Literal
+
+	if !p.expectPeek(LBRACE) {
+		p.addError(p.curToken, "Se esperaba '{' para iniciar el cuerpo de declaraciones externas")
+		return nil
+	}
+
+	stmt := &ExternLibraryStatement{
+		Token:       tok,
+		ABI:         abi,
+		LibraryPath: libPath,
+		Functions:   make([]*MethodStatement, 0),
+	}
+
+	p.nextToken() // move inside LBRACE
+	for p.curToken.Type != RBRACE && p.curToken.Type != EOF {
+		if p.curToken.Type == NEWLINE || p.curToken.Type == SEMICOLON {
+			p.nextToken()
+			continue
+		}
+
+		// Inside extern library, methods are declared: public func Name(...): Type;
+		vis := "public"
+		if p.curToken.Type == PUBLIC || p.curToken.Type == PRIVATE {
+			vis = p.curToken.Literal
+			p.nextToken()
+		}
+
+		if p.curToken.Type == FUNCTION {
+			method := p.parseMethodStatement()
+			if method != nil {
+				method.Visibility = vis
+				stmt.Functions = append(stmt.Functions, method)
+			}
+		} else {
+			p.addError(p.curToken, fmt.Sprintf("Token inesperado '%s' dentro del bloque extern library; solo se permiten declaraciones de funciones", p.curToken.Literal))
+			p.nextToken()
+		}
+	}
+
+	return stmt
 }

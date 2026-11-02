@@ -20,6 +20,7 @@
     "empty",
     "enum",
     "extends",
+    "extern",
     "false",
     "foreach",
     "func",
