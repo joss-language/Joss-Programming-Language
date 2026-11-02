@@ -24,6 +24,7 @@ func compileSourceToIR(t *testing.T, source string) (*ir.Program, string) {
 	}
 
 	lowerer := ir.NewLowerer(prep, nil)
+	lowerer.OptLevel = 0
 	irProg, err := lowerer.LowerProgram("test_module")
 	if err != nil {
 		t.Fatalf("lowering failed: %v", err)

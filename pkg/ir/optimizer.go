@@ -22,14 +22,14 @@ func OptimizeProgram(prog *Program) {
 	}
 
 	// Pase 4: Eliminación de variables locales muertas (alloca/store sin loads)
-	// for _, fn := range prog.Functions {
-	// 	EliminateDeadAllocasAndStores(fn)
-	// }
+	for _, fn := range prog.Functions {
+		EliminateDeadAllocasAndStores(fn)
+	}
 
-	// Pase 5: Propagación de copias y eliminación de MoveInst redundantes
-	// for _, fn := range prog.Functions {
-	// 	PropagateCopies(fn)
-	// }
+	// Pase 5: Plegado y propagación de constantes (Constant Folding)
+	for _, fn := range prog.Functions {
+		FoldConstants(fn)
+	}
 }
 
 type inlineCandidate struct {
@@ -795,5 +795,113 @@ func remapTerminatorValues(term Terminator, valMap map[Value]Value) {
 		}
 	case *BranchTerminator:
 		t.Cond = remap(t.Cond)
+	}
+}
+
+// FoldConstants evalúa en tiempo de compilación operaciones aritméticas, lógicas y comparaciones
+// entre constantes literales inmediatas, sustituyéndolas por MoveInst de la constante calculada.
+func FoldConstants(fn *Function) {
+	for _, blk := range fn.Blocks {
+		newInsts := make([]Instruction, 0, len(blk.Instructions))
+		for _, inst := range blk.Instructions {
+			switch i := inst.(type) {
+			case *BinaryInst:
+				cLeft, okLeft := i.Left.(*ConstInt)
+				cRight, okRight := i.Right.(*ConstInt)
+				if okLeft && okRight && i.Dest != nil {
+					var res int64
+					valid := true
+					switch i.Op {
+					case OpAdd:
+						res = cLeft.Val + cRight.Val
+					case OpSub:
+						res = cLeft.Val - cRight.Val
+					case OpMul:
+						res = cLeft.Val * cRight.Val
+					case OpDiv:
+						if cRight.Val != 0 {
+							res = cLeft.Val / cRight.Val
+						} else {
+							valid = false
+						}
+					case OpMod:
+						if cRight.Val != 0 {
+							res = cLeft.Val % cRight.Val
+						} else {
+							valid = false
+						}
+					case OpAnd:
+						res = cLeft.Val & cRight.Val
+					case OpOr:
+						res = cLeft.Val | cRight.Val
+					case OpXor:
+						res = cLeft.Val ^ cRight.Val
+					case OpShl:
+						res = cLeft.Val << uint(cRight.Val)
+					case OpShr:
+						res = cLeft.Val >> uint(cRight.Val)
+					default:
+						valid = false
+					}
+					if valid {
+						newInsts = append(newInsts, &MoveInst{
+							Dest: i.Dest,
+							Src:  NewConstInt(res, i.Dest.Type()),
+						})
+						continue
+					}
+				}
+
+			case *CompareInst:
+				cLeft, okLeft := i.Left.(*ConstInt)
+				cRight, okRight := i.Right.(*ConstInt)
+				if okLeft && okRight && i.Dest != nil {
+					var res bool
+					switch i.Op {
+					case OpCmpEq:
+						res = cLeft.Val == cRight.Val
+					case OpCmpNe:
+						res = cLeft.Val != cRight.Val
+					case OpCmpLt:
+						res = cLeft.Val < cRight.Val
+					case OpCmpLe:
+						res = cLeft.Val <= cRight.Val
+					case OpCmpGt:
+						res = cLeft.Val > cRight.Val
+					case OpCmpGe:
+						res = cLeft.Val >= cRight.Val
+					default:
+						newInsts = append(newInsts, inst)
+						continue
+					}
+					newInsts = append(newInsts, &MoveInst{
+						Dest: i.Dest,
+						Src:  NewConstBool(res),
+					})
+					continue
+				}
+
+			case *UnaryInst:
+				if i.Op == OpNeg {
+					if cVal, ok := i.Val.(*ConstInt); ok && i.Dest != nil {
+						newInsts = append(newInsts, &MoveInst{
+							Dest: i.Dest,
+							Src:  NewConstInt(-cVal.Val, i.Dest.Type()),
+						})
+						continue
+					}
+				} else if i.Op == OpNot {
+					if cVal, ok := i.Val.(*ConstBool); ok && i.Dest != nil {
+						newInsts = append(newInsts, &MoveInst{
+							Dest: i.Dest,
+							Src:  NewConstBool(!cVal.Val),
+						})
+						continue
+					}
+				}
+			}
+			newInsts = append(newInsts, inst)
+		}
+		blk.Instructions = newInsts
 	}
 }
