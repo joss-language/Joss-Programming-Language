@@ -29,6 +29,21 @@ Un símbolo externo que no figure en el índice no se inventa ni se añade a una
 
 Rutas, controladores, modelos, servicios, librerías y middleware bajo `app/` se descubren automáticamente según el layout de proyecto. Esta inclusión física no crea un namespace por archivo; las funciones y clases `public` top-level comparten el espacio de declaraciones del proyecto y sus duplicados son diagnosticados (`JOSS-SYM-002`, `JOSS-DECL-004`).
 
+Asimismo, cualquier archivo ubicado bajo el directorio raíz `stdlib/` (biblioteca estándar de Joss) es descubierto automáticamente por el compilador y analizador semántico sin requerir sentencias de importación manual.
+
+## Interfaz de funciones foráneas (FFI con C)
+
+Para interactuar con bibliotecas dinámicas nativas (`.dll`, `.so`, `.dylib`), Joss proporciona la sintaxis de bloque `extern`:
+
+```joss
+<!-- joss-check: declaración FFI externa -->
+extern "C" library "user32.dll" {
+    public func MessageBoxA(int $hWnd, string $lpText, string $lpCaption, int $uType): int;
+}
+```
+
+Las funciones declaradas dentro de un bloque `extern` se registran en la tabla global de símbolos y comparten la misma convención directa de código máquina nativo de la CPU.
+
 ## Decisión frente a la tesis
 
 El capítulo 11 de la tesis describe módulos fuente con interfaces, exports y un DAG. La implementación adopta una decisión distinta: “modular” en ALIM significa capacidades integradas desacopladas y plugins `.jp` aislados, no imports escritos por la aplicación. Esta discrepancia es deliberada y el diseño de módulos fuente de la tesis no forma parte de la hoja de ruta de Joss.

@@ -13,7 +13,7 @@ Las palabras reservadas se obtienen de `parser.KeywordNames()` (`pkg/parser/toke
 
 ```text
 Init abstract as async await break case catch class const continue default defer do echo empty
-enum extends false foreach func guard implements instanceof interface is isset let match new nil null print private
+enum extends extern false foreach func guard implements instanceof interface is isset let match new nil null print private
 protected public record ref return select static this throw true try while yield
 ```
 
