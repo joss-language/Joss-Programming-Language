@@ -18,6 +18,10 @@ func (a *Analyzer) collectDeclarations(units []SourceUnit) {
 			switch node := statement.(type) {
 			case *parser.MethodStatement:
 				a.declareFunction(node, unit.Path)
+			case *parser.ExternLibraryStatement:
+				for _, fn := range node.Functions {
+					a.declareFunction(fn, unit.Path)
+				}
 			case *parser.ClassStatement:
 				a.declareClass(node, unit.Path)
 			case *parser.InterfaceStatement:
