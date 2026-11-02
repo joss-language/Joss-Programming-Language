@@ -23,6 +23,7 @@ const (
 	IATExitProcess
 	IATLoadLibraryA
 	IATGetProcAddress
+	IATJITHostBridge // Slot 7: In-memory HostBridge callback in JIT mode
 	iatSlotCount
 )
 
@@ -57,9 +58,7 @@ func PreparePERData(textLen int, rodata []byte, withHostBridge bool) *PEImageLay
 		tail.WriteByte(0)
 	}
 
-	numSlots := int(iatSlotCount)
-
-	funcNames := [iatSlotCount]string{
+	funcNames := [7]string{
 		"GetStdHandle",
 		"WriteFile",
 		"GetProcessHeap",
@@ -69,8 +68,8 @@ func PreparePERData(textLen int, rodata []byte, withHostBridge bool) *PEImageLay
 		"GetProcAddress",
 	}
 
-	var hintNameRVAs [iatSlotCount]uint32
-	for i := 0; i < numSlots; i++ {
+	var hintNameRVAs [7]uint32
+	for i := 0; i < 7; i++ {
 		name := funcNames[i]
 		if tail.Len()%2 != 0 {
 			tail.WriteByte(0)
@@ -91,11 +90,13 @@ func PreparePERData(textLen int, rodata []byte, withHostBridge bool) *PEImageLay
 	var iatRVAs [iatSlotCount]uint32
 
 	// 1. IAT
-	for i := 0; i < numSlots; i++ {
+	for i := 0; i < 7; i++ {
 		iatRVAs[i] = rdataRVA + iatOffset + uint32(i*8)
 		_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[i]))
 	}
-	_ = binary.Write(&rdata, binary.LittleEndian, uint64(0)) // Null terminator for KERNEL32
+	// Slot 7 is reserved for JIT in-memory HostBridge pointer (populated only in RAM)
+	iatRVAs[IATJITHostBridge] = rdataRVA + iatOffset + uint32(int(IATJITHostBridge)*8)
+	_ = binary.Write(&rdata, binary.LittleEndian, uint64(0)) // Terminate KERNEL32 IAT (or null in standalone PE)
 
 	// 2. Import Directory Table
 	// Entry 0: KERNEL32.dll
@@ -109,7 +110,7 @@ func PreparePERData(textLen int, rodata []byte, withHostBridge bool) *PEImageLay
 	rdata.Write(make([]byte, 20))
 
 	// 3. ILT
-	for i := 0; i < numSlots; i++ {
+	for i := 0; i < 7; i++ {
 		_ = binary.Write(&rdata, binary.LittleEndian, uint64(hintNameRVAs[i]))
 	}
 	_ = binary.Write(&rdata, binary.LittleEndian, uint64(0))

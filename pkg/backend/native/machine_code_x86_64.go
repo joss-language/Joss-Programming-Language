@@ -739,6 +739,11 @@ func (b *MachineCodeBuilder) emitLeaRDIString(s string) {
 }
 
 func (b *MachineCodeBuilder) emitCallHostBridge(target string) {
+	if b.isJITMode {
+		b.emitLeaRCXString(target)
+		b.emitCallIAT(IATGetProcAddress + 1) // In JIT mode, slot 7 holds procHostBridgePtr in RAM
+		return
+	}
 	b.needsHostBridge = false
 	b.emitLeaRCXString(target)
 	b.emitCallLabel("_joss_host_bridge")

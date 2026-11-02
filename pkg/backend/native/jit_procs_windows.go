@@ -29,5 +29,6 @@ func getPlatformIATPointers() [iatSlotCount]uintptr {
 		procExitProcess.Addr(),
 		procLoadLibraryA.Addr(),
 		procGetProcAddress.Addr(),
+		procHostBridgePtr,
 	}
 }
