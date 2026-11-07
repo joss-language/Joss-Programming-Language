@@ -165,9 +165,13 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	b.emitToStringStub()
 	b.emitF64ToStringStub()
 	if b.usesExtendedStdlib {
+		if b.hasRelocTarget("fn_Server_start") {
+			b.emitNativeServer()
+		}
+		if b.hasRelocTarget("fn___joss_storage_get", "fn___joss_storage_put", "fn___joss_storage_delete") {
+			b.emitStorageIntrinsics()
+		}
 		b.emitNativeIntrinsics()
-		b.emitStorageIntrinsics()
-		b.emitNativeServer()
 		b.emitHostFrameworkAdapters()
 	}
 
@@ -254,9 +258,13 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, 
 	b.emitToStringStub()
 	b.emitF64ToStringStub()
 	if b.usesExtendedStdlib {
+		if b.hasRelocTarget("fn_Server_start") {
+			b.emitNativeServer()
+		}
+		if b.hasRelocTarget("fn___joss_storage_get", "fn___joss_storage_put", "fn___joss_storage_delete") {
+			b.emitStorageIntrinsics()
+		}
 		b.emitNativeIntrinsics()
-		b.emitStorageIntrinsics()
-		b.emitNativeServer()
 		b.emitHostFrameworkAdapters()
 	}
 
@@ -844,160 +852,164 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // mov eax, 1; ret
 
 	// __joss_rt_route_matches(rcx = path, rdx = pattern) -> rax = 1 (match), 0 (no match)
-	b.defineLabel("__joss_rt_route_matches")
-	b.defineLabel("fn___joss_rt_route_matches")
-	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-	b.emitJeLabel(".rm_nomatch")
-	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
-	b.emitJeLabel(".rm_nomatch")
-	b.emitBytes(0x49, 0x89, 0xC9) // mov r9, rcx (p = path)
-	b.emitBytes(0x49, 0x89, 0xD2) // mov r10, rdx (pat = pattern)
+	if b.hasRelocTarget("__joss_rt_route_matches", "fn___joss_rt_route_matches") {
+		b.defineLabel("__joss_rt_route_matches")
+		b.defineLabel("fn___joss_rt_route_matches")
+		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+		b.emitJeLabel(".rm_nomatch")
+		b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
+		b.emitJeLabel(".rm_nomatch")
+		b.emitBytes(0x49, 0x89, 0xC9) // mov r9, rcx (p = path)
+		b.emitBytes(0x49, 0x89, 0xD2) // mov r10, rdx (pat = pattern)
 
-	b.defineLabel(".rm_loop")
-	b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10] (*pat)
-	b.emitBytes(0x84, 0xC0)             // test al, al
-	b.emitJeLabel(".rm_pat_end")
-	b.emitBytes(0x3C, 0x7B) // cmp al, '{'
-	b.emitJneLabel(".rm_literal")
+		b.defineLabel(".rm_loop")
+		b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10] (*pat)
+		b.emitBytes(0x84, 0xC0)             // test al, al
+		b.emitJeLabel(".rm_pat_end")
+		b.emitBytes(0x3C, 0x7B) // cmp al, '{'
+		b.emitJneLabel(".rm_literal")
 
-	// Placeholder '{...}': scan r10 until '}'
-	b.defineLabel(".rm_skip_ph")
-	b.emitBytes(0x49, 0xFF, 0xC2)       // inc r10
-	b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10]
-	b.emitBytes(0x84, 0xC0)             // test al, al
-	b.emitJeLabel(".rm_nomatch")
-	b.emitBytes(0x3C, 0x7D) // cmp al, '}'
-	b.emitJneLabel(".rm_skip_ph")
-	b.emitBytes(0x49, 0xFF, 0xC2) // inc r10 (skip '}')
+		// Placeholder '{...}': scan r10 until '}'
+		b.defineLabel(".rm_skip_ph")
+		b.emitBytes(0x49, 0xFF, 0xC2)       // inc r10
+		b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10]
+		b.emitBytes(0x84, 0xC0)             // test al, al
+		b.emitJeLabel(".rm_nomatch")
+		b.emitBytes(0x3C, 0x7D) // cmp al, '}'
+		b.emitJneLabel(".rm_skip_ph")
+		b.emitBytes(0x49, 0xFF, 0xC2) // inc r10 (skip '}')
 
-	// Match non-empty segment in r9 until '/', '?', or '\0'
-	b.emitBytes(0x41, 0x0F, 0xB6, 0x01) // movzx eax, byte ptr [r9]
-	b.emitBytes(0x84, 0xC0)             // test al, al
-	b.emitJeLabel(".rm_nomatch")
-	b.emitBytes(0x3C, 0x2F) // cmp al, '/'
-	b.emitJeLabel(".rm_nomatch")
-	b.emitBytes(0x3C, 0x3F) // cmp al, '?'
-	b.emitJeLabel(".rm_nomatch")
+		// Match non-empty segment in r9 until '/', '?', or '\0'
+		b.emitBytes(0x41, 0x0F, 0xB6, 0x01) // movzx eax, byte ptr [r9]
+		b.emitBytes(0x84, 0xC0)             // test al, al
+		b.emitJeLabel(".rm_nomatch")
+		b.emitBytes(0x3C, 0x2F) // cmp al, '/'
+		b.emitJeLabel(".rm_nomatch")
+		b.emitBytes(0x3C, 0x3F) // cmp al, '?'
+		b.emitJeLabel(".rm_nomatch")
 
-	b.defineLabel(".rm_scan_seg")
-	b.emitBytes(0x49, 0xFF, 0xC1)       // inc r9
-	b.emitBytes(0x41, 0x0F, 0xB6, 0x01) // movzx eax, byte ptr [r9]
-	b.emitBytes(0x84, 0xC0)             // test al, al
-	b.emitJeLabel(".rm_loop")
-	b.emitBytes(0x3C, 0x2F) // cmp al, '/'
-	b.emitJeLabel(".rm_loop")
-	b.emitBytes(0x3C, 0x3F) // cmp al, '?'
-	b.emitJeLabel(".rm_loop")
-	b.emitJmpLabel(".rm_scan_seg")
+		b.defineLabel(".rm_scan_seg")
+		b.emitBytes(0x49, 0xFF, 0xC1)       // inc r9
+		b.emitBytes(0x41, 0x0F, 0xB6, 0x01) // movzx eax, byte ptr [r9]
+		b.emitBytes(0x84, 0xC0)             // test al, al
+		b.emitJeLabel(".rm_loop")
+		b.emitBytes(0x3C, 0x2F) // cmp al, '/'
+		b.emitJeLabel(".rm_loop")
+		b.emitBytes(0x3C, 0x3F) // cmp al, '?'
+		b.emitJeLabel(".rm_loop")
+		b.emitJmpLabel(".rm_scan_seg")
 
-	b.defineLabel(".rm_literal")
-	b.emitBytes(0x41, 0x0F, 0xB6, 0x09) // movzx ecx, byte ptr [r9] (*p)
-	b.emitBytes(0x38, 0xC8)             // cmp al, cl
-	b.emitJneLabel(".rm_nomatch")
-	b.emitBytes(0x49, 0xFF, 0xC1) // inc r9
-	b.emitBytes(0x49, 0xFF, 0xC2) // inc r10
-	b.emitJmpLabel(".rm_loop")
+		b.defineLabel(".rm_literal")
+		b.emitBytes(0x41, 0x0F, 0xB6, 0x09) // movzx ecx, byte ptr [r9] (*p)
+		b.emitBytes(0x38, 0xC8)             // cmp al, cl
+		b.emitJneLabel(".rm_nomatch")
+		b.emitBytes(0x49, 0xFF, 0xC1) // inc r9
+		b.emitBytes(0x49, 0xFF, 0xC2) // inc r10
+		b.emitJmpLabel(".rm_loop")
 
-	b.defineLabel(".rm_pat_end")
-	b.emitBytes(0x41, 0x0F, 0xB6, 0x01) // movzx eax, byte ptr [r9]
-	b.emitBytes(0x84, 0xC0)             // test al, al
-	b.emitJeLabel(".rm_match")
-	b.emitBytes(0x3C, 0x3F) // cmp al, '?'
-	b.emitJeLabel(".rm_match")
-	b.emitBytes(0x3C, 0x2F) // cmp al, '/'
-	b.emitJneLabel(".rm_nomatch")
-	b.emitBytes(0x41, 0x0F, 0xB6, 0x41, 0x01) // movzx eax, byte ptr [r9 + 1]
-	b.emitBytes(0x84, 0xC0)                   // test al, al
-	b.emitJeLabel(".rm_match")
-	b.emitBytes(0x3C, 0x3F) // cmp al, '?'
-	b.emitJeLabel(".rm_match")
+		b.defineLabel(".rm_pat_end")
+		b.emitBytes(0x41, 0x0F, 0xB6, 0x01) // movzx eax, byte ptr [r9]
+		b.emitBytes(0x84, 0xC0)             // test al, al
+		b.emitJeLabel(".rm_match")
+		b.emitBytes(0x3C, 0x3F) // cmp al, '?'
+		b.emitJeLabel(".rm_match")
+		b.emitBytes(0x3C, 0x2F) // cmp al, '/'
+		b.emitJneLabel(".rm_nomatch")
+		b.emitBytes(0x41, 0x0F, 0xB6, 0x41, 0x01) // movzx eax, byte ptr [r9 + 1]
+		b.emitBytes(0x84, 0xC0)                   // test al, al
+		b.emitJeLabel(".rm_match")
+		b.emitBytes(0x3C, 0x3F) // cmp al, '?'
+		b.emitJeLabel(".rm_match")
 
-	b.defineLabel(".rm_nomatch")
-	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
+		b.defineLabel(".rm_nomatch")
+		b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
 
-	b.defineLabel(".rm_match")
-	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // mov eax, 1; ret
+		b.defineLabel(".rm_match")
+		b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // mov eax, 1; ret
+	}
 
 	// __joss_rt_route_param(rcx = path, rdx = pattern, r8 = paramIdx) -> rax = newStr
-	b.defineLabel("__joss_rt_route_param")
-	b.defineLabel("fn___joss_rt_route_param")
-	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                               // push rbp; mov rbp, rsp
-	b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push rbx, r12..r15
-	b.emitBytes(0x56, 0x57)                                           // push rsi, rdi
-	b.emitBytes(0x48, 0x83, 0xEC, 0x28)                               // sub rsp, 40 (shadow space)
+	if b.hasRelocTarget("__joss_rt_route_param", "fn___joss_rt_route_param") {
+		b.defineLabel("__joss_rt_route_param")
+		b.defineLabel("fn___joss_rt_route_param")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5)                               // push rbp; mov rbp, rsp
+		b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push rbx, r12..r15
+		b.emitBytes(0x56, 0x57)                                           // push rsi, rdi
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28)                               // sub rsp, 40 (shadow space)
 
-	b.emitBytes(0x48, 0x89, 0xCE) // mov rsi, rcx (p = path)
-	b.emitBytes(0x49, 0x89, 0xD2) // mov r10, rdx (pat = pattern)
-	b.emitBytes(0x4D, 0x89, 0xC6) // mov r14, r8  (targetIdx)
-	b.emitBytes(0x45, 0x31, 0xFF) // xor r15d, r15d (currIdx = 0)
+		b.emitBytes(0x48, 0x89, 0xCE) // mov rsi, rcx (p = path)
+		b.emitBytes(0x49, 0x89, 0xD2) // mov r10, rdx (pat = pattern)
+		b.emitBytes(0x4D, 0x89, 0xC6) // mov r14, r8  (targetIdx)
+		b.emitBytes(0x45, 0x31, 0xFF) // xor r15d, r15d (currIdx = 0)
 
-	b.defineLabel(".rp_loop")
-	b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10]
-	b.emitBytes(0x84, 0xC0)             // test al, al
-	b.emitJeLabel(".rp_not_found")
-	b.emitBytes(0x3C, 0x7B) // cmp al, '{'
-	b.emitJneLabel(".rp_literal")
+		b.defineLabel(".rp_loop")
+		b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10]
+		b.emitBytes(0x84, 0xC0)             // test al, al
+		b.emitJeLabel(".rp_not_found")
+		b.emitBytes(0x3C, 0x7B) // cmp al, '{'
+		b.emitJneLabel(".rp_literal")
 
-	// Skip '{...}' in r10
-	b.defineLabel(".rp_skip_ph")
-	b.emitBytes(0x49, 0xFF, 0xC2)       // inc r10
-	b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10]
-	b.emitBytes(0x84, 0xC0)             // test al, al
-	b.emitJeLabel(".rp_not_found")
-	b.emitBytes(0x3C, 0x7D) // cmp al, '}'
-	b.emitJneLabel(".rp_skip_ph")
-	b.emitBytes(0x49, 0xFF, 0xC2) // inc r10 (skip '}')
+		// Skip '{...}' in r10
+		b.defineLabel(".rp_skip_ph")
+		b.emitBytes(0x49, 0xFF, 0xC2)       // inc r10
+		b.emitBytes(0x41, 0x0F, 0xB6, 0x02) // movzx eax, byte ptr [r10]
+		b.emitBytes(0x84, 0xC0)             // test al, al
+		b.emitJeLabel(".rp_not_found")
+		b.emitBytes(0x3C, 0x7D) // cmp al, '}'
+		b.emitJneLabel(".rp_skip_ph")
+		b.emitBytes(0x49, 0xFF, 0xC2) // inc r10 (skip '}')
 
-	// rbx = start = rsi
-	b.emitBytes(0x48, 0x89, 0xF3) // mov rbx, rsi
+		// rbx = start = rsi
+		b.emitBytes(0x48, 0x89, 0xF3) // mov rbx, rsi
 
-	b.defineLabel(".rp_scan_val")
-	b.emitBytes(0x0F, 0xB6, 0x06) // movzx eax, byte ptr [rsi]
-	b.emitBytes(0x84, 0xC0)       // test al, al
-	b.emitJeLabel(".rp_val_ended")
-	b.emitBytes(0x3C, 0x2F) // cmp al, '/'
-	b.emitJeLabel(".rp_val_ended")
-	b.emitBytes(0x3C, 0x3F) // cmp al, '?'
-	b.emitJeLabel(".rp_val_ended")
-	b.emitBytes(0x48, 0xFF, 0xC6) // inc rsi
-	b.emitJmpLabel(".rp_scan_val")
+		b.defineLabel(".rp_scan_val")
+		b.emitBytes(0x0F, 0xB6, 0x06) // movzx eax, byte ptr [rsi]
+		b.emitBytes(0x84, 0xC0)       // test al, al
+		b.emitJeLabel(".rp_val_ended")
+		b.emitBytes(0x3C, 0x2F) // cmp al, '/'
+		b.emitJeLabel(".rp_val_ended")
+		b.emitBytes(0x3C, 0x3F) // cmp al, '?'
+		b.emitJeLabel(".rp_val_ended")
+		b.emitBytes(0x48, 0xFF, 0xC6) // inc rsi
+		b.emitJmpLabel(".rp_scan_val")
 
-	b.defineLabel(".rp_val_ended")
-	b.emitBytes(0x4D, 0x39, 0xFE) // cmp r14, r15 (targetIdx == currIdx?)
-	b.emitJneLabel(".rp_next_param")
+		b.defineLabel(".rp_val_ended")
+		b.emitBytes(0x4D, 0x39, 0xFE) // cmp r14, r15 (targetIdx == currIdx?)
+		b.emitJneLabel(".rp_next_param")
 
-	// Matched parameter! len in r14 = rsi - rbx
-	b.emitBytes(0x49, 0x89, 0xF6)       // mov r14, rsi
-	b.emitBytes(0x49, 0x29, 0xDE)       // sub r14, rbx (len)
-	b.emitBytes(0x4D, 0x8D, 0x4E, 0x01) // lea r9, [r14 + 1]
-	b.emitBytes(0x4C, 0x89, 0xC9)       // mov rcx, r9 (len + 1)
-	b.emitCallLabel("__joss_os_alloc")  // rax = dest buffer
+		// Matched parameter! len in r14 = rsi - rbx
+		b.emitBytes(0x49, 0x89, 0xF6)       // mov r14, rsi
+		b.emitBytes(0x49, 0x29, 0xDE)       // sub r14, rbx (len)
+		b.emitBytes(0x4D, 0x8D, 0x4E, 0x01) // lea r9, [r14 + 1]
+		b.emitBytes(0x4C, 0x89, 0xC9)       // mov rcx, r9 (len + 1)
+		b.emitCallLabel("__joss_os_alloc")  // rax = dest buffer
 
-	b.emitBytes(0x48, 0x89, 0xC7) // mov rdi, rax (dest)
-	b.emitBytes(0x48, 0x89, 0xDE) // mov rsi, rbx (start)
-	b.emitBytes(0x4C, 0x89, 0xF1) // mov rcx, r14 (len)
-	b.emitBytes(0xF3, 0xA4)       // rep movsb
-	b.emitBytes(0xC6, 0x07, 0x00) // mov byte ptr [rdi], 0
-	b.emitJmpLabel(".rp_exit")
+		b.emitBytes(0x48, 0x89, 0xC7) // mov rdi, rax (dest)
+		b.emitBytes(0x48, 0x89, 0xDE) // mov rsi, rbx (start)
+		b.emitBytes(0x4C, 0x89, 0xF1) // mov rcx, r14 (len)
+		b.emitBytes(0xF3, 0xA4)       // rep movsb
+		b.emitBytes(0xC6, 0x07, 0x00) // mov byte ptr [rdi], 0
+		b.emitJmpLabel(".rp_exit")
 
-	b.defineLabel(".rp_next_param")
-	b.emitBytes(0x49, 0xFF, 0xC7) // inc r15 (currIdx++)
-	b.emitJmpLabel(".rp_loop")
+		b.defineLabel(".rp_next_param")
+		b.emitBytes(0x49, 0xFF, 0xC7) // inc r15 (currIdx++)
+		b.emitJmpLabel(".rp_loop")
 
-	b.defineLabel(".rp_literal")
-	b.emitBytes(0x48, 0xFF, 0xC6) // inc rsi
-	b.emitBytes(0x49, 0xFF, 0xC2) // inc r10
-	b.emitJmpLabel(".rp_loop")
+		b.defineLabel(".rp_literal")
+		b.emitBytes(0x48, 0xFF, 0xC6) // inc rsi
+		b.emitBytes(0x49, 0xFF, 0xC2) // inc r10
+		b.emitJmpLabel(".rp_loop")
 
-	b.defineLabel(".rp_not_found")
-	b.emitLeaRCXString("")
-	b.emitBytes(0x48, 0x89, 0xC8) // mov rax, rcx
+		b.defineLabel(".rp_not_found")
+		b.emitLeaRCXString("")
+		b.emitBytes(0x48, 0x89, 0xC8) // mov rax, rcx
 
-	b.defineLabel(".rp_exit")
-	b.emitBytes(0x48, 0x83, 0xC4, 0x28)                               // add rsp, 40
-	b.emitBytes(0x5F, 0x5E)                                           // pop rdi, rsi
-	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B) // pop r15..r12, rbx
-	b.emitBytes(0x5D, 0xC3)                                           // pop rbp; ret
+		b.defineLabel(".rp_exit")
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28)                               // add rsp, 40
+		b.emitBytes(0x5F, 0x5E)                                           // pop rdi, rsi
+		b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B) // pop r15..r12, rbx
+		b.emitBytes(0x5D, 0xC3)                                           // pop rbp; ret
+	}
 
 	// joss_str_concat(rcx = a, rdx = b) -> rax = newStr
 	b.defineLabel("joss_str_concat")
@@ -1609,33 +1621,35 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x5D, 0xC3)
 
 	// fn_array_fill (rcx = startIdx, rdx = num, r8 = val) -> rax = arrPtr
-	b.defineLabel("fn_array_fill")
-	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
-	b.emitBytes(0x57, 0x56)                                     // push rdi; push rsi
-	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
-	b.emitBytes(0x48, 0x83, 0xEC, 0x20)                         // sub rsp, 32
-	b.emitBytes(0x49, 0x89, 0xCC)                               // mov r12, rcx (startIdx)
-	b.emitBytes(0x49, 0x89, 0xD5)                               // mov r13, rdx (num)
-	b.emitBytes(0x4D, 0x89, 0xC6)                               // mov r14, r8 (val)
-	b.emitBytes(0x4D, 0x8D, 0x0C, 0x2C)                         // lea r9, [r12 + r13] (total = startIdx + num)
-	b.emitBytes(0x4C, 0x89, 0xC9)                               // mov rcx, r9 (cap)
-	b.emitCallLabel("joss_arr_new")
-	b.emitBytes(0x49, 0x89, 0xC7)       // mov r15, rax (arrPtr)
-	b.emitBytes(0x4D, 0x8D, 0x0C, 0x2C) // lea r9, [r12 + r13]
-	b.emitBytes(0x4D, 0x89, 0x0F)       // mov [r15 + 0], r9 (len = total)
-	b.emitBytes(0x49, 0x8B, 0x7F, 0x10) // mov rdi, [r15 + 16] (dataPtr)
-	b.emitBytes(0x4D, 0x85, 0xED)       // test r13, r13 (num <= 0?)
-	b.emitJleLabel(".arr_fill_done")
-	b.emitBytes(0x49, 0xC1, 0xE4, 0x03) // shl r12, 3 (startIdx * 8)
-	b.emitBytes(0x4C, 0x01, 0xE7)       // add rdi, r12
-	b.emitBytes(0x4C, 0x89, 0xE9)       // mov rcx, r13 (count = num)
-	b.emitBytes(0x4C, 0x89, 0xF0)       // mov rax, r14 (val)
-	b.emitBytes(0xF3, 0x48, 0xAB)       // rep stosq
-	b.defineLabel(".arr_fill_done")
-	b.emitBytes(0x4C, 0x89, 0xF8)                                                 // mov rax, r15 (return arrPtr)
-	b.emitBytes(0x48, 0x83, 0xC4, 0x20)                                           // add rsp, 32
-	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5E, 0x5F, 0x5D) // pop r15..r12, rsi, rdi, rbp
-	b.emitBytes(0xC3)                                                             // ret
+	if b.hasRelocTarget("fn_array_fill") {
+		b.defineLabel("fn_array_fill")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
+		b.emitBytes(0x57, 0x56)                                     // push rdi; push rsi
+		b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
+		b.emitBytes(0x48, 0x83, 0xEC, 0x20)                         // sub rsp, 32
+		b.emitBytes(0x49, 0x89, 0xCC)                               // mov r12, rcx (startIdx)
+		b.emitBytes(0x49, 0x89, 0xD5)                               // mov r13, rdx (num)
+		b.emitBytes(0x4D, 0x89, 0xC6)                               // mov r14, r8 (val)
+		b.emitBytes(0x4D, 0x8D, 0x0C, 0x2C)                         // lea r9, [r12 + r13] (total = startIdx + num)
+		b.emitBytes(0x4C, 0x89, 0xC9)                               // mov rcx, r9 (cap)
+		b.emitCallLabel("joss_arr_new")
+		b.emitBytes(0x49, 0x89, 0xC7)       // mov r15, rax (arrPtr)
+		b.emitBytes(0x4D, 0x8D, 0x0C, 0x2C) // lea r9, [r12 + r13]
+		b.emitBytes(0x4D, 0x89, 0x0F)       // mov [r15 + 0], r9 (len = total)
+		b.emitBytes(0x49, 0x8B, 0x7F, 0x10) // mov rdi, [r15 + 16] (dataPtr)
+		b.emitBytes(0x4D, 0x85, 0xED)       // test r13, r13 (num <= 0?)
+		b.emitJleLabel(".arr_fill_done")
+		b.emitBytes(0x49, 0xC1, 0xE4, 0x03) // shl r12, 3 (startIdx * 8)
+		b.emitBytes(0x4C, 0x01, 0xE7)       // add rdi, r12
+		b.emitBytes(0x4C, 0x89, 0xE9)       // mov rcx, r13 (count = num)
+		b.emitBytes(0x4C, 0x89, 0xF0)       // mov rax, r14 (val)
+		b.emitBytes(0xF3, 0x48, 0xAB)       // rep stosq
+		b.defineLabel(".arr_fill_done")
+		b.emitBytes(0x4C, 0x89, 0xF8)                                                 // mov rax, r15 (return arrPtr)
+		b.emitBytes(0x48, 0x83, 0xC4, 0x20)                                           // add rsp, 32
+		b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5E, 0x5F, 0x5D) // pop r15..r12, rsi, rdi, rbp
+		b.emitBytes(0xC3)                                                             // ret
+	}
 
 	// joss_arr_push_i64 / joss_arr_push_str / fn_array_push / fn_append (rcx = arrPtr, rdx = val64) -> rax = arrPtr
 	b.defineLabel("joss_arr_push_i64")
@@ -2001,96 +2015,98 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	}
 
 	// fn_explode(rcx = delimPtr, rdx = strPtr) -> rax = arrPtr of substring pointers
-	b.defineLabel("fn_explode")
-	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
-	b.emitBytes(0x53, 0x56, 0x57)                               // push rbx; push rsi; push rdi
-	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
-	b.emitBytes(0x48, 0x83, 0xEC, 0x28)                         // sub rsp, 40
-	b.emitBytes(0x48, 0x89, 0xCE)                               // mov rsi, rcx (delimPtr)
-	b.emitBytes(0x48, 0x89, 0xD7)                               // mov rdi, rdx (strPtr)
-	b.emitBytes(0x48, 0x81, 0xFE, 0x00, 0x00, 0x01, 0x00)       // cmp rsi, 0x10000
-	b.emitJgeLabel(".explode_delim_ok")
-	b.emitLeaRCXString("")
-	b.emitBytes(0x48, 0x89, 0xCE) // mov rsi, rcx
-	b.defineLabel(".explode_delim_ok")
-	b.emitBytes(0x48, 0x81, 0xFF, 0x00, 0x00, 0x01, 0x00) // cmp rdi, 0x10000
-	b.emitJgeLabel(".explode_str_ok")
-	b.emitLeaRCXString("")
-	b.emitBytes(0x48, 0x89, 0xCF) // mov rdi, rcx
-	b.defineLabel(".explode_str_ok")
-	b.emitBytes(0x0F, 0xB6, 0x1E) // movzx ebx, byte ptr [rsi] (delimChar)
-	// First pass: count occurrences of delimChar in strPtr to pre-allocate exact capacity
-	b.emitBytes(0x48, 0x89, 0xF9)                   // mov rcx, rdi
-	b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00) // mov r8d, 1 (tokenCount = 1)
-	b.emitBytes(0x85, 0xDB)                         // test ebx, ebx
-	b.emitJeLabel(".explode_count_done")
-	b.defineLabel(".explode_count_loop")
-	b.emitBytes(0x0F, 0xB6, 0x11) // movzx edx, byte ptr [rcx]
-	b.emitBytes(0x85, 0xD2)       // test edx, edx
-	b.emitJeLabel(".explode_count_done")
-	b.emitBytes(0x39, 0xDA) // cmp edx, ebx
-	b.emitJneLabel(".explode_count_next")
-	b.emitBytes(0x49, 0xFF, 0xC0) // inc r8
-	b.defineLabel(".explode_count_next")
-	b.emitBytes(0x48, 0xFF, 0xC1) // inc rcx
-	b.emitJmpLabel(".explode_count_loop")
-	b.defineLabel(".explode_count_done")
-	b.emitBytes(0x4C, 0x89, 0xC1)       // mov rcx, r8 (cap = tokenCount)
-	b.emitBytes(0x48, 0x83, 0xF9, 0x08) // cmp rcx, 8
-	b.emitJgeLabel(".explode_cap_ok")
-	b.emitBytes(0x48, 0xC7, 0xC1, 0x08, 0x00, 0x00, 0x00) // mov rcx, 8
-	b.defineLabel(".explode_cap_ok")
-	b.emitBytes(0x49, 0x89, 0xCD)             // mov r13, rcx (save cap)
-	b.emitBytes(0xB9, 0x18, 0x00, 0x00, 0x00) // mov ecx, 24 (arrHeader)
-	b.emitCallLabel("__joss_os_alloc")
-	b.emitBytes(0x49, 0x89, 0xC4)       // mov r12, rax (arrPtr)
-	b.emitBytes(0x4C, 0x89, 0xE9)       // mov rcx, r13
-	b.emitBytes(0x48, 0xC1, 0xE1, 0x03) // shl rcx, 3 (cap * 8)
-	b.emitCallLabel("__joss_os_alloc")
-	b.emitBytes(0x4D, 0x89, 0x6C, 0x24, 0x08) // mov [r12 + 8], r13 (arr.cap = cap)
-	b.emitBytes(0x49, 0x89, 0x44, 0x24, 0x10) // mov [r12 + 16], rax (arr.dataPtr = dataPtr)
-	b.emitBytes(0x49, 0x89, 0xC5)             // mov r13, rax (dataPtr)
-	b.emitBytes(0x45, 0x31, 0xF6)             // xor r14d, r14d (outIdx = 0)
-	b.emitBytes(0x49, 0x89, 0xFF)             // mov r15, rdi (cursor = strPtr)
-	b.defineLabel(".explode_token_loop")
-	b.emitBytes(0x4C, 0x89, 0xFA) // mov rdx, r15 (scan = cursor)
-	b.defineLabel(".explode_scan_loop")
-	b.emitBytes(0x0F, 0xB6, 0x0A) // movzx ecx, byte ptr [rdx]
-	b.emitBytes(0x85, 0xC9)       // test ecx, ecx
-	b.emitJeLabel(".explode_found_end")
-	b.emitBytes(0x85, 0xDB) // test ebx, ebx
-	b.emitJeLabel(".explode_scan_next")
-	b.emitBytes(0x39, 0xD9) // cmp ecx, ebx
-	b.emitJeLabel(".explode_found_end")
-	b.defineLabel(".explode_scan_next")
-	b.emitBytes(0x48, 0xFF, 0xC2) // inc rdx
-	b.emitJmpLabel(".explode_scan_loop")
-	b.defineLabel(".explode_found_end")
-	b.emitBytes(0x41, 0x89, 0xC8) // mov r8d, ecx (save endByte: 0 or delimChar)
-	b.emitBytes(0x48, 0x89, 0xD6) // mov rsi, rdx (endPtr)
-	// Strip trailing '\r' when splitting by '\n' (CRLF normalization)
-	b.emitBytes(0x83, 0xFB, 0x0A) // cmp ebx, 10 ('\n')
-	b.emitJneLabel(".explode_store_tok")
-	b.emitBytes(0x4C, 0x39, 0xFA) // cmp rdx, r15 (endPtr > cursor?)
-	b.emitJleLabel(".explode_store_tok")
-	b.emitBytes(0x80, 0x7A, 0xFF, 0x0D) // cmp byte ptr [rdx - 1], 13 ('\r')
-	b.emitJneLabel(".explode_store_tok")
-	b.emitBytes(0xC6, 0x42, 0xFF, 0x00) // mov byte ptr [rdx - 1], 0
-	b.defineLabel(".explode_store_tok")
-	b.emitBytes(0xC6, 0x06, 0x00)             // mov byte ptr [rsi], 0 (null-terminate token in-place)
-	b.emitBytes(0x4F, 0x89, 0x7C, 0xF5, 0x00) // mov [r13 + r14*8], r15 (store token pointer)
-	b.emitBytes(0x49, 0xFF, 0xC6)             // inc r14
-	// Check if endByte was 0 (end of string)
-	b.emitBytes(0x45, 0x85, 0xC0) // test r8d, r8d
-	b.emitJeLabel(".explode_finish")
-	b.emitBytes(0x4C, 0x8D, 0x7E, 0x01) // lea r15, [rsi + 1] (cursor = endPtr + 1)
-	b.emitJmpLabel(".explode_token_loop")
-	b.defineLabel(".explode_finish")
-	b.emitBytes(0x4D, 0x89, 0x34, 0x24)                                           // mov [r12 + 0], r14 (arr.len = outIdx)
-	b.emitBytes(0x4C, 0x89, 0xE0)                                                 // mov rax, r12 (return arrPtr)
-	b.emitBytes(0x48, 0x83, 0xC4, 0x28)                                           // add rsp, 40
-	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5F, 0x5E, 0x5B) // pop r15..r12, rdi, rsi, rbx
-	b.emitBytes(0x5D, 0xC3)
+	if b.hasRelocTarget("fn_explode") {
+		b.defineLabel("fn_explode")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
+		b.emitBytes(0x53, 0x56, 0x57)                               // push rbx; push rsi; push rdi
+		b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12..r15
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28)                         // sub rsp, 40
+		b.emitBytes(0x48, 0x89, 0xCE)                               // mov rsi, rcx (delimPtr)
+		b.emitBytes(0x48, 0x89, 0xD7)                               // mov rdi, rdx (strPtr)
+		b.emitBytes(0x48, 0x81, 0xFE, 0x00, 0x00, 0x01, 0x00)       // cmp rsi, 0x10000
+		b.emitJgeLabel(".explode_delim_ok")
+		b.emitLeaRCXString("")
+		b.emitBytes(0x48, 0x89, 0xCE) // mov rsi, rcx
+		b.defineLabel(".explode_delim_ok")
+		b.emitBytes(0x48, 0x81, 0xFF, 0x00, 0x00, 0x01, 0x00) // cmp rdi, 0x10000
+		b.emitJgeLabel(".explode_str_ok")
+		b.emitLeaRCXString("")
+		b.emitBytes(0x48, 0x89, 0xCF) // mov rdi, rcx
+		b.defineLabel(".explode_str_ok")
+		b.emitBytes(0x0F, 0xB6, 0x1E) // movzx ebx, byte ptr [rsi] (delimChar)
+		// First pass: count occurrences of delimChar in strPtr to pre-allocate exact capacity
+		b.emitBytes(0x48, 0x89, 0xF9)                   // mov rcx, rdi
+		b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00) // mov r8d, 1 (tokenCount = 1)
+		b.emitBytes(0x85, 0xDB)                         // test ebx, ebx
+		b.emitJeLabel(".explode_count_done")
+		b.defineLabel(".explode_count_loop")
+		b.emitBytes(0x0F, 0xB6, 0x11) // movzx edx, byte ptr [rcx]
+		b.emitBytes(0x85, 0xD2)       // test edx, edx
+		b.emitJeLabel(".explode_count_done")
+		b.emitBytes(0x39, 0xDA) // cmp edx, ebx
+		b.emitJneLabel(".explode_count_next")
+		b.emitBytes(0x49, 0xFF, 0xC0) // inc r8
+		b.defineLabel(".explode_count_next")
+		b.emitBytes(0x48, 0xFF, 0xC1) // inc rcx
+		b.emitJmpLabel(".explode_count_loop")
+		b.defineLabel(".explode_count_done")
+		b.emitBytes(0x4C, 0x89, 0xC1)       // mov rcx, r8 (cap = tokenCount)
+		b.emitBytes(0x48, 0x83, 0xF9, 0x08) // cmp rcx, 8
+		b.emitJgeLabel(".explode_cap_ok")
+		b.emitBytes(0x48, 0xC7, 0xC1, 0x08, 0x00, 0x00, 0x00) // mov rcx, 8
+		b.defineLabel(".explode_cap_ok")
+		b.emitBytes(0x49, 0x89, 0xCD)             // mov r13, rcx (save cap)
+		b.emitBytes(0xB9, 0x18, 0x00, 0x00, 0x00) // mov ecx, 24 (arrHeader)
+		b.emitCallLabel("__joss_os_alloc")
+		b.emitBytes(0x49, 0x89, 0xC4)       // mov r12, rax (arrPtr)
+		b.emitBytes(0x4C, 0x89, 0xE9)       // mov rcx, r13
+		b.emitBytes(0x48, 0xC1, 0xE1, 0x03) // shl rcx, 3 (cap * 8)
+		b.emitCallLabel("__joss_os_alloc")
+		b.emitBytes(0x4D, 0x89, 0x6C, 0x24, 0x08) // mov [r12 + 8], r13 (arr.cap = cap)
+		b.emitBytes(0x49, 0x89, 0x44, 0x24, 0x10) // mov [r12 + 16], rax (arr.dataPtr = dataPtr)
+		b.emitBytes(0x49, 0x89, 0xC5)             // mov r13, rax (dataPtr)
+		b.emitBytes(0x45, 0x31, 0xF6)             // xor r14d, r14d (outIdx = 0)
+		b.emitBytes(0x49, 0x89, 0xFF)             // mov r15, rdi (cursor = strPtr)
+		b.defineLabel(".explode_token_loop")
+		b.emitBytes(0x4C, 0x89, 0xFA) // mov rdx, r15 (scan = cursor)
+		b.defineLabel(".explode_scan_loop")
+		b.emitBytes(0x0F, 0xB6, 0x0A) // movzx ecx, byte ptr [rdx]
+		b.emitBytes(0x85, 0xC9)       // test ecx, ecx
+		b.emitJeLabel(".explode_found_end")
+		b.emitBytes(0x85, 0xDB) // test ebx, ebx
+		b.emitJeLabel(".explode_scan_next")
+		b.emitBytes(0x39, 0xD9) // cmp ecx, ebx
+		b.emitJeLabel(".explode_found_end")
+		b.defineLabel(".explode_scan_next")
+		b.emitBytes(0x48, 0xFF, 0xC2) // inc rdx
+		b.emitJmpLabel(".explode_scan_loop")
+		b.defineLabel(".explode_found_end")
+		b.emitBytes(0x41, 0x89, 0xC8) // mov r8d, ecx (save endByte: 0 or delimChar)
+		b.emitBytes(0x48, 0x89, 0xD6) // mov rsi, rdx (endPtr)
+		// Strip trailing '\r' when splitting by '\n' (CRLF normalization)
+		b.emitBytes(0x83, 0xFB, 0x0A) // cmp ebx, 10 ('\n')
+		b.emitJneLabel(".explode_store_tok")
+		b.emitBytes(0x4C, 0x39, 0xFA) // cmp rdx, r15 (endPtr > cursor?)
+		b.emitJleLabel(".explode_store_tok")
+		b.emitBytes(0x80, 0x7A, 0xFF, 0x0D) // cmp byte ptr [rdx - 1], 13 ('\r')
+		b.emitJneLabel(".explode_store_tok")
+		b.emitBytes(0xC6, 0x42, 0xFF, 0x00) // mov byte ptr [rdx - 1], 0
+		b.defineLabel(".explode_store_tok")
+		b.emitBytes(0xC6, 0x06, 0x00)             // mov byte ptr [rsi], 0 (null-terminate token in-place)
+		b.emitBytes(0x4F, 0x89, 0x7C, 0xF5, 0x00) // mov [r13 + r14*8], r15 (store token pointer)
+		b.emitBytes(0x49, 0xFF, 0xC6)             // inc r14
+		// Check if endByte was 0 (end of string)
+		b.emitBytes(0x45, 0x85, 0xC0) // test r8d, r8d
+		b.emitJeLabel(".explode_finish")
+		b.emitBytes(0x4C, 0x8D, 0x7E, 0x01) // lea r15, [rsi + 1] (cursor = endPtr + 1)
+		b.emitJmpLabel(".explode_token_loop")
+		b.defineLabel(".explode_finish")
+		b.emitBytes(0x4D, 0x89, 0x34, 0x24)                                           // mov [r12 + 0], r14 (arr.len = outIdx)
+		b.emitBytes(0x4C, 0x89, 0xE0)                                                 // mov rax, r12 (return arrPtr)
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28)                                           // add rsp, 40
+		b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5F, 0x5E, 0x5B) // pop r15..r12, rdi, rsi, rbx
+		b.emitBytes(0x5D, 0xC3)
+	}
 
 	// fn_file_get_contents(rcx = pathPtr) -> rax = strPtr
 	b.defineLabel("fn_file_get_contents")
@@ -2239,80 +2255,82 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	// __joss_thread_trampoline(rcx = taskBox) -> eax = 0 (Win32 LPTHREAD_START_ROUTINE)
 	// taskBox layout: [0] = fnPtr, [8] = result, [16] = hThread
-	b.defineLabel("__joss_thread_trampoline")
-	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
-	b.emitBytes(0x53)                   // push rbx
-	b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
-	b.emitBytes(0x48, 0x89, 0xCB)       // mov rbx, rcx (taskBox)
-	b.emitBytes(0x48, 0x8B, 0x03)       // mov rax, [rbx + 0] (fnPtr)
-	b.emitBytes(0xFF, 0xD0)             // call rax
-	b.emitBytes(0x48, 0x89, 0x43, 0x08) // mov [rbx + 8], rax (result)
-	b.emitBytes(0x31, 0xC0)             // xor eax, eax
-	b.emitBytes(0x48, 0x83, 0xC4, 0x28, 0x5B, 0x5D, 0xC3)
-
-	// fn_async(rcx = fnPtr) -> rax = taskBox
-	b.defineLabel("fn_async")
-	b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
-	b.emitBytes(0x53, 0x41, 0x54)             // push rbx; push r12
-	b.emitBytes(0x48, 0x83, 0xEC, 0x40)       // sub rsp, 64
-	b.emitBytes(0x48, 0x89, 0xCB)             // mov rbx, rcx (fnPtr)
-	b.emitBytes(0xB9, 0x18, 0x00, 0x00, 0x00) // mov ecx, 24 (taskBox)
-	b.emitCallLabel("__joss_os_alloc")
-	b.emitBytes(0x49, 0x89, 0xC4)       // mov r12, rax (taskBox)
-	b.emitBytes(0x49, 0x89, 0x1C, 0x24) // mov [r12 + 0], rbx (fnPtr)
-	if b.target.OS == "windows" {
-		b.emitMovRAXData(dataOffCreateThread)
-		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
-		b.emitJeLabel(".async_sync_fallback")
-		// CreateThread(NULL=0, 0, __joss_thread_trampoline, taskBox, 0, NULL=0)
-		b.emitBytes(0x31, 0xC9)                                           // xor ecx, ecx
-		b.emitBytes(0x31, 0xD2)                                           // xor edx, edx
-		b.emitLeaR8Label("__joss_thread_trampoline")                      // r8 = trampoline
-		b.emitBytes(0x4D, 0x89, 0xE1)                                     // mov r9, r12 (taskBox)
-		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp+32], 0
-		b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x28, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp+40], 0
-		b.emitMovRAXData(dataOffCreateThread)
-		b.emitBytes(0xFF, 0xD0)       // call rax
-		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
-		b.emitJeLabel(".async_sync_fallback")
-		b.emitBytes(0x49, 0x89, 0x44, 0x24, 0x10) // mov [r12 + 16], rax (hThread)
-		b.emitBytes(0x4C, 0x89, 0xE0)             // mov rax, r12
-		b.emitJmpLabel(".async_done")
-	}
-	b.defineLabel(".async_sync_fallback")
-	b.emitBytes(0xFF, 0xD3)                   // call rbx (fnPtr)
-	b.emitBytes(0x49, 0x89, 0x44, 0x24, 0x08) // mov [r12 + 8], rax (result)
-	b.emitBytes(0x4C, 0x89, 0xE0)             // mov rax, r12
-	b.defineLabel(".async_done")
-	b.emitBytes(0x48, 0x83, 0xC4, 0x40)       // add rsp, 64
-	b.emitBytes(0x41, 0x5C, 0x5B, 0x5D, 0xC3) // pop r12, rbx, rbp; ret
-
-	// fn_await(rcx = taskBox) -> rax = result
-	b.defineLabel("fn_await")
-	b.emitBytes(0x31, 0xC0)       // xor eax, eax
-	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-	b.emitJeLabel(".await_ret_null")
-	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
-	b.emitBytes(0x53)                   // push rbx
-	b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
-	b.emitBytes(0x48, 0x89, 0xCB)       // mov rbx, rcx (taskBox)
-	if b.target.OS == "windows" {
-		b.emitBytes(0x48, 0x8B, 0x4B, 0x10) // mov rcx, [rbx + 16] (hThread)
-		b.emitBytes(0x48, 0x85, 0xC9)       // test rcx, rcx
-		b.emitJeLabel(".await_load_res")
-		b.emitBytes(0xBA, 0xFF, 0xFF, 0xFF, 0xFF) // mov edx, 0xFFFFFFFF (INFINITE)
-		b.emitMovRAXData(dataOffWaitSingleObject)
+	if b.hasRelocTarget("fn_async", "fn_await", "__joss_thread_trampoline") {
+		b.defineLabel("__joss_thread_trampoline")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+		b.emitBytes(0x53)                   // push rbx
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+		b.emitBytes(0x48, 0x89, 0xCB)       // mov rbx, rcx (taskBox)
+		b.emitBytes(0x48, 0x8B, 0x03)       // mov rax, [rbx + 0] (fnPtr)
 		b.emitBytes(0xFF, 0xD0)             // call rax
-		b.emitBytes(0x48, 0x8B, 0x4B, 0x10) // mov rcx, [rbx + 16]
-		b.emitMovRAXData(dataOffCloseHandle)
-		b.emitBytes(0xFF, 0xD0)                                     // call rax
-		b.emitBytes(0x48, 0xC7, 0x43, 0x10, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rbx + 16], 0
+		b.emitBytes(0x48, 0x89, 0x43, 0x08) // mov [rbx + 8], rax (result)
+		b.emitBytes(0x31, 0xC0)             // xor eax, eax
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28, 0x5B, 0x5D, 0xC3)
+
+		// fn_async(rcx = fnPtr) -> rax = taskBox
+		b.defineLabel("fn_async")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
+		b.emitBytes(0x53, 0x41, 0x54)             // push rbx; push r12
+		b.emitBytes(0x48, 0x83, 0xEC, 0x40)       // sub rsp, 64
+		b.emitBytes(0x48, 0x89, 0xCB)             // mov rbx, rcx (fnPtr)
+		b.emitBytes(0xB9, 0x18, 0x00, 0x00, 0x00) // mov ecx, 24 (taskBox)
+		b.emitCallLabel("__joss_os_alloc")
+		b.emitBytes(0x49, 0x89, 0xC4)       // mov r12, rax (taskBox)
+		b.emitBytes(0x49, 0x89, 0x1C, 0x24) // mov [r12 + 0], rbx (fnPtr)
+		if b.target.OS == "windows" {
+			b.emitMovRAXData(dataOffCreateThread)
+			b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+			b.emitJeLabel(".async_sync_fallback")
+			// CreateThread(NULL=0, 0, __joss_thread_trampoline, taskBox, 0, NULL=0)
+			b.emitBytes(0x31, 0xC9)                                           // xor ecx, ecx
+			b.emitBytes(0x31, 0xD2)                                           // xor edx, edx
+			b.emitLeaR8Label("__joss_thread_trampoline")                      // r8 = trampoline
+			b.emitBytes(0x4D, 0x89, 0xE1)                                     // mov r9, r12 (taskBox)
+			b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp+32], 0
+			b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x28, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rsp+40], 0
+			b.emitMovRAXData(dataOffCreateThread)
+			b.emitBytes(0xFF, 0xD0)       // call rax
+			b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+			b.emitJeLabel(".async_sync_fallback")
+			b.emitBytes(0x49, 0x89, 0x44, 0x24, 0x10) // mov [r12 + 16], rax (hThread)
+			b.emitBytes(0x4C, 0x89, 0xE0)             // mov rax, r12
+			b.emitJmpLabel(".async_done")
+		}
+		b.defineLabel(".async_sync_fallback")
+		b.emitBytes(0xFF, 0xD3)                   // call rbx (fnPtr)
+		b.emitBytes(0x49, 0x89, 0x44, 0x24, 0x08) // mov [r12 + 8], rax (result)
+		b.emitBytes(0x4C, 0x89, 0xE0)             // mov rax, r12
+		b.defineLabel(".async_done")
+		b.emitBytes(0x48, 0x83, 0xC4, 0x40)       // add rsp, 64
+		b.emitBytes(0x41, 0x5C, 0x5B, 0x5D, 0xC3) // pop r12, rbx, rbp; ret
+
+		// fn_await(rcx = taskBox) -> rax = result
+		b.defineLabel("fn_await")
+		b.emitBytes(0x31, 0xC0)       // xor eax, eax
+		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+		b.emitJeLabel(".await_ret_null")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+		b.emitBytes(0x53)                   // push rbx
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+		b.emitBytes(0x48, 0x89, 0xCB)       // mov rbx, rcx (taskBox)
+		if b.target.OS == "windows" {
+			b.emitBytes(0x48, 0x8B, 0x4B, 0x10) // mov rcx, [rbx + 16] (hThread)
+			b.emitBytes(0x48, 0x85, 0xC9)       // test rcx, rcx
+			b.emitJeLabel(".await_load_res")
+			b.emitBytes(0xBA, 0xFF, 0xFF, 0xFF, 0xFF) // mov edx, 0xFFFFFFFF (INFINITE)
+			b.emitMovRAXData(dataOffWaitSingleObject)
+			b.emitBytes(0xFF, 0xD0)             // call rax
+			b.emitBytes(0x48, 0x8B, 0x4B, 0x10) // mov rcx, [rbx + 16]
+			b.emitMovRAXData(dataOffCloseHandle)
+			b.emitBytes(0xFF, 0xD0)                                     // call rax
+			b.emitBytes(0x48, 0xC7, 0x43, 0x10, 0x00, 0x00, 0x00, 0x00) // mov qword ptr [rbx + 16], 0
+		}
+		b.defineLabel(".await_load_res")
+		b.emitBytes(0x48, 0x8B, 0x43, 0x08)             // mov rax, [rbx + 8] (result)
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28, 0x5B, 0x5D) // add rsp, 40; pop rbx; pop rbp
+		b.defineLabel(".await_ret_null")
+		b.emitBytes(0xC3)
 	}
-	b.defineLabel(".await_load_res")
-	b.emitBytes(0x48, 0x8B, 0x43, 0x08)             // mov rax, [rbx + 8] (result)
-	b.emitBytes(0x48, 0x83, 0xC4, 0x28, 0x5B, 0x5D) // add rsp, 40; pop rbx; pop rbp
-	b.defineLabel(".await_ret_null")
-	b.emitBytes(0xC3)
 
 	// =========================================================================
 	// 7. Exception Helpers (Exception_constructor, Exception_getMessage, Exception_getCode, __joss_rt_throw)
@@ -2398,14 +2416,30 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 
 	// SSA Load Offset Forwarding:
 	// Si un TempValue es el resultado directo de un Load de un puntero local (alloca),
-	// alias su stack offset directamente al puntero para evitar escribir/leer en la pila.
+	// alias su stack offset directamente al puntero para evitar escribir/leer en la pila,
+	// excepto si la instrucción inmediatamente siguiente escribe en el mismo puntero
+	// o si el resultado del Load es uno de los operandos de una llamada que después escribe en el mismo puntero.
+	ptrWriteCount := make(map[int]int)
+	for _, blk := range fn.Blocks {
+		for _, inst := range blk.Instructions {
+			if store, ok := inst.(*ir.StoreInst); ok {
+				if ptrTemp, isTemp := store.Ptr.(*ir.TempValue); isTemp {
+					ptrWriteCount[ptrTemp.ID]++
+				}
+			}
+		}
+	}
+
 	for _, blk := range fn.Blocks {
 		for _, inst := range blk.Instructions {
 			if load, ok := inst.(*ir.LoadInst); ok {
 				if ptrTemp, isTemp := load.Ptr.(*ir.TempValue); isTemp {
-					off := tempOffsets[ptrTemp.ID]
-					tempOffsets[load.Dest.ID] = off
-					aliasedOffsets[off] = true
+					// Solo aliasar punteros que se escriben a lo sumo una vez (inicialización)
+					if ptrWriteCount[ptrTemp.ID] <= 1 {
+						off := tempOffsets[ptrTemp.ID]
+						tempOffsets[load.Dest.ID] = off
+						aliasedOffsets[off] = true
+					}
 				}
 			}
 		}
@@ -2413,7 +2447,8 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 
 	// SSA Store Forwarding:
 	// Si un TempValue es usado ÚNICAMENTE por una StoreInst inmediatamente siguiente en el mismo bloque,
-	// alias su stack offset directamente al puntero destino para escribir el resultado directamente.
+	// alias su stack offset directamente al puntero destino para escribir el resultado directamente,
+	// siempre que ninguno de los operandos de la instrucción esté ya aliasado al mismo puntero destino.
 	tempUseCount := make(map[int]int, fn.NextTempID)
 	for _, blk := range fn.Blocks {
 		for _, inst := range blk.Instructions {
@@ -2441,8 +2476,17 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 						if vTemp, ok2 := store.Val.(*ir.TempValue); ok2 && vTemp.ID == dest.ID {
 							if ptrTemp, ok3 := store.Ptr.(*ir.TempValue); ok3 {
 								off := tempOffsets[ptrTemp.ID]
-								tempOffsets[dest.ID] = off
-								aliasedOffsets[off] = true
+								conflict := false
+								for _, op := range inst.Operands() {
+									if opTemp, isOpTemp := op.(*ir.TempValue); isOpTemp && tempOffsets[opTemp.ID] == off {
+										conflict = true
+										break
+									}
+								}
+								if !conflict {
+									tempOffsets[dest.ID] = off
+									aliasedOffsets[off] = true
+								}
 							}
 						}
 					}

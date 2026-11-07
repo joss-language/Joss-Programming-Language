@@ -17,4 +17,23 @@ public class StringUtils {
         }
         return $s;
     }
+
+    public static func repeat(string $s, int $count): string {
+        string $res = "";
+        int $i = 0;
+        while ($i < $count) {
+            $res = $res . $s;
+            $i = $i + 1;
+        }
+        return $res;
+    }
+
+    public static func padRight(string $s, int $width, string $pad): string {
+        string $res = $s;
+        string $ch = (strlen($pad) > 0) ? $pad : " ";
+        while (strlen($res) < $width) {
+            $res = $res . $ch;
+        }
+        return $res;
+    }
 }

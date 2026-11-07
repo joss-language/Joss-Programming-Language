@@ -20,4 +20,34 @@ public class MathUtils {
         }
         return ($x < 0) ? -$x : $x;
     }
+
+    public static func abs(int $n): int {
+        return ($n < 0) ? -$n : $n;
+    }
+
+    public static func min(int $a, int $b): int {
+        return ($a < $b) ? $a : $b;
+    }
+
+    public static func max(int $a, int $b): int {
+        return ($a > $b) ? $a : $b;
+    }
+
+    public static func pow(int $base, int $exp): int {
+        int $res = 1;
+        int $i = 0;
+        while ($i < $exp) {
+            $res = $res * $base;
+            $i = $i + 1;
+        }
+        return $res;
+    }
+
+    public static func isEven(int $n): bool {
+        return ($n % 2) == 0;
+    }
+
+    public static func isOdd(int $n): bool {
+        return ($n % 2) != 0;
+    }
 }

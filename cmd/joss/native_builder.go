@@ -1,27 +1,18 @@
 package main
 
 import (
-	"archive/tar"
-	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"crypto/rand"
-	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"image"
 	"image/png"
-	"io"
-	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
-	"time"
 
-	"github.com/jossecurity/joss/pkg/backend/native"
 	"github.com/jossecurity/joss/pkg/buildmanifest"
 	"github.com/jossecurity/joss/pkg/bytecode"
 	"github.com/jossecurity/joss/pkg/core"
@@ -29,7 +20,6 @@ import (
 	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/pluginpkg"
-	"github.com/jossecurity/joss/pkg/server"
 )
 
 const (
@@ -350,142 +340,6 @@ func encryptProjectEnvironment(files map[string][]byte, enableGUI bool) {
 	}
 }
 
-// resolveOrDownloadUPX ensures a functional UPX executable is available.
-// It checks PATH, Joss tools directory, and automatically downloads a standalone binary if missing.
-func resolveOrDownloadUPX() string {
-	// 1. Check system PATH first
-	if p, err := exec.LookPath("upx"); err == nil {
-		return p
-	}
-
-	// 2. Check Joss local tools directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		homeDir = os.TempDir()
-	}
-
-	toolsDir := filepath.Join(homeDir, ".joss", "tools")
-	exeName := "upx"
-	if runtime.GOOS == "windows" {
-		exeName = "upx.exe"
-	}
-	cachedUPX := filepath.Join(toolsDir, exeName)
-	if fi, err := os.Stat(cachedUPX); err == nil && !fi.IsDir() {
-		return cachedUPX
-	}
-
-	// Also check next to running joss binary
-	if selfExe, err := os.Executable(); err == nil {
-		sibling := filepath.Join(filepath.Dir(selfExe), exeName)
-		if fi, err := os.Stat(sibling); err == nil && !fi.IsDir() {
-			return sibling
-		}
-	}
-
-	// 3. Attempt automated download for host platform
-	_ = os.MkdirAll(toolsDir, 0755)
-	if downloaded := downloadUPXForHost(cachedUPX); downloaded {
-		return cachedUPX
-	}
-
-	return ""
-}
-
-func downloadUPXForHost(destPath string) bool {
-	archiveURL, innerFile := getUPXDownloadURL()
-	if archiveURL == "" {
-		return false
-	}
-
-	fmt.Printf("⚡ Descargando optimizador binario nativo (UPX) para %s/%s...\n", runtime.GOOS, runtime.GOARCH)
-
-	client := &http.Client{Timeout: 45 * time.Second}
-	resp, err := client.Get(archiveURL)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		if resp != nil {
-			resp.Body.Close()
-		}
-		return false
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return false
-	}
-
-	if strings.HasSuffix(archiveURL, ".zip") {
-		zr, err := zip.NewReader(bytes.NewReader(bodyBytes), int64(len(bodyBytes)))
-		if err != nil {
-			return false
-		}
-		for _, f := range zr.File {
-			if filepath.Base(f.Name) == innerFile {
-				rc, err := f.Open()
-				if err != nil {
-					return false
-				}
-				defer rc.Close()
-				out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
-				if err != nil {
-					return false
-				}
-				defer out.Close()
-				_, err = io.Copy(out, rc)
-				return err == nil
-			}
-		}
-	} else if strings.HasSuffix(archiveURL, ".tar.xz") || strings.HasSuffix(archiveURL, ".tar.gz") {
-		// For tar.gz or simple archives, extract the upx binary
-		gzr, err := gzip.NewReader(bytes.NewReader(bodyBytes))
-		if err == nil {
-			defer gzr.Close()
-			tr := tar.NewReader(gzr)
-			for {
-				hdr, err := tr.Next()
-				if err != nil {
-					break
-				}
-				if filepath.Base(hdr.Name) == innerFile {
-					out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
-					if err != nil {
-						return false
-					}
-					defer out.Close()
-					_, err = io.Copy(out, tr)
-					return err == nil
-				}
-			}
-		}
-	}
-
-	return false
-}
-
-func getUPXDownloadURL() (string, string) {
-	// Standard release: UPX 5.2.1
-	const version = "5.2.1"
-	switch runtime.GOOS {
-	case "windows":
-		switch runtime.GOARCH {
-		case "amd64":
-			return fmt.Sprintf("https://github.com/upx/upx/releases/download/v%s/upx-%s-win64.zip", version, version), "upx.exe"
-		case "386":
-			return fmt.Sprintf("https://github.com/upx/upx/releases/download/v%s/upx-%s-win32.zip", version, version), "upx.exe"
-		}
-	case "linux":
-		switch runtime.GOARCH {
-		case "amd64":
-			return fmt.Sprintf("https://github.com/upx/upx/releases/download/v%s/upx-%s-amd64_linux.tar.xz", version, version), "upx"
-		case "arm64":
-			return fmt.Sprintf("https://github.com/upx/upx/releases/download/v%s/upx-%s-arm64_linux.tar.xz", version, version), "upx"
-		case "arm":
-			return fmt.Sprintf("https://github.com/upx/upx/releases/download/v%s/upx-%s-arm_linux.tar.xz", version, version), "upx"
-		}
-	}
-	return "", ""
-}
-
 func computePruningTags(detectedCaps map[string]bool) []string {
 	var tags []string
 	if detectedCaps != nil {
@@ -514,175 +368,11 @@ func computePruningTags(detectedCaps map[string]bool) []string {
 		if !detectedCaps["gui"] {
 			tags = append(tags, "nogui")
 		}
+		if !detectedCaps["embedlocales"] {
+			tags = append(tags, "noembedlocales")
+		}
 	}
 	return tags
-}
-
-func findRepoRoot() string {
-	for check := "."; ; check = filepath.Join("..", check) {
-		absCheck, absErr := filepath.Abs(check)
-		if absErr != nil {
-			break
-		}
-		if _, statErr := os.Stat(filepath.Join(absCheck, "pkg", "backend", "native", "abi", "host_bridge.go")); statErr == nil {
-			return absCheck
-		}
-		parent := filepath.Dir(absCheck)
-		if parent == absCheck {
-			break
-		}
-	}
-	return ""
-}
-
-func compileRunnerBinary(outExe string, target native.Target, detectedCaps map[string]bool) error {
-	absOutExe, err := filepath.Abs(outExe)
-	if err != nil {
-		absOutExe = outExe
-	}
-
-	tags := computePruningTags(detectedCaps)
-	sort.Strings(tags)
-	tagKey := strings.Join(tags, "_")
-	if tagKey == "" {
-		tagKey = "default"
-	}
-
-	userHome, _ := os.UserHomeDir()
-	cacheDir := filepath.Join(userHome, ".joss", "cache", "host_runner")
-	cachedRunner := filepath.Join(cacheDir, fmt.Sprintf("runner_%s_%s_%s", target.OS, target.Arch, tagKey))
-
-	// 1. Check user cache
-	if fi, statErr := os.Stat(cachedRunner); statErr == nil && fi.Size() > 0 {
-		if copyErr := copyFile(cachedRunner, absOutExe); copyErr == nil {
-			_ = os.Chmod(absOutExe, 0755)
-			fmt.Printf("⚡ Host runner reutilizado desde caché nativa (%s/%s, tags: %s)\n", target.OS, target.Arch, tagKey)
-			return nil
-		}
-	}
-
-	// 2. Compile host runner using Go toolchain if available
-	repoRoot := findRepoRoot()
-	hasGo := false
-	if _, lookErr := exec.LookPath("go"); lookErr == nil {
-		hasGo = true
-	}
-
-	if repoRoot != "" && hasGo {
-		fmt.Printf("⚡ Compilando host runner autónomo para %s/%s (%s)...\n", target.OS, target.Arch, tagKey)
-		args := []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w"}
-		if len(tags) > 0 {
-			args = append(args, "-tags="+strings.Join(tags, ","))
-		}
-		args = append(args, "-o", absOutExe, "./pkg/backend/native/abi/")
-
-		cmd := exec.Command("go", args...)
-		cmd.Dir = repoRoot
-		cmd.Env = append(os.Environ(),
-			"CGO_ENABLED=0",
-			"GOOS="+target.OS,
-			"GOARCH="+target.Arch,
-		)
-
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("error compilando host runner: %v\n%s", err, string(out))
-		}
-
-		_ = os.Chmod(absOutExe, 0755)
-
-		// 3. Compress with UPX if available
-		if upx := resolveOrDownloadUPX(); upx != "" {
-			fmt.Printf("⚡ Optimizando host runner con UPX...\n")
-			upxCmd := exec.Command(upx, "-9", absOutExe)
-			_ = upxCmd.Run()
-		}
-
-		// 4. Cache the resulting runner for subsequent instant builds
-		_ = os.MkdirAll(cacheDir, 0755)
-		_ = copyFile(absOutExe, cachedRunner)
-
-		return nil
-	}
-
-	// 3. Si no hay toolchain de Go ni código fuente, pero estamos en la misma plataforma (ej. contenedor Docker o instalación binaria)
-	if target.OS == runtime.GOOS && target.Arch == runtime.GOARCH {
-		selfExe, selfErr := os.Executable()
-		if selfErr == nil && selfExe != "" {
-			if copyErr := copyFile(selfExe, absOutExe); copyErr == nil {
-				_ = os.Chmod(absOutExe, 0755)
-				fmt.Printf("⚡ Host runner autónomo reutilizado desde la instalación local de Joss (%s/%s)\n", target.OS, target.Arch)
-				if upx := resolveOrDownloadUPX(); upx != "" {
-					upxCmd := exec.Command(upx, "-9", absOutExe)
-					_ = upxCmd.Run()
-				}
-				// Cachear para siguientes ejecuciones
-				_ = os.MkdirAll(cacheDir, 0755)
-				_ = copyFile(absOutExe, cachedRunner)
-				return nil
-			}
-		}
-		return fmt.Errorf("no se pudo copiar el ejecutable actual de Joss como runner: %v", selfErr)
-	}
-
-	return fmt.Errorf("se requiere 'go' en el PATH y el repositorio de Joss para compilar un host runner cruzado para %s/%s", target.OS, target.Arch)
-}
-
-func appendSealedAssetsToExecutable(outExe string, enableGUI bool, target native.Target) (int64, error) {
-	if _, err := os.Stat("assets/css"); err == nil {
-		server.CompileStyles()
-	}
-
-	fmt.Println(i18n.Tr("nativeBuildPackagingAssets"))
-	encryptedAssets, buildKey, detectedCaps, err := collectAndEncryptAssets(enableGUI)
-	if err != nil {
-		return 0, err
-	}
-
-	outDir := filepath.Dir(outExe)
-	if _, err := os.Stat(sqliteDbFile); err == nil {
-		if outDir != "" && outDir != "." {
-			_ = os.MkdirAll(filepath.Join(outDir, "Storage"), 0755)
-			copyDatabaseFiles(outDir)
-		}
-	}
-
-	_ = os.Remove(outExe)
-	if err := compileRunnerBinary(outExe, target, detectedCaps); err != nil {
-		return 0, err
-	}
-	outFile, err := os.OpenFile(outExe, os.O_WRONLY|os.O_APPEND, 0755)
-	if err != nil {
-		return 0, err
-	}
-	defer outFile.Close()
-
-	if _, err := outFile.Write(encryptedAssets); err != nil {
-		return 0, err
-	}
-	if _, err := outFile.Write(buildKey); err != nil {
-		return 0, err
-	}
-
-	lenBuf := make([]byte, 8)
-	binary.LittleEndian.PutUint64(lenBuf, uint64(len(encryptedAssets)))
-	if _, err := outFile.Write(lenBuf); err != nil {
-		return 0, err
-	}
-
-	magic := []byte("JOSS_RUNNER_DATA")
-	if _, err := outFile.Write(magic); err != nil {
-		return 0, err
-	}
-
-	_ = outFile.Close()
-	if stat, err := os.Stat(outExe); err == nil {
-		return stat.Size(), nil
-	}
-	return 0, nil
-}
-
-func optimizeHostBridgeDLL(outDir string, detectedCaps map[string]bool) {
-	// Obsoleto: Joss compila binarios autónomos en código máquina puro sin DLLs externas.
 }
 
 func copyDatabaseFiles(buildDir string) {

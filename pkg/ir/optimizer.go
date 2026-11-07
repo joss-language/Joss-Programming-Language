@@ -29,6 +29,8 @@ func OptimizeProgram(prog *Program) {
 	// Pase 5: Plegado y propagación de constantes (Constant Folding)
 	for _, fn := range prog.Functions {
 		FoldConstants(fn)
+		PropagateCopies(fn)
+		FoldConstants(fn)
 	}
 }
 
@@ -319,34 +321,12 @@ func cloneInstructionWithRemap(caller *Function, inst Instruction, valMap map[Va
 	return inst
 }
 
-// ForwardLocalLoads rastrea los valores almacenados en punteros locales de tipo AllocaInst
-// dentro del mismo bloque básico y reemplaza cargas redundantes consecutivas por un MoveInst o reuso.
 // ForwardLocalLoads rastrea los valores disponibles (almacenados o cargados) en punteros locales
-// de tipo AllocaInst dentro del mismo bloque básico y entre bloques con predecesor único,
-// reemplazando cargas redundantes por un MoveInst o reuso del valor existente.
+// de tipo AllocaInst dentro del mismo bloque básico, reemplazando cargas redundantes consecutivas
+// por un MoveInst o reuso del valor existente.
 func ForwardLocalLoads(fn *Function) {
-	// 1. Construir lista de predecesores de cada bloque básico
-	predsMap := make(map[*BasicBlock][]*BasicBlock, len(fn.Blocks))
 	for _, blk := range fn.Blocks {
-		for _, succ := range blk.Successors() {
-			predsMap[succ] = append(predsMap[succ], blk)
-		}
-	}
-
-	blockOutMap := make(map[*BasicBlock]map[int]Value, len(fn.Blocks))
-
-	for _, blk := range fn.Blocks {
-		availMap := make(map[int]Value) // allocaTempID -> latest Value available
-
-		// Si tiene un único predecesor que ya fue procesado, heredar sus valores disponibles
-		preds := predsMap[blk]
-		if len(preds) == 1 {
-			if predOut, exists := blockOutMap[preds[0]]; exists {
-				for k, v := range predOut {
-					availMap[k] = v
-				}
-			}
-		}
+		availMap := make(map[int]Value) // allocaTempID -> latest Value available in this basic block
 
 		newInsts := make([]Instruction, 0, len(blk.Instructions))
 		for _, inst := range blk.Instructions {
@@ -380,7 +360,6 @@ func ForwardLocalLoads(fn *Function) {
 			}
 		}
 		blk.Instructions = newInsts
-		blockOutMap[blk] = availMap
 	}
 }
 
@@ -668,13 +647,48 @@ func EliminateDeadAllocasAndStores(fn *Function) {
 	pruneBlocks(fn.Blocks)
 }
 
-// PropagateCopies rastrea MoveInsts redundantes (%dest = move %src) dentro de cada bloque básico
-// y propaga el valor original %src en todos los usos de %dest, eliminando la instrucción move.
+// PropagateCopies rastrea MoveInsts redundantes (%dest = move %src) en la función
+// y propaga el valor original %src en todos los usos de %dest (incluyendo a través de
+// bloques básicos cuando %dest tiene una única definición SSA), eliminando la instrucción move.
 func PropagateCopies(fn *Function) {
+	defCount := make(map[Value]int)
+	var countDefs func(blocks []*BasicBlock)
+	countDefs = func(blocks []*BasicBlock) {
+		for _, blk := range blocks {
+			for _, inst := range blk.Instructions {
+				if tc, ok := inst.(*TryCatchInst); ok {
+					countDefs(tc.TryBlocks)
+					countDefs(tc.CatchBlocks)
+					continue
+				}
+				if d := getInstDest(inst); d != nil {
+					defCount[d]++
+				}
+			}
+		}
+	}
+	countDefs(fn.Blocks)
+
+	globalMap := make(map[Value]Value)
+	resolveGlobal := func(v Value) Value {
+		for {
+			if mapped, exists := globalMap[v]; exists && mapped != v {
+				v = mapped
+				continue
+			}
+			break
+		}
+		return v
+	}
+
 	var propBlocks func(blocks []*BasicBlock)
 	propBlocks = func(blocks []*BasicBlock) {
 		for _, blk := range blocks {
-			valMap := make(map[Value]Value)
+			localMap := make(map[Value]Value)
+			combinedMap := make(map[Value]Value)
+			for k, v := range globalMap {
+				combinedMap[k] = resolveGlobal(v)
+			}
 			newInsts := make([]Instruction, 0, len(blk.Instructions))
 			for _, inst := range blk.Instructions {
 				if tc, ok := inst.(*TryCatchInst); ok {
@@ -683,28 +697,79 @@ func PropagateCopies(fn *Function) {
 					newInsts = append(newInsts, inst)
 					continue
 				}
-				remapInstructionValues(inst, valMap)
+				// Si esta instrucción redefine un destino con múltiples definiciones, invalidar mapeo local previo
+				if d := getInstDest(inst); d != nil && defCount[d] > 1 {
+					delete(localMap, d)
+					delete(combinedMap, d)
+				}
+				remapInstructionValues(inst, combinedMap)
 				if mv, ok := inst.(*MoveInst); ok && mv.Dest != nil {
 					src := mv.Src
 					for {
-						if mapped, exists := valMap[src]; exists {
+						if mapped, exists := combinedMap[src]; exists && mapped != src {
 							src = mapped
 							continue
 						}
 						break
 					}
-					valMap[mv.Dest] = src
-					continue
+					// Solo eliminar MoveInst si Dest tiene una única definición en toda la función
+					// y Src también es inmutable (constante o temp de única definición).
+					srcSingleDef := true
+					if _, isTemp := src.(*TempValue); isTemp && defCount[src] > 1 {
+						srcSingleDef = false
+					}
+					if defCount[mv.Dest] == 1 && srcSingleDef {
+						globalMap[mv.Dest] = src
+						combinedMap[mv.Dest] = src
+						continue
+					}
+					localMap[mv.Dest] = src
+					combinedMap[mv.Dest] = src
 				}
 				newInsts = append(newInsts, inst)
 			}
 			blk.Instructions = newInsts
 			if blk.Terminator != nil {
-				remapTerminatorValues(blk.Terminator, valMap)
+				remapTerminatorValues(blk.Terminator, combinedMap)
 			}
 		}
 	}
 	propBlocks(fn.Blocks)
+
+	// Segunda pasada para remapeo de usos en bloques posteriores (ej. tras ternary_merge / coal_merge)
+	if len(globalMap) > 0 {
+		resolvedGlobal := make(map[Value]Value, len(globalMap))
+		for k, v := range globalMap {
+			resolvedGlobal[k] = resolveGlobal(v)
+		}
+		var remapAll func(blocks []*BasicBlock)
+		remapAll = func(blocks []*BasicBlock) {
+			for _, blk := range blocks {
+				for _, inst := range blk.Instructions {
+					if tc, ok := inst.(*TryCatchInst); ok {
+						remapAll(tc.TryBlocks)
+						remapAll(tc.CatchBlocks)
+						continue
+					}
+					remapInstructionValues(inst, resolvedGlobal)
+				}
+				if blk.Terminator != nil {
+					remapTerminatorValues(blk.Terminator, resolvedGlobal)
+				}
+			}
+		}
+		remapAll(fn.Blocks)
+	}
+}
+
+func getInstDest(inst Instruction) Value {
+	if inst == nil {
+		return nil
+	}
+	if res := inst.Result(); res != nil {
+		return res
+	}
+	return nil
 }
 
 func remapInstructionValues(inst Instruction, valMap map[Value]Value) {
@@ -718,9 +783,8 @@ func remapInstructionValues(inst Instruction, valMap map[Value]Value) {
 	switch i := inst.(type) {
 	case *StoreInst:
 		i.Val = remap(i.Val)
-		i.Ptr = remap(i.Ptr)
 	case *LoadInst:
-		i.Ptr = remap(i.Ptr)
+		// Do not remap i.Ptr (must remain AllocaInst pointer)
 	case *MoveInst:
 		i.Src = remap(i.Src)
 	case *BinaryInst:
@@ -751,6 +815,15 @@ func remapInstructionValues(inst Instruction, valMap map[Value]Value) {
 		for idx := range i.Args {
 			i.Args[idx] = remap(i.Args[idx])
 		}
+	case *CallHostServiceInst:
+		if i.Recv != nil {
+			i.Recv = remap(i.Recv)
+		}
+		for idx := range i.Args {
+			i.Args[idx] = remap(i.Args[idx])
+		}
+	case *CastInst:
+		i.Val = remap(i.Val)
 	case *CallRuntimeInst:
 		for idx := range i.Args {
 			i.Args[idx] = remap(i.Args[idx])
@@ -770,6 +843,11 @@ func remapInstructionValues(inst Instruction, valMap map[Value]Value) {
 	case *NewArrayInst:
 		for idx := range i.Elements {
 			i.Elements[idx] = remap(i.Elements[idx])
+		}
+	case *NewMapInst:
+		for idx := range i.Pairs {
+			i.Pairs[idx][0] = remap(i.Pairs[idx][0])
+			i.Pairs[idx][1] = remap(i.Pairs[idx][1])
 		}
 	case *CallIndirectInst:
 		i.CalleeVal = remap(i.CalleeVal)
@@ -798,110 +876,169 @@ func remapTerminatorValues(term Terminator, valMap map[Value]Value) {
 	}
 }
 
-// FoldConstants evalúa en tiempo de compilación operaciones aritméticas, lógicas y comparaciones
-// entre constantes literales inmediatas, sustituyéndolas por MoveInst de la constante calculada.
+// FoldConstants evalúa en tiempo de compilación operaciones aritméticas, lógicas, comparaciones
+// y concatenación de strings entre constantes literales inmediatas, sustituyéndolas por MoveInst
+// de la constante calculada y propagándolas inmediatamente dentro del mismo bloque básico.
 func FoldConstants(fn *Function) {
-	for _, blk := range fn.Blocks {
-		newInsts := make([]Instruction, 0, len(blk.Instructions))
-		for _, inst := range blk.Instructions {
-			switch i := inst.(type) {
-			case *BinaryInst:
-				cLeft, okLeft := i.Left.(*ConstInt)
-				cRight, okRight := i.Right.(*ConstInt)
-				if okLeft && okRight && i.Dest != nil {
-					var res int64
-					valid := true
-					switch i.Op {
-					case OpAdd:
-						res = cLeft.Val + cRight.Val
-					case OpSub:
-						res = cLeft.Val - cRight.Val
-					case OpMul:
-						res = cLeft.Val * cRight.Val
-					case OpDiv:
-						if cRight.Val != 0 {
-							res = cLeft.Val / cRight.Val
-						} else {
-							valid = false
-						}
-					case OpMod:
-						if cRight.Val != 0 {
-							res = cLeft.Val % cRight.Val
-						} else {
-							valid = false
-						}
-					case OpAnd:
-						res = cLeft.Val & cRight.Val
-					case OpOr:
-						res = cLeft.Val | cRight.Val
-					case OpXor:
-						res = cLeft.Val ^ cRight.Val
-					case OpShl:
-						res = cLeft.Val << uint(cRight.Val)
-					case OpShr:
-						res = cLeft.Val >> uint(cRight.Val)
-					default:
-						valid = false
-					}
-					if valid {
-						newInsts = append(newInsts, &MoveInst{
-							Dest: i.Dest,
-							Src:  NewConstInt(res, i.Dest.Type()),
-						})
-						continue
-					}
-				}
-
-			case *CompareInst:
-				cLeft, okLeft := i.Left.(*ConstInt)
-				cRight, okRight := i.Right.(*ConstInt)
-				if okLeft && okRight && i.Dest != nil {
-					var res bool
-					switch i.Op {
-					case OpCmpEq:
-						res = cLeft.Val == cRight.Val
-					case OpCmpNe:
-						res = cLeft.Val != cRight.Val
-					case OpCmpLt:
-						res = cLeft.Val < cRight.Val
-					case OpCmpLe:
-						res = cLeft.Val <= cRight.Val
-					case OpCmpGt:
-						res = cLeft.Val > cRight.Val
-					case OpCmpGe:
-						res = cLeft.Val >= cRight.Val
-					default:
-						newInsts = append(newInsts, inst)
-						continue
-					}
-					newInsts = append(newInsts, &MoveInst{
-						Dest: i.Dest,
-						Src:  NewConstBool(res),
-					})
+	var foldBlocks func(blocks []*BasicBlock)
+	foldBlocks = func(blocks []*BasicBlock) {
+		for _, blk := range blocks {
+			constMap := make(map[Value]Value)
+			newInsts := make([]Instruction, 0, len(blk.Instructions))
+			for _, inst := range blk.Instructions {
+				if tc, ok := inst.(*TryCatchInst); ok {
+					foldBlocks(tc.TryBlocks)
+					foldBlocks(tc.CatchBlocks)
+					newInsts = append(newInsts, inst)
 					continue
 				}
+				remapInstructionValues(inst, constMap)
+				if mv, ok := inst.(*MoveInst); ok && mv.Dest != nil {
+					constMap[mv.Dest] = mv.Src
+					newInsts = append(newInsts, inst)
+					continue
+				}
+				switch i := inst.(type) {
+				case *BinaryInst:
+					cLeft, okLeft := i.Left.(*ConstInt)
+					cRight, okRight := i.Right.(*ConstInt)
+					if okLeft && okRight && i.Dest != nil {
+						var res int64
+						valid := true
+						switch i.Op {
+						case OpAdd:
+							res = cLeft.Val + cRight.Val
+						case OpSub:
+							res = cLeft.Val - cRight.Val
+						case OpMul:
+							res = cLeft.Val * cRight.Val
+						case OpDiv:
+							if cRight.Val != 0 {
+								res = cLeft.Val / cRight.Val
+							} else {
+								valid = false
+							}
+						case OpMod:
+							if cRight.Val != 0 {
+								res = cLeft.Val % cRight.Val
+							} else {
+								valid = false
+							}
+						case OpAnd:
+							res = cLeft.Val & cRight.Val
+						case OpOr:
+							res = cLeft.Val | cRight.Val
+						case OpXor:
+							res = cLeft.Val ^ cRight.Val
+						case OpShl:
+							res = cLeft.Val << uint(cRight.Val)
+						case OpShr:
+							res = cLeft.Val >> uint(cRight.Val)
+						default:
+							valid = false
+						}
+						if valid {
+							folded := NewConstInt(res, i.Dest.Type())
+							constMap[i.Dest] = folded
+							newInsts = append(newInsts, &MoveInst{
+								Dest: i.Dest,
+								Src:  folded,
+							})
+							continue
+						}
+					}
 
-			case *UnaryInst:
-				if i.Op == OpNeg {
-					if cVal, ok := i.Val.(*ConstInt); ok && i.Dest != nil {
+				case *CompareInst:
+					cLeft, okLeft := i.Left.(*ConstInt)
+					cRight, okRight := i.Right.(*ConstInt)
+					if okLeft && okRight && i.Dest != nil {
+						var res bool
+						switch i.Op {
+						case OpCmpEq:
+							res = cLeft.Val == cRight.Val
+						case OpCmpNe:
+							res = cLeft.Val != cRight.Val
+						case OpCmpLt:
+							res = cLeft.Val < cRight.Val
+						case OpCmpLe:
+							res = cLeft.Val <= cRight.Val
+						case OpCmpGt:
+							res = cLeft.Val > cRight.Val
+						case OpCmpGe:
+							res = cLeft.Val >= cRight.Val
+						default:
+							newInsts = append(newInsts, inst)
+							continue
+						}
+						folded := NewConstBool(res)
+						constMap[i.Dest] = folded
 						newInsts = append(newInsts, &MoveInst{
 							Dest: i.Dest,
-							Src:  NewConstInt(-cVal.Val, i.Dest.Type()),
+							Src:  folded,
 						})
 						continue
 					}
-				} else if i.Op == OpNot {
-					if cVal, ok := i.Val.(*ConstBool); ok && i.Dest != nil {
-						newInsts = append(newInsts, &MoveInst{
-							Dest: i.Dest,
-							Src:  NewConstBool(!cVal.Val),
-						})
-						continue
+
+				case *UnaryInst:
+					if i.Op == OpNeg {
+						if cVal, ok := i.Val.(*ConstInt); ok && i.Dest != nil {
+							folded := NewConstInt(-cVal.Val, i.Dest.Type())
+							constMap[i.Dest] = folded
+							newInsts = append(newInsts, &MoveInst{
+								Dest: i.Dest,
+								Src:  folded,
+							})
+							continue
+						}
+					} else if i.Op == OpNot {
+						if cVal, ok := i.Val.(*ConstBool); ok && i.Dest != nil {
+							folded := NewConstBool(!cVal.Val)
+							constMap[i.Dest] = folded
+							newInsts = append(newInsts, &MoveInst{
+								Dest: i.Dest,
+								Src:  folded,
+							})
+							continue
+						}
+					}
+				case *CallRuntimeInst:
+					if i.Func == "str_concat" && len(i.Args) == 2 && i.Dest != nil {
+						sLeft, okLeft := i.Args[0].(*ConstString)
+						sRight, okRight := i.Args[1].(*ConstString)
+						if okLeft && okRight {
+							folded := NewConstString(sLeft.Val + sRight.Val)
+							constMap[i.Dest] = folded
+							newInsts = append(newInsts, &MoveInst{
+								Dest: i.Dest,
+								Src:  folded,
+							})
+							continue
+						}
+						if okLeft && sLeft.Val == "" && i.Args[1].Type().Kind == TypeKindString {
+							constMap[i.Dest] = i.Args[1]
+							newInsts = append(newInsts, &MoveInst{
+								Dest: i.Dest,
+								Src:  i.Args[1],
+							})
+							continue
+						}
+						if okRight && sRight.Val == "" && i.Args[0].Type().Kind == TypeKindString {
+							constMap[i.Dest] = i.Args[0]
+							newInsts = append(newInsts, &MoveInst{
+								Dest: i.Dest,
+								Src:  i.Args[0],
+							})
+							continue
+						}
 					}
 				}
+				newInsts = append(newInsts, inst)
 			}
-			newInsts = append(newInsts, inst)
+			blk.Instructions = newInsts
+			if blk.Terminator != nil {
+				remapTerminatorValues(blk.Terminator, constMap)
+			}
 		}
-		blk.Instructions = newInsts
 	}
+	foldBlocks(fn.Blocks)
 }

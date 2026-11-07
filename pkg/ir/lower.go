@@ -177,6 +177,10 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 		return nil, err
 	}
 
+	if l.prog.Functions["__joss_http_dispatch"] != nil {
+		l.PruneUnreachableFunctions()
+	}
+
 	if l.OptLevel > 0 {
 		OptimizeProgram(l.prog)
 	}
@@ -989,6 +993,8 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			switch varName {
 			case "total", "current_page", "last_page", "total_pages", "docs_count", "packages_count", "posts_count", "products_count", "is_active_value":
 				resType = TypeI64
+			case "auth_check", "auth_guest":
+				resType = TypeBool
 			}
 			dest := l.currentFn.NewTemp(resType, "vdata_"+varName)
 			l.currBlock.AddInstruction(&MapGetInst{
@@ -1295,7 +1301,8 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		resType := trueVal.Type()
 		resTemp := l.currentFn.NewTemp(resType, "ternary_res")
 		resPtr := l.currentFn.NewTemp(PtrType(resType), "ternary_ptr")
-		l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: resPtr, AllocType: resType})
+		allocaInst := &AllocaInst{Dest: resPtr, AllocType: resType}
+		l.currentFn.EntryBlock.AddInstruction(allocaInst)
 		if l.currBlock.Terminator == nil {
 			l.currBlock.AddInstruction(&StoreInst{Val: trueVal, Ptr: resPtr})
 			l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})

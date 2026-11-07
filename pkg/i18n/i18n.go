@@ -1,7 +1,6 @@
 package i18n
 
 import (
-	"embed"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -12,9 +11,6 @@ import (
 	"strings"
 	"sync"
 )
-
-//go:embed locales/*.arb
-var embeddedLocales embed.FS
 
 // M is a convenience alias for translation arguments
 type M = map[string]interface{}
@@ -47,15 +43,17 @@ func (m *Manager) Load(externalFS http.FileSystem) error {
 	}
 
 	// 1. Load Embedded Locales (Core translations)
-	embedFiles, err := fs.ReadDir(embeddedLocales, "locales")
-	if err == nil {
-		for _, file := range embedFiles {
-			if !file.IsDir() && strings.HasSuffix(file.Name(), ".arb") {
-				m.loadFromFile(embeddedLocales, "locales/"+file.Name())
+	if embeddedLocales := getEmbeddedLocales(); embeddedLocales != nil {
+		embedFiles, err := fs.ReadDir(embeddedLocales, "locales")
+		if err == nil {
+			for _, file := range embedFiles {
+				if !file.IsDir() && strings.HasSuffix(file.Name(), ".arb") {
+					m.loadFromFile(embeddedLocales, "locales/"+file.Name())
+				}
 			}
+		} else {
+			fmt.Printf("[I18n] Warning: failed to read embedded locales: %v\n", err)
 		}
-	} else {
-		fmt.Printf("[I18n] Warning: failed to read embedded locales: %v\n", err)
 	}
 
 	// 2. Load External/User Locales (if provided OR disk)

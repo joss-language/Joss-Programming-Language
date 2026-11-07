@@ -1436,6 +1436,19 @@ func (b *ARM64Builder) emitTerminator(fn *ir.Function, layout *arm64FrameLayout,
 // Relocación y Emisión Final del Ejecutable (ELF64 / Mach-O ARM64)
 // -----------------------------------------------------------------------------
 
+func (b *ARM64Builder) hasRelocTarget(labels ...string) bool {
+	for _, rel := range b.relocs {
+		if rel.kind == arm64RelocBranch || rel.kind == arm64RelocCodeAddr || rel.kind == arm64RelocCondBranch {
+			for _, lbl := range labels {
+				if rel.targetLabel == lbl {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	// fn_html_escape / fn_env / fn_request / fn_csrf_field / fn_isset / fn_SEO_* / fn_Markdown_readFile / fn_GranDB_* / fn_Server_start
 	b.defineLabel("fn_html_escape")
@@ -1515,75 +1528,81 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.emitLoadStringAddr(regX0, "")
 	b.emitRet(regX30)
 
-	// GranDB QueryBuilder in AArch64 machine code
-	b.defineLabel("__joss_grandb_get_tables")
-	b.emitProlog(16)
-	b.emitLoadDataAddr(regX1, dataOffGranDBTables)
-	b.emitLdr(regX0, regX1, 0)
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condNE, ".arm64_gdb_tbl_ok")
-	b.emitLoadImm64(regX0, 16)
-	b.emitCall("joss_map_new")
-	b.emitLoadDataAddr(regX1, dataOffGranDBTables)
-	b.emitStr(regX0, regX1, 0)
-	b.defineLabel(".arm64_gdb_tbl_ok")
-	b.emitEpilog(16)
+	if b.hasRelocTarget("__joss_grandb_get_tables", "fn___joss_db_get_table", "fn___joss_db_set_table", "fn___joss_db_is_connected") {
+		// GranDB QueryBuilder in AArch64 machine code
+		b.defineLabel("__joss_grandb_get_tables")
+		b.emitProlog(16)
+		b.emitLoadDataAddr(regX1, dataOffGranDBTables)
+		b.emitLdr(regX0, regX1, 0)
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condNE, ".arm64_gdb_tbl_ok")
+		b.emitLoadImm64(regX0, 16)
+		b.emitCall("joss_map_new")
+		b.emitLoadDataAddr(regX1, dataOffGranDBTables)
+		b.emitStr(regX0, regX1, 0)
+		b.defineLabel(".arm64_gdb_tbl_ok")
+		b.emitEpilog(16)
 
-	b.defineLabel("fn___joss_db_get_table")
-	b.emitProlog(48)
-	b.emitStr(regX0, regSP, 16) // tableName
-	b.emitCall("__joss_grandb_get_tables")
-	b.emitStr(regX0, regSP, 24) // tablesMap
-	b.emitLdr(regX1, regSP, 16) // tableName
-	b.emitCall("joss_map_get_i64")
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condNE, ".arm64_db_get_done")
-	b.emitLoadImm64(regX0, 16)
-	b.emitCall("joss_arr_new")
-	b.emitStr(regX0, regSP, 32) // newArr
-	b.emitLdr(regX0, regSP, 24) // tablesMap
-	b.emitLdr(regX1, regSP, 16) // tableName
-	b.emitLdr(regX2, regSP, 32) // newArr
-	b.emitCall("joss_map_set_i64")
-	b.emitLdr(regX0, regSP, 32)
-	b.defineLabel(".arm64_db_get_done")
-	b.emitEpilog(48)
+		b.defineLabel("fn___joss_db_get_table")
+		b.emitProlog(48)
+		b.emitStr(regX0, regSP, 16) // tableName
+		b.emitCall("__joss_grandb_get_tables")
+		b.emitStr(regX0, regSP, 24) // tablesMap
+		b.emitLdr(regX1, regSP, 16) // tableName
+		b.emitCall("joss_map_get_i64")
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condNE, ".arm64_db_get_done")
+		b.emitLoadImm64(regX0, 16)
+		b.emitCall("joss_arr_new")
+		b.emitStr(regX0, regSP, 32) // newArr
+		b.emitLdr(regX0, regSP, 24) // tablesMap
+		b.emitLdr(regX1, regSP, 16) // tableName
+		b.emitLdr(regX2, regSP, 32) // newArr
+		b.emitCall("joss_map_set_i64")
+		b.emitLdr(regX0, regSP, 32)
+		b.defineLabel(".arm64_db_get_done")
+		b.emitEpilog(48)
 
-	b.defineLabel("fn___joss_db_set_table")
-	b.emitProlog(32)
-	b.emitStr(regX0, regSP, 16) // tableName
-	b.emitStr(regX1, regSP, 24) // rowsArr
-	b.emitCall("__joss_grandb_get_tables")
-	b.emitLdr(regX1, regSP, 16) // tableName
-	b.emitLdr(regX2, regSP, 24) // rowsArr
-	b.emitCall("joss_map_set_i64")
-	b.emitLoadImm64(regX0, 1)
-	b.emitEpilog(32)
+		b.defineLabel("fn___joss_db_set_table")
+		b.emitProlog(32)
+		b.emitStr(regX0, regSP, 16) // tableName
+		b.emitStr(regX1, regSP, 24) // rowsArr
+		b.emitCall("__joss_grandb_get_tables")
+		b.emitLdr(regX1, regSP, 16) // tableName
+		b.emitLdr(regX2, regSP, 24) // rowsArr
+		b.emitCall("joss_map_set_i64")
+		b.emitLoadImm64(regX0, 1)
+		b.emitEpilog(32)
 
-	b.defineLabel("fn___joss_db_is_connected")
-	b.emitLoadImm64(regX0, 0)
-	b.emitRet(regX30)
+		b.defineLabel("fn___joss_db_is_connected")
+		b.emitLoadImm64(regX0, 0)
+		b.emitRet(regX30)
+	}
 
-	b.defineLabel("fn___joss_storage_get")
-	b.emitLoadImm64(regX0, 0)
-	b.emitRet(regX30)
+	if b.hasRelocTarget("fn___joss_storage_get", "fn___joss_storage_put", "fn___joss_storage_delete") {
+		b.defineLabel("fn___joss_storage_get")
+		b.emitLoadImm64(regX0, 0)
+		b.emitRet(regX30)
 
-	b.defineLabel("fn___joss_storage_put")
-	b.defineLabel("fn___joss_storage_delete")
-	b.emitLoadImm64(regX0, 1)
-	b.emitRet(regX30)
+		b.defineLabel("fn___joss_storage_put")
+		b.defineLabel("fn___joss_storage_delete")
+		b.emitLoadImm64(regX0, 1)
+		b.emitRet(regX30)
+	}
 
 	// String and Math helper passthroughs
 	b.defineLabel("fn_Str_trim")
 	b.defineLabel("fn_Math_ceil")
 	b.emitRet(regX30)
 
-	b.defineLabel("fn_Server_start")
-	b.emitProlog(16)
-	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:8000 (Ctrl+C para detener)")
-	b.emitCall("joss_print_string")
-	b.emitLoadImm64(regX0, 0)
-	b.emitEpilog(16)
+	if b.hasRelocTarget("fn_Server_start") {
+		b.defineLabel("fn_Server_start")
+		b.emitProlog(16)
+		b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:8000 (Ctrl+C para detener)")
+		b.emitCall("joss_print_string")
+		b.emitLoadImm64(regX0, 0)
+		b.emitEpilog(16)
+	}
 }
 
 func (b *ARM64Builder) emitHostFrameworkAdapters() {

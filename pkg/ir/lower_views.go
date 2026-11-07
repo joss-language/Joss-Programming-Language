@@ -20,12 +20,15 @@ type compiledViewEntry struct {
 
 // lowerProjectViewsAndRoutes scans app/views (if present in the working directory)
 // and routes.joss / api.joss in l.prep.Units to synthesize:
-//  1. __joss_view_<idx>(__data): compiled native IR functions for each .joss.html template
-//  2. view(viewName, dataMap): dispatches viewName to the compiled view IR function
-//  3. __joss_http_dispatch(path): dispatches HTTP request paths to compiled native Controller_method functions
+//  1. __joss_http_dispatch(path): dispatches HTTP request paths to compiled native Controller_method functions
+//  2. __joss_view_<idx>(__data): compiled native IR functions for each reachable .joss.html template
+//  3. view(viewName, dataMap): dispatches viewName to the compiled view IR function
 func (l *Lowerer) lowerProjectViewsAndRoutes() error {
 	if l.reachGraph != nil && !l.reachGraph.HasCapability(analyzer.CapServer) && !l.reachGraph.HasCapability(analyzer.CapHTTP) {
 		return nil
+	}
+	if err := l.synthesizeHTTPDispatchFunction(); err != nil {
+		return err
 	}
 	views, err := l.compileProjectViewsToIR("app/views")
 	if err != nil {
@@ -34,18 +37,194 @@ func (l *Lowerer) lowerProjectViewsAndRoutes() error {
 	if err := l.synthesizeViewDispatcherFunction(views); err != nil {
 		return err
 	}
-	if err := l.synthesizeHTTPDispatchFunction(); err != nil {
-		return err
-	}
 	return nil
 }
 
-// compileProjectViewsToIR walks app/views, preprocesses @extends/@section/@yield/@include/@json,
+// collectReachableViewNames inspects all functions reachable from `main` and `__joss_http_dispatch`
+// in l.prog.Functions and extracts the string literal arguments passed to `view(...)` or `View::render(...)`.
+// If any reachable call to `view` passes a non-literal dynamic name, it returns (nil, true) so all views are kept.
+func (l *Lowerer) collectReachableViewNames() (map[string]bool, bool) {
+	if l.prog == nil || len(l.prog.Functions) == 0 {
+		return nil, true
+	}
+
+	reachableFns := make(map[string]bool)
+	var worklist []string
+	if l.prog.Functions["main"] != nil {
+		reachableFns["main"] = true
+		worklist = append(worklist, "main")
+	}
+	if l.prog.Functions["__joss_http_dispatch"] != nil {
+		reachableFns["__joss_http_dispatch"] = true
+		worklist = append(worklist, "__joss_http_dispatch")
+	}
+	if len(worklist) == 0 {
+		for fnName := range l.prog.Functions {
+			reachableFns[fnName] = true
+			worklist = append(worklist, fnName)
+		}
+	}
+
+	usedViews := make(map[string]bool)
+	hasDynamicViewCall := false
+
+	recordViewArg := func(args []Value) {
+		if len(args) == 0 {
+			return
+		}
+		if cStr, ok := args[0].(*ConstString); ok && cStr.Val != "" {
+			norm := strings.ReplaceAll(strings.TrimSpace(cStr.Val), ".", "/")
+			usedViews[norm] = true
+			usedViews[strings.TrimSpace(cStr.Val)] = true
+		} else {
+			hasDynamicViewCall = true
+		}
+	}
+
+	var scanBlocks func(blocks []*BasicBlock)
+	scanBlocks = func(blocks []*BasicBlock) {
+		for _, blk := range blocks {
+			for _, inst := range blk.Instructions {
+				switch i := inst.(type) {
+				case *CallInst:
+					if i.Callee == "view" || i.Callee == "View_render" {
+						recordViewArg(i.Args)
+					} else if l.prog.Functions[i.Callee] != nil && !reachableFns[i.Callee] {
+						reachableFns[i.Callee] = true
+						worklist = append(worklist, i.Callee)
+					}
+					for _, arg := range i.Args {
+						if fp, ok := arg.(*ConstFnPtr); ok && l.prog.Functions[fp.FnName] != nil && !reachableFns[fp.FnName] {
+							reachableFns[fp.FnName] = true
+							worklist = append(worklist, fp.FnName)
+						}
+					}
+				case *CallBuiltinInst:
+					if i.BuiltinID == "view" {
+						recordViewArg(i.Args)
+					}
+				case *CallHostServiceInst:
+					if i.ClassName == "View" && i.MethodName == "render" {
+						recordViewArg(i.Args)
+					}
+				case *TryCatchInst:
+					scanBlocks(i.TryBlocks)
+					scanBlocks(i.CatchBlocks)
+				}
+			}
+		}
+	}
+
+	for len(worklist) > 0 {
+		fnName := worklist[0]
+		worklist = worklist[1:]
+		if fn := l.prog.Functions[fnName]; fn != nil {
+			scanBlocks(fn.Blocks)
+		}
+	}
+
+	return usedViews, hasDynamicViewCall
+}
+
+// compactStaticViewHTML collapses runs of indentation whitespace between HTML tags
+// and strips HTML comments (outside <pre>, <code>, <textarea>, <script>, <style>)
+// to minimize .rdata size in standalone native binaries without altering rendered layout.
+func compactStaticViewHTML(htmlStr string) string {
+	var out strings.Builder
+	out.Grow(len(htmlStr))
+	n := len(htmlStr)
+	inProtected := 0
+	i := 0
+
+	hasCiPrefix := func(s, prefix string) bool {
+		return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
+	}
+
+	for i < n {
+		// Preserve Joss template interpolation blocks {{ ... }} and {!! ... !!} verbatim
+		if strings.HasPrefix(htmlStr[i:], "{{") {
+			if end := strings.Index(htmlStr[i+2:], "}}"); end != -1 {
+				out.WriteString(htmlStr[i : i+2+end+2])
+				i += 2 + end + 2
+				continue
+			}
+		}
+		if strings.HasPrefix(htmlStr[i:], "{!!") {
+			if end := strings.Index(htmlStr[i+3:], "!!}"); end != -1 {
+				out.WriteString(htmlStr[i : i+3+end+3])
+				i += 3 + end + 3
+				continue
+			}
+		}
+
+		// Strip standard HTML comments <!-- ... --> outside protected blocks
+		if inProtected == 0 && strings.HasPrefix(htmlStr[i:], "<!--") && !strings.HasPrefix(htmlStr[i:], "<!--[if") && !strings.HasPrefix(htmlStr[i:], "<!-- JOSS_ASSETS -->") {
+			if end := strings.Index(htmlStr[i+4:], "-->"); end != -1 {
+				i += 4 + end + 3
+				continue
+			}
+		}
+
+		// Track entry/exit of whitespace-sensitive tags (<pre, <code, <textarea, <script, <style)
+		if htmlStr[i] == '<' {
+			rest := htmlStr[i:]
+			for _, tag := range []string{"pre", "code", "textarea", "script", "style"} {
+				if hasCiPrefix(rest, "<"+tag) && (len(rest) == 1+len(tag) || rest[1+len(tag)] == ' ' || rest[1+len(tag)] == '>' || rest[1+len(tag)] == '\t' || rest[1+len(tag)] == '\n' || rest[1+len(tag)] == '\r') {
+					inProtected++
+					break
+				}
+				if hasCiPrefix(rest, "</"+tag) && (len(rest) == 2+len(tag) || rest[2+len(tag)] == ' ' || rest[2+len(tag)] == '>' || rest[2+len(tag)] == '\t' || rest[2+len(tag)] == '\n' || rest[2+len(tag)] == '\r') {
+					if inProtected > 0 {
+						inProtected--
+					}
+					break
+				}
+			}
+		}
+
+		if inProtected == 0 && (htmlStr[i] == ' ' || htmlStr[i] == '\t' || htmlStr[i] == '\n' || htmlStr[i] == '\r') {
+			j := i
+			hasNewline := false
+			for j < n && (htmlStr[j] == ' ' || htmlStr[j] == '\t' || htmlStr[j] == '\n' || htmlStr[j] == '\r') {
+				if htmlStr[j] == '\n' || htmlStr[j] == '\r' {
+					hasNewline = true
+				}
+				j++
+			}
+			if hasNewline {
+				prevIsTagEnd := i > 0 && htmlStr[i-1] == '>'
+				nextIsTagStart := j < n && htmlStr[j] == '<'
+				if prevIsTagEnd && nextIsTagStart {
+					out.WriteByte('\n')
+				} else {
+					out.WriteByte(' ')
+				}
+				i = j
+				continue
+			} else if j-i > 1 {
+				out.WriteByte(' ')
+				i = j
+				continue
+			}
+		}
+
+		out.WriteByte(htmlStr[i])
+		i++
+	}
+	return out.String()
+}
+
+// compileProjectViewsToIR walks app/views, filters to reachable views, preprocesses @extends/@section/@yield/@include/@json,
 // translates each template to Joss source code via compileViewHTMLToJossScript, parses it into
 // a *parser.Program AST, and lowers it into a native IR function receiving $__data.
 func (l *Lowerer) compileProjectViewsToIR(viewsRoot string) ([]compiledViewEntry, error) {
 	info, err := os.Stat(viewsRoot)
 	if err != nil || !info.IsDir() {
+		return nil, nil
+	}
+
+	usedViews, hasDynamicViewCall := l.collectReachableViewNames()
+	if !hasDynamicViewCall && len(usedViews) == 0 {
 		return nil, nil
 	}
 
@@ -84,6 +263,10 @@ func (l *Lowerer) compileProjectViewsToIR(viewsRoot string) ([]compiledViewEntry
 		if strings.HasPrefix(rel, "layouts/") {
 			return nil
 		}
+		dotName := strings.ReplaceAll(rel, "/", ".")
+		if !hasDynamicViewCall && !usedViews[rel] && !usedViews[dotName] {
+			return nil
+		}
 		rawBytes, err := os.ReadFile(path)
 		if err != nil {
 			return nil
@@ -104,6 +287,7 @@ func (l *Lowerer) compileProjectViewsToIR(viewsRoot string) ([]compiledViewEntry
 		if errPre != nil {
 			finalHTML = viewContent
 		}
+		finalHTML = compactStaticViewHTML(finalHTML)
 
 		// Translate HTML view to Joss source code and parse into AST via the shared compiler
 		jossScript, _ := viewtemplate.CompileHTMLToJoss(finalHTML)
@@ -124,6 +308,96 @@ func (l *Lowerer) compileProjectViewsToIR(viewsRoot string) ([]compiledViewEntry
 	}
 
 	return entries, nil
+}
+
+// PruneUnreachableFunctions eliminates functions in l.prog.Functions that are not reachable
+// from `main`, `__joss_http_dispatch`, or `view`.
+func (l *Lowerer) PruneUnreachableFunctions() {
+	if l.prog == nil || len(l.prog.Functions) == 0 {
+		return
+	}
+
+	reachable := make(map[string]bool)
+	var worklist []string
+
+	for _, root := range []string{"main", "__joss_http_dispatch", "view"} {
+		if l.prog.Functions[root] != nil {
+			reachable[root] = true
+			worklist = append(worklist, root)
+		}
+	}
+	if len(worklist) == 0 {
+		return
+	}
+
+	var scanBlocks func(blocks []*BasicBlock)
+	scanBlocks = func(blocks []*BasicBlock) {
+		for _, blk := range blocks {
+			for _, inst := range blk.Instructions {
+				switch i := inst.(type) {
+				case *CallInst:
+					if l.prog.Functions[i.Callee] != nil && !reachable[i.Callee] {
+						reachable[i.Callee] = true
+						worklist = append(worklist, i.Callee)
+					}
+					for _, arg := range i.Args {
+						if fp, ok := arg.(*ConstFnPtr); ok && l.prog.Functions[fp.FnName] != nil && !reachable[fp.FnName] {
+							reachable[fp.FnName] = true
+							worklist = append(worklist, fp.FnName)
+						}
+					}
+				case *CallBuiltinInst:
+					if l.prog.Functions[i.BuiltinID] != nil && !reachable[i.BuiltinID] {
+						reachable[i.BuiltinID] = true
+						worklist = append(worklist, i.BuiltinID)
+					}
+					for _, arg := range i.Args {
+						if fp, ok := arg.(*ConstFnPtr); ok && l.prog.Functions[fp.FnName] != nil && !reachable[fp.FnName] {
+							reachable[fp.FnName] = true
+							worklist = append(worklist, fp.FnName)
+						}
+					}
+				case *CallHostServiceInst:
+					mName := i.ClassName + "_" + i.MethodName
+					if l.prog.Functions[mName] != nil && !reachable[mName] {
+						reachable[mName] = true
+						worklist = append(worklist, mName)
+					}
+					if i.ClassName == "View" && i.MethodName == "render" && l.prog.Functions["view"] != nil && !reachable["view"] {
+						reachable["view"] = true
+						worklist = append(worklist, "view")
+					}
+				case *StoreInst:
+					if fp, ok := i.Val.(*ConstFnPtr); ok && l.prog.Functions[fp.FnName] != nil && !reachable[fp.FnName] {
+						reachable[fp.FnName] = true
+						worklist = append(worklist, fp.FnName)
+					}
+				case *MoveInst:
+					if fp, ok := i.Src.(*ConstFnPtr); ok && l.prog.Functions[fp.FnName] != nil && !reachable[fp.FnName] {
+						reachable[fp.FnName] = true
+						worklist = append(worklist, fp.FnName)
+					}
+				case *TryCatchInst:
+					scanBlocks(i.TryBlocks)
+					scanBlocks(i.CatchBlocks)
+				}
+			}
+		}
+	}
+
+	for len(worklist) > 0 {
+		fnName := worklist[0]
+		worklist = worklist[1:]
+		if fn := l.prog.Functions[fnName]; fn != nil {
+			scanBlocks(fn.Blocks)
+		}
+	}
+
+	for fnName := range l.prog.Functions {
+		if !reachable[fnName] {
+			delete(l.prog.Functions, fnName)
+		}
+	}
 }
 
 func (l *Lowerer) lowerSingleViewAST(fnName string, program *parser.Program, parsedOK bool, fallbackHTML string) error {

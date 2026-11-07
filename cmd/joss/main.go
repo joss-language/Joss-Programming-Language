@@ -20,17 +20,13 @@ import (
 	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/mobile"
 	"github.com/jossecurity/joss/pkg/parser"
-	_ "github.com/jossecurity/joss/pkg/server"
+	"github.com/jossecurity/joss/pkg/server"
 	"github.com/jossecurity/joss/pkg/template"
 	"github.com/jossecurity/joss/pkg/version"
 	"golang.org/x/term"
 )
 
 func main() {
-	if runEmbeddedRunnerIfSealed() {
-		return
-	}
-
 	if len(os.Args) >= 2 {
 		cmd := os.Args[1]
 		if cmd == "server" || cmd == "program" {
@@ -386,8 +382,19 @@ func emitIRCommand(filename, outFile string) {
 		os.Exit(1)
 	}
 
+	routeFiles := []string{}
+	if _, err := os.Stat("routes.joss"); err == nil {
+		routeFiles = append(routeFiles, "routes.joss")
+	}
+	if _, err := os.Stat("api.joss"); err == nil {
+		routeFiles = append(routeFiles, "api.joss")
+	}
+	bCfg := LoadProjectBuildConfig()
 	reachGraph := semanticanalyzer.BuildReachabilityGraph(report.Prepared, semanticanalyzer.ReachabilityOptions{
-		Entrypoint: filename,
+		Entrypoint:  filename,
+		KeepClasses: bCfg.KeepClasses,
+		KeepSymbols: bCfg.KeepSymbols,
+		RouteFiles:  routeFiles,
 	})
 	lowerer := ir.NewLowerer(report.Prepared, reachGraph)
 	progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
@@ -567,8 +574,19 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	if trace {
 		fmt.Println("  [trace] 2. Generando Joss Native IR (Lowering)...")
 	}
+	routeFiles := []string{}
+	if _, err := os.Stat("routes.joss"); err == nil {
+		routeFiles = append(routeFiles, "routes.joss")
+	}
+	if _, err := os.Stat("api.joss"); err == nil {
+		routeFiles = append(routeFiles, "api.joss")
+	}
+	bCfg := LoadProjectBuildConfig()
 	reachGraph := semanticanalyzer.BuildReachabilityGraph(report.Prepared, semanticanalyzer.ReachabilityOptions{
-		Entrypoint: filename,
+		Entrypoint:  filename,
+		KeepClasses: bCfg.KeepClasses,
+		KeepSymbols: bCfg.KeepSymbols,
+		RouteFiles:  routeFiles,
 	})
 	lowerer := ir.NewLowerer(report.Prepared, reachGraph)
 	progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
@@ -605,6 +623,10 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		fmt.Printf("  [trace] 4. Generando código máquina y enlazando ejecutable (backend: %s)...\n", bKind)
 	}
 
+	if _, err := os.Stat("assets/css"); err == nil {
+		server.CompileStyles()
+	}
+
 	res, err := native.BuildProgram(irProg, native.BuildOptions{
 		Target:     target,
 		Backend:    bKind,
@@ -619,20 +641,11 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		os.Exit(1)
 	}
 
-	// Host Runner autónomo sellado: solo los proyectos que necesitan una base de datos
-	// real compilan y sellan assets + env.enc en el mismo .exe sin ninguna DLL externa.
-	// Los proyectos sin DB permanecen como binario nativo puro.
-	if strings.TrimSpace(core.DetectAndLoadEnv(nil).EnvMap["DB"]) != "" {
-		_, hasRoutes := os.Stat("routes.joss")
-		_, hasApi := os.Stat("api.joss")
-		_, hasApp := os.Stat("app")
-		if hasRoutes == nil || hasApi == nil || hasApp == nil {
-			if newSize, sealErr := appendSealedAssetsToExecutable(outExe, enableGUI, target); sealErr != nil {
-				fmt.Printf("⚠️  Advertencia: No se pudieron sellar los assets en el ejecutable: %v\n", sealErr)
-			} else if newSize > 0 {
-				res.ExecutableSize = newSize
-				fmt.Println("🔒 Assets, vistas, rutas y entorno (env.enc AES-256) sellados dentro del ejecutable.")
-			}
+	outDir := filepath.Dir(outExe)
+	if _, err := os.Stat(sqliteDbFile); err == nil {
+		if outDir != "" && outDir != "." {
+			_ = os.MkdirAll(filepath.Join(outDir, "Storage"), 0755)
+			copyDatabaseFiles(outDir)
 		}
 	}
 
