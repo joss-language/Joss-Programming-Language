@@ -290,7 +290,11 @@ func (r *Runtime) performFullHttpRequest(method, urlStr, bodyStr string, headers
 	req.Header.Set("User-Agent", "Joss/3.6 Runtime")
 
 	for k, v := range headers {
-		req.Header.Set(k, v)
+		if strings.EqualFold(k, "Host") {
+			req.Host = v
+		} else {
+			req.Header.Set(k, v)
+		}
 	}
 
 	resp, err := client.Do(req)

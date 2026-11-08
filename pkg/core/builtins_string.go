@@ -10,9 +10,11 @@ import (
 	"html"
 	"math"
 	"math/rand"
+	"net/url"
 	"strings"
 	"unicode"
 
+	"github.com/jossecurity/joss/pkg/crypto"
 	"github.com/jossecurity/joss/pkg/i18n"
 )
 
@@ -259,6 +261,57 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 			return string(b), true
 		}
 		return false, true
+
+	case "sha256_base64":
+		if len(args) > 0 {
+			h := sha256.Sum256([]byte(fmt.Sprintf("%v", args[0])))
+			return base64.StdEncoding.EncodeToString(h[:]), true
+		}
+		return "", true
+
+	case "rsa_sign_sha256":
+		if len(args) >= 2 {
+			data := fmt.Sprintf("%v", args[0])
+			pemKey := fmt.Sprintf("%v", args[1])
+			sig, err := crypto.SignRSASHA256(data, pemKey)
+			if err != nil {
+				return "", true
+			}
+			return sig, true
+		}
+		return "", true
+
+	case "urlencode":
+		if len(args) > 0 {
+			return url.QueryEscape(fmt.Sprintf("%v", args[0])), true
+		}
+		return "", true
+
+	case "urldecode":
+		if len(args) > 0 {
+			s, err := url.QueryUnescape(fmt.Sprintf("%v", args[0]))
+			if err != nil {
+				return fmt.Sprintf("%v", args[0]), true
+			}
+			return s, true
+		}
+		return "", true
+
+	case "rawurlencode":
+		if len(args) > 0 {
+			return url.PathEscape(fmt.Sprintf("%v", args[0])), true
+		}
+		return "", true
+
+	case "rawurldecode":
+		if len(args) > 0 {
+			s, err := url.PathUnescape(fmt.Sprintf("%v", args[0]))
+			if err != nil {
+				return fmt.Sprintf("%v", args[0]), true
+			}
+			return s, true
+		}
+		return "", true
 
 	case "strlen":
 		if len(args) > 0 {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/analyzer"
 	backend "github.com/jossecurity/joss/pkg/backend/native"
+	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/jit"
 	"github.com/jossecurity/joss/pkg/parser"
@@ -166,5 +167,72 @@ func TestMachineCodeBuilder_CompileInMemory_HostBridgeService(t *testing.T) {
 	}
 	if !hostCalled {
 		t.Fatal("expected host bridge handler to be called via JIT dispatch table")
+	}
+}
+
+func TestMachineCodeBuilder_CompileInMemory_HttpJsonForeach(t *testing.T) {
+	if runtime.GOARCH != "amd64" {
+		t.Skip("JIT test is x86_64 amd64 only")
+	}
+
+	source := `
+		public func main(): int {
+			var $query = request("q")
+			var $results = []
+			var $cinemetaUrl = "https://v3-cinemeta.strem.io/catalog/series/top/search=" . $query . ".json"
+			var $cinResp = Http::json("GET", $cinemetaUrl)
+			($cinResp != null && isset($cinResp["metas"])) ? {
+				foreach ($cinResp["metas"] as $m) {
+					var $poster = $m["poster"] ?? ""
+					var $year = $m["year"] ?? ""
+					$results[] = {
+						"id": $m["id"],
+						"name": $m["name"],
+						"poster": $poster,
+						"type": "series",
+						"year": $year
+					}
+				}
+			} : {}
+			var $out = json({
+				"status": "success",
+				"results": $results
+			})
+			echo $out
+			return 42
+		}
+	`
+	p := parser.NewParser(parser.NewLexer(source))
+	prog := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	units := []analyzer.SourceUnit{{Path: "jit_http.joss", Program: prog}}
+	rep := core.AnalyzeSourceUnits(units)
+	if rep.HasErrors() {
+		t.Fatalf("semantic errors: %v", rep.Diagnostics)
+	}
+	prep := rep.Prepared
+
+	lowerer := ir.NewLowerer(prep, nil)
+	irProg, err := lowerer.LowerProgram("jit_http")
+	if err != nil {
+		t.Fatalf("lowering failed: %v", err)
+	}
+
+	builder := backend.NewMachineCodeBuilder(backend.HostTarget(), false)
+	jitExe, err := builder.CompileInMemory(irProg)
+	if err != nil {
+		t.Fatalf("CompileInMemory failed: %v", err)
+	}
+	defer jitExe.Free()
+
+	exitCode, err := jitExe.Execute()
+	if err != nil {
+		t.Fatalf("execution failed: %v", err)
+	}
+	if exitCode != 42 {
+		t.Fatalf("expected exitCode 42, got %d", exitCode)
 	}
 }

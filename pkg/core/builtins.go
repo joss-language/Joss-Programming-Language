@@ -60,7 +60,7 @@ var builtinDefinitions = joinBuiltinGroups(
 
 	builtinGroup(builtinDate, typesystem.Int, "time"),
 	builtinGroup(builtinDate, typesystem.Float, "microtime"),
-	builtinGroup(builtinDate, typesystem.String, "date"),
+	builtinGroup(builtinDate, typesystem.String, "date", "gmdate"),
 	builtinGroup(builtinDate, typesystem.Mixed, "strtotime", "now", "sleep", "usleep"),
 
 	builtinGroup(builtinIO, typesystem.Bool, "file_exists", "is_dir", "is_file", "toon_verify"),
@@ -83,7 +83,8 @@ var builtinDefinitions = joinBuiltinGroups(
 	builtinGroup(builtinString, typesystem.String,
 		"html_escape", "__", "csrf_field", "str_replace", "strtolower", "to_lower", "strtoupper", "to_upper",
 		"trim", "ltrim", "rtrim", "substr", "implode", "join", "md5", "sha1", "sha256", "base64_encode",
-		"base64_decode", "ucfirst", "lcfirst", "ucwords", "str_pad", "str_repeat"),
+		"base64_decode", "ucfirst", "lcfirst", "ucwords", "str_pad", "str_repeat", "rsa_sign_sha256", "sha256_base64",
+		"urlencode", "urldecode", "rawurlencode", "rawurldecode"),
 	builtinGroup(builtinString, typesystem.Mixed, "print", "echo", "cout", "cerr", "printf", "min", "max"),
 )
 

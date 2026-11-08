@@ -247,9 +247,9 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.registerNativeDefinitions("Str", migratedNativeMethods["Str"], (*Runtime).executeStrMethod)
 	r.Variables["Str"] = &Instance{Class: r.Classes["Str"], Fields: make(map[string]interface{})}
 
-	// UserStorage
-	r.registerNative("UserStorage", []string{"put", "get", "getToFile", "delete", "path"}, (*Runtime).executeUserStorageMethod)
-	r.Variables["UserStorage"] = &Instance{Class: r.Classes["UserStorage"], Fields: make(map[string]interface{})}
+	// UserStorage is canonical Pure Joss standard library (std/storage/storage.joss)
+	// r.registerNative("UserStorage", []string{"put", "get", "getToFile", "delete", "path", "url"}, (*Runtime).executeUserStorageMethod)
+	// r.Variables["UserStorage"] = &Instance{Class: r.Classes["UserStorage"], Fields: make(map[string]interface{})}
 
 	// SQLite (Native)
 	r.registerNative("SQLite", []string{"open", "query", "close"}, (*Runtime).executeSQLiteMethod)

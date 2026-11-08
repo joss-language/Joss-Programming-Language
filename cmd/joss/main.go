@@ -689,8 +689,10 @@ func executeScript(filename string) {
 	// JIT Native In-Memory Execution (Unified Native JIT)
 	// Attempts compiling to machine code in RAM and running at native CPU speed.
 	// Falls back transparently to tree-walking interpreter if lowering encounters gaps.
+	// For "joss server start", the full Go web server (pkg/server) is used directly.
 	// =========================================================================
-	if os.Getenv("JOSS_NO_JIT") == "" && (runtime.GOARCH == "amd64" || runtime.GOARCH == "x86_64") {
+	isServerCmd := len(os.Args) >= 2 && os.Args[1] == "server"
+	if !isServerCmd && os.Getenv("JOSS_NO_JIT") == "" && (runtime.GOARCH == "amd64" || runtime.GOARCH == "x86_64") {
 		lowerer := ir.NewLowerer(report.Prepared, nil)
 		progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
 		if irProg, err := lowerer.LowerProgram(progName); err == nil {
@@ -698,7 +700,7 @@ func executeScript(filename string) {
 			if err := verifier.Verify(irProg); err == nil {
 				mcBuilder := native.NewMachineCodeBuilder(native.HostTarget(), false)
 				if jitExe, err := mcBuilder.CompileInMemory(irProg); err == nil {
-					if !mcBuilder.NeedsHostBridge() {
+					if !mcBuilder.NeedsHostBridge() && !mcBuilder.UsesExtendedStdlib() {
 						defer jitExe.Free()
 						exitCode, _ := jitExe.Execute()
 						if exitCode != 0 {

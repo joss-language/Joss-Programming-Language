@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"crypto/md5"
 	"crypto/rsa"
 	"crypto/x509"
@@ -14,9 +13,14 @@ import (
 	"sort"
 	"strings"
 
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/url"
+	"time"
+
+	"github.com/jossecurity/joss/pkg/crypto"
 	"github.com/jossecurity/joss/pkg/diagnostics"
-	"github.com/oracle/oci-go-sdk/v65/common"
-	"github.com/oracle/oci-go-sdk/v65/objectstorage"
 )
 
 // `joss doctor storage` valida por capas la configuración de almacenamiento
@@ -49,64 +53,112 @@ func (e *probeError) Error() string {
 }
 
 type ociSDKProbe struct {
-	client objectstorage.ObjectStorageClient
+	env        map[string]string
+	privateKey string
+	client     *http.Client
 }
 
 func newOCISDKProbe(env map[string]string, privateKey []byte) (storageProbe, error) {
-	passphrase := env["OCI_PASSPHRASE"]
-	provider := common.NewRawConfigurationProvider(
-		env["OCI_TENANCY_ID"],
-		env["OCI_USER_ID"],
-		env["OCI_REGION"],
-		env["OCI_FINGERPRINT"],
-		string(privateKey),
-		&passphrase,
-	)
-	client, err := objectstorage.NewObjectStorageClientWithConfigurationProvider(provider)
-	if err != nil {
-		return nil, err
-	}
-	return &ociSDKProbe{client: client}, nil
+	return &ociSDKProbe{
+		env:        env,
+		privateKey: string(privateKey),
+		client:     &http.Client{Timeout: 15 * time.Second},
+	}, nil
 }
 
-func wrapOCIError(err error) error {
-	if err == nil {
-		return nil
+func (p *ociSDKProbe) sendRequest(method, path string) (*http.Response, []byte, error) {
+	region := p.env["OCI_REGION"]
+	if region == "" {
+		region = "mx-queretaro-1"
 	}
-	if se, ok := common.IsServiceError(err); ok {
-		return &probeError{Status: se.GetHTTPStatusCode(), Code: se.GetCode(), Message: se.GetMessage()}
+	host := "objectstorage." + region + ".oraclecloud.com"
+	date := time.Now().UTC().Format(http.TimeFormat)
+	signingString := fmt.Sprintf("date: %s\n(request-target): %s %s\nhost: %s", date, strings.ToLower(method), path, host)
+	sig, err := crypto.SignRSASHA256(signingString, p.privateKey)
+	if err != nil {
+		return nil, nil, err
 	}
-	return err
+	keyId := fmt.Sprintf("%s/%s/%s", p.env["OCI_TENANCY_ID"], p.env["OCI_USER_ID"], p.env["OCI_FINGERPRINT"])
+	authHeader := fmt.Sprintf(`Signature version="1",headers="date (request-target) host",keyId="%s",algorithm="rsa-sha256",signature="%s"`, keyId, sig)
+
+	req, err := http.NewRequest(method, "https://"+host+path, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	req.Header.Set("Date", date)
+	req.Header.Set("Host", host)
+	req.Host = host
+	req.Header.Set("Authorization", authHeader)
+	req.Header.Set("Accept", "*/*")
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		var ociErr struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		}
+		_ = json.Unmarshal(body, &ociErr)
+		return resp, body, &probeError{
+			Status:  resp.StatusCode,
+			Code:    ociErr.Code,
+			Message: ociErr.Message,
+		}
+	}
+	return resp, body, nil
 }
 
 func (p *ociSDKProbe) Namespace() (string, error) {
-	res, err := p.client.GetNamespace(context.Background(), objectstorage.GetNamespaceRequest{})
+	_, body, err := p.sendRequest("GET", "/n/")
 	if err != nil {
-		return "", wrapOCIError(err)
+		return "", err
 	}
-	return *res.Value, nil
+	var res struct {
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal(body, &res); err == nil && res.Value != "" {
+		return res.Value, nil
+	}
+	return strings.Trim(strings.TrimSpace(string(body)), `"`), nil
 }
 
 func (p *ociSDKProbe) BucketExists(namespace, bucket string) error {
-	_, err := p.client.GetBucket(context.Background(), objectstorage.GetBucketRequest{
-		NamespaceName: &namespace,
-		BucketName:    &bucket,
-	})
-	return wrapOCIError(err)
+	_, _, err := p.sendRequest("GET", "/n/"+url.PathEscape(namespace)+"/b/"+url.PathEscape(bucket))
+	return err
 }
 
 func (p *ociSDKProbe) ListBuckets(namespace, compartment string) ([]string, error) {
-	res, err := p.client.ListBuckets(context.Background(), objectstorage.ListBucketsRequest{
-		NamespaceName: &namespace,
-		CompartmentId: &compartment,
-	})
+	_, body, err := p.sendRequest("GET", "/n/"+url.PathEscape(namespace)+"/b?compartmentId="+url.QueryEscape(compartment))
 	if err != nil {
-		return nil, wrapOCIError(err)
+		return nil, err
 	}
-	names := make([]string, 0, len(res.Items))
-	for _, item := range res.Items {
-		if item.Name != nil {
-			names = append(names, *item.Name)
+	var res struct {
+		Items []struct {
+			Name string `json:"name"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(body, &res); err == nil && len(res.Items) > 0 {
+		names := make([]string, 0, len(res.Items))
+		for _, item := range res.Items {
+			if item.Name != "" {
+				names = append(names, item.Name)
+			}
+		}
+		sort.Strings(names)
+		return names, nil
+	}
+	var items []struct {
+		Name string `json:"name"`
+	}
+	_ = json.Unmarshal(body, &items)
+	names := make([]string, 0, len(items))
+	for _, item := range items {
+		if item.Name != "" {
+			names = append(names, item.Name)
 		}
 	}
 	sort.Strings(names)

@@ -113,6 +113,10 @@ func (b *ARM64Builder) NeedsHostBridge() bool {
 	return b.needsHostBridge
 }
 
+func (b *ARM64Builder) UsesExtendedStdlib() bool {
+	return b.usesExtendedStdlib
+}
+
 // -----------------------------------------------------------------------------
 // Emisión de Instrucciones AArch64 (Little-Endian de 32 bits)
 // -----------------------------------------------------------------------------
@@ -1577,6 +1581,14 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 		b.defineLabel("fn___joss_db_is_connected")
 		b.emitLoadImm64(regX0, 0)
 		b.emitRet(regX30)
+
+		b.defineLabel("fn___joss_db_query")
+		b.emitLoadImm64(regX0, 0)
+		b.emitRet(regX30)
+
+		b.defineLabel("fn___joss_db_execute")
+		b.emitLoadImm64(regX0, 0)
+		b.emitRet(regX30)
 	}
 
 	if b.hasRelocTarget("fn___joss_storage_get", "fn___joss_storage_put", "fn___joss_storage_delete") {
@@ -1593,6 +1605,11 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	// String and Math helper passthroughs
 	b.defineLabel("fn_Str_trim")
 	b.defineLabel("fn_Math_ceil")
+	b.emitRet(regX30)
+
+	b.defineLabel("fn_str_contains")
+	b.defineLabel("fn_contains")
+	b.emitLoadImm64(regX0, 1)
 	b.emitRet(regX30)
 
 	if b.hasRelocTarget("fn_Server_start") {

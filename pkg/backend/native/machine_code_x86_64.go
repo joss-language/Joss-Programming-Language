@@ -114,6 +114,11 @@ func (b *MachineCodeBuilder) NeedsHostBridge() bool {
 	return b.needsHostBridge
 }
 
+// UsesExtendedStdlib reports whether the program relies on functions beyond basic machine code.
+func (b *MachineCodeBuilder) UsesExtendedStdlib() bool {
+	return b.usesExtendedStdlib
+}
+
 // SupportsNativeTarget returns true if the integrated native code generator supports the target OS/Arch.
 func SupportsNativeTarget(t Target) bool {
 	if t.OS == "" && t.Arch == "" {
@@ -328,6 +333,14 @@ func isSupportedHostService(className, methodName string) bool {
 	return true
 }
 
+func (b *MachineCodeBuilder) hasNativeIntrinsic(className, methodName string) bool {
+	switch className {
+	case "SEO", "Str", "Math", "Request", "Response", "Session", "Auth", "Turnstile", "Markdown", "Router", "Schema", "View":
+		return true
+	}
+	return false
+}
+
 // isHostBridgeBuiltin reports builtins that can be routed through the C-ABI host bridge in JIT mode.
 func isHostBridgeBuiltin(id string) bool {
 	return true
@@ -337,7 +350,8 @@ func isHostBridgeBuiltin(id string) bool {
 func isExtendedStdlibCallee(name string) bool {
 	switch name {
 	case "env", "request", "csrf_field", "html_escape", "view", "__joss_http_dispatch",
-		"joss_map_key_at", "joss_map_val_at", "fn_joss_map_key_at", "fn_joss_map_val_at":
+		"joss_map_key_at", "joss_map_val_at", "fn_joss_map_key_at", "fn_joss_map_val_at",
+		"__joss_db_query", "__joss_db_execute", "__joss_db_is_connected":
 		return true
 	}
 	if strings.HasPrefix(name, "Server_") ||
@@ -430,10 +444,11 @@ func isNativeBuiltin(id string) bool {
 	switch id {
 	case "strlen", "len", "count", "array_push", "append", "to_string", "strval",
 		"abs", "min", "max", "intval", "floatval", "boolval", "array_pop", "microtime", "array_fill",
-		"file_get_contents", "explode", "async", "await",
+		"file_get_contents", "explode", "async", "await", "str_contains", "contains",
 		"env", "request", "csrf_field", "html_escape", "view",
 		"joss_map_len", "joss_map_key_at", "joss_map_val_at",
 		"__joss_db_get_table", "__joss_db_set_table", "__joss_db_is_connected",
+		"__joss_db_query", "__joss_db_execute",
 		"__joss_storage_get", "__joss_storage_put", "__joss_storage_delete":
 		return true
 	}
@@ -489,6 +504,10 @@ func (b *MachineCodeBuilder) internString(s string) uint32 {
 	b.rodata.WriteByte(0)
 	b.stringPool[s] = off
 	return off
+}
+
+func (b *MachineCodeBuilder) AsmListing() string {
+	return b.asmListing.String()
 }
 
 func (b *MachineCodeBuilder) defineLabel(name string) {
@@ -3109,7 +3128,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			return nil
 		}
 		if isSupportedHostService(i.ClassName, i.MethodName) {
-			if b.isJITMode {
+			if b.isJITMode && !b.hasNativeIntrinsic(i.ClassName, i.MethodName) {
 				b.emitCallHostBridgeWithArgs(layout, i.ClassName+"::"+i.MethodName, i.Args)
 				if i.Dest != nil {
 					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])

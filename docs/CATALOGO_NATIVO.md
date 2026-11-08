@@ -785,18 +785,6 @@ Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L147).
 | `generate` | `string` |
 | `v4` | `string` |
 
-## UserStorage
-
-Implementación: [executeUserStorageMethod](../pkg/core/lib_storage.go#L15).
-
-| Método | Retorno publicado al analizador |
-|---|---|
-| `delete` | `mixed` |
-| `get` | `mixed` |
-| `getToFile` | `mixed` |
-| `path` | `mixed` |
-| `put` | `mixed` |
-
 ## View
 
 Implementación: [executeViewMethod](../pkg/core/view.go#L25).
@@ -923,6 +911,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `find`
 - `floatval`
 - `floor`
+- `gmdate`
 - `hive_read_box`
 - `html_escape`
 - `implode`
@@ -961,18 +950,22 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `print`
 - `printf`
 - `rand`
+- `rawurldecode`
+- `rawurlencode`
 - `recv`
 - `redirect`
 - `reduce`
 - `request`
 - `response`
 - `round`
+- `rsa_sign_sha256`
 - `rtrim`
 - `run`
 - `send`
 - `session`
 - `sha1`
 - `sha256`
+- `sha256_base64`
 - `sleep`
 - `starts_with`
 - `str_contains`
@@ -999,8 +992,10 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `ucfirst`
 - `ucwords`
 - `unlink`
+- `urldecode`
+- `urlencode`
 - `usleep`
 - `values`
 - `view`
 
-Total: 54 clases, 522 métodos y 135 built-ins.
+Total: 53 clases, 517 métodos y 142 built-ins.

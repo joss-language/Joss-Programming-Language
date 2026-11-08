@@ -113,6 +113,10 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		// Dynamic port announcement matching joss server start format (no UTF-8 broken emojis)
 		b.emitBytes(0x66, 0x81, 0x7D, 0xA2, 0x00, 0x50) // cmp word ptr [rbp - 94], 0x5000 (port 80)
 		b.emitJeLabel(".srv_announce_port_80")
+		b.emitBytes(0x66, 0x81, 0x7D, 0xA2, 0x1F, 0x90) // cmp word ptr [rbp - 94], 0x901F (port 8080)
+		b.emitJeLabel(".srv_announce_port_8080")
+		b.emitBytes(0x66, 0x81, 0x7D, 0xA2, 0x0B, 0xB8) // cmp word ptr [rbp - 94], 0xB80B (port 3000)
+		b.emitJeLabel(".srv_announce_port_3000")
 
 		// Default port 8000 announcement (preserves compatibility with TestNativeJosSecurityServerStartSmoke)
 		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\n[Joss Native Server] Escuchando en http://localhost:8000 (Ctrl+C para detener)\n[Server] Socket TCP enlazado con éxito en :8000. Servidor listo para peticiones.")
@@ -121,6 +125,16 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 
 		b.defineLabel(".srv_announce_port_80")
 		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\nIniciando servidor web HTTP en http://localhost:80\n[Server] Socket TCP enlazado con éxito en :80. Servidor listo para peticiones.")
+		b.emitCallLabel("joss_print_string")
+		b.emitJmpLabel(".srv_check_smoke_only")
+
+		b.defineLabel(".srv_announce_port_8080")
+		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\nIniciando servidor web HTTP en http://localhost:8080\n[Server] Socket TCP enlazado con éxito en :8080. Servidor listo para peticiones.")
+		b.emitCallLabel("joss_print_string")
+		b.emitJmpLabel(".srv_check_smoke_only")
+
+		b.defineLabel(".srv_announce_port_3000")
+		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\nIniciando servidor web HTTP en http://localhost:3000\n[Server] Socket TCP enlazado con éxito en :3000. Servidor listo para peticiones.")
 		b.emitCallLabel("joss_print_string")
 
 		b.defineLabel(".srv_check_smoke_only")
@@ -265,8 +279,12 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x48, 0x8B, 0x55, 0xB0) // mov rdx, [rbp - 80]
 		b.emitBytes(0xC6, 0x04, 0x02, 0x00) // mov byte ptr [rdx + rax], 0
 
+		// Fresh params map for incoming request
+		b.emitCallLabel("joss_map_new")
+		b.emitMovDataRAX(dataOffRequestParams)
+
 		// Extract HTTP request path from first line: "GET /path?query HTTP/1.1"
-		b.emitBytes(0x49, 0x89, 0xD7) // mov r15, rdx (scan ptr)
+		b.emitBytes(0x4C, 0x8B, 0x7D, 0xB0) // mov r15, [rbp - 80] (scan ptr = reqBuf)
 		b.defineLabel(".srv_find_space1")
 		b.emitBytes(0x41, 0x0F, 0xB6, 0x07) // movzx eax, byte ptr [r15]
 		b.emitBytes(0x85, 0xC0)             // test eax, eax
@@ -286,13 +304,37 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x83, 0xF8, 0x20) // cmp eax, ' '
 		b.emitJeLabel(".srv_terminate_path")
 		b.emitBytes(0x83, 0xF8, 0x3F) // cmp eax, '?'
-		b.emitJeLabel(".srv_terminate_path")
+		b.emitJeLabel(".srv_have_query_mark")
 		b.emitBytes(0x83, 0xF8, 0x0D) // cmp eax, '\r'
 		b.emitJeLabel(".srv_terminate_path")
 		b.emitBytes(0x83, 0xF8, 0x0A) // cmp eax, '\n'
 		b.emitJeLabel(".srv_terminate_path")
 		b.emitBytes(0x48, 0xFF, 0xC3) // inc rbx
 		b.emitJmpLabel(".srv_find_path_end")
+
+		b.defineLabel(".srv_have_query_mark")
+		b.emitBytes(0xC6, 0x03, 0x00) // mov byte ptr [rbx], 0 (terminate path)
+		b.emitBytes(0x48, 0xFF, 0xC3) // inc rbx (rbx = start of query)
+		b.emitBytes(0x53)             // push rbx (save query start pointer on stack)
+		b.defineLabel(".srv_find_query_end")
+		b.emitBytes(0x0F, 0xB6, 0x03) // movzx eax, byte ptr [rbx]
+		b.emitBytes(0x85, 0xC0)       // test eax, eax
+		b.emitJeLabel(".srv_parse_query")
+		b.emitBytes(0x83, 0xF8, 0x20) // ' '
+		b.emitJeLabel(".srv_terminate_query")
+		b.emitBytes(0x83, 0xF8, 0x0D) // '\r'
+		b.emitJeLabel(".srv_terminate_query")
+		b.emitBytes(0x83, 0xF8, 0x0A) // '\n'
+		b.emitJeLabel(".srv_terminate_query")
+		b.emitBytes(0x48, 0xFF, 0xC3) // inc rbx
+		b.emitJmpLabel(".srv_find_query_end")
+
+		b.defineLabel(".srv_terminate_query")
+		b.emitBytes(0xC6, 0x03, 0x00) // mov byte ptr [rbx], 0
+		b.defineLabel(".srv_parse_query")
+		b.emitBytes(0x59) // pop rcx (restore query start pointer into rcx)
+		b.emitCallLabel("__joss_parse_query_params")
+		b.emitJmpLabel(".srv_have_path")
 
 		b.defineLabel(".srv_terminate_path")
 		b.emitBytes(0xC6, 0x03, 0x00) // mov byte ptr [rbx], 0
@@ -567,6 +609,17 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.defineLabel(".srv_resp_not_null")
 
 		// Determine response Content-Type & length
+		// Check raw HTTP response (e.g. "HTTP/1.1 302 Found"): 'H', 'T', 'T', 'P'
+		b.emitBytes(0x41, 0x80, 0x3F, 0x48) // cmp byte ptr [r15], 'H'
+		b.emitJneLabel(".srv_check_png")
+		b.emitBytes(0x41, 0x80, 0x7F, 0x01, 0x54) // cmp byte ptr [r15 + 1], 'T'
+		b.emitJneLabel(".srv_check_png")
+		b.emitBytes(0x41, 0x80, 0x7F, 0x02, 0x54) // cmp byte ptr [r15 + 2], 'T'
+		b.emitJneLabel(".srv_check_png")
+		b.emitBytes(0x41, 0x80, 0x7F, 0x03, 0x50) // cmp byte ptr [r15 + 3], 'P'
+		b.emitJeLabel(".srv_resp_send_raw")
+
+		b.defineLabel(".srv_check_png")
 		// Check PNG magic: 0x89, 0x50 ('P')
 		b.emitBytes(0x41, 0x80, 0x3F, 0x89) // cmp byte ptr [r15], 0x89
 		b.emitJneLabel(".srv_check_jpg")
@@ -656,6 +709,18 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitCallLabel("__joss_rt_strlen")
 		b.emitBytes(0x49, 0x89, 0xC0)       // mov r8, rax (len)
 		b.emitBytes(0x4C, 0x89, 0xFA)       // mov rdx, r15 (htmlBodyPtr)
+		b.emitBytes(0x4C, 0x89, 0xF1)       // mov rcx, r14 (clientSock)
+		b.emitBytes(0x45, 0x31, 0xC9)       // xor r9d, r9d
+		b.emitBytes(0x48, 0x8B, 0x45, 0xC0) // mov rax, [rbp - 64] (pSend)
+		b.emitBytes(0xFF, 0xD0)             // call rax
+		b.emitJmpLabel(".srv_close_client")
+
+		// Raw response (already has HTTP status & headers)
+		b.defineLabel(".srv_resp_send_raw")
+		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15
+		b.emitCallLabel("__joss_rt_strlen")
+		b.emitBytes(0x49, 0x89, 0xC0)       // mov r8, rax (len)
+		b.emitBytes(0x4C, 0x89, 0xFA)       // mov rdx, r15 (rawPtr)
 		b.emitBytes(0x4C, 0x89, 0xF1)       // mov rcx, r14 (clientSock)
 		b.emitBytes(0x45, 0x31, 0xC9)       // xor r9d, r9d
 		b.emitBytes(0x48, 0x8B, 0x45, 0xC0) // mov rax, [rbp - 64] (pSend)

@@ -94,6 +94,29 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 	}
 
 	switch method {
+	case "url":
+		if len(args) < 2 {
+			return ""
+		}
+		storagePrefix, _ := extractIdentifier(args[0])
+		fileName := fmt.Sprintf("%v", args[1])
+		if storageType == "OCI" || storageType == "oci" {
+			if customURL, ok := r.Env["OCI_PUBLIC_URL"]; ok && customURL != "" {
+				return strings.TrimRight(customURL, "/") + "/" + storagePrefix + "/" + fileName
+			}
+			if customURL, ok := r.Env["STORAGE_URL"]; ok && customURL != "" {
+				return strings.TrimRight(customURL, "/") + "/" + storagePrefix + "/" + fileName
+			}
+			region := r.Env["OCI_REGION"]
+			if region == "" {
+				region = "mx-queretaro-1"
+			}
+			namespace := r.Env["OCI_NAMESPACE"]
+			bucket := r.Env["OCI_BUCKET_NAME"]
+			return fmt.Sprintf("https://objectstorage.%s.oraclecloud.com/n/%s/b/%s/o/%s/%s", region, namespace, bucket, storagePrefix, fileName)
+		}
+		return fmt.Sprintf("/storage/user_storage/%s/%s", storagePrefix, fileName)
+
 	case "path":
 		cwd, _ := os.Getwd()
 		storageRoot := filepath.Join(cwd, "storage")
@@ -144,22 +167,18 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 			}
 		}
 
-		if storageType == "OCI" {
-			return r.ociPut(storagePrefix, fileName, content)
-		} else {
-			// LOCAL STORAGE
-			dir := filepath.Dir(fullPath)
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				fmt.Printf("[Storage DEBUG] MkdirAll error: %v\n", err)
-				return false
-			}
-
-			if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-				fmt.Printf("[Storage DEBUG] WriteFile error: %v\n", err)
-				return false
-			}
-			return true
+		// LOCAL STORAGE
+		dir := filepath.Dir(fullPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			fmt.Printf("[Storage DEBUG] MkdirAll error: %v\n", err)
+			return false
 		}
+
+		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+			fmt.Printf("[Storage DEBUG] WriteFile error: %v\n", err)
+			return false
+		}
+		return true
 
 	case "get":
 		if len(args) < 2 {
@@ -172,15 +191,11 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 			return nil
 		}
 
-		if storageType == "OCI" {
-			return r.ociGet(storagePrefix, fileName)
-		} else {
-			content, err := os.ReadFile(fullPath)
-			if err != nil {
-				return nil
-			}
-			return string(content)
+		content, err := os.ReadFile(fullPath)
+		if err != nil {
+			return nil
 		}
+		return string(content)
 
 	case "getToFile":
 		if len(args) < 3 {
@@ -200,19 +215,15 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 			return false
 		}
 
-		if storageType == "OCI" {
-			return r.ociGetToFile(storagePrefix, fileName, safeDest)
-		} else {
-			// Local: just copy the file
-			content, err := os.ReadFile(srcPath)
-			if err != nil {
-				return false
-			}
-			if err := os.MkdirAll(filepath.Dir(safeDest), 0755); err != nil {
-				return false
-			}
-			return os.WriteFile(safeDest, content, 0644) == nil
+		// Local: just copy the file
+		content, err := os.ReadFile(srcPath)
+		if err != nil {
+			return false
 		}
+		if err := os.MkdirAll(filepath.Dir(safeDest), 0755); err != nil {
+			return false
+		}
+		return os.WriteFile(safeDest, content, 0644) == nil
 
 	case "delete":
 		if len(args) < 2 {
@@ -231,14 +242,10 @@ func (r *Runtime) executeUserStorageMethod(instance *Instance, method string, ar
 			r.databaseExecutor().Exec(query, userId, fileName)
 		}
 
-		if storageType == "OCI" {
-			return r.ociDelete(storagePrefix, fileName)
-		} else {
-			if err := os.Remove(fullPath); err != nil {
-				return false
-			}
-			return true
+		if err := os.Remove(fullPath); err != nil {
+			return false
 		}
+		return true
 	}
 	return nil
 }

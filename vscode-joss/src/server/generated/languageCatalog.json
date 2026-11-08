@@ -122,6 +122,7 @@
     "find",
     "floatval",
     "floor",
+    "gmdate",
     "hive_read_box",
     "html_escape",
     "implode",
@@ -160,18 +161,22 @@
     "print",
     "printf",
     "rand",
+    "rawurldecode",
+    "rawurlencode",
     "recv",
     "redirect",
     "reduce",
     "request",
     "response",
     "round",
+    "rsa_sign_sha256",
     "rtrim",
     "run",
     "send",
     "session",
     "sha1",
     "sha256",
+    "sha256_base64",
     "sleep",
     "starts_with",
     "str_contains",
@@ -198,6 +203,8 @@
     "ucfirst",
     "ucwords",
     "unlink",
+    "urldecode",
+    "urlencode",
     "usleep",
     "values",
     "view"
@@ -783,13 +790,6 @@
     "UUID": [
       "generate",
       "v4"
-    ],
-    "UserStorage": [
-      "delete",
-      "get",
-      "getToFile",
-      "path",
-      "put"
     ],
     "View": [
       "exists",

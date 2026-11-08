@@ -25,13 +25,21 @@ func RegisterHostBridgeHandler(name string, handler HostBridgeFn) {
 }
 
 // InProcessHostBridge is the Go dispatcher invoked by JIT-compiled machine code.
-// C-ABI convention on Windows: RCX points to null-terminated ASCII/UTF-8 method string.
-func InProcessHostBridge(ptr *byte) uintptr {
-	if ptr == nil {
+// C-ABI convention on Windows:
+// RCX = methodName (null-terminated string)
+// RDX = arg1
+// R8  = arg2
+// R9  = arg3
+func toUnsafe(p uintptr) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&p))
+}
+
+func InProcessHostBridge(namePtr, arg1, arg2, arg3 uintptr) uintptr {
+	if namePtr == 0 {
 		return 0
 	}
 
-	pointer := unsafe.Pointer(ptr)
+	pointer := toUnsafe(namePtr)
 	data := make([]byte, 0, 64)
 	for index := 0; index < 512; index++ {
 		value := *(*byte)(unsafe.Add(pointer, index))
@@ -47,7 +55,7 @@ func InProcessHostBridge(ptr *byte) uintptr {
 	hostBridgeMu.RUnlock()
 
 	if ok && handler != nil {
-		return handler(uintptr(unsafe.Pointer(ptr)))
+		return handler(arg1, arg2, arg3)
 	}
 
 	// Built-in standard handlers

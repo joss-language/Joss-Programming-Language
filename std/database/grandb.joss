@@ -137,11 +137,13 @@ public class GranDB {
     }
 
     public func whereLike(string $col, string $val): GranDB {
-        return $this->where($col, "LIKE", $val);
+        var $pattern = (strpos($val, "%") !== false) ? $val : ("%" . $val . "%");
+        return $this->where($col, "LIKE", $pattern);
     }
 
     public func orWhereLike(string $col, string $val): GranDB {
-        return $this->orWhere($col, "LIKE", $val);
+        var $pattern = (strpos($val, "%") !== false) ? $val : ("%" . $val . "%");
+        return $this->orWhere($col, "LIKE", $pattern);
     }
 
     public func whereIn(string $col, array $values): GranDB {

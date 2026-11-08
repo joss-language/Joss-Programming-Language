@@ -1,5 +1,205 @@
 // Standard Library - Pure Joss Storage Engine
 // Canonical standard library module for unified storage, user isolated buckets and cloud providers.
+public class OCIStorage {
+
+    public static func getPrivateKey(): string {
+        var $keyPath = env("OCI_PRIVATE_KEY_PATH") ?? "assets/oci/private_key.pem"
+        var $candidates = [
+        $keyPath,
+        "./" . $keyPath,
+        "../" . $keyPath,
+        "../../" . $keyPath
+        ]
+        foreach ($candidates as $cand) {
+            (file_exists($cand)) ? {
+                var $content = file_get_contents($cand)
+                ($content && strlen($content) > 0) ? {
+                    return $content
+                } : {
+                }
+            } : {
+            }
+        }
+        return ""
+    }
+
+    public static func get(mixed $userId, mixed $objectPath): mixed {
+        return OCIStorage::getObject($userId, $objectPath)
+    }
+
+    public static func getObject(mixed $userId, mixed $objectPath): mixed {
+        var $pemKey = OCIStorage::getPrivateKey()
+        (!$pemKey || $pemKey == "") ? {
+            return null
+        } : {
+        }
+
+        var $region = env("OCI_REGION") ?? "mx-queretaro-1"
+        var $ns = env("OCI_NAMESPACE") ?? ""
+        var $bucket = env("OCI_BUCKET_NAME") ?? ""
+        var $tenancy = env("OCI_TENANCY_ID") ?? ""
+        var $user = env("OCI_USER_ID") ?? ""
+        var $fingerprint = env("OCI_FINGERPRINT") ?? ""
+
+        var $host = "objectstorage." . $region . ".oraclecloud.com"
+        var $objTarget = strval($userId) . "/" . strval($objectPath)
+        var $escapedTarget = rawurlencode($objTarget)
+        $escapedTarget = str_replace("%2F", "/", $escapedTarget)
+        var $targetPath = "/n/" . $ns . "/b/" . $bucket . "/o/" . $escapedTarget
+
+        var $date = gmdate("D, d M Y H:i:s") . " GMT"
+        var $signingString = "date: " . $date . "\n(request-target): get " . $targetPath . "\nhost: " . $host
+        var $signature = rsa_sign_sha256($signingString, $pemKey)
+        (!$signature || $signature == "") ? {
+            return null
+        } : {
+        }
+
+        var $keyId = $tenancy . "/" . $user . "/" . $fingerprint
+        var $authHeader = 'Signature version="1",headers="date (request-target) host",keyId="' . $keyId . '",algorithm="rsa-sha256",signature="' . $signature . '"'
+
+        var $url = "https://" . $host . $targetPath
+        var $headers = {
+        "Host": $host,
+        "Date": $date,
+        "Authorization": $authHeader,
+        "Accept": "*/*"
+    }
+
+    var $res = Http::request("GET", $url, {
+    "headers": $headers,
+    "timeout": 30
+})
+($res && isset($res ["status"]) && intval($res ["status"]) == 200) ? {
+    return $res ["body"] ?? null
+} : {
+}
+return null
+}
+
+public static func put(mixed $userId, mixed $objectPath, mixed $content): bool {
+    return OCIStorage::putObject($userId, $objectPath, $content)
+}
+
+public static func putObject(mixed $userId, mixed $objectPath, mixed $content): bool {
+    var $pemKey = OCIStorage::getPrivateKey()
+    (!$pemKey || $pemKey == "") ? {
+        return false
+    } : {
+    }
+
+    var $region = env("OCI_REGION") ?? "mx-queretaro-1"
+    var $ns = env("OCI_NAMESPACE") ?? ""
+    var $bucket = env("OCI_BUCKET_NAME") ?? ""
+    var $tenancy = env("OCI_TENANCY_ID") ?? ""
+    var $user = env("OCI_USER_ID") ?? ""
+    var $fingerprint = env("OCI_FINGERPRINT") ?? ""
+
+    var $host = "objectstorage." . $region . ".oraclecloud.com"
+    var $objTarget = strval($userId) . "/" . strval($objectPath)
+    var $escapedTarget = rawurlencode($objTarget)
+    $escapedTarget = str_replace("%2F", "/", $escapedTarget)
+    var $targetPath = "/n/" . $ns . "/b/" . $bucket . "/o/" . $escapedTarget
+
+    var $date = gmdate("D, d M Y H:i:s") . " GMT"
+    var $contentStr = strval($content)
+    var $contentLen = strval(strlen($contentStr))
+    var $sha256B64 = sha256_base64($contentStr)
+    var $contentType = "application/octet-stream"
+
+    var $signingString = "date: " . $date . "\n(request-target): put " . $targetPath . "\nhost: " . $host . "\nx-content-sha256: " . $sha256B64 . "\ncontent-type: " . $contentType . "\ncontent-length: " . $contentLen
+    var $signature = rsa_sign_sha256($signingString, $pemKey)
+    (!$signature || $signature == "") ? {
+        return false
+    } : {
+    }
+
+    var $keyId = $tenancy . "/" . $user . "/" . $fingerprint
+    var $authHeader = 'Signature version="1",headers="date (request-target) host x-content-sha256 content-type content-length",keyId="' . $keyId . '",algorithm="rsa-sha256",signature="' . $signature . '"'
+
+    var $url = "https://" . $host . $targetPath
+    var $headers = {
+    "Host": $host,
+    "Date": $date,
+    "Authorization": $authHeader,
+    "x-content-sha256": $sha256B64,
+    "Content-Type": $contentType,
+    "Content-Length": $contentLen
+}
+
+var $res = Http::request("PUT", $url, {
+"headers": $headers,
+"body": $contentStr,
+"timeout": 60
+})
+($res && isset($res ["status"]) && (intval($res ["status"]) == 200 || intval($res ["status"]) == 201)) ? {
+    return true
+} : {
+}
+return false
+}
+
+public static func delete(mixed $userId, mixed $objectPath): bool {
+    return OCIStorage::deleteObject($userId, $objectPath)
+}
+
+public static func deleteObject(mixed $userId, mixed $objectPath): bool {
+    var $pemKey = OCIStorage::getPrivateKey()
+    (!$pemKey || $pemKey == "") ? {
+        return false
+    } : {
+    }
+
+    var $region = env("OCI_REGION") ?? "mx-queretaro-1"
+    var $ns = env("OCI_NAMESPACE") ?? ""
+    var $bucket = env("OCI_BUCKET_NAME") ?? ""
+    var $tenancy = env("OCI_TENANCY_ID") ?? ""
+    var $user = env("OCI_USER_ID") ?? ""
+    var $fingerprint = env("OCI_FINGERPRINT") ?? ""
+
+    var $host = "objectstorage." . $region . ".oraclecloud.com"
+    var $objTarget = strval($userId) . "/" . strval($objectPath)
+    var $escapedTarget = rawurlencode($objTarget)
+    $escapedTarget = str_replace("%2F", "/", $escapedTarget)
+    var $targetPath = "/n/" . $ns . "/b/" . $bucket . "/o/" . $escapedTarget
+
+    var $date = gmdate("D, d M Y H:i:s") . " GMT"
+    var $signingString = "date: " . $date . "\n(request-target): delete " . $targetPath . "\nhost: " . $host
+    var $signature = rsa_sign_sha256($signingString, $pemKey)
+    (!$signature || $signature == "") ? {
+        return false
+    } : {
+    }
+
+    var $keyId = $tenancy . "/" . $user . "/" . $fingerprint
+    var $authHeader = 'Signature version="1",headers="date (request-target) host",keyId="' . $keyId . '",algorithm="rsa-sha256",signature="' . $signature . '"'
+
+    var $url = "https://" . $host . $targetPath
+    var $headers = {
+    "Host": $host,
+    "Date": $date,
+    "Authorization": $authHeader
+}
+
+var $res = Http::request("DELETE", $url, {
+"headers": $headers,
+"timeout": 30
+})
+($res && isset($res ["status"]) && (intval($res ["status"]) == 200 || intval($res ["status"]) == 204)) ? {
+    return true
+} : {
+}
+return false
+}
+
+public static func path(mixed $userId, mixed $objectPath): string {
+    return UserStorage::path($userId, $objectPath)
+}
+
+public static func url(mixed $userId, mixed $objectPath): string {
+    return UserStorage::url($userId, $objectPath)
+}
+}
 
 public class UserStorage {
 
@@ -7,50 +207,105 @@ public class UserStorage {
         var $uid = strval($userId)
         var $obj = strval($objectPath)
 
-        // 1. Comprobar copia local primero en rutas conocidas
+        (str_contains($uid, "..") || str_contains($obj, "..")) ? {
+            return null
+        } : {
+        }
+
+        var $provider = env("STORAGE") ?? "local"
+        ($provider == "OCI" || $provider == "oci") ? {
+            var $remote = OCIStorage::getObject($uid, $obj)
+            ($remote != null) ? {
+                return $remote
+            } : {
+            }
+        } : {
+        }
+
         var $candidates = [
-            "storage/user_storage/" . $uid . "/" . $obj,
-            "../storage/user_storage/" . $uid . "/" . $obj,
-            "assets/users/" . $uid . "/" . $obj,
-            "../assets/users/" . $uid . "/" . $obj
+        "storage/user_storage/" . $uid . "/" . $obj,
+        "../storage/user_storage/" . $uid . "/" . $obj,
+        "assets/users/" . $uid . "/" . $obj,
+        "../assets/users/" . $uid . "/" . $obj
         ]
 
         foreach ($candidates as $cand) {
             (file_exists($cand)) ? {
                 try {
                     var $content = file_get_contents($cand)
-                    ($content) ? {
+                    ($content != null) ? {
                         return $content
-                    } : {}
-                } catch ($e) {
+                    } : {
+                    }
+                }  catch ($e) {
                 }
-            } : {}
+            } : {
+            }
         }
 
-        // 2. Consultar al proveedor configurado en el entorno (OCI / local)
-        var $provider = env("STORAGE") ?? "local"
-        return __joss_storage_get($provider, $uid, $obj)
+        return null
     }
 
     public static func put(mixed $userId, mixed $objectPath, mixed $content): bool {
         var $uid = strval($userId)
         var $obj = strval($objectPath)
+
+        (str_contains($uid, "..") || str_contains($obj, "..")) ? {
+            return false
+        } : {
+        }
+
         var $provider = env("STORAGE") ?? "local"
-        return __joss_storage_put($provider, $uid, $obj, $content)
+        ($provider == "OCI" || $provider == "oci") ? {
+            return OCIStorage::putObject($uid, $obj, $content)
+        } : {
+        }
+
+        var $localDir = "storage/user_storage/" . $uid
+        (!file_exists($localDir)) ? {
+            mkdir($localDir, 0755, true)
+        } : {
+        }
+        return file_put_contents($localDir . "/" . $obj, strval($content))
     }
 
     public static func delete(mixed $userId, mixed $objectPath): bool {
         var $uid = strval($userId)
         var $obj = strval($objectPath)
+
+        (str_contains($uid, "..") || str_contains($obj, "..")) ? {
+            return false
+        } : {
+        }
+
         var $provider = env("STORAGE") ?? "local"
-        return __joss_storage_delete($provider, $uid, $obj)
+        ($provider == "OCI" || $provider == "oci") ? {
+            return OCIStorage::deleteObject($uid, $obj)
+        } : {
+        }
+
+        var $localPath = "storage/user_storage/" . $uid . "/" . $obj
+        (file_exists($localPath)) ? {
+            return unlink($localPath)
+        } : {
+        }
+        return true
     }
 
     public static func getToFile(mixed $userId, mixed $objectPath, string $destPath): bool {
-        var $content = self::get($userId, $objectPath)
+        var $uid = strval($userId)
+        var $obj = strval($objectPath)
+
+        (str_contains($uid, "..") || str_contains($obj, "..") || str_contains($destPath, "..")) ? {
+            return false
+        } : {
+        }
+
+        var $content = UserStorage::get($userId, $objectPath)
         ($content != null) ? {
             return file_put_contents($destPath, strval($content))
-        } : {}
+        } : {
+        }
         return false
     }
 
@@ -58,35 +313,37 @@ public class UserStorage {
         var $uid = strval($userId)
         var $obj = strval($objectPath)
         var $candidates = [
-            "storage/user_storage/" . $uid . "/" . $obj,
-            "../storage/user_storage/" . $uid . "/" . $obj,
-            "assets/users/" . $uid . "/" . $obj
+        "storage/user_storage/" . $uid . "/" . $obj,
+        "../storage/user_storage/" . $uid . "/" . $obj,
+        "assets/users/" . $uid . "/" . $obj,
+        "../assets/users/" . $uid . "/" . $obj
         ]
         foreach ($candidates as $cand) {
             (file_exists($cand)) ? {
                 return $cand
-            } : {}
+            } : {
+            }
         }
         return "storage/user_storage/" . $uid . "/" . $obj
     }
-}
 
-public class OCIStorage {
-
-    public static func get(mixed $userId, mixed $objectPath): mixed {
-        return UserStorage::get($userId, $objectPath)
-    }
-
-    public static func put(mixed $userId, mixed $objectPath, mixed $content): bool {
-        return UserStorage::put($userId, $objectPath, $content)
-    }
-
-    public static func delete(mixed $userId, mixed $objectPath): bool {
-        return UserStorage::delete($userId, $objectPath)
-    }
-
-    public static func path(mixed $userId, mixed $objectPath): string {
-        return UserStorage::path($userId, $objectPath)
+    public static func url(mixed $userId, mixed $objectPath): string {
+        var $uid = strval($userId)
+        var $obj = strval($objectPath)
+        var $provider = env("STORAGE") ?? "local"
+        ($provider == "OCI" || $provider == "oci") ? {
+            var $customCdn = env("OCI_PUBLIC_URL") ?? env("STORAGE_URL")
+            ($customCdn) ? {
+                return rtrim(strval($customCdn), "/") . "/" . $uid . "/" . $obj
+            } : {
+            }
+            var $region = env("OCI_REGION") ?? "mx-queretaro-1"
+            var $ns = env("OCI_NAMESPACE") ?? ""
+            var $bucket = env("OCI_BUCKET_NAME") ?? ""
+            return "https://objectstorage." . $region . ".oraclecloud.com/n/" . $ns . "/b/" . $bucket . "/o/" . $uid . "/" . $obj
+        } : {
+        }
+        return "/storage/user_storage/" . $uid . "/" . $obj
     }
 }
 
@@ -101,8 +358,8 @@ public class Storage {
     }
 
     public static func exists(mixed $path): bool {
-        var $content = self::get($path)
-        return ($content != null)
+        var $content = Storage::get($path)
+        return($content != null)
     }
 
     public static func delete(mixed $path): bool {
@@ -111,5 +368,9 @@ public class Storage {
 
     public static func path(mixed $path): string {
         return UserStorage::path(1, $path)
+    }
+
+    public static func url(mixed $path): string {
+        return UserStorage::url(1, $path)
     }
 }

@@ -50,6 +50,26 @@ func (r *Runtime) callBuiltinDate(name string, args []interface{}) (interface{},
 		}
 		return FormatDate(format, t), true
 
+	case "gmdate":
+		format := "D, d M Y H:i:s"
+		t := time.Now().UTC()
+		if len(args) > 0 {
+			if f, ok := args[0].(string); ok {
+				format = f
+			}
+		}
+		if len(args) > 1 && args[1] != nil {
+			switch val := args[1].(type) {
+			case int64:
+				t = time.Unix(val, 0).UTC()
+			case int:
+				t = time.Unix(int64(val), 0).UTC()
+			case float64:
+				t = time.Unix(int64(val), 0).UTC()
+			}
+		}
+		return FormatDate(format, t), true
+
 	case "strtotime":
 		if len(args) == 0 || args[0] == nil {
 			return nil, true

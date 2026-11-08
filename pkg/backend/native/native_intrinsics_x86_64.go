@@ -8,13 +8,14 @@ import (
 )
 
 const (
-	dataOffGranDBTables uint32 = 0x0680
-	dataOffSEOTitle     uint32 = 0x0688
-	dataOffSEODesc      uint32 = 0x0690
-	dataOffSEOCanonical uint32 = 0x0698
-	dataOffEnvMap       uint32 = 0x06A0
-	dataOffPort         uint32 = 0x06A8
-	dataOffLastFileSize uint32 = 0x06B0
+	dataOffGranDBTables  uint32 = 0x0680
+	dataOffSEOTitle      uint32 = 0x0688
+	dataOffSEODesc       uint32 = 0x0690
+	dataOffSEOCanonical  uint32 = 0x0698
+	dataOffEnvMap        uint32 = 0x06A0
+	dataOffPort          uint32 = 0x06A8
+	dataOffLastFileSize  uint32 = 0x06B0
+	dataOffRequestParams uint32 = 0x06B8
 )
 
 func (b *MachineCodeBuilder) emitMovRDXData(dataOff uint32) {
@@ -99,20 +100,87 @@ func (b *MachineCodeBuilder) hasRelocTarget(labels ...string) bool {
 // - Disk-backed Markdown::readFile
 // - Framework helpers (fn_Str_trim, fn_Math_ceil)
 func (b *MachineCodeBuilder) emitNativeIntrinsics() {
-	// fn_html_escape(rcx = val) -> rax = strPtr ("" if 0/null, else joss_to_string)
+	// fn_html_escape(rcx = val) -> rax = strPtr
 	b.defineLabel("fn_html_escape")
 	b.defineLabel("joss_html_escape")
-	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-	b.emitJneLabel("joss_to_string")
-	b.emitLeaRAXString("")
-	b.emitBytes(0xC3)
+	b.emitJmpLabel("joss_to_string")
 
 	// String and Math helper passthroughs
 	b.defineLabel("fn_Str_trim")
 	b.defineLabel("fn_Math_ceil")
 	b.emitBytes(0x48, 0x89, 0xC8, 0xC3) // mov rax, rcx; ret
 
-	if b.hasRelocTarget("__joss_grandb_get_tables", "fn___joss_db_get_table", "fn___joss_db_set_table", "fn___joss_db_is_connected") {
+	// fn_str_contains(rcx = haystack, rdx = needle) -> rax = 1 (true) or 0 (false)
+	b.defineLabel("fn_str_contains")
+	b.defineLabel("fn_contains")
+	if b.isJITMode {
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+		b.emitBytes(0x49, 0x89, 0xD0)       // mov r8, rdx (needle)
+		b.emitBytes(0x48, 0x89, 0xCA)       // mov rdx, rcx (haystack)
+		b.emitLeaRCXString("fn_str_contains")
+		b.emitCallIAT(IATGetProcAddress + 1)
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
+		b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
+	} else {
+		b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
+		b.emitJeLabel(".sc_true")
+		b.emitBytes(0x80, 0x3A, 0x00) // cmp byte ptr [rdx], 0
+		b.emitJeLabel(".sc_true")
+		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+		b.emitJeLabel(".sc_false")
+		b.defineLabel(".sc_outer")
+		b.emitBytes(0x8A, 0x01) // mov al, [rcx]
+		b.emitBytes(0x84, 0xC0) // test al, al
+		b.emitJeLabel(".sc_false")
+		b.emitBytes(0x49, 0x89, 0xC8) // mov r8, rcx
+		b.emitBytes(0x49, 0x89, 0xD1) // mov r9, rdx
+		b.defineLabel(".sc_inner")
+		b.emitBytes(0x41, 0x8A, 0x01) // mov al, [r9]
+		b.emitBytes(0x84, 0xC0)       // test al, al
+		b.emitJeLabel(".sc_true")
+		b.emitBytes(0x41, 0x38, 0x00) // cmp [r8], al
+		b.emitJneLabel(".sc_next")
+		b.emitBytes(0x49, 0xFF, 0xC0) // inc r8
+		b.emitBytes(0x49, 0xFF, 0xC1) // inc r9
+		b.emitJmpLabel(".sc_inner")
+		b.defineLabel(".sc_next")
+		b.emitBytes(0x48, 0xFF, 0xC1) // inc rcx
+		b.emitJmpLabel(".sc_outer")
+		b.defineLabel(".sc_true")
+		b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1
+		b.emitBytes(0xC3)                         // ret
+		b.defineLabel(".sc_false")
+		b.emitBytes(0x31, 0xC0) // xor eax, eax
+		b.emitBytes(0xC3)       // ret
+	}
+
+	// Http client & System::Run intrinsics
+	for _, fnName := range []string{"fn_Http_json", "fn_Http_request", "fn_Http_get", "fn_Http_post", "fn_System_Run"} {
+		b.defineLabel(fnName)
+		if b.isJITMode {
+			b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+			b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+			b.emitBytes(0x4D, 0x89, 0xC1)       // mov r9, r8
+			b.emitBytes(0x49, 0x89, 0xD0)       // mov r8, rdx
+			b.emitBytes(0x48, 0x89, 0xCA)       // mov rdx, rcx
+			targetBridge := strings.TrimPrefix(fnName, "fn_")
+			targetBridge = strings.Replace(targetBridge, "_", "::", 1)
+			b.emitLeaRCXString(targetBridge)
+			b.emitCallIAT(IATGetProcAddress + 1)
+			b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
+			b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
+		} else {
+			if strings.Contains(fnName, "json") || strings.Contains(fnName, "request") {
+				b.emitCallLabel("joss_map_new")
+				b.emitBytes(0xC3)
+			} else {
+				b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
+			}
+		}
+	}
+
+	if b.hasRelocTarget("__joss_grandb_get_tables", "fn___joss_db_get_table", "fn___joss_db_set_table", "fn___joss_db_is_connected", "fn___joss_db_query", "fn___joss_db_execute") {
 		// __joss_grandb_get_tables() -> rax = tablesMap
 		b.defineLabel("__joss_grandb_get_tables")
 		b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x48, 0x83, 0xEC, 0x20)
@@ -167,10 +235,48 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 		b.emitBytes(0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C)
 		b.emitBytes(0x5D, 0xC3)
 
-		// __joss_db_is_connected() -> rax = 0 (standalone CLI has no DB connection)
+		// __joss_db_is_connected() -> rax = 1 if connected, 0 if not
 		b.defineLabel("fn___joss_db_is_connected")
-		b.emitBytes(0x31, 0xC0) // xor eax, eax
-		b.emitBytes(0xC3)       // ret
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+		b.emitLeaRCXString("__joss_db_is_connected")
+		if b.isJITMode {
+			b.emitCallIAT(IATGetProcAddress + 1)
+		} else {
+			b.emitCallLabel("_joss_host_bridge")
+		}
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
+		b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
+
+		// __joss_db_query(rcx = sql, rdx = bindings) -> rax = arrPtr
+		b.defineLabel("fn___joss_db_query")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+		b.emitBytes(0x49, 0x89, 0xD0)       // mov r8, rdx  (bindings)
+		b.emitBytes(0x48, 0x89, 0xCA)       // mov rdx, rcx (sql)
+		b.emitLeaRCXString("__joss_db_query")
+		if b.isJITMode {
+			b.emitCallIAT(IATGetProcAddress + 1)
+		} else {
+			b.emitCallLabel("_joss_host_bridge")
+		}
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
+		b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
+
+		// __joss_db_execute(rcx = sql, rdx = bindings) -> rax = count
+		b.defineLabel("fn___joss_db_execute")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+		b.emitBytes(0x49, 0x89, 0xD0)       // mov r8, rdx  (bindings)
+		b.emitBytes(0x48, 0x89, 0xCA)       // mov rdx, rcx (sql)
+		b.emitLeaRCXString("__joss_db_execute")
+		if b.isJITMode {
+			b.emitCallIAT(IATGetProcAddress + 1)
+		} else {
+			b.emitCallLabel("_joss_host_bridge")
+		}
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
+		b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
 	}
 
 	// __joss_load_env_file: Reads .env or env.joss via fn_file_get_contents and populates dataOffEnvMap
@@ -377,11 +483,88 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.emitBytes(0x48, 0x8B, 0x45, 0xF8)       // mov rax, [rbp - 8]
 	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
 
-	// fn_request / fn_Request_input / fn_Session_get(rcx = key, rdx = defaultVal) -> rax = defaultVal
+	// fn_request / fn_Request_input(rcx = key, rdx = defaultVal) -> rax = val or defaultVal
 	b.defineLabel("fn_request")
 	b.defineLabel("fn_Request_input")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x48, 0x83, 0xEC, 0x20) // push rbp; mov rbp, rsp; sub rsp, 32
+	b.emitBytes(0x48, 0x89, 0x55, 0xF8)                         // mov [rbp - 8], rdx (save defaultVal)
+	b.emitBytes(0x48, 0x89, 0xCA)                               // mov rdx, rcx (key)
+	b.emitMovRCXData(dataOffRequestParams)                      // mov rcx, [dataOffRequestParams]
+	b.emitBytes(0x48, 0x85, 0xC9)                               // test rcx, rcx
+	b.emitJeLabel(".req_use_default")
+	b.emitCallLabel("joss_map_get_i64") // joss_map_get_i64(rcx = map, rdx = key) -> rax
+	b.emitBytes(0x48, 0x85, 0xC0)       // test rax, rax
+	b.emitJeLabel(".req_use_default")
+	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
+	b.defineLabel(".req_use_default")
+	b.emitBytes(0x48, 0x8B, 0x45, 0xF8)       // mov rax, [rbp - 8]
+	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
+
 	b.defineLabel("fn_Session_get")
 	b.emitBytes(0x48, 0x89, 0xD0, 0xC3) // mov rax, rdx; ret
+
+	// __joss_parse_query_params(rcx = queryStringPtr)
+	b.defineLabel("__joss_parse_query_params")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
+	b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55) // push rbx, r12, r13
+	b.emitBytes(0x48, 0x83, 0xEC, 0x28)       // sub rsp, 40 (16-byte aligned before call)
+	b.emitBytes(0x48, 0x89, 0xCB)             // mov rbx, rcx (cursor)
+	b.emitBytes(0x48, 0x85, 0xDB)             // test rbx, rbx
+	b.emitJeLabel(".qp_done")
+
+	b.defineLabel(".qp_loop")
+	b.emitBytes(0x80, 0x3B, 0x00) // cmp byte ptr [rbx], 0
+	b.emitJeLabel(".qp_done")
+	b.emitBytes(0x49, 0x89, 0xDC) // mov r12, rbx (keyStart in r12)
+
+	b.defineLabel(".qp_find_eq")
+	b.emitBytes(0x0F, 0xB6, 0x03) // movzx eax, byte ptr [rbx]
+	b.emitBytes(0x85, 0xC0)
+	b.emitJeLabel(".qp_done")
+	b.emitBytes(0x83, 0xF8, 0x3D) // '='
+	b.emitJeLabel(".qp_found_eq")
+	b.emitBytes(0x83, 0xF8, 0x26) // '&'
+	b.emitJeLabel(".qp_next_pair")
+	b.emitBytes(0x48, 0xFF, 0xC3) // inc rbx
+	b.emitJmpLabel(".qp_find_eq")
+
+	b.defineLabel(".qp_found_eq")
+	b.emitBytes(0xC6, 0x03, 0x00) // mov byte ptr [rbx], 0
+	b.emitBytes(0x48, 0xFF, 0xC3) // inc rbx
+	b.emitBytes(0x49, 0x89, 0xDD) // mov r13, rbx (valStart in r13)
+
+	b.defineLabel(".qp_find_amp")
+	b.emitBytes(0x0F, 0xB6, 0x03) // movzx eax, byte ptr [rbx]
+	b.emitBytes(0x85, 0xC0)
+	b.emitJeLabel(".qp_save_last")
+	b.emitBytes(0x83, 0xF8, 0x26) // '&'
+	b.emitJeLabel(".qp_save_and_next")
+	b.emitBytes(0x48, 0xFF, 0xC3) // inc rbx
+	b.emitJmpLabel(".qp_find_amp")
+
+	b.defineLabel(".qp_save_and_next")
+	b.emitBytes(0xC6, 0x03, 0x00)          // mov byte ptr [rbx], 0
+	b.emitBytes(0x48, 0xFF, 0xC3)          // inc rbx
+	b.emitMovRCXData(dataOffRequestParams) // mov rcx, [dataOffRequestParams]
+	b.emitBytes(0x4C, 0x89, 0xE2)          // mov rdx, r12 (key)
+	b.emitBytes(0x4D, 0x89, 0xE8)          // mov r8, r13 (val)
+	b.emitCallLabel("joss_map_set_i64")
+	b.emitJmpLabel(".qp_loop")
+
+	b.defineLabel(".qp_save_last")
+	b.emitMovRCXData(dataOffRequestParams) // mov rcx, [dataOffRequestParams]
+	b.emitBytes(0x4C, 0x89, 0xE2)          // mov rdx, r12 (key)
+	b.emitBytes(0x4D, 0x89, 0xE8)          // mov r8, r13 (val)
+	b.emitCallLabel("joss_map_set_i64")
+	b.emitJmpLabel(".qp_done")
+
+	b.defineLabel(".qp_next_pair")
+	b.emitBytes(0x48, 0xFF, 0xC3) // inc rbx
+	b.emitJmpLabel(".qp_loop")
+
+	b.defineLabel(".qp_done")
+	b.emitBytes(0x48, 0x83, 0xC4, 0x28)                   // add rsp, 40
+	b.emitBytes(0x41, 0x5D, 0x41, 0x5C, 0x5B, 0x5D, 0xC3) // pop r13, r12, rbx, rbp; ret
 
 	// fn_csrf_field() -> HTML hidden input
 	b.defineLabel("fn_csrf_field")
@@ -958,23 +1141,17 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.defineLabel(".resp_ok")
 	b.emitBytes(0x48, 0x89, 0xC8, 0xC3) // mov rax, rcx; ret
 
-	// fn_redirect(rcx = url, rdx = statusCode) -> rax = redirectHTML
+	// fn_redirect(rcx = url, rdx = statusCode) -> rax = redirectHTTP
 	b.defineLabel("fn_redirect")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
 	b.emitBytes(0x41, 0x54, 0x41, 0x55) // push r12, r13
 	b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
 	b.emitBytes(0x49, 0x89, 0xCC)       // mov r12, rcx (url)
-	b.emitLeaRCXString("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"0;url=")
+	b.emitLeaRCXString("HTTP/1.1 302 Found\r\nLocation: ")
 	b.emitBytes(0x4C, 0x89, 0xE2) // mov rdx, r12
 	b.emitCallLabel("joss_str_concat")
 	b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
-	b.emitLeaRDXString("\"><script>window.location.href=\"")
-	b.emitCallLabel("joss_str_concat")
-	b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
-	b.emitBytes(0x4C, 0x89, 0xE2) // mov rdx, r12
-	b.emitCallLabel("joss_str_concat")
-	b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
-	b.emitLeaRDXString("\";</script></head><body>Redirecting...</body></html>")
+	b.emitLeaRDXString("\r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
 	b.emitCallLabel("joss_str_concat")
 	b.emitBytes(0x48, 0x83, 0xC4, 0x20) // add rsp, 32
 	b.emitBytes(0x41, 0x5D, 0x41, 0x5C, 0x5D, 0xC3)
@@ -982,191 +1159,215 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	// fn_json(rcx = val, rdx = statusCode) -> rax = jsonString
 	if b.hasRelocTarget("fn_json") {
 		b.defineLabel("fn_json")
-		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-		b.emitJeLabel(".json_ret_empty")
-		b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
-		b.emitJlLabel(".json_ret_empty")
+		if b.isJITMode {
+			b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+			b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
+			b.emitBytes(0x49, 0x89, 0xD0)       // mov r8, rdx (statusCode)
+			b.emitBytes(0x48, 0x89, 0xCA)       // mov rdx, rcx (val)
+			b.emitCallHostBridge("json")
+			b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
+		} else {
+			b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+			b.emitJeLabel(".json_ret_empty")
+			b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+			b.emitJlLabel(".json_ret_empty")
 
-		// If rcx is NOT a map (magic != 0x4A4F53534D415021)
-		b.emitBytes(0x49, 0xBA)
-		b.emitU64(0x4A4F53534D415021)
-		b.emitBytes(0x4C, 0x39, 0x11) // cmp [rcx], r10
-		b.emitJeLabel(".json_serialize_map")
+			// If rcx is NOT a map (magic != 0x4A4F53534D415021)
+			b.emitBytes(0x49, 0xBA)
+			b.emitU64(0x4A4F53534D415021)
+			b.emitBytes(0x4C, 0x39, 0x11) // cmp [rcx], r10
+			b.emitJeLabel(".json_serialize_map")
 
-		// rcx is already a string / raw value
-		b.emitBytes(0x48, 0x89, 0xC8, 0xC3) // mov rax, rcx; ret
+			// rcx is already a string / raw value
+			b.emitBytes(0x48, 0x89, 0xC8, 0xC3) // mov rax, rcx; ret
 
-		b.defineLabel(".json_ret_empty")
-		b.emitLeaRAXString("{}")
-		b.emitBytes(0xC3)
+			b.defineLabel(".json_ret_empty")
+			b.emitLeaRAXString("{}")
+			b.emitBytes(0xC3)
 
-		b.defineLabel(".json_serialize_map")
-		// Serialize JossMap to JSON
-		b.emitBytes(0x55, 0x48, 0x89, 0xE5)                               // push rbp; mov rbp, rsp
-		b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push rbx, r12..r15
-		b.emitBytes(0x56, 0x57)                                           // push rsi, rdi
-		b.emitBytes(0x48, 0x83, 0xEC, 0x38)                               // sub rsp, 56
+			b.defineLabel(".json_serialize_map")
+			// Serialize JossMap to JSON
+			b.emitBytes(0x55, 0x48, 0x89, 0xE5)                               // push rbp; mov rbp, rsp
+			b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push rbx, r12..r15
+			b.emitBytes(0x56, 0x57)                                           // push rsi, rdi
+			b.emitBytes(0x48, 0x83, 0xEC, 0x38)                               // sub rsp, 56
 
-		b.emitBytes(0x49, 0x89, 0xCC) // mov r12, rcx (mapPtr)
-		// Allocate 128 KB buffer for json output
-		b.emitBytes(0xB9, 0x00, 0x00, 0x02, 0x00) // mov ecx, 131072
-		b.emitCallLabel("__joss_os_alloc")
-		b.emitBytes(0x48, 0x89, 0x45, 0xD8) // mov [rbp - 40], rax (outBuf)
-		b.emitBytes(0x48, 0x89, 0xC7)       // mov rdi, rax (cursor)
+			b.emitBytes(0x49, 0x89, 0xCC) // mov r12, rcx (mapPtr)
+			// Allocate 128 KB buffer for json output
+			b.emitBytes(0xB9, 0x00, 0x00, 0x02, 0x00) // mov ecx, 131072
+			b.emitCallLabel("__joss_os_alloc")
+			b.emitBytes(0x48, 0x89, 0x45, 0xD8) // mov [rbp - 40], rax (outBuf)
+			b.emitBytes(0x48, 0x89, 0xC7)       // mov rdi, rax (cursor)
 
-		// Write '{'
-		b.emitBytes(0xC6, 0x07, 0x7B) // mov byte ptr [rdi], '{'
-		b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
+			// Write '{'
+			b.emitBytes(0xC6, 0x07, 0x7B) // mov byte ptr [rdi], '{'
+			b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
 
-		b.emitBytes(0x45, 0x31, 0xFF) // xor r15d, r15d (isFirst = 1, represented as 0 written)
-		b.emitBytes(0x45, 0x31, 0xF6) // xor r14d, r14d (bucketIdx = 0)
+			b.emitBytes(0x45, 0x31, 0xFF) // xor r15d, r15d (isFirst = 1, represented as 0 written)
+			b.emitBytes(0x45, 0x31, 0xF6) // xor r14d, r14d (bucketIdx = 0)
 
-		b.defineLabel(".js_bucket_loop")
-		b.emitBytes(0x41, 0x81, 0xFE, 0x00, 0x80, 0x00, 0x00) // cmp r14d, 32768
-		b.emitJgeLabel(".js_done")
+			b.defineLabel(".js_bucket_loop")
+			b.emitBytes(0x41, 0x81, 0xFE, 0x00, 0x80, 0x00, 0x00) // cmp r14d, 32768
+			b.emitJgeLabel(".js_done")
 
-		// node = [r12 + r14*8 + 16] (REX.W=1, REX.R=1, REX.X=1, REX.B=1 -> 0x4F)
-		b.emitBytes(0x4F, 0x8B, 0x6C, 0xF4, 0x10) // mov r13, [r12 + r14*8 + 16]
+			// node = [r12 + r14*8 + 16] (REX.W=1, REX.R=1, REX.X=1, REX.B=1 -> 0x4F)
+			b.emitBytes(0x4F, 0x8B, 0x6C, 0xF4, 0x10) // mov r13, [r12 + r14*8 + 16]
 
-		b.defineLabel(".js_node_loop")
-		b.emitBytes(0x4D, 0x85, 0xED) // test r13, r13
-		b.emitJeLabel(".js_next_bucket")
+			b.defineLabel(".js_node_loop")
+			b.emitBytes(0x4D, 0x85, 0xED) // test r13, r13
+			b.emitJeLabel(".js_next_bucket")
 
-		// If not first (r15d != 0): write ", "
-		b.emitBytes(0x45, 0x85, 0xFF)
-		b.emitJeLabel(".js_first_entry")
-		b.emitBytes(0x66, 0xC7, 0x07, 0x2C, 0x20) // mov word ptr [rdi], ", " (0x202C)
-		b.emitBytes(0x48, 0x83, 0xC7, 0x02)       // add rdi, 2
-		b.defineLabel(".js_first_entry")
-		b.emitBytes(0x41, 0xBF, 0x01, 0x00, 0x00, 0x00) // mov r15d, 1 (no longer first)
+			// If not first (r15d != 0): write ", "
+			b.emitBytes(0x45, 0x85, 0xFF)
+			b.emitJeLabel(".js_first_entry")
+			b.emitBytes(0x66, 0xC7, 0x07, 0x2C, 0x20) // mov word ptr [rdi], ", " (0x202C)
+			b.emitBytes(0x48, 0x83, 0xC7, 0x02)       // add rdi, 2
+			b.defineLabel(".js_first_entry")
+			b.emitBytes(0x41, 0xBF, 0x01, 0x00, 0x00, 0x00) // mov r15d, 1 (no longer first)
 
-		// Write '"'
-		b.emitBytes(0xC6, 0x07, 0x22) // mov byte ptr [rdi], '"'
-		b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
+			// Write '"'
+			b.emitBytes(0xC6, 0x07, 0x22) // mov byte ptr [rdi], '"'
+			b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
 
-		// Copy key string [r13 + 0]
-		b.emitBytes(0x49, 0x8B, 0x75, 0x00) // mov rsi, [r13 + 0] (keyPtr)
-		b.defineLabel(".js_copy_key")
-		b.emitBytes(0xAC)       // lodsb (al = [rsi++])
-		b.emitBytes(0x84, 0xC0) // test al, al
-		b.emitJeLabel(".js_key_done")
-		b.emitBytes(0xAA) // stosb ([rdi++] = al)
-		b.emitJmpLabel(".js_copy_key")
+			// Copy key string [r13 + 0]
+			b.emitBytes(0x49, 0x8B, 0x75, 0x00) // mov rsi, [r13 + 0] (keyPtr)
+			b.defineLabel(".js_copy_key")
+			b.emitBytes(0xAC)       // lodsb (al = [rsi++])
+			b.emitBytes(0x84, 0xC0) // test al, al
+			b.emitJeLabel(".js_key_done")
+			b.emitBytes(0xAA) // stosb ([rdi++] = al)
+			b.emitJmpLabel(".js_copy_key")
 
-		b.defineLabel(".js_key_done")
-		// Write '": ' (3 bytes: 0x20 0x3A 0x22 -> ": ")
-		b.emitBytes(0xC6, 0x07, 0x22)       // '"'
-		b.emitBytes(0xC6, 0x47, 0x01, 0x3A) // ':'
-		b.emitBytes(0xC6, 0x47, 0x02, 0x20) // ' '
-		b.emitBytes(0x48, 0x83, 0xC7, 0x03) // add rdi, 3
+			b.defineLabel(".js_key_done")
+			// Write '": ' (3 bytes: 0x20 0x3A 0x22 -> ": ")
+			b.emitBytes(0xC6, 0x07, 0x22)       // '"'
+			b.emitBytes(0xC6, 0x47, 0x01, 0x3A) // ':'
+			b.emitBytes(0xC6, 0x47, 0x02, 0x20) // ' '
+			b.emitBytes(0x48, 0x83, 0xC7, 0x03) // add rdi, 3
 
-		// Inspect val [r13 + 8]
-		b.emitBytes(0x49, 0x8B, 0x5D, 0x08) // mov rbx, [r13 + 8] (val)
+			// Inspect val [r13 + 8]
+			b.emitBytes(0x49, 0x8B, 0x5D, 0x08) // mov rbx, [r13 + 8] (val)
 
-		// Check if val is bool/number (< 0x10000)
-		b.emitBytes(0x48, 0x81, 0xFB, 0x00, 0x00, 0x01, 0x00) // cmp rbx, 0x10000
-		b.emitJgeLabel(".js_val_ptr")
+			// Check if val is bool/number (< 0x10000)
+			b.emitBytes(0x48, 0x81, 0xFB, 0x00, 0x00, 0x01, 0x00) // cmp rbx, 0x10000
+			b.emitJgeLabel(".js_val_ptr")
 
-		// Number / boolean:
-		// If rbx == 1: write "true"
-		b.emitBytes(0x48, 0x83, 0xFB, 0x01) // cmp rbx, 1
-		b.emitJneLabel(".js_val_check_zero")
-		b.emitBytes(0xC7, 0x07, 0x74, 0x72, 0x75, 0x65) // "true"
-		b.emitBytes(0x48, 0x83, 0xC7, 0x04)
-		b.emitJmpLabel(".js_entry_done")
+			// Number / boolean:
+			// If rbx == 1: write "true"
+			b.emitBytes(0x48, 0x83, 0xFB, 0x01) // cmp rbx, 1
+			b.emitJneLabel(".js_val_check_zero")
+			b.emitBytes(0xC7, 0x07, 0x74, 0x72, 0x75, 0x65) // "true"
+			b.emitBytes(0x48, 0x83, 0xC7, 0x04)
+			b.emitJmpLabel(".js_entry_done")
 
-		b.defineLabel(".js_val_check_zero")
-		// If rbx == 0: check if key was "success"
-		b.emitBytes(0x49, 0x8B, 0x4D, 0x00) // mov rcx, [r13 + 0]
-		b.emitLeaRDXString("success")
-		b.emitCallLabel("__joss_rt_strcmp")
-		b.emitBytes(0x48, 0x85, 0xC0)
-		b.emitJneLabel(".js_val_zero_num")
-		b.emitBytes(0xC7, 0x07, 0x66, 0x61, 0x6C, 0x73) // "fals"
-		b.emitBytes(0xC6, 0x47, 0x04, 0x65)             // "e"
-		b.emitBytes(0x48, 0x83, 0xC7, 0x05)
-		b.emitJmpLabel(".js_entry_done")
+			b.defineLabel(".js_val_check_zero")
+			// If rbx == 0: check if key was "success"
+			b.emitBytes(0x49, 0x8B, 0x4D, 0x00) // mov rcx, [r13 + 0]
+			b.emitLeaRDXString("success")
+			b.emitCallLabel("__joss_rt_strcmp")
+			b.emitBytes(0x48, 0x85, 0xC0)
+			b.emitJneLabel(".js_val_zero_num")
+			b.emitBytes(0xC7, 0x07, 0x66, 0x61, 0x6C, 0x73) // "fals"
+			b.emitBytes(0xC6, 0x47, 0x04, 0x65)             // "e"
+			b.emitBytes(0x48, 0x83, 0xC7, 0x05)
+			b.emitJmpLabel(".js_entry_done")
 
-		b.defineLabel(".js_val_zero_num")
-		b.emitBytes(0xC6, 0x07, 0x30) // '0'
-		b.emitBytes(0x48, 0xFF, 0xC7)
-		b.emitJmpLabel(".js_entry_done")
+			b.defineLabel(".js_val_zero_num")
+			b.emitBytes(0xC6, 0x07, 0x30) // '0'
+			b.emitBytes(0x48, 0xFF, 0xC7)
+			b.emitJmpLabel(".js_entry_done")
 
-		b.defineLabel(".js_val_ptr")
-		// Check if val is a nested Map
-		b.emitBytes(0x49, 0xBA)
-		b.emitU64(0x4A4F53534D415021)
-		b.emitBytes(0x4C, 0x39, 0x13) // cmp [rbx], r10
-		b.emitJneLabel(".js_val_string")
-		// Nested map: write "{}"
-		b.emitBytes(0x66, 0xC7, 0x07, 0x7B, 0x7D) // "{}"
-		b.emitBytes(0x48, 0x83, 0xC7, 0x02)
-		b.emitJmpLabel(".js_entry_done")
+			b.defineLabel(".js_val_ptr")
+			// Check if val is a nested Map
+			b.emitBytes(0x49, 0xBA)
+			b.emitU64(0x4A4F53534D415021)
+			b.emitBytes(0x4C, 0x39, 0x13) // cmp [rbx], r10
+			b.emitJneLabel(".js_val_check_arr")
+			// Nested map: write "{}"
+			b.emitBytes(0x66, 0xC7, 0x07, 0x7B, 0x7D) // "{}"
+			b.emitBytes(0x48, 0x83, 0xC7, 0x02)
+			b.emitJmpLabel(".js_entry_done")
 
-		b.defineLabel(".js_val_string")
-		// String: write '"', escaped string, '"'
-		b.emitBytes(0xC6, 0x07, 0x22) // '"'
-		b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
+			b.defineLabel(".js_val_check_arr")
+			// Check if val is an Array: [rbx+8] >= [rbx+0] && [rbx+8] > 0
+			b.emitBytes(0x48, 0x8B, 0x43, 0x00) // mov rax, [rbx + 0] (len)
+			b.emitBytes(0x48, 0x8B, 0x4B, 0x08) // mov rcx, [rbx + 8] (cap)
+			b.emitBytes(0x48, 0x39, 0xC1)       // cmp rcx, rax (cap vs len)
+			b.emitJlLabel(".js_val_string")
+			b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+			b.emitJleLabel(".js_val_string")
+			b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0xE1, 0xF5, 0x05) // cmp rcx, 100000000
+			b.emitJgLabel(".js_val_string")
+			// Array: write "[]"
+			b.emitBytes(0x66, 0xC7, 0x07, 0x5B, 0x5D) // "[]"
+			b.emitBytes(0x48, 0x83, 0xC7, 0x02)
+			b.emitJmpLabel(".js_entry_done")
 
-		b.emitBytes(0x48, 0x89, 0xDE) // mov rsi, rbx (strPtr)
-		b.defineLabel(".js_copy_str")
-		b.emitBytes(0xAC)       // lodsb (al = [rsi++])
-		b.emitBytes(0x84, 0xC0) // test al, al
-		b.emitJeLabel(".js_str_done")
-		// Check for '"' (0x22) or '\' (0x5C)
-		b.emitBytes(0x3C, 0x22) // cmp al, '"'
-		b.emitJeLabel(".js_esc_quote")
-		b.emitBytes(0x3C, 0x5C) // cmp al, '\'
-		b.emitJeLabel(".js_esc_slash")
-		b.emitBytes(0x3C, 0x0A) // cmp al, '\n'
-		b.emitJeLabel(".js_esc_nl")
-		b.emitBytes(0x3C, 0x0D) // cmp al, '\r'
-		b.emitJeLabel(".js_esc_cr")
-		b.emitBytes(0xAA) // stosb
-		b.emitJmpLabel(".js_copy_str")
+			b.defineLabel(".js_val_string")
+			// String: write '"', escaped string, '"'
+			b.emitBytes(0xC6, 0x07, 0x22) // '"'
+			b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
 
-		b.defineLabel(".js_esc_quote")
-		b.emitBytes(0x66, 0xC7, 0x07, 0x5C, 0x22) // '\"'
-		b.emitBytes(0x48, 0x83, 0xC7, 0x02)
-		b.emitJmpLabel(".js_copy_str")
+			b.emitBytes(0x48, 0x89, 0xDE) // mov rsi, rbx (strPtr)
+			b.defineLabel(".js_copy_str")
+			b.emitBytes(0xAC)       // lodsb (al = [rsi++])
+			b.emitBytes(0x84, 0xC0) // test al, al
+			b.emitJeLabel(".js_str_done")
+			// Check for '"' (0x22) or '\' (0x5C)
+			b.emitBytes(0x3C, 0x22) // cmp al, '"'
+			b.emitJeLabel(".js_esc_quote")
+			b.emitBytes(0x3C, 0x5C) // cmp al, '\'
+			b.emitJeLabel(".js_esc_slash")
+			b.emitBytes(0x3C, 0x0A) // cmp al, '\n'
+			b.emitJeLabel(".js_esc_nl")
+			b.emitBytes(0x3C, 0x0D) // cmp al, '\r'
+			b.emitJeLabel(".js_esc_cr")
+			b.emitBytes(0xAA) // stosb
+			b.emitJmpLabel(".js_copy_str")
 
-		b.defineLabel(".js_esc_slash")
-		b.emitBytes(0x66, 0xC7, 0x07, 0x5C, 0x5C) // '\\'
-		b.emitBytes(0x48, 0x83, 0xC7, 0x02)
-		b.emitJmpLabel(".js_copy_str")
+			b.defineLabel(".js_esc_quote")
+			b.emitBytes(0x66, 0xC7, 0x07, 0x5C, 0x22) // '\"'
+			b.emitBytes(0x48, 0x83, 0xC7, 0x02)
+			b.emitJmpLabel(".js_copy_str")
 
-		b.defineLabel(".js_esc_nl")
-		b.emitBytes(0x66, 0xC7, 0x07, 0x5C, 0x6E) // '\n'
-		b.emitBytes(0x48, 0x83, 0xC7, 0x02)
-		b.emitJmpLabel(".js_copy_str")
+			b.defineLabel(".js_esc_slash")
+			b.emitBytes(0x66, 0xC7, 0x07, 0x5C, 0x5C) // '\\'
+			b.emitBytes(0x48, 0x83, 0xC7, 0x02)
+			b.emitJmpLabel(".js_copy_str")
 
-		b.defineLabel(".js_esc_cr")
-		b.emitBytes(0x66, 0xC7, 0x07, 0x5C, 0x72) // '\r'
-		b.emitBytes(0x48, 0x83, 0xC7, 0x02)
-		b.emitJmpLabel(".js_copy_str")
+			b.defineLabel(".js_esc_nl")
+			b.emitBytes(0x66, 0xC7, 0x07, 0x5C, 0x6E) // '\n'
+			b.emitBytes(0x48, 0x83, 0xC7, 0x02)
+			b.emitJmpLabel(".js_copy_str")
 
-		b.defineLabel(".js_str_done")
-		b.emitBytes(0xC6, 0x07, 0x22) // '"'
-		b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
+			b.defineLabel(".js_esc_cr")
+			b.emitBytes(0x66, 0xC7, 0x07, 0x5C, 0x72) // '\r'
+			b.emitBytes(0x48, 0x83, 0xC7, 0x02)
+			b.emitJmpLabel(".js_copy_str")
 
-		b.defineLabel(".js_entry_done")
-		b.emitBytes(0x4D, 0x8B, 0x6D, 0x10) // mov r13, [r13 + 16] (next node)
-		b.emitJmpLabel(".js_node_loop")
+			b.defineLabel(".js_str_done")
+			b.emitBytes(0xC6, 0x07, 0x22) // '"'
+			b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
 
-		b.defineLabel(".js_next_bucket")
-		b.emitBytes(0x41, 0xFF, 0xC6) // inc r14d (bucketIdx++)
-		b.emitJmpLabel(".js_bucket_loop")
+			b.defineLabel(".js_entry_done")
+			b.emitBytes(0x4D, 0x8B, 0x6D, 0x10) // mov r13, [r13 + 16] (next node)
+			b.emitJmpLabel(".js_node_loop")
 
-		b.defineLabel(".js_done")
-		// Write '}' and null terminator
-		b.emitBytes(0xC6, 0x07, 0x7D)       // '}'
-		b.emitBytes(0xC6, 0x47, 0x01, 0x00) // '\0'
+			b.defineLabel(".js_next_bucket")
+			b.emitBytes(0x41, 0xFF, 0xC6) // inc r14d (bucketIdx++)
+			b.emitJmpLabel(".js_bucket_loop")
 
-		b.emitBytes(0x48, 0x8B, 0x45, 0xD8)                               // mov rax, [rbp - 40] (outBuf)
-		b.emitBytes(0x48, 0x83, 0xC4, 0x38)                               // add rsp, 56
-		b.emitBytes(0x5F, 0x5E)                                           // pop rdi, rsi
-		b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B) // pop r15..r12, rbx
-		b.emitBytes(0x5D, 0xC3)                                           // pop rbp; ret
+			b.defineLabel(".js_done")
+			// Write '}' and null terminator
+			b.emitBytes(0xC6, 0x07, 0x7D)       // '}'
+			b.emitBytes(0xC6, 0x47, 0x01, 0x00) // '\0'
+
+			b.emitBytes(0x48, 0x8B, 0x45, 0xD8)                               // mov rax, [rbp - 40] (outBuf)
+			b.emitBytes(0x48, 0x83, 0xC4, 0x38)                               // add rsp, 56
+			b.emitBytes(0x5F, 0x5E)                                           // pop rdi, rsi
+			b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B) // pop r15..r12, rbx
+			b.emitBytes(0x5D, 0xC3)                                           // pop rbp; ret
+		}
 	}
 }
 
@@ -1196,8 +1397,10 @@ func (b *MachineCodeBuilder) emitStorageIntrinsics() {
 	b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, fullPath
 	b.emitCallLabel("fn_file_get_contents")
 	b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+	b.emitJeLabel(".storage_get_fallback2")
+	b.emitBytes(0x80, 0x38, 0x00) // cmp byte ptr [rax], 0 (fn_file_get_contents devuelve "" si falla)
 	b.emitJneLabel(".storage_get_done")
-
+	b.defineLabel(".storage_get_fallback2")
 	// Fallback path: "assets/users/" . userId . "/" . objectPath
 	b.emitLeaRCXString("assets/users/")
 	b.emitBytes(0x4C, 0x89, 0xE2)

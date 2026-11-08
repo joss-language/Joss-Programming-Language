@@ -446,7 +446,7 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 			return err
 		}
 		condVal = l.ensureBoolCond(condVal)
-		condBlock.SetTerminator(&BranchTerminator{
+		l.currBlock.SetTerminator(&BranchTerminator{
 			Cond:       condVal,
 			TrueBlock:  bodyBlock,
 			FalseBlock: afterBlock,
@@ -492,7 +492,7 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 			return err
 		}
 		condVal = l.ensureBoolCond(condVal)
-		condBlock.SetTerminator(&BranchTerminator{
+		l.currBlock.SetTerminator(&BranchTerminator{
 			Cond:       condVal,
 			TrueBlock:  bodyBlock,
 			FalseBlock: afterBlock,
@@ -1053,6 +1053,78 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 
 			l.currBlock = mergeBlock
 			resTemp := l.currentFn.NewTemp(resType, "coal_res")
+			l.currBlock.AddInstruction(&LoadInst{Dest: resTemp, Ptr: resPtr})
+			return resTemp, nil
+		}
+
+		if e.Operator == "&&" || e.Operator == "and" {
+			left, err := l.lowerExpression(e.Left)
+			if err != nil {
+				return nil, err
+			}
+			cond := l.ensureBoolCond(left)
+			rightBlock := l.currentFn.NewBlock("and_right")
+			mergeBlock := l.currentFn.NewBlock("and_merge")
+
+			resPtr := l.currentFn.NewTemp(PtrType(TypeBool), "and_ptr")
+			l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: resPtr, AllocType: TypeBool})
+			l.currBlock.AddInstruction(&StoreInst{Val: NewConstBool(false), Ptr: resPtr})
+
+			l.currBlock.SetTerminator(&BranchTerminator{
+				Cond:       cond,
+				TrueBlock:  rightBlock,
+				FalseBlock: mergeBlock,
+			})
+
+			l.currBlock = rightBlock
+			right, err := l.lowerExpression(e.Right)
+			if err != nil {
+				return nil, err
+			}
+			rCond := l.ensureBoolCond(right)
+			if l.currBlock.Terminator == nil {
+				l.currBlock.AddInstruction(&StoreInst{Val: rCond, Ptr: resPtr})
+				l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+			}
+
+			l.currBlock = mergeBlock
+			resTemp := l.currentFn.NewTemp(TypeBool, "and_res")
+			l.currBlock.AddInstruction(&LoadInst{Dest: resTemp, Ptr: resPtr})
+			return resTemp, nil
+		}
+
+		if e.Operator == "||" || e.Operator == "or" {
+			left, err := l.lowerExpression(e.Left)
+			if err != nil {
+				return nil, err
+			}
+			cond := l.ensureBoolCond(left)
+			rightBlock := l.currentFn.NewBlock("or_right")
+			mergeBlock := l.currentFn.NewBlock("or_merge")
+
+			resPtr := l.currentFn.NewTemp(PtrType(TypeBool), "or_ptr")
+			l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: resPtr, AllocType: TypeBool})
+			l.currBlock.AddInstruction(&StoreInst{Val: NewConstBool(true), Ptr: resPtr})
+
+			l.currBlock.SetTerminator(&BranchTerminator{
+				Cond:       cond,
+				TrueBlock:  mergeBlock,
+				FalseBlock: rightBlock,
+			})
+
+			l.currBlock = rightBlock
+			right, err := l.lowerExpression(e.Right)
+			if err != nil {
+				return nil, err
+			}
+			rCond := l.ensureBoolCond(right)
+			if l.currBlock.Terminator == nil {
+				l.currBlock.AddInstruction(&StoreInst{Val: rCond, Ptr: resPtr})
+				l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+			}
+
+			l.currBlock = mergeBlock
+			resTemp := l.currentFn.NewTemp(TypeBool, "or_res")
 			l.currBlock.AddInstruction(&LoadInst{Dest: resTemp, Ptr: resPtr})
 			return resTemp, nil
 		}
@@ -1686,7 +1758,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 		case "abs", "intval", "strlen", "len", "count":
 			retType = TypeI64
-		case "boolval":
+		case "boolval", "str_contains", "contains":
 			retType = TypeBool
 		case "min", "max":
 			if len(args) > 0 {
@@ -1757,7 +1829,8 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		} else {
 			if calleeName == "strlen" || calleeName == "count" || calleeName == "len" || calleeName == "array_push" || calleeName == "append" || calleeName == "to_string" ||
 				calleeName == "abs" || calleeName == "min" || calleeName == "max" || calleeName == "intval" || calleeName == "floatval" || calleeName == "boolval" || calleeName == "array_pop" ||
-				calleeName == "microtime" || calleeName == "array_fill" || calleeName == "file_get_contents" || calleeName == "explode" || calleeName == "async" || calleeName == "await" {
+				calleeName == "microtime" || calleeName == "array_fill" || calleeName == "file_get_contents" || calleeName == "explode" || calleeName == "async" || calleeName == "await" ||
+				calleeName == "str_contains" || calleeName == "contains" {
 				l.currBlock.AddInstruction(&CallBuiltinInst{
 					Dest:      dest,
 					BuiltinID: calleeName,

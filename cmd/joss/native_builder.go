@@ -359,9 +359,6 @@ func computePruningTags(detectedCaps map[string]bool) []string {
 				tags = append(tags, "nomssql")
 			}
 		}
-		if !detectedCaps["oci"] {
-			tags = append(tags, "nooci")
-		}
 		if !detectedCaps["redis"] {
 			tags = append(tags, "noredis")
 		}

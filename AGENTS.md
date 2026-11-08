@@ -273,9 +273,15 @@ Todo cambio debe mantener en verde `tests/architecture/architecture_contract_tes
 
 ---
 
-## 11. Compilación Nativa (`joss build`), Poda Selectiva de Motores (`no<driver>`) y Sellado VFS
+## 11. Compilación Nativa (`joss build`), Modo Autónomo Standalone y Cero DLLs
 
-### 11.1 Directorio de salida y Compilación Cruzada (Multi-OS / Multi-Arch)
+### 11.1 Principio de Binario Único Standalone (Prohibición Absoluta de DLLs)
+> **REGLA ESTRICTA DE ARQUITECTURA**: Todo ejecutable generado por `joss build` es un binario único, autocontenido y autónomo (`build/<nombre>.exe` en Windows o `build/<nombre>` en Linux/macOS).
+* **Cero DLLs**: Queda terminantemente prohibido generar, distribuir o requerir archivos `.dll` complementarios (como `joss_host.dll`), librerías dinámicas o dependencias externas junto al ejecutable final.
+* **Sin Runtime Monolítico ni Runners Inflados**: Queda prohibido volver a runners de 40 MB o runtime monolítico de Go embebido. `joss build` compila directamente a código máquina nativo real (PE32+ / ELF) mediante `pkg/backend/native`, produciendo ejecutables ultra-optimizados (desde ~5 KB para utilidades CLI hasta ~1.68 MB para aplicaciones web completas con servidor HTTP integrado).
+* **Desacoplamiento Estricto de Catálogos de Terminal (i18n)**: Los archivos de traducción de consola CLI (`intl_*.arb`) pertenecen exclusivamente a la herramienta interactiva de desarrollo (`joss`) y nunca deben compilarse ni embeberse en binarios de producción generados con `joss build` (gobernado por la poda `noembedlocales`).
+
+### 11.2 Directorio de salida y Compilación Cruzada (Multi-OS / Multi-Arch)
 * Todo `joss build` sin `-o` deposita los binarios compilados dentro de `build/` (`build/<nombre>.exe` o `build/<nombre>`).
 * **Compilación cruzada nativa integrada (`--target` o atajo directo)**:
   - `joss build main.joss --target=linux-amd64` (o `joss build linux`)
@@ -284,10 +290,6 @@ Todo cambio debe mantener en verde `tests/architecture/architecture_contract_tes
   - `joss build main.joss --target=darwin-amd64` (macOS Intel)
   - `joss build main.joss --target=windows-amd64` / `--target=windows-arm64`
   - `joss build main.joss --target=android-arm64` (o `joss build android` — Android / Termux)
-
-### 11.2 Separación entre Binarios CLI Puros y Aplicaciones con Host Bridge
-* **Programas CLI puros**: Se compilan a código máquina puro (~5.5 KB - 32 KB) sin `joss_host.dll` y sin trailer VFS (`JOSS_RUNNER_DATA`).
-* **Aplicaciones completas con servicios de servidor/DB**: Enlazan selectivamente `_joss_host_bridge` y sellan el VFS encriptado en el ejecutable.
 
 ### 11.3 Regla Obligatoria para Nuevos Motores, Bases de Datos o SDKs Externos (Patrón `no<servicio>`)
 > **REGLA ESTRICTA DE ARQUITECTURA**: Ninguna librería externa pesada (nuevo motor de base de datos como MongoDB, Cassandra, ClickHouse, o SDK de nube como AWS S3, Firebase, Kafka, etc.) puede importarse de forma incondicional en `pkg/core` ni en `pkg/server`.
@@ -301,19 +303,12 @@ Siempre que se agregue un nuevo driver o integración externa (ejemplo: **MongoD
      - MySQL: `!nodb && !nomysql` (`drivers_db_mysql.go`)
      - PostgreSQL: `!nodb && !nopostgres` (`drivers_db_postgres.go`)
      - SQL Server: `!nodb && !nomssql` (`drivers_db_mssql.go`)
-     - Oracle Cloud OCI: `!nooci` / `nooci` (`lib_storage_oci.go` / `lib_storage_nooci.go`)
+     *(Nota: Storage y Oracle Cloud OCI fueron migrados 100% a Pure Joss Standard Library en `std/storage/storage.joss`, eliminando dependencias de SDKs en Go)*
      - Redis: `!noredis` / `noredis` (`redis.go` / `redis_stub.go`)
 2. **Detección Automática en `cmd/joss/native_builder.go`**:
    - Registrar la detección del nuevo servicio en `collectProjectFiles` leyendo `core.DetectAndLoadEnv(nil)` (ej. `DB=mongodb` → `capsMap["mongodb"] = true`) y en el grafo de alcanzabilidad AST.
-   - En `optimizeHostBridgeDLL` y `compileRunnerBinary`, si `!detectedCaps["mongodb"]`, inyectar automáticamente el tag `nomongodb` en `-tags=...` para que los proyectos que no usen MongoDB jamás carguen su peso en el binario ni en `joss_host.dll`.
+   - En la compilación y empaquetado, si `!detectedCaps["mongodb"]`, inyectar automáticamente el tag `nomongodb` en `-tags=...` para que los proyectos que no usen MongoDB jamás carguen su peso en el binario final.
 
-### 11.4 Sellado VFS Encriptado (`env.enc` AES-256) y Optimización del `.exe`
-* `appendSealedAssetsToExecutable` empaqueta el proyecto dentro del ejecutable final:
-  - Encripta las variables de entorno con **AES-256** bajo `env.enc` y excluye `.env` / `env.joss` en texto plano.
-  - Excluye directorios y archivos de desarrollo (`bruno/`, `.joss/`, `tests/`, `package-lock.json`, `Dockerfile`, `.dockerignore`, `translation_history.json`, `AGENTS.md`).
-  - Optimiza en memoria imágenes PNG > 150 KB (`optimizeLargePNG` a 720px con `png.BestCompression`) sin modificar los archivos fuente en disco.
-  - En runtime, `_joss_host_bridge` desencripta el VFS en RAM y `Runtime.writeEnvJoss()` nunca escribe `env.joss` a disco cuando `GlobalFileSystem != nil`.
-
-### 11.5 Implementación Canónica en Lenguaje Joss (`std/`) vs. Host Bridge
-* **Regla de Primera Opción (Pure Joss Standard Library)**: Siempre que una funcionalidad, subsistema, query builder o estructura de datos pueda implementarse lógicamente en código fuente Joss (ejemplo canónico: **GranDB** en `std/database/grandb.joss`), **es obligatorio y altamente recomendado escribirla en código puro Joss**. Esto garantiza que `joss run`, `joss server`, `joss program` y `joss build` compartan una **única fuente de verdad** canónica, eliminando por completo miles de líneas de ensamblador artesanal frágil o código Go redundante.
-* **Uso Legítimo del Host Bridge (`_joss_host_bridge`)**: El Host Bridge se reserva exclusivamente para subsistemas pesados de infraestructura de producción concurrentes (servidor web HTTP con pool multihilo, WebSockets RFC 6455 con broadcast masivo, drivers de base de datos con connection pools de alto rendimiento, y drivers de almacenamiento/cache como Redis/OCI). Prohibido duplicar servidores web o WebSockets en ensamblador manual; las aplicaciones web completas enlazan el Host Bridge canónico para máxima estabilidad, seguridad y concurrencia.
+### 11.4 Implementación Canónica en Lenguaje Joss Puro (`Pure Joss Standard Library` en `std/`)
+* **Regla de Única Fuente de Verdad (Full Joss)**: Siempre que una funcionalidad, subsistema, query builder o estructura de datos pueda implementarse lógicamente en código fuente Joss (ejemplo canónico: **GranDB** en `std/database/grandb.joss`), **es obligatorio escribirla en código puro Joss**. Esto garantiza que `joss run`, `joss server`, `joss program` y `joss build` compartan una **única fuente de verdad** canónica.
+* **Prohibición de bifurcación de código**: Queda terminantemente prohibido mantener dos implementaciones de una misma característica (ej. escribir implementaciones ad-hoc en ensamblador para un motor específico y otra en Go). Si se da soporte a múltiples motores (MySQL, PostgreSQL, SQL Server, SQLite), debe hacerse de forma consistente y unificada a través de la arquitectura canónica de Joss.
