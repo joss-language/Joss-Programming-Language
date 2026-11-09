@@ -1,93 +1,101 @@
 public class Session {
-    public string $id = "";
-    public map $data = {};
+    public string $id = ""
+    public map $data = {
+}
 
-    public static map $globalStore = {};
+public static map $globalStore = {
+}
 
-    Init() {
-        $this->id = "";
-        $this->data = {};
-    }
+Init() {
+    $this->id = ""
+    $this->data = {
+}
+}
 
-    public static func generateId(): string {
-        var $seed = rand() . "_" . time() . "_" . rand();
-        return md5($seed);
-    }
+public static func generateId(): string {
+    var $seed = rand() . "_" . time() . "_" . rand()
+    return md5($seed)
+}
 
-    public static func parseCookies(string $cookieHeader): map {
-        var $cookies = {};
-        guard (strlen($cookieHeader) > 0) else {
-            return $cookies;
+public static func parseCookies(string $cookieHeader): map {
+    var $cookies = {
+}
+guard (strlen($cookieHeader) > 0) else {
+    return $cookies
+}
+
+var $pairs = explode(";", $cookieHeader)
+foreach ($pairs as $idx => $pair) {
+    var $trimmed = trim($pair)
+    (strlen($trimmed) > 0) ? {
+        var $eq = strpos($trimmed, "=")
+        ($eq > 0) ? {
+            string $name = trim(substr($trimmed, 0, $eq))
+            string $val = trim(substr($trimmed, $eq + 1))
+            $cookies [$name] = $val
         }
+    }
+}
+return $cookies
+}
 
-        var $pairs = explode(";", $cookieHeader);
-        foreach ($pairs as $idx => $pair) {
-            var $trimmed = trim($pair);
-            (strlen($trimmed) > 0) ? {
-                var $eq = strpos($trimmed, "=");
-                ($eq > 0) ? {
-                    string $name = trim(substr($trimmed, 0, $eq));
-                    string $val = trim(substr($trimmed, $eq + 1));
-                    $cookies[$name] = $val;
-                };
-            };
+public static func start(string $cookieHeader) : Session {
+    var $cookies = Session::parseCookies($cookieHeader)
+    string $sid = isset($cookies ["JOSS_SESSION"]) ? strval($cookies ["JOSS_SESSION"]) : ""
+
+    var $sess = new Session()
+    (strlen($sid) > 0 && isset(Session::$globalStore [$sid])) ? {
+        $sess->id = $sid
+        $sess->data = Session::$globalStore [$sid]
+    } : {
+        string $newId = Session::generateId()
+        $sess->id = $newId
+        $sess->data = {
+    }
+    Session::$globalStore [$newId] = $sess->data
+}
+return $sess
+}
+
+public func getId() : string {
+    return $this->id
+}
+
+public func get(string $key, mixed $defaultValue = null): mixed {
+    return isset($this->data [$key]) ? $this->data [$key] : $defaultValue
+}
+
+public func put(string $key, mixed $value): void {
+    $this->data [$key] = $value
+    Session::$globalStore [$this->id] = $this->data
+}
+
+public func has(string $key): bool {
+    return isset($this->data [$key])
+}
+
+public func forget(string $key): void {
+    (isset($this->data [$key])) ? {
+        var $cleaned = {
+    }
+    foreach ($this->data as $k => $v) {
+        ($k != $key) ? {
+            $cleaned [$k] = $v
         }
-        return $cookies;
     }
+    $this->data = $cleaned
+    Session::$globalStore [$this->id] = $this->data
+}
+}
 
-    public static func start(string $cookieHeader): Session {
-        var $cookies = Session::parseCookies($cookieHeader);
-        string $sid = isset($cookies["JOSS_SESSION"]) ? strval($cookies["JOSS_SESSION"]) : "";
+public func flush() : void {
+    $this->data = {
+}
+Session::$globalStore [$this->id] = {
+}
+}
 
-        var $sess = new Session();
-        (strlen($sid) > 0 && isset(Session::$globalStore[$sid])) ? {
-            $sess->id = $sid;
-            $sess->data = Session::$globalStore[$sid];
-        } : {
-            string $newId = Session::generateId();
-            $sess->id = $newId;
-            $sess->data = {};
-            Session::$globalStore[$newId] = $sess->data;
-        };
-        return $sess;
-    }
-
-    public func getId(): string {
-        return $this->id;
-    }
-
-    public func get(string $key, mixed $defaultValue = null): mixed {
-        return isset($this->data[$key]) ? $this->data[$key] : $defaultValue;
-    }
-
-    public func put(string $key, mixed $value): void {
-        $this->data[$key] = $value;
-        Session::$globalStore[$this->id] = $this->data;
-    }
-
-    public func has(string $key): bool {
-        return isset($this->data[$key]);
-    }
-
-    public func forget(string $key): void {
-        (isset($this->data[$key])) ? {
-            var $cleaned = {};
-            foreach ($this->data as $k => $v) {
-                ($k != $key) ? {
-                    $cleaned[$k] = $v;
-                };
-            }
-            $this->data = $cleaned;
-            Session::$globalStore[$this->id] = $this->data;
-        };
-    }
-
-    public func flush(): void {
-        $this->data = {};
-        Session::$globalStore[$this->id] = {};
-    }
-
-    public func getCookieHeader(): string {
-        return "Set-Cookie: JOSS_SESSION=" . $this->id . "; Path=/; HttpOnly; SameSite=Lax";
-    }
+public func getCookieHeader() : string {
+    return "Set-Cookie: JOSS_SESSION=" . $this->id . "; Path=/; HttpOnly; SameSite=Lax"
+}
 }

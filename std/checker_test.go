@@ -1,74 +1,52 @@
 package std_test
 
 import (
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/pkg/diagnostics"
+	"github.com/jossecurity/joss/pkg/formatter"
+	"github.com/jossecurity/joss/pkg/linter"
 	"github.com/jossecurity/joss/std"
 )
 
-// forbiddenIdentifiers is the canonical list of keywords from other languages (like PHP, JS, C, Go, Python)
-// that do NOT exist in Joss and are forbidden in any stdlib .joss source code.
-var forbiddenIdentifiers = map[string]string{
-	"if":       "En Joss no existe 'if'; las decisiones se toman con '($cond) ? { ... } : { ... }', 'guard' o 'match'.",
-	"elseif":   "En Joss no existe 'elseif'; usa 'match' o encadenamiento ternario '($cond1) ? { ... } : ($cond2) ? { ... }'.",
-	"switch":   "En Joss no existe 'switch'; usa 'match ($val) { ... }'.",
-	"for":      "En Joss los bucles son 'while ($cond) { ... }' y 'foreach ($arr as $v) { ... }'.",
-	"function": "En Joss las funciones se declaran con 'func', con visibilidad 'public func' / 'private func'.",
-	"goto":     "En Joss no existe 'goto'.",
-}
-
-// TestStdlib_GrammarAndIdiomaticJossCompliance uses the official Joss lexer to inspect
-// all tokens across all standard library files (.joss) in std/, ensuring no foreign keywords
-// or invalid constructs enter the codebase.
-func TestStdlib_GrammarAndIdiomaticJossCompliance(t *testing.T) {
-	violations := 0
-
-	err := filepath.Walk("..", func(path string, info os.FileInfo, walkErr error) error {
-		if walkErr != nil || info == nil || info.IsDir() {
-			return nil
-		}
-		rel, relErr := filepath.Rel("..", path)
-		if relErr != nil || !strings.HasPrefix(filepath.ToSlash(rel), "std/") || !strings.HasSuffix(path, ".joss") {
-			return nil
-		}
-
-		contentBytes, readErr := os.ReadFile(path)
-		if readErr != nil {
-			t.Errorf("Error leyendo archivo std %s: %v", path, readErr)
-			return nil
-		}
-
-		lexer := parser.NewLexer(string(contentBytes))
-		for {
-			tok := lexer.NextToken()
-			if tok.Type == parser.EOF {
-				break
-			}
-
-			// Check only IDENTIFIER tokens (not string literals or comments)
-			if tok.Type == parser.IDENT {
-				lower := strings.ToLower(tok.Literal)
-				if reason, forbidden := forbiddenIdentifiers[lower]; forbidden {
-					t.Errorf("[Joss STD Linter] Violación en %s (línea %d): Identificador prohibido '%s'.\n  Explicación: %s",
-						rel, tok.Line, tok.Literal, reason)
-					violations++
-				}
-			}
-		}
-
-		return nil
-	})
-
+// TestStdlib_OfficialLinterAndChecker uses the language's official linter (pkg/linter)
+// and official formatter (pkg/formatter) to verify that all code in std/
+// strictly complies with Joss canonical syntax, rules, and semantic integrity.
+func TestStdlib_OfficialLinterAndChecker(t *testing.T) {
+	stdDir, err := filepath.Abs(".")
 	if err != nil {
-		t.Fatalf("Fallo al recorrer el directorio std: %v", err)
+		t.Fatalf("No se pudo obtener la ruta de std: %v", err)
 	}
 
-	if violations > 0 {
-		t.Fatalf("Se encontraron %d violaciones de sintaxis no-canónica en la biblioteca estándar std/", violations)
+	// 1. Verificación oficial de formateo canónico
+	unformatted, err := formatter.FormatDirectory(stdDir, false, true)
+	if err != nil {
+		t.Fatalf("Error en verificación oficial de formato: %v", err)
+	}
+	if len(unformatted) > 0 {
+		for _, f := range unformatted {
+			t.Errorf("[Oficial Formatter] El archivo %s no cumple con el formato canónico.", f)
+		}
+	}
+
+	// 2. Verificación oficial con Linter y Análisis Semántico
+	l := linter.NewLinter()
+	issues, err := l.LintPath(stdDir)
+	if err != nil {
+		t.Fatalf("Error ejecutando el linter oficial sobre std: %v", err)
+	}
+
+	errorCount := 0
+	for _, issue := range issues {
+		if issue.Severity == diagnostics.SeverityError {
+			t.Errorf("[Oficial Linter] %s", issue.String())
+			errorCount++
+		}
+	}
+
+	if errorCount > 0 {
+		t.Fatalf("Se encontraron %d errores reportados por el linter oficial en std/", errorCount)
 	}
 }
 

@@ -1,39 +1,38 @@
 // Standard Library: Strings module
 // Rutinas auxiliares de cadenas en lenguaje Joss
-
 public class StringUtils {
     public static func isEmpty(string $s): bool {
-        return strlen($s) == 0;
+        return strlen($s) == 0
     }
 
     public static func isNotEmpty(string $s): bool {
-        return strlen($s) > 0;
+        return strlen($s) > 0
     }
 
     public static func padZero(int $num, int $width): string {
-        string $s = strval($num);
+        string $s = strval($num)
         while (strlen($s) < $width) {
-            $s = "0" . $s;
+            $s = "0" . $s
         }
-        return $s;
+        return $s
     }
 
     public static func repeat(string $s, int $count): string {
-        string $res = "";
-        int $i = 0;
+        string $res = ""
+        int $i = 0
         while ($i < $count) {
-            $res = $res . $s;
-            $i = $i + 1;
+            $res = $res . $s
+            $i = $i + 1
         }
-        return $res;
+        return $res
     }
 
     public static func padRight(string $s, int $width, string $pad): string {
-        string $res = $s;
-        string $ch = (strlen($pad) > 0) ? $pad : " ";
+        string $res = $s
+        string $ch = (strlen($pad) > 0) ? $pad : " "
         while (strlen($res) < $width) {
-            $res = $res . $ch;
+            $res = $res . $ch
         }
-        return $res;
+        return $res
     }
 }

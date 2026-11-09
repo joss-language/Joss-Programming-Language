@@ -1,78 +1,79 @@
 public class WebSocketProtocol {
     public static func computeAcceptKey(string $key): string {
-        var $magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-        var $combined = $key . $magic;
-        return sha1_base64($combined);
+        var $magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+        var $combined = $key . $magic
+        return sha1_base64($combined)
     }
 
     public static func handshakeResponse(string $key): string {
-        var $accept = WebSocketProtocol::computeAcceptKey($key);
-        var $res = "HTTP/1.1 101 Switching Protocols\r\n";
-        $res = $res . "Upgrade: websocket\r\n";
-        $res = $res . "Connection: Upgrade\r\n";
-        $res = $res . "Sec-WebSocket-Accept: " . $accept . "\r\n\r\n";
-        return $res;
+        var $accept = WebSocketProtocol::computeAcceptKey($key)
+        var $res = "HTTP/1.1 101 Switching Protocols\r\n"
+        $res = $res . "Upgrade: websocket\r\n"
+        $res = $res . "Connection: Upgrade\r\n"
+        $res = $res . "Sec-WebSocket-Accept: " . $accept . "\r\n\r\n"
+        return $res
     }
 
     public static func isUpgradeRequest(string $upgradeHeader, string $connectionHeader): bool {
-        bool $isUp = (strtolower(trim($upgradeHeader)) == "websocket" && str_contains(strtolower($connectionHeader), "upgrade"));
-        return $isUp;
+        bool $isUp = (strtolower(trim($upgradeHeader)) == "websocket" && str_contains(strtolower($connectionHeader), "upgrade"))
+        return $isUp
     }
 
     public static func encodeTextFrame(string $payload): string {
-        int $len = strlen($payload);
-        guard ($len >= 126) else {
-            return "\x81" . chr($len) . $payload;
-        };
-        guard ($len > 65535) else {
-            int $b1 = ($len >> 8) & 255;
-            int $b2 = $len & 255;
-            return "\x81\x7E" . chr($b1) . chr($b2) . $payload;
-        };
-        // 64-bit length
-        var $bytes = "";
-        var $i = 7;
-        while ($i >= 0) {
-            int $shift = $i * 8;
-            int $b = ($len >> $shift) & 255;
-            $bytes = $bytes . chr($b);
-            $i--;
+        int $len = strlen($payload)
+        guard ($len >= 126) : {
+            return "\x81" . chr($len) . $payload
         }
-        return "\x81\x7F" . $bytes . $payload;
+        guard ($len > 65535) : {
+            int $b1 = ($len >> 8) % 256
+            int $b2 = $len % 256
+            return "\x81\x7E" . chr($b1) . chr($b2) . $payload
+        }
+        // 64-bit length
+        var $bytes = ""
+        var $i = 7
+        while ($i >= 0) {
+            int $shift = $i * 8
+            int $b = ($len >> $shift) % 256
+            $bytes = $bytes . chr($b)
+            $i--
+        }
+        return "\x81\x7F" . $bytes . $payload
     }
 }
 
 public class WebSocketHub {
-    public static map $channels = {};
+    public static map $channels = {
+}
 
-    public static func subscribe(string $channel, string $connId): void {
-        var $subscribers = WebSocketHub::$channels[$channel] ?? [];
-        $subscribers[] = $connId;
-        WebSocketHub::$channels[$channel] = $subscribers;
-    }
+public static func subscribe(string $channel, string $connId): void {
+    var $subscribers = WebSocketHub::$channels [$channel] ?? []
+    $subscribers [] = $connId
+    WebSocketHub::$channels [$channel] = $subscribers
+}
 
-    public static func unsubscribe(string $channel, string $connId): void {
-        var $subscribers = WebSocketHub::$channels[$channel] ?? [];
-        var $updated = [];
-        foreach ($subscribers as $sub) {
-            ($sub != $connId) ? {
-                $updated[] = $sub;
-            };
+public static func unsubscribe(string $channel, string $connId): void {
+    var $subscribers = WebSocketHub::$channels [$channel] ?? []
+    var $updated = []
+    foreach ($subscribers as $sub) {
+        ($sub != $connId) ? {
+            $updated [] = $sub
         }
-        WebSocketHub::$channels[$channel] = $updated;
     }
+    WebSocketHub::$channels [$channel] = $updated
+}
 
-    public static func getSubscribers(string $channel): array {
-        return WebSocketHub::$channels[$channel] ?? [];
-    }
+public static func getSubscribers(string $channel) : array {
+    return WebSocketHub::$channels [$channel] ?? []
+}
 
-    public static func subscriberCount(string $channel): int {
-        var $subs = WebSocketHub::getSubscribers($channel);
-        return count($subs);
-    }
+public static func subscriberCount(string $channel): int {
+    var $subs = WebSocketHub::getSubscribers($channel)
+    return count($subs)
+}
 
-    public static func broadcast(string $channel, string $message): string {
-        var $frame = WebSocketProtocol::encodeTextFrame($message);
-        return $frame;
-    }
+public static func broadcast(string $channel, string $message): string {
+    var $frame = WebSocketProtocol::encodeTextFrame($message)
+    return $frame
+}
 }

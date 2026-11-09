@@ -1,53 +1,52 @@
 // Standard Library: Math module
 // Rutinas matemáticas puras en lenguaje Joss
-
 public class MathUtils {
     public static func clamp(int $val, int $min, int $max): int {
-        return ($val < $min) ? $min : (($val > $max) ? $max : $val);
+        return($val < $min) ? $min : (($val > $max) ? $max : $val)
     }
 
     public static func sign(int $n): int {
-        return ($n > 0) ? 1 : (($n < 0) ? -1 : 0);
+        return($n > 0) ? 1 : (($n < 0) ? - 1 : 0)
     }
 
     public static func gcd(int $a, int $b): int {
-        int $x = $a;
-        int $y = $b;
+        int $x = $a
+        int $y = $b
         while ($y != 0) {
-            int $t = $y;
-            $y = $x % $y;
-            $x = $t;
+            int $t = $y
+            $y = $x % $y
+            $x = $t
         }
-        return ($x < 0) ? -$x : $x;
+        return($x < 0) ? - $x : $x
     }
 
     public static func abs(int $n): int {
-        return ($n < 0) ? -$n : $n;
+        return($n < 0) ? - $n : $n
     }
 
     public static func min(int $a, int $b): int {
-        return ($a < $b) ? $a : $b;
+        return($a < $b) ? $a : $b
     }
 
     public static func max(int $a, int $b): int {
-        return ($a > $b) ? $a : $b;
+        return($a > $b) ? $a : $b
     }
 
     public static func pow(int $base, int $exp): int {
-        int $res = 1;
-        int $i = 0;
+        int $res = 1
+        int $i = 0
         while ($i < $exp) {
-            $res = $res * $base;
-            $i = $i + 1;
+            $res = $res * $base
+            $i = $i + 1
         }
-        return $res;
+        return $res
     }
 
     public static func isEven(int $n): bool {
-        return ($n % 2) == 0;
+        return($n % 2) == 0
     }
 
     public static func isOdd(int $n): bool {
-        return ($n % 2) != 0;
+        return($n % 2) != 0
     }
 }

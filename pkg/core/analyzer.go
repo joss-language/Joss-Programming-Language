@@ -72,7 +72,8 @@ func AnalyzeSourceUnitsForMigration(units []semanticanalyzer.SourceUnit) *Analys
 func analyzeSourceUnits(units []semanticanalyzer.SourceUnit, migrationWarnings bool) *AnalysisReport {
 	hasStd := false
 	for _, u := range units {
-		if strings.HasPrefix(u.Path, "<std/") {
+		clean := strings.ReplaceAll(u.Path, "\\", "/")
+		if strings.HasPrefix(clean, "<std/") || strings.HasPrefix(clean, "std/") || strings.Contains(clean, "/std/") {
 			hasStd = true
 			break
 		}

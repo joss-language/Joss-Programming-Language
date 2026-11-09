@@ -273,6 +273,41 @@ func checkASTRules(filename string, prog *parser.Program, src string) []LintIssu
 		}
 	}
 
+	// Idiomatic Joss & Foreign Syntax Check (official linter rule JOSS-LINT-008)
+	forbiddenKeywords := map[string]string{
+		"if":       "En Joss no existe 'if'; las decisiones se toman con '($cond) ? { ... } : { ... }', 'guard' o 'match'.",
+		"elseif":   "En Joss no existe 'elseif'; usa 'match' o encadenamiento ternario '($cond1) ? { ... } : ($cond2) ? { ... }'.",
+		"switch":   "En Joss no existe 'switch'; usa 'match ($val) { ... }'.",
+		"for":      "En Joss los bucles son 'while ($cond) { ... }' y 'foreach ($arr as $v) { ... }'.",
+		"function": "En Joss las funciones se declaran con 'func', con visibilidad 'public func' / 'private func'.",
+		"goto":     "En Joss no existe 'goto'.",
+	}
+
+	tokLexer := parser.NewLexer(src)
+	for {
+		tok := tokLexer.NextToken()
+		if tok.Type == parser.EOF {
+			break
+		}
+		if tok.Type == parser.IDENT {
+			lower := strings.ToLower(tok.Literal)
+			if expl, forbidden := forbiddenKeywords[lower]; forbidden {
+				issues = append(issues, LintIssue{
+					RuleID:      "JOSS-LINT-008",
+					Category:    CategoryStyle,
+					Severity:    diagnostics.SeverityError,
+					File:        filename,
+					Line:        tok.Line,
+					Column:      tok.Column,
+					Message:     fmt.Sprintf("Palabra clave foránea '%s' no permitida en Joss.", tok.Literal),
+					Explanation: expl,
+					Suggestion:  "Reemplaza la estructura por la sintaxis idiomática de Joss.",
+					AutoFixable: false,
+				})
+			}
+		}
+	}
+
 	return issues
 }
 

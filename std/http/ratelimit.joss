@@ -1,56 +1,58 @@
 public class RateLimiter {
-    public static map $attempts = {};
-    public static map $resets = {};
+    public static map $attempts = {
+}
+public static map $resets = {
+}
 
-    public static func check(string $key, int $maxAttempts = 60, int $decaySeconds = 60): bool {
-        int $now = time();
-        (isset(RateLimiter::$resets[$key])) ? {
-            int $resetTime = intval(RateLimiter::$resets[$key]);
-            ($now > $resetTime) ? {
-                RateLimiter::$attempts[$key] = 0;
-                RateLimiter::$resets[$key] = $now + $decaySeconds;
-            };
-        } : {
-            RateLimiter::$attempts[$key] = 0;
-            RateLimiter::$resets[$key] = $now + $decaySeconds;
-        };
-
-        int $current = isset(RateLimiter::$attempts[$key]) ? intval(RateLimiter::$attempts[$key]) : 0;
-        return $current < $maxAttempts;
+public static func check(string $key, int $maxAttempts = 60, int $decaySeconds = 60): bool {
+    int $now = time()
+    (isset(RateLimiter::$resets [$key])) ? {
+        int $resetTime = intval(RateLimiter::$resets [$key])
+        ($now > $resetTime) ? {
+            RateLimiter::$attempts [$key] = 0
+            RateLimiter::$resets [$key] = $now + $decaySeconds
+        }
+    } : {
+        RateLimiter::$attempts [$key] = 0
+        RateLimiter::$resets [$key] = $now + $decaySeconds
     }
 
-    public static func hit(string $key, int $decaySeconds = 60): void {
-        int $now = time();
-        (!isset(RateLimiter::$resets[$key]) || $now > intval(RateLimiter::$resets[$key])) ? {
-            RateLimiter::$resets[$key] = $now + $decaySeconds;
-            RateLimiter::$attempts[$key] = 1;
-        } : {
-            int $current = isset(RateLimiter::$attempts[$key]) ? intval(RateLimiter::$attempts[$key]) : 0;
-            RateLimiter::$attempts[$key] = $current + 1;
-        };
-    }
+    int $current = (isset(RateLimiter::$attempts [$key])) ? intval(RateLimiter::$attempts [$key]) : 0
+    return $current < $maxAttempts
+}
 
-    public static func remaining(string $key, int $maxAttempts = 60): int {
-        int $current = isset(RateLimiter::$attempts[$key]) ? intval(RateLimiter::$attempts[$key]) : 0;
-        int $rem = $maxAttempts - $current;
-        return ($rem < 0) ? 0 : $rem;
+public static func hit(string $key, int $decaySeconds = 60) : void {
+    int $now = time()
+    (!isset(RateLimiter::$resets [$key]) || $now > intval(RateLimiter::$resets [$key])) ? {
+        RateLimiter::$resets [$key] = $now + $decaySeconds
+        RateLimiter::$attempts [$key] = 1
+    } : {
+        int $current = (isset(RateLimiter::$attempts [$key])) ? intval(RateLimiter::$attempts [$key]) : 0
+        RateLimiter::$attempts [$key] = $current + 1
     }
+}
 
-    public static func reset(string $key): void {
-        RateLimiter::$attempts[$key] = 0;
-        RateLimiter::$resets[$key] = 0;
-    }
+public static func remaining(string $key, int $maxAttempts = 60): int {
+    int $current = (isset(RateLimiter::$attempts [$key])) ? intval(RateLimiter::$attempts [$key]) : 0
+    int $rem = $maxAttempts - $current
+    return($rem < 0) ? 0 : $rem
+}
 
-    public static func response429(int $retryAfter = 60): string {
-        string $html = "HTTP/1.1 429 Too Many Requests\r\n" .
-            "Content-Type: text/html; charset=utf-8\r\n" .
-            "Retry-After: " . $retryAfter . "\r\n" .
-            "Connection: close\r\n\r\n" .
-            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>429 Too Many Requests</title>" .
-            "<style>body{font-family:sans-serif;background:#0f172a;color:#f8fafc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}" .
-            ".box{text-align:center;padding:2rem;background:#1e293b;border-radius:12px;border:1px solid #334155;}" .
-            "h1{color:#f43f5e;font-size:3rem;margin:0 0 1rem;}p{color:#94a3b8;}</style></head>" .
-            "<body><div class=\"box\"><h1>429</h1><p>Demasiadas peticiones. Por favor espera " . $retryAfter . " segundos.</p></div></body></html>";
-        return $html;
-    }
+public static func reset(string $key): void {
+    RateLimiter::$attempts [$key] = 0
+    RateLimiter::$resets [$key] = 0
+}
+
+public static func response429(int $retryAfter = 60): string {
+    string $html = "HTTP/1.1 429 Too Many Requests\r\n"
+    $html = $html . "Content-Type: text/html; charset=utf-8\r\n"
+    $html = $html . "Retry-After: " . $retryAfter . "\r\n"
+    $html = $html . "Connection: close\r\n\r\n"
+    $html = $html . "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>429 Too Many Requests</title>"
+    $html = $html . "<style>body{font-family:sans-serif;background:#0f172a;color:#f8fafc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}"
+    $html = $html . ".box{text-align:center;padding:2rem;background:#1e293b;border-radius:12px;border:1px solid #334155;}"
+    $html = $html . "h1{color:#f43f5e;font-size:3rem;margin:0 0 1rem;}p{color:#94a3b8;}</style></head>"
+    $html = $html . "<body><div class=\"box\"><h1>429</h1><p>Demasiadas peticiones. Por favor espera " . $retryAfter . " segundos.</p></div></body></html>"
+    return $html
+}
 }

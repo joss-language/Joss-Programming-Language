@@ -11,7 +11,7 @@ public class HttpServer {
         print("[Server] Socket TCP enlazado con éxito en :" . $port . ". Servidor listo para peticiones.\n")
 
         var $server = Socket::listen("0.0.0.0", "" . $port)
-        guard ($server != null) else {
+        guard ($server != null) : {
             return
         }
 
@@ -33,27 +33,27 @@ public class HttpServer {
         }
     }
 
-    public static func handle(string $raw): string {
+    public static func handle(string $raw) : string {
         var $lines = explode("\r\n", $raw)
-        guard (count($lines) > 0) else {
+        guard (count($lines) > 0) : {
             return "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
         }
 
-        var $reqLine = explode(" ", $lines[0])
-        guard (count($reqLine) >= 2) else {
+        var $reqLine = explode(" ", $lines [0])
+        guard (count($reqLine) >= 2) : {
             return "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
         }
 
-        string $_method = $reqLine[0]
-        string $path = $reqLine[1]
+        string $_method = $reqLine [0]
+        string $path = $reqLine [1]
 
         // Health endpoint for Hot-Reload probing
-        guard ($path != "/__joss_health") else {
+        guard ($path != "/__joss_health") : {
             return "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-cache, no-store\r\nConnection: close\r\n\r\n" . time()
         }
 
         // Live script for Hot-Reload DOM diffing / morphing
-        guard ($path != "/__joss_live.js") else {
+        guard ($path != "/__joss_live.js") : {
             return "HTTP/1.1 200 OK\r\nContent-Type: application/javascript; charset=utf-8\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . HotReload::liveJs()
         }
 
@@ -72,7 +72,7 @@ public class HttpServer {
                 $staticMime = Mime::fromPath($filePath)
             }
         }
-        guard (!$foundStatic) else {
+        guard (!$foundStatic) : {
             return "HTTP/1.1 200 OK\r\nContent-Type: " . $staticMime . "\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . $staticContent
         }
 

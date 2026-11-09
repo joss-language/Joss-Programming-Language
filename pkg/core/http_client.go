@@ -272,6 +272,10 @@ func (r *Runtime) performFullHttpRequest(method, urlStr, bodyStr string, headers
 		reqBody = bytes.NewBufferString(bodyStr)
 	}
 
+	if strings.Contains(urlStr, " ") {
+		urlStr = strings.ReplaceAll(urlStr, " ", "%20")
+	}
+
 	req, err := http.NewRequest(method, urlStr, reqBody)
 	if err != nil {
 		return map[string]interface{}{

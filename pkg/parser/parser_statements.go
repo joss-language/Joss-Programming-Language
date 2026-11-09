@@ -44,6 +44,14 @@ func (p *Parser) parseStatementInternal() Statement {
 		p.addError(p.curToken, "El bucle 'for' no existe en Joss. Utiliza 'foreach ($array as $item)' o 'while ($cond) { ... }' en su lugar.")
 		return nil
 	}
+	if lit == "function" {
+		p.addError(p.curToken, "La palabra clave 'function' no existe en Joss. Utiliza 'func' para declarar funciones.")
+		return nil
+	}
+	if lit == "goto" {
+		p.addError(p.curToken, "La instrucción 'goto' no existe en Joss.")
+		return nil
+	}
 
 	// Modifiers before class, interface, enum, function or property: public, private, protected, static, abstract
 	if p.curToken.Type == PUBLIC || p.curToken.Type == PRIVATE || p.curToken.Type == PROTECTED || p.curToken.Type == STATIC || p.curToken.Type == ABSTRACT {
@@ -343,15 +351,22 @@ func (p *Parser) parseConstStatement() Statement {
 func (p *Parser) parseReturnStatement() *ReturnStatement {
 	stmt := &ReturnStatement{Token: p.curToken}
 
+	if p.peekToken.Type == SEMICOLON || p.peekToken.Type == NEWLINE || p.peekToken.Type == RBRACE {
+		if p.peekToken.Type == SEMICOLON || p.peekToken.Type == NEWLINE {
+			p.nextToken()
+		}
+		return stmt
+	}
+
 	p.nextToken()
 
-	if p.curToken.Type == SEMICOLON {
+	if p.curToken.Type == SEMICOLON || p.curToken.Type == NEWLINE || p.curToken.Type == RBRACE {
 		return stmt
 	}
 
 	stmt.ReturnValue = p.parseExpression(LOWEST)
 
-	if p.peekToken.Type == SEMICOLON {
+	if p.peekToken.Type == SEMICOLON || p.peekToken.Type == NEWLINE {
 		p.nextToken()
 	}
 
@@ -361,7 +376,7 @@ func (p *Parser) parseReturnStatement() *ReturnStatement {
 func (p *Parser) parseBreakStatement() *BreakStatement {
 	stmt := &BreakStatement{Token: p.curToken}
 
-	if p.peekToken.Type == SEMICOLON {
+	if p.peekToken.Type == SEMICOLON || p.peekToken.Type == NEWLINE {
 		p.nextToken()
 	}
 
@@ -371,7 +386,7 @@ func (p *Parser) parseBreakStatement() *BreakStatement {
 func (p *Parser) parseContinueStatement() *ContinueStatement {
 	stmt := &ContinueStatement{Token: p.curToken}
 
-	if p.peekToken.Type == SEMICOLON {
+	if p.peekToken.Type == SEMICOLON || p.peekToken.Type == NEWLINE {
 		p.nextToken()
 	}
 

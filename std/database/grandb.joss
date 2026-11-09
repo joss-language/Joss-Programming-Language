@@ -1,701 +1,701 @@
 public class GranDB {
-    public string $tableName = "";
-    public string $selectCols = "*";
-    public array $wheres = [];
-    public array $bindings = [];
-    public array $orders = [];
-    public array $joins = [];
-    public int $limitVal = -1;
-    public int $offsetVal = -1;
-    public bool $distinctVal = false;
+    public string $tableName = ""
+    public string $selectCols = "*"
+    public array $wheres = []
+    public array $bindings = []
+    public array $orders = []
+    public array $joins = []
+    public int $limitVal = - 1
+    public int $offsetVal = - 1
+    public bool $distinctVal = false
 
     Init() {
-        $this->tableName = "";
-        $this->selectCols = "*";
-        $this->wheres = [];
-        $this->bindings = [];
-        $this->orders = [];
-        $this->joins = [];
-        $this->limitVal = -1;
-        $this->offsetVal = -1;
-        $this->distinctVal = false;
+        $this->tableName = ""
+        $this->selectCols = "*"
+        $this->wheres = []
+        $this->bindings = []
+        $this->orders = []
+        $this->joins = []
+        $this->limitVal = - 1
+        $this->offsetVal = - 1
+        $this->distinctVal = false
     }
 
     public static func table(string $name): GranDB {
-        var $q = new GranDB();
-        $q->tableName = $name;
-        return $q;
+        var $q = new GranDB()
+        $q->tableName = $name
+        return $q
     }
 
     public static func from(string $name): GranDB {
-        return self::table($name);
+        return self::table($name)
     }
 
     public static func transaction(mixed $callback): mixed {
-        __joss_db_execute("BEGIN", []);
-        var $db = new GranDB();
-        var $res = $callback($db);
-        __joss_db_execute("COMMIT", []);
-        return $res;
+        __joss_db_execute("BEGIN", [])
+        var $db = new GranDB()
+        var $res = $callback($db)
+        __joss_db_execute("COMMIT", [])
+        return $res
     }
 
     public func select(mixed $cols): GranDB {
-        $this->selectCols = strval($cols);
-        return $this;
+        $this->selectCols = strval($cols)
+        return $this
     }
 
     public func distinct(): GranDB {
-        $this->distinctVal = true;
-        return $this;
+        $this->distinctVal = true
+        return $this
     }
 
     public func join(string $table, string $first, string $op = "=", string $second = ""): GranDB {
-        var $actualOp = ($second == "") ? "=" : $op;
-        var $actualSec = ($second == "") ? $op : $second;
-        $this->joins[] = ["type" => "INNER", "table" => $table, "first" => $first, "op" => $actualOp, "second" => $actualSec];
-        return $this;
+        var $actualOp = ($second == "") ? "=" : $op
+        var $actualSec = ($second == "") ? $op : $second
+        $this->joins [] = ["type" => "INNER", "table" => $table, "first" => $first, "op" => $actualOp, "second" => $actualSec]
+        return $this
     }
 
     public func innerJoin(string $table, string $first, string $op = "=", string $second = ""): GranDB {
-        return $this->join($table, $first, $op, $second);
+        return $this->join($table, $first, $op, $second)
     }
 
     public func leftJoin(string $table, string $first, string $op = "=", string $second = ""): GranDB {
-        var $actualOp = ($second == "") ? "=" : $op;
-        var $actualSec = ($second == "") ? $op : $second;
-        $this->joins[] = ["type" => "LEFT", "table" => $table, "first" => $first, "op" => $actualOp, "second" => $actualSec];
-        return $this;
+        var $actualOp = ($second == "") ? "=" : $op
+        var $actualSec = ($second == "") ? $op : $second
+        $this->joins [] = ["type" => "LEFT", "table" => $table, "first" => $first, "op" => $actualOp, "second" => $actualSec]
+        return $this
     }
 
     public func rightJoin(string $table, string $first, string $op = "=", string $second = ""): GranDB {
-        var $actualOp = ($second == "") ? "=" : $op;
-        var $actualSec = ($second == "") ? $op : $second;
-        $this->joins[] = ["type" => "RIGHT", "table" => $table, "first" => $first, "op" => $actualOp, "second" => $actualSec];
-        return $this;
+        var $actualOp = ($second == "") ? "=" : $op
+        var $actualSec = ($second == "") ? $op : $second
+        $this->joins [] = ["type" => "RIGHT", "table" => $table, "first" => $first, "op" => $actualOp, "second" => $actualSec]
+        return $this
     }
 
     public func crossJoin(string $table): GranDB {
-        $this->joins[] = ["type" => "CROSS", "table" => $table, "first" => "", "op" => "", "second" => ""];
-        return $this;
+        $this->joins [] = ["type" => "CROSS", "table" => $table, "first" => "", "op" => "", "second" => ""]
+        return $this
     }
 
     public func where(mixed $colOrClosure, mixed $opOrVal = null, mixed $val = null): GranDB {
         ($opOrVal === null && $val === null) ? {
-            var $nested = new GranDB();
-            $colOrClosure($nested);
-            var $nestedCount = count($nested->wheres);
+            var $nested = new GranDB()
+            $colOrClosure($nested)
+            var $nestedCount = count($nested->wheres)
             ($nestedCount > 0) ? {
-                var $m = 0;
+                var $m = 0
                 while ($m < $nestedCount) {
-                    var $nw = $nested->wheres[$m];
-                    $this->wheres[] = $nw;
-                    $m++;
+                    var $nw = $nested->wheres [$m]
+                    $this->wheres [] = $nw
+                    $m++
                 }
-                var $nestedBindCount = count($nested->bindings);
-                var $bIdx = 0;
+                var $nestedBindCount = count($nested->bindings)
+                var $bIdx = 0
                 while ($bIdx < $nestedBindCount) {
-                    $this->bindings[] = $nested->bindings[$bIdx];
-                    $bIdx++;
+                    $this->bindings [] = $nested->bindings [$bIdx]
+                    $bIdx++
                 }
-            };
+            }
         } : {
-            var $op = ($val !== null) ? strval($opOrVal) : "=";
-            mixed $value = ($val !== null) ? $val : $opOrVal;
-            $this->wheres[] = ["col" => strval($colOrClosure), "op" => $op, "val" => $value, "boolean" => "AND", "raw_op" => false];
-            $this->bindings[] = $value;
-        };
-        return $this;
+            var $op = ($val !== null) ? strval($opOrVal) : "="
+            mixed $value = ($val !== null) ? $val : $opOrVal
+            $this->wheres [] = ["col" => strval($colOrClosure), "op" => $op, "val" => $value, "boolean" => "AND", "raw_op" => false]
+            $this->bindings [] = $value
+        }
+        return $this
     }
 
-    public func orWhere(mixed $colOrClosure, mixed $opOrVal = null, mixed $val = null): GranDB {
+    public func orWhere(mixed $colOrClosure, mixed $opOrVal = null, mixed $val = null) : GranDB {
         ($opOrVal === null && $val === null) ? {
-            var $nested = new GranDB();
-            $colOrClosure($nested);
-            var $nestedCount = count($nested->wheres);
+            var $nested = new GranDB()
+            $colOrClosure($nested)
+            var $nestedCount = count($nested->wheres)
             ($nestedCount > 0) ? {
-                var $m = 0;
+                var $m = 0
                 while ($m < $nestedCount) {
-                    var $nw = $nested->wheres[$m];
-                    $nw["boolean"] = "OR";
-                    $this->wheres[] = $nw;
-                    $m++;
+                    var $nw = $nested->wheres [$m]
+                    $nw ["boolean"] = "OR"
+                    $this->wheres [] = $nw
+                    $m++
                 }
-                var $nestedBindCount = count($nested->bindings);
-                var $bIdx = 0;
+                var $nestedBindCount = count($nested->bindings)
+                var $bIdx = 0
                 while ($bIdx < $nestedBindCount) {
-                    $this->bindings[] = $nested->bindings[$bIdx];
-                    $bIdx++;
+                    $this->bindings [] = $nested->bindings [$bIdx]
+                    $bIdx++
                 }
-            };
+            }
         } : {
-            var $op = ($val !== null) ? strval($opOrVal) : "=";
-            mixed $value = ($val !== null) ? $val : $opOrVal;
-            $this->wheres[] = ["col" => strval($colOrClosure), "op" => $op, "val" => $value, "boolean" => "OR", "raw_op" => false];
-            $this->bindings[] = $value;
-        };
-        return $this;
+            var $op = ($val !== null) ? strval($opOrVal) : "="
+            mixed $value = ($val !== null) ? $val : $opOrVal
+            $this->wheres [] = ["col" => strval($colOrClosure), "op" => $op, "val" => $value, "boolean" => "OR", "raw_op" => false]
+            $this->bindings [] = $value
+        }
+        return $this
     }
 
-    public func whereLike(string $col, string $val): GranDB {
-        var $pattern = (strpos($val, "%") !== false) ? $val : ("%" . $val . "%");
-        return $this->where($col, "LIKE", $pattern);
+    public func whereLike(string $col, string $val) : GranDB {
+        var $pattern = (strpos($val, "%") !== false) ? $val : ("%" . $val . "%")
+        return $this->where($col, "LIKE", $pattern)
     }
 
     public func orWhereLike(string $col, string $val): GranDB {
-        var $pattern = (strpos($val, "%") !== false) ? $val : ("%" . $val . "%");
-        return $this->orWhere($col, "LIKE", $pattern);
+        var $pattern = (strpos($val, "%") !== false) ? $val : ("%" . $val . "%")
+        return $this->orWhere($col, "LIKE", $pattern)
     }
 
     public func whereIn(string $col, array $values): GranDB {
-        var $placeholders = [];
-        var $len = count($values);
-        var $i = 0;
+        var $placeholders = []
+        var $len = count($values)
+        var $i = 0
         while ($i < $len) {
-            $placeholders[] = "?";
-            $this->bindings[] = $values[$i];
-            $i++;
+            $placeholders [] = "?"
+            $this->bindings [] = $values [$i]
+            $i++
         }
-        var $inClause = "IN (" . join(", ", $placeholders) . ")";
-        $this->wheres[] = ["col" => $col, "op" => $inClause, "val" => null, "boolean" => "AND", "raw_op" => true];
-        return $this;
+        var $inClause = "IN (" . join(", ", $placeholders) . ")"
+        $this->wheres [] = ["col" => $col, "op" => $inClause, "val" => null, "boolean" => "AND", "raw_op" => true]
+        return $this
     }
 
     public func whereNotIn(string $col, array $values): GranDB {
-        var $placeholders = [];
-        var $len = count($values);
-        var $i = 0;
+        var $placeholders = []
+        var $len = count($values)
+        var $i = 0
         while ($i < $len) {
-            $placeholders[] = "?";
-            $this->bindings[] = $values[$i];
-            $i++;
+            $placeholders [] = "?"
+            $this->bindings [] = $values [$i]
+            $i++
         }
-        var $inClause = "NOT IN (" . join(", ", $placeholders) . ")";
-        $this->wheres[] = ["col" => $col, "op" => $inClause, "val" => null, "boolean" => "AND", "raw_op" => true];
-        return $this;
+        var $inClause = "NOT IN (" . join(", ", $placeholders) . ")"
+        $this->wheres [] = ["col" => $col, "op" => $inClause, "val" => null, "boolean" => "AND", "raw_op" => true]
+        return $this
     }
 
     public func whereNull(string $col): GranDB {
-        $this->wheres[] = ["col" => $col, "op" => "IS NULL", "val" => null, "boolean" => "AND", "raw_op" => true];
-        return $this;
+        $this->wheres [] = ["col" => $col, "op" => "IS NULL", "val" => null, "boolean" => "AND", "raw_op" => true]
+        return $this
     }
 
     public func whereNotNull(string $col): GranDB {
-        $this->wheres[] = ["col" => $col, "op" => "IS NOT NULL", "val" => null, "boolean" => "AND", "raw_op" => true];
-        return $this;
+        $this->wheres [] = ["col" => $col, "op" => "IS NOT NULL", "val" => null, "boolean" => "AND", "raw_op" => true]
+        return $this
     }
 
     public func whereBetween(string $col, mixed $min, mixed $max): GranDB {
-        $this->wheres[] = ["col" => $col, "op" => "BETWEEN ? AND ?", "val" => null, "boolean" => "AND", "raw_op" => true];
-        $this->bindings[] = $min;
-        $this->bindings[] = $max;
-        return $this;
+        $this->wheres [] = ["col" => $col, "op" => "BETWEEN ? AND ?", "val" => null, "boolean" => "AND", "raw_op" => true]
+        $this->bindings [] = $min
+        $this->bindings [] = $max
+        return $this
     }
 
     public func whereNotBetween(string $col, mixed $min, mixed $max): GranDB {
-        $this->wheres[] = ["col" => $col, "op" => "NOT BETWEEN ? AND ?", "val" => null, "boolean" => "AND", "raw_op" => true];
-        $this->bindings[] = $min;
-        $this->bindings[] = $max;
-        return $this;
+        $this->wheres [] = ["col" => $col, "op" => "NOT BETWEEN ? AND ?", "val" => null, "boolean" => "AND", "raw_op" => true]
+        $this->bindings [] = $min
+        $this->bindings [] = $max
+        return $this
     }
 
     public func orderBy(string $col, string $dir = "asc"): GranDB {
-        var $normalizedDir = ($dir == "desc" || $dir == "DESC") ? "DESC" : "ASC";
-        $this->orders[] = ["col" => $col, "dir" => $normalizedDir];
-        return $this;
+        var $normalizedDir = ($dir == "desc" || $dir == "DESC") ? "DESC" : "ASC"
+        $this->orders [] = ["col" => $col, "dir" => $normalizedDir]
+        return $this
     }
 
     public func orderByDesc(string $col): GranDB {
-        return $this->orderBy($col, "desc");
+        return $this->orderBy($col, "desc")
     }
 
     public func latest(string $col = "created_at"): GranDB {
-        return $this->orderBy($col, "desc");
+        return $this->orderBy($col, "desc")
     }
 
     public func oldest(string $col = "created_at"): GranDB {
-        return $this->orderBy($col, "asc");
+        return $this->orderBy($col, "asc")
     }
 
     public func limit(int $n): GranDB {
-        $this->limitVal = $n;
-        return $this;
+        $this->limitVal = $n
+        return $this
     }
 
     public func take(int $n): GranDB {
-        return $this->limit($n);
+        return $this->limit($n)
     }
 
     public func offset(int $n): GranDB {
-        $this->offsetVal = $n;
-        return $this;
+        $this->offsetVal = $n
+        return $this
     }
 
     public func skip(int $n): GranDB {
-        return $this->offset($n);
+        return $this->offset($n)
     }
 
     public func forPage(int $page, int $perPage): GranDB {
-        var $curr = ($page < 1) ? 1 : $page;
-        $this->offset(($curr - 1) * $perPage);
-        $this->limit($perPage);
-        return $this;
+        var $curr = ($page < 1) ? 1 : $page
+        $this->offset(($curr - 1) * $perPage)
+        $this->limit($perPage)
+        return $this
     }
 
     public func orderByAsc(string $col): GranDB {
-        return $this->orderBy($col, "asc");
+        return $this->orderBy($col, "asc")
     }
 
     public func reorder(): GranDB {
-        $this->orders = [];
-        return $this;
+        $this->orders = []
+        return $this
     }
 
     public func when(mixed $condition, mixed $callback, mixed $defaultCallback = null): GranDB {
         ($condition) ? {
-            $callback($this, $condition);
+            $callback($this, $condition)
         } : {
             ($defaultCallback !== null) ? {
-                $defaultCallback($this, $condition);
-            };
-        };
-        return $this;
+                $defaultCallback($this, $condition)
+            }
+        }
+        return $this
     }
 
-    public func unless(mixed $condition, mixed $callback, mixed $defaultCallback = null): GranDB {
+    public func unless(mixed $condition, mixed $callback, mixed $defaultCallback = null) : GranDB {
         (!$condition) ? {
-            $callback($this, $condition);
+            $callback($this, $condition)
         } : {
             ($defaultCallback !== null) ? {
-                $defaultCallback($this, $condition);
-            };
-        };
-        return $this;
+                $defaultCallback($this, $condition)
+            }
+        }
+        return $this
     }
 
-    public func toSql(): string {
+    public func toSql() : string {
         ($this->tableName == "") ? {
-            return "";
-        };
-        var $driver = env("DB", env("DB_CONNECTION", "mysql"));
-        var $prefix = env("PREFIX", env("DB_PREFIX", ""));
-        var $fullTable = $prefix . $this->tableName;
+            return ""
+        }
+        var $driver = env("DB", env("DB_CONNECTION", "mysql"))
+        var $prefix = env("PREFIX", env("DB_PREFIX", ""))
+        var $fullTable = $prefix . $this->tableName
 
-        var $sql = ($this->distinctVal) ? "SELECT DISTINCT " : "SELECT ";
-        $sql = $sql . $this->selectCols . " FROM " . $fullTable;
+        var $sql = ($this->distinctVal) ? "SELECT DISTINCT " : "SELECT "
+        $sql = $sql . $this->selectCols . " FROM " . $fullTable
 
-        var $joinCount = count($this->joins);
+        var $joinCount = count($this->joins)
         ($joinCount > 0) ? {
-            var $k = 0;
+            var $k = 0
             while ($k < $joinCount) {
-                var $j = $this->joins[$k];
-                ($j["type"] == "CROSS") ? {
-                    $sql = $sql . " CROSS JOIN " . $j["table"];
+                var $j = $this->joins [$k]
+                ($j ["type"] == "CROSS") ? {
+                    $sql = $sql . " CROSS JOIN " . $j ["table"]
                 } : {
-                    $sql = $sql . " " . $j["type"] . " JOIN " . $j["table"] . " ON " . $j["first"] . " " . $j["op"] . " " . $j["second"];
-                };
-                $k++;
+                    $sql = $sql . " " . $j ["type"] . " JOIN " . $j ["table"] . " ON " . $j ["first"] . " " . $j ["op"] . " " . $j ["second"]
+                }
+                $k++
             }
-        };
+        }
 
-        var $whereCount = count($this->wheres);
+        var $whereCount = count($this->wheres)
         ($whereCount > 0) ? {
-            $sql = $sql . " WHERE ";
-            var $i = 0;
+            $sql = $sql . " WHERE "
+            var $i = 0
             while ($i < $whereCount) {
-                var $w = $this->wheres[$i];
+                var $w = $this->wheres [$i]
                 ($i > 0) ? {
-                    $sql = $sql . " " . $w["boolean"] . " ";
-                };
-                (array_key_exists("raw_op", $w) && $w["raw_op"]) ? {
-                    $sql = $sql . $w["col"] . " " . $w["op"];
+                    $sql = $sql . " " . $w ["boolean"] . " "
+                }
+                (array_key_exists("raw_op", $w) && $w ["raw_op"]) ? {
+                    $sql = $sql . $w ["col"] . " " . $w ["op"]
                 } : {
-                    $sql = $sql . $w["col"] . " " . $w["op"] . " ?";
-                };
-                $i++;
+                    $sql = $sql . $w ["col"] . " " . $w ["op"] . " ?"
+                }
+                $i++
             }
-        };
+        }
 
-        var $orderCount = count($this->orders);
+        var $orderCount = count($this->orders)
         ($orderCount > 0) ? {
-            $sql = $sql . " ORDER BY ";
-            var $j = 0;
+            $sql = $sql . " ORDER BY "
+            var $j = 0
             while ($j < $orderCount) {
-                var $o = $this->orders[$j];
+                var $o = $this->orders [$j]
                 ($j > 0) ? {
-                    $sql = $sql . ", ";
-                };
-                $sql = $sql . $o["col"] . " " . $o["dir"];
-                $j++;
+                    $sql = $sql . ", "
+                }
+                $sql = $sql . $o ["col"] . " " . $o ["dir"]
+                $j++
             }
-        };
+        }
 
         // Paginación por motor
         ($driver == "sqlsrv" || $driver == "sqlserver") ? {
             ($this->offsetVal >= 0) ? {
                 ($orderCount == 0) ? {
-                    $sql = $sql . " ORDER BY (SELECT NULL)";
-                };
-                $sql = $sql . " OFFSET " . strval($this->offsetVal) . " ROWS";
+                    $sql = $sql . " ORDER BY (SELECT NULL)"
+                }
+                $sql = $sql . " OFFSET " . strval($this->offsetVal) . " ROWS"
                 ($this->limitVal > 0) ? {
-                    $sql = $sql . " FETCH NEXT " . strval($this->limitVal) . " ROWS ONLY";
-                };
+                    $sql = $sql . " FETCH NEXT " . strval($this->limitVal) . " ROWS ONLY"
+                }
             } : {
                 ($this->limitVal > 0) ? {
                     ($orderCount == 0) ? {
-                        $sql = $sql . " ORDER BY (SELECT NULL)";
-                    };
-                    $sql = $sql . " OFFSET 0 ROWS FETCH NEXT " . strval($this->limitVal) . " ROWS ONLY";
-                };
-            };
+                        $sql = $sql . " ORDER BY (SELECT NULL)"
+                    }
+                    $sql = $sql . " OFFSET 0 ROWS FETCH NEXT " . strval($this->limitVal) . " ROWS ONLY"
+                }
+            }
         } : {
             ($this->limitVal > 0) ? {
-                $sql = $sql . " LIMIT " . strval($this->limitVal);
-            };
+                $sql = $sql . " LIMIT " . strval($this->limitVal)
+            }
             ($this->offsetVal > 0) ? {
-                $sql = $sql . " OFFSET " . strval($this->offsetVal);
-            };
-        };
-
-        return $sql;
-    }
-
-    private func matchesRow(map $row): bool {
-        var $wCount = count($this->wheres);
-        ($wCount == 0) ? {
-            return true;
-        };
-        var $i = 0;
-        while ($i < $wCount) {
-            var $w = $this->wheres[$i];
-            var $col = strval($w["col"]);
-            var $expected = strval($w["val"]);
-            var $actual = strval($row[$col]);
-            ($actual != $expected) ? {
-                return false;
-            };
-            $i++;
+                $sql = $sql . " OFFSET " . strval($this->offsetVal)
+            }
         }
-        return true;
+
+        return $sql
     }
 
-    public func count(): int {
-        var $rows = $this->get();
-        return count($rows);
+    private func matchesRow(map $row) : bool {
+        var $wCount = count($this->wheres)
+        ($wCount == 0) ? {
+            return true
+        }
+        var $i = 0
+        while ($i < $wCount) {
+            var $w = $this->wheres [$i]
+            var $col = strval($w ["col"])
+            var $expected = strval($w ["val"])
+            var $actual = strval($row [$col])
+            ($actual != $expected) ? {
+                return false
+            }
+            $i++
+        }
+        return true
     }
 
-    public func avg(string $col): mixed {
-        var $clone = new GranDB();
-        $clone->tableName = $this->tableName;
-        $clone->selectCols = "AVG(" . $col . ")";
-        $clone->wheres = $this->wheres;
-        $clone->bindings = $this->bindings;
-        var $rows = __joss_db_query($clone->toSql(), $this->bindings);
-        return (count($rows) > 0) ? $rows[0]["avg"] : null;
+    public func count() : int {
+        var $rows = $this->get()
+        return count($rows)
     }
 
-    public func sum(string $col): mixed {
-        var $clone = new GranDB();
-        $clone->tableName = $this->tableName;
-        $clone->selectCols = "SUM(" . $col . ")";
-        $clone->wheres = $this->wheres;
-        $clone->bindings = $this->bindings;
-        var $rows = __joss_db_query($clone->toSql(), $this->bindings);
-        return (count($rows) > 0) ? $rows[0]["sum"] : 0;
+    public func avg(string $col) : mixed {
+        var $clone = new GranDB()
+        $clone->tableName = $this->tableName
+        $clone->selectCols = "AVG(" . $col . ")"
+        $clone->wheres = $this->wheres
+        $clone->bindings = $this->bindings
+        var $rows = __joss_db_query($clone->toSql(), $this->bindings)
+        return(count($rows) > 0) ? $rows [0] ["avg"] : null
     }
 
-    public func min(string $col): mixed {
-        var $clone = new GranDB();
-        $clone->tableName = $this->tableName;
-        $clone->selectCols = "MIN(" . $col . ")";
-        $clone->wheres = $this->wheres;
-        $clone->bindings = $this->bindings;
-        var $rows = __joss_db_query($clone->toSql(), $this->bindings);
-        return (count($rows) > 0) ? $rows[0]["min"] : null;
+    public func sum(string $col) : mixed {
+        var $clone = new GranDB()
+        $clone->tableName = $this->tableName
+        $clone->selectCols = "SUM(" . $col . ")"
+        $clone->wheres = $this->wheres
+        $clone->bindings = $this->bindings
+        var $rows = __joss_db_query($clone->toSql(), $this->bindings)
+        return(count($rows) > 0) ? $rows [0] ["sum"] : 0
     }
 
-    public func max(string $col): mixed {
-        var $clone = new GranDB();
-        $clone->tableName = $this->tableName;
-        $clone->selectCols = "MAX(" . $col . ")";
-        $clone->wheres = $this->wheres;
-        $clone->bindings = $this->bindings;
-        var $rows = __joss_db_query($clone->toSql(), $this->bindings);
-        return (count($rows) > 0) ? $rows[0]["max"] : null;
+    public func min(string $col) : mixed {
+        var $clone = new GranDB()
+        $clone->tableName = $this->tableName
+        $clone->selectCols = "MIN(" . $col . ")"
+        $clone->wheres = $this->wheres
+        $clone->bindings = $this->bindings
+        var $rows = __joss_db_query($clone->toSql(), $this->bindings)
+        return(count($rows) > 0) ? $rows [0] ["min"] : null
     }
 
-    public func pluck(string $col): array {
-        $this->select($col);
-        var $rows = $this->get();
-        var $result = [];
+    public func max(string $col) : mixed {
+        var $clone = new GranDB()
+        $clone->tableName = $this->tableName
+        $clone->selectCols = "MAX(" . $col . ")"
+        $clone->wheres = $this->wheres
+        $clone->bindings = $this->bindings
+        var $rows = __joss_db_query($clone->toSql(), $this->bindings)
+        return(count($rows) > 0) ? $rows [0] ["max"] : null
+    }
+
+    public func pluck(string $col) : array {
+        $this->select($col)
+        var $rows = $this->get()
+        var $result = []
         foreach ($rows as $row) {
             (array_key_exists($col, $row)) ? {
-                $result[] = $row[$col];
-            };
+                $result [] = $row [$col]
+            }
         }
-        return $result;
+        return $result
     }
 
-    public func first(): mixed {
-        var $rows = $this->get();
-        return (count($rows) > 0) ? $rows[0] : null;
+    public func first() : mixed {
+        var $rows = $this->get()
+        return(count($rows) > 0) ? $rows [0] : null
     }
 
-    public func find(mixed $id): mixed {
-        $this->where("id", $id);
-        return $this->first();
+    public func find(mixed $id) : mixed {
+        $this->where("id", $id)
+        return $this->first()
     }
 
-    public func firstWhere(string $col, mixed $opOrVal, mixed $val = null): mixed {
-        $this->where($col, $opOrVal, $val);
-        return $this->first();
+    public func firstWhere(string $col, mixed $opOrVal, mixed $val = null) : mixed {
+        $this->where($col, $opOrVal, $val)
+        return $this->first()
     }
 
-    public func exists(): bool {
-        return $this->count() > 0;
+    public func exists() : bool {
+        return $this->count() > 0
     }
 
-    public func doesntExist(): bool {
-        return $this->count() == 0;
+    public func doesntExist() : bool {
+        return $this->count() == 0
     }
 
-    public func paginate(int $perPage = 15, int $page = 1): map {
-        var $total = $this->count();
-        var $currPage = ($page < 1) ? 1 : $page;
-        var $offsetNum = ($currPage - 1) * $perPage;
-        $this->offset($offsetNum);
-        $this->limit($perPage);
+    public func paginate(int $perPage = 15, int $page = 1) : map {
+        var $total = $this->count()
+        var $currPage = ($page < 1) ? 1 : $page
+        var $offsetNum = ($currPage - 1) * $perPage
+        $this->offset($offsetNum)
+        $this->limit($perPage)
 
-        var $data = $this->get();
-        var $lastPage = ($total > 0 && $perPage > 0) ? intval(ceil(floatval($total) / floatval($perPage))) : 1;
+        var $data = $this->get()
+        var $lastPage = ($total > 0 && $perPage > 0) ? intval(ceil(floatval($total) / floatval($perPage))) : 1
 
         return [
-            "data" => $data,
-            "total" => $total,
-            "per_page" => $perPage,
-            "current_page" => $currPage,
-            "last_page" => $lastPage
-        ];
+        "data" => $data,
+        "total" => $total,
+        "per_page" => $perPage,
+        "current_page" => $currPage,
+        "last_page" => $lastPage
+        ]
     }
 
-    public func get(): array {
+    public func get() : array {
         ($this->tableName == "") ? {
-            return [];
-        };
-        (__joss_db_is_connected()) ? {
-            var $sql = $this->toSql();
-            ($sql == "") ? {
-                return [];
-            };
-            return __joss_db_query($sql, $this->bindings);
-        };
-        var $allRows = __joss_db_get_table($this->tableName);
-        var $result = [];
-        var $total = count($allRows);
-        var $i = 0;
-        while ($i < $total) {
-            var $row = $allRows[$i];
-            ($row !== null) ? {
-                var $matched = $this->matchesRow($row);
-                ($matched) ? {
-                    $result[] = $row;
-                };
-            };
-            $i++;
+            return []
         }
-        return $result;
+        (__joss_db_is_connected()) ? {
+            var $sql = $this->toSql()
+            ($sql == "") ? {
+                return []
+            }
+            return __joss_db_query($sql, $this->bindings)
+        }
+        var $allRows = __joss_db_get_table($this->tableName)
+        var $result = []
+        var $total = count($allRows)
+        var $i = 0
+        while ($i < $total) {
+            var $row = $allRows [$i]
+            ($row !== null) ? {
+                var $matched = $this->matchesRow($row)
+                ($matched) ? {
+                    $result [] = $row
+                }
+            }
+            $i++
+        }
+        return $result
     }
 
-    public func update(map $data): int {
+    public func update(map $data) : int {
         ($this->tableName == "") ? {
-            return 0;
-        };
+            return 0
+        }
         (__joss_db_is_connected()) ? {
-            var $prefix = env("PREFIX", env("DB_PREFIX", ""));
-            var $fullTable = $prefix . $this->tableName;
-            var $setClauses = [];
-            var $vals = [];
+            var $prefix = env("PREFIX", env("DB_PREFIX", ""))
+            var $fullTable = $prefix . $this->tableName
+            var $setClauses = []
+            var $vals = []
             foreach ($data as $k => $v) {
-                $setClauses[] = $k . " = ?";
-                $vals[] = $v;
+                $setClauses [] = $k . " = ?"
+                $vals [] = $v
             }
-            var $sql = "UPDATE " . $fullTable . " SET " . implode(", ", $setClauses);
-            var $whereCount = count($this->wheres);
+            var $sql = "UPDATE " . $fullTable . " SET " . implode(", ", $setClauses)
+            var $whereCount = count($this->wheres)
             ($whereCount > 0) ? {
-                $sql = $sql . " WHERE ";
-                var $i = 0;
+                $sql = $sql . " WHERE "
+                var $i = 0
                 while ($i < $whereCount) {
-                    var $w = $this->wheres[$i];
+                    var $w = $this->wheres [$i]
                     ($i > 0) ? {
-                        $sql = $sql . " " . $w["boolean"] . " ";
-                    };
-                    (array_key_exists("raw_op", $w) && $w["raw_op"]) ? {
-                        $sql = $sql . $w["col"] . " " . $w["op"];
+                        $sql = $sql . " " . $w ["boolean"] . " "
+                    }
+                    (array_key_exists("raw_op", $w) && $w ["raw_op"]) ? {
+                        $sql = $sql . $w ["col"] . " " . $w ["op"]
                     } : {
-                        $sql = $sql . $w["col"] . " " . $w["op"] . " ?";
-                    };
-                    $i++;
+                        $sql = $sql . $w ["col"] . " " . $w ["op"] . " ?"
+                    }
+                    $i++
                 }
-            };
-            var $allBindings = [];
+            }
+            var $allBindings = []
             foreach ($vals as $v) {
-                $allBindings[] = $v;
+                $allBindings [] = $v
             }
             foreach ($this->bindings as $b) {
-                $allBindings[] = $b;
+                $allBindings [] = $b
             }
-            return intval(__joss_db_execute($sql, $allBindings));
-        };
-        var $rows = __joss_db_get_table($this->tableName);
-        var $total = count($rows);
-        var $updatedCount = 0;
-        var $i = 0;
+            return intval(__joss_db_execute($sql, $allBindings))
+        }
+        var $rows = __joss_db_get_table($this->tableName)
+        var $total = count($rows)
+        var $updatedCount = 0
+        var $i = 0
         while ($i < $total) {
-            var $row = $rows[$i];
+            var $row = $rows [$i]
             ($row !== null) ? {
-                var $matched = $this->matchesRow($row);
+                var $matched = $this->matchesRow($row)
                 ($matched) ? {
                     foreach ($data as $k => $v) {
-                        $row[$k] = $v;
+                        $row [$k] = $v
                     }
-                    $rows[$i] = $row;
-                    $updatedCount++;
-                };
-            };
-            $i++;
-        }
-        __joss_db_set_table($this->tableName, $rows);
-        return $updatedCount;
-    }
-
-    public func delete(): int {
-        ($this->tableName == "") ? {
-            return 0;
-        };
-        (__joss_db_is_connected()) ? {
-            var $prefix = env("PREFIX", env("DB_PREFIX", ""));
-            var $fullTable = $prefix . $this->tableName;
-            var $sql = "DELETE FROM " . $fullTable;
-            var $whereCount = count($this->wheres);
-            ($whereCount > 0) ? {
-                $sql = $sql . " WHERE ";
-                var $i = 0;
-                while ($i < $whereCount) {
-                    var $w = $this->wheres[$i];
-                    ($i > 0) ? {
-                        $sql = $sql . " " . $w["boolean"] . " ";
-                    };
-                    (array_key_exists("raw_op", $w) && $w["raw_op"]) ? {
-                        $sql = $sql . $w["col"] . " " . $w["op"];
-                    } : {
-                        $sql = $sql . $w["col"] . " " . $w["op"] . " ?";
-                    };
-                    $i++;
+                    $rows [$i] = $row
+                    $updatedCount++
                 }
-            };
-            return intval(__joss_db_execute($sql, $this->bindings));
-        };
-        var $rows = __joss_db_get_table($this->tableName);
-        var $total = count($rows);
-        var $deletedCount = 0;
-        var $i = 0;
-        while ($i < $total) {
-            var $row = $rows[$i];
-            ($row !== null) ? {
-                var $matched = $this->matchesRow($row);
-                ($matched) ? {
-                    $rows[$i] = null;
-                    $deletedCount++;
-                };
-            };
-            $i++;
+            }
+            $i++
         }
-        __joss_db_set_table($this->tableName, $rows);
-        return $deletedCount;
+        __joss_db_set_table($this->tableName, $rows)
+        return $updatedCount
     }
 
-    public func insert(map $data): int {
+    public func delete() : int {
+        ($this->tableName == "") ? {
+            return 0
+        }
         (__joss_db_is_connected()) ? {
-            var $prefix = env("PREFIX", env("DB_PREFIX", ""));
-            var $fullTable = $prefix . $this->tableName;
-            var $cols = [];
-            var $placeholders = [];
-            var $vals = [];
-            foreach ($data as $k => $v) {
-                $cols[] = $k;
-                $placeholders[] = "?";
-                $vals[] = $v;
+            var $prefix = env("PREFIX", env("DB_PREFIX", ""))
+            var $fullTable = $prefix . $this->tableName
+            var $sql = "DELETE FROM " . $fullTable
+            var $whereCount = count($this->wheres)
+            ($whereCount > 0) ? {
+                $sql = $sql . " WHERE "
+                var $i = 0
+                while ($i < $whereCount) {
+                    var $w = $this->wheres [$i]
+                    ($i > 0) ? {
+                        $sql = $sql . " " . $w ["boolean"] . " "
+                    }
+                    (array_key_exists("raw_op", $w) && $w ["raw_op"]) ? {
+                        $sql = $sql . $w ["col"] . " " . $w ["op"]
+                    } : {
+                        $sql = $sql . $w ["col"] . " " . $w ["op"] . " ?"
+                    }
+                    $i++
+                }
             }
-            var $sql = "INSERT INTO " . $fullTable . " (" . implode(", ", $cols) . ") VALUES (" . implode(", ", $placeholders) . ")";
-            return intval(__joss_db_execute($sql, $vals));
-        };
-        var $rows = __joss_db_get_table($this->tableName);
-        var $newId = count($rows) + 1;
-        (!array_key_exists("id", $data)) ? {
-            $data["id"] = $newId;
-        };
-        $rows[] = $data;
-        __joss_db_set_table($this->tableName, $rows);
-        return $newId;
-    }
-
-    public func insertGetId(map $data): int {
-        return $this->insert($data);
-    }
-
-    public func insertMany(array $rows): int {
-        var $total = 0;
-        foreach ($rows as $row) {
-            $this->insert($row);
-            $total++;
+            return intval(__joss_db_execute($sql, $this->bindings))
         }
-        return $total;
+        var $rows = __joss_db_get_table($this->tableName)
+        var $total = count($rows)
+        var $deletedCount = 0
+        var $i = 0
+        while ($i < $total) {
+            var $row = $rows [$i]
+            ($row !== null) ? {
+                var $matched = $this->matchesRow($row)
+                ($matched) ? {
+                    $rows [$i] = null
+                    $deletedCount++
+                }
+            }
+            $i++
+        }
+        __joss_db_set_table($this->tableName, $rows)
+        return $deletedCount
     }
 
-    public func increment(string $col, mixed $amount = 1): int {
-        var $prefix = env("PREFIX", env("DB_PREFIX", ""));
-        var $fullTable = $prefix . $this->tableName;
-        var $sql = "UPDATE " . $fullTable . " SET " . $col . " = " . $col . " + " . strval($amount);
-        var $whereCount = count($this->wheres);
-        ($whereCount > 0) ? {
-            $sql = $sql . " WHERE ";
-            var $i = 0;
-            while ($i < $whereCount) {
-                var $w = $this->wheres[$i];
-                ($i > 0) ? {
-                    $sql = $sql . " " . $w["boolean"] . " ";
-                };
-                (array_key_exists("raw_op", $w) && $w["raw_op"]) ? {
-                    $sql = $sql . $w["col"] . " " . $w["op"];
-                } : {
-                    $sql = $sql . $w["col"] . " " . $w["op"] . " ?";
-                };
-                $i++;
+    public func insert(map $data) : int {
+        (__joss_db_is_connected()) ? {
+            var $prefix = env("PREFIX", env("DB_PREFIX", ""))
+            var $fullTable = $prefix . $this->tableName
+            var $cols = []
+            var $placeholders = []
+            var $vals = []
+            foreach ($data as $k => $v) {
+                $cols [] = $k
+                $placeholders [] = "?"
+                $vals [] = $v
             }
-        };
-        return __joss_db_execute($sql, $this->bindings);
+            var $sql = "INSERT INTO " . $fullTable . " (" . implode(", ", $cols) . ") VALUES (" . implode(", ", $placeholders) . ")"
+            return intval(__joss_db_execute($sql, $vals))
+        }
+        var $rows = __joss_db_get_table($this->tableName)
+        var $newId = count($rows) + 1
+        (!array_key_exists("id", $data)) ? {
+            $data ["id"] = $newId
+        }
+        $rows [] = $data
+        __joss_db_set_table($this->tableName, $rows)
+        return $newId
     }
 
-    public func decrement(string $col, mixed $amount = 1): int {
-        var $prefix = env("PREFIX", env("DB_PREFIX", ""));
-        var $fullTable = $prefix . $this->tableName;
-        var $sql = "UPDATE " . $fullTable . " SET " . $col . " = " . $col . " - " . strval($amount);
-        var $whereCount = count($this->wheres);
+    public func insertGetId(map $data) : int {
+        return $this->insert($data)
+    }
+
+    public func insertMany(array $rows) : int {
+        var $total = 0
+        foreach ($rows as $row) {
+            $this->insert($row)
+            $total++
+        }
+        return $total
+    }
+
+    public func increment(string $col, mixed $amount = 1) : int {
+        var $prefix = env("PREFIX", env("DB_PREFIX", ""))
+        var $fullTable = $prefix . $this->tableName
+        var $sql = "UPDATE " . $fullTable . " SET " . $col . " = " . $col . " + " . strval($amount)
+        var $whereCount = count($this->wheres)
         ($whereCount > 0) ? {
-            $sql = $sql . " WHERE ";
-            var $i = 0;
+            $sql = $sql . " WHERE "
+            var $i = 0
             while ($i < $whereCount) {
-                var $w = $this->wheres[$i];
+                var $w = $this->wheres [$i]
                 ($i > 0) ? {
-                    $sql = $sql . " " . $w["boolean"] . " ";
-                };
-                (array_key_exists("raw_op", $w) && $w["raw_op"]) ? {
-                    $sql = $sql . $w["col"] . " " . $w["op"];
+                    $sql = $sql . " " . $w ["boolean"] . " "
+                }
+                (array_key_exists("raw_op", $w) && $w ["raw_op"]) ? {
+                    $sql = $sql . $w ["col"] . " " . $w ["op"]
                 } : {
-                    $sql = $sql . $w["col"] . " " . $w["op"] . " ?";
-                };
-                $i++;
+                    $sql = $sql . $w ["col"] . " " . $w ["op"] . " ?"
+                }
+                $i++
             }
-        };
-        return __joss_db_execute($sql, $this->bindings);
+        }
+        return __joss_db_execute($sql, $this->bindings)
+    }
+
+    public func decrement(string $col, mixed $amount = 1) : int {
+        var $prefix = env("PREFIX", env("DB_PREFIX", ""))
+        var $fullTable = $prefix . $this->tableName
+        var $sql = "UPDATE " . $fullTable . " SET " . $col . " = " . $col . " - " . strval($amount)
+        var $whereCount = count($this->wheres)
+        ($whereCount > 0) ? {
+            $sql = $sql . " WHERE "
+            var $i = 0
+            while ($i < $whereCount) {
+                var $w = $this->wheres [$i]
+                ($i > 0) ? {
+                    $sql = $sql . " " . $w ["boolean"] . " "
+                }
+                (array_key_exists("raw_op", $w) && $w ["raw_op"]) ? {
+                    $sql = $sql . $w ["col"] . " " . $w ["op"]
+                } : {
+                    $sql = $sql . $w ["col"] . " " . $w ["op"] . " ?"
+                }
+                $i++
+            }
+        }
+        return __joss_db_execute($sql, $this->bindings)
     }
 }
