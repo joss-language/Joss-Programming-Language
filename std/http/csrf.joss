@@ -1,0 +1,22 @@
+public class Csrf {
+    public static func token(Session $session): string {
+        guard (!$session->has("_token")) else {
+            return $session->get("_token");
+        }
+        var $seed = rand() . "_" . time() . "_" . $session->getId();
+        string $tok = sha256($seed);
+        $session->put("_token", $tok);
+        return $tok;
+    }
+
+    public static func field(string $token): string {
+        return "<input type=\"hidden\" name=\"_token\" value=\"" . $token . "\">";
+    }
+
+    public static func verify(string $requestToken, string $sessionToken): bool {
+        guard (strlen($requestToken) > 0 && strlen($sessionToken) > 0) else {
+            return false;
+        }
+        return $requestToken == $sessionToken;
+    }
+}

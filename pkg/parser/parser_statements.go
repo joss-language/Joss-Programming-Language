@@ -2,10 +2,27 @@ package parser
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
+func isNilStatement(s Statement) bool {
+	if s == nil {
+		return true
+	}
+	v := reflect.ValueOf(s)
+	return v.Kind() == reflect.Ptr && v.IsNil()
+}
+
 func (p *Parser) parseStatement() Statement {
+	stmt := p.parseStatementInternal()
+	if isNilStatement(stmt) {
+		return nil
+	}
+	return stmt
+}
+
+func (p *Parser) parseStatementInternal() Statement {
 	if msg, removed := removedKeywordMessage(p.curToken); removed {
 		p.addError(p.curToken, msg)
 		for p.curToken.Type != SEMICOLON && p.curToken.Type != NEWLINE && p.curToken.Type != EOF {

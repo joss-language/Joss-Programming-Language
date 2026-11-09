@@ -1,0 +1,44 @@
+public class Mime {
+    public static func type(string $ext): string {
+        var $cleaned = strtolower(trim($ext, "."));
+        match ($cleaned) {
+            "html" => { return "text/html; charset=utf-8"; },
+            "css"  => { return "text/css; charset=utf-8"; },
+            "js"   => { return "application/javascript; charset=utf-8"; },
+            "json" => { return "application/json; charset=utf-8"; },
+            "svg"  => { return "image/svg+xml"; },
+            "png"  => { return "image/png"; },
+            "jpg"  => { return "image/jpeg"; },
+            "jpeg" => { return "image/jpeg"; },
+            "webp" => { return "image/webp"; },
+            "ico"  => { return "image/x-icon"; },
+            "gif"  => { return "image/gif"; },
+            "woff" => { return "font/woff"; },
+            "woff2"=> { return "font/woff2"; },
+            "ttf"  => { return "font/ttf"; },
+            "pdf"  => { return "application/pdf"; },
+            "txt"  => { return "text/plain; charset=utf-8"; },
+            "xml"  => { return "application/xml; charset=utf-8"; },
+            "zip"  => { return "application/zip"; },
+            "mp4"  => { return "video/mp4"; },
+            "mp3"  => { return "audio/mpeg"; }
+        };
+        return "application/octet-stream";
+    }
+
+    public static func fromPath(string $path): string {
+        var $parts = explode(".", $path);
+        var $len = count($parts);
+        guard ($len > 1) else {
+            return "application/octet-stream";
+        };
+        string $ext = $parts[$len - 1];
+        return Mime::type($ext);
+    }
+
+    public static func isCacheable(string $ext): bool {
+        var $cleaned = strtolower(trim($ext, "."));
+        bool $cacheable = ($cleaned == "css" || $cleaned == "js" || $cleaned == "svg" || $cleaned == "png" || $cleaned == "jpg" || $cleaned == "webp" || $cleaned == "woff2" || $cleaned == "woff" || $cleaned == "ico");
+        return $cacheable;
+    }
+}

@@ -306,7 +306,7 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		}
 		userId := fmt.Sprintf("%v", args[1])
 		objectPath := fmt.Sprintf("%v", args[2])
-			localPath := filepath.Join("storage", "user_storage", userId, objectPath)
+		localPath := filepath.Join("storage", "user_storage", userId, objectPath)
 		if data, err := ReadFileBytes(localPath); err == nil {
 			return string(data), true
 		}
@@ -319,7 +319,7 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		userId := fmt.Sprintf("%v", args[1])
 		objectPath := fmt.Sprintf("%v", args[2])
 		content := fmt.Sprintf("%v", args[3])
-			localPath := filepath.Join("storage", "user_storage", userId, objectPath)
+		localPath := filepath.Join("storage", "user_storage", userId, objectPath)
 		_ = os.MkdirAll(filepath.Dir(localPath), 0755)
 		err := os.WriteFile(localPath, []byte(content), 0644)
 		return err == nil, true
@@ -330,7 +330,7 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		}
 		userId := fmt.Sprintf("%v", args[1])
 		objectPath := fmt.Sprintf("%v", args[2])
-			localPath := filepath.Join("storage", "user_storage", userId, objectPath)
+		localPath := filepath.Join("storage", "user_storage", userId, objectPath)
 		_ = os.Remove(localPath)
 		return true, true
 	}

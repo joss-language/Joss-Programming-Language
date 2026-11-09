@@ -3,16 +3,13 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
-
-	"github.com/jossecurity/joss/pkg/server"
 )
 
 func startServerHandler(fs http.FileSystem) {
-	server.GlobalFileSystem = fs
-	server.Start(fs)
+	fmt.Println("[Runner] El servidor web ahora se compila y ejecuta exclusivamente en modo nativo.")
 }
 
 func initServerFS(fs http.FileSystem) {
-	server.GlobalFileSystem = fs
 }

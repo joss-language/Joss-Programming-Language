@@ -796,6 +796,10 @@ func (p *Parser) parseMemberExpression(left Expression) Expression {
 		NullSafe: p.curToken.Type == NULL_SAFE_ARROW,
 	}
 
+	if p.peekToken.Type == VAR {
+		p.nextToken() // consume optional '$' for static member access like Class::$field
+	}
+
 	if isIdentifierOrKeyword(p.peekToken.Type) {
 		p.nextToken()
 		exp.Property = &Identifier{Token: p.curToken, Value: p.curToken.Literal}

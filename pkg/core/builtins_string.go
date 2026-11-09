@@ -269,6 +269,39 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 		}
 		return "", true
 
+	case "sha1_base64":
+		if len(args) > 0 {
+			h := sha1.Sum([]byte(fmt.Sprintf("%v", args[0])))
+			return base64.StdEncoding.EncodeToString(h[:]), true
+		}
+		return "", true
+
+	case "chr":
+		if len(args) > 0 {
+			var code int64
+			switch v := args[0].(type) {
+			case int:
+				code = int64(v)
+			case int32:
+				code = int64(v)
+			case int64:
+				code = v
+			case float64:
+				code = int64(v)
+			}
+			return string([]byte{byte(code)}), true
+		}
+		return "", true
+
+	case "ord":
+		if len(args) > 0 {
+			s := fmt.Sprintf("%v", args[0])
+			if len(s) > 0 {
+				return int64(s[0]), true
+			}
+		}
+		return int64(0), true
+
 	case "rsa_sign_sha256":
 		if len(args) >= 2 {
 			data := fmt.Sprintf("%v", args[0])

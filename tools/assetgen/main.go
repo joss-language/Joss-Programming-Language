@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jossecurity/joss/pkg/server"
+	"github.com/jossecurity/joss/pkg/core"
 )
 
 func main() {
@@ -15,6 +15,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	server.CompileStyles()
+	core.CompileStyles()
 	fmt.Println("Compilación completada exitosamente.")
 }

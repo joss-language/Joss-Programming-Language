@@ -1,14 +1,21 @@
 package jit
 
 import (
+	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"strings"
 	"time"
 	"unsafe"
+
+	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/crypto"
 )
 
 func nativeValue(v interface{}) uint64 {
@@ -250,6 +257,7 @@ func handleHttpRequest(args ...uintptr) uintptr {
 	defer resp.Body.Close()
 
 	bodyBytes, _ := io.ReadAll(resp.Body)
+	RecordLastFileSize(int64(len(bodyBytes)))
 
 	hMap := make(map[string]interface{})
 	for k, v := range resp.Header {
@@ -290,7 +298,7 @@ func readNativeValue(ptr uintptr) interface{} {
 	if ptr == 0 {
 		return nil
 	}
-	if ptr < 0x10000 {
+	if !isReadablePointer(ptr) {
 		return int64(ptr)
 	}
 
@@ -301,6 +309,9 @@ func readNativeValue(ptr uintptr) interface{} {
 		for b := 0; b < 32768; b++ {
 			nodePtr := *(*uintptr)(unsafe.Add(p, 16+b*8))
 			for nodePtr != 0 {
+				if !isReadablePointer(nodePtr) {
+					break
+				}
 				np := toUnsafe(nodePtr)
 				key := readCString(*(*uintptr)(np))
 				val64 := *(*uint64)(unsafe.Add(np, 8))
@@ -314,9 +325,9 @@ func readNativeValue(ptr uintptr) interface{} {
 	length := *(*int64)(p)
 	capVal := *(*int64)(unsafe.Add(p, 8))
 	dataPtr := *(*uintptr)(unsafe.Add(p, 16))
-	if length >= 0 && capVal >= length && capVal > 0 && capVal < 1000000 && (dataPtr >= 0x10000 || length == 0) {
+	if length >= 0 && capVal >= length && capVal > 0 && capVal < 1000000 && (dataPtr == 0 || isReadablePointer(dataPtr)) {
 		arr := make([]interface{}, length)
-		if dataPtr != 0 {
+		if dataPtr != 0 && isReadablePointer(dataPtr) {
 			dp := toUnsafe(dataPtr)
 			for i := int64(0); i < length; i++ {
 				elem := *(*uint64)(unsafe.Add(dp, uintptr(i*8)))
@@ -353,6 +364,92 @@ func handleStrContains(args ...uintptr) uintptr {
 	return 0
 }
 
+func handleStrReplace(args ...uintptr) uintptr {
+	if len(args) < 3 {
+		return nativeString("")
+	}
+	search := readCString(args[0])
+	replace := readCString(args[1])
+	subject := readCString(args[2])
+	res := strings.ReplaceAll(subject, search, replace)
+	return nativeString(res)
+}
+
+func handleRawurlencode(args ...uintptr) uintptr {
+	if len(args) < 1 {
+		return nativeString("")
+	}
+	s := readCString(args[0])
+	return nativeString(url.PathEscape(s))
+}
+
+func handleRawurldecode(args ...uintptr) uintptr {
+	if len(args) < 1 {
+		return nativeString("")
+	}
+	s := readCString(args[0])
+	res, err := url.PathUnescape(s)
+	if err != nil {
+		return nativeString(s)
+	}
+	return nativeString(res)
+}
+
+func handleRsaSignSha256(args ...uintptr) uintptr {
+	if len(args) < 2 {
+		return nativeString("")
+	}
+	data := readCString(args[0])
+	pemKey := readCString(args[1])
+	sig, err := crypto.SignRSASHA256(data, pemKey)
+	if err != nil {
+		return nativeString("")
+	}
+	return nativeString(sig)
+}
+
+func handleGmdate(args ...uintptr) uintptr {
+	format := "D, d M Y H:i:s"
+	if len(args) > 0 && args[0] != 0 {
+		format = readCString(args[0])
+	}
+	t := time.Now().UTC()
+	if len(args) > 1 && args[1] >= 1 && args[1] <= 2500000000 {
+		t = time.Unix(int64(args[1]), 0).UTC()
+	}
+	return nativeString(core.FormatDate(format, t))
+}
+
+func handleDate(args ...uintptr) uintptr {
+	format := "Y-m-d H:i:s"
+	if len(args) > 0 && args[0] != 0 {
+		format = readCString(args[0])
+	}
+	t := time.Now()
+	if len(args) > 1 && args[1] >= 1 && args[1] <= 2500000000 {
+		t = time.Unix(int64(args[1]), 0)
+	}
+	return nativeString(core.FormatDate(format, t))
+}
+
+func handleSha256Base64(args ...uintptr) uintptr {
+	if len(args) < 1 {
+		return nativeString("")
+	}
+	data := readCString(args[0])
+	h := sha256.Sum256([]byte(data))
+	return nativeString(base64.StdEncoding.EncodeToString(h[:]))
+}
+
+func handleSha1Base64(args ...uintptr) uintptr {
+	if len(args) < 1 {
+		return nativeString("")
+	}
+	data := readCString(args[0])
+	h := sha1.Sum([]byte(data))
+	return nativeString(base64.StdEncoding.EncodeToString(h[:]))
+}
+
 func init() {
 	RegisterHostBridgeHandler("Http::json", handleHttpJson)
 	RegisterHostBridgeHandler("Http::get", handleHttpGet)
@@ -365,4 +462,21 @@ func init() {
 	RegisterHostBridgeHandler("fn_str_contains", handleStrContains)
 	RegisterHostBridgeHandler("contains", handleStrContains)
 	RegisterHostBridgeHandler("fn_contains", handleStrContains)
+	RegisterHostBridgeHandler("str_replace", handleStrReplace)
+	RegisterHostBridgeHandler("fn_str_replace", handleStrReplace)
+	RegisterHostBridgeHandler("Str::replace", handleStrReplace)
+	RegisterHostBridgeHandler("rawurlencode", handleRawurlencode)
+	RegisterHostBridgeHandler("fn_rawurlencode", handleRawurlencode)
+	RegisterHostBridgeHandler("rawurldecode", handleRawurldecode)
+	RegisterHostBridgeHandler("fn_rawurldecode", handleRawurldecode)
+	RegisterHostBridgeHandler("rsa_sign_sha256", handleRsaSignSha256)
+	RegisterHostBridgeHandler("fn_rsa_sign_sha256", handleRsaSignSha256)
+	RegisterHostBridgeHandler("gmdate", handleGmdate)
+	RegisterHostBridgeHandler("fn_gmdate", handleGmdate)
+	RegisterHostBridgeHandler("date", handleDate)
+	RegisterHostBridgeHandler("fn_date", handleDate)
+	RegisterHostBridgeHandler("sha256_base64", handleSha256Base64)
+	RegisterHostBridgeHandler("fn_sha256_base64", handleSha256Base64)
+	RegisterHostBridgeHandler("sha1_base64", handleSha1Base64)
+	RegisterHostBridgeHandler("fn_sha1_base64", handleSha1Base64)
 }

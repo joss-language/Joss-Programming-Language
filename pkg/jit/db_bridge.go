@@ -56,7 +56,7 @@ func getOrInitDB() *sql.DB {
 }
 
 func readCString(ptr uintptr) string {
-	if ptr == 0 {
+	if ptr == 0 || !isReadablePointer(ptr) {
 		return ""
 	}
 	p := toUnsafe(ptr)

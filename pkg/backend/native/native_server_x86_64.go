@@ -1,20 +1,27 @@
 package native
 
+import (
+	"fmt"
+	"time"
+)
+
 // emitNativeServer emits the standalone x86_64 native HTTP server (fn_Server_start)
 // supporting Windows Winsock2 and Linux/Darwin POSIX syscalls.
 func (b *MachineCodeBuilder) emitNativeServer() {
 	const (
-		httpHeaderHTML  = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
-		httpHeaderJSON  = "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
-		httpHeaderCSS   = "HTTP/1.1 200 OK\r\nContent-Type: text/css; charset=utf-8\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
-		httpHeaderJS    = "HTTP/1.1 200 OK\r\nContent-Type: application/javascript; charset=utf-8\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
-		httpHeaderSVG   = "HTTP/1.1 200 OK\r\nContent-Type: image/svg+xml\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
-		httpHeaderPNG   = "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
-		httpHeaderJPG   = "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
-		httpHeaderWEBP  = "HTTP/1.1 200 OK\r\nContent-Type: image/webp\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
-		httpHeaderICO   = "HTTP/1.1 200 OK\r\nContent-Type: image/x-icon\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
-		httpHeader404   = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\n404 Not Found"
-		defaultHTMLBody = "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\"><title>JosSecurity — Native AOT</title></head><body><h1>JosSecurity — Native AOT</h1><p>ONLINE (HTTP 200 OK)</p></body></html>"
+		httpHeaderHTML   = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderJSON   = "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderCSS    = "HTTP/1.1 200 OK\r\nContent-Type: text/css; charset=utf-8\r\nCache-Control: no-cache\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderJS     = "HTTP/1.1 200 OK\r\nContent-Type: application/javascript; charset=utf-8\r\nCache-Control: no-cache\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderSVG    = "HTTP/1.1 200 OK\r\nContent-Type: image/svg+xml\r\nCache-Control: no-cache\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderPNG    = "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderJPG    = "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderWEBP   = "HTTP/1.1 200 OK\r\nContent-Type: image/webp\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeaderICO    = "HTTP/1.1 200 OK\r\nContent-Type: image/x-icon\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
+		httpHeader404    = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\n404 Not Found"
+		defaultHTMLBody  = "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\"><title>JosSecurity — Native AOT</title></head><body><h1>JosSecurity — Native AOT</h1><p>ONLINE (HTTP 200 OK)</p></body></html>"
+		liveReloadScript = `<script src="/__joss_live.js" async></script>`
+		liveJsCode       = `(function(){var cur=null;function morph(n,o){if(!n||!o)return;if(o.nodeType!==n.nodeType||o.nodeName!==n.nodeName){o.replaceWith(n);return;}if(o.nodeType===Node.TEXT_NODE){if(o.nodeValue!==n.nodeValue)o.nodeValue=n.nodeValue;return;}if(o.nodeType===Node.ELEMENT_NODE){for(var i=0;i<n.attributes.length;i++){var a=n.attributes[i];if(o.getAttribute(a.name)!==a.value)o.setAttribute(a.name,a.value);}for(var i=o.attributes.length-1;i>=0;i--){var a=o.attributes[i];if(!n.hasAttribute(a.name))o.removeAttribute(a.name);}var nc=Array.from(n.childNodes),oc=Array.from(o.childNodes),m=Math.max(nc.length,oc.length);for(var i=0;i<m;i++){if(!oc[i]&&nc[i])o.appendChild(nc[i].cloneNode(true));else if(oc[i]&&!nc[i])o.removeChild(oc[i]);else if(oc[i]&&nc[i]){if(oc[i].nodeType===Node.ELEMENT_NODE&&oc[i].id&&oc[i].id===nc[i].id)morph(nc[i],oc[i]);else if(oc[i].outerHTML!==nc[i].outerHTML)morph(nc[i],oc[i]);}}}}function reloadElements(){fetch(window.location.href,{cache:'no-store'}).then(function(r){return r.text();}).then(function(h){var d=new DOMParser().parseFromString(h,'text/html');if(d.title&&d.title!==document.title)document.title=d.title;var sx=window.scrollX,sy=window.scrollY;morph(d.body,document.body);window.scrollTo(sx,sy);}).catch(function(){window.location.reload();});}function probe(){fetch('/__joss_health',{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){if(!t)return;if(cur===null){cur=t;}else if(cur!==t){cur=t;reloadElements();}setTimeout(probe,200);}).catch(function(){function retry(){fetch('/__joss_health',{cache:'no-store'}).then(function(r){if(r.ok){reloadElements();setTimeout(probe,200);}}).catch(function(){setTimeout(retry,100);});}setTimeout(retry,100);});}setTimeout(probe,200);})();`
 	)
 
 	hasCompiledRouter := false
@@ -345,6 +352,23 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x49, 0x89, 0xCF) // mov r15, rcx
 
 		b.defineLabel(".srv_have_path")
+		// Check "/__joss_health" and "/__joss_live.js" for hot-reload without cluttering server logs
+		b.emitBytes(0x41, 0x81, 0x3F, 0x2F, 0x5F, 0x5F, 0x6A) // cmp dword ptr [r15], 0x6A5F5F2F ("/__j")
+		b.emitJneLabel(".srv_log_req")
+		b.emitBytes(0x41, 0x80, 0x7F, 0x08, 0x6C) // cmp byte ptr [r15 + 8], 'l' (0x6C for "/__joss_live.js")
+		b.emitJeLabel(".srv_send_live_js")
+		healthResp := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-cache, no-store\r\nConnection: close\r\n\r\n%d", time.Now().UnixNano())
+		b.emitLeaRCXString(healthResp)
+		b.emitBytes(0x49, 0x89, 0xCF) // mov r15, rcx
+		b.emitJmpLabel(".srv_resp_send_raw")
+
+		b.defineLabel(".srv_send_live_js")
+		liveJsResp := "HTTP/1.1 200 OK\r\nContent-Type: application/javascript; charset=utf-8\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" + liveJsCode
+		b.emitLeaRCXString(liveJsResp)
+		b.emitBytes(0x49, 0x89, 0xCF) // mov r15, rcx
+		b.emitJmpLabel(".srv_resp_send_raw")
+
+		b.defineLabel(".srv_log_req")
 		// Log incoming request path to terminal
 		b.emitLeaRCXString("[Server REQ] ")
 		b.emitCallLabel("joss_print_string")
@@ -649,7 +673,7 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 
 		// Default: HTML
 		b.emitLeaRCXString(httpHeaderHTML)
-		b.emitJmpLabel(".srv_resp_send_hdr_text")
+		b.emitJmpLabel(".srv_resp_send_hdr_html")
 
 		b.defineLabel(".srv_resp_png")
 		b.emitLeaRCXString(httpHeaderPNG)
@@ -688,6 +712,37 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.defineLabel(".srv_resp_send_bin_body")
 		b.emitBytes(0x49, 0x89, 0xC0)       // mov r8, rax (len)
 		b.emitBytes(0x4C, 0x89, 0xFA)       // mov rdx, r15 (bodyPtr)
+		b.emitBytes(0x4C, 0x89, 0xF1)       // mov rcx, r14 (clientSock)
+		b.emitBytes(0x45, 0x31, 0xC9)       // xor r9d, r9d
+		b.emitBytes(0x48, 0x8B, 0x45, 0xC0) // mov rax, [rbp - 64] (pSend)
+		b.emitBytes(0xFF, 0xD0)             // call rax
+		b.emitJmpLabel(".srv_close_client")
+
+		b.defineLabel(".srv_resp_send_hdr_html")
+		b.emitBytes(0x48, 0x89, 0xCB) // mov rbx, rcx
+		b.emitCallLabel("__joss_rt_strlen")
+		b.emitBytes(0x49, 0x89, 0xC0)       // mov r8, rax
+		b.emitBytes(0x48, 0x89, 0xDA)       // mov rdx, rbx
+		b.emitBytes(0x4C, 0x89, 0xF1)       // mov rcx, r14 (clientSock)
+		b.emitBytes(0x45, 0x31, 0xC9)       // xor r9d, r9d
+		b.emitBytes(0x48, 0x8B, 0x45, 0xC0) // mov rax, [rbp - 64] (pSend)
+		b.emitBytes(0xFF, 0xD0)             // call rax
+
+		// Send HTML body
+		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15
+		b.emitCallLabel("__joss_rt_strlen")
+		b.emitBytes(0x49, 0x89, 0xC0)       // mov r8, rax (len)
+		b.emitBytes(0x4C, 0x89, 0xFA)       // mov rdx, r15 (htmlBodyPtr)
+		b.emitBytes(0x4C, 0x89, 0xF1)       // mov rcx, r14 (clientSock)
+		b.emitBytes(0x45, 0x31, 0xC9)       // xor r9d, r9d
+		b.emitBytes(0x48, 0x8B, 0x45, 0xC0) // mov rax, [rbp - 64] (pSend)
+		b.emitBytes(0xFF, 0xD0)             // call rax
+
+		// Append live reload script to HTML
+		b.emitLeaRCXString(liveReloadScript)
+		b.emitCallLabel("__joss_rt_strlen")
+		b.emitBytes(0x49, 0x89, 0xC0)       // mov r8, rax (len)
+		b.emitLeaRDXString(liveReloadScript)
 		b.emitBytes(0x4C, 0x89, 0xF1)       // mov rcx, r14 (clientSock)
 		b.emitBytes(0x45, 0x31, 0xC9)       // xor r9d, r9d
 		b.emitBytes(0x48, 0x8B, 0x45, 0xC0) // mov rax, [rbp - 64] (pSend)
@@ -939,6 +994,17 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitCallLabel("__joss_rt_strlen")
 		b.emitBytes(0x4C, 0x89, 0xF7) // mov rdi, r14
 		b.emitBytes(0x4C, 0x89, 0xFE) // mov rsi, r15
+		b.emitBytes(0x48, 0x89, 0xC2) // mov rdx, rax
+		b.emitBytes(0xB8)
+		b.emitU32(sysWrite)
+		b.emitBytes(0x0F, 0x05)
+
+		// write(clientSock, liveReloadScript, len)
+		b.emitLeaRCXString(liveReloadScript)
+		b.emitBytes(0x48, 0x89, 0xCB)
+		b.emitCallLabel("__joss_rt_strlen")
+		b.emitBytes(0x4C, 0x89, 0xF7) // mov rdi, r14
+		b.emitBytes(0x48, 0x89, 0xDE) // mov rsi, rbx
 		b.emitBytes(0x48, 0x89, 0xC2) // mov rdx, rax
 		b.emitBytes(0xB8)
 		b.emitU32(sysWrite)

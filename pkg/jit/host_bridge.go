@@ -5,8 +5,6 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
-
-	"github.com/jossecurity/joss/pkg/server"
 )
 
 // HostBridgeFn is the signature for functions reachable via the in-process host bridge.
@@ -15,7 +13,25 @@ type HostBridgeFn func(args ...uintptr) uintptr
 var (
 	hostBridgeMu         sync.RWMutex
 	customBridgeHandlers = make(map[string]HostBridgeFn)
+	lastFileSizeAddr     uintptr
 )
+
+// SetLastFileSizeAddress configures the RAM address to dataOffLastFileSize for the active JIT image.
+func SetLastFileSizeAddress(addr uintptr) {
+	hostBridgeMu.Lock()
+	defer hostBridgeMu.Unlock()
+	lastFileSizeAddr = addr
+}
+
+// RecordLastFileSize stores the size of the most recent binary payload.
+func RecordLastFileSize(size int64) {
+	hostBridgeMu.RLock()
+	defer hostBridgeMu.RUnlock()
+	if lastFileSizeAddr != 0 {
+		p := toUnsafe(lastFileSizeAddr)
+		*(*int64)(p) = size
+	}
+}
 
 // RegisterHostBridgeHandler registers a handler for a given host service or method name.
 func RegisterHostBridgeHandler(name string, handler HostBridgeFn) {
@@ -60,7 +76,7 @@ func InProcessHostBridge(namePtr, arg1, arg2, arg3 uintptr) uintptr {
 
 	// Built-in standard handlers
 	if methodName == "Server::start" || strings.HasSuffix(methodName, "Server_start") {
-		server.Start(nil)
+		fmt.Println("[JIT HostBridge] El servidor HTTP es administrado de forma nativa por Joss Native AOT.")
 		return 0
 	}
 

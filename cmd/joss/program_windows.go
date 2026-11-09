@@ -5,15 +5,16 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/jchv/go-webview2"
-	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/i18n"
-	"github.com/jossecurity/joss/pkg/server"
 )
 
 func startProgram() {
@@ -23,74 +24,68 @@ func startProgram() {
 	os.Setenv("JOSS_GUI", "true")
 	os.Setenv("JOSS_PROGRAM_START", "true")
 
-	fmt.Println("[Desktop GUI] Inicializando aplicación en modo ventana nativa...")
+	if _, err := os.Stat("main.joss"); os.IsNotExist(err) {
+		fmt.Println(i18n.Tr("cliErrNoMain"))
+		fmt.Println("  main.joss")
+		fmt.Println(i18n.Tr("cliErrRequireMain"))
+		os.Exit(1)
+	}
 
-	serverReady := make(chan string, 1)
-	server.ServerReadyCallback = func(port string) {
-		select {
-		case serverReady <- port:
-		default:
+	fmt.Println("⚡ [Desktop GUI] Compilando aplicación a binario nativo AOT...")
+	exePath, err := buildNativeProgram("main.joss", "", "", false, false, false, true, "auto")
+	if err != nil {
+		fmt.Printf("❌ [Desktop GUI] Error compilando binario nativo: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Resolver puerto configurado desde .env / env.joss o variable de entorno
+	port := "8000"
+	if p := os.Getenv("PORT"); p != "" {
+		port = p
+	} else {
+		envRes := core.DetectAndLoadEnv(nil)
+		if envPort := envRes.EnvMap["PORT"]; envPort != "" {
+			port = envPort
 		}
 	}
 
-	go launchProgramRuntime()
+	fmt.Printf("[Desktop GUI] Iniciando backend nativo (%s) en puerto %s...\n", exePath, port)
+	cmd := exec.Command(exePath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	if err := cmd.Start(); err != nil {
+		fmt.Printf("❌ [Desktop GUI] Error iniciando proceso nativo: %v\n", err)
+		os.Exit(1)
+	}
+	defer killChildProcess(cmd)
 
-	fmt.Println("[Desktop GUI] Esperando a que el backend de la aplicación esté listo...")
-	// Esperar reactivamente a que la aplicación y el servidor terminen de cargar completamente
-	port := <-serverReady
-	fmt.Printf("[Desktop GUI] Backend listo en puerto %s. Creando ventana nativa...\n", port)
+	// Esperar reactivamente a que el socket del backend nativo responda
+	targetAddr := "127.0.0.1:" + port
+	fmt.Printf("[Desktop GUI] Esperando enlace TCP en %s...\n", targetAddr)
+	connected := false
+	for i := 0; i < 40; i++ {
+		conn, dialErr := net.DialTimeout("tcp", targetAddr, 100*time.Millisecond)
+		if dialErr == nil {
+			_ = conn.Close()
+			connected = true
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	if !connected {
+		fmt.Printf("⚠️  [Desktop GUI] Tiempo de espera agotado conectando a %s, abriendo ventana igualmente...\n", targetAddr)
+	} else {
+		fmt.Printf("[Desktop GUI] Backend nativo enlazado en %s. Abriendo ventana...\n", targetAddr)
+	}
 
 	launchGUIWindow(port)
 }
 
-func launchProgramRuntime() {
-	if _, err := os.Stat("main.joss"); err != nil && server.GlobalFileSystem == nil {
-		fmt.Println(i18n.Tr("programNoMainStarting"))
-		fmt.Println("  main.joss")
-		server.Start(nil)
-		return
-	}
-
-	fmt.Println(i18n.Tr("programRunningMain"))
-	fmt.Println("  main.joss")
-
-	units, parseDiagnostics := semanticanalyzer.LoadProject("main.joss", "app")
-	if len(parseDiagnostics) > 0 {
-		core.AnalysisReportFromDiagnostics(parseDiagnostics).PrintReport()
-		os.Exit(1)
-	}
-
-	report := core.AnalyzeSourceUnits(units)
-	if report.HasIssues() {
-		report.PrintReport()
-	}
-	if report.HasErrors() {
-		os.Exit(1)
-	}
-
-	program := report.Prepared.Entrypoint()
-	if program == nil {
-		fmt.Println(i18n.Tr("cliReadFileError", i18n.M{"error": "entrypoint was not prepared"}))
-		return
-	}
-
-	r := core.NewRuntime()
-	r.CurrentFile = "main.joss"
-	r.LoadEnv(server.GlobalFileSystem)
-
-	defer func() {
-		if rec := recover(); rec != nil {
-			fmt.Printf("\n[Error de Ejecución JOSS]\n%s\n", core.FormatPanicAsError(rec))
-			os.Exit(1)
-		}
-	}()
-
-	r.ExecutePrepared(report.Prepared)
-}
-
 func launchGUIWindow(port string) {
 	title := "Joss Application"
-	envRes := core.DetectAndLoadEnv(server.GlobalFileSystem)
+	envRes := core.DetectAndLoadEnv(nil)
 	if appName := envRes.EnvMap["APP_NAME"]; appName != "" {
 		title = appName
 	}
@@ -149,6 +144,4 @@ func launchGUIWindow(port string) {
 
 	fmt.Println("[Desktop GUI] Bucle de mensajes activo (w.Run()). Presione Alt+F4 o cierre la ventana para salir.")
 	w.Run()
-	fmt.Println("[Desktop GUI] Ventana cerrada por el usuario. Proceso terminado.")
-	os.Exit(0)
 }

@@ -888,6 +888,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `boolval`
 - `ceil`
 - `cerr`
+- `chr`
 - `close`
 - `config`
 - `contains`
@@ -947,6 +948,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `min`
 - `mkdir`
 - `now`
+- `ord`
 - `print`
 - `printf`
 - `rand`
@@ -964,6 +966,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `send`
 - `session`
 - `sha1`
+- `sha1_base64`
 - `sha256`
 - `sha256_base64`
 - `sleep`
@@ -998,4 +1001,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 53 clases, 517 métodos y 142 built-ins.
+Total: 53 clases, 517 métodos y 145 built-ins.

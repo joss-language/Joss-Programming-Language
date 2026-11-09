@@ -3,6 +3,7 @@
 package plan
 
 import (
+	"reflect"
 	"strings"
 
 	"github.com/jossecurity/joss/pkg/parser"
@@ -124,6 +125,12 @@ func (callable *Callable) collectBlock(block *parser.BlockStatement) {
 }
 
 func (callable *Callable) collectStatement(statement parser.Statement) {
+	if statement == nil {
+		return
+	}
+	if v := reflect.ValueOf(statement); v.Kind() == reflect.Ptr && v.IsNil() {
+		return
+	}
 	switch node := statement.(type) {
 	case *parser.LetStatement:
 		if node.Name != nil {
@@ -301,6 +308,12 @@ func (callable *Callable) annotateBlock(block *parser.BlockStatement) {
 }
 
 func (callable *Callable) annotateStatement(statement parser.Statement) {
+	if statement == nil {
+		return
+	}
+	if v := reflect.ValueOf(statement); v.Kind() == reflect.Ptr && v.IsNil() {
+		return
+	}
 	switch node := statement.(type) {
 	case *parser.LetStatement:
 		callable.annotateIdentifier(node.Name)
@@ -436,6 +449,12 @@ func (callable *Callable) analyzeLoopControl(block *parser.BlockStatement) {
 		return
 	}
 	for _, statement := range block.Statements {
+		if statement == nil {
+			continue
+		}
+		if v := reflect.ValueOf(statement); v.Kind() == reflect.Ptr && v.IsNil() {
+			continue
+		}
 		switch node := statement.(type) {
 		case *parser.WhileStatement:
 			callable.LoopControl[node.Body] = BlockHasBreakOrContinue(node.Body)

@@ -1605,6 +1605,18 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	// String and Math helper passthroughs
 	b.defineLabel("fn_Str_trim")
 	b.defineLabel("fn_Math_ceil")
+	b.defineLabel("fn_str_replace")
+	b.defineLabel("fn_rsa_sign_sha256")
+	b.defineLabel("fn_rawurlencode")
+	b.defineLabel("fn_rawurldecode")
+	b.defineLabel("fn_gmdate")
+	b.defineLabel("fn_date")
+	b.defineLabel("fn_sha256_base64")
+	b.defineLabel("fn_sha1_base64")
+	b.defineLabel("fn_Http_request")
+	b.defineLabel("fn_Http_get")
+	b.defineLabel("fn_Http_post")
+	b.defineLabel("fn_Http_json")
 	b.emitRet(regX30)
 
 	b.defineLabel("fn_str_contains")

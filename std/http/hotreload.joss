@@ -1,0 +1,20 @@
+public class HotReload {
+    public static func script(): string {
+        return "<script src=\"/__joss_live.js\" async></script>"
+    }
+
+    public static func liveJs(): string {
+        return "(function(){var cur=null;function morph(n,o){if(!n||!o)return;if(o.nodeType!==n.nodeType||o.nodeName!==n.nodeName){o.replaceWith(n);return;}if(o.nodeType===Node.TEXT_NODE){if(o.nodeValue!==n.nodeValue)o.nodeValue=n.nodeValue;return;}if(o.nodeType===Node.ELEMENT_NODE){for(var i=0;i<n.attributes.length;i++){var a=n.attributes[i];if(o.getAttribute(a.name)!==a.value)o.setAttribute(a.name,a.value);}for(var i=o.attributes.length-1;i>=0;i--){var a=o.attributes[i];if(!n.hasAttribute(a.name))o.removeAttribute(a.name);}var nc=Array.from(n.childNodes),oc=Array.from(o.childNodes),m=Math.max(nc.length,oc.length);for(var i=0;i<m;i++){if(!oc[i]&&nc[i])o.appendChild(nc[i].cloneNode(true));else if(oc[i]&&!nc[i])o.removeChild(oc[i]);else if(oc[i]&&nc[i]){if(oc[i].nodeType===Node.ELEMENT_NODE&&oc[i].id&&oc[i].id===nc[i].id)morph(nc[i],oc[i]);else if(oc[i].outerHTML!==nc[i].outerHTML)morph(nc[i],oc[i]);}}}}function reloadElements(){fetch(window.location.href,{cache:'no-store'}).then(function(r){return r.text();}).then(function(h){var d=new DOMParser().parseFromString(h,'text/html');if(d.title&&d.title!==document.title)document.title=d.title;var sx=window.scrollX,sy=window.scrollY;morph(d.body,document.body);window.scrollTo(sx,sy);}).catch(function(){window.location.reload();});}function probe(){fetch('/__joss_health',{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){if(!t)return;if(cur===null){cur=t;}else if(cur!==t){cur=t;reloadElements();}setTimeout(probe,200);}).catch(function(){function retry(){fetch('/__joss_health',{cache:'no-store'}).then(function(r){if(r.ok){reloadElements();setTimeout(probe,200);}}).catch(function(){setTimeout(retry,100);});}setTimeout(retry,100);});}setTimeout(probe,200);})();"
+    }
+
+    public static func inject(string $html): string {
+        string $tag = "</body>"
+        var $pos = strpos($html, $tag)
+        guard ($pos >= 0) else {
+            return $html . HotReload::script()
+        }
+        string $before = substr($html, 0, $pos)
+        string $after = substr($html, $pos)
+        return $before . HotReload::script() . $after
+    }
+}

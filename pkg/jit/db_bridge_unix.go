@@ -18,3 +18,7 @@ func allocNative(size int) uintptr {
 	}
 	return uintptr(unsafe.Pointer(&data[0]))
 }
+
+func isReadablePointer(ptr uintptr) bool {
+	return ptr >= 0x10000 && ptr <= 0x7FFFFFFFFFFF
+}

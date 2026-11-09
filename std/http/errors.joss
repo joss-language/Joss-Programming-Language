@@ -1,0 +1,65 @@
+public class ErrorPages {
+    public static func render(int $code, string $title, string $message): string {
+        string $statusText = match ($code) {
+            400 => "Bad Request",
+            403 => "Forbidden",
+            404 => "Not Found",
+            419 => "Page Expired",
+            429 => "Too Many Requests",
+            500 => "Internal Server Error",
+            503 => "Service Unavailable",
+            default => "Error"
+        };
+
+        string $html = "HTTP/1.1 " . $code . " " . $statusText . "\r\n" .
+            "Content-Type: text/html; charset=utf-8\r\n" .
+            "Server: Joss-Native-AOT/1.0\r\n" .
+            "Connection: close\r\n\r\n" .
+            "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\">" .
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">" .
+            "<title>" . $code . " " . $statusText . " | Joss</title>" .
+            "<style>" .
+            "*{box-sizing:border-box;margin:0;padding:0}" .
+            "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#090d16;color:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem}" .
+            ".card{background:rgba(30,41,59,0.7);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(16px);border-radius:18px;max-width:540px;width:100%;padding:3rem 2.5rem;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5)}" .
+            ".badge{display:inline-block;font-size:0.85rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#38bdf8;background:rgba(56,189,248,0.1);padding:0.35rem 1rem;border-radius:9999px;margin-bottom:1.5rem;border:1px solid rgba(56,189,248,0.2)}" .
+            "h1{font-size:4rem;font-weight:900;line-height:1;margin-bottom:0.75rem;background:linear-gradient(135deg,#f8fafc 0%,#94a3b8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}" .
+            "h2{font-size:1.35rem;font-weight:600;color:#e2e8f0;margin-bottom:1rem}" .
+            "p{color:#94a3b8;line-height:1.6;font-size:0.975rem;margin-bottom:2rem}" .
+            ".btn{display:inline-block;background:#2563eb;color:#fff;font-weight:600;text-decoration:none;padding:0.75rem 1.75rem;border-radius:10px;transition:all 0.2s ease}" .
+            ".btn:hover{background:#1d4ed8;transform:translateY(-1px)}" .
+            ".footer{margin-top:2.5rem;font-size:0.75rem;color:#64748b;letter-spacing:0.05em}" .
+            "</style></head>" .
+            "<body><div class=\"card\">" .
+            "<div class=\"badge\">Joss Native Web Server</div>" .
+            "<h1>" . $code . "</h1>" .
+            "<h2>" . $title . "</h2>" .
+            "<p>" . $message . "</p>" .
+            "<a href=\"/\" class=\"btn\">Volver al Inicio</a>" .
+            "<div class=\"footer\">Compilado de forma autónoma con Joss Native AOT</div>" .
+            "</div></body></html>";
+        return $html;
+    }
+
+    public static func render404(string $path = ""): string {
+        string $msg = (strlen($path) > 0) ? ("La ruta '" . $path . "' no fue encontrada en este servidor.") : "La ruta solicitada no existe o no tiene un controlador asignado.";
+        return ErrorPages::render(404, "Página no encontrada", $msg);
+    }
+
+    public static func render500(string $error = ""): string {
+        string $msg = (strlen($error) > 0) ? $error : "Ocurrió un error inesperado al procesar la solicitud.";
+        return ErrorPages::render(500, "Error Interno del Servidor", $msg);
+    }
+
+    public static func render403(): string {
+        return ErrorPages::render(403, "Acceso Denegado", "No tienes permisos suficientes para acceder a este recurso.");
+    }
+
+    public static func render419(): string {
+        return ErrorPages::render(419, "Sesión o Token Expirado", "El token CSRF de la solicitud ha expirado o no coincide. Por favor recarga e intenta nuevamente.");
+    }
+
+    public static func render429(int $retryAfter = 60): string {
+        return ErrorPages::render(429, "Demasiadas Peticiones", "Has alcanzado el límite de velocidad. Por favor espera " . $retryAfter . " segundos antes de reintentar.");
+    }
+}

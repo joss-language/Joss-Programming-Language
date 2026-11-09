@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// ServerStartCallback allows avoiding import cycle with pkg/server
+// ServerStartCallback allows optional hook if needed
 var ServerStartCallback func(fs http.FileSystem)
 
 // Server Control Native Class
@@ -16,15 +16,12 @@ func (r *Runtime) executeServerControlMethod(instance *Instance, method string, 
 	switch method {
 	case "start":
 		fmt.Println("[Server::start] Iniciando servidor web...")
-
-		fs := GlobalFileSystem
-
 		if ServerStartCallback != nil {
-			ServerStartCallback(fs)
+			ServerStartCallback(GlobalFileSystem)
 		} else {
-			fmt.Println("[Server::start] Error: Server callback no registrado.")
+			fmt.Println("Aviso: El servidor HTTP de Joss se ejecuta exclusivamente mediante el compilador nativo autónomo.")
+			fmt.Println("Usa 'joss server start' o 'joss build' para compilar y ejecutar el servidor web nativo de alto rendimiento.")
 		}
-
 		return true
 
 	case "spawn":

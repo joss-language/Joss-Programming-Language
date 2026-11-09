@@ -14,7 +14,6 @@ import (
 
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/crypto"
-	"github.com/jossecurity/joss/pkg/server"
 	"github.com/jossecurity/joss/pkg/vfs"
 )
 
@@ -102,20 +101,15 @@ func loadEmbeddedVFS() *vfs.MemFS {
 		mem.Files = files
 		embeddedVFS = mem
 		core.SetFileSystem(mem)
-		server.GlobalFileSystem = mem
 	})
 	return embeddedVFS
 }
 
 func ExecuteHostBridge(methodName string) {
-	memFS := loadEmbeddedVFS()
+	_ = loadEmbeddedVFS()
 
 	if methodName == "Server::start" || strings.HasSuffix(methodName, "Server_start") {
-		if memFS != nil {
-			server.Start(memFS)
-		} else {
-			server.Start(nil)
-		}
+		fmt.Println("[HostBridge ABI] El servidor HTTP es administrado de forma nativa por Joss Native AOT.")
 	} else if methodName == "Plugin::call" || strings.HasSuffix(methodName, "Plugin_call") {
 		fmt.Printf("[HostBridge ABI] Plugin call: %s\n", methodName)
 	}

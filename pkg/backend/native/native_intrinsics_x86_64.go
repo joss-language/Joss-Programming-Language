@@ -155,8 +155,12 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 		b.emitBytes(0xC3)       // ret
 	}
 
-	// Http client & System::Run intrinsics
-	for _, fnName := range []string{"fn_Http_json", "fn_Http_request", "fn_Http_get", "fn_Http_post", "fn_System_Run"} {
+	// Http client, System::Run, String, Crypto & Date host bridge intrinsics
+	for _, fnName := range []string{
+		"fn_Http_json", "fn_Http_request", "fn_Http_get", "fn_Http_post", "fn_System_Run",
+		"fn_str_replace", "fn_rsa_sign_sha256", "fn_rawurlencode", "fn_rawurldecode",
+		"fn_gmdate", "fn_date", "fn_sha256_base64", "fn_sha1_base64",
+	} {
 		b.defineLabel(fnName)
 		if b.isJITMode {
 			b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
@@ -165,7 +169,9 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 			b.emitBytes(0x49, 0x89, 0xD0)       // mov r8, rdx
 			b.emitBytes(0x48, 0x89, 0xCA)       // mov rdx, rcx
 			targetBridge := strings.TrimPrefix(fnName, "fn_")
-			targetBridge = strings.Replace(targetBridge, "_", "::", 1)
+			if strings.HasPrefix(fnName, "fn_Http_") || strings.HasPrefix(fnName, "fn_System_") {
+				targetBridge = strings.Replace(targetBridge, "_", "::", 1)
+			}
 			b.emitLeaRCXString(targetBridge)
 			b.emitCallIAT(IATGetProcAddress + 1)
 			b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
@@ -175,7 +181,7 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 				b.emitCallLabel("joss_map_new")
 				b.emitBytes(0xC3)
 			} else {
-				b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
+				b.emitBytes(0x48, 0x89, 0xC8, 0xC3) // mov rax, rcx; ret
 			}
 		}
 	}

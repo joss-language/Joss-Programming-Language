@@ -1,4 +1,4 @@
-package server
+package core
 
 import (
 	"fmt"
@@ -8,13 +8,13 @@ import (
 	"strings"
 )
 
+// CompileStyles compiles .scss style files from assets/css into public/css.
 func CompileStyles() {
 	compileStyles()
 }
 
 func compileStyles() {
 	fmt.Println("Compilando estilos...")
-	// Find .scss files
 	files, _ := filepath.Glob("assets/css/*.scss")
 	for _, file := range files {
 		// Only compile files that don't start with _
@@ -30,7 +30,6 @@ func compileStyles() {
 
 		// 1. Extract Variables
 		vars := make(map[string]string)
-		// Support hyphens in variable names: $my-var
 		reVar := regexp.MustCompile(`(\$[a-zA-Z0-9_-]+):\s*(.+?);`)
 		content = reVar.ReplaceAllStringFunc(content, func(match string) string {
 			parts := reVar.FindStringSubmatch(match)
@@ -38,16 +37,13 @@ func compileStyles() {
 			return "" // Remove variable definition from output
 		})
 
-		// 2. Replace complete variable tokens. Replacing map keys one by one
-		// corrupts names that share a prefix, such as $text and $text-dim.
+		// 2. Replace complete variable tokens
 		content = replaceSCSSVariables(content, vars)
-		// Optimize CSS (Purge Unused)
-		// content = optimizeCSS(content) // DISABLED: Moving to Dynamic Runtime Delivery
 
 		// Change extension to .css
 		outFile := filepath.Join("public", "css", strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))+".css")
-		os.MkdirAll(filepath.Dir(outFile), 0755)
-		os.WriteFile(outFile, []byte(content), 0644)
+		_ = os.MkdirAll(filepath.Dir(outFile), 0755)
+		_ = os.WriteFile(outFile, []byte(content), 0644)
 	}
 }
 
@@ -74,30 +70,17 @@ func resolveImports(path string) (string, error) {
 		parts := reImport.FindStringSubmatch(match)
 		importName := parts[1]
 
-		// Normalize import name for OS
 		importName = filepath.FromSlash(importName)
-
-		// Split import name into dir and file
 		importDir := filepath.Dir(importName)
 		importFile := filepath.Base(importName)
-
-		// Current file directory
 		currentDir := filepath.Dir(path)
 
 		candidates := []string{
-			// Relative: currentDir/importDir/_importFile.scss
 			filepath.Join(currentDir, importDir, "_"+importFile+".scss"),
-			// Relative: currentDir/importDir/importFile.scss
 			filepath.Join(currentDir, importDir, importFile+".scss"),
-
-			// Node Modules: node_modules/importDir/_importFile.scss
 			filepath.Join("node_modules", importDir, "_"+importFile+".scss"),
-			// Node Modules: node_modules/importDir/importFile.scss
 			filepath.Join("node_modules", importDir, importFile+".scss"),
-
-			// Node Modules: node_modules/importName (direct file)
 			filepath.Join("node_modules", importName),
-			// Node Modules: node_modules/importName.css
 			filepath.Join("node_modules", importName+".css"),
 		}
 
@@ -109,7 +92,7 @@ func resolveImports(path string) (string, error) {
 				}
 			}
 		}
-		return match // Keep original if not found (or error)
+		return match
 	})
 
 	return content, nil

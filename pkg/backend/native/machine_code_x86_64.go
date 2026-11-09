@@ -322,6 +322,9 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, 
 		return nil, fmt.Errorf("jit allocation failed: %w", err)
 	}
 
+	lastSizeAddr := block.Addr + uintptr(dataRVA+dataOffLastFileSize)
+	jit.SetLastFileSizeAddress(lastSizeAddr)
+
 	return &JITExecutable{
 		Block:    block,
 		DataArea: fullImage[dataRVA:],

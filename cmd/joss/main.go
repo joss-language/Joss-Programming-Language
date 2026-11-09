@@ -20,7 +20,6 @@ import (
 	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/mobile"
 	"github.com/jossecurity/joss/pkg/parser"
-	"github.com/jossecurity/joss/pkg/server"
 	"github.com/jossecurity/joss/pkg/template"
 	"github.com/jossecurity/joss/pkg/version"
 	"golang.org/x/term"
@@ -94,19 +93,9 @@ func main() {
 		handleIndexNowCommand(os.Args[2:])
 	case "server":
 		if len(os.Args) >= 3 && os.Args[2] == "start" {
-			// Always require main.joss
-			if _, err := os.Stat("main.joss"); err == nil {
-				fmt.Println(i18n.Tr("cliExecMain"))
-				fmt.Println("  main.joss")
-				executeScript("main.joss")
-			} else {
-				fmt.Println(i18n.Tr("cliErrNoMain"))
-				fmt.Println("  main.joss")
-				fmt.Println(i18n.Tr("cliErrRequireMain"))
-				os.Exit(1)
-			}
+			handleNativeServerStart(os.Args[3:])
 		} else {
-			fmt.Printf("%s joss server start\n", i18n.Tr("cliUsageLabel"))
+			fmt.Printf("%s joss server start [--no-watch] [--port=8000]\n", i18n.Tr("cliUsageLabel"))
 		}
 	case "program":
 		if len(os.Args) >= 3 && os.Args[2] == "start" {
@@ -425,7 +414,9 @@ func emitIRCommand(filename, outFile string) {
 func handleBuildCommand(args []string) {
 	if len(args) == 0 {
 		if _, err := os.Stat("main.joss"); err == nil {
-			buildNativeProgram("main.joss", "", "", false, false, false, false, "auto")
+			if _, err := buildNativeProgram("main.joss", "", "", false, false, false, false, "auto"); err != nil {
+				os.Exit(1)
+			}
 			return
 		}
 		fmt.Printf("%s joss build [archivo.joss] [target] [opciones]\n", i18n.Tr("cliUsageLabel"))
@@ -526,19 +517,21 @@ func handleBuildCommand(args []string) {
 		}
 	}
 
-	buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName)
+	if _, err := buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName); err != nil {
+		os.Exit(1)
+	}
 }
 
-func buildNativeProgram(filename, outExe, targetStr string, release, debug, trace, enableGUI bool, backendName string) {
+func buildNativeProgram(filename, outExe, targetStr string, release, debug, trace, enableGUI bool, backendName string) (string, error) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		fmt.Printf("Error: archivo '%s' no encontrado.\n", filename)
-		os.Exit(1)
+		return "", fmt.Errorf("archivo '%s' no encontrado", filename)
 	}
 
 	target, err := native.ParseTarget(targetStr)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return "", err
 	}
 
 	if outExe == "" {
@@ -561,14 +554,15 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	}
 	units, parseDiagnostics := semanticanalyzer.LoadProject(filename, "app")
 	if len(parseDiagnostics) > 0 {
-		core.AnalysisReportFromDiagnostics(parseDiagnostics).PrintReport()
-		os.Exit(1)
+		report := core.AnalysisReportFromDiagnostics(parseDiagnostics)
+		report.PrintReport()
+		return "", fmt.Errorf("falló análisis sintáctico")
 	}
 
 	report := core.AnalyzeSourceUnits(units)
 	if report.HasErrors() {
 		report.PrintReport()
-		os.Exit(1)
+		return "", fmt.Errorf("falló análisis semántico")
 	}
 
 	if trace {
@@ -594,7 +588,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	if err != nil {
 		fmt.Printf("Error de compilación nativa AOT (Lowering): %v\n", err)
 		fmt.Println("Sugerencia: La compilación nativa AOT requiere que las características del programa cuenten con representación en Joss Native IR.")
-		os.Exit(1)
+		return "", fmt.Errorf("error lowering IR: %w", err)
 	}
 
 	if trace {
@@ -604,7 +598,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	if err := verifier.Verify(irProg); err != nil {
 		fmt.Printf("Error de compilación nativa AOT (Verificación de IR): %v\n", err)
 		fmt.Println("Sugerencia: El IR generado contiene instrucciones o tipos no válidos para el backend nativo.")
-		os.Exit(1)
+		return "", fmt.Errorf("error verificación IR: %w", err)
 	}
 
 	bKind := native.BackendAuto
@@ -624,7 +618,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	}
 
 	if _, err := os.Stat("assets/css"); err == nil {
-		server.CompileStyles()
+		core.CompileStyles()
 	}
 
 	res, err := native.BuildProgram(irProg, native.BuildOptions{
@@ -638,7 +632,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	})
 	if err != nil {
 		fmt.Printf("Error generando ejecutable nativo: %v\n", err)
-		os.Exit(1)
+		return "", fmt.Errorf("error generación nativa: %w", err)
 	}
 
 	outDir := filepath.Dir(outExe)
@@ -662,6 +656,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 			fmt.Printf("  [trace] Artefacto ASM: %s\n", res.ASMPath)
 		}
 	}
+	return outExe, nil
 }
 
 func executeScript(filename string) {
@@ -689,10 +684,8 @@ func executeScript(filename string) {
 	// JIT Native In-Memory Execution (Unified Native JIT)
 	// Attempts compiling to machine code in RAM and running at native CPU speed.
 	// Falls back transparently to tree-walking interpreter if lowering encounters gaps.
-	// For "joss server start", the full Go web server (pkg/server) is used directly.
 	// =========================================================================
-	isServerCmd := len(os.Args) >= 2 && os.Args[1] == "server"
-	if !isServerCmd && os.Getenv("JOSS_NO_JIT") == "" && (runtime.GOARCH == "amd64" || runtime.GOARCH == "x86_64") {
+	if os.Getenv("JOSS_NO_JIT") == "" && (runtime.GOARCH == "amd64" || runtime.GOARCH == "x86_64") {
 		lowerer := ir.NewLowerer(report.Prepared, nil)
 		progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
 		if irProg, err := lowerer.LowerProgram(progName); err == nil {
@@ -700,15 +693,12 @@ func executeScript(filename string) {
 			if err := verifier.Verify(irProg); err == nil {
 				mcBuilder := native.NewMachineCodeBuilder(native.HostTarget(), false)
 				if jitExe, err := mcBuilder.CompileInMemory(irProg); err == nil {
-					if !mcBuilder.NeedsHostBridge() && !mcBuilder.UsesExtendedStdlib() {
-						defer jitExe.Free()
-						exitCode, _ := jitExe.Execute()
-						if exitCode != 0 {
-							os.Exit(exitCode)
-						}
-						return
+					defer jitExe.Free()
+					exitCode, _ := jitExe.Execute()
+					if exitCode != 0 {
+						os.Exit(exitCode)
 					}
-					jitExe.Free()
+					return
 				}
 			}
 		}

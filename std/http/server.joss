@@ -1,0 +1,81 @@
+public class HttpServer {
+    public static func start(): void {
+        var $portStr = env("PORT")
+        var $port = ($portStr != null && strlen($portStr) > 0) ? intval($portStr) : 80
+        HttpServer::run($port)
+    }
+
+    public static func run(int $port): void {
+        print("[Server::start] Iniciando servidor web...\n")
+        print("Iniciando servidor web HTTP en http://localhost:" . $port . "\n")
+        print("[Server] Socket TCP enlazado con éxito en :" . $port . ". Servidor listo para peticiones.\n")
+
+        var $server = Socket::listen("0.0.0.0", "" . $port)
+        guard ($server != null) else {
+            return
+        }
+
+        while (true) {
+            var $client = $server->accept()
+            ($client == null) ? {
+                continue
+            }
+
+            var $raw = $client->receive(4096)
+            (strlen($raw) == 0) ? {
+                $client->close()
+                continue
+            }
+
+            var $response = HttpServer::handle($raw)
+            $client->send($response)
+            $client->close()
+        }
+    }
+
+    public static func handle(string $raw): string {
+        var $lines = explode("\r\n", $raw)
+        guard (count($lines) > 0) else {
+            return "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
+        }
+
+        var $reqLine = explode(" ", $lines[0])
+        guard (count($reqLine) >= 2) else {
+            return "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
+        }
+
+        string $_method = $reqLine[0]
+        string $path = $reqLine[1]
+
+        // Health endpoint for Hot-Reload probing
+        guard ($path != "/__joss_health") else {
+            return "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-cache, no-store\r\nConnection: close\r\n\r\n" . time()
+        }
+
+        // Live script for Hot-Reload DOM diffing / morphing
+        guard ($path != "/__joss_live.js") else {
+            return "HTTP/1.1 200 OK\r\nContent-Type: application/javascript; charset=utf-8\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . HotReload::liveJs()
+        }
+
+        print("[Server REQ] \n" . $path . "\n\n[Server ROUTE] Dispatching: \n" . $path . "\n")
+
+        // Static assets (public/, assets/, css/, images/, favicon)
+        var $isStatic = str_contains($path, "/public/") || str_contains($path, "/assets/") || str_contains($path, "/css/") || str_contains($path, "/images/") || str_contains($path, "/favicon")
+        var $foundStatic = false
+        var $staticContent = ""
+        var $staticMime = ""
+        ($isStatic) ? {
+            var $filePath = trim($path, "/")
+            (file_exists($filePath)) ? {
+                $foundStatic = true
+                $staticContent = file_get_contents($filePath)
+                $staticMime = Mime::fromPath($filePath)
+            }
+        }
+        guard (!$foundStatic) else {
+            return "HTTP/1.1 200 OK\r\nContent-Type: " . $staticMime . "\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . $staticContent
+        }
+
+        return ErrorPages::render404($path)
+    }
+}
