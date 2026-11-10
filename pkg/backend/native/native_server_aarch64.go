@@ -71,123 +71,124 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitCall("__joss_os_alloc")
 	b.emitMovReg(regX21, regX0) // x21 = reqBuf
 
-	// Default port: 80 (Standard HTTP for Linux / Docker standalone)
-	b.emitLoadImm64(regX22, 80)
+	// 1. Load environment (.env / env.joss / embedded) into envMap
+	b.emitCall("__joss_load_env_file")
+
+	// Default port: 80 on Linux / Docker, 8000 on Darwin
+	if b.target.OS == "darwin" {
+		b.emitLoadImm64(regX22, 8000)
+	} else {
+		b.emitLoadImm64(regX22, 80)
+	}
 
 	atFdcwd := uint64(0xFFFFFFFFFFFFFF9C) // Linux: AT_FDCWD = -100
 	if b.target.OS == "darwin" {
 		atFdcwd = 0xFFFFFFFFFFFFFFFE // Darwin: AT_FDCWD = -2
 	}
 
-	// Try reading env.joss via openat(AT_FDCWD, "env.joss", O_RDONLY=0, 0)
-	b.emitLoadImm64(regX0, atFdcwd)
-	b.emitLoadStringAddr(regX1, "env.joss")
-	b.emitLoadImm64(regX2, 0)
-	b.emitLoadImm64(regX3, 0)
-	emitSyscallNum(sysOpenat)
+	// 2. Check OS environment /proc/self/environ on Linux
+	if b.target.OS == "linux" {
+		b.emitLoadImm64(regX0, atFdcwd)
+		b.emitLoadStringAddr(regX1, "/proc/self/environ")
+		b.emitLoadImm64(regX2, 0)
+		b.emitLoadImm64(regX3, 0)
+		emitSyscallNum(sysOpenat)
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condLT, ".srv_check_env_map")
+		b.emitMovReg(regX9, regX0) // x9 = fd
+
+		// read(fd, reqBuf, 4096)
+		b.emitMovReg(regX0, regX9)
+		b.emitMovReg(regX1, regX21)
+		b.emitLoadImm64(regX2, 4096)
+		emitSyscallNum(sysRead)
+		b.emitMovReg(regX10, regX0) // x10 = bytes read
+
+		// close(fd)
+		b.emitMovReg(regX0, regX9)
+		emitSyscallNum(sysClose)
+
+		b.emitCmp(regX10, regXZR)
+		b.emitBranchCond(condLE, ".srv_check_env_map")
+
+		// Scan for "PORT=" with strict boundary (start of buf or \0)
+		b.emitMovReg(regX1, regX21)
+		b.emitAdd(regX2, regX21, regX10)
+
+		b.defineLabel(".srv_proc_scan_loop")
+		b.emitCmp(regX1, regX2)
+		b.emitBranchCond(condGE, ".srv_check_env_map")
+
+		b.emitCmp(regX1, regX21)
+		b.emitBranchCond(condEQ, ".srv_proc_check_port")
+		b.emitSubImm(regX0, regX1, 1)
+		b.emitLdrb(regX0, regX0, 0)
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condNE, ".srv_proc_scan_next")
+
+		b.defineLabel(".srv_proc_check_port")
+		b.emitLdrb(regX0, regX1, 0)
+		b.emitCmpImm(regX0, 80) // 'P'
+		b.emitBranchCond(condNE, ".srv_proc_scan_next")
+		b.emitLdrb(regX0, regX1, 1)
+		b.emitCmpImm(regX0, 79) // 'O'
+		b.emitBranchCond(condNE, ".srv_proc_scan_next")
+		b.emitLdrb(regX0, regX1, 2)
+		b.emitCmpImm(regX0, 82) // 'R'
+		b.emitBranchCond(condNE, ".srv_proc_scan_next")
+		b.emitLdrb(regX0, regX1, 3)
+		b.emitCmpImm(regX0, 84) // 'T'
+		b.emitBranchCond(condNE, ".srv_proc_scan_next")
+		b.emitLdrb(regX0, regX1, 4)
+		b.emitCmpImm(regX0, 61) // '='
+		b.emitBranchCond(condNE, ".srv_proc_scan_next")
+
+		// Found PORT=, advance past '='
+		b.emitAddImm(regX0, regX1, 5)
+		b.emitBranch(".srv_parse_port_str")
+
+		b.defineLabel(".srv_proc_scan_next")
+		b.emitAddImm(regX1, regX1, 1)
+		b.emitBranch(".srv_proc_scan_loop")
+	}
+
+	b.defineLabel(".srv_check_env_map")
+	// 3. Lookup "PORT" in envMap
+	b.emitLoadDataAddr(regX1, dataOffEnvMap)
+	b.emitLdr(regX0, regX1, 0)
 	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condGE, ".srv_read_env_fd")
-
-	// Try reading .env
-	b.emitLoadImm64(regX0, atFdcwd)
-	b.emitLoadStringAddr(regX1, ".env")
-	b.emitLoadImm64(regX2, 0)
-	b.emitLoadImm64(regX3, 0)
-	emitSyscallNum(sysOpenat)
+	b.emitBranchCond(condEQ, ".srv_port_ready")
+	b.emitLoadStringAddr(regX1, "PORT")
+	b.emitCall("joss_map_get_i64")
 	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condGE, ".srv_read_env_fd")
+	b.emitBranchCond(condNE, ".srv_parse_port_str")
 
-	// Try reading /proc/self/environ
-	b.emitLoadImm64(regX0, atFdcwd)
-	b.emitLoadStringAddr(regX1, "/proc/self/environ")
-	b.emitLoadImm64(regX2, 0)
-	b.emitLoadImm64(regX3, 0)
-	emitSyscallNum(sysOpenat)
+	// 4. Lookup "JOSS_PORT" in envMap
+	b.emitLoadDataAddr(regX1, dataOffEnvMap)
+	b.emitLdr(regX0, regX1, 0)
+	b.emitLoadStringAddr(regX1, "JOSS_PORT")
+	b.emitCall("joss_map_get_i64")
 	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLT, ".srv_port_ready")
+	b.emitBranchCond(condNE, ".srv_parse_port_str")
+	b.emitBranch(".srv_port_ready")
 
-	b.defineLabel(".srv_read_env_fd")
-	b.emitMovReg(regX9, regX0) // x9 = fd
-
-	// read(fd, reqBuf, 4096)
-	b.emitMovReg(regX0, regX9)
-	b.emitMovReg(regX1, regX21)
-	b.emitLoadImm64(regX2, 4096)
-	emitSyscallNum(sysRead)
-	b.emitMovReg(regX10, regX0) // x10 = bytes read
-
-	// close(fd)
-	b.emitMovReg(regX0, regX9)
-	emitSyscallNum(sysClose)
-
-	b.emitCmp(regX10, regXZR)
-	b.emitBranchCond(condLE, ".srv_port_ready")
-
-	// Null-terminate buffer at reqBuf + x10
-	b.emitAdd(regX1, regX21, regX10)
-	b.emitStrb(regXZR, regX1, 0)
-
-	// Scan buffer for "PORT="
-	b.emitMovReg(regX1, regX21)
-	b.emitAdd(regX2, regX21, regX10)
-
-	b.defineLabel(".srv_env_scan_loop")
-	b.emitCmp(regX1, regX2)
-	b.emitBranchCond(condGE, ".srv_port_ready")
-
-	// Check "PORT="
-	b.emitLdrb(regX0, regX1, 0)
-	b.emitCmpImm(regX0, 80) // 'P'
-	b.emitBranchCond(condNE, ".srv_env_scan_next")
-
-	b.emitLdrb(regX0, regX1, 1)
-	b.emitCmpImm(regX0, 79) // 'O'
-	b.emitBranchCond(condNE, ".srv_env_scan_next")
-
-	b.emitLdrb(regX0, regX1, 2)
-	b.emitCmpImm(regX0, 82) // 'R'
-	b.emitBranchCond(condNE, ".srv_env_scan_next")
-
-	b.emitLdrb(regX0, regX1, 3)
-	b.emitCmpImm(regX0, 84) // 'T'
-	b.emitBranchCond(condNE, ".srv_env_scan_next")
-
-	b.emitLdrb(regX0, regX1, 4)
-	b.emitCmpImm(regX0, 61) // '='
-	b.emitBranchCond(condNE, ".srv_env_scan_next")
-
-	// Match! Skip "PORT="
-	b.emitAddImm(regX1, regX1, 5)
-
-	// Skip quote if present ('"' or '\'')
-	b.emitLdrb(regX0, regX1, 0)
-	b.emitCmpImm(regX0, 34) // '"'
-	b.emitBranchCond(condEQ, ".srv_skip_quote")
-	b.emitCmpImm(regX0, 39) // '\''
-	b.emitBranchCond(condNE, ".srv_parse_port_digits")
-	b.defineLabel(".srv_skip_quote")
-	b.emitAddImm(regX1, regX1, 1)
-
-	// Parse digits
-	b.defineLabel(".srv_parse_port_digits")
+	b.defineLabel(".srv_parse_port_str")
+	b.emitMovReg(regX1, regX0)
 	b.emitLoadImm64(regX3, 0)
-
-	b.defineLabel(".srv_port_digit_loop")
+	b.defineLabel(".srv_str_port_loop")
 	b.emitLdrb(regX0, regX1, 0)
 	b.emitCmpImm(regX0, 48) // '0'
-	b.emitBranchCond(condLT, ".srv_port_digits_done")
+	b.emitBranchCond(condLT, ".srv_str_port_done")
 	b.emitCmpImm(regX0, 57) // '9'
-	b.emitBranchCond(condGT, ".srv_port_digits_done")
-
+	b.emitBranchCond(condGT, ".srv_str_port_done")
 	b.emitSubImm(regX0, regX0, 48)
 	b.emitLoadImm64(regX4, 10)
 	b.emitMul(regX3, regX3, regX4)
 	b.emitAdd(regX3, regX3, regX0)
-
 	b.emitAddImm(regX1, regX1, 1)
-	b.emitBranch(".srv_port_digit_loop")
+	b.emitBranch(".srv_str_port_loop")
 
-	b.defineLabel(".srv_port_digits_done")
+	b.defineLabel(".srv_str_port_done")
 	b.emitCmp(regX3, regXZR)
 	b.emitBranchCond(condLE, ".srv_port_ready")
 	b.emitLoadImm64(regX4, 65536)
@@ -195,10 +196,6 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitBranchCond(condGE, ".srv_port_ready")
 	b.emitMovReg(regX22, regX3)
 	b.emitBranch(".srv_port_ready")
-
-	b.defineLabel(".srv_env_scan_next")
-	b.emitAddImm(regX1, regX1, 1)
-	b.emitBranch(".srv_env_scan_loop")
 
 	b.defineLabel(".srv_port_ready")
 
@@ -251,7 +248,7 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitCmp(regX22, regX3)
 	b.emitBranchCond(condEQ, ".srv_exit_fail")
 
-	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] ADVERTENCIA: No se pudo enlazar el puerto principal (posible falta de permisos para puerto < 1024), intentando fallback en puerto 8000...\n")
+	b.emitLoadStringAddr(regX0, "[Joss Native Server] ADVERTENCIA: No se pudo enlazar el puerto principal (posible falta de permisos para puerto < 1024), intentando fallback en puerto 8000...\n")
 	b.emitCall("joss_print_string")
 
 	// Close old socket that failed to bind before creating a new one
@@ -299,10 +296,22 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitLoadImm64(regX3, 80)
 	b.emitCmp(regX22, regX3)
 	b.emitBranchCond(condEQ, ".srv_print_port_80")
-	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:8000 (Ctrl+C para detener)\n")
+	b.emitLoadImm64(regX3, 8080)
+	b.emitCmp(regX22, regX3)
+	b.emitBranchCond(condEQ, ".srv_print_port_8080")
+	b.emitLoadImm64(regX3, 3000)
+	b.emitCmp(regX22, regX3)
+	b.emitBranchCond(condEQ, ".srv_print_port_3000")
+	b.emitLoadStringAddr(regX0, "[Joss Native Server] Escuchando en http://localhost:8000 (Ctrl+C para detener)\n")
 	b.emitBranch(".srv_print_port_done")
 	b.defineLabel(".srv_print_port_80")
-	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:80 (Ctrl+C para detener)\n")
+	b.emitLoadStringAddr(regX0, "[Joss Native Server] Escuchando en http://localhost:80 (Ctrl+C para detener)\n")
+	b.emitBranch(".srv_print_port_done")
+	b.defineLabel(".srv_print_port_8080")
+	b.emitLoadStringAddr(regX0, "[Joss Native Server] Escuchando en http://localhost:8080 (Ctrl+C para detener)\n")
+	b.emitBranch(".srv_print_port_done")
+	b.defineLabel(".srv_print_port_3000")
+	b.emitLoadStringAddr(regX0, "[Joss Native Server] Escuchando en http://localhost:3000 (Ctrl+C para detener)\n")
 	b.defineLabel(".srv_print_port_done")
 	b.emitCall("joss_print_string")
 

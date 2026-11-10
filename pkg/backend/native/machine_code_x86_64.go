@@ -69,6 +69,7 @@ type MachineCodeBuilder struct {
 	relocs             []machineReloc
 	asmListing         bytes.Buffer
 	inlineLabelID      int
+	embeddedEnv        string
 	cachedRAXVal       ir.Value
 	cachedXMM0Val      ir.Value
 	cachedRCXVal       ir.Value
@@ -92,10 +93,11 @@ func NewMachineCodeBuilder(target Target, guiMode bool) *MachineCodeBuilder {
 		target = HostTarget()
 	}
 	b := &MachineCodeBuilder{
-		target:     target,
-		guiMode:    guiMode,
-		stringPool: make(map[string]uint32),
-		labels:     make(map[string]int),
+		target:      target,
+		guiMode:     guiMode,
+		embeddedEnv: readBuildTimeEnv(),
+		stringPool:  make(map[string]uint32),
+		labels:      make(map[string]int),
 	}
 	// Pre-intern common runtime strings
 	b.internString("")

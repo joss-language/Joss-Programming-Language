@@ -347,13 +347,34 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.emitLeaRCXString("../.env")
 	b.emitCallLabel("fn_file_get_contents")
 	b.emitBytes(0x48, 0x85, 0xC0)
-	b.emitJeLabel(".env_load_done")
+	b.emitJeLabel(".env_try_embedded")
 	b.emitBytes(0x80, 0x38, 0x00)
-	b.emitJeLabel(".env_load_done")
+	b.emitJeLabel(".env_try_embedded")
 	b.emitBytes(0x48, 0x89, 0xC3) // mov rbx, rax
 	b.emitLeaRCXString("[Security] Cargando entorno...\n[Security] Entorno cargado desde '.env'")
 	b.emitCallLabel("joss_print_string")
 	b.emitBytes(0x48, 0x89, 0xD8) // mov rax, rbx
+	b.emitJmpLabel(".env_parse_buf")
+
+	// 5. Try embedded build-time environment
+	b.defineLabel(".env_try_embedded")
+	if b.embeddedEnv != "" {
+		b.emitBytes(0x48, 0xC7, 0xC1) // mov rcx, len+1
+		b.emitU32(uint32(len(b.embeddedEnv) + 1))
+		b.emitCallLabel("__joss_os_alloc")
+		b.emitBytes(0x48, 0x89, 0xC3) // mov rbx, rax (dest in rbx)
+		b.emitBytes(0x48, 0x89, 0xC7) // mov rdi, rax (dest in rdi)
+		b.emitLeaRSIString(b.embeddedEnv)
+		b.emitBytes(0xB9) // mov ecx, len+1
+		b.emitU32(uint32(len(b.embeddedEnv) + 1))
+		b.emitBytes(0xF3, 0xA4) // rep movsb
+		b.emitLeaRCXString("[Security] Cargando entorno...\n[Security] Entorno cargado desde configuración embebida")
+		b.emitCallLabel("joss_print_string")
+		b.emitBytes(0x48, 0x89, 0xD8) // mov rax, rbx
+		b.emitJmpLabel(".env_parse_buf")
+	} else {
+		b.emitJmpLabel(".env_load_done")
+	}
 
 	b.defineLabel(".env_parse_buf")
 	b.emitBytes(0x48, 0x89, 0xC3) // mov rbx, rax (cursor)

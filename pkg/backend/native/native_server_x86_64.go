@@ -55,7 +55,7 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0xC7, 0x45, 0xA4, 0x00, 0x00, 0x00, 0x00)       // sin_addr = INADDR_ANY (0)
 		b.emitBytes(0x48, 0xC7, 0x45, 0xA8, 0x00, 0x00, 0x00, 0x00) // sin_zero = 0
 
-		// Check OS environment variable "PORT"
+		// 1. Check OS environment variable "PORT"
 		b.emitBytes(0x4C, 0x89, 0xF9) // mov rcx, r15 (hKernel32)
 		b.emitLeaRDXString("GetEnvironmentVariableA")
 		b.emitCallIAT(IATGetProcAddress)
@@ -72,7 +72,7 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitJmpLabel(".srv_parse_port")
 
 		b.defineLabel(".srv_check_env_map_port")
-		// Lookup PORT in envMap (dataOffEnvMap)
+		// 2. Lookup PORT in envMap (dataOffEnvMap)
 		b.emitMovRCXData(dataOffEnvMap)
 		b.emitBytes(0x48, 0x85, 0xC9)
 		b.emitJeLabel(".srv_port_done")
@@ -131,17 +131,17 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitJmpLabel(".srv_check_smoke_only")
 
 		b.defineLabel(".srv_announce_port_80")
-		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\nIniciando servidor web HTTP en http://localhost:80\n[Server] Socket TCP enlazado con éxito en :80. Servidor listo para peticiones.")
+		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\n[Joss Native Server] Escuchando en http://localhost:80 (Ctrl+C para detener)\n[Server] Socket TCP enlazado con éxito en :80. Servidor listo para peticiones.")
 		b.emitCallLabel("joss_print_string")
 		b.emitJmpLabel(".srv_check_smoke_only")
 
 		b.defineLabel(".srv_announce_port_8080")
-		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\nIniciando servidor web HTTP en http://localhost:8080\n[Server] Socket TCP enlazado con éxito en :8080. Servidor listo para peticiones.")
+		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\n[Joss Native Server] Escuchando en http://localhost:8080 (Ctrl+C para detener)\n[Server] Socket TCP enlazado con éxito en :8080. Servidor listo para peticiones.")
 		b.emitCallLabel("joss_print_string")
 		b.emitJmpLabel(".srv_check_smoke_only")
 
 		b.defineLabel(".srv_announce_port_3000")
-		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\nIniciando servidor web HTTP en http://localhost:3000\n[Server] Socket TCP enlazado con éxito en :3000. Servidor listo para peticiones.")
+		b.emitLeaRCXString("[Server::start] Iniciando servidor web...\n[Joss Native Server] Escuchando en http://localhost:3000 (Ctrl+C para detener)\n[Server] Socket TCP enlazado con éxito en :3000. Servidor listo para peticiones.")
 		b.emitCallLabel("joss_print_string")
 
 		b.defineLabel(".srv_check_smoke_only")
@@ -825,12 +825,6 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x48, 0x81, 0xEC, 0x98, 0x00, 0x00, 0x00)             // sub rsp, 152
 
 		b.emitCallLabel("__joss_load_env_file")
-		if b.target.OS == "darwin" {
-			b.emitLeaRCXString("[Joss Native Server] Escuchando en http://localhost:8000 (Ctrl+C para detener)\n")
-		} else {
-			b.emitLeaRCXString("[Joss Native Server] Escuchando en http://localhost:80 (Ctrl+C para detener)\n")
-		}
-		b.emitCallLabel("joss_print_string")
 
 		// Allocate 16384-byte request buffer
 		b.emitBytes(0xB9, 0x00, 0x40, 0x00, 0x00) // mov ecx, 16384
@@ -877,7 +871,13 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitLeaRDXString("PORT")
 		b.emitCallLabel("joss_map_get_i64")
 		b.emitBytes(0x48, 0x85, 0xC0)
+		b.emitJneLabel(".srv_posix_parse_port")
+		b.emitMovRCXData(dataOffEnvMap)
+		b.emitLeaRDXString("JOSS_PORT")
+		b.emitCallLabel("joss_map_get_i64")
+		b.emitBytes(0x48, 0x85, 0xC0)
 		b.emitJeLabel(".srv_posix_port_done")
+		b.defineLabel(".srv_posix_parse_port")
 		b.emitBytes(0x48, 0x89, 0xC1)
 		b.emitBytes(0x31, 0xD2)
 		b.defineLabel(".srv_posix_port_loop")
@@ -905,13 +905,80 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0xB8)
 		b.emitU32(sysBind)
 		b.emitBytes(0x0F, 0x05) // syscall
+		b.emitBytes(0x48, 0x85, 0xC0)
+		b.emitJnsLabel(".srv_posix_listen")
 
+		// Fallback: if bind failed and port wasn't 8000, try 8000
+		b.emitBytes(0x66, 0x81, 0x7D, 0xA2, 0x40, 0x1F) // cmp word ptr [rbp - 94], 0x1F40 (8000)
+		b.emitJeLabel(".srv_posix_exit")
+		b.emitLeaRCXString("[Joss Native Server] ADVERTENCIA: No se pudo enlazar el puerto principal (posible falta de permisos para puerto < 1024), intentando fallback en puerto 8000...\n")
+		b.emitCallLabel("joss_print_string")
+		b.emitBytes(0x4C, 0x89, 0xEF) // mov rdi, r13
+		b.emitBytes(0xB8)
+		b.emitU32(sysClose)
+		b.emitBytes(0x0F, 0x05)
+		b.emitBytes(0xBF, 0x02, 0x00, 0x00, 0x00) // mov edi, 2
+		b.emitBytes(0xBE, 0x01, 0x00, 0x00, 0x00) // mov esi, 1
+		b.emitBytes(0x31, 0xD2)                   // xor edx, edx
+		b.emitBytes(0xB8)
+		b.emitU32(sysSocket)
+		b.emitBytes(0x0F, 0x05)
+		b.emitBytes(0x48, 0x85, 0xC0)
+		b.emitJlLabel(".srv_posix_exit")
+		b.emitBytes(0x49, 0x89, 0xC5) // mov r13, rax
+		b.emitBytes(0xC7, 0x45, 0x98, 0x01, 0x00, 0x00, 0x00)
+		b.emitBytes(0x4C, 0x89, 0xEF)
+		b.emitBytes(0xBE)
+		b.emitU32(solSocket)
+		b.emitBytes(0xBA)
+		b.emitU32(soReuseAddr)
+		b.emitBytes(0x4C, 0x8D, 0x55, 0x98)
+		b.emitBytes(0x41, 0xB8, 0x04, 0x00, 0x00, 0x00)
+		b.emitBytes(0xB8)
+		b.emitU32(sysSetsockopt)
+		b.emitBytes(0x0F, 0x05)
+		b.emitBytes(0x66, 0xC7, 0x45, 0xA2, 0x1F, 0x40) // mov word ptr [rbp - 94], 0x401F (8000)
+		b.emitBytes(0x4C, 0x89, 0xEF)
+		b.emitBytes(0x48, 0x8D, 0x75, 0xA0)
+		b.emitBytes(0xBA, 0x10, 0x00, 0x00, 0x00)
+		b.emitBytes(0xB8)
+		b.emitU32(sysBind)
+		b.emitBytes(0x0F, 0x05)
+		b.emitBytes(0x48, 0x85, 0xC0)
+		b.emitJlLabel(".srv_posix_exit")
+
+		b.defineLabel(".srv_posix_listen")
 		// listen(listenSock, 128)
 		b.emitBytes(0x4C, 0x89, 0xEF)             // mov rdi, r13
 		b.emitBytes(0xBE, 0x80, 0x00, 0x00, 0x00) // mov esi, 128
 		b.emitBytes(0xB8)
 		b.emitU32(sysListen)
 		b.emitBytes(0x0F, 0x05) // syscall
+
+		// Dynamic port announcement matching actual port in sockaddr
+		b.emitBytes(0x66, 0x81, 0x7D, 0xA2, 0x00, 0x50) // cmp word ptr [rbp - 94], 0x5000 (port 80)
+		b.emitJeLabel(".srv_posix_announce_80")
+		b.emitBytes(0x66, 0x81, 0x7D, 0xA2, 0x1F, 0x90) // cmp word ptr [rbp - 94], 0x901F (port 8080)
+		b.emitJeLabel(".srv_posix_announce_8080")
+		b.emitBytes(0x66, 0x81, 0x7D, 0xA2, 0x0B, 0xB8) // cmp word ptr [rbp - 94], 0xB80B (port 3000)
+		b.emitJeLabel(".srv_posix_announce_3000")
+		b.emitLeaRCXString("[Joss Native Server] Escuchando en http://localhost:8000 (Ctrl+C para detener)\n")
+		b.emitCallLabel("joss_print_string")
+		b.emitJmpLabel(".srv_posix_accept_loop")
+
+		b.defineLabel(".srv_posix_announce_80")
+		b.emitLeaRCXString("[Joss Native Server] Escuchando en http://localhost:80 (Ctrl+C para detener)\n")
+		b.emitCallLabel("joss_print_string")
+		b.emitJmpLabel(".srv_posix_accept_loop")
+
+		b.defineLabel(".srv_posix_announce_8080")
+		b.emitLeaRCXString("[Joss Native Server] Escuchando en http://localhost:8080 (Ctrl+C para detener)\n")
+		b.emitCallLabel("joss_print_string")
+		b.emitJmpLabel(".srv_posix_accept_loop")
+
+		b.defineLabel(".srv_posix_announce_3000")
+		b.emitLeaRCXString("[Joss Native Server] Escuchando en http://localhost:3000 (Ctrl+C para detener)\n")
+		b.emitCallLabel("joss_print_string")
 
 		// Accept loop
 		b.defineLabel(".srv_posix_accept_loop")

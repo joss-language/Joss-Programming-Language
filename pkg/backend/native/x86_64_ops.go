@@ -256,3 +256,12 @@ func (b *MachineCodeBuilder) emitLeaRDIString(s string) {
 	b.emitU32(0)
 	b.relocs = append(b.relocs, machineReloc{kind: relocROData, patchOffset: patchOff, targetOff: off})
 }
+
+func (b *MachineCodeBuilder) emitLeaRSIString(s string) {
+	off := b.internString(s)
+	b.asmListing.WriteString(fmt.Sprintf("    lea rsi, [rip + str_%d] ; %q\n", off, s))
+	b.emitBytes(0x48, 0x8D, 0x35)
+	patchOff := b.text.Len()
+	b.emitU32(0)
+	b.relocs = append(b.relocs, machineReloc{kind: relocROData, patchOffset: patchOff, targetOff: off})
+}

@@ -98,15 +98,17 @@ type ARM64Builder struct {
 	asmListing         strings.Builder
 	needsHostBridge    bool
 	usesExtendedStdlib bool
+	embeddedEnv        string
 }
 
 // NewARM64Builder inicializa un generador de código AArch64 puro.
 func NewARM64Builder(target Target, guiMode bool) *ARM64Builder {
 	b := &ARM64Builder{
-		target:     target,
-		guiMode:    guiMode,
-		stringPool: make(map[string]uint32),
-		labels:     make(map[string]int),
+		target:      target,
+		guiMode:     guiMode,
+		embeddedEnv: readBuildTimeEnv(),
+		stringPool:  make(map[string]uint32),
+		labels:      make(map[string]int),
 	}
 	b.internString("")
 	b.internString("\n")
@@ -1466,14 +1468,268 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.defineLabel("fn_html_escape")
 	b.emitBranch("joss_to_string")
 
-	b.defineLabel("fn_env")
+	// __joss_load_env_file: Loads env.joss, .env, or embeddedEnv into dataOffEnvMap
+	b.defineLabel("__joss_load_env_file")
+	b.emitProlog(80)
+	b.emitStr(regX19, regX29, 16) // envMap
+	b.emitStr(regX20, regX29, 24) // cursor / buf
+	b.emitStr(regX21, regX29, 32) // keyStart
+	b.emitStr(regX22, regX29, 40) // valStart
+	b.emitStr(regX23, regX29, 48)
+
+	// Check if dataOffEnvMap is already loaded
+	b.emitLoadDataAddr(regX1, dataOffEnvMap)
+	b.emitLdr(regX0, regX1, 0)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condNE, ".arm64_env_load_done")
+
+	// Create new map
+	b.emitCall("joss_map_new")
+	b.emitLoadDataAddr(regX1, dataOffEnvMap)
+	b.emitStr(regX0, regX1, 0)
+	b.emitMovReg(regX19, regX0) // x19 = envMap
+
+	// 1. Try env.joss
+	b.emitLoadStringAddr(regX0, "env.joss")
+	b.emitCall("fn_file_get_contents")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_try_dotenv")
+	b.emitLdrb(regX1, regX0, 0)
 	b.emitCmp(regX1, regXZR)
-	b.emitBranchCond(condEQ, ".arm64_env_empty")
-	b.emitMovReg(regX0, regX1)
-	b.emitRet(regX30)
-	b.defineLabel(".arm64_env_empty")
+	b.emitBranchCond(condEQ, ".arm64_env_try_dotenv")
+	b.emitMovReg(regX20, regX0)
+	b.emitLoadStringAddr(regX0, "[Security] Cargando entorno...\n[Security] Entorno cargado desde 'env.joss'\n")
+	b.emitCall("joss_print_string")
+	b.emitBranch(".arm64_env_parse_buf")
+
+	// 2. Try .env
+	b.defineLabel(".arm64_env_try_dotenv")
+	b.emitLoadStringAddr(regX0, ".env")
+	b.emitCall("fn_file_get_contents")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_try_parent_joss")
+	b.emitLdrb(regX1, regX0, 0)
+	b.emitCmp(regX1, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_try_parent_joss")
+	b.emitMovReg(regX20, regX0)
+	b.emitLoadStringAddr(regX0, "[Security] Cargando entorno...\n[Security] Entorno cargado desde '.env'\n")
+	b.emitCall("joss_print_string")
+	b.emitBranch(".arm64_env_parse_buf")
+
+	// 3. Try ../env.joss
+	b.defineLabel(".arm64_env_try_parent_joss")
+	b.emitLoadStringAddr(regX0, "../env.joss")
+	b.emitCall("fn_file_get_contents")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_try_parent_dotenv")
+	b.emitLdrb(regX1, regX0, 0)
+	b.emitCmp(regX1, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_try_parent_dotenv")
+	b.emitMovReg(regX20, regX0)
+	b.emitLoadStringAddr(regX0, "[Security] Cargando entorno...\n[Security] Entorno cargado desde 'env.joss'\n")
+	b.emitCall("joss_print_string")
+	b.emitBranch(".arm64_env_parse_buf")
+
+	// 4. Try ../.env
+	b.defineLabel(".arm64_env_try_parent_dotenv")
+	b.emitLoadStringAddr(regX0, "../.env")
+	b.emitCall("fn_file_get_contents")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_try_embedded")
+	b.emitLdrb(regX1, regX0, 0)
+	b.emitCmp(regX1, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_try_embedded")
+	b.emitMovReg(regX20, regX0)
+	b.emitLoadStringAddr(regX0, "[Security] Cargando entorno...\n[Security] Entorno cargado desde '.env'\n")
+	b.emitCall("joss_print_string")
+	b.emitBranch(".arm64_env_parse_buf")
+
+	// 5. Embedded fallback
+	b.defineLabel(".arm64_env_try_embedded")
+	if b.embeddedEnv != "" {
+		b.emitLoadImm64(regX0, uint64(len(b.embeddedEnv)+1))
+		b.emitCall("__joss_os_alloc")
+		b.emitMovReg(regX20, regX0)
+		b.emitLoadStringAddr(regX1, b.embeddedEnv)
+		b.emitLoadImm64(regX2, uint64(len(b.embeddedEnv)+1))
+		b.defineLabel(".arm64_env_copy_loop")
+		b.emitCmp(regX2, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_env_copy_done")
+		b.emitLdrb(regX3, regX1, 0)
+		b.emitStrb(regX3, regX0, 0)
+		b.emitAddImm(regX0, regX0, 1)
+		b.emitAddImm(regX1, regX1, 1)
+		b.emitSubImm(regX2, regX2, 1)
+		b.emitBranch(".arm64_env_copy_loop")
+		b.defineLabel(".arm64_env_copy_done")
+		b.emitLoadStringAddr(regX0, "[Security] Cargando entorno...\n[Security] Entorno cargado desde configuración embebida\n")
+		b.emitCall("joss_print_string")
+		b.emitBranch(".arm64_env_parse_buf")
+	} else {
+		b.emitBranch(".arm64_env_load_done")
+	}
+
+	b.defineLabel(".arm64_env_parse_buf")
+	// Parse lines from buffer in regX20
+	b.defineLabel(".arm64_env_parse_line")
+	b.emitLdrb(regX0, regX20, 0)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_load_done")
+
+	// Skip whitespace & comments
+	b.defineLabel(".arm64_env_skip_ws")
+	b.emitLdrb(regX0, regX20, 0)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_load_done")
+	b.emitCmpImm(regX0, 32) // ' '
+	b.emitBranchCond(condEQ, ".arm64_env_adv_skip")
+	b.emitCmpImm(regX0, 9) // '\t'
+	b.emitBranchCond(condEQ, ".arm64_env_adv_skip")
+	b.emitCmpImm(regX0, 13) // '\r'
+	b.emitBranchCond(condEQ, ".arm64_env_adv_skip")
+	b.emitCmpImm(regX0, 10) // '\n'
+	b.emitBranchCond(condEQ, ".arm64_env_adv_skip")
+	b.emitCmpImm(regX0, 35) // '#'
+	b.emitBranchCond(condEQ, ".arm64_env_skip_to_nl")
+	b.emitBranch(".arm64_env_have_key")
+
+	b.defineLabel(".arm64_env_adv_skip")
+	b.emitAddImm(regX20, regX20, 1)
+	b.emitBranch(".arm64_env_skip_ws")
+
+	b.defineLabel(".arm64_env_skip_to_nl")
+	b.emitLdrb(regX0, regX20, 0)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_load_done")
+	b.emitCmpImm(regX0, 10) // '\n'
+	b.emitBranchCond(condEQ, ".arm64_env_adv_skip")
+	b.emitAddImm(regX20, regX20, 1)
+	b.emitBranch(".arm64_env_skip_to_nl")
+
+	b.defineLabel(".arm64_env_have_key")
+	b.emitMovReg(regX21, regX20) // keyStart in x21
+
+	// Scan until '='
+	b.defineLabel(".arm64_env_find_eq")
+	b.emitLdrb(regX0, regX20, 0)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_load_done")
+	b.emitCmpImm(regX0, 61) // '='
+	b.emitBranchCond(condEQ, ".arm64_env_found_eq")
+	b.emitCmpImm(regX0, 10) // '\n' before '=' -> invalid line, skip
+	b.emitBranchCond(condEQ, ".arm64_env_adv_skip")
+	b.emitAddImm(regX20, regX20, 1)
+	b.emitBranch(".arm64_env_find_eq")
+
+	b.defineLabel(".arm64_env_found_eq")
+	b.emitStrb(regXZR, regX20, 0)   // null-terminate key
+	b.emitAddImm(regX20, regX20, 1) // x20 points to val
+
+	// Check if quoted with '"' or '\''
+	b.emitLdrb(regX0, regX20, 0)
+	b.emitCmpImm(regX0, 34) // '"'
+	b.emitBranchCond(condEQ, ".arm64_env_quoted_dquote")
+	b.emitCmpImm(regX0, 39) // '\''
+	b.emitBranchCond(condEQ, ".arm64_env_quoted_squote")
+	b.emitBranch(".arm64_env_unquoted_val")
+
+	b.defineLabel(".arm64_env_quoted_dquote")
+	b.emitAddImm(regX20, regX20, 1) // skip '"'
+	b.emitMovReg(regX22, regX20)    // valStart in x22
+	b.defineLabel(".arm64_env_find_dquote_end")
+	b.emitLdrb(regX0, regX20, 0)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_load_done")
+	b.emitCmpImm(regX0, 34) // '"'
+	b.emitBranchCond(condEQ, ".arm64_env_found_quote_end")
+	b.emitAddImm(regX20, regX20, 1)
+	b.emitBranch(".arm64_env_find_dquote_end")
+
+	b.defineLabel(".arm64_env_quoted_squote")
+	b.emitAddImm(regX20, regX20, 1) // skip '\''
+	b.emitMovReg(regX22, regX20)    // valStart in x22
+	b.defineLabel(".arm64_env_find_squote_end")
+	b.emitLdrb(regX0, regX20, 0)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_load_done")
+	b.emitCmpImm(regX0, 39) // '\''
+	b.emitBranchCond(condEQ, ".arm64_env_found_quote_end")
+	b.emitAddImm(regX20, regX20, 1)
+	b.emitBranch(".arm64_env_find_squote_end")
+
+	b.defineLabel(".arm64_env_found_quote_end")
+	b.emitStrb(regXZR, regX20, 0) // null-terminate val
+	b.emitAddImm(regX20, regX20, 1)
+	b.emitBranch(".arm64_env_store_pair")
+
+	b.defineLabel(".arm64_env_unquoted_val")
+	b.emitMovReg(regX22, regX20) // valStart in x22
+	b.defineLabel(".arm64_env_find_unquoted_end")
+	b.emitLdrb(regX0, regX20, 0)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_found_unquoted_end")
+	b.emitCmpImm(regX0, 13) // '\r'
+	b.emitBranchCond(condEQ, ".arm64_env_found_unquoted_end")
+	b.emitCmpImm(regX0, 10) // '\n'
+	b.emitBranchCond(condEQ, ".arm64_env_found_unquoted_end")
+	b.emitCmpImm(regX0, 32) // ' '
+	b.emitBranchCond(condEQ, ".arm64_env_found_unquoted_end")
+	b.emitCmpImm(regX0, 35) // '#'
+	b.emitBranchCond(condEQ, ".arm64_env_found_unquoted_end")
+	b.emitAddImm(regX20, regX20, 1)
+	b.emitBranch(".arm64_env_find_unquoted_end")
+
+	b.defineLabel(".arm64_env_found_unquoted_end")
+	b.emitStrb(regXZR, regX20, 0) // null-terminate val
+	b.emitAddImm(regX20, regX20, 1)
+
+	b.defineLabel(".arm64_env_store_pair")
+	// joss_map_set_i64(x0 = envMap, x1 = keyStart, x2 = valStart)
+	b.emitMovReg(regX0, regX19)
+	b.emitMovReg(regX1, regX21)
+	b.emitMovReg(regX2, regX22)
+	b.emitCall("joss_map_set_i64")
+	b.emitBranch(".arm64_env_parse_line")
+
+	b.defineLabel(".arm64_env_load_done")
+	b.emitLdr(regX19, regX29, 16)
+	b.emitLdr(regX20, regX29, 24)
+	b.emitLdr(regX21, regX29, 32)
+	b.emitLdr(regX22, regX29, 40)
+	b.emitLdr(regX23, regX29, 48)
+	b.emitEpilog(80)
+
+	// fn_env(x0 = key, x1 = defaultVal) -> x0 = val from loaded environment map, or defaultVal
+	b.defineLabel("fn_env")
+	b.emitProlog(32)
+	b.emitStr(regX0, regX29, 16) // key
+	b.emitStr(regX1, regX29, 24) // defaultVal
+
+	b.emitLoadDataAddr(regX1, dataOffEnvMap)
+	b.emitLdr(regX0, regX1, 0)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condNE, ".arm64_env_map_ready")
+	b.emitCall("__joss_load_env_file")
+
+	b.defineLabel(".arm64_env_map_ready")
+	b.emitLoadDataAddr(regX1, dataOffEnvMap)
+	b.emitLdr(regX0, regX1, 0)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_use_default")
+
+	b.emitLdr(regX1, regX29, 16) // key
+	b.emitCall("joss_map_get_i64")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_env_use_default")
+	b.emitEpilog(32)
+
+	b.defineLabel(".arm64_env_use_default")
+	b.emitLdr(regX0, regX29, 24) // defaultVal
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condNE, ".arm64_env_ret_default")
 	b.emitLoadStringAddr(regX0, "")
-	b.emitRet(regX30)
+	b.defineLabel(".arm64_env_ret_default")
+	b.emitEpilog(32)
 
 	b.defineLabel("fn_request")
 	b.emitCmp(regX1, regXZR)
@@ -1519,10 +1775,109 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.defineLabel("fn_redirect")
 	b.defineLabel("fn_json")
 	b.defineLabel("fn_Turnstile_siteKey")
-	b.defineLabel("fn_Markdown_readFile")
 	b.defineLabel("fn_Markdown_toHtml")
 	b.defineLabel("Markdown_toHtml")
+	b.emitLoadStringAddr(regX0, "")
+	b.emitRet(regX30)
+
+	b.defineLabel("fn_Markdown_readFile")
+	b.emitBranch("fn_file_get_contents")
+
+	// fn_file_get_contents(x0 = pathPtr) -> x0 = heap-allocated string buffer, or ""
 	b.defineLabel("fn_file_get_contents")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".fgc_arm64_fail_fast")
+	b.emitProlog(64)
+	b.emitStr(regX19, regX29, 16)
+	b.emitStr(regX20, regX29, 24)
+	b.emitStr(regX21, regX29, 32)
+	b.emitStr(regX22, regX29, 40)
+	b.emitMovReg(regX19, regX0) // x19 = pathPtr
+
+	atFdcwd := uint64(0xFFFFFFFFFFFFFF9C) // Linux: AT_FDCWD = -100
+	sysOpenat := uint64(56)
+	sysLseek := uint64(62)
+	sysRead := uint64(63)
+	sysClose := uint64(57)
+	if b.target.OS == "darwin" {
+		atFdcwd = 0xFFFFFFFFFFFFFFFE // Darwin: AT_FDCWD = -2
+		sysOpenat = 0x20001CE
+		sysLseek = 0x20000C7
+		sysRead = 0x2000003
+		sysClose = 0x2000006
+	}
+
+	emitSyscall := func(num uint64) {
+		if b.target.OS == "darwin" {
+			b.emitLoadImm64(regX16, num)
+			b.emitSyscall()
+		} else {
+			b.emitLoadImm64(regX8, num)
+			b.emitSyscall()
+		}
+	}
+
+	// 1. openat(AT_FDCWD, pathPtr, O_RDONLY=0, 0)
+	b.emitLoadImm64(regX0, atFdcwd)
+	b.emitMovReg(regX1, regX19)
+	b.emitLoadImm64(regX2, 0)
+	b.emitLoadImm64(regX3, 0)
+	emitSyscall(sysOpenat)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condLT, ".fgc_arm64_fail")
+	b.emitMovReg(regX20, regX0) // x20 = fd
+
+	// 2. lseek(fd, 0, SEEK_END=2) -> x0 = fileSize
+	b.emitMovReg(regX0, regX20)
+	b.emitLoadImm64(regX1, 0)
+	b.emitLoadImm64(regX2, 2)
+	emitSyscall(sysLseek)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condLT, ".fgc_arm64_close_fail")
+	b.emitMovReg(regX21, regX0) // x21 = fileSize
+
+	// 3. lseek(fd, 0, SEEK_SET=0)
+	b.emitMovReg(regX0, regX20)
+	b.emitLoadImm64(regX1, 0)
+	b.emitLoadImm64(regX2, 0)
+	emitSyscall(sysLseek)
+
+	// 4. __joss_os_alloc(fileSize + 1)
+	b.emitAddImm(regX0, regX21, 1)
+	b.emitCall("__joss_os_alloc")
+	b.emitMovReg(regX22, regX0) // x22 = bufPtr
+
+	// 5. read(fd, bufPtr, fileSize)
+	b.emitMovReg(regX0, regX20)
+	b.emitMovReg(regX1, regX22)
+	b.emitMovReg(regX2, regX21)
+	emitSyscall(sysRead)
+
+	// 6. close(fd)
+	b.emitMovReg(regX0, regX20)
+	emitSyscall(sysClose)
+
+	// 7. Null-terminate: bufPtr[fileSize] = 0
+	b.emitAdd(regX1, regX22, regX21)
+	b.emitStrb(regXZR, regX1, 0)
+	b.emitMovReg(regX0, regX22)
+	b.emitBranch(".fgc_arm64_done")
+
+	b.defineLabel(".fgc_arm64_close_fail")
+	b.emitMovReg(regX0, regX20)
+	emitSyscall(sysClose)
+
+	b.defineLabel(".fgc_arm64_fail")
+	b.emitLoadStringAddr(regX0, "")
+
+	b.defineLabel(".fgc_arm64_done")
+	b.emitLdr(regX19, regX29, 16)
+	b.emitLdr(regX20, regX29, 24)
+	b.emitLdr(regX21, regX29, 32)
+	b.emitLdr(regX22, regX29, 40)
+	b.emitEpilog(64)
+
+	b.defineLabel(".fgc_arm64_fail_fast")
 	b.emitLoadStringAddr(regX0, "")
 	b.emitRet(regX30)
 
