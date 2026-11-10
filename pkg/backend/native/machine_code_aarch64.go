@@ -246,7 +246,7 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitSub(regX6, regX0, regX5)
 	b.emitLoadImm64(regX7, 48)
 	b.emitAdd(regX6, regX6, regX7)
-	b.emitAdd(regX8, regSP, regX2)
+	b.emitAdd(regX8, regX29, regX2)
 	b.emitStrb(regX6, regX8, 0)
 	b.emitLoadImm64(regX7, 1)
 	b.emitSub(regX2, regX2, regX7)
@@ -257,7 +257,7 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitCmp(regX9, regXZR)
 	b.emitBranchCond(condEQ, ".i64_print")
 	b.emitLoadImm64(regX1, 45)
-	b.emitAdd(regX8, regSP, regX2)
+	b.emitAdd(regX8, regX29, regX2)
 	b.emitStrb(regX1, regX8, 0)
 	b.emitLoadImm64(regX7, 1)
 	b.emitSub(regX2, regX2, regX7)
@@ -265,7 +265,7 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel(".i64_print")
 	b.emitLoadImm64(regX7, 1)
 	b.emitAdd(regX2, regX2, regX7)
-	b.emitAdd(regX1, regSP, regX2)
+	b.emitAdd(regX1, regX29, regX2)
 	b.emitLoadImm64(regX3, 64)
 	b.emitSub(regX2, regX3, regX2)
 	b.emitLoadImm64(regX0, 1)
@@ -409,7 +409,7 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel(".tostr_pos")
 	// Digits loop: extract backwards from sp+60 down to sp+40
 	b.emitLoadImm64(regX4, 60)
-	b.emitAdd(regX9, regSP, regX4) // x9 = stack cursor (starts at sp+60)
+	b.emitAdd(regX9, regX29, regX4) // x9 = stack cursor (starts at sp+60)
 	b.emitLoadImm64(regX10, 10)
 
 	b.defineLabel(".tostr_digits")
@@ -428,7 +428,7 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// Copy digits from x9 to [sp, 32] until x9 == sp + 60
 	b.emitLdr(regX8, regSP, 32) // x8 = outPtr
 	b.emitLoadImm64(regX7, 60)
-	b.emitAdd(regX7, regSP, regX7) // x7 = sp + 60
+	b.emitAdd(regX7, regX29, regX7) // x7 = sp + 60
 
 	b.defineLabel(".tostr_copy")
 	b.emitCmp(regX9, regX7)

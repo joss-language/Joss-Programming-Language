@@ -287,21 +287,15 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitCmp(regX0, regXZR)
 	b.emitBranchCond(condLT, ".srv_exit_fail")
 
-	// Print: "[Joss Native Server AArch64] Escuchando en http://localhost:"
-	b.emitLoadStringAddr(regX9, "[Joss Native Server AArch64] Escuchando en http://localhost:")
-	b.emitMovReg(regX0, regX9)
-	b.emitCall("__joss_rt_strlen")
-	b.emitMovReg(regX2, regX0)
-	b.emitMovReg(regX1, regX9)
-	b.emitLoadImm64(regX0, 1)
-	b.emitCall("__joss_os_write")
-
-	// Print port number
-	b.emitMovReg(regX0, regX22)
-	b.emitCall("joss_print_i64")
-
-	// Print " (Ctrl+C para detener)"
-	b.emitLoadStringAddr(regX0, " (Ctrl+C para detener)")
+	// Print startup message
+	b.emitLoadImm64(regX3, 80)
+	b.emitCmp(regX22, regX3)
+	b.emitBranchCond(condEQ, ".srv_print_port_80")
+	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:8000 (Ctrl+C para detener)")
+	b.emitBranch(".srv_print_port_done")
+	b.defineLabel(".srv_print_port_80")
+	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:80 (Ctrl+C para detener)")
+	b.defineLabel(".srv_print_port_done")
 	b.emitCall("joss_print_string")
 
 	// Accept loop
