@@ -825,7 +825,11 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x48, 0x81, 0xEC, 0x98, 0x00, 0x00, 0x00)             // sub rsp, 152
 
 		b.emitCallLabel("__joss_load_env_file")
-		b.emitLeaRCXString("[Joss Native Server] Escuchando en http://localhost:8000 (Ctrl+C para detener)")
+		if b.target.OS == "darwin" {
+			b.emitLeaRCXString("[Joss Native Server] Escuchando en http://localhost:8000 (Ctrl+C para detener)\n")
+		} else {
+			b.emitLeaRCXString("[Joss Native Server] Escuchando en http://localhost:80 (Ctrl+C para detener)\n")
+		}
 		b.emitCallLabel("joss_print_string")
 
 		// Allocate 16384-byte request buffer
@@ -857,11 +861,11 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitU32(sysSetsockopt)
 		b.emitBytes(0x0F, 0x05) // syscall
 
-		// sockaddr_in at [rbp - 96]: port 8000 (0x1F40 -> 0x401F big-endian)
+		// sockaddr_in at [rbp - 96]: default port 80 on Linux, 8000 on Darwin
 		if b.target.OS == "darwin" {
 			b.emitBytes(0xC7, 0x45, 0xA0, 0x10, 0x02, 0x1F, 0x40) // sin_len=16, sin_family=2, sin_port=htons(8000)
 		} else {
-			b.emitBytes(0xC7, 0x45, 0xA0, 0x02, 0x00, 0x1F, 0x40) // sin_family=2, sin_port=htons(8000)
+			b.emitBytes(0xC7, 0x45, 0xA0, 0x02, 0x00, 0x00, 0x50) // sin_family=2, sin_port=htons(80)
 		}
 		b.emitBytes(0xC7, 0x45, 0xA4, 0x00, 0x00, 0x00, 0x00)
 		b.emitBytes(0x48, 0xC7, 0x45, 0xA8, 0x00, 0x00, 0x00, 0x00)

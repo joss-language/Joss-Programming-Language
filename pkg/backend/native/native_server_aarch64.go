@@ -71,11 +71,16 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitCall("__joss_os_alloc")
 	b.emitMovReg(regX21, regX0) // x21 = reqBuf
 
-	// Default port: 8000
-	b.emitLoadImm64(regX22, 8000)
+	// Default port: 80 (Standard HTTP for Linux / Docker standalone)
+	b.emitLoadImm64(regX22, 80)
 
-	// Try reading env.joss via openat(AT_FDCWD=-100, "env.joss", O_RDONLY=0, 0)
-	b.emitLoadImm64(regX0, 0xFFFFFFFFFFFFFF9C)
+	atFdcwd := uint64(0xFFFFFFFFFFFFFF9C) // Linux: AT_FDCWD = -100
+	if b.target.OS == "darwin" {
+		atFdcwd = 0xFFFFFFFFFFFFFFFE // Darwin: AT_FDCWD = -2
+	}
+
+	// Try reading env.joss via openat(AT_FDCWD, "env.joss", O_RDONLY=0, 0)
+	b.emitLoadImm64(regX0, atFdcwd)
 	b.emitLoadStringAddr(regX1, "env.joss")
 	b.emitLoadImm64(regX2, 0)
 	b.emitLoadImm64(regX3, 0)
@@ -84,7 +89,7 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitBranchCond(condGE, ".srv_read_env_fd")
 
 	// Try reading .env
-	b.emitLoadImm64(regX0, 0xFFFFFFFFFFFFFF9C)
+	b.emitLoadImm64(regX0, atFdcwd)
 	b.emitLoadStringAddr(regX1, ".env")
 	b.emitLoadImm64(regX2, 0)
 	b.emitLoadImm64(regX3, 0)
@@ -93,7 +98,7 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitBranchCond(condGE, ".srv_read_env_fd")
 
 	// Try reading /proc/self/environ
-	b.emitLoadImm64(regX0, 0xFFFFFFFFFFFFFF9C)
+	b.emitLoadImm64(regX0, atFdcwd)
 	b.emitLoadStringAddr(regX1, "/proc/self/environ")
 	b.emitLoadImm64(regX2, 0)
 	b.emitLoadImm64(regX3, 0)
@@ -246,6 +251,9 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitCmp(regX22, regX3)
 	b.emitBranchCond(condEQ, ".srv_exit_fail")
 
+	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] ADVERTENCIA: No se pudo enlazar el puerto principal (posible falta de permisos para puerto < 1024), intentando fallback en puerto 8000...\n")
+	b.emitCall("joss_print_string")
+
 	// Close old socket that failed to bind before creating a new one
 	b.emitMovReg(regX0, regX19)
 	emitSyscallNum(sysClose)
@@ -291,10 +299,10 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitLoadImm64(regX3, 80)
 	b.emitCmp(regX22, regX3)
 	b.emitBranchCond(condEQ, ".srv_print_port_80")
-	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:8000 (Ctrl+C para detener)")
+	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:8000 (Ctrl+C para detener)\n")
 	b.emitBranch(".srv_print_port_done")
 	b.defineLabel(".srv_print_port_80")
-	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:80 (Ctrl+C para detener)")
+	b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:80 (Ctrl+C para detener)\n")
 	b.defineLabel(".srv_print_port_done")
 	b.emitCall("joss_print_string")
 
