@@ -355,12 +355,12 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLoadImm64(regX2, 3)  // PROT_READ | PROT_WRITE
 	if b.target.OS == "darwin" {
 		b.emitLoadImm64(regX3, 0x1002) // MAP_PRIVATE | MAP_ANON
-		b.emitLoadImm64(regX4, 0)
+		b.emitLoadImm64(regX4, 0xFFFFFFFFFFFFFFFF)
 		b.emitLoadImm64(regX5, 0)
 		b.emitLoadImm64(regX16, 197) // SYS_mmap on Darwin
 	} else {
 		b.emitLoadImm64(regX3, 0x22) // MAP_PRIVATE | MAP_ANONYMOUS
-		b.emitLoadImm64(regX4, 0)
+		b.emitLoadImm64(regX4, 0xFFFFFFFFFFFFFFFF)
 		b.emitLoadImm64(regX5, 0)
 		b.emitLoadImm64(regX8, 222) // SYS_mmap on Linux AArch64
 	}

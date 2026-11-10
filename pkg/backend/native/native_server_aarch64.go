@@ -245,7 +245,29 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitLoadImm64(regX3, 8000)
 	b.emitCmp(regX22, regX3)
 	b.emitBranchCond(condEQ, ".srv_exit_fail")
-	b.emitMovReg(regX22, regX3)
+
+	// Close old socket that failed to bind before creating a new one
+	b.emitMovReg(regX0, regX19)
+	emitSyscallNum(sysClose)
+
+	// Create fresh socket for fallback port 8000
+	b.emitLoadImm64(regX0, 2)
+	b.emitLoadImm64(regX1, 1)
+	b.emitLoadImm64(regX2, 0)
+	emitSyscallNum(sysSocket)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condLT, ".srv_exit_fail")
+	b.emitMovReg(regX19, regX0) // x19 = listenSock
+
+	// setsockopt(listenSock, SOL_SOCKET=1, SO_REUSEADDR=2, &optval, 4)
+	b.emitMovReg(regX0, regX19)
+	b.emitLoadImm64(regX1, 1)
+	b.emitLoadImm64(regX2, 2)
+	b.emitAddImm(regX3, regX29, 80)
+	b.emitLoadImm64(regX4, 4)
+	emitSyscallNum(sysSetsockopt)
+
+	b.emitLoadImm64(regX22, 8000)
 	b.emitLoadImm64(regX0, 0x1F)
 	b.emitStrb(regX0, regX29, 66)
 	b.emitLoadImm64(regX0, 0x40)
@@ -415,6 +437,12 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitBranch(".srv_accept_loop")
 
 	b.defineLabel(".srv_exit_fail")
+	b.emitLoadStringAddr(regX1, "[Joss Native Server AArch64] ERROR: No se pudo enlazar el socket TCP. Verifique permisos (puerto < 1024 requiere root o cap_net_bind_service).\n")
+	b.emitMovReg(regX0, regX1)
+	b.emitCall("__joss_rt_strlen")
+	b.emitMovReg(regX2, regX0)
+	b.emitLoadImm64(regX0, 2) // stderr fd = 2
+	b.emitCall("__joss_os_write")
 	b.emitLoadImm64(regX0, 1)
 	emitSyscallNum(sysExit)
 
