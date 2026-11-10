@@ -401,7 +401,10 @@ func FormatFile(filePath string, write bool) (bool, error) {
 		return false, err
 	}
 
-	changed := formatted != string(data)
+	originalNormalized := strings.ReplaceAll(string(data), "\r\n", "\n")
+	formattedNormalized := strings.ReplaceAll(formatted, "\r\n", "\n")
+
+	changed := formattedNormalized != originalNormalized
 	if changed && write {
 		if err := os.WriteFile(filePath, []byte(formatted), 0644); err != nil {
 			return false, err

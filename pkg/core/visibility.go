@@ -15,10 +15,13 @@ func (r *Runtime) declaringClassOfMethod(method *parser.MethodStatement) string 
 			continue
 		}
 		for _, statement := range class.Body.Statements {
-			if candidate, ok := statement.(*parser.MethodStatement); ok && candidate == method {
+			if statement == nil {
+				continue
+			}
+			if candidate, ok := statement.(*parser.MethodStatement); ok && candidate != nil && candidate == method {
 				return className
 			}
-			if initStmt, ok := statement.(*parser.InitStatement); ok && initStmt.Body != nil && initStmt.Body == method.Body {
+			if initStmt, ok := statement.(*parser.InitStatement); ok && initStmt != nil && initStmt.Body != nil && method.Body != nil && initStmt.Body == method.Body {
 				return className
 			}
 		}
@@ -27,12 +30,15 @@ func (r *Runtime) declaringClassOfMethod(method *parser.MethodStatement) string 
 		for _, p := range r.PluginRegistry.List() {
 			if prog := p.Program(); prog != nil {
 				for _, stmt := range prog.Statements {
-					if class, ok := stmt.(*parser.ClassStatement); ok && class.Body != nil {
+					if class, ok := stmt.(*parser.ClassStatement); ok && class != nil && class.Body != nil {
 						for _, statement := range class.Body.Statements {
-							if candidate, ok := statement.(*parser.MethodStatement); ok && candidate == method {
+							if statement == nil {
+								continue
+							}
+							if candidate, ok := statement.(*parser.MethodStatement); ok && candidate != nil && candidate == method {
 								return class.Name.Value
 							}
-							if initStmt, ok := statement.(*parser.InitStatement); ok && initStmt.Body != nil && initStmt.Body == method.Body {
+							if initStmt, ok := statement.(*parser.InitStatement); ok && initStmt != nil && initStmt.Body != nil && method.Body != nil && initStmt.Body == method.Body {
 								return class.Name.Value
 							}
 						}

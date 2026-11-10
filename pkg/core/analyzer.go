@@ -126,17 +126,20 @@ func buildAnalysisEnvironment() semanticanalyzer.Environment {
 		}
 		if classNode != nil && classNode.Body != nil {
 			for _, statement := range classNode.Body.Statements {
+				if statement == nil {
+					continue
+				}
 				switch method := statement.(type) {
 				case *parser.MethodStatement:
-					if method.Name != nil {
+					if method != nil && method.Name != nil {
 						class.Methods[method.Name.Value] = analysisCallable(method.Name.Value, method.Parameters, method.ReturnType, method.Body == nil)
 					}
 				case *parser.InitStatement:
-					if method.Name != nil {
-						class.Methods[method.Name.Value] = analysisCallable(method.Name.Value, method.Parameters, parser.Token{}, method.Body == nil)
+					if method != nil && method.Name != nil {
+						class.Methods[method.Name.Value] = analysisCallable(method.Name.Value, method.Parameters, parser.Token{Literal: "void"}, method.Body == nil)
 					}
 				case *parser.LetStatement:
-					if method.Name != nil {
+					if method != nil && method.Name != nil {
 						class.Fields[method.Name.Value] = semanticanalyzer.Field{Type: typesystem.Parse(method.Token.Literal), Constant: method.IsConst}
 					}
 				}

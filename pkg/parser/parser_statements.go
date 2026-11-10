@@ -762,6 +762,10 @@ func (p *Parser) parseInitStatement() *InitStatement {
 	// Parse parameters
 	stmt.Parameters = p.parseFunctionParameters()
 
+	if p.peekToken.Type == COLON {
+		p.parseOptionalReturnType()
+	}
+
 	if !p.expectPeek(LBRACE) {
 		return nil
 	}

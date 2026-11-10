@@ -2,7 +2,6 @@ public class Session {
     public string $id = ""
     public map $data = {
 }
-
 public static map $globalStore = {
 }
 
@@ -20,7 +19,7 @@ public static func generateId(): string {
 public static func parseCookies(string $cookieHeader): map {
     var $cookies = {
 }
-guard (strlen($cookieHeader) > 0) else {
+guard (strlen($cookieHeader) > 0) : {
     return $cookies
 }
 
@@ -41,7 +40,7 @@ return $cookies
 
 public static func start(string $cookieHeader) : Session {
     var $cookies = Session::parseCookies($cookieHeader)
-    string $sid = isset($cookies ["JOSS_SESSION"]) ? strval($cookies ["JOSS_SESSION"]) : ""
+    string $sid = (isset($cookies ["JOSS_SESSION"])) ? strval($cookies ["JOSS_SESSION"]) : ""
 
     var $sess = new Session()
     (strlen($sid) > 0 && isset(Session::$globalStore [$sid])) ? {
@@ -62,7 +61,7 @@ public func getId() : string {
 }
 
 public func get(string $key, mixed $defaultValue = null): mixed {
-    return isset($this->data [$key]) ? $this->data [$key] : $defaultValue
+    return(isset($this->data [$key])) ? $this->data [$key] : $defaultValue
 }
 
 public func put(string $key, mixed $value): void {

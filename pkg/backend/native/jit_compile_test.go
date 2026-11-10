@@ -13,8 +13,8 @@ import (
 )
 
 func TestMachineCodeBuilder_CompileInMemory_Simple(t *testing.T) {
-	if runtime.GOARCH != "amd64" {
-		t.Skip("JIT test is x86_64 amd64 only")
+	if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
+		t.Skip("JIT in-memory PE test is Windows x86_64 amd64 only")
 	}
 
 	source := `
@@ -60,8 +60,8 @@ func TestMachineCodeBuilder_CompileInMemory_Simple(t *testing.T) {
 }
 
 func TestMachineCodeBuilder_CompileInMemory_LoopAndWrite(t *testing.T) {
-	if runtime.GOARCH != "amd64" {
-		t.Skip("JIT test is x86_64 amd64 only")
+	if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
+		t.Skip("JIT in-memory PE test is Windows x86_64 amd64 only")
 	}
 
 	source := `
@@ -171,8 +171,8 @@ func TestMachineCodeBuilder_CompileInMemory_HostBridgeService(t *testing.T) {
 }
 
 func TestMachineCodeBuilder_CompileInMemory_HttpJsonForeach(t *testing.T) {
-	if runtime.GOARCH != "amd64" {
-		t.Skip("JIT test is x86_64 amd64 only")
+	if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
+		t.Skip("JIT in-memory PE test is Windows x86_64 amd64 only")
 	}
 
 	source := `

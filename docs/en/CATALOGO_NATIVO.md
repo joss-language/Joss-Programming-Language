@@ -653,10 +653,10 @@ Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L78).
 | Método | Retorno publicado al analizador |
 |---|---|
 | `all` | `map` |
-| `forget` | `mixed` |
+| `forget` | `void` |
 | `get` | `mixed` |
 | `has` | `bool` |
-| `put` | `mixed` |
+| `put` | `void` |
 
 ## Sitemap
 

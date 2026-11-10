@@ -741,7 +741,7 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		// Append live reload script to HTML
 		b.emitLeaRCXString(liveReloadScript)
 		b.emitCallLabel("__joss_rt_strlen")
-		b.emitBytes(0x49, 0x89, 0xC0)       // mov r8, rax (len)
+		b.emitBytes(0x49, 0x89, 0xC0) // mov r8, rax (len)
 		b.emitLeaRDXString(liveReloadScript)
 		b.emitBytes(0x4C, 0x89, 0xF1)       // mov rcx, r14 (clientSock)
 		b.emitBytes(0x45, 0x31, 0xC9)       // xor r9d, r9d
