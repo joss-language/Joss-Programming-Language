@@ -180,6 +180,27 @@ func (b *ARM64Builder) emitCmp(xn, xm uint32) {
 	b.asmListing.WriteString(fmt.Sprintf("    cmp x%d, x%d\n", xn, xm))
 }
 
+// ADD xd, xn, #imm12
+func (b *ARM64Builder) emitAddImm(xd, xn uint32, imm uint32) {
+	inst := uint32(0x91000000) | ((imm & 0xFFF) << 10) | (xn << 5) | xd
+	b.emitInst(inst)
+	b.asmListing.WriteString(fmt.Sprintf("    add x%d, x%d, #%d\n", xd, xn, imm))
+}
+
+// SUB xd, xn, #imm12
+func (b *ARM64Builder) emitSubImm(xd, xn uint32, imm uint32) {
+	inst := uint32(0xD1000000) | ((imm & 0xFFF) << 10) | (xn << 5) | xd
+	b.emitInst(inst)
+	b.asmListing.WriteString(fmt.Sprintf("    sub x%d, x%d, #%d\n", xd, xn, imm))
+}
+
+// CMP xn, #imm12 (SUBS xzr, xn, #imm12)
+func (b *ARM64Builder) emitCmpImm(xn uint32, imm uint32) {
+	inst := uint32(0xF1000000) | ((imm & 0xFFF) << 10) | (xn << 5) | regXZR
+	b.emitInst(inst)
+	b.asmListing.WriteString(fmt.Sprintf("    cmp x%d, #%d\n", xn, imm))
+}
+
 // LDR xd, [xn, #pimm]
 func (b *ARM64Builder) emitLdr(xd, xn uint32, pimm uint32) {
 	imm12 := (pimm / 8) & 0xFFF

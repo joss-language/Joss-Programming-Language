@@ -2,6 +2,7 @@ package native_test
 
 import (
 	"encoding/binary"
+	"strings"
 	"testing"
 
 	backend "github.com/jossecurity/joss/pkg/backend/native"
@@ -395,5 +396,38 @@ func TestARM64_GranDB_MultiDialect_QueryBuilder(t *testing.T) {
 		}
 
 		_ = asmListing
+	}
+}
+
+func TestARM64_ServerStart_FullEmission(t *testing.T) {
+	prog := ir.NewProgram("server_arm64")
+	fnMain := ir.NewFunction("main", ir.TypeI64)
+	fnMain.EntryBlock.AddInstruction(&ir.CallHostServiceInst{
+		ClassName:  "Server",
+		MethodName: "start",
+		Args:       nil,
+	})
+	fnMain.EntryBlock.SetTerminator(&ir.ReturnTerminator{Val: ir.NewConstInt(0, ir.TypeI64)})
+	prog.AddFunction(fnMain)
+
+	for _, target := range []backend.Target{
+		{OS: "linux", Arch: "arm64"},
+		{OS: "darwin", Arch: "arm64"},
+		{OS: "windows", Arch: "arm64"},
+	} {
+		builder := backend.NewARM64Builder(target, false)
+		binBytes, asmListing, err := builder.Compile(prog)
+		if err != nil {
+			t.Fatalf("ARM64Builder.Compile(%s) falló con Server.start: %v", target, err)
+		}
+		if len(binBytes) < 4096 {
+			t.Fatalf("Binario ARM64(%s) demasiado pequeño: %d", target, len(binBytes))
+		}
+		if !strings.Contains(asmListing, "fn_Server_start:") {
+			t.Errorf("asmListing(%s) no contiene la etiqueta fn_Server_start", target)
+		}
+		if !strings.Contains(asmListing, ".srv_accept_loop:") {
+			t.Errorf("asmListing(%s) no contiene el bucle de accept de servidor nativo", target)
+		}
 	}
 }

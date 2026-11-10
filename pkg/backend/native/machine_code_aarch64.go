@@ -35,6 +35,14 @@ const (
 	regX18 uint32 = 18 // Platform
 	regX19 uint32 = 19
 	regX20 uint32 = 20
+	regX21 uint32 = 21
+	regX22 uint32 = 22
+	regX23 uint32 = 23
+	regX24 uint32 = 24
+	regX25 uint32 = 25
+	regX26 uint32 = 26
+	regX27 uint32 = 27
+	regX28 uint32 = 28
 	regX29 uint32 = 29 // Frame Pointer (FP)
 	regX30 uint32 = 30 // Link Register (LR)
 	regSP  uint32 = 31 // Stack Pointer
@@ -1625,12 +1633,7 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.emitRet(regX30)
 
 	if b.hasRelocTarget("fn_Server_start") {
-		b.defineLabel("fn_Server_start")
-		b.emitProlog(16)
-		b.emitLoadStringAddr(regX0, "[Joss Native Server AArch64] Escuchando en http://localhost:8000 (Ctrl+C para detener)")
-		b.emitCall("joss_print_string")
-		b.emitLoadImm64(regX0, 0)
-		b.emitEpilog(16)
+		b.emitNativeServer()
 	}
 }
 
@@ -1742,6 +1745,8 @@ func (b *ARM64Builder) Compile(prog *ir.Program) ([]byte, string, error) {
 
 	if b.usesExtendedStdlib {
 		b.emitGranDBAndStdlibARM64()
+	} else if b.hasRelocTarget("fn_Server_start") {
+		b.emitNativeServer()
 	}
 	b.emitHostFrameworkAdapters()
 
