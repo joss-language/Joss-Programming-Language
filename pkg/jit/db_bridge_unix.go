@@ -20,5 +20,12 @@ func allocNative(size int) uintptr {
 }
 
 func isReadablePointer(ptr uintptr) bool {
-	return ptr >= 0x10000 && ptr <= 0x7FFFFFFFFFFF
+	val := uint64(ptr)
+	if val < 0x10000 {
+		return false
+	}
+	if unsafe.Sizeof(ptr) == 4 {
+		return val <= 0xBFFFFFFF
+	}
+	return val <= 0x7FFFFFFFFFFF
 }

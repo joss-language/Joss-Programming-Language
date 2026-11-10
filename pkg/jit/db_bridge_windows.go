@@ -26,7 +26,15 @@ type memoryBasicInformation struct {
 }
 
 func isReadablePointer(ptr uintptr) bool {
-	if ptr < 0x10000 || ptr > 0x00007FFFFFFFFFFF {
+	val := uint64(ptr)
+	if val < 0x10000 {
+		return false
+	}
+	if unsafe.Sizeof(ptr) == 4 {
+		if val > 0x7FFEFFFF {
+			return false
+		}
+	} else if val > 0x7FFFFFFFFFFF {
 		return false
 	}
 	var mbi memoryBasicInformation
