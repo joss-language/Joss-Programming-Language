@@ -25,7 +25,7 @@ func (b *ARM64Builder) emitNativeServer() {
 		sysSetsockopt uint64 = 208
 		sysBind       uint64 = 200
 		sysListen     uint64 = 201
-		sysAccept     uint64 = 202
+		sysAccept     uint64 = 242 // __NR_accept4 on Linux AArch64 (asm-generic, universally supported by Docker seccomp)
 		sysRead       uint64 = 63
 		sysWrite      uint64 = 64
 		sysClose      uint64 = 57
@@ -37,7 +37,7 @@ func (b *ARM64Builder) emitNativeServer() {
 		sysSetsockopt = 0x2000069
 		sysBind = 0x2000068
 		sysListen = 0x200006A
-		sysAccept = 0x200001E
+		sysAccept = 0x200001E // SYS_accept on Darwin
 		sysRead = 0x2000003
 		sysWrite = 0x2000004
 		sysClose = 0x2000006
@@ -288,10 +288,11 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitBranchCond(condLT, ".srv_exit_fail")
 
 	// Print: "[Joss Native Server AArch64] Escuchando en http://localhost:"
-	b.emitLoadStringAddr(regX1, "[Joss Native Server AArch64] Escuchando en http://localhost:")
-	b.emitMovReg(regX0, regX1)
+	b.emitLoadStringAddr(regX9, "[Joss Native Server AArch64] Escuchando en http://localhost:")
+	b.emitMovReg(regX0, regX9)
 	b.emitCall("__joss_rt_strlen")
 	b.emitMovReg(regX2, regX0)
+	b.emitMovReg(regX1, regX9)
 	b.emitLoadImm64(regX0, 1)
 	b.emitCall("__joss_os_write")
 
@@ -308,6 +309,7 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitMovReg(regX0, regX19)
 	b.emitLoadImm64(regX1, 0)
 	b.emitLoadImm64(regX2, 0)
+	b.emitLoadImm64(regX3, 0) // flags = 0 for accept4 on Linux
 	emitSyscallNum(sysAccept)
 	b.emitCmp(regX0, regXZR)
 	b.emitBranchCond(condLT, ".srv_accept_loop")
@@ -437,10 +439,11 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitBranch(".srv_accept_loop")
 
 	b.defineLabel(".srv_exit_fail")
-	b.emitLoadStringAddr(regX1, "[Joss Native Server AArch64] ERROR: No se pudo enlazar el socket TCP. Verifique permisos (puerto < 1024 requiere root o cap_net_bind_service).\n")
-	b.emitMovReg(regX0, regX1)
+	b.emitLoadStringAddr(regX9, "[Joss Native Server AArch64] ERROR: No se pudo enlazar el socket TCP. Verifique permisos (puerto < 1024 requiere root o cap_net_bind_service).\n")
+	b.emitMovReg(regX0, regX9)
 	b.emitCall("__joss_rt_strlen")
 	b.emitMovReg(regX2, regX0)
+	b.emitMovReg(regX1, regX9)
 	b.emitLoadImm64(regX0, 2) // stderr fd = 2
 	b.emitCall("__joss_os_write")
 	b.emitLoadImm64(regX0, 1)
