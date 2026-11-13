@@ -94,12 +94,21 @@ public static func attempt(mixed $emailInput, mixed $passwordInput) : mixed {
     string $email = strtolower(trim(strval($emailInput)))
     string $password = strval($passwordInput)
     mixed $result = false
-    (Auth::databaseReady() && $emailInput !== null && $passwordInput !== null && $email != "" && $password != "") ? {
+    bool $databaseReady = Auth::databaseReady()
+    print("[AuthTrace] attempt started; databaseReady=" . $databaseReady . ", emailPresent=" . ($email != "") . ", passwordPresent=" . ($password != ""))
+    ($databaseReady && $emailInput !== null && $passwordInput !== null && $email != "" && $password != "") ? {
         mixed $user = GranDB::table("users")
             ->select("id, user_token, username, email, password, role_id, verificado")
             ->where("email", $email)
             ->first()
-        ($user !== null && intval($user ["verificado"] ?? 0) == 1 && Auth::verifyHash(strval($user ["password"] ?? ""), $password)) ? {
+        bool $userFound = $user !== null
+        bool $accountVerified = $userFound && intval($user["verificado"] ?? 0) == 1
+        bool $passwordMatches = false
+        ($userFound && $accountVerified) ? {
+            $passwordMatches = Auth::verifyHash(strval($user["password"] ?? ""), $password)
+        }
+        print("[AuthTrace] userFound=" . $userFound . ", verified=" . $accountVerified . ", passwordMatches=" . $passwordMatches)
+        ($userFound && $accountVerified && $passwordMatches) ? {
             mixed $userId = $user ["id"]
             mixed $role = GranDB::table("roles")->select("name")->where("id", $user ["role_id"] ?? 0)->first()
             string $roleName = strval($role ["name"] ?? "")
@@ -112,7 +121,10 @@ public static func attempt(mixed $emailInput, mixed $passwordInput) : mixed {
             GranDB::table("users")->where("id", $userId)->update( {"last_login_at" : now()
         })
         $result = Auth::issueToken($userId, $email, strval($user ["username"] ?? ""), $roleName)
+            print("[AuthTrace] access token issuance completed")
     }
+    } : {
+        print("[AuthTrace] skipped database lookup because readiness or inputs failed")
 }
 return $result
 }
