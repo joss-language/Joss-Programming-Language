@@ -148,13 +148,29 @@ public class HttpServer {
             return "HTTP/1.1 200 OK\r\nContent-Type: " . $staticMime . "\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . $staticContent
         }
 
+        // Keep request session state in the canonical Joss Session store.
+        var $headers = $requestData["_headers"] ?? {}
+        string $cookieHeader = strval($headers["cookie"] ?? "")
+        var $webSession = Session::start($cookieHeader)
+
         // Application Controller Routing via __joss_http_dispatch
-        var $dispatched = __joss_http_dispatch($_method, $path, $requestData)
+        var $dispatched = __joss_http_dispatch($_method, $path, $requestData, $webSession->data)
         guard ($dispatched == "" || $dispatched == null) : {
-            return(Str::contains($dispatched, "HTTP/1.1")) ? $dispatched : ("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n" . $dispatched)
+            $webSession->save()
+            var $response = (Str::contains($dispatched, "HTTP/1.1")) ? $dispatched : ("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n" . $dispatched)
+            return HttpServer::appendHeader($response, $webSession->getCookieHeader())
         }
 
         return ErrorPages::render404($path)
+    }
+
+    public static func appendHeader(string $response, string $header): string {
+        mixed $separator = strpos($response, "\r\n\r\n")
+        guard ($separator !== false) : {
+            return $response
+        }
+        int $offset = intval($separator)
+        return substr($response, 0, $offset) . "\r\n" . $header . "\r\n\r\n" . substr($response, $offset + 4)
     }
 }
 

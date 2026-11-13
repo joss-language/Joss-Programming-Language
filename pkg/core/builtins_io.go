@@ -50,7 +50,13 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 				if requestPath, ok := requestData["_path"].(string); ok && requestPath != "" {
 					path = requestPath
 				}
-				resp, err := r.Dispatch(method, path, requestData, nil)
+				sessData := map[string]interface{}{}
+				if len(args) >= 4 {
+					if suppliedSession, ok := args[3].(map[string]interface{}); ok && suppliedSession != nil {
+						sessData = suppliedSession
+					}
+				}
+				resp, err := r.Dispatch(method, path, requestData, sessData)
 				if err == nil && resp != nil {
 					return formatNativeHTTPResponse(resp), true
 				}

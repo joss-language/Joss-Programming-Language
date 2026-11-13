@@ -30,3 +30,5 @@ TLS_CERT_FILE="certs/fullchain.pem"
 TLS_KEY_FILE="certs/private.key"
 ```
 Em implantações públicas, você ainda pode usar um proxy reverso para compactação, balanceamento e renovação automática de certificados.
+
+O servidor de sockets Pure Joss inicia ou recupera `joss_session` em cada rota dinâmica, passa seus dados ao despacho de rotas e emite o cookie na resposta. O estado da sessão (incluindo tokens temporários de 2FA e CSRF) fica na memória do processo; não é compartilhado entre reinicializações ou processos.

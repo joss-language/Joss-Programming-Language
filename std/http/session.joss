@@ -12,8 +12,7 @@ Init() {
 }
 
 public static func generateId(): string {
-    var $seed = rand() . "_" . time() . "_" . rand()
-    return md5($seed)
+    return UUID::generate()
 }
 
 public static func parseCookies(string $cookieHeader): map {
@@ -52,8 +51,14 @@ public static func start(string $cookieHeader) : Session {
         $sess->id = $newId
         $sess->data = {
     }
-    Session::$globalStore [$newId] = $sess->data
-}
+    }
+
+    (!isset($sess->data["csrf_token"])) ? {
+        string $csrfToken = UUID::generate()
+        $sess->data["csrf_token"] = $csrfToken
+        $sess->data["_token"] = $csrfToken
+    }
+    Session::$globalStore [$sess->id] = $sess->data
 return $sess
 }
 
@@ -97,5 +102,9 @@ Session::$globalStore [$this->id] = {
 
 public func getCookieHeader() : string {
     return "Set-Cookie: joss_session=" . $this->id . "; Path=/; HttpOnly; SameSite=Lax"
+}
+
+public func save(): void {
+    Session::$globalStore [$this->id] = $this->data
 }
 }

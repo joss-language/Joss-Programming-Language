@@ -30,3 +30,5 @@ TLS_CERT_FILE="certs/fullchain.pem"
 TLS_KEY_FILE="certs/private.key"
 ```
 In public deployments you can still use a reverse proxy for compression, balancing, and automatic certificate renewal.
+
+The Pure Joss socket server starts or resumes `joss_session` for each dynamic route, passes its data to route dispatch, and emits the cookie in the response. Session state (including temporary 2FA and CSRF tokens) is stored in process memory; it is not shared across restarts or processes.

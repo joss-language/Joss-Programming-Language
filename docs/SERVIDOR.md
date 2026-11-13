@@ -36,3 +36,5 @@ TLS_KEY_FILE="certs/private.key"
 ```
 
 En despliegues públicos todavía puedes usar un proxy inverso para compresión, balanceo y renovación automática de certificados.
+
+El servidor de sockets Pure Joss inicia o recupera `joss_session` en cada ruta dinámica, pasa sus datos al despacho y emite la cookie en la respuesta. El estado de sesión (incluido el token temporal de 2FA y el token CSRF) se conserva en memoria del proceso; en reinicios o entre procesos no comparte ese almacenamiento.
