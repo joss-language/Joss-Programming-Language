@@ -341,15 +341,20 @@ public class SessionDispatchProbe {
 	session := map[string]interface{}{}
 	post, _ := runtime.callBuiltinIO("__joss_http_dispatch", []interface{}{
 		"POST", "/2fa/verify", map[string]interface{}{"_path": "/2fa/verify"}, session,
+		"Set-Cookie: joss_session=test-id; Path=/; HttpOnly; SameSite=Lax",
 	})
 	if !strings.Contains(post.(string), `"stored":true`) {
 		t.Fatalf("session POST did not complete: %v", post)
+	}
+	if !strings.Contains(post.(string), "Set-Cookie: joss_session=test-id") {
+		t.Fatalf("HTTP response omitted the session cookie: %v", post)
 	}
 	if session["temp_2fa_token"] != "challenge-token" {
 		t.Fatalf("dispatch did not persist its session mutation: %#v", session)
 	}
 	get, _ := runtime.callBuiltinIO("__joss_http_dispatch", []interface{}{
 		"GET", "/2fa/verify", map[string]interface{}{"_path": "/2fa/verify"}, session,
+		"Set-Cookie: joss_session=test-id; Path=/; HttpOnly; SameSite=Lax",
 	})
 	if !strings.Contains(get.(string), `"challenge":"challenge-token"`) {
 		t.Fatalf("next request could not read the prior session value: %v", get)
@@ -412,41 +417,17 @@ func TestPureJossSessionRestoresCookieBackedChallenge(t *testing.T) {
 func TestPureJossHTTPServerAddsSessionCookieToRedirect(t *testing.T) {
 	runtime := NewRuntime()
 	defer runtime.Free()
-	var serverClass *parser.ClassStatement
-	for _, unit := range std.GetStdlibUnits() {
-		if unit.Path != "<std/http/server.joss>" || unit.Program == nil {
-			continue
-		}
-		for _, statement := range unit.Program.Statements {
-			if class, ok := statement.(*parser.ClassStatement); ok && class.Name != nil && class.Name.Value == "HttpServer" {
-				serverClass = class
-				break
-			}
-		}
-	}
-	if serverClass == nil {
-		t.Fatal("canonical std/http/server.joss class was not embedded")
-	}
-	runtime.registerClass(serverClass)
-	var appendHeader *parser.MethodStatement
-	for _, statement := range serverClass.Body.Statements {
-		if method, ok := statement.(*parser.MethodStatement); ok && method.Name != nil && method.Name.Value == "appendHeader" {
-			appendHeader = method
-			break
-		}
-	}
-	if appendHeader == nil {
-		t.Fatal("HttpServer::appendHeader is missing")
-	}
 	response := "HTTP/1.1 303 See Other\r\nLocation: /2fa/verify\r\n\r\n"
 	header := "Set-Cookie: joss_session=secure-id; Path=/; HttpOnly; SameSite=Lax"
-	got := runtime.CallMethodEvaluated(appendHeader, nil, []interface{}{response, header})
-	raw, ok := got.(string)
-	if !ok {
-		t.Fatalf("HttpServer::appendHeader returned %#v", got)
-	}
+	raw := appendNativeHTTPHeader(response, header)
 	if !strings.Contains(raw, "Location: /2fa/verify\r\n"+header+"\r\n\r\n") {
 		t.Fatalf("redirect response did not carry a session cookie header: %q", raw)
+	}
+	binaryBody := "\x00\xff\xfeimage-bytes"
+	binaryResponse := "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: 14\r\n\r\n" + binaryBody
+	binaryRaw := appendNativeHTTPHeader(binaryResponse, header)
+	if !strings.HasSuffix(binaryRaw, "\r\n\r\n"+binaryBody) {
+		t.Fatalf("adding session cookie corrupted binary response body: %q", binaryRaw)
 	}
 }
 

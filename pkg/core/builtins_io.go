@@ -10,6 +10,16 @@ import (
 	"strings"
 )
 
+// appendNativeHTTPHeader inserts a transport header without interpreting the
+// response body as UTF-8; RAW responses may contain arbitrary binary bytes.
+func appendNativeHTTPHeader(response, header string) string {
+	separator := strings.Index(response, "\r\n\r\n")
+	if separator < 0 || header == "" {
+		return response
+	}
+	return response[:separator] + "\r\n" + header + "\r\n\r\n" + response[separator+4:]
+}
+
 func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, bool) {
 	switch name {
 	case "env", "config":
@@ -58,7 +68,13 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 				}
 				resp, err := r.Dispatch(method, path, requestData, sessData)
 				if err == nil && resp != nil {
-					return formatNativeHTTPResponse(resp), true
+					formatted := formatNativeHTTPResponse(resp)
+					if len(args) >= 5 {
+						if sessionCookie, ok := args[4].(string); ok && sessionCookie != "" {
+							formatted = appendNativeHTTPHeader(formatted, sessionCookie)
+						}
+					}
+					return formatted, true
 				}
 			}
 		}
