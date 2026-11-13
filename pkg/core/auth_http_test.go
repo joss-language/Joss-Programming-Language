@@ -431,6 +431,46 @@ func TestPureJossHTTPServerAddsSessionCookieToRedirect(t *testing.T) {
 	}
 }
 
+func TestPureJossHTTPServerWaitsForDeclaredFormBody(t *testing.T) {
+	runtime := NewRuntime()
+	defer runtime.Free()
+	var serverClass *parser.ClassStatement
+	for _, unit := range std.GetStdlibUnits() {
+		if unit.Path != "<std/http/server.joss>" || unit.Program == nil {
+			continue
+		}
+		for _, statement := range unit.Program.Statements {
+			if class, ok := statement.(*parser.ClassStatement); ok && class.Name != nil && class.Name.Value == "HttpServer" {
+				serverClass = class
+				break
+			}
+		}
+	}
+	if serverClass == nil {
+		t.Fatal("canonical std/http/server.joss class was not embedded")
+	}
+	runtime.registerClass(serverClass)
+	var expectedBytes *parser.MethodStatement
+	for _, statement := range serverClass.Body.Statements {
+		if method, ok := statement.(*parser.MethodStatement); ok && method.Name != nil && method.Name.Value == "expectedRequestBytes" {
+			expectedBytes = method
+			break
+		}
+	}
+	if expectedBytes == nil {
+		t.Fatal("HttpServer::expectedRequestBytes is missing")
+	}
+	partialHeaders := "POST /login HTTP/1.1\r\nContent-Length: 12\r\n"
+	if got := runtime.CallMethodEvaluated(expectedBytes, nil, []interface{}{partialHeaders}); got != int64(-1) {
+		t.Fatalf("incomplete headers expected byte count = %#v, want -1", got)
+	}
+	headers := "POST /login HTTP/1.1\r\nContent-Length: 12\r\n\r\n"
+	want := int64(len(headers) + 12)
+	if got := runtime.CallMethodEvaluated(expectedBytes, nil, []interface{}{headers}); got != want {
+		t.Fatalf("request byte count = %#v, want %d", got, want)
+	}
+}
+
 func TestDispatchHydratesAuthFromAccessCookie(t *testing.T) {
 	runtime := NewRuntime()
 	defer runtime.Free()

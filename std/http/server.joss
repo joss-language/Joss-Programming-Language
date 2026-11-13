@@ -37,6 +37,15 @@ public class HttpServer {
             }
 
             var $raw = $client->receive(4096)
+            var $expectedBytes = HttpServer::expectedRequestBytes($raw)
+            while ($expectedBytes < 0 || strlen($raw) < $expectedBytes) {
+                var $chunk = $client->receive(4096)
+                (strlen($chunk) == 0) ? {
+                    break
+                }
+                $raw = $raw . $chunk
+                $expectedBytes = HttpServer::expectedRequestBytes($raw)
+            }
             (strlen($raw) == 0) ? {
                 $client->close()
                 continue
@@ -62,6 +71,10 @@ public class HttpServer {
         string $_method = $reqLine [0]
         string $path = $reqLine [1]
         var $requestData = HttpRequestParser::parse($raw)
+        ($_method == "POST") ? {
+            var $requestBody = strval($requestData["_body"] ?? "")
+            print("[HTTPTrace] POST bodyBytes=" . strlen($requestBody) . ", turnstileFieldPresent=" . Str::contains($requestBody, "cf-turnstile-response="))
+        }
         var $pathParts = explode("?", $path)
         (count($pathParts) > 0) ? {
             $path = $pathParts [0]
@@ -162,6 +175,26 @@ public class HttpServer {
         }
 
         return ErrorPages::render404($path)
+    }
+
+    public static func expectedRequestBytes(string $raw): int {
+        mixed $separator = strpos($raw, "\r\n\r\n")
+        guard ($separator !== false) : {
+            return -1
+        }
+        int $headerEnd = intval($separator)
+        string $headers = substr($raw, 0, $headerEnd)
+        int $expected = $headerEnd + 4
+        foreach (explode("\r\n", $headers) as $line) {
+            string $normalized = strtolower(trim($line))
+            Str::startsWith($normalized, "content-length:") ? {
+                var $parts = explode(":", $line)
+                (count($parts) > 1) ? {
+                    $expected = $headerEnd + 4 + intval(trim($parts[1]))
+                }
+            }
+        }
+        return $expected
     }
 
 }
