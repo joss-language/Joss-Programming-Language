@@ -3,7 +3,19 @@
 [Índice](README.md) · Antes: [projeto web](PROYECTO_WEB.md) · Depois: [HTTP](CONTROLADORES.md)
 
 O servidor converte rotas Joss em respostas HTTP. Requer um projeto web
-com `main.joss`, rotas e `Server::start()`.```bash
+com `main.joss`, rotas e `Server::start()`.
+
+`joss server start` supervisiona o processo do servidor. Ao pressionar `q` ou
+`Ctrl+C`, encerra o processo filho e libera seus sockets; se o processo termina
+por um erro de inicialização (por exemplo, porque a porta já está em uso), o
+supervisor também sai em vez de continuar aguardando.
+
+`joss server start` supervisiona o processo do servidor. Ao pressionar `q` ou
+`Ctrl+C`, encerra o processo filho e libera seus sockets; se o processo termina
+por um erro de inicialização (por exemplo, porque a porta já está em uso), o
+supervisor também sai em vez de continuar aguardando.
+
+```bash
 joss server start
 ```
 A porta de tempo de execução padrão é 8000. O modelo gerado grava

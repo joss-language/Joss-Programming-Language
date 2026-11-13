@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -89,6 +88,28 @@ func detectWatchChange(root string, prevSnapshot map[string]time.Time) (string, 
 	return "", prevSnapshot, false
 }
 
+type managedServerChild struct {
+	cmd  *exec.Cmd
+	done chan error
+}
+
+func startManagedServerChild(cmd *exec.Cmd) (*managedServerChild, error) {
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	child := &managedServerChild{cmd: cmd, done: make(chan error, 1)}
+	go func() { child.done <- cmd.Wait() }()
+	return child, nil
+}
+
+func stopManagedServerChild(child *managedServerChild) {
+	if child == nil {
+		return
+	}
+	killChildProcess(child.cmd)
+	<-child.done
+}
+
 func killChildProcess(cmd *exec.Cmd) {
 	if cmd == nil || cmd.Process == nil {
 		return
@@ -96,12 +117,8 @@ func killChildProcess(cmd *exec.Cmd) {
 	if runtime.GOOS == "windows" {
 		killCmd := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(cmd.Process.Pid))
 		_ = killCmd.Run()
-		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
-	} else {
-		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
 	}
+	_ = cmd.Process.Kill()
 }
 
 // handleNativeServerStart handles 'joss server start' by compiling and executing the native binary
@@ -149,59 +166,66 @@ func runNativeSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
 		cmd.Env = append(os.Environ(), "JOSS_SERVER_MODE=1")
-		if err := cmd.Run(); err != nil {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		defer signal.Stop(sigChan)
+		child, err := startManagedServerChild(cmd)
+		if err != nil {
+			fmt.Printf("❌ Error iniciando servidor: %v\n", err)
+			return
+		}
+		select {
+		case err := <-child.done:
+			if err == nil {
+				return
+			}
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				os.Exit(exitErr.ExitCode())
 			}
 			os.Exit(1)
+		case <-cliShutdownRequested:
+			stopManagedServerChild(child)
+		case sig := <-sigChan:
+			fmt.Printf("\n\n[Joss Native Server] Deteniendo servidor y procesos asociados (%s)...\n", sig)
+			stopManagedServerChild(child)
 		}
 		return
 	}
 
-	var procMu sync.Mutex
-	var currentCmd *exec.Cmd
+	var currentChild *managedServerChild
 
 	stopCurrent := func() {
-		procMu.Lock()
-		defer procMu.Unlock()
-		if currentCmd != nil {
-			killChildProcess(currentCmd)
-			currentCmd = nil
+		if currentChild != nil {
+			child := currentChild
+			currentChild = nil
+			stopManagedServerChild(child)
 		}
 	}
 
 	startChild := func() error {
-		procMu.Lock()
-		defer procMu.Unlock()
 		args := append([]string{"run", entryFile}, extraArgs...)
 		cmd := exec.Command(selfExe, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
 		cmd.Env = append(os.Environ(), "JOSS_SERVER_MODE=1")
-		if err := cmd.Start(); err != nil {
+		child, err := startManagedServerChild(cmd)
+		if err != nil {
 			return err
 		}
-		currentCmd = cmd
-		go func(c *exec.Cmd) {
-			_ = c.Wait()
-		}(cmd)
+		currentChild = child
 		return nil
 	}
 
-	// Capture interrupt signals for graceful cleanup
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		fmt.Println("\n\n[Joss Native Server] Deteniendo servidor y procesos asociados...")
-		stopCurrent()
-		os.Exit(0)
-	}()
+	defer signal.Stop(sigChan)
+	defer stopCurrent()
 
 	fmt.Println("⚡ [Joss Native Server] Iniciando servidor JIT...")
 	if err := startChild(); err != nil {
 		fmt.Printf("❌ Error iniciando servidor: %v\n", err)
+		return
 	}
 
 	fmt.Println("\n========================================================")
@@ -215,32 +239,54 @@ func runNativeSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		changedFile, newSnapshot, changed := detectWatchChange(".", snapshot)
-		if !changed {
-			continue
+	for {
+		var childDone <-chan error
+		if currentChild != nil {
+			childDone = currentChild.done
 		}
-		snapshot = newSnapshot
+		select {
+		case <-cliShutdownRequested:
+			stopCurrent()
+			return
+		case sig := <-sigChan:
+			fmt.Printf("\n\n[Joss Native Server] Deteniendo servidor y procesos asociados (%s)...\n", sig)
+			stopCurrent()
+			return
+		case err := <-childDone:
+			currentChild = nil
+			if err != nil {
+				fmt.Printf("\n[Joss Native Server] El proceso del servidor terminó con error: %v\n", err)
+			} else {
+				fmt.Println("\n[Joss Native Server] El proceso del servidor terminó.")
+			}
+			return
+		case <-ticker.C:
+			changedFile, newSnapshot, changed := detectWatchChange(".", snapshot)
+			if !changed {
+				continue
+			}
+			snapshot = newSnapshot
 
-		// Small debounce to let editor write operations flush
-		time.Sleep(80 * time.Millisecond)
-		snapshot = takeWatchSnapshot(".")
+			// Small debounce to let editor write operations flush
+			time.Sleep(80 * time.Millisecond)
+			snapshot = takeWatchSnapshot(".")
 
-		relPath, relErr := filepath.Rel(".", changedFile)
-		if relErr != nil {
-			relPath = changedFile
-		}
-		fmt.Printf("\n🔄 [Hot-Reload] Cambio detectado en: %s\n", relPath)
+			relPath, relErr := filepath.Rel(".", changedFile)
+			if relErr != nil {
+				relPath = changedFile
+			}
+			fmt.Printf("\n🔄 [Hot-Reload] Cambio detectado en: %s\n", relPath)
 
-		if strings.HasSuffix(changedFile, ".scss") {
-			core.CompileStyles()
-		}
+			if strings.HasSuffix(changedFile, ".scss") {
+				core.CompileStyles()
+			}
 
-		stopCurrent()
+			stopCurrent()
 
-		if err := startChild(); err != nil {
-			fmt.Printf("❌ [Hot-Reload] Error reiniciando servidor JIT: %v\n", err)
-		} else {
+			if err := startChild(); err != nil {
+				fmt.Printf("❌ [Hot-Reload] Error reiniciando servidor JIT: %v\n", err)
+				return
+			}
 			fmt.Println("✨ [Hot-Reload] Servidor JIT reiniciado con éxito.")
 			fmt.Println()
 		}

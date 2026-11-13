@@ -3,7 +3,19 @@
 [Index](README.md) · Before: [web project](PROYECTO_WEB.md) · After: [HTTP](CONTROLADORES.md)
 
 The server converts Joss routes into HTTP responses. Requires a web project
-with `main.joss`, routes and `Server::start()`.```bash
+with `main.joss`, routes and `Server::start()`.
+
+`joss server start` supervises the server process. Pressing `q` or `Ctrl+C`
+stops the child process and releases its sockets; if the process exits because
+of a startup error (for example, a port is already in use), the supervisor
+also exits instead of waiting indefinitely.
+
+`joss server start` supervises the server process. Pressing `q` or `Ctrl+C`
+stops the child process and releases its sockets; if the process exits because
+of a startup error (for example, a port is already in use), the supervisor
+also exits instead of waiting indefinitely.
+
+```bash
 joss server start
 ```
 The default runtime port is 8000. The generated template writes

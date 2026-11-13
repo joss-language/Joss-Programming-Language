@@ -5,6 +5,16 @@
 El servidor convierte rutas Joss en respuestas HTTP. Requiere un proyecto web
 con `main.joss`, rutas y `Server::start()`.
 
+`joss server start` supervisa el proceso del servidor. Al pulsar `q` o `Ctrl+C`,
+detiene el proceso hijo y libera sus sockets; si el proceso termina por un error
+de inicio (por ejemplo, porque el puerto está ocupado), el supervisor también
+sale en lugar de quedarse esperando.
+
+`joss server start` supervisa el proceso del servidor. Al pulsar `q` o `Ctrl+C`,
+detiene el proceso hijo y libera sus sockets; si el proceso termina por un error
+de inicio (por ejemplo, porque el puerto está ocupado), el supervisor también
+sale en lugar de quedarse esperando.
+
 ```bash
 joss server start
 ```

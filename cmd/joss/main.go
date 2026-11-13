@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	_ "github.com/go-sql-driver/mysql"
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
@@ -25,10 +26,23 @@ import (
 	"golang.org/x/term"
 )
 
+var cliShutdownRequested = make(chan struct{})
+var cliShutdownOnce sync.Once
+
+func requestCLIShutdown() {
+	requestShutdown(cliShutdownRequested, &cliShutdownOnce)
+}
+
+func requestShutdown(requested chan struct{}, once *sync.Once) {
+	once.Do(func() { close(requested) })
+}
+
 func main() {
 	if len(os.Args) >= 2 {
 		cmd := os.Args[1]
-		if cmd == "server" || cmd == "program" {
+		isServerStart := cmd == "server" && len(os.Args) >= 3 && os.Args[2] == "start"
+		isProgramStart := cmd == "program" && len(os.Args) >= 3 && os.Args[2] == "start"
+		if isServerStart || isProgramStart {
 			// Listener global en background para terminar con la tecla "q" sin requerir Enter
 			go func() {
 				fd := int(os.Stdin.Fd())
@@ -47,12 +61,14 @@ func main() {
 							if char == 'q' || char == 'Q' {
 								term.Restore(fd, state)
 								fmt.Println("\n" + i18n.Tr("cliTerminateByKey"))
-								os.Exit(0)
+								requestCLIShutdown()
+								return
 							}
 							// Soportar Ctrl+C (ASCII 3) para interrupción estándar
 							if char == 3 {
 								term.Restore(fd, state)
-								os.Exit(0)
+								requestCLIShutdown()
+								return
 							}
 						}
 					}
@@ -67,7 +83,8 @@ func main() {
 					}
 					if strings.TrimSpace(text) == "q" {
 						fmt.Println("\n" + i18n.Tr("cliTerminateByKey"))
-						os.Exit(0)
+						requestCLIShutdown()
+						return
 					}
 				}
 			}()
