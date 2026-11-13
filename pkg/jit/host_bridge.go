@@ -40,6 +40,14 @@ func RegisterHostBridgeHandler(name string, handler HostBridgeFn) {
 	customBridgeHandlers[name] = handler
 }
 
+// HasHostBridgeHandler reports whether a JIT callback is registered for a service.
+func HasHostBridgeHandler(name string) bool {
+	hostBridgeMu.RLock()
+	defer hostBridgeMu.RUnlock()
+	handler, ok := customBridgeHandlers[name]
+	return ok && handler != nil
+}
+
 // InProcessHostBridge is the Go dispatcher invoked by JIT-compiled machine code.
 // C-ABI convention on Windows:
 // RCX = methodName (null-terminated string)

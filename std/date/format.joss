@@ -1,0 +1,165 @@
+// Date formatting and Gregorian calendar conversion implemented in Joss.
+public class DateFormatter {
+    private static func pad2(int $value): string {
+        return($value < 10) ? "0" . strval($value) : strval($value)
+    }
+
+    private static func leap(int $year): bool {
+        return($year % 4 == 0 && $year % 100 != 0) || $year % 400 == 0
+    }
+
+    private static func formatOffset(int $offset, string $separator): string {
+        string $sign = ($offset < 0) ? "-" : "+"
+        int $absolute = ($offset < 0) ? 0 - $offset : $offset
+        int $hours = intval($absolute / 3600)
+        int $minutes = intval(($absolute % 3600) / 60)
+        return $sign . DateFormatter::pad2($hours) . $separator . DateFormatter::pad2($minutes)
+    }
+
+    public static func zoneName(int $offset): string {
+        return($offset == 0) ? "UTC" : "UTC" . DateFormatter::formatOffset($offset, ":")
+    }
+
+    public static func formatEpoch(string $format, int $timestamp, int $offset, string $timezoneName = "UTC"): string {
+        ($format == "") ? {
+            $format = "Y-m-d H:i:s"
+        }
+        int $local = $timestamp + $offset
+        int $days = intval($local / 86400)
+        int $seconds = $local % 86400
+        ($seconds < 0) ? {
+            $seconds = $seconds + 86400
+            $days = $days - 1
+        }
+        int $year = 1970
+        ($days >= 0) ? {
+            while ($days >= (DateFormatter::leap($year) ? 366 : 365)) {
+                $days = $days - (DateFormatter::leap($year) ? 366 : 365)
+                $year = $year + 1
+            }
+        } : {
+            while ($days < 0) {
+                $year = $year - 1
+                $days = $days + (DateFormatter::leap($year) ? 366 : 365)
+            }
+        }
+        array<int> $monthDays = [31, DateFormatter::leap($year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        array<string> $monthLong = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+        array<string> $monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        array<string> $weekdayLong = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        array<string> $weekdayShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        int $month = 0
+        while ($month < 11 && $days >= $monthDays [$month]) {
+            $days = $days - $monthDays [$month]
+            $month = $month + 1
+        }
+        int $day = $days + 1
+        int $hour = intval($seconds / 3600)
+        int $minute = intval(($seconds % 3600) / 60)
+        int $second = $seconds % 60
+        int $weekday = ($timestamp + $offset) % 604800
+        int $weekdayIndex = (intval($weekday / 86400) + 4) % 7
+        ($weekdayIndex < 0) ? {
+            $weekdayIndex = $weekdayIndex + 7
+        }
+        int $hour12 = $hour % 12
+        ($hour12 == 0) ? {
+            $hour12 = 12
+        }
+
+        string $result = ""
+        int $index = 0
+        int $escaped = 0
+        while ($index < strlen($format)) {
+            int $tokenByte = __joss_string_byte_at($format, $index)
+            string $token = __joss_byte_string($tokenByte)
+            $index = $index + 1
+            ($escaped == 1) ? {
+                $result = $result . $token
+                $escaped = 0
+            }
+            : ($token == "\\") ? {
+                $escaped = 1
+            }
+            : ($token == "Y") ? {
+                $result = $result . strval($year)
+            }
+            : ($token == "y") ? {
+                $result = $result . DateFormatter::pad2($year % 100)
+            }
+            : ($token == "m") ? {
+                $result = $result . DateFormatter::pad2($month + 1)
+            }
+            : ($token == "n") ? {
+                $result = $result . strval($month + 1)
+            }
+            : ($token == "F") ? {
+                $result = $result . $monthLong [$month]
+            }
+            : ($token == "M") ? {
+                $result = $result . $monthShort [$month]
+            }
+            : ($token == "d") ? {
+                $result = $result . DateFormatter::pad2($day)
+            }
+            : ($token == "j") ? {
+                $result = $result . strval($day)
+            }
+            : ($token == "D") ? {
+                $result = $result . $weekdayShort [$weekdayIndex]
+            }
+            : ($token == "l") ? {
+                $result = $result . $weekdayLong [$weekdayIndex]
+            }
+            : ($token == "H") ? {
+                $result = $result . DateFormatter::pad2($hour)
+            }
+            : ($token == "G") ? {
+                $result = $result . strval($hour)
+            }
+            : ($token == "h") ? {
+                $result = $result . DateFormatter::pad2($hour12)
+            }
+            : ($token == "g") ? {
+                $result = $result . strval($hour12)
+            }
+            : ($token == "i") ? {
+                $result = $result . DateFormatter::pad2($minute)
+            }
+            : ($token == "s") ? {
+                $result = $result . DateFormatter::pad2($second)
+            }
+            : ($token == "a") ? {
+                $result = $result . (($hour < 12) ? "am" : "pm")
+            }
+            : ($token == "A") ? {
+                $result = $result . (($hour < 12) ? "AM" : "PM")
+            }
+            : ($token == "c") ? {
+                $result = $result . strval($year) . "-" . DateFormatter::pad2($month + 1) . "-" . DateFormatter::pad2($day) . "T" . DateFormatter::pad2($hour) . ":" . DateFormatter::pad2($minute) . ":" . DateFormatter::pad2($second) . DateFormatter::formatOffset($offset, ":")
+            }
+            : ($token == "r") ? {
+                $result = $result . $weekdayShort [$weekdayIndex] . ", " . DateFormatter::pad2($day) . " " . $monthShort [$month] . " " . strval($year) . " " . DateFormatter::pad2($hour) . ":" . DateFormatter::pad2($minute) . ":" . DateFormatter::pad2($second) . " " . DateFormatter::formatOffset($offset, "")
+            }
+            : ($token == "U") ? {
+                $result = $result . strval($timestamp)
+            }
+            : ($token == "O") ? {
+                $result = $result . DateFormatter::formatOffset($offset, "")
+            }
+            : ($token == "P") ? {
+                $result = $result . DateFormatter::formatOffset($offset, ":")
+            }
+            : ($token == "T") ? {
+                $result = $result . $timezoneName
+            }
+            : {
+                $result = $result . $token
+            }
+        }
+        ($escaped == 1) ? {
+            $result = $result . "\\"
+        }
+        return $result
+    }
+}

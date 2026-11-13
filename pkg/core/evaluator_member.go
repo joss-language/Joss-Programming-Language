@@ -201,13 +201,27 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 
 		// Check user-defined class in r.Classes
 		if classStmt, ok := r.Classes[className]; ok {
+			meta := r.lookupClassMetadata(className)
+			if meta != nil {
+				if field, exists := meta.Fields[me.Property.Value]; exists && field.IsStatic {
+					if value, found := r.getStaticProperty(className, me.Property.Value); found {
+						return value
+					}
+					return nil
+				}
+			}
+			if meta != nil {
+				if methodInfo, ok := meta.Methods[me.Property.Value]; ok && methodInfo.Method.IsStatic && methodInfo.Method.Body != nil {
+					r.requireMemberAccess(methodInfo.Method.Visibility, className, methodInfo.Method.Name.Value, methodInfo.Method.Name.Token.Line)
+					return &BoundMethod{Method: methodInfo.Method, Instance: r.newInitializedInstance(classStmt, nil)}
+				}
+			}
 			if _, native := r.NativeHandlers[className]; native {
 				return &BoundMethod{
 					Method:      &parser.MethodStatement{Name: &parser.Identifier{Value: me.Property.Value}},
 					StaticClass: className,
 				}
 			}
-			meta := r.lookupClassMetadata(className)
 			if meta != nil {
 				if methodInfo, ok := meta.Methods[me.Property.Value]; ok {
 					r.requireMemberAccess(methodInfo.Method.Visibility, className, methodInfo.Method.Name.Value, methodInfo.Method.Name.Token.Line)
@@ -346,6 +360,11 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 			}
 
 			if classStmt, ok := r.Classes[className]; ok {
+				for _, stmt := range classStmt.Body.Statements {
+					if method, methodOK := stmt.(*parser.MethodStatement); methodOK && method.Name.Value == me.Property.Value && method.IsStatic && method.Body != nil {
+						return &BoundMethod{Method: method, Instance: r.newInitializedInstance(classStmt, nil)}
+					}
+				}
 				if _, native := r.NativeHandlers[className]; native {
 					return &BoundMethod{
 						Method:      &parser.MethodStatement{Name: &parser.Identifier{Value: me.Property.Value}},

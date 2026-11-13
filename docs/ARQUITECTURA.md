@@ -81,6 +81,7 @@ CI ejecuta `go run ./tools/cataloggen --check` y `go run ./tools/docgen --check`
 - Los bloques de control usan el scope del callable para reflejar el runtime actual.
 - El binding de `foreach` puede reutilizarse en otro loop; el runtime lo trata como asignación.
 - Las clases y funciones top-level se resuelven a nivel de proyecto.
+- Si una clase declarada en Joss comparte nombre con un handler nativo, sus contratos nativos no sobrescritos permanecen visibles al analyzer; los métodos estáticos con cuerpo fuente se ejecutan desde Joss y los métodos sin implementación fuente conservan el fallback nativo. Las propiedades estáticas Joss se inicializan una vez por runtime raíz, se comparten entre sus forks de request y se limpian al liberar el runtime propietario.
 - Los globals nativos y símbolos de plugins se inyectan mediante `analyzer.Environment`.
 - Una función con nombre no hereda variables fuente del caller ni variables top-level: recibe parámetros, locales, `this` y bindings del host/plugin. Una closure sí captura léxicamente.
 - Los parámetros requieren tipo explícito; `mixed` nunca se introduce silenciosamente.
@@ -103,6 +104,8 @@ Las referencias seguras no exponen punteros de Go: `core.VariableReference` cons
 La compilación nativa oficial (`joss build`) transforma el `PreparedProgram` analizado y validado hacia **Joss Native IR** (`pkg/ir`), con CFG, basic blocks e instrucciones de tipado estricto. Tras la verificación formal (`ir.VerifyProgram`), el **Native Backend** (`pkg/backend/native`) genera ejecutables nativos reales autocontenidos (PE `.exe`, ELF, Mach-O) en `build/` sin serializar AST:
 - **Programas CLI puros**: Se compilan a código máquina puro (~5.5 KB - 32 KB) sin `joss_host.dll` y sin trailer VFS (`JOSS_RUNNER_DATA`).
 - **Aplicaciones con servicios web/DB**: Enlazan selectivamente `_joss_host_bridge` (aplicando poda automática por build tags `no<driver>` para excluir motores como SQLite, MySQL, PostgreSQL, SQL Server, Redis u OCI cuando el proyecto no los utiliza) y sellan el VFS encriptado con AES-256 (`env.enc`).
+
+Un símbolo global de runtime sin implementación para el target detiene la compilación con un error de símbolo no resuelto. Los adaptadores transitorios de paso se reservan a las familias `Router`, `Schema`, `Plugin`, `GranDB` y `HttpServer`; no sustituyen funciones de la Standard Library ni prueban paridad funcional de esos servicios. La paridad AOT de `strpos`, `substr`, `urldecode` y otras primitivas debe verificarse por separado en AMD64 y ARM64 antes de declarar completo un flujo HTTP.
 
 Del mismo modo, JPBC sólo define ejecución de plugins. Al documentar
 “compilación” indique cuál de las representaciones se está usando.

@@ -109,8 +109,11 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 		return
 	}
 	name := classNode.Name.Value
+	var nativeBase *Class
 	if previous, exists := a.classes[name]; exists {
 		if previous.File == "" && (strings.HasPrefix(file, "<std/") || a.classTokens[name].file == "") {
+			base := previous
+			nativeBase = &base
 			delete(a.classes, name)
 		} else {
 			where := "the runtime environment"
@@ -132,6 +135,16 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 		return
 	}
 	class := Class{Name: name, Methods: make(map[string]Callable), Fields: make(map[string]Field), Visibility: classNode.Visibility, File: file, IsAbstract: classNode.IsAbstract}
+	if nativeBase != nil {
+		class.SuperClass = nativeBase.SuperClass
+		class.Interfaces = append(class.Interfaces, nativeBase.Interfaces...)
+		for methodName, method := range nativeBase.Methods {
+			class.Methods[methodName] = method
+		}
+		for fieldName, field := range nativeBase.Fields {
+			class.Fields[fieldName] = field
+		}
+	}
 	if classNode.SuperClass != nil {
 		class.SuperClass = classNode.SuperClass.Value
 	}
@@ -140,6 +153,7 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 			class.Interfaces = append(class.Interfaces, iface.Value)
 		}
 	}
+	declaredMethods := make(map[string]bool)
 	if classNode.Body != nil {
 		for _, member := range classNode.Body.Statements {
 			if declaration, ok := member.(*parser.LetStatement); ok && declaration.Name != nil {
@@ -204,13 +218,14 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 			default:
 				continue
 			}
-			if _, exists := class.Methods[methodName]; exists {
+			if _, exists := class.Methods[methodName]; exists && (nativeBase == nil || declaredMethods[methodName]) {
 				a.add("JOSS-DECL-003", diagnostics.SeverityError, file, token,
 					fmt.Sprintf("Method `%s::%s` is declared more than once.", name, methodName),
 					"A class cannot contain duplicate method names.", "Rename or remove one method.")
 				continue
 			}
 			class.Methods[methodName] = callable
+			declaredMethods[methodName] = true
 		}
 	}
 	a.classes[name] = class

@@ -124,12 +124,23 @@ func parseAuthExpiry(raw string) (time.Time, bool) {
 	if value == "" {
 		return time.Time{}, false
 	}
+	if strings.HasSuffix(value, "Z") {
+		// parseTime=true can append a synthetic UTC marker to MySQL DATETIME
+		// fields. The Auth schema stores local wall-clock DATETIME values, so
+		// discard only that marker and interpret the original fields locally.
+		wallClock := strings.TrimSuffix(value, "Z")
+		for _, layout := range []string{"2006-01-02T15:04:05.999999999", "2006-01-02T15:04:05"} {
+			if parsed, err := time.ParseInLocation(layout, wallClock, time.Local); err == nil {
+				return parsed, true
+			}
+		}
+	}
 
 	for _, layout := range []string{
 		"2006-01-02 15:04:05.999999999",
 		"2006-01-02 15:04:05",
 	} {
-		if parsed, err := time.ParseInLocation(layout, value, time.UTC); err == nil {
+		if parsed, err := time.ParseInLocation(layout, value, time.Local); err == nil {
 			return parsed, true
 		}
 	}

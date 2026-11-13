@@ -38,13 +38,13 @@ de la instancia entera.
 | `create(mapaDatos)` | Token de usuario o false según inserción; requiere datos del esquema. No es envío de correo automático. |
 | `attempt(email,contraseña)` | JWT o false; valida credenciales según las reglas de tablas. No incorpora por sí mismo todo el flujo fluido MFA. |
 | `login(email,contraseña)` | AuthLoginResult o null por argumentos insuficientes. |
-| `check()`, `guest()` | Bool sobre contexto de sesión. |
-| `user()`, `id()` | Instancia/ID actual o null. |
-| `hasRole(nombre)` | Bool; no verifica propiedad de un recurso. |
+| `check()`, `guest()` | Bool sobre contexto de sesión; la decisión vive en `std/auth/auth.joss` y consulta `Auth::id()`. |
+| `user()`, `id()` | Instancia/ID actual o null; `id()` lee `user_id` desde la sesión en `std/auth/auth.joss`. |
+| `hasRole(nombre)` | Bool; la política en `std/auth/auth.joss` compara el rol de sesión y permite cualquier rol cuando el rol actual es `admin`. No verifica propiedad de un recurso. |
 | `validateToken(token)` | Bool; verifica JWT y repuebla contexto de sesión. |
 | `refresh(id)` | JWT renovado o false/null; autoriza primero quién puede solicitarlo. |
 | `update(id,mapa)`, `delete(id)` | Bool o null según argumentos/fallo; modifican usuarios. |
-| `logout()` | Limpia contexto y retorna true. No implica revocación global de todo JWT emitido. |
+| `logout()` | Elimina las claves de identidad y rol de la sesión desde `std/auth/auth.joss`, y retorna true. No implica revocación global de todo JWT emitido. |
 | `verify(token)` | Verifica token de confirmación de correo, devuelve bool. |
 | `verificationStatus(email)` | not_found, verified o unverified. |
 | `resendVerification(email)` | Token de verificación o false; la entrega del mensaje corresponde a la aplicación. |
@@ -120,3 +120,26 @@ https://tu-dominio.com/auth/{proveedor}/callback
 
 Fuentes: [Auth](../pkg/core/auth.go), [OAuth Social](../pkg/core/auth_social.go), [JWT](../pkg/core/auth_jwt.go),
 [flujo MFA](../pkg/core/auth_fluent.go), [tablas](../pkg/core/auth_tables.go).
+# Flujos Auth en Pure Joss
+
+`std/auth/auth.joss` es la implementación canónica de las decisiones de
+registro, login, recuperación y cambio de contraseña. El flujo consulta y
+actualiza usuarios con `GranDB`; conserva los contratos `Auth::create`,
+`Auth::attempt`, `Auth::login`, `Auth::forgotPassword` y
+`Auth::resetPassword` usados por controladores web y API.
+
+Las primitivas nativas quedan limitadas a bcrypt (`Auth::hash` y
+`Auth::verifyHash`), firma JWT (`Auth::issueToken`), comprobación de conexión
+MySQL (`Auth::databaseReady`), preparación de retos 2FA y reclamación transaccional de un token de recuperación
+(`Auth::claimPasswordReset`). Esta última operación marca el token como usado
+y cambia la contraseña dentro de la misma transacción MySQL, por lo que dos
+solicitudes concurrentes no pueden reutilizarlo.
+
+Las respuestas públicas de recuperación siguen siendo genéricas en los
+controladores. El método interno devuelve un token sólo para que el controlador
+pueda enviar el correo; una cuenta inexistente no produce correo. Las pruebas
+de integración de los flujos de JosSecurity deben usar un MySQL desechable y no
+la conexión de una instalación configurada.
+
+La función global `now()` todavía depende de `pkg/core/builtins_date.go`; su
+implementación Joss y la emisión AOT multi arquitectura permanecen pendientes.

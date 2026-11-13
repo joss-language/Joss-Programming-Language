@@ -71,6 +71,15 @@ func (b *MachineCodeBuilder) emitJlLabel(target string) {
 	b.relocs = append(b.relocs, machineReloc{kind: relocTextLabel, patchOffset: patchOff, targetLabel: target})
 }
 
+func (b *MachineCodeBuilder) emitJbLabel(target string) {
+	b.invalidateRegCache()
+	b.asmListing.WriteString(fmt.Sprintf("    jb %s\n", target))
+	b.emitBytes(0x0F, 0x82)
+	patchOff := b.text.Len()
+	b.emitU32(0)
+	b.relocs = append(b.relocs, machineReloc{kind: relocTextLabel, patchOffset: patchOff, targetLabel: target})
+}
+
 func (b *MachineCodeBuilder) emitJgeLabel(target string) {
 	b.invalidateRegCache()
 	b.asmListing.WriteString(fmt.Sprintf("    jge %s\n", target))

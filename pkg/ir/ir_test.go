@@ -57,6 +57,35 @@ func TestIR_BasicArithmeticAndReturn(t *testing.T) {
 	}
 }
 
+func TestIR_EmptyMapValueTypeIsMixed(t *testing.T) {
+	program, _ := compileSourceToIR(t, `var $values = {}; $values["name"] = "Ada"; echo $values["name"];`)
+	var sawMap, sawRead, sawDynamicPrint bool
+	for _, function := range program.Functions {
+		for _, block := range function.Blocks {
+			for _, instruction := range block.Instructions {
+				switch inst := instruction.(type) {
+				case *ir.NewMapInst:
+					sawMap = true
+					valueType := inst.Dest.Type().Elem.Fields[0]
+					if valueType.Kind != ir.TypeKindMixed {
+						t.Fatalf("empty map value type = %s, want mixed", valueType)
+					}
+				case *ir.MapGetInst:
+					sawRead = true
+					if inst.Dest.Type().Kind != ir.TypeKindMixed {
+						t.Fatalf("empty map read type = %s, want mixed", inst.Dest.Type())
+					}
+				case *ir.CallRuntimeInst:
+					sawDynamicPrint = sawDynamicPrint || inst.Func == "print_mixed"
+				}
+			}
+		}
+	}
+	if !sawMap || !sawRead || !sawDynamicPrint {
+		t.Fatalf("lowered IR map evidence missing: new_map=%v map_read=%v dynamic_print=%v", sawMap, sawRead, sawDynamicPrint)
+	}
+}
+
 func TestIR_ComparisonAndTernary(t *testing.T) {
 	src := `
 		int $x = 15;

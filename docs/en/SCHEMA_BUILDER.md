@@ -4,7 +4,9 @@ A table defines what data a database stores. Schema creates or modifies that str
 
 [Index](README.md) · Before: [models](MODELOS.md) · After: [migrations](MIGRACIONES.md)
 
-The example requires connection and an owners table that supports the composite key. It is a schematic fragment, not a stand-alone program.```joss
+The example requires connection and an owners table that supports the composite key. It is a schematic fragment, not a stand-alone program.
+
+```joss
 Schema::create("products", func(Blueprint $table) {
     $table->id()
     $table->string("sku", 50)->unique()
@@ -19,15 +21,27 @@ Schema::create("products", func(Blueprint $table) {
     $table->timestamps()
 })
 ```
+
+`Schema::hasForeign($table, $constraint)` checks whether a foreign key with that name exists. Use it in migrations that must tolerate partially updated MySQL databases:
+
+```joss
+(!Schema::hasForeign("backups", "fk_backups_user")) ? {
+    Schema::table("backups", func(mixed $table) {
+        $table->foreign("user_id", "fk_backups_user")->references("id")->on("users")->onDelete("cascade")
+    })
+}
+```
+<!-- joss-check: requiere una base de datos configurada -->
+
 ## Schema
 
 - `create($table, func(Blueprint $blueprint))`
 - `table($table, func(Blueprint $blueprint))`
 - `rename($from, $to)`
 - `drop($table)` and `dropIfExists($table)`
-- `hasTable($table)` and `hasColumn($table, $column)`
+- `hasTable($table)`, `hasColumn($table, $column)` and `hasForeign($table, $constraint)`
 
-##Blueprint
+## Blueprint
 
 Types: `id`, `increments`, `integer`, `tinyInteger`, `smallInteger`, `mediumInteger`, `bigInteger`, `unsignedInteger`, `unsignedBigInteger`, `float`, `double`, `decimal`, `char`, `string`, `text`, `mediumText`, `longText`, `date`, `dateTime`, `time`, `timestamp`, `timestamps`, `softDeletes`, `boolean`, `json` and `enum`.
 

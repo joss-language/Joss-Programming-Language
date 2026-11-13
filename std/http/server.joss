@@ -2,18 +2,33 @@ public class HttpServer {
     public static func start(): void {
         var $portStr = env("PORT")
         var $port = ($portStr != null && strlen($portStr) > 0) ? intval($portStr) : 80
-        HttpServer::run($port)
+        try {
+            HttpServer::run($port)
+        }  catch ($ex) {
+            ($port == 80) ? {
+                print("[Server] Puerto 80 no disponible o requiere permisos de administrador. Reintentando en puerto 8000...\n")
+                HttpServer::run(8000)
+            } : {
+                throw $ex
+            }
+        }
     }
 
     public static func run(int $port): void {
         print("[Server::start] Iniciando servidor web...\n")
-        print("Iniciando servidor web HTTP en http://localhost:" . $port . "\n")
-        print("[Server] Socket TCP enlazado con éxito en :" . $port . ". Servidor listo para peticiones.\n")
+        print("[Joss Native Server] Escuchando en http://localhost:" . $port . "\n")
+
+        var $smokeCheck = env("JOSS_NATIVE_CHECK_ONLY")
+        ($smokeCheck != null && strlen($smokeCheck) > 0) ? {
+            return
+        }
 
         var $server = Socket::listen("0.0.0.0", "" . $port)
         guard ($server != null) : {
             return
         }
+
+        print("[Server] Socket TCP enlazado con éxito en :" . $port . ". Servidor listo para peticiones.\n")
 
         while (true) {
             var $client = $server->accept()
@@ -46,6 +61,49 @@ public class HttpServer {
 
         string $_method = $reqLine [0]
         string $path = $reqLine [1]
+        var $requestData = HttpRequestParser::parse($raw)
+        var $pathParts = explode("?", $path)
+        (count($pathParts) > 0) ? {
+            $path = $pathParts [0]
+        }
+
+        // Parse HTTP request headers
+        var $upgradeHeader = ""
+        var $connectionHeader = ""
+        var $secKey = ""
+        var $idx = 1
+        var $numLines = count($lines)
+        while ($idx < $numLines) {
+            var $line = $lines [$idx]
+            (strlen($line) == 0) ? {
+                break
+            }
+            var $lowerLine = strtolower($line)
+            (Str::contains($lowerLine, "upgrade:")) ? {
+                var $uParts = explode(":", $line)
+                (count($uParts) >= 2) ? {
+                    $upgradeHeader = trim($uParts [1])
+                }
+            }
+            (Str::contains($lowerLine, "connection:")) ? {
+                var $cParts = explode(":", $line)
+                (count($cParts) >= 2) ? {
+                    $connectionHeader = trim($cParts [1])
+                }
+            }
+            (Str::contains($lowerLine, "sec-websocket-key:")) ? {
+                var $kParts = explode(":", $line)
+                (count($kParts) >= 2) ? {
+                    $secKey = trim($kParts [1])
+                }
+            }
+            $idx++
+        }
+
+        // WebSocket Upgrade detection
+        guard (!WebSocketProtocol::isUpgradeRequest($upgradeHeader, $connectionHeader)) : {
+            return WebSocketProtocol::handshakeResponse($secKey)
+        }
 
         // Health endpoint for Hot-Reload probing
         guard ($path != "/__joss_health") : {
@@ -59,8 +117,15 @@ public class HttpServer {
 
         print("[Server REQ] \n" . $path . "\n\n[Server ROUTE] Dispatching: \n" . $path . "\n")
 
-        // Static assets (public/, assets/, css/, images/, favicon)
-        var $isStatic = str_contains($path, "/public/") || str_contains($path, "/assets/") || str_contains($path, "/css/") || str_contains($path, "/images/") || str_contains($path, "/favicon")
+        // 1. Static assets embedded directly in the standalone executable binary (.rodata)
+        var $embedded = __joss_get_embedded_asset($path)
+        guard ($embedded == "" || $embedded == null) : {
+            var $mime = Mime::fromPath($path)
+            return "HTTP/1.1 200 OK\r\nContent-Type: " . $mime . "\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . $embedded
+        }
+
+        // 2. Dynamic disk-backed assets (relative project paths: ./, subfolders like ./pruebitas, dynamic uploads)
+        var $isStatic = Str::contains($path, "/public/") || Str::contains($path, "/assets/") || Str::contains($path, "/css/") || Str::contains($path, "/images/") || Str::contains($path, "/favicon") || Str::contains($path, ".")
         var $foundStatic = false
         var $staticContent = ""
         var $staticMime = ""
@@ -70,12 +135,31 @@ public class HttpServer {
                 $foundStatic = true
                 $staticContent = file_get_contents($filePath)
                 $staticMime = Mime::fromPath($filePath)
+            } : {
+                var $prefixed = "public/" . $filePath
+                (file_exists($prefixed)) ? {
+                    $foundStatic = true
+                    $staticContent = file_get_contents($prefixed)
+                    $staticMime = Mime::fromPath($prefixed)
+                }
             }
         }
         guard (!$foundStatic) : {
             return "HTTP/1.1 200 OK\r\nContent-Type: " . $staticMime . "\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . $staticContent
         }
 
+        // Application Controller Routing via __joss_http_dispatch
+        var $dispatched = __joss_http_dispatch($_method, $path, $requestData)
+        guard ($dispatched == "" || $dispatched == null) : {
+            return(Str::contains($dispatched, "HTTP/1.1")) ? $dispatched : ("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n" . $dispatched)
+        }
+
         return ErrorPages::render404($path)
+    }
+}
+
+public class Server {
+    public static func start() : void {
+        HttpServer::start()
     }
 }

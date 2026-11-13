@@ -1,11 +1,13 @@
 package std_test
 
 import (
+	"strings"
 	"testing"
 
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/diagnostics"
+	"github.com/jossecurity/joss/pkg/mobile"
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/std"
 )
@@ -147,5 +149,94 @@ public func main(): int {
 	if report.HasErrors() {
 		report.PrintReport()
 		t.Fatalf("Pure Joss Web Stack Semantic Analysis falló con %d errores", report.Count(diagnostics.SeverityError))
+	}
+}
+
+func TestPureJossHTTPParserParsesFormQueryAndCookies(t *testing.T) {
+	source := `
+string $raw = "POST /login?next=%2Fdashboard HTTP/1.1\r\nHost: example.test\r\nCookie: joss_session=sid-1; theme=dark\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nemail=ada%40example.test&password=a+b";
+var $request = HttpRequestParser::parse($raw);
+print(json_encode({
+    "method": $request["_method"],
+    "path": $request["_path"],
+    "next": $request["next"],
+    "email": $request["email"],
+    "password": $request["password"],
+    "session": $request["_cookies"]["joss_session"],
+    "host": $request["_host"]
+}));
+`
+	result := mobile.RunDirect(source, 5000)
+	if !result.Success {
+		t.Fatalf("Joss HTTP parser failed: %s; diagnostics: %#v", result.Error, result.Diagnostics)
+	}
+	want := `{"email":"ada@example.test","host":"example.test","method":"POST","next":"/dashboard","password":"a b","path":"/login","session":"sid-1"}`
+	if strings.TrimSpace(result.Stdout) != want {
+		t.Fatalf("parsed request = %s, want %s", result.Stdout, want)
+	}
+}
+
+func TestPureJossHTTPParserRejectsMalformedRequest(t *testing.T) {
+	source := `
+var $request = HttpRequestParser::parse("POST /login HTTP/1.1");
+print($request["_error"]);
+`
+	result := mobile.RunDirect(source, 5000)
+	if !result.Success {
+		t.Fatalf("malformed request handling failed: %s; diagnostics: %#v", result.Error, result.Diagnostics)
+	}
+	if strings.TrimSpace(result.Stdout) != "malformed_request" {
+		t.Fatalf("malformed request error = %q, want malformed_request", result.Stdout)
+	}
+}
+
+func TestPureJossHTTPParserPreservesJSONBody(t *testing.T) {
+	source := `
+string $raw = "POST /api/login HTTP/1.1\r\nContent-Type: application/json\r\n\r\n{\"email\":\"ada@example.test\",\"remember\":true}";
+var $request = HttpRequestParser::parse($raw);
+print($request["_body"]);
+`
+	result := mobile.RunDirect(source, 5000)
+	if !result.Success {
+		t.Fatalf("JSON/malformed HTTP handling failed: %s; diagnostics: %#v", result.Error, result.Diagnostics)
+	}
+	if !strings.Contains(result.Stdout, `{"email":"ada@example.test","remember":true}`) {
+		t.Fatalf("JSON body was not preserved in the parsed request: %q", result.Stdout)
+	}
+}
+
+func TestPureJossSessionUsesCanonicalCookieAndAcceptsLegacyCase(t *testing.T) {
+	source := `
+var $canonical = Session::parseCookies("joss_session=canonical-id")
+var $legacy = Session::parseCookies("JOSS_SESSION=legacy-id")
+print(json_encode({
+    "canonical": $canonical["joss_session"],
+    "legacy": $legacy["JOSS_SESSION"],
+    "cookie_header": Session::start("joss_session=expired-id")->getCookieHeader()
+}))
+`
+	result := mobile.RunDirect(source, 5000)
+	if !result.Success {
+		t.Fatalf("session cookie parsing failed: %s; diagnostics: %#v", result.Error, result.Diagnostics)
+	}
+	if !strings.Contains(result.Stdout, `"canonical":"canonical-id"`) || !strings.Contains(result.Stdout, `"legacy":"legacy-id"`) {
+		t.Fatalf("parsed session cookies = %s", result.Stdout)
+	}
+	if !strings.Contains(result.Stdout, `"cookie_header":"Set-Cookie: joss_session=`) {
+		t.Fatalf("session did not emit the canonical cookie name: %s", result.Stdout)
+	}
+}
+
+func TestPureJossAuthCheckAndGuestShareSessionIdentity(t *testing.T) {
+	source := `
+print(Auth::check());
+print(Auth::guest());
+`
+	result := mobile.RunDirect(source, 5000)
+	if !result.Success {
+		t.Fatalf("Auth check/guest failed: %s; diagnostics: %#v", result.Error, result.Diagnostics)
+	}
+	if got, want := strings.TrimSpace(result.Stdout), "false\ntrue"; got != want {
+		t.Fatalf("Auth check/guest = %q, want %q", got, want)
 	}
 }

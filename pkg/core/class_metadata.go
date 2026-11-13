@@ -10,6 +10,7 @@ type classFieldInfo struct {
 	Declaration      *parser.LetStatement
 	OwnerClass       string
 	IsConst          bool
+	IsStatic         bool
 	DeclaredType     string
 	ParsedType       typesystem.Type
 	IsSimpleDefault  bool
@@ -148,6 +149,7 @@ func (r *Runtime) lookupClassMetadata(className string) *classMetadata {
 					Declaration:  node,
 					OwnerClass:   cls.Name.Value,
 					IsConst:      node.IsConst,
+					IsStatic:     node.IsStatic,
 					DeclaredType: declaredType,
 					ParsedType:   typesystem.Parse(declaredType),
 				}

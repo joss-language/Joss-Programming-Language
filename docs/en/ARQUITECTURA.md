@@ -81,6 +81,7 @@ CI runs `go run ./tools/cataloggen --check` and `go run ./tools/docgen --check`;
 - Control blocks use the callable's scope to reflect the current runtime.
 - The `foreach` binding can be reused in another loop; the runtime treats it as assignment.
 - Top-level classes and functions are resolved at the project level.
+- If a Joss-declared class shares a name with a native handler, its unshadowed native contracts remain visible to the analyzer; static methods with source bodies execute from Joss, while methods without a source implementation retain the native fallback. Joss static properties initialize once per root runtime, are shared by its request forks, and are cleared when the owning runtime is freed.
 - Native globals and plugin symbols are injected via `analyzer.Environment`.
 - A named function does not inherit caller source variables or top-level variables: it receives parameters, locals, `this`, and host/plugin bindings. A closure does capture lexically.
 - Parameters require an explicit type; `mixed` is never introduced silently.
@@ -103,6 +104,8 @@ Safe references do not expose Go pointers: `core.VariableReference` preserves th
 Official native compilation (`joss build`) transforms the analyzed and validated `PreparedProgram` into **Joss Native IR** (`pkg/ir`), with a CFG, basic blocks, and strictly typed instructions. After formal verification (`ir.VerifyProgram`), the **Native Backend** (`pkg/backend/native`) generates real self-contained native executables (PE `.exe`, ELF, Mach-O) in `build/` without serializing the AST:
 - **Pure CLI programs**: Compiled to pure machine code (~5.5 KB - 32 KB) without `joss_host.dll` and without a VFS trailer (`JOSS_RUNNER_DATA`).
 - **Applications with web/DB services**: Selectively link `_joss_host_bridge` (applying automatic pruning via `no<driver>` build tags to exclude engines such as SQLite, MySQL, PostgreSQL, SQL Server, Redis, or OCI when unused by the project) and seal the AES-256 encrypted VFS (`env.enc`).
+
+A global runtime symbol without an implementation for the target stops compilation with an unresolved-symbol error. Transitional pass-through adapters are reserved for the `Router`, `Schema`, `Plugin`, `GranDB`, and `HttpServer` method families; they do not stand in for Standard Library functions and do not prove functional parity for those services. AOT parity for `strpos`, `substr`, `urldecode`, and other primitives must be checked separately on AMD64 and ARM64 before an HTTP flow is considered complete.
 
 Likewise, JPBC only defines plugin execution. When documenting
 “compilation”, state which of the representations is being used.

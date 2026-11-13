@@ -40,30 +40,32 @@ type SitemapEntry struct {
 
 // Runtime manages the execution environment of a Joss program
 type Runtime struct {
-	Env               map[string]string
-	Variables         map[string]interface{}
-	VarTypes          map[string]string // For strict typing
-	Constants         map[string]bool
-	HostGlobals       map[string]bool // runtime/plugin bindings visible inside named callables
-	Classes           map[string]*parser.ClassStatement
-	Interfaces        map[string]*parser.InterfaceStatement
-	Enums             map[string]*EnumDefinition
-	Functions         map[string]*parser.MethodStatement
-	DB                *sql.DB
-	activeTx          *sql.Tx // current GranDB callback; owned by this Runtime
-	executionContext  context.Context
-	Routes            map[string]map[string]interface{} // HTTP Method -> Path -> Handler
-	CurrentMiddleware []string
-	CustomMiddlewares map[string]interface{} // Name -> Closure/Handler
-	NativeHandlers    map[string]NativeHandler
-	NativePlugins     map[string]*NativePluginDefinition
-	NativeDrivers     map[string]*NativeDriverDefinition
-	PluginRegistry    *pluginruntime.PluginRegistry
-	ProjectRoot       string
-	PreparedProgram   *semanticanalyzer.PreparedProgram
-	AnalysisFacts     *semanticanalyzer.AnalysisFacts
-	pluginASTEngines  map[string]*PluginASTEngine
-	freed             atomic.Bool
+	Env                  map[string]string
+	Variables            map[string]interface{}
+	VarTypes             map[string]string // For strict typing
+	Constants            map[string]bool
+	HostGlobals          map[string]bool // runtime/plugin bindings visible inside named callables
+	Classes              map[string]*parser.ClassStatement
+	Interfaces           map[string]*parser.InterfaceStatement
+	Enums                map[string]*EnumDefinition
+	Functions            map[string]*parser.MethodStatement
+	DB                   *sql.DB
+	activeTx             *sql.Tx // current GranDB callback; owned by this Runtime
+	executionContext     context.Context
+	Routes               map[string]map[string]interface{} // HTTP Method -> Path -> Handler
+	CurrentMiddleware    []string
+	CustomMiddlewares    map[string]interface{} // Name -> Closure/Handler
+	NativeHandlers       map[string]NativeHandler
+	NativePlugins        map[string]*NativePluginDefinition
+	NativeDrivers        map[string]*NativeDriverDefinition
+	staticProperties     *staticPropertyStore
+	ownsStaticProperties bool
+	PluginRegistry       *pluginruntime.PluginRegistry
+	ProjectRoot          string
+	PreparedProgram      *semanticanalyzer.PreparedProgram
+	AnalysisFacts        *semanticanalyzer.AnalysisFacts
+	pluginASTEngines     map[string]*PluginASTEngine
+	freed                atomic.Bool
 	// Query observation is execution-local: Fork starts disabled at zero and
 	// Free resets both fields before this Runtime returns to the pool.
 	queryCounting atomic.Bool

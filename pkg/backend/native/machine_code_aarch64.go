@@ -87,18 +87,20 @@ type arm64Reloc struct {
 
 // ARM64Builder produce código máquina nativo AArch64 (ARMv8-A) directamente desde Joss Native IR.
 type ARM64Builder struct {
-	target             Target
-	guiMode            bool
-	prog               *ir.Program
-	text               bytes.Buffer
-	rodata             bytes.Buffer
-	labels             map[string]int
-	relocs             []arm64Reloc
-	stringPool         map[string]uint32
-	asmListing         strings.Builder
-	needsHostBridge    bool
-	usesExtendedStdlib bool
-	embeddedEnv        string
+	target                  Target
+	guiMode                 bool
+	prog                    *ir.Program
+	text                    bytes.Buffer
+	rodata                  bytes.Buffer
+	labels                  map[string]int
+	relocs                  []arm64Reloc
+	stringPool              map[string]uint32
+	asmListing              strings.Builder
+	needsHostBridge         bool
+	usesExtendedStdlib      bool
+	embeddedEnv             string
+	seedTables              map[string][]map[string]string
+	nativeFileReaderEmitted bool
 }
 
 // NewARM64Builder inicializa un generador de código AArch64 puro.
@@ -123,6 +125,13 @@ func (b *ARM64Builder) NeedsHostBridge() bool {
 	return b.needsHostBridge
 }
 
+func (b *ARM64Builder) SetSeedTables(tables map[string][]map[string]string) {
+	b.seedTables = tables
+	if len(tables) > 0 {
+		b.usesExtendedStdlib = true
+	}
+}
+
 func (b *ARM64Builder) UsesExtendedStdlib() bool {
 	return b.usesExtendedStdlib
 }
@@ -136,6 +145,9 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitProlog(32)
 
 	b.emitCall("__joss_os_init")
+	if b.prog != nil && b.prog.Functions["__joss_init_static_globals"] != nil {
+		b.emitCall("fn___joss_init_static_globals")
+	}
 
 	if hasUserMain {
 		b.emitCall("fn_main")
@@ -631,6 +643,23 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitRet(regX30)
 
 	b.defineLabel("joss_arr_new")
+	b.emitProlog(32)
+	b.emitStr(regX19, regSP, 16)
+	b.emitMovReg(regX19, regX0) // requested capacity
+	b.emitLoadImm64(regX1, 16)
+	b.emitCmp(regX19, regX1)
+	b.emitBranchCond(condCS, ".arm64_array_capacity_ready")
+	b.emitMovReg(regX19, regX1)
+	b.defineLabel(".arm64_array_capacity_ready")
+	b.emitLoadImm64(regX1, 8)
+	b.emitMul(regX0, regX19, regX1)
+	b.emitAddImm(regX0, regX0, 16) // length word + capacity word + elements
+	b.emitCall("__joss_os_alloc")
+	b.emitStr(regXZR, regX0, 0) // length = 0
+	b.emitStr(regX19, regX0, 8) // capacity
+	b.emitLdr(regX19, regSP, 16)
+	b.emitEpilog(32)
+
 	b.defineLabel("joss_map_new")
 	b.emitProlog(16)
 	b.emitLoadImm64(regX0, 4096)
@@ -641,13 +670,37 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("joss_map_len")
 	b.defineLabel("fn_len")
 	b.defineLabel("fn_count")
-	b.defineLabel("fn_strlen")
 	b.emitCmp(regX0, regXZR)
 	b.emitBranchCond(condEQ, ".arr_len_zero")
 	b.emitLdr(regX0, regX0, 0)
 	b.emitRet(regX30)
 	b.defineLabel(".arr_len_zero")
 	b.emitLoadImm64(regX0, 0)
+	b.emitRet(regX30)
+
+	// fn_strlen(x0 = UTF-8 string) -> x0 = Unicode code-point count.
+	// Keep this separate from __joss_rt_strlen, which returns byte length for I/O.
+	b.defineLabel("fn_strlen")
+	b.emitLoadImm64(regX1, 0) // byte offset
+	b.emitLoadImm64(regX2, 0) // rune count
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".strlen_rune_done")
+	b.defineLabel(".strlen_rune_loop")
+	b.emitAdd(regX3, regX0, regX1)
+	b.emitLdrb(regX4, regX3, 0)
+	b.emitCmpImm(regX4, 0)
+	b.emitBranchCond(condEQ, ".strlen_rune_done")
+	b.emitLoadImm64(regX5, 0xC0)
+	b.emitLoadImm64(regX7, 0x80)
+	b.emitAndW(regX6, regX4, regX5)
+	b.emitCmp(regX6, regX7)
+	b.emitBranchCond(condEQ, ".strlen_rune_next") // UTF-8 continuation byte
+	b.emitAddImm(regX2, regX2, 1)
+	b.defineLabel(".strlen_rune_next")
+	b.emitAddImm(regX1, regX1, 1)
+	b.emitBranch(".strlen_rune_loop")
+	b.defineLabel(".strlen_rune_done")
+	b.emitMovReg(regX0, regX2)
 	b.emitRet(regX30)
 
 	b.defineLabel("joss_arr_push_i64")
@@ -801,6 +854,220 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitAdd(regX1, regX1, regX4)
 	b.emitLdr(regX6, regX1, 0)
 	b.emitBr(regX6)
+
+	b.emitNativeTime()
+	if b.hasRelocTarget("fn___joss_local_utc_offset") {
+		b.emitNativeLocalUTCOffset()
+	}
+	if b.hasRelocTarget("fn___joss_timezone_data") {
+		b.emitNativeTimezoneData()
+	}
+	if b.hasRelocTarget("fn___joss_string_byte_at") {
+		b.emitNativeStringByteAt()
+	}
+	if b.hasRelocTarget("fn___joss_byte_string") {
+		b.emitNativeByteString()
+	}
+	if b.hasRelocTarget("fn_intval") {
+		b.emitNativeIntval()
+	}
+	if b.hasRelocTarget("__joss_file_get_bytes") || (b.target.OS != "windows" && b.hasRelocTarget("__joss_timezone_data")) {
+		if b.target.OS != "windows" {
+			b.emitNativeFileGetContents()
+		}
+		b.emitNativeFileBytes()
+	}
+}
+
+func (b *ARM64Builder) emitNativeLocalUTCOffset() {
+	b.defineLabel("fn___joss_local_utc_offset")
+	if b.target.OS != "windows" {
+		b.emitLoadImm64(regX0, 0) // TZif supplies the local offset on POSIX targets.
+		b.emitRet(regX30)
+		return
+	}
+	b.asmListing.WriteString("; local UTC offset: Windows KUSER_SHARED_DATA TimeZoneBias\n")
+	b.emitLoadImm64(regX1, 0x7FFE0020)
+	b.emitLdr(regX0, regX1, 0)
+	b.emitInst(0xCB000000 | (regX0 << 16) | (regX0 << 5) | regX0) // neg x0,x0
+	b.emitLoadImm64(regX2, 10_000_000)
+	b.emitSDiv(regX0, regX0, regX2)
+	b.emitRet(regX30)
+}
+
+func (b *ARM64Builder) emitNativeTimezoneData() {
+	b.defineLabel("fn___joss_timezone_data")
+	if b.target.OS == "windows" {
+		b.emitProlog(32)
+		b.emitLoadImm64(regX0, 0)
+		b.emitCall("joss_arr_new")
+		b.emitEpilog(32)
+		return
+	}
+	b.emitProlog(32)
+	b.emitLoadStringAddr(regX0, "/etc/localtime")
+	b.emitCall("fn___joss_file_get_bytes")
+	b.emitEpilog(32)
+}
+
+func (b *ARM64Builder) emitNativeStringByteAt() {
+	b.defineLabel("fn___joss_string_byte_at")
+	b.emitAdd(regX2, regX0, regX1)
+	b.emitLdrb(regX0, regX2, 0)
+	b.emitRet(regX30)
+}
+
+func (b *ARM64Builder) emitNativeByteString() {
+	b.defineLabel("fn___joss_byte_string")
+	b.emitProlog(32)
+	b.emitStr(regX19, regSP, 16)
+	b.emitMovReg(regX19, regX0) // preserve byte across allocation
+	b.emitLoadImm64(regX0, 2)
+	b.emitCall("__joss_os_alloc")
+	b.emitStrb(regX19, regX0, 0)
+	b.emitStrb(regXZR, regX0, 1)
+	b.emitLdr(regX19, regSP, 16)
+	b.emitEpilog(32)
+}
+
+func (b *ARM64Builder) emitNativeIntval() {
+	// Preserve integer inputs and parse a signed decimal prefix from strings.
+	b.defineLabel("fn_intval")
+	b.emitLoadImm64(regX1, 0x10000)
+	b.emitCmp(regX0, regX1)
+	b.emitBranchCond(condLT, ".intval_return_input")
+	b.emitProlog(48)
+	b.emitStr(regX19, regSP, 16)
+	b.emitStr(regX20, regSP, 24)
+	b.emitStr(regX21, regSP, 32)
+	b.emitMovReg(regX19, regX0)
+	b.emitLoadImm64(regX20, 0)
+	b.emitLoadImm64(regX21, 0)
+	b.emitLdrb(regX2, regX19, 0)
+	b.emitCmpImm(regX2, 45)
+	b.emitBranchCond(condEQ, ".intval_negative")
+	b.emitCmpImm(regX2, 43)
+	b.emitBranchCond(condEQ, ".intval_positive_sign")
+	b.emitBranch(".intval_digits")
+	b.defineLabel(".intval_negative")
+	b.emitLoadImm64(regX21, 1)
+	b.emitAddImm(regX19, regX19, 1)
+	b.emitBranch(".intval_digits")
+	b.defineLabel(".intval_positive_sign")
+	b.emitAddImm(regX19, regX19, 1)
+	b.defineLabel(".intval_digits")
+	b.emitLdrb(regX2, regX19, 0)
+	b.emitCmpImm(regX2, 48)
+	b.emitBranchCond(condLT, ".intval_done")
+	b.emitCmpImm(regX2, 57)
+	b.emitBranchCond(condGT, ".intval_done")
+	b.emitSubImm(regX3, regX2, 48)
+	b.emitLoadImm64(regX4, 10)
+	b.emitMul(regX20, regX20, regX4)
+	b.emitAdd(regX20, regX20, regX3)
+	b.emitAddImm(regX19, regX19, 1)
+	b.emitBranch(".intval_digits")
+	b.defineLabel(".intval_done")
+	b.emitCmp(regX21, regXZR)
+	b.emitBranchCond(condEQ, ".intval_nonnegative")
+	b.emitSub(regX0, regXZR, regX20)
+	b.emitBranch(".intval_restore")
+	b.defineLabel(".intval_nonnegative")
+	b.emitMovReg(regX0, regX20)
+	b.defineLabel(".intval_restore")
+	b.emitLdr(regX19, regSP, 16)
+	b.emitLdr(regX20, regSP, 24)
+	b.emitLdr(regX21, regSP, 32)
+	b.emitEpilog(48)
+	b.defineLabel(".intval_return_input")
+	b.emitRet(regX30)
+}
+
+// emitNativeTime emits the standalone OS clock primitive used by time().
+func (b *ARM64Builder) emitNativeTime() {
+	b.defineLabel("fn_time")
+	switch b.target.OS {
+	case "linux", "android":
+		b.asmListing.WriteString("; time(): CLOCK_REALTIME via clock_gettime syscall\n")
+		b.emitSubImm(regSP, regSP, 16)
+		b.emitLoadImm64(regX0, 0) // CLOCK_REALTIME
+		b.emitAddImm(regX1, regSP, 0)
+		b.emitLoadImm64(regX8, 113) // __NR_clock_gettime
+		b.emitSyscall()
+		b.emitLdr(regX0, regSP, 0)
+		b.emitAddImm(regSP, regSP, 16)
+		b.emitRet(regX30)
+	case "darwin":
+		b.asmListing.WriteString("; time(): gettimeofday syscall\n")
+		b.emitSubImm(regSP, regSP, 16)
+		b.emitMovReg(regX0, regSP)
+		b.emitLoadImm64(regX1, 0)
+		b.emitLoadImm64(regX16, 116) // SYS_gettimeofday
+		b.emitSyscall()
+		b.emitLdr(regX0, regSP, 0)
+		b.emitAddImm(regSP, regSP, 16)
+		b.emitRet(regX30)
+	case "windows":
+		b.asmListing.WriteString("; time(): Windows KUSER_SHARED_DATA SystemTime\n")
+		b.emitLoadImm64(regX1, 0x7FFE0000)
+		b.emitAddImm(regX1, regX1, 0x14)
+		b.emitLdr(regX0, regX1, 0)
+		b.emitLoadImm64(regX2, 10_000_000)
+		b.emitUDiv(regX0, regX0, regX2)
+		b.emitLoadImm64(regX2, 11_644_473_600)
+		b.emitSub(regX0, regX0, regX2)
+		b.emitRet(regX30)
+	default:
+		b.emitLoadImm64(regX0, 0)
+		b.emitRet(regX30)
+	}
+}
+
+// emitNativeFileBytes materializes the exact file bytes as array<int> so Joss
+// code can parse binary formats such as TZif without C-string truncation.
+func (b *ARM64Builder) emitNativeFileBytes() {
+	b.defineLabel("fn___joss_file_get_bytes")
+	if b.target.OS == "windows" {
+		// The timezone provider on Windows uses the KUSER_SHARED_DATA bias,
+		// so it never needs a TZif file. A Windows ARM64 file API primitive
+		// remains a separate platform capability.
+		b.emitProlog(32)
+		b.emitLoadImm64(regX0, 0)
+		b.emitCall("joss_arr_new")
+		b.emitEpilog(32)
+		return
+	}
+	b.emitProlog(80)
+	b.emitStr(regX19, regSP, 16)
+	b.emitStr(regX20, regSP, 24)
+	b.emitStr(regX21, regSP, 32)
+	b.emitStr(regX22, regSP, 40)
+	b.emitStr(regX23, regSP, 48)
+	b.emitMovReg(regX19, regX0) // path
+	b.emitCall("fn_file_get_contents")
+	b.emitMovReg(regX20, regX0) // byte buffer
+	b.emitMovReg(regX21, regX1) // byte length returned in x1
+	b.emitMovReg(regX0, regX21)
+	b.emitCall("joss_arr_new")
+	b.emitMovReg(regX22, regX0) // result array
+	b.emitLoadImm64(regX23, 0)  // index
+	b.defineLabel(".arm64_file_bytes_loop")
+	b.emitCmp(regX23, regX21)
+	b.emitBranchCond(condCS, ".arm64_file_bytes_done")
+	b.emitAdd(regX1, regX20, regX23)
+	b.emitLdrb(regX1, regX1, 0)
+	b.emitMovReg(regX0, regX22)
+	b.emitCall("joss_arr_push_i64")
+	b.emitAddImm(regX23, regX23, 1)
+	b.emitBranch(".arm64_file_bytes_loop")
+	b.defineLabel(".arm64_file_bytes_done")
+	b.emitMovReg(regX0, regX22)
+	b.emitLdr(regX19, regSP, 16)
+	b.emitLdr(regX20, regSP, 24)
+	b.emitLdr(regX21, regSP, 32)
+	b.emitLdr(regX22, regSP, 40)
+	b.emitLdr(regX23, regSP, 48)
+	b.emitEpilog(80)
 }
 
 // -----------------------------------------------------------------------------
@@ -1017,6 +1284,24 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 			b.emitStr(regX0, regX29, uint32(dstOff))
 		}
 
+	case *ir.GlobalLoadInst:
+		offset, ok := nativeGlobalOffset(b.prog, i.GlobalName)
+		if !ok {
+			return fmt.Errorf("native backend: global no registrada %q", i.GlobalName)
+		}
+		b.emitLoadDataAddr(regX1, offset)
+		b.emitLdr(regX0, regX1, 0)
+		b.emitStr(regX0, regX29, uint32(layout.tempOffsets[i.Dest.ID]))
+
+	case *ir.GlobalStoreInst:
+		offset, ok := nativeGlobalOffset(b.prog, i.GlobalName)
+		if !ok {
+			return fmt.Errorf("native backend: global no registrada %q", i.GlobalName)
+		}
+		b.emitLoadValToReg(layout, regX0, i.Val)
+		b.emitLoadDataAddr(regX1, offset)
+		b.emitStr(regX0, regX1, 0)
+
 	case *ir.MoveInst:
 		b.emitLoadValToReg(layout, regX0, i.Src)
 		disp := layout.tempOffsets[i.Dest.ID]
@@ -1196,9 +1481,11 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		if isExtendedStdlibCallee(i.BuiltinID) || !isNativeBuiltin(i.BuiltinID) {
 			b.usesExtendedStdlib = true
 		}
-		for idx, arg := range i.Args {
-			if idx < 8 {
-				b.emitLoadValToReg(layout, uint32(idx), arg)
+		for idx := 0; idx < 8; idx++ {
+			if idx < len(i.Args) {
+				b.emitLoadValToReg(layout, uint32(idx), i.Args[idx])
+			} else {
+				b.emitLoadImm64(uint32(idx), 0)
 			}
 		}
 		fnLabel := "fn_" + i.BuiltinID
@@ -1239,11 +1526,13 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		return fmt.Errorf("%s", analyzer.FormatCapabilityError("primitive method "+i.TypeKind+"::"+i.MethodName))
 
 	case *ir.CallHostServiceInst:
-		if isSupportedHostService(i.ClassName, i.MethodName) {
+		if isSupportedHostService(i.ClassName, i.MethodName) || programHasJossHostService(b.prog, i.ClassName, i.MethodName) {
 			b.usesExtendedStdlib = true
-			for idx, arg := range i.Args {
-				if idx < 8 {
-					b.emitLoadValToReg(layout, uint32(idx), arg)
+			for idx := 0; idx < 8; idx++ {
+				if idx < len(i.Args) {
+					b.emitLoadValToReg(layout, uint32(idx), i.Args[idx])
+				} else {
+					b.emitLoadImm64(uint32(idx), 0)
 				}
 			}
 			fnLabel := "fn_" + i.ClassName + "_" + i.MethodName
@@ -1284,9 +1573,11 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 			b.usesExtendedStdlib = true
 		}
 
-		for idx, arg := range i.Args {
-			if idx < 8 {
-				b.emitLoadValToReg(layout, uint32(idx), arg)
+		for idx := 0; idx < 8; idx++ {
+			if idx < len(i.Args) {
+				b.emitLoadValToReg(layout, uint32(idx), i.Args[idx])
+			} else {
+				b.emitLoadImm64(uint32(idx), 0)
 			}
 		}
 
@@ -1302,9 +1593,11 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		}
 
 	case *ir.CallIndirectInst:
-		for idx, arg := range i.Args {
-			if idx < 8 {
-				b.emitLoadValToReg(layout, uint32(idx), arg)
+		for idx := 0; idx < 8; idx++ {
+			if idx < len(i.Args) {
+				b.emitLoadValToReg(layout, uint32(idx), i.Args[idx])
+			} else {
+				b.emitLoadImm64(uint32(idx), 0)
 			}
 		}
 		b.emitLoadValToReg(layout, regX9, i.CalleeVal)
@@ -1318,9 +1611,11 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		if isExtendedStdlibCallee(i.Func) {
 			b.usesExtendedStdlib = true
 		}
-		for idx, arg := range i.Args {
-			if idx < 8 {
-				b.emitLoadValToReg(layout, uint32(idx), arg)
+		for idx := 0; idx < 8; idx++ {
+			if idx < len(i.Args) {
+				b.emitLoadValToReg(layout, uint32(idx), i.Args[idx])
+			} else {
+				b.emitLoadImm64(uint32(idx), 0)
 			}
 		}
 		targetLabel := "joss_" + i.Func
@@ -1460,10 +1755,162 @@ func (b *ARM64Builder) hasRelocTarget(labels ...string) bool {
 			}
 		}
 	}
+	if b.prog == nil {
+		return false
+	}
+	match := func(callee string) bool {
+		for _, label := range labels {
+			if callee == label || "fn_"+callee == label || "joss_"+callee == label || strings.TrimPrefix(label, "fn_") == callee {
+				return true
+			}
+		}
+		return false
+	}
+	var scan func([]*ir.BasicBlock) bool
+	scan = func(blocks []*ir.BasicBlock) bool {
+		for _, block := range blocks {
+			for _, instruction := range block.Instructions {
+				switch call := instruction.(type) {
+				case *ir.CallInst:
+					if match(call.Callee) {
+						return true
+					}
+				case *ir.CallBuiltinInst:
+					if match(call.BuiltinID) {
+						return true
+					}
+				case *ir.TryCatchInst:
+					if scan(call.TryBlocks) || scan(call.CatchBlocks) {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	}
+	for _, function := range b.prog.Functions {
+		if scan(function.Blocks) {
+			return true
+		}
+	}
 	return false
 }
 
+func (b *ARM64Builder) emitNativeFileGetContents() {
+	if b.nativeFileReaderEmitted {
+		return
+	}
+	b.nativeFileReaderEmitted = true
+	// fn_file_get_contents(x0 = pathPtr) -> x0 = heap-allocated string buffer, or ""
+	b.defineLabel("fn_file_get_contents")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".fgc_arm64_fail_fast")
+	b.emitProlog(64)
+	b.emitStr(regX19, regX29, 16)
+	b.emitStr(regX20, regX29, 24)
+	b.emitStr(regX21, regX29, 32)
+	b.emitStr(regX22, regX29, 40)
+	b.emitMovReg(regX19, regX0) // x19 = pathPtr
+	b.emitLoadImm64(regX0, 0)
+	b.emitLoadDataAddr(regX1, dataOffLastFileSize)
+	b.emitStr(regX0, regX1, 0) // clear byte length for errors
+
+	atFdcwd := uint64(0xFFFFFFFFFFFFFF9C) // Linux: AT_FDCWD = -100
+	sysOpenat := uint64(56)
+	sysLseek := uint64(62)
+	sysRead := uint64(63)
+	sysClose := uint64(57)
+	if b.target.OS == "darwin" {
+		atFdcwd = 0xFFFFFFFFFFFFFFFE // Darwin: AT_FDCWD = -2
+		sysOpenat = 0x20001CE
+		sysLseek = 0x20000C7
+		sysRead = 0x2000003
+		sysClose = 0x2000006
+	}
+
+	emitSyscall := func(num uint64) {
+		if b.target.OS == "darwin" {
+			b.emitLoadImm64(regX16, num)
+			b.emitSyscall()
+		} else {
+			b.emitLoadImm64(regX8, num)
+			b.emitSyscall()
+		}
+	}
+
+	// 1. openat(AT_FDCWD, pathPtr, O_RDONLY=0, 0)
+	b.emitLoadImm64(regX0, atFdcwd)
+	b.emitMovReg(regX1, regX19)
+	b.emitLoadImm64(regX2, 0)
+	b.emitLoadImm64(regX3, 0)
+	emitSyscall(sysOpenat)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condLT, ".fgc_arm64_fail")
+	b.emitMovReg(regX20, regX0) // x20 = fd
+
+	// 2. lseek(fd, 0, SEEK_END=2) -> x0 = fileSize
+	b.emitMovReg(regX0, regX20)
+	b.emitLoadImm64(regX1, 0)
+	b.emitLoadImm64(regX2, 2)
+	emitSyscall(sysLseek)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condLT, ".fgc_arm64_close_fail")
+	b.emitMovReg(regX21, regX0) // x21 = fileSize
+	b.emitLoadDataAddr(regX1, dataOffLastFileSize)
+	b.emitStr(regX21, regX1, 0)
+
+	// 3. lseek(fd, 0, SEEK_SET=0)
+	b.emitMovReg(regX0, regX20)
+	b.emitLoadImm64(regX1, 0)
+	b.emitLoadImm64(regX2, 0)
+	emitSyscall(sysLseek)
+
+	// 4. __joss_os_alloc(fileSize + 1)
+	b.emitAddImm(regX0, regX21, 1)
+	b.emitCall("__joss_os_alloc")
+	b.emitMovReg(regX22, regX0) // x22 = bufPtr
+
+	// 5. read(fd, bufPtr, fileSize)
+	b.emitMovReg(regX0, regX20)
+	b.emitMovReg(regX1, regX22)
+	b.emitMovReg(regX2, regX21)
+	emitSyscall(sysRead)
+
+	// 6. close(fd)
+	b.emitMovReg(regX0, regX20)
+	emitSyscall(sysClose)
+
+	// 7. Null-terminate: bufPtr[fileSize] = 0
+	b.emitAdd(regX1, regX22, regX21)
+	b.emitStrb(regXZR, regX1, 0)
+	b.emitMovReg(regX0, regX22)
+	b.emitMovReg(regX1, regX21) // byte length in x1
+	b.emitBranch(".fgc_arm64_done")
+
+	b.defineLabel(".fgc_arm64_close_fail")
+	b.emitMovReg(regX0, regX20)
+	emitSyscall(sysClose)
+
+	b.defineLabel(".fgc_arm64_fail")
+	b.emitLoadStringAddr(regX0, "")
+	b.emitLoadImm64(regX1, 0)
+
+	b.defineLabel(".fgc_arm64_done")
+	b.emitLdr(regX19, regX29, 16)
+	b.emitLdr(regX20, regX29, 24)
+	b.emitLdr(regX21, regX29, 32)
+	b.emitLdr(regX22, regX29, 40)
+	b.emitEpilog(64)
+
+	b.defineLabel(".fgc_arm64_fail_fast")
+	b.emitLoadStringAddr(regX0, "")
+	b.emitLoadImm64(regX1, 0)
+	b.emitRet(regX30)
+
+}
+
 func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
+	b.emitNativeFileGetContents()
 	// fn_html_escape / fn_env / fn_request / fn_csrf_field / fn_isset / fn_SEO_* / fn_Markdown_readFile / fn_GranDB_* / fn_Server_start
 	b.defineLabel("fn_html_escape")
 	b.emitBranch("joss_to_string")
@@ -1783,104 +2230,6 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.defineLabel("fn_Markdown_readFile")
 	b.emitBranch("fn_file_get_contents")
 
-	// fn_file_get_contents(x0 = pathPtr) -> x0 = heap-allocated string buffer, or ""
-	b.defineLabel("fn_file_get_contents")
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condEQ, ".fgc_arm64_fail_fast")
-	b.emitProlog(64)
-	b.emitStr(regX19, regX29, 16)
-	b.emitStr(regX20, regX29, 24)
-	b.emitStr(regX21, regX29, 32)
-	b.emitStr(regX22, regX29, 40)
-	b.emitMovReg(regX19, regX0) // x19 = pathPtr
-
-	atFdcwd := uint64(0xFFFFFFFFFFFFFF9C) // Linux: AT_FDCWD = -100
-	sysOpenat := uint64(56)
-	sysLseek := uint64(62)
-	sysRead := uint64(63)
-	sysClose := uint64(57)
-	if b.target.OS == "darwin" {
-		atFdcwd = 0xFFFFFFFFFFFFFFFE // Darwin: AT_FDCWD = -2
-		sysOpenat = 0x20001CE
-		sysLseek = 0x20000C7
-		sysRead = 0x2000003
-		sysClose = 0x2000006
-	}
-
-	emitSyscall := func(num uint64) {
-		if b.target.OS == "darwin" {
-			b.emitLoadImm64(regX16, num)
-			b.emitSyscall()
-		} else {
-			b.emitLoadImm64(regX8, num)
-			b.emitSyscall()
-		}
-	}
-
-	// 1. openat(AT_FDCWD, pathPtr, O_RDONLY=0, 0)
-	b.emitLoadImm64(regX0, atFdcwd)
-	b.emitMovReg(regX1, regX19)
-	b.emitLoadImm64(regX2, 0)
-	b.emitLoadImm64(regX3, 0)
-	emitSyscall(sysOpenat)
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLT, ".fgc_arm64_fail")
-	b.emitMovReg(regX20, regX0) // x20 = fd
-
-	// 2. lseek(fd, 0, SEEK_END=2) -> x0 = fileSize
-	b.emitMovReg(regX0, regX20)
-	b.emitLoadImm64(regX1, 0)
-	b.emitLoadImm64(regX2, 2)
-	emitSyscall(sysLseek)
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLT, ".fgc_arm64_close_fail")
-	b.emitMovReg(regX21, regX0) // x21 = fileSize
-
-	// 3. lseek(fd, 0, SEEK_SET=0)
-	b.emitMovReg(regX0, regX20)
-	b.emitLoadImm64(regX1, 0)
-	b.emitLoadImm64(regX2, 0)
-	emitSyscall(sysLseek)
-
-	// 4. __joss_os_alloc(fileSize + 1)
-	b.emitAddImm(regX0, regX21, 1)
-	b.emitCall("__joss_os_alloc")
-	b.emitMovReg(regX22, regX0) // x22 = bufPtr
-
-	// 5. read(fd, bufPtr, fileSize)
-	b.emitMovReg(regX0, regX20)
-	b.emitMovReg(regX1, regX22)
-	b.emitMovReg(regX2, regX21)
-	emitSyscall(sysRead)
-
-	// 6. close(fd)
-	b.emitMovReg(regX0, regX20)
-	emitSyscall(sysClose)
-
-	// 7. Null-terminate: bufPtr[fileSize] = 0
-	b.emitAdd(regX1, regX22, regX21)
-	b.emitStrb(regXZR, regX1, 0)
-	b.emitMovReg(regX0, regX22)
-	b.emitBranch(".fgc_arm64_done")
-
-	b.defineLabel(".fgc_arm64_close_fail")
-	b.emitMovReg(regX0, regX20)
-	emitSyscall(sysClose)
-
-	b.defineLabel(".fgc_arm64_fail")
-	b.emitLoadStringAddr(regX0, "")
-
-	b.defineLabel(".fgc_arm64_done")
-	b.emitLdr(regX19, regX29, 16)
-	b.emitLdr(regX20, regX29, 24)
-	b.emitLdr(regX21, regX29, 32)
-	b.emitLdr(regX22, regX29, 40)
-	b.emitEpilog(64)
-
-	b.defineLabel(".fgc_arm64_fail_fast")
-	b.emitLoadStringAddr(regX0, "")
-	b.emitRet(regX30)
-
 	b.defineLabel("fn_file_exists")
 	b.emitLoadImm64(regX0, 1)
 	b.emitRet(regX30)
@@ -1907,7 +2256,14 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 		b.emitCall("joss_map_new")
 		b.emitLoadDataAddr(regX1, dataOffGranDBTables)
 		b.emitStr(regX0, regX1, 0)
+
+		if len(b.seedTables) > 0 {
+			b.emitCall("__joss_grandb_seed_tables")
+		}
+
 		b.defineLabel(".arm64_gdb_tbl_ok")
+		b.emitLoadDataAddr(regX1, dataOffGranDBTables)
+		b.emitLdr(regX0, regX1, 0)
 		b.emitEpilog(16)
 
 		b.defineLabel("fn___joss_db_get_table")
@@ -1952,6 +2308,49 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 		b.defineLabel("fn___joss_db_execute")
 		b.emitLoadImm64(regX0, 0)
 		b.emitRet(regX30)
+
+		if len(b.seedTables) > 0 {
+			b.defineLabel("__joss_grandb_seed_tables")
+			b.emitProlog(64)
+
+			b.emitLoadDataAddr(regX1, dataOffGranDBTables)
+			b.emitLdr(regX19, regX1, 0) // x19 = tablesMap
+			b.emitStr(regX19, regSP, 16)
+
+			for tblName, rows := range b.seedTables {
+				capVal := len(rows)
+				if capVal < 16 {
+					capVal = 16
+				}
+				b.emitLoadImm64(regX0, uint64(capVal))
+				b.emitCall("joss_arr_new")
+				b.emitStr(regX0, regSP, 24) // [sp, 24] = rowsArr
+
+				b.emitLdr(regX0, regSP, 16) // x0 = tablesMap
+				b.emitLoadStringAddr(regX1, tblName)
+				b.emitLdr(regX2, regSP, 24) // x2 = rowsArr
+				b.emitCall("joss_map_set_i64")
+
+				for _, row := range rows {
+					b.emitLoadImm64(regX0, 16)
+					b.emitCall("joss_map_new")
+					b.emitStr(regX0, regSP, 32) // [sp, 32] = rowMap
+
+					for colName, colVal := range row {
+						b.emitLdr(regX0, regSP, 32) // x0 = rowMap
+						b.emitLoadStringAddr(regX1, colName)
+						b.emitLoadStringAddr(regX2, colVal)
+						b.emitCall("joss_map_set_i64")
+					}
+
+					b.emitLdr(regX0, regSP, 24) // x0 = rowsArr
+					b.emitLdr(regX1, regSP, 32) // x1 = rowMap
+					b.emitCall("joss_arr_push_i64")
+				}
+			}
+
+			b.emitEpilog(64)
+		}
 	}
 
 	if b.hasRelocTarget("fn___joss_storage_get", "fn___joss_storage_put", "fn___joss_storage_delete") {
@@ -1967,6 +2366,9 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 
 	// String and Math helper passthroughs
 	b.defineLabel("fn_Str_trim")
+	b.defineLabel("fn_trim")
+	b.defineLabel("fn_ltrim")
+	b.defineLabel("fn_rtrim")
 	b.defineLabel("fn_Math_ceil")
 	b.defineLabel("fn_str_replace")
 	b.defineLabel("fn_rsa_sign_sha256")
@@ -1984,10 +2386,11 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 
 	b.defineLabel("fn_str_contains")
 	b.defineLabel("fn_contains")
+	b.defineLabel("fn_Str_contains")
 	b.emitLoadImm64(regX0, 1)
 	b.emitRet(regX30)
 
-	if b.hasRelocTarget("fn_Server_start") {
+	if b.hasRelocTarget("fn_Server_start", "Server_start", "fn_Socket_listen", "Socket_listen") {
 		b.emitNativeServer()
 	}
 }
@@ -2005,6 +2408,9 @@ func (b *ARM64Builder) emitHostFrameworkAdapters() {
 	}
 	sort.Strings(missing)
 	for _, lbl := range missing {
+		if !isFrameworkAdapterTarget(lbl) {
+			continue
+		}
 		b.defineLabel(lbl)
 		b.emitRet(regX30)
 	}
@@ -2040,6 +2446,8 @@ func (b *ARM64Builder) applyRelocations(textBytes []byte, textRVA, rodataRVA, da
 			targetAddr = rodataRVA + strOff
 		} else if targetOffset, exists := b.labels[rel.targetLabel]; exists {
 			targetAddr = textRVA + uint32(targetOffset)
+		} else if rel.kind == arm64RelocBranch || rel.kind == arm64RelocCondBranch || rel.kind == arm64RelocCodeAddr {
+			return fmt.Errorf("símbolo nativo no resuelto: %s", rel.targetLabel)
 		}
 
 		instAddr := textRVA + uint32(rel.patchOffset)
@@ -2081,6 +2489,9 @@ func (b *ARM64Builder) Compile(prog *ir.Program) ([]byte, string, error) {
 		return nil, "", fmt.Errorf("ERROR: native target not available (%s/%s)", b.target.OS, b.target.Arch)
 	}
 	b.prog = prog
+	if err := assignNativeGlobalOffsets(prog); err != nil {
+		return nil, "", err
+	}
 
 	b.asmListing.WriteString(fmt.Sprintf("; Joss Self-Contained Native Compiler — AArch64 Machine Code Listing\n; Target: %s/%s\n\n", b.target.OS, b.target.Arch))
 
@@ -2100,7 +2511,7 @@ func (b *ARM64Builder) Compile(prog *ir.Program) ([]byte, string, error) {
 
 	if b.usesExtendedStdlib {
 		b.emitGranDBAndStdlibARM64()
-	} else if b.hasRelocTarget("fn_Server_start") {
+	} else if b.hasRelocTarget("fn_Server_start", "Server_start", "fn_Socket_listen", "Socket_listen") {
 		b.emitNativeServer()
 	}
 	b.emitHostFrameworkAdapters()

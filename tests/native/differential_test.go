@@ -1,10 +1,13 @@
 package native_test
 
 import (
+	"context"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jossecurity/joss/pkg/analyzer"
 	backend "github.com/jossecurity/joss/pkg/backend/native"
@@ -12,6 +15,7 @@ import (
 	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/mobile"
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/std"
 )
 
 // runInterpreter ejecuta código Joss mediante el intérprete oficial (joss run).
@@ -33,6 +37,10 @@ func runInterpreter(t *testing.T, source string) (string, bool, string) {
 // compileAndRunNative compila código Joss mediante la ruta oficial de compilador nativo (joss build)
 // y ejecuta el binario resultante.
 func compileAndRunNative(t *testing.T, source string, name string) (string, int, error) {
+	return compileAndRunNativeWithUnits(t, source, name, nil)
+}
+
+func compileAndRunNativeWithUnits(t *testing.T, source string, name string, additionalUnits []analyzer.SourceUnit) (string, int, error) {
 	t.Helper()
 	p := parser.NewParser(parser.NewLexer(source))
 	prog := p.ParseProgram()
@@ -40,7 +48,7 @@ func compileAndRunNative(t *testing.T, source string, name string) (string, int,
 		t.Fatalf("parser errors in %s: %v", name, p.Errors())
 	}
 
-	units := []analyzer.SourceUnit{{Path: name + ".joss", Program: prog}}
+	units := append([]analyzer.SourceUnit{{Path: name + ".joss", Program: prog}}, additionalUnits...)
 	prep := analyzer.PrepareProgram(units, core.BuildAnalysisEnvironment())
 	if prep.HasErrors() {
 		t.Fatalf("analyzer errors in %s: %v", name, prep.Diagnostics)
@@ -51,7 +59,6 @@ func compileAndRunNative(t *testing.T, source string, name string) (string, int,
 	if err != nil {
 		return "", -1, err
 	}
-
 	verifier := ir.NewVerifier()
 	if err := verifier.Verify(irProg); err != nil {
 		t.Fatalf("IR verification failed in %s: %v", name, err)
@@ -67,9 +74,13 @@ func compileAndRunNative(t *testing.T, source string, name string) (string, int,
 	if err != nil {
 		return "", -1, err
 	}
-
-	cmd := exec.Command(res.OutputPath)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, res.OutputPath)
 	outBytes, runErr := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		return string(outBytes), -1, ctx.Err()
+	}
 	exitCode := 0
 	if runErr != nil {
 		if exitErr, ok := runErr.(*exec.ExitError); ok {
@@ -80,6 +91,138 @@ func compileAndRunNative(t *testing.T, source string, name string) (string, int,
 	}
 
 	return strings.TrimSpace(string(outBytes)), exitCode, nil
+}
+
+func TestDifferential_PureJossAuthUnauthenticatedPolicies(t *testing.T) {
+	source := `echo Auth::check(); echo Auth::guest(); echo Auth::hasRole("admin");`
+	var authUnit []analyzer.SourceUnit
+	for _, unit := range std.GetStdlibUnits() {
+		if unit.Path == "<std/auth/auth.joss>" || strings.HasPrefix(unit.Path, "<std/date/") {
+			authUnit = append(authUnit, unit)
+		}
+	}
+	if len(authUnit) != 4 {
+		t.Fatalf("Auth and date Standard Library modules embedded = %d, want 4", len(authUnit))
+	}
+	interpOut, interpSuccess, interpErr := runInterpreter(t, source)
+	if !interpSuccess {
+		t.Fatalf("interpreter failed: %s", interpErr)
+	}
+	nativeOut, nativeExit, err := compileAndRunNativeWithUnits(t, source, "pure_joss_auth_check_guest", authUnit)
+	if err != nil {
+		t.Fatalf("native compiler failed: %v", err)
+	}
+	if nativeExit != 0 || strings.ReplaceAll(nativeOut, "\r\n", "\n") != strings.ReplaceAll(interpOut, "\r\n", "\n") {
+		t.Fatalf("Auth differential mismatch: interpreted=%q native=%q exit=%d", interpOut, nativeOut, nativeExit)
+	}
+}
+
+func TestDifferential_TimeBuiltinUsesUnixWallClock(t *testing.T) {
+	assertDifferential(t, "time_builtin_wall_clock", `echo time() > 0;`)
+}
+
+func TestDifferential_PureJossNowFormatsLocalClock(t *testing.T) {
+	dateUnits := make([]analyzer.SourceUnit, 0, 3)
+	for _, unit := range std.GetStdlibUnits() {
+		if strings.HasPrefix(unit.Path, "<std/date/") {
+			dateUnits = append(dateUnits, unit)
+		}
+	}
+	if len(dateUnits) != 3 {
+		t.Fatalf("date Standard Library modules embedded = %d, want 3", len(dateUnits))
+	}
+	source := `echo now("Y-m-d H:i:s O P");`
+	interpOut, interpSuccess, interpErr := runInterpreter(t, source)
+	if !interpSuccess {
+		t.Fatalf("interpreter failed: %s", interpErr)
+	}
+	nativeOut, nativeExit, err := compileAndRunNativeWithUnits(t, source, "pure_joss_now", dateUnits)
+	if err != nil {
+		t.Fatalf("native compiler failed: %v", err)
+	}
+	pattern := regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4} [+-]\d{2}:\d{2}$`)
+	if nativeExit != 0 || !pattern.MatchString(nativeOut) {
+		t.Fatalf("now() native output %q, exit %d; interpreted output was %q", nativeOut, nativeExit, interpOut)
+	}
+	if got, want := nativeOut[len(nativeOut)-12:], time.Now().Format("-0700 -07:00"); got != want {
+		t.Fatalf("native local offset = %q, want process local offset %q", got, want)
+	}
+	clock, err := time.ParseInLocation("2006-01-02 15:04:05", nativeOut[:19], time.Local)
+	if err != nil {
+		t.Fatalf("parse native local clock %q: %v", nativeOut[:19], err)
+	}
+	if delta := time.Since(clock); delta < -3*time.Second || delta > 3*time.Second {
+		t.Fatalf("native local clock differs from system clock by %s", delta)
+	}
+}
+
+func TestDifferential_PureJossDateFormatterNative(t *testing.T) {
+	var dateUnits []analyzer.SourceUnit
+	for _, unit := range std.GetStdlibUnits() {
+		if unit.Path == "<std/date/format.joss>" {
+			dateUnits = append(dateUnits, unit)
+		}
+	}
+	got, exitCode, err := compileAndRunNativeWithUnits(t, `echo DateFormatter::formatEpoch("Y-m-d H:i:s D l F M c O P T", 0, 3600, "STD"); echo DateFormatter::formatEpoch("\\Y", 0, 0);`, "pure_joss_formatter", dateUnits)
+	if err != nil {
+		t.Fatalf("native compiler failed: %v", err)
+	}
+	if exitCode != 0 || got != "1970-01-01 01:00:00 Thu Thursday January Jan 1970-01-01T01:00:00+01:00 +0100 +01:00 STD\nY" {
+		t.Fatalf("native formatter output %q, exit %d", got, exitCode)
+	}
+}
+
+func TestDifferential_PureJossHTTPFormParser(t *testing.T) {
+	source := `
+string $raw = "POST /password/reset HTTP/1.1\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\ntoken=smoke&password=strong-password-123&password_confirmation=different-password";
+var $request = HttpRequestParser::parse($raw);
+echo $request["password_confirmation"];
+`
+	var requestUnit []analyzer.SourceUnit
+	for _, unit := range std.GetStdlibUnits() {
+		if unit.Path == "<std/http/request.joss>" {
+			requestUnit = append(requestUnit, unit)
+			break
+		}
+	}
+	if len(requestUnit) != 1 {
+		t.Fatal("canonical std/http/request.joss unit was not embedded")
+	}
+	interpOut, interpSuccess, interpErr := runInterpreter(t, source)
+	if !interpSuccess {
+		t.Fatalf("interpreter failed: %s", interpErr)
+	}
+	nativeOut, nativeExit, err := compileAndRunNativeWithUnits(t, source, "pure_joss_http_form_parser", requestUnit)
+	if err != nil {
+		t.Fatalf("native compiler failed: %v", err)
+	}
+	if nativeExit != 0 || strings.ReplaceAll(nativeOut, "\r\n", "\n") != strings.ReplaceAll(interpOut, "\r\n", "\n") {
+		t.Fatalf("HTTP form parser differential mismatch: interpreted=%q native=%q exit=%d", interpOut, nativeOut, nativeExit)
+	}
+}
+
+func TestDifferential_HTTPParserStringPrimitives(t *testing.T) {
+	cases := map[string]string{
+		"strpos":                 `echo strpos("abc", "b");`,
+		"strpos_unicode":         `echo strpos("café", "é");`,
+		"substr":                 `echo substr("abc", 1, 1);`,
+		"substr_unicode":         `echo substr("aé😊z", 1, 2);`,
+		"substr_negative":        `echo substr("aé😊z", -2, 1);`,
+		"substr_negative_length": `echo substr("aé😊z", 1, -1);`,
+		"substr_omitted_length":  `echo substr("aé😊z", 2);`,
+		"substr_zero_length":     `echo substr("abc", 1, 0);`,
+		"explode":                `var $source = "a=1&b=2"; var $parts = explode("&", $source); echo $parts[1]; echo $source;`,
+		"urldecode":              `echo urldecode("a%20b");`,
+		"urldecode_plus":         `echo urldecode("a+b");`,
+		"urldecode_utf8":         `echo urldecode("%C3%A9");`,
+		"urldecode_invalid":      `echo urldecode("bad%2Xescape");`,
+		"strtoupper_ascii":       `echo strtoupper("get");`,
+		"strtolower_ascii":       `echo strtolower("POST");`,
+		"map_assign":             `var $data = {}; $data["email"] = "ada@example.test"; echo $data["email"];`,
+	}
+	for name, source := range cases {
+		t.Run(name, func(t *testing.T) { assertDifferential(t, "http_parser_primitive_"+name, source) })
+	}
 }
 
 // assertDifferential verifica que el intérprete y el binario compilado producen la misma salida.
@@ -122,6 +265,33 @@ func TestDifferential_ArithmeticAndVariables(t *testing.T) {
 		echo $mul;
 	`
 	assertDifferential(t, "arithmetic_vars", source)
+}
+
+func TestDifferential_SourceStaticMethodOverridesNativeClass(t *testing.T) {
+	source := `
+public class SEO {
+    public static func pureMarker(): int { return 42; }
+}
+echo(SEO::pureMarker());
+`
+	assertDifferential(t, "source_static_method_native_precedence", source)
+}
+
+func TestDifferential_StaticMapPropertyReadWrite(t *testing.T) {
+	source := `
+public class RequestCache {
+    public static map<string, string> $items = {}
+    public static func put(string $key, string $value): void {
+        RequestCache::$items[$key] = $value;
+    }
+    public static func get(string $key): string {
+        return RequestCache::$items[$key];
+    }
+}
+RequestCache::put("request", "joss-state");
+echo RequestCache::get("request");
+`
+	assertDifferential(t, "static_map_property_read_write", source)
 }
 
 func TestDifferential_ControlFlowBranching(t *testing.T) {

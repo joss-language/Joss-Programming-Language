@@ -116,6 +116,7 @@ sin teléfono
 
 ### Características dos Maps no Joss:
 1. **Criação com chaves `{}`**: Associa-se cada chave de texto ao seu valor usando dois pontos: `{"nombre": "Ada", "edad": 20}`. Um mapa vazio é escrito `{}`.
+   Um mapa vazio não pressupõe que seus valores sejam `int`; o IR mantém o tipo de valor como `mixed` para que a primeira gravação de outro tipo não corrompa uma leitura compilada.
 2. **Leitura e modificação**: Escreve-se o nome da chave entre colchetes e aspas: `$persona["nombre"]`.
 3. **Chaves que não existem**: Se você consultar uma chave que ainda não foi salva (como `$persona["telefono"]`), o Joss retorna `null` sem falhar. Combiná-lo com `??` permite exibir um texto alternativo limpo.
 4. **Verificar se uma chave existe**: A função integrada `array_key_exists("telefono", $persona)` retorna `true` ou `false`.

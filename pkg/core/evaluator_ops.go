@@ -136,6 +136,12 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 	}
 
 	if member, ok := ae.Left.(*parser.MemberExpression); ok {
+		if member.Token.Type == parser.DOUBLE_COLON {
+			if className, fieldName, static := r.staticPropertyReference(member); static {
+				r.setStaticProperty(className, fieldName, val)
+				return val
+			}
+		}
 		left := r.evaluateExpression(member.Left)
 		if instance, ok := left.(*Instance); ok {
 			return r.setInstanceField(instance, member.Property.Value, val, member.Property.Token.Line)
@@ -145,6 +151,12 @@ func (r *Runtime) evaluateAssign(ae *parser.AssignExpression) interface{} {
 	}
 
 	if indexExp, ok := ae.Left.(*parser.IndexExpression); ok {
+		if className, fieldName, static := r.staticPropertyReference(indexExp.Left); static {
+			index := r.evaluateExpression(indexExp.Index)
+			if r.writeStaticMapIndex(className, fieldName, index, val) {
+				return val
+			}
+		}
 		if r.currentFrame != nil {
 			if idLeft, ok := indexExp.Left.(*parser.Identifier); ok {
 				if leftSlot, resolved := r.slotForIdentifier(idLeft); resolved && leftSlot.Initialized {
@@ -292,6 +304,13 @@ func (r *Runtime) evaluateMap(ml *parser.MapLiteral) map[string]interface{} {
 }
 
 func (r *Runtime) evaluateIndex(ie *parser.IndexExpression) interface{} {
+	if className, fieldName, static := r.staticPropertyReference(ie.Left); static {
+		index := r.evaluateExpression(ie.Index)
+		if value, exists := r.readStaticMapIndex(className, fieldName, index); exists {
+			return value
+		}
+		return nil
+	}
 	if r.currentFrame != nil {
 		if idLeft, ok := ie.Left.(*parser.Identifier); ok {
 			if leftSlot, resolved := r.slotForIdentifier(idLeft); resolved && leftSlot.Initialized {

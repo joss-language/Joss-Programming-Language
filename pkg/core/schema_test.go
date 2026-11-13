@@ -1,11 +1,68 @@
 package core
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/jossecurity/joss/pkg/parser"
 )
+
+type schemaForeignCheckConnector struct{}
+
+func (schemaForeignCheckConnector) Connect(context.Context) (driver.Conn, error) {
+	return schemaForeignCheckConn{}, nil
+}
+func (schemaForeignCheckConnector) Driver() driver.Driver { return schemaForeignCheckDriver{} }
+
+type schemaForeignCheckDriver struct{}
+
+func (schemaForeignCheckDriver) Open(string) (driver.Conn, error) {
+	return schemaForeignCheckConn{}, nil
+}
+
+type schemaForeignCheckConn struct{}
+
+func (schemaForeignCheckConn) Prepare(string) (driver.Stmt, error) { return nil, driver.ErrSkip }
+func (schemaForeignCheckConn) Close() error                        { return nil }
+func (schemaForeignCheckConn) Begin() (driver.Tx, error)           { return nil, driver.ErrSkip }
+func (schemaForeignCheckConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if len(args) != 2 || args[0].Value != "app_backups" || args[1].Value != "fk_jr_backups_user" {
+		return nil, driver.ErrSkip
+	}
+	if !strings.Contains(query, "information_schema.table_constraints") || !strings.Contains(query, "DATABASE()") {
+		return nil, driver.ErrSkip
+	}
+	return &schemaForeignCheckRows{}, nil
+}
+
+type schemaForeignCheckRows struct{ sent bool }
+
+func (*schemaForeignCheckRows) Columns() []string { return []string{"count"} }
+func (*schemaForeignCheckRows) Close() error      { return nil }
+func (r *schemaForeignCheckRows) Next(dest []driver.Value) error {
+	if r.sent {
+		return io.EOF
+	}
+	r.sent = true
+	dest[0] = int64(1)
+	return nil
+}
+
+func TestSchemaHasForeignChecksMySQLConstraintWithPrefix(t *testing.T) {
+	db := sql.OpenDB(schemaForeignCheckConnector{})
+	t.Cleanup(func() { _ = db.Close() })
+	r := NewRuntime()
+	r.DB = db
+	r.Env = map[string]string{"DB": "mysql", "PREFIX": "app_"}
+
+	if got := r.executeSchemaMethod(nil, "hasForeign", []interface{}{"backups", "fk_jr_backups_user"}); got != true {
+		t.Fatalf("Schema::hasForeign returned %v, want true", got)
+	}
+}
 
 func TestSchemaCommandsExecuteOnSQLite(t *testing.T) {
 	db, err := sql.Open("sqlite", ":memory:")

@@ -302,6 +302,22 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 		}
 		return int64(0), true
 
+	case "__joss_string_byte_at":
+		if len(args) >= 2 {
+			str, ok := args[0].(string)
+			index := toIntVal(args[1])
+			if ok && index >= 0 && index < len(str) {
+				return int64(str[index]), true
+			}
+		}
+		return int64(0), true
+
+	case "__joss_byte_string":
+		if len(args) > 0 {
+			return string([]byte{byte(toIntVal(args[0]))}), true
+		}
+		return "", true
+
 	case "rsa_sign_sha256":
 		if len(args) >= 2 {
 			data := fmt.Sprintf("%v", args[0])

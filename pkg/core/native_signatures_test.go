@@ -29,6 +29,20 @@ func TestCoreCallableReturnSignaturesAreExplicit(t *testing.T) {
 	}
 }
 
+func TestStrposBuiltinReturnTypeIncludesFalseFailureValue(t *testing.T) {
+	callable, exists := buildAnalysisEnvironment().Builtins["strpos"]
+	if !exists {
+		t.Fatal("strpos is missing from the canonical builtin environment")
+	}
+	if got, want := callable.ReturnType.String(), "int|bool"; got != want {
+		t.Fatalf("strpos return type = %q, want %q (false is the not-found value)", got, want)
+	}
+	members := callable.ReturnType.Members()
+	if len(members) != 2 || members[0].Kind != typesystem.Int || members[1].Kind != typesystem.Bool {
+		t.Fatalf("strpos return alternatives = %#v, want int and bool", members)
+	}
+}
+
 func TestBuiltinCatalogHasUniqueDefinitionsAndReachableHandlers(t *testing.T) {
 	seen := make(map[string]bool, len(builtinDefinitions))
 	runtime := NewRuntime()

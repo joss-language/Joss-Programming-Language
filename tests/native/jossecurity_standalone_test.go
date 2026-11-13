@@ -2,6 +2,7 @@ package native_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -350,7 +351,10 @@ func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
 			}
 		}
 		if reqErr != nil {
-			t.Fatalf("live HTTP GET to http://127.0.0.1:8000/ failed: %v\nServer output:\n%s", reqErr, srvBuf.String())
+			pidStr := fmt.Sprintf("%d", srvCmd.Process.Pid)
+			netstatOut, _ := exec.Command("cmd", "/c", "netstat -ano | findstr "+pidStr).CombinedOutput()
+			procState := srvCmd.ProcessState
+			t.Fatalf("live HTTP GET to http://127.0.0.1:8000/ failed (pid=%d, state=%v): %v\nServer output:\n%s\nProcess ports:\n%s", srvCmd.Process.Pid, procState, reqErr, srvBuf.String(), string(netstatOut))
 		}
 		bodyBytes, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
@@ -404,6 +408,41 @@ func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
 		loginResp.Body.Close()
 		if !strings.Contains(string(loginBytes), "Iniciar Sesión") {
 			t.Fatalf("expected login view content on GET /login, got (len=%d):\n%.500s", len(loginBytes), string(loginBytes))
+		}
+
+		for _, route := range []struct {
+			path    string
+			content string
+		}{
+			{path: "/register", content: "Crear una cuenta"},
+			{path: "/password/forgot", content: "Recuperar Contraseña"},
+			{path: "/password/reset?token=smoke-test", content: "Restablecer Contraseña"},
+		} {
+			authResp, err := client.Get("http://127.0.0.1:8000" + route.path)
+			if err != nil {
+				t.Fatalf("live HTTP GET to %s failed: %v", route.path, err)
+			}
+			authBytes, _ := io.ReadAll(authResp.Body)
+			authResp.Body.Close()
+			if authResp.StatusCode != http.StatusOK || !strings.Contains(string(authBytes), route.content) {
+				t.Fatalf("expected auth page %s to contain %q, status=%d body (len=%d):\n%.500s", route.path, route.content, authResp.StatusCode, len(authBytes), string(authBytes))
+			}
+		}
+
+		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
+		resetReq, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:8000/password/reset", strings.NewReader("token=smoke-test&password=strong-password-123&password_confirmation=different-password"))
+		if err != nil {
+			t.Fatalf("failed to create password-reset request: %v", err)
+		}
+		resetReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		resetResp, err := client.Do(resetReq)
+		if err != nil {
+			t.Fatalf("live HTTP POST to /password/reset failed: %v", err)
+		}
+		resetBytes, _ := io.ReadAll(resetResp.Body)
+		resetResp.Body.Close()
+		if resetResp.StatusCode != http.StatusOK || !strings.Contains(string(resetBytes), "Las contraseñas no coinciden") {
+			t.Fatalf("password-reset validation did not receive the submitted form: status=%d body (len=%d):\n%.500s", resetResp.StatusCode, len(resetBytes), string(resetBytes))
 		}
 
 		// Verify static CSS file serving from disk

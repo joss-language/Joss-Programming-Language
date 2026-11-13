@@ -30,7 +30,7 @@ foreach ($pairs as $idx => $pair) {
         var $eq = strpos($trimmed, "=")
         ($eq > 0) ? {
             string $name = trim(substr($trimmed, 0, $eq))
-            string $val = trim(substr($trimmed, $eq + 1))
+            string $val = trim(substr($trimmed, intval($eq) + 1))
             $cookies [$name] = $val
         }
     }
@@ -40,7 +40,8 @@ return $cookies
 
 public static func start(string $cookieHeader) : Session {
     var $cookies = Session::parseCookies($cookieHeader)
-    string $sid = (isset($cookies ["JOSS_SESSION"])) ? strval($cookies ["JOSS_SESSION"]) : ""
+    mixed $sessionCookie = $cookies ["joss_session"] ?? $cookies ["JOSS_SESSION"] ?? ""
+    string $sid = strval($sessionCookie)
 
     var $sess = new Session()
     (strlen($sid) > 0 && isset(Session::$globalStore [$sid])) ? {
@@ -95,6 +96,6 @@ Session::$globalStore [$this->id] = {
 }
 
 public func getCookieHeader() : string {
-    return "Set-Cookie: JOSS_SESSION=" . $this->id . "; Path=/; HttpOnly; SameSite=Lax"
+    return "Set-Cookie: joss_session=" . $this->id . "; Path=/; HttpOnly; SameSite=Lax"
 }
 }

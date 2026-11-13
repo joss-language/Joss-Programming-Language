@@ -145,6 +145,13 @@ func (b *ARM64Builder) emitAdd(xd, xn, xm uint32) {
 	b.asmListing.WriteString(fmt.Sprintf("    add x%d, x%d, x%d\n", xd, xn, xm))
 }
 
+// AND wd, wn, wm
+func (b *ARM64Builder) emitAndW(wd, wn, wm uint32) {
+	inst := uint32(0x0A000000) | (wm << 16) | (wn << 5) | wd
+	b.emitInst(inst)
+	b.asmListing.WriteString(fmt.Sprintf("    and w%d, w%d, w%d\n", wd, wn, wm))
+}
+
 // SUB xd, xn, xm
 func (b *ARM64Builder) emitSub(xd, xn, xm uint32) {
 	inst := uint32(0xCB000000) | (xm << 16) | (xn << 5) | xd

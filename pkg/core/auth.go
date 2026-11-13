@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	crand "crypto/rand"
 	"database/sql"
 	"fmt"
@@ -20,8 +21,14 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 
 	fmt.Printf("[Auth Debug] Prefix: '%s', Users Table: '%s'\n", prefix, usersTable)
 
-	// Asegurar que las tablas y columnas existan (Auto-Migración)
-	r.ensureAuthTables(usersTable, rolesTable, prefix)
+	// Session-only and configuration methods must not open a database connection
+	// or trigger schema creation just to answer an authentication state check.
+	switch method {
+	case "hash", "verifyHash", "issueToken", "claimPasswordReset", "prepareLogin2FA", "challengeToken", "databaseReady", "check", "guest", "hasRole", "id", "logout", "enabledSocialProviders", "socialRedirect":
+	default:
+		// Asegurar que las tablas y columnas existan (Auto-Migración)
+		r.ensureAuthTables(usersTable, rolesTable, prefix)
+	}
 
 	switch method {
 	case "hash":
@@ -33,6 +40,114 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 			return string(hashedBytes)
 		}
 		return nil
+
+	case "verifyHash":
+		if len(args) >= 2 {
+			storedHash := strings.TrimSpace(fmt.Sprintf("%v", args[0]))
+			plainText := fmt.Sprintf("%v", args[1])
+			return storedHash != "" && bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(plainText)) == nil
+		}
+		return false
+
+	case "issueToken":
+		if len(args) >= 4 {
+			return r.generateJWT(claimUserID(args[0]), fmt.Sprintf("%v", args[1]), fmt.Sprintf("%v", args[2]), fmt.Sprintf("%v", args[3]), false)
+		}
+		return nil
+
+	case "challengeToken":
+		if len(args) >= 2 {
+			return r.generateTemporaryChallengeJWT(claimUserID(args[0]), normalizeAuthEmail(fmt.Sprintf("%v", args[1])))
+		}
+		return nil
+
+	case "databaseReady":
+		db := r.GetDB()
+		if db == nil {
+			return false
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		return db.PingContext(ctx) == nil
+
+	case "prepareLogin2FA":
+		if len(args) >= 2 && r.GetDB() != nil {
+			userId := claimUserID(args[0])
+			email := normalizeAuthEmail(fmt.Sprintf("%v", args[1]))
+			r.EnsureMFATables()
+			var mfaType string
+			err := r.databaseExecutor().QueryRow(fmt.Sprintf("SELECT method_type FROM %s WHERE user_id = ? AND is_active = 1 LIMIT 1", prefix+"user_mfa_methods"), userId).Scan(&mfaType)
+			if err == nil && mfaType != "" {
+				if mfaType == "email" {
+					r.sendEmailOTPChallenge(userId, email)
+				}
+				return map[string]interface{}{"requires_2fa": true, "method": mfaType}
+			}
+		}
+		return map[string]interface{}{"requires_2fa": false}
+
+	case "claimPasswordReset":
+		if len(args) < 2 || r.GetDB() == nil || r.activeTx != nil {
+			return "database_error"
+		}
+		token := strings.TrimSpace(fmt.Sprintf("%v", args[0]))
+		hashedPassword := fmt.Sprintf("%v", args[1])
+		if token == "" || hashedPassword == "" {
+			return "invalid_token"
+		}
+		tx, err := r.GetDB().Begin()
+		if err != nil {
+			return "database_error"
+		}
+		defer tx.Rollback()
+		var email string
+		var expiry sql.NullString
+		var used int
+		if err = tx.QueryRow(fmt.Sprintf("SELECT email, expires_at, used FROM %s WHERE token = ? LIMIT 1", prefix+"password_resets"), token).Scan(&email, &expiry, &used); err != nil {
+			return "invalid_token"
+		}
+		if used != 0 {
+			return "used_token"
+		}
+		if !expiry.Valid || expiry.String == "" {
+			return "expired_token"
+		}
+		if parsed, ok := parseAuthExpiry(expiry.String); !ok || !time.Now().Before(parsed) {
+			return "expired_token"
+		}
+		nowLocal := time.Now().Format("2006-01-02 15:04:05")
+		claimed, err := tx.Exec(fmt.Sprintf("UPDATE %s SET used = 1 WHERE token = ? AND used = 0 AND expires_at > ?", prefix+"password_resets"), token, nowLocal)
+		if err != nil {
+			return "database_error"
+		}
+		rowsAffected, err := claimed.RowsAffected()
+		if err != nil {
+			return "database_error"
+		}
+		if rowsAffected != 1 {
+			return "used_token"
+		}
+		updated, err := tx.Exec(fmt.Sprintf("UPDATE %s SET password = ?, verificado = 1, user_token = '', token_expires_at = NULL WHERE LOWER(email) = ?", usersTable), hashedPassword, normalizeAuthEmail(email))
+		if err != nil {
+			return "database_error"
+		}
+		userRows, err := updated.RowsAffected()
+		if err != nil || userRows > 1 {
+			return "invalid_token"
+		}
+		if userRows == 0 {
+			// MySQL reports changed rows by default. A reset to an identical
+			// password hash can affect zero rows even though the user exists;
+			// distinguish that from a missing account before committing.
+			var existingUserID int64
+			if err := tx.QueryRow(fmt.Sprintf("SELECT id FROM %s WHERE LOWER(email) = ? LIMIT 1", usersTable), normalizeAuthEmail(email)).Scan(&existingUserID); err != nil {
+				return "invalid_token"
+			}
+		}
+		if err = tx.Commit(); err != nil {
+			return "database_error"
+		}
+		return true
 
 	case "complete2FA":
 		if len(args) >= 1 {
@@ -302,14 +417,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 		}
 
 	case "check":
-		if sessVal, ok := r.Variables["$__session"]; ok {
-			if sessInst, ok := sessVal.(*Instance); ok {
-				if _, ok := sessInst.Fields["user_id"]; ok {
-					return true
-				}
-			}
-		}
-		return false
+		return r.currentAuthUserID() > 0
 
 	case "verify":
 		if len(args) == 1 {
@@ -575,14 +683,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 		return nil
 
 	case "guest":
-		if sessVal, ok := r.Variables["$__session"]; ok {
-			if sessInst, ok := sessVal.(*Instance); ok {
-				if _, ok := sessInst.Fields["user_id"]; ok {
-					return false
-				}
-			}
-		}
-		return true
+		return r.currentAuthUserID() <= 0
 
 	case "hasRole":
 		if len(args) == 1 {

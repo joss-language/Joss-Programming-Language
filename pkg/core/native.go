@@ -156,7 +156,7 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.registerNative("Model", modelMethods, (*Runtime).executeModelMethod)
 
 	// Auth
-	r.registerNative("Auth", []string{"hash", "complete2FA", "verify2FAChallenge", "login", "create", "attempt", "check", "verify", "forgotPassword", "resetPassword", "resendVerification", "verificationStatus", "user", "guest", "hasRole", "id", "refresh", "update", "delete", "logout", "validateToken", "enabledSocialProviders", "socialRedirect", "socialCallback"}, (*Runtime).executeAuthMethod)
+	r.registerNative("Auth", []string{"hash", "verifyHash", "issueToken", "claimPasswordReset", "prepareLogin2FA", "challengeToken", "databaseReady", "complete2FA", "verify2FAChallenge", "login", "create", "attempt", "check", "verify", "forgotPassword", "resetPassword", "resendVerification", "verificationStatus", "user", "guest", "hasRole", "id", "refresh", "update", "delete", "logout", "validateToken", "enabledSocialProviders", "socialRedirect", "socialCallback"}, (*Runtime).executeAuthMethod)
 	r.Variables["Auth"] = &Instance{Class: r.Classes["Auth"], Fields: make(map[string]interface{})}
 
 	// AuthLoginResult
@@ -214,7 +214,7 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.Variables["WebSocket"] = &Instance{Class: r.Classes["WebSocket"], Fields: make(map[string]interface{})}
 
 	// Schema
-	r.registerNative("Schema", []string{"create", "table", "rename", "drop", "dropIfExists", "hasTable", "hasColumn"}, (*Runtime).executeSchemaMethod)
+	r.registerNative("Schema", []string{"create", "table", "rename", "drop", "dropIfExists", "hasTable", "hasColumn", "hasForeign"}, (*Runtime).executeSchemaMethod)
 	r.Variables["Schema"] = &Instance{Class: r.Classes["Schema"], Fields: make(map[string]interface{})}
 
 	// Blueprint

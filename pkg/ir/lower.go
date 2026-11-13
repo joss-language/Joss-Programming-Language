@@ -60,6 +60,7 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 
 	// Registrar layouts de clases antes de procesar métodos
 	l.buildAllClassLayouts()
+	l.registerStaticClassProperties()
 
 	// Procesar unidades fuente
 	for _, unit := range l.prep.Units {
@@ -179,6 +180,9 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 
 	if l.prog.Functions["__joss_http_dispatch"] != nil {
 		l.PruneUnreachableFunctions()
+	}
+	if err := l.lowerStaticPropertyInitializer(); err != nil {
+		return nil, err
 	}
 
 	if l.OptLevel > 0 {
@@ -307,6 +311,119 @@ func (l *Lowerer) lowerClassMethod(className string, stmt *parser.MethodStatemen
 
 	l.prog.AddFunction(fn)
 	return nil
+}
+
+func (l *Lowerer) registerStaticClassProperties() {
+	if l.prep == nil || l.prep.Units == nil {
+		return
+	}
+	for _, unit := range l.prep.Units {
+		if unit.Program == nil {
+			continue
+		}
+		for _, stmt := range unit.Program.Statements {
+			class, ok := stmt.(*parser.ClassStatement)
+			if !ok || class.Name == nil || class.Body == nil {
+				continue
+			}
+			for _, member := range class.Body.Statements {
+				field, ok := member.(*parser.LetStatement)
+				if !ok || !field.IsStatic || field.Name == nil {
+					continue
+				}
+				name := staticPropertyGlobalName(class.Name.Value, field.Name.Value)
+				l.prog.AddGlobal(name, l.mapType(field.Token.Literal), nil, field.IsConst)
+			}
+		}
+	}
+}
+
+func (l *Lowerer) lowerStaticPropertyInitializer() error {
+	if l.prep == nil || l.prog == nil || len(l.prog.Globals) == 0 {
+		return nil
+	}
+	fn := NewFunction("__joss_init_static_globals", TypeVoid)
+	l.currentFn = fn
+	l.currBlock = fn.EntryBlock
+	l.varLocals = make(map[string]Value)
+	initialized := make(map[string]bool)
+	for _, unit := range l.prep.Units {
+		if unit.Program == nil {
+			continue
+		}
+		for _, stmt := range unit.Program.Statements {
+			class, ok := stmt.(*parser.ClassStatement)
+			if !ok || class.Name == nil || class.Body == nil {
+				continue
+			}
+			for _, member := range class.Body.Statements {
+				field, ok := member.(*parser.LetStatement)
+				if !ok || !field.IsStatic || field.Name == nil {
+					continue
+				}
+				globalName := staticPropertyGlobalName(class.Name.Value, field.Name.Value)
+				if l.prog.Globals[globalName] == nil {
+					continue
+				}
+				initialized[globalName] = true
+				var value Value
+				if field.Value != nil {
+					lowered, err := l.lowerExpression(field.Value)
+					if err != nil {
+						return fmt.Errorf("lowerer: static initializer %s: %w", globalName, err)
+					}
+					value = lowered
+				} else if l.prog.Globals[globalName].Type.Kind == TypeKindPtr && l.prog.Globals[globalName].Type.Elem != nil && l.prog.Globals[globalName].Type.Elem.Name == "map" {
+					mapValue := l.currentFn.NewTemp(l.prog.Globals[globalName].Type, "static_map")
+					l.currBlock.AddInstruction(&NewMapInst{Dest: mapValue})
+					value = mapValue
+				} else {
+					value = NewConstNull(l.prog.Globals[globalName].Type)
+				}
+				l.currBlock.AddInstruction(&GlobalStoreInst{GlobalName: globalName, Val: value})
+			}
+		}
+	}
+	for globalName, global := range l.prog.Globals {
+		if initialized[globalName] {
+			continue
+		}
+		var value Value
+		if global.Type.Kind == TypeKindPtr && global.Type.Elem != nil && global.Type.Elem.Name == "map" {
+			mapValue := l.currentFn.NewTemp(global.Type, "static_map")
+			l.currBlock.AddInstruction(&NewMapInst{Dest: mapValue})
+			value = mapValue
+		} else {
+			value = NewConstNull(global.Type)
+		}
+		l.currBlock.AddInstruction(&GlobalStoreInst{GlobalName: globalName, Val: value})
+	}
+	fn.EntryBlock.SetTerminator(&ReturnTerminator{})
+	l.prog.AddFunction(fn)
+	return nil
+}
+
+func staticPropertyGlobalName(className, propertyName string) string {
+	return className + "::$" + strings.TrimPrefix(propertyName, "$")
+}
+
+func (l *Lowerer) ensureStaticPropertyGlobal(className, propertyName string) *GlobalVar {
+	if l.prog == nil || l.prep == nil {
+		return nil
+	}
+	globalName := staticPropertyGlobalName(className, propertyName)
+	if global := l.prog.Globals[globalName]; global != nil {
+		return global
+	}
+	class, exists := l.prep.Environment.Classes[className]
+	if !exists {
+		return nil
+	}
+	field, exists := class.Fields[propertyName]
+	if !exists {
+		return nil
+	}
+	return l.prog.AddGlobal(globalName, l.mapTypeSystemType(field.Type), nil, field.Constant)
 }
 
 func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
@@ -561,6 +678,8 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 			l.currBlock.AddInstruction(&CallRuntimeInst{Func: "print_string", Args: []Value{val}})
 		} else if val.Type().Kind == TypeKindBool {
 			l.currBlock.AddInstruction(&CallRuntimeInst{Func: "print_bool", Args: []Value{val}})
+		} else if val.Type().Kind == TypeKindMixed {
+			l.currBlock.AddInstruction(&CallRuntimeInst{Func: "print_mixed", Args: []Value{val}})
 		} else {
 			l.currBlock.AddInstruction(&CallRuntimeInst{Func: "print_i64", Args: []Value{val}})
 		}
@@ -1482,6 +1601,12 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 	case *parser.MemberExpression:
 		if e.Token.Type == parser.DOUBLE_COLON {
 			if identLeft, ok := e.Left.(*parser.Identifier); ok {
+				if global := l.ensureStaticPropertyGlobal(identLeft.Value, e.Property.Value); global != nil {
+					globalName := staticPropertyGlobalName(identLeft.Value, e.Property.Value)
+					resTemp := l.currentFn.NewTemp(global.Type, "static_prop")
+					l.currBlock.AddInstruction(&GlobalLoadInst{Dest: resTemp, GlobalName: globalName})
+					return resTemp, nil
+				}
 				// Acceso estático a constante de clase o caso de enum: Class::CONST / Enum::CASE
 				return NewConstString(identLeft.Value + "::" + e.Property.Value), nil
 			}
@@ -1528,7 +1653,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 
 	case *parser.MapLiteral:
 		pairs := make([][2]Value, 0, len(e.Pairs))
-		valType := TypeI64
+		valType := TypeMixed
 		for k, v := range e.Pairs {
 			kVal, err := l.lowerExpression(k)
 			if err != nil {
@@ -1538,8 +1663,10 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			if len(pairs) == 0 || vVal.Type().Kind != TypeKindI64 {
+			if len(pairs) == 0 {
 				valType = vVal.Type()
+			} else if valType.Kind != vVal.Type().Kind {
+				valType = TypeMixed
 			}
 			pairs = append(pairs, [2]Value{kVal, vVal})
 		}
@@ -1742,10 +1869,12 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 		}
 		switch calleeName {
-		case "view", "SEO_render", "html_escape", "csrf_field", "Markdown_readFile", "Markdown_toHtml", "Str_trim", "file_get_contents", "toSql", "GranDB_toSql", "json", "response", "redirect":
+		case "view", "SEO_render", "html_escape", "csrf_field", "Markdown_readFile", "Markdown_toHtml", "Str_trim", "file_get_contents", "__joss_byte_string", "toSql", "GranDB_toSql", "json", "response", "redirect":
 			retType = TypeString
 		case "explode":
 			retType = ArrayType(TypeString)
+		case "__joss_file_get_bytes", "__joss_timezone_data":
+			retType = ArrayType(TypeI64)
 		case "floatval", "microtime":
 			retType = TypeF64
 		case "async":
@@ -1882,6 +2011,15 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			l.varLocals[varName] = ptrTemp
 			return val, nil
 		} else if member, ok := e.Left.(*parser.MemberExpression); ok {
+			if member.Token.Type == parser.DOUBLE_COLON {
+				if ident, isIdent := member.Left.(*parser.Identifier); isIdent {
+					if l.ensureStaticPropertyGlobal(ident.Value, member.Property.Value) != nil {
+						globalName := staticPropertyGlobalName(ident.Value, member.Property.Value)
+						l.currBlock.AddInstruction(&GlobalStoreInst{GlobalName: globalName, Val: val})
+						return val, nil
+					}
+				}
+			}
 			objVal, err := l.lowerExpression(member.Left)
 			if err != nil {
 				return nil, err
@@ -2339,6 +2477,12 @@ func (l *Lowerer) resolveFunction(fnName string) (*parser.MethodStatement, bool)
 
 func (l *Lowerer) mapType(lit string) Type {
 	lit = strings.TrimSpace(lit)
+	if strings.HasPrefix(lit, "map<") {
+		return PtrType(StructType("map", nil))
+	}
+	if strings.HasPrefix(lit, "array<") {
+		return ArrayType(TypeI64)
+	}
 	if strings.HasSuffix(lit, "?") {
 		return l.mapType(strings.TrimSuffix(lit, "?"))
 	}

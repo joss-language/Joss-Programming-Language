@@ -59,13 +59,18 @@ var builtinDefinitions = joinBuiltinGroups(
 	builtinGroup(builtinAsync, typesystem.Mixed, "async", "await", "make_chan", "close", "send", "recv"),
 
 	builtinGroup(builtinDate, typesystem.Int, "time"),
+	builtinGroup(builtinDate, typesystem.Int, "__joss_local_utc_offset"),
 	builtinGroup(builtinDate, typesystem.Float, "microtime"),
 	builtinGroup(builtinDate, typesystem.String, "date", "gmdate"),
-	builtinGroup(builtinDate, typesystem.Mixed, "strtotime", "now", "sleep", "usleep"),
+	builtinGroup(builtinDate, typesystem.Mixed, "strtotime", "sleep", "usleep"),
 
 	builtinGroup(builtinIO, typesystem.Bool, "file_exists", "is_dir", "is_file", "toon_verify"),
-	builtinGroup(builtinIO, typesystem.String, "env", "config", "view", "json", "toon_encode"),
+	builtinGroup(builtinIO, typesystem.String, "env", "config", "view", "json", "toon_encode", "__joss_http_dispatch", "__joss_get_embedded_asset"),
 	builtinGroup(builtinIO, typesystem.Array, "__joss_db_query", "__joss_db_get_table"),
+	[]builtinDefinition{
+		{name: "__joss_timezone_data", domain: builtinIO, returnType: typesystem.Type{Kind: typesystem.Array, Element: &typesystem.Type{Kind: typesystem.Int}}},
+		{name: "__joss_file_get_bytes", domain: builtinIO, returnType: typesystem.Type{Kind: typesystem.Array, Element: &typesystem.Type{Kind: typesystem.Int}}},
+	},
 	builtinGroup(builtinIO, typesystem.Int, "__joss_db_execute"),
 	builtinGroup(builtinIO, typesystem.Bool, "__joss_db_set_table", "__joss_db_is_connected", "__joss_storage_put", "__joss_storage_delete"),
 	builtinGroup(builtinIO, typesystem.Mixed,
@@ -78,9 +83,11 @@ var builtinDefinitions = joinBuiltinGroups(
 
 	builtinGroup(builtinString, typesystem.Bool,
 		"str_contains", "contains", "str_starts_with", "starts_with", "str_ends_with", "ends_with"),
-	builtinGroup(builtinString, typesystem.Int, "strlen", "strpos", "rand", "ord"),
+	builtinGroup(builtinString, typesystem.Int, "strlen", "rand", "ord", "__joss_string_byte_at"),
+	[]builtinDefinition{{name: "strpos", domain: builtinString, returnType: typesystem.Parse("int|bool")}},
 	builtinGroup(builtinString, typesystem.Float, "round", "floor", "ceil", "abs"),
 	builtinGroup(builtinString, typesystem.String,
+		"__joss_byte_string",
 		"html_escape", "__", "csrf_field", "str_replace", "strtolower", "to_lower", "strtoupper", "to_upper",
 		"trim", "ltrim", "rtrim", "substr", "implode", "join", "md5", "sha1", "sha256", "base64_encode",
 		"base64_decode", "ucfirst", "lcfirst", "ucwords", "str_pad", "str_repeat", "rsa_sign_sha256", "sha256_base64", "sha1_base64",

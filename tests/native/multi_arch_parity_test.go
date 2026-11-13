@@ -10,6 +10,7 @@ import (
 	core "github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/std"
 )
 
 // TestMultiArchAndDistro_ComprehensiveParity tests that a rich Joss program covering
@@ -18,6 +19,10 @@ import (
 func TestMultiArchAndDistro_ComprehensiveParity(t *testing.T) {
 	source := `
 public class MathBox {
+	public static int $seed = 4;
+	public static func seeded(int $n): int {
+		return $n + MathBox::$seed;
+	}
 	public static func fib(int $n): int {
 		return ($n <= 1) ? $n : (MathBox::fib($n - 1) + MathBox::fib($n - 2));
 	}
@@ -34,8 +39,11 @@ public func computeTotal(int $a, int $b): int {
 
 int $sum = computeTotal(10, 20);
 int $f = MathBox::fib(6);
+int $seeded = MathBox::seeded(6);
 string $msg = "Total: " . $sum . ", Fib: " . $f;
 echo $msg;
+echo "Static: " . $seeded;
+echo "Auth guest: " . Auth::guest();
 
 var $item = new Item();
 $item->name = "Widget";
@@ -53,6 +61,10 @@ var $scores = {"alice": 90, "bob": 85};
 $scores["charlie"] = 95;
 echo "Score: " . $scores["charlie"];
 
+var $dynamicValues = {};
+$dynamicValues["email"] = "ada@example.test";
+echo $dynamicValues["email"];
+
 try {
 	throw "TestException";
 } catch ($e) {
@@ -66,6 +78,11 @@ try {
 	}
 
 	units := []analyzer.SourceUnit{{Path: "parity.joss", Program: prog}}
+	for _, unit := range std.GetStdlibUnits() {
+		if unit.Path == "<std/auth/auth.joss>" || strings.HasPrefix(unit.Path, "<std/date/") {
+			units = append(units, unit)
+		}
+	}
 	prep := analyzer.PrepareProgram(units, core.BuildAnalysisEnvironment())
 	if prep.HasErrors() {
 		t.Fatalf("analyzer errors: %v", prep.Diagnostics)
@@ -200,6 +217,57 @@ public class Main {
 			// Ensure the accept loop exists (not a dummy exit stub!)
 			if !strings.Contains(asmListing, "accept") && !strings.Contains(asmListing, "Accept") && !strings.Contains(asmListing, "srv_") {
 				t.Fatalf("[%s] fn_Server_start appears to be a stub without a server loop", target.DashString())
+			}
+		})
+	}
+}
+
+// TestMultiArch_PureJossHTTPRequestParser ensures the new Joss-owned request
+// parser lowers and emits across the supported primary OS/architecture matrix.
+func TestMultiArch_PureJossHTTPRequestParser(t *testing.T) {
+	source := `
+string $raw = "POST /login?next=%2Fdashboard HTTP/1.1\r\nHost: example.test\r\nCookie: joss_session=sid-1\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nemail=ada%40example.test";
+var $request = HttpRequestParser::parse($raw);
+echo $request["_path"];
+echo $request["email"];
+`
+	p := parser.NewParser(parser.NewLexer(source))
+	prog := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	units := append(std.GetStdlibUnits(), analyzer.SourceUnit{Path: "http_parser_parity.joss", Program: prog})
+	prep := analyzer.PrepareProgram(units, core.BuildAnalysisEnvironment())
+	if prep.HasErrors() {
+		t.Fatalf("analyzer errors: %v", prep.Diagnostics)
+	}
+	lowerer := ir.NewLowerer(prep, nil)
+	irProg, err := lowerer.LowerProgram("http_parser_parity")
+	if err != nil {
+		t.Fatalf("lowering failed: %v", err)
+	}
+	if err := (ir.NewVerifier()).Verify(irProg); err != nil {
+		t.Fatalf("IR verification failed: %v", err)
+	}
+
+	targets := []backend.Target{
+		{OS: "linux", Arch: "amd64"},
+		{OS: "linux", Arch: "arm64"},
+		{OS: "windows", Arch: "amd64"},
+		{OS: "windows", Arch: "arm64"},
+		{OS: "darwin", Arch: "amd64"},
+		{OS: "darwin", Arch: "arm64"},
+	}
+	for _, target := range targets {
+		t.Run(target.DashString(), func(t *testing.T) {
+			emitter := backend.SelectCodeEmitter(target, false)
+			binBytes, _, err := emitter.Compile(irProg)
+			if err != nil {
+				t.Fatalf("compile failed for %s: %v", target.DashString(), err)
+			}
+			if len(binBytes) < 512 {
+				t.Fatalf("binary too small for %s: %d bytes", target.DashString(), len(binBytes))
 			}
 		})
 	}

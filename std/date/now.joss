@@ -1,0 +1,15 @@
+// now() is a Standard Library function. Native code supplies only the clock
+// and local timezone file bytes (or the Windows kernel timezone bias).
+public func now(string $format = "Y-m-d H:i:s"): string {
+    int $timestamp = time()
+    int $offset = __joss_local_utc_offset()
+    array<int> $timezone = __joss_timezone_data()
+    (count($timezone) > 0) ? {
+        $offset = TimeZoneRules::offsetSeconds($timezone, $timestamp)
+    }
+    string $timezoneName = DateFormatter::zoneName($offset)
+    (count($timezone) > 0) ? {
+        $timezoneName = TimeZoneRules::abbreviation($timezone, $timestamp)
+    }
+    return DateFormatter::formatEpoch($format, $timestamp, $offset, $timezoneName)
+}

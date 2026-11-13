@@ -104,8 +104,9 @@ func FormatDate(format string, t time.Time) string {
 
 // ParseHumanTime parses human dates like "now", "+2 days", "-1 hour", "2026-08-16", etc.
 func ParseHumanTime(str string, base time.Time) (time.Time, error) {
-	str = strings.TrimSpace(strings.ToLower(str))
-	if str == "" || str == "now" {
+	raw := strings.TrimSpace(str)
+	normalized := strings.ToLower(raw)
+	if normalized == "" || normalized == "now" {
 		return base, nil
 	}
 
@@ -125,10 +126,11 @@ func ParseHumanTime(str string, base time.Time) (time.Time, error) {
 	}
 
 	for _, layout := range layouts {
-		if t, err := time.Parse(layout, str); err == nil {
+		if t, err := time.ParseInLocation(layout, raw, base.Location()); err == nil {
 			return t, nil
 		}
 	}
+	str = normalized
 
 	// Relative offsets: "+2 days", "-1 week", "+30 minutes", "next month", "yesterday", "tomorrow"
 	switch str {

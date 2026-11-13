@@ -11,6 +11,10 @@ func (r *Runtime) callBuiltinDate(name string, args []interface{}) (interface{},
 	case "time":
 		return time.Now().Unix(), true
 
+	case "__joss_local_utc_offset":
+		_, offset := time.Now().In(time.Local).Zone()
+		return int64(offset), true
+
 	case "microtime":
 		if len(args) > 0 {
 			if asFloat, ok := args[0].(bool); ok && asFloat {
@@ -74,6 +78,9 @@ func (r *Runtime) callBuiltinDate(name string, args []interface{}) (interface{},
 		if len(args) == 0 || args[0] == nil {
 			return nil, true
 		}
+		if value, ok := args[0].(time.Time); ok {
+			return value.Unix(), true
+		}
 		timeStr := fmt.Sprintf("%v", args[0])
 		base := time.Now()
 		if len(args) > 1 && args[1] != nil {
@@ -91,15 +98,6 @@ func (r *Runtime) callBuiltinDate(name string, args []interface{}) (interface{},
 			return nil, true
 		}
 		return parsed.Unix(), true
-
-	case "now":
-		format := "Y-m-d H:i:s"
-		if len(args) > 0 {
-			if f, ok := args[0].(string); ok {
-				format = f
-			}
-		}
-		return FormatDate(format, time.Now()), true
 
 	case "sleep":
 		if len(args) > 0 {

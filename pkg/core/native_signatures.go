@@ -253,6 +253,12 @@ var fluentNativeMethods = nameSet(
 )
 
 var preciseNativeReturns = map[string]string{
+	"Auth::verifyHash":             "bool",
+	"Auth::issueToken":             "string",
+	"Auth::claimPasswordReset":     "mixed",
+	"Auth::prepareLogin2FA":        "map",
+	"Auth::challengeToken":         "string",
+	"Auth::databaseReady":          "bool",
 	"Auth::check":                  "bool",
 	"Auth::guest":                  "bool",
 	"Auth::hasRole":                "bool",
@@ -310,6 +316,7 @@ var preciseNativeReturns = map[string]string{
 	"Response::redirect":           "WebResponse",
 	"Response::stream":             "WebResponse",
 	"Schema::hasColumn":            "bool",
+	"Schema::hasForeign":           "bool",
 	"Schema::hasTable":             "bool",
 	"SEO::render":                  "string",
 	"Session::all":                 "map",

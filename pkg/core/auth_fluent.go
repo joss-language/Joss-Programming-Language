@@ -38,7 +38,10 @@ func (r *Runtime) executeAuthLoginResultMethod(instance *Instance, method string
 
 			if success && requires2FA {
 				callback := args[0]
-				userId := instance.Fields["user_id"].(int)
+				userId := claimUserID(instance.Fields["user_id"])
+				if userId <= 0 {
+					return instance
+				}
 				email := fmt.Sprintf("%v", instance.Fields["email"])
 
 				tempToken := r.generateTemporaryChallengeJWT(userId, email)

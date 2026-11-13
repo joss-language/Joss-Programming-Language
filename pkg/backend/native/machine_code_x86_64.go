@@ -32,6 +32,17 @@ const (
 	dataOffCloseHandle      uint32 = 0x0660
 	dataOffCreateThread     uint32 = 0x0668
 	dataOffWaitSingleObject uint32 = 0x0670
+	dataOffGetEnvVar        uint32 = 0x0678
+	dataOffWs2_32           uint32 = 0x06C0
+	dataOffWSAStartup       uint32 = 0x06C8
+	dataOffSocket           uint32 = 0x06D0
+	dataOffSetsockopt       uint32 = 0x06D8
+	dataOffBind             uint32 = 0x06E0
+	dataOffListen           uint32 = 0x06E8
+	dataOffAccept           uint32 = 0x06F0
+	dataOffRecv             uint32 = 0x06F8
+	dataOffSend             uint32 = 0x0700
+	dataOffClosesocket      uint32 = 0x0708
 	dataFixedSize           uint32 = 0x1000 // 4096 bytes reserved for runtime + globals
 )
 
@@ -74,6 +85,7 @@ type MachineCodeBuilder struct {
 	cachedXMM0Val      ir.Value
 	cachedRCXVal       ir.Value
 	cachedDataPtrArr   ir.Value
+	seedTables         map[string][]map[string]string
 }
 
 func (b *MachineCodeBuilder) invalidateRegCache() {
@@ -116,6 +128,14 @@ func (b *MachineCodeBuilder) NeedsHostBridge() bool {
 	return b.needsHostBridge
 }
 
+// SetSeedTables configures pre-seeded tables for GranDB native compilation.
+func (b *MachineCodeBuilder) SetSeedTables(tables map[string][]map[string]string) {
+	b.seedTables = tables
+	if len(tables) > 0 {
+		b.usesExtendedStdlib = true
+	}
+}
+
 // UsesExtendedStdlib reports whether the program relies on functions beyond basic machine code.
 func (b *MachineCodeBuilder) UsesExtendedStdlib() bool {
 	return b.usesExtendedStdlib
@@ -145,6 +165,9 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 		return nil, "", fmt.Errorf("ERROR: native target not available (%s/%s)", b.target.OS, b.target.Arch)
 	}
 	b.prog = prog
+	if err := assignNativeGlobalOffsets(prog); err != nil {
+		return nil, "", err
+	}
 
 	b.asmListing.WriteString(fmt.Sprintf("; Joss Self-Contained Native Compiler — %s Machine Code Listing\n; Target: %s/%s\n\n", b.target.Arch, b.target.OS, b.target.Arch))
 
@@ -172,7 +195,7 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	b.emitToStringStub()
 	b.emitF64ToStringStub()
 	if b.usesExtendedStdlib {
-		if b.hasRelocTarget("fn_Server_start") {
+		if b.hasRelocTarget("fn_Server_start", "Server_start", "fn_Socket_listen", "Socket_listen") {
 			b.emitNativeServer()
 		}
 		if b.hasRelocTarget("fn___joss_storage_get", "fn___joss_storage_put", "fn___joss_storage_delete") {
@@ -240,6 +263,9 @@ func (j *JITExecutable) Execute() (int, error) {
 func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, error) {
 	b.isJITMode = true
 	b.prog = prog
+	if err := assignNativeGlobalOffsets(prog); err != nil {
+		return nil, err
+	}
 
 	// 1. Validate that all called functions are either user IR functions or supported runtime intrinsics
 	if err := b.validateProgramCalls(prog); err != nil {
@@ -265,7 +291,7 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, 
 	b.emitToStringStub()
 	b.emitF64ToStringStub()
 	if b.usesExtendedStdlib {
-		if b.hasRelocTarget("fn_Server_start") {
+		if b.hasRelocTarget("fn_Server_start", "Server_start", "fn_Socket_listen", "Socket_listen") {
 			b.emitNativeServer()
 		}
 		if b.hasRelocTarget("fn___joss_storage_get", "fn___joss_storage_put", "fn___joss_storage_delete") {
@@ -333,14 +359,34 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, 
 	}, nil
 }
 
-// isSupportedHostService reports whether the given host class and method are handled natively.
+// isSupportedHostService reports host-service calls with a concrete AOT implementation.
 func isSupportedHostService(className, methodName string) bool {
-	return true
+	return className == "Server" && methodName == "start" ||
+		className == "Str" && methodName == "contains" ||
+		className == "GranDB"
+}
+
+func (b *MachineCodeBuilder) hostServiceAvailable(className, methodName string) bool {
+	if b.isJITMode {
+		return b.hasNativeHostService(className, methodName) ||
+			programHasJossHostService(b.prog, className, methodName) ||
+			jit.HasHostBridgeHandler(className+"::"+methodName)
+	}
+	return b.hasNativeHostService(className, methodName) || programHasJossHostService(b.prog, className, methodName)
+}
+
+func (b *MachineCodeBuilder) hasNativeHostService(className, methodName string) bool {
+	if isSupportedHostService(className, methodName) {
+		return true
+	}
+	// These adapters are emitted only by the AMD64 backend. Keep the target
+	// check here so ARM64 fails closed until it has the same implementation.
+	return b.target.Arch == "amd64" && className == "Session" && methodName == "get"
 }
 
 func (b *MachineCodeBuilder) hasNativeIntrinsic(className, methodName string) bool {
 	switch className {
-	case "SEO", "Str", "Math", "Request", "Response", "Session", "Auth", "Turnstile", "Markdown", "Router", "Schema", "View":
+	case "Socket", "Server", "SEO", "Str", "Math", "Request", "Response", "Session", "Auth", "Turnstile", "Markdown", "Router", "Schema", "View":
 		return true
 	}
 	return false
@@ -354,7 +400,8 @@ func isHostBridgeBuiltin(id string) bool {
 // isExtendedStdlibCallee reports functions/methods emitted by native intrinsics and server modules.
 func isExtendedStdlibCallee(name string) bool {
 	switch name {
-	case "env", "request", "csrf_field", "html_escape", "view", "__joss_http_dispatch",
+	case "env", "request", "csrf_field", "html_escape", "view", "__joss_http_dispatch", "__joss_get_embedded_asset",
+		"__joss_file_get_bytes",
 		"joss_map_key_at", "joss_map_val_at", "fn_joss_map_key_at", "fn_joss_map_val_at",
 		"__joss_db_query", "__joss_db_execute", "__joss_db_is_connected":
 		return true
@@ -390,7 +437,7 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 			for _, inst := range blk.Instructions {
 				switch i := inst.(type) {
 				case *ir.CallHostServiceInst:
-					if isSupportedHostService(i.ClassName, i.MethodName) {
+					if b.hostServiceAvailable(i.ClassName, i.MethodName) {
 						b.usesExtendedStdlib = true
 					} else {
 						report("host service " + i.ClassName + "::" + i.MethodName)
@@ -448,8 +495,9 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 func isNativeBuiltin(id string) bool {
 	switch id {
 	case "strlen", "len", "count", "array_push", "append", "to_string", "strval",
-		"abs", "min", "max", "intval", "floatval", "boolval", "array_pop", "microtime", "array_fill",
-		"file_get_contents", "explode", "async", "await", "str_contains", "contains",
+		"abs", "min", "max", "intval", "floatval", "boolval", "array_pop", "time", "microtime", "array_fill",
+		"__joss_local_utc_offset", "__joss_timezone_data", "__joss_string_byte_at", "__joss_byte_string",
+		"file_get_contents", "__joss_file_get_bytes", "explode", "async", "await", "str_contains", "contains",
 		"env", "request", "csrf_field", "html_escape", "view",
 		"joss_map_len", "joss_map_key_at", "joss_map_val_at",
 		"__joss_db_get_table", "__joss_db_set_table", "__joss_db_is_connected",
@@ -593,6 +641,9 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x48, 0x83, 0xE4, 0xF0) // and rsp, -16
 		b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
 		b.emitCallLabel("__joss_os_init")
+		if b.prog != nil && b.prog.Functions["__joss_init_static_globals"] != nil {
+			b.emitCallLabel("fn___joss_init_static_globals")
+		}
 		if hasUserMain {
 			b.emitCallLabel("fn_main")
 			b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
@@ -617,6 +668,9 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x48, 0x83, 0xE4, 0xF0) // and rsp, -16
 		b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
 		b.emitCallLabel("__joss_os_init")
+		if b.prog != nil && b.prog.Functions["__joss_init_static_globals"] != nil {
+			b.emitCallLabel("fn___joss_init_static_globals")
+		}
 		if hasUserMain {
 			b.emitCallLabel("fn_main")
 			b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
@@ -680,6 +734,55 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitLeaRDXString("WaitForSingleObject")
 		b.emitCallIAT(IATGetProcAddress)
 		b.emitMovDataRAX(dataOffWaitSingleObject)
+
+		b.emitMovRCXData(dataOffKernel32)
+		b.emitLeaRDXString("GetEnvironmentVariableA")
+		b.emitCallIAT(IATGetProcAddress)
+		b.emitMovDataRAX(dataOffGetEnvVar)
+
+		// Initialize Winsock (ws2_32.dll) if needed
+		if b.usesExtendedStdlib {
+			b.emitLeaRCXString("WS2_32.dll")
+			b.emitCallIAT(IATLoadLibraryA)
+			b.emitMovDataRAX(dataOffWs2_32)
+			b.emitBytes(0x48, 0x85, 0xC0)
+			b.emitJeLabel(".os_init_ws2_done")
+
+			b.emitMovRCXData(dataOffWs2_32)
+			b.emitLeaRDXString("WSAStartup")
+			b.emitCallIAT(IATGetProcAddress)
+			b.emitMovDataRAX(dataOffWSAStartup)
+			b.emitBytes(0x48, 0x85, 0xC0)
+			b.emitJeLabel(".os_init_ws2_done")
+
+			b.emitBytes(0xB9, 0x00, 0x02, 0x00, 0x00) // mov ecx, 512
+			b.emitCallLabel("__joss_os_alloc")
+			b.emitBytes(0x48, 0x89, 0xC2)             // mov rdx, rax (wsaData)
+			b.emitBytes(0xB9, 0x02, 0x02, 0x00, 0x00) // mov ecx, 0x0202
+			b.emitMovRAXData(dataOffWSAStartup)
+			b.emitBytes(0xFF, 0xD0) // call WSAStartup
+
+			sockProcs := []struct {
+				name string
+				off  uint32
+			}{
+				{"socket", dataOffSocket},
+				{"setsockopt", dataOffSetsockopt},
+				{"bind", dataOffBind},
+				{"listen", dataOffListen},
+				{"accept", dataOffAccept},
+				{"recv", dataOffRecv},
+				{"send", dataOffSend},
+				{"closesocket", dataOffClosesocket},
+			}
+			for _, sp := range sockProcs {
+				b.emitMovRCXData(dataOffWs2_32)
+				b.emitLeaRDXString(sp.name)
+				b.emitCallIAT(IATGetProcAddress)
+				b.emitMovDataRAX(sp.off)
+			}
+			b.defineLabel(".os_init_ws2_done")
+		}
 
 		b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
 	} else {
@@ -2057,6 +2160,15 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitLeaRCXString("")
 		b.emitBytes(0x48, 0x89, 0xCF) // mov rdi, rcx
 		b.defineLabel(".explode_str_ok")
+		// String literals live in read-only image data on Windows. Split a private
+		// copy instead of writing NUL bytes into the caller's string.
+		b.emitBytes(0x49, 0x89, 0xF4) // mov r12, rsi (save delimiter)
+		b.emitBytes(0x49, 0x89, 0xFD) // mov r13, rdi (save source)
+		b.emitBytes(0x4C, 0x89, 0xE9) // mov rcx, r13
+		b.emitLeaRDXString("")
+		b.emitCallLabel("joss_str_concat")
+		b.emitBytes(0x48, 0x89, 0xC7) // mov rdi, rax (mutable copy)
+		b.emitBytes(0x4C, 0x89, 0xE6) // mov rsi, r12 (restore delimiter)
 		b.emitBytes(0x0F, 0xB6, 0x1E) // movzx ebx, byte ptr [rsi] (delimChar)
 		// First pass: count occurrences of delimChar in strPtr to pre-allocate exact capacity
 		b.emitBytes(0x48, 0x89, 0xF9)                   // mov rcx, rdi
@@ -2139,8 +2251,20 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56) // push rbx; push r12; push r13; push r14
 		b.emitBytes(0x48, 0x83, 0xEC, 0x40)                   // sub rsp, 64 (16-byte aligned before call)
 		b.emitBytes(0x49, 0x89, 0xCE)                         // mov r14, rcx (save pathPtr)
+		b.emitBytes(0x31, 0xC0)                               // clear last-file-size for errors
+		b.emitMovDataRAX(dataOffLastFileSize)
 		b.emitBytes(0x49, 0x81, 0xFE, 0x00, 0x00, 0x01, 0x00) // cmp r14, 0x10000
 		b.emitJlLabel(".fgc_win_fail")
+
+		// Strip leading '/' or '\\' if present so relative paths work properly
+		b.emitBytes(0x41, 0x80, 0x3E, 0x2F) // cmp byte ptr [r14], '/'
+		b.emitBytes(0x75, 0x03)             // jne +3
+		b.emitBytes(0x49, 0xFF, 0xC6)       // inc r14
+		b.emitBytes(0x41, 0x80, 0x3E, 0x5C) // cmp byte ptr [r14], '\\'
+		b.emitBytes(0x75, 0x03)             // jne +3
+		b.emitBytes(0x49, 0xFF, 0xC6)       // inc r14
+		b.emitBytes(0x4C, 0x89, 0xF1)       // mov rcx, r14
+
 		// CreateFileA(pathPtr, GENERIC_READ=0x80000000, FILE_SHARE_READ=1, NULL=0, OPEN_EXISTING=3, FILE_ATTRIBUTE_NORMAL=0x80, NULL=0)
 		b.emitBytes(0xBA, 0x00, 0x00, 0x00, 0x80)                         // mov edx, 0x80000000
 		b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00)                   // mov r8d, 1
@@ -2157,10 +2281,6 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x66, 0x41, 0x81, 0x3E, 0x2E, 0x2E) // cmp word ptr [r14], 0x2E2E ("..")
 		b.emitJeLabel(".fgc_win_fail")
 		b.emitBytes(0x41, 0x80, 0x7E, 0x01, 0x3A) // cmp byte ptr [r14 + 1], 0x3A (':')
-		b.emitJeLabel(".fgc_win_fail")
-		b.emitBytes(0x41, 0x80, 0x3E, 0x2F) // cmp byte ptr [r14], 0x2F ('/')
-		b.emitJeLabel(".fgc_win_fail")
-		b.emitBytes(0x41, 0x80, 0x3E, 0x5C) // cmp byte ptr [r14], 0x5C ('\\')
 		b.emitJeLabel(".fgc_win_fail")
 
 		b.emitLeaRCXString("../")
@@ -2207,9 +2327,11 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x4C, 0x01, 0xE2) // add rdx, r12 (bufPtr + fileSize)
 		b.emitBytes(0xC6, 0x02, 0x00) // mov byte ptr [rdx], 0
 		b.emitBytes(0x4C, 0x89, 0xE8) // mov rax, r13
+		b.emitBytes(0x4C, 0x89, 0xE2) // mov rdx, r12 (byte length)
 		b.emitJmpLabel(".fgc_win_exit")
 		b.defineLabel(".fgc_win_fail")
 		b.emitLeaRAXString("")
+		b.emitBytes(0x31, 0xD2) // xor edx, edx (byte length = 0)
 		b.defineLabel(".fgc_win_exit")
 		b.emitBytes(0x48, 0x83, 0xC4, 0x40)                         // add rsp, 64
 		b.emitBytes(0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B, 0x5D) // pop r14, r13, r12, rbx, rbp
@@ -2229,10 +2351,12 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x55, 0x48, 0x89, 0xE5)                   // push rbp; mov rbp, rsp
 		b.emitBytes(0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55) // push rbx, rsi, rdi, r12, r13
 		b.emitBytes(0x48, 0x83, 0xEC, 0x18)                   // sub rsp, 24
-		b.emitBytes(0x48, 0x89, 0xCF)                         // mov rdi, rcx (pathPtr)
-		b.emitBytes(0x31, 0xF6)                               // xor esi, esi (O_RDONLY = 0)
-		b.emitBytes(0x31, 0xD2)                               // xor edx, edx
-		b.emitBytes(0xB8)                                     // mov eax, sysOpen
+		b.emitBytes(0x31, 0xC0)                               // clear last-file-size for errors
+		b.emitMovDataRAX(dataOffLastFileSize)
+		b.emitBytes(0x48, 0x89, 0xCF) // mov rdi, rcx (pathPtr)
+		b.emitBytes(0x31, 0xF6)       // xor esi, esi (O_RDONLY = 0)
+		b.emitBytes(0x31, 0xD2)       // xor edx, edx
+		b.emitBytes(0xB8)             // mov eax, sysOpen
 		b.emitU32(sysOpen)
 		b.emitBytes(0x0F, 0x05)       // syscall
 		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
@@ -2245,6 +2369,8 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitU32(sysLseek)
 		b.emitBytes(0x0F, 0x05)       // syscall
 		b.emitBytes(0x49, 0x89, 0xC4) // mov r12, rax (fileSize)
+		b.emitBytes(0x4C, 0x89, 0xE0) // mov rax, r12
+		b.emitMovDataRAX(dataOffLastFileSize)
 		b.emitBytes(0x48, 0x89, 0xDF) // mov rdi, rbx
 		b.emitBytes(0x31, 0xF6)       // xor esi, esi
 		b.emitBytes(0x31, 0xD2)       // xor edx, edx (SEEK_SET)
@@ -2268,9 +2394,11 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitBytes(0x4C, 0x01, 0xE2) // add rdx, r12 (bufPtr + fileSize)
 		b.emitBytes(0xC6, 0x02, 0x00) // mov byte ptr [rdx], 0
 		b.emitBytes(0x4C, 0x89, 0xE8) // mov rax, r13
+		b.emitBytes(0x4C, 0x89, 0xE2) // mov rdx, r12 (byte length)
 		b.emitJmpLabel(".fgc_linux_exit")
 		b.defineLabel(".fgc_linux_fail")
 		b.emitLeaRAXString("")
+		b.emitBytes(0x31, 0xD2) // xor edx, edx (byte length = 0)
 		b.defineLabel(".fgc_linux_exit")
 		b.emitBytes(0x48, 0x83, 0xC4, 0x18)                         // add rsp, 24
 		b.emitBytes(0x41, 0x5D, 0x41, 0x5C, 0x5F, 0x5E, 0x5B, 0x5D) // pop r13, r12, rdi, rsi, rbx, rbp
@@ -2400,9 +2528,137 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x48, 0x8B, 0x14, 0xC2) // mov rdx, [rdx + rax*8]
 	b.emitBytes(0xFF, 0xE2)             // jmp rdx
 
+	b.emitNativeTime()
+	if b.hasRelocTarget("fn___joss_local_utc_offset") {
+		b.emitNativeLocalUTCOffset()
+	}
+	if b.hasRelocTarget("fn___joss_timezone_data") {
+		b.emitNativeTimezoneData()
+	}
+	if b.hasRelocTarget("fn___joss_string_byte_at") {
+		b.emitNativeStringByteAt()
+	}
+	if b.hasRelocTarget("fn___joss_byte_string") {
+		b.emitNativeByteString()
+	}
+	if b.hasRelocTarget("__joss_file_get_bytes") || (b.target.OS != "windows" && b.hasRelocTarget("__joss_timezone_data")) {
+		b.emitNativeFileBytes()
+	}
+
 	b.defineLabel("_joss_host_bridge")
 	b.asmListing.WriteString("    xor eax, eax\n    ret\n")
 	b.emitBytes(0x31, 0xC0, 0xC3)
+}
+
+func (b *MachineCodeBuilder) emitNativeLocalUTCOffset() {
+	b.defineLabel("fn___joss_local_utc_offset")
+	if b.target.OS != "windows" {
+		b.emitBytes(0x31, 0xC0, 0xC3) // TZif supplies the local offset on POSIX targets.
+		return
+	}
+	b.asmListing.WriteString("; local UTC offset: Windows KUSER_SHARED_DATA TimeZoneBias\n")
+	b.emitBytes(0x48, 0xB8)
+	b.emitU64(0x7FFE0020)
+	b.emitBytes(0x48, 0x8B, 0x00) // signed TimeZoneBias in 100 ns ticks
+	b.emitBytes(0x48, 0xF7, 0xD8) // negate bias: UTC -> local offset
+	b.emitBytes(0x48, 0x99)       // sign-extend into RDX:RAX
+	b.emitBytes(0x48, 0xB9)
+	b.emitU64(10_000_000)
+	b.emitBytes(0x48, 0xF7, 0xF9, 0xC3) // signed divide; return seconds
+}
+
+func (b *MachineCodeBuilder) emitNativeTimezoneData() {
+	b.defineLabel("fn___joss_timezone_data")
+	if b.target.OS == "windows" {
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28)
+		b.emitBytes(0x31, 0xC9) // capacity = 0
+		b.emitCallLabel("joss_arr_new")
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28, 0xC3)
+		return
+	}
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x48, 0x83, 0xEC, 0x20)
+	b.emitLeaRCXString("/etc/localtime")
+	b.emitCallLabel("fn___joss_file_get_bytes")
+	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3)
+}
+
+func (b *MachineCodeBuilder) emitNativeStringByteAt() {
+	b.defineLabel("fn___joss_string_byte_at")
+	b.emitBytes(0x48, 0x89, 0xC8, 0x48, 0x01, 0xD0, 0x0F, 0xB6, 0x00, 0xC3) // rcx=str, rdx=index
+}
+
+func (b *MachineCodeBuilder) emitNativeByteString() {
+	b.defineLabel("fn___joss_byte_string")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x41, 0x54, 0x48, 0x83, 0xEC, 0x28)
+	b.emitBytes(0x41, 0x89, 0xCC)             // r12d = byte argument in ecx
+	b.emitBytes(0xB9, 0x02, 0x00, 0x00, 0x00) // rcx = allocation size
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x44, 0x88, 0x20, 0xC6, 0x40, 0x01, 0x00) // [rax]=byte; [rax+1]=NUL
+	b.emitBytes(0x48, 0x83, 0xC4, 0x28, 0x41, 0x5C, 0x5D, 0xC3)
+}
+
+// emitNativeTime emits the small target clock primitive used by time().
+func (b *MachineCodeBuilder) emitNativeTime() {
+	b.defineLabel("fn_time")
+	if b.target.OS == "linux" || b.target.OS == "android" {
+		b.asmListing.WriteString("; time(): CLOCK_REALTIME via clock_gettime syscall\n")
+		b.emitBytes(0x48, 0x83, 0xEC, 0x18)                   // sub rsp, 24
+		b.emitBytes(0x31, 0xFF)                               // xor edi, edi (CLOCK_REALTIME)
+		b.emitBytes(0x48, 0x8D, 0x74, 0x24, 0x08)             // lea rsi, [rsp + 8]
+		b.emitBytes(0xB8, 0xE4, 0x00, 0x00, 0x00, 0x0F, 0x05) // mov eax, 228; syscall
+		b.emitBytes(0x48, 0x8B, 0x44, 0x24, 0x08)             // mov rax, [rsp + 8]
+		b.emitBytes(0x48, 0x83, 0xC4, 0x18, 0xC3)             // add rsp, 24; ret
+		return
+	}
+	if b.target.OS == "darwin" {
+		b.asmListing.WriteString("; time(): gettimeofday syscall\n")
+		b.emitBytes(0x48, 0x83, 0xEC, 0x18)                   // sub rsp, 24
+		b.emitBytes(0x48, 0x8D, 0x7C, 0x24, 0x08)             // lea rdi, [rsp + 8]
+		b.emitBytes(0x31, 0xF6)                               // xor esi, esi
+		b.emitBytes(0xB8, 0x74, 0x00, 0x00, 0x02, 0x0F, 0x05) // mov eax, 0x2000074; syscall
+		b.emitBytes(0x48, 0x8B, 0x44, 0x24, 0x08)             // mov rax, [rsp + 8]
+		b.emitBytes(0x48, 0x83, 0xC4, 0x18, 0xC3)             // add rsp, 24; ret
+		return
+	}
+	b.asmListing.WriteString("; time(): Windows KUSER_SHARED_DATA SystemTime\n")
+	// Windows SystemTime is 100 ns ticks since 1601-01-01.
+	b.emitBytes(0x48, 0xBA, 0x14, 0x00, 0xFE, 0x7F, 0x00, 0x00, 0x00, 0x00) // mov rdx, 0x7FFE0014
+	b.emitBytes(0x48, 0x8B, 0x02)                                           // mov rax, [rdx]
+	b.emitBytes(0x48, 0xB9)
+	b.emitU64(10_000_000)
+	b.emitBytes(0x31, 0xD2, 0x48, 0xF7, 0xF1) // xor edx, edx; div rcx
+	b.emitBytes(0x48, 0xB9)
+	b.emitU64(11_644_473_600)
+	b.emitBytes(0x48, 0x29, 0xC8, 0xC3) // sub rax, rcx; ret
+}
+
+// emitNativeFileBytes turns the byte-preserving file reader into Joss's native
+// array representation. The OS-specific read itself stays in fn_file_get_contents.
+func (b *MachineCodeBuilder) emitNativeFileBytes() {
+	b.defineLabel("fn___joss_file_get_bytes")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
+	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push r12-r15
+	b.emitBytes(0x48, 0x83, 0xEC, 0x20)                         // shadow space/alignment
+	b.emitBytes(0x49, 0x89, 0xCC)                               // r12 = path
+	b.emitBytes(0x4C, 0x89, 0xE1)                               // rcx = path
+	b.emitCallLabel("fn_file_get_contents")
+	b.emitBytes(0x49, 0x89, 0xC5) // r13 = byte buffer
+	b.emitBytes(0x49, 0x89, 0xD6) // r14 = byte length returned in rdx
+	b.emitBytes(0x4C, 0x89, 0xF1) // rcx = capacity
+	b.emitCallLabel("joss_arr_new")
+	b.emitBytes(0x49, 0x89, 0xC4) // r12 = result array
+	b.emitBytes(0x45, 0x31, 0xFF) // r15 = index
+	b.defineLabel(".file_bytes_loop")
+	b.emitBytes(0x4D, 0x39, 0xF7) // cmp r15, r14
+	b.emitJgeLabel(".file_bytes_done")
+	b.emitBytes(0x43, 0x0F, 0xB6, 0x54, 0x3D, 0x00) // movzx edx, byte [r13+r15]
+	b.emitBytes(0x4C, 0x89, 0xE1)                   // rcx = array
+	b.emitCallLabel("joss_arr_push_i64")
+	b.emitBytes(0x49, 0xFF, 0xC7) // inc r15
+	b.emitJmpLabel(".file_bytes_loop")
+	b.defineLabel(".file_bytes_done")
+	b.emitBytes(0x4C, 0x89, 0xE0) // rax = array
+	b.emitBytes(0x48, 0x83, 0xC4, 0x20, 0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5D, 0xC3)
 }
 
 type fnFrameLayout struct {
@@ -2803,6 +3059,22 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			}
 		}
 
+	case *ir.GlobalLoadInst:
+		offset, ok := nativeGlobalOffset(b.prog, i.GlobalName)
+		if !ok {
+			return fmt.Errorf("native backend: global no registrada %q", i.GlobalName)
+		}
+		b.emitMovRAXData(offset)
+		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+
+	case *ir.GlobalStoreInst:
+		offset, ok := nativeGlobalOffset(b.prog, i.GlobalName)
+		if !ok {
+			return fmt.Errorf("native backend: global no registrada %q", i.GlobalName)
+		}
+		b.emitLoadValToRAX(layout, i.Val)
+		b.emitMovDataRAX(offset)
+
 	case *ir.MoveInst:
 		b.emitLoadValToRAX(layout, i.Src)
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
@@ -3132,7 +3404,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			}
 			return nil
 		}
-		if isSupportedHostService(i.ClassName, i.MethodName) {
+		if b.hostServiceAvailable(i.ClassName, i.MethodName) {
 			if b.isJITMode && !b.hasNativeIntrinsic(i.ClassName, i.MethodName) {
 				b.emitCallHostBridgeWithArgs(layout, i.ClassName+"::"+i.MethodName, i.Args)
 				if i.Dest != nil {
@@ -3364,11 +3636,19 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 	case *ir.MapGetInst:
-		b.emitCallWithArgs(layout, "joss_map_get_i64", []ir.Value{i.Map, i.Key})
+		helper := "joss_map_get_i64"
+		if i.Dest.Type().Kind == ir.TypeKindString {
+			helper = "joss_map_get_str"
+		}
+		b.emitCallWithArgs(layout, helper, []ir.Value{i.Map, i.Key})
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
 	case *ir.MapSetInst:
-		b.emitCallWithArgs(layout, "joss_map_set_i64", []ir.Value{i.Map, i.Key, i.Val})
+		helper := "joss_map_set_i64"
+		if i.Val.Type().Kind == ir.TypeKindString {
+			helper = "joss_map_set_str"
+		}
+		b.emitCallWithArgs(layout, helper, []ir.Value{i.Map, i.Key, i.Val})
 
 	case *ir.ThrowInst:
 		b.emitLoadValToRAX(layout, i.Val)
@@ -3424,20 +3704,32 @@ func (b *MachineCodeBuilder) emitCallWithArgs(layout *fnFrameLayout, targetLabel
 		b.emitBytes(0x48, 0x89, 0x84, 0x24) // mov [rsp + disp32], rax
 		b.emitU32(stackOff)
 	}
-	// Load first up to 4 arguments directly into target registers in reverse order
+	// Load first up to 4 arguments directly into target registers in reverse order.
+	// Registers not covered by arguments are cleared to 0 so functions with optional
+	// parameters or variadic signatures never read leftover garbage.
 	if len(args) >= 4 {
 		b.emitLoadValToRAX(layout, args[3])
 		b.emitBytes(0x49, 0x89, 0xC1) // mov r9, rax
+	} else {
+		b.emitBytes(0x45, 0x31, 0xC9) // xor r9d, r9d
 	}
 	if len(args) >= 3 {
 		b.emitLoadValToR8(layout, args[2])
+	} else {
+		b.emitBytes(0x45, 0x31, 0xC0) // xor r8d, r8d
 	}
 	if len(args) >= 2 {
 		b.emitLoadValToRDX(layout, args[1])
+	} else {
+		b.emitBytes(0x31, 0xD2) // xor edx, edx
 	}
 	if len(args) >= 1 {
 		b.emitLoadValToRCX(layout, args[0])
+	} else {
+		b.emitBytes(0x31, 0xC9) // xor ecx, ecx
 	}
+	b.emitBytes(0x41, 0xBA) // mov r10d, argument count (optional-argument-aware intrinsics)
+	b.emitU32(uint32(len(args)))
 	b.emitCallLabel(targetLabel)
 }
 

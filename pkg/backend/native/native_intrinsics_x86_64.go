@@ -100,6 +100,12 @@ func (b *MachineCodeBuilder) hasRelocTarget(labels ...string) bool {
 // - Disk-backed Markdown::readFile
 // - Framework helpers (fn_Str_trim, fn_Math_ceil)
 func (b *MachineCodeBuilder) emitNativeIntrinsics() {
+	requestParamsOffset := uint32(dataOffRequestParams)
+	if b.prog != nil {
+		if requestGlobal := b.prog.Globals["__joss_request_params"]; requestGlobal != nil {
+			requestParamsOffset = requestGlobal.DataOffset
+		}
+	}
 	// fn_html_escape(rcx = val) -> rax = strPtr
 	b.defineLabel("fn_html_escape")
 	b.defineLabel("joss_html_escape")
@@ -107,12 +113,16 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 
 	// String and Math helper passthroughs
 	b.defineLabel("fn_Str_trim")
+	b.defineLabel("fn_trim")
+	b.defineLabel("fn_ltrim")
+	b.defineLabel("fn_rtrim")
 	b.defineLabel("fn_Math_ceil")
 	b.emitBytes(0x48, 0x89, 0xC8, 0xC3) // mov rax, rcx; ret
 
 	// fn_str_contains(rcx = haystack, rdx = needle) -> rax = 1 (true) or 0 (false)
 	b.defineLabel("fn_str_contains")
 	b.defineLabel("fn_contains")
+	b.defineLabel("fn_Str_contains")
 	if b.isJITMode {
 		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
 		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
@@ -154,6 +164,12 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 		b.emitBytes(0x31, 0xC0) // xor eax, eax
 		b.emitBytes(0xC3)       // ret
 	}
+	b.emitNativeStrpos()
+	b.emitNativeSubstr()
+	b.emitNativeUTF8Helpers()
+	b.emitNativeURLDecode()
+	b.emitNativeStringUpper()
+	b.emitNativeStringLower()
 
 	// Http client, System::Run, String, Crypto & Date host bridge intrinsics
 	for _, fnName := range []string{
@@ -195,7 +211,14 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 		b.emitJneLabel(".gdb_tables_ok")
 		b.emitCallLabel("joss_map_new")
 		b.emitMovDataRAX(dataOffGranDBTables)
+
+		// Pre-populate tables if seed data was provided at build time
+		if len(b.seedTables) > 0 {
+			b.emitCallLabel("__joss_grandb_seed_tables")
+		}
+
 		b.defineLabel(".gdb_tables_ok")
+		b.emitMovRAXData(dataOffGranDBTables)
 		b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3)
 
 		// __joss_db_get_table(rcx = tableName) -> rax = rowsArr
@@ -283,6 +306,58 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 		}
 		b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
 		b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
+
+		// __joss_grandb_seed_tables: Populates dataOffGranDBTables with build-time seeded data
+		if len(b.seedTables) > 0 {
+			b.defineLabel("__joss_grandb_seed_tables")
+			b.emitBytes(0x55, 0x48, 0x89, 0xE5)                               // push rbp; mov rbp, rsp
+			b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // push rbx, r12, r13, r14, r15
+			b.emitBytes(0x48, 0x83, 0xEC, 0x28)                               // sub rsp, 40
+
+			b.emitMovRAXData(dataOffGranDBTables)
+			b.emitBytes(0x49, 0x89, 0xC4) // mov r12, rax (tablesMap)
+
+			// Iterate over each seeded table
+			for tblName, rows := range b.seedTables {
+				// Create array for table rows: joss_arr_new(initialCap)
+				capVal := len(rows)
+				if capVal < 16 {
+					capVal = 16
+				}
+				b.emitBytes(0xB9)
+				b.emitU32(uint32(capVal)) // mov ecx, capVal
+				b.emitCallLabel("joss_arr_new")
+				b.emitBytes(0x49, 0x89, 0xC5) // mov r13, rax (rowsArr)
+
+				// Register table in tablesMap: joss_map_set_i64(tablesMap, tblName, rowsArr)
+				b.emitBytes(0x4C, 0x89, 0xE1) // mov rcx, r12 (tablesMap)
+				b.emitLeaRDXString(tblName)   // mov rdx, tblName
+				b.emitBytes(0x4D, 0x89, 0xE8) // mov r8, r13  (rowsArr)
+				b.emitCallLabel("joss_map_set_i64")
+
+				// Populate rows
+				for _, row := range rows {
+					b.emitCallLabel("joss_map_new")
+					b.emitBytes(0x49, 0x89, 0xC6) // mov r14, rax (rowMap)
+
+					for colName, colVal := range row {
+						b.emitBytes(0x4C, 0x89, 0xF1) // mov rcx, r14 (rowMap)
+						b.emitLeaRDXString(colName)   // mov rdx, colName
+						b.emitLeaR8String(colVal)     // mov r8, colVal
+						b.emitCallLabel("joss_map_set_i64")
+					}
+
+					// Append rowMap to rowsArr: joss_arr_push_i64(rowsArr, rowMap)
+					b.emitBytes(0x4C, 0x89, 0xE9) // mov rcx, r13 (rowsArr)
+					b.emitBytes(0x4C, 0x89, 0xF2) // mov rdx, r14 (rowMap)
+					b.emitCallLabel("joss_arr_push_i64")
+				}
+			}
+
+			b.emitBytes(0x48, 0x83, 0xC4, 0x28)                               // add rsp, 40
+			b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B) // pop r15, r14, r13, r12, rbx
+			b.emitBytes(0x5D, 0xC3)                                           // pop rbp; ret
+		}
 	}
 
 	// __joss_load_env_file: Reads .env or env.joss via fn_file_get_contents and populates dataOffEnvMap
@@ -487,14 +562,36 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B) // pop r15..r12, rbx
 	b.emitBytes(0x5D, 0xC3)
 
-	// fn_env(rcx = key, rdx = defaultVal) -> rax = val from loaded environment map, or defaultVal
+	// fn_env(rcx = key, rdx = defaultVal) -> rax = val from OS env, loaded environment map, or defaultVal
 	b.defineLabel("fn_env")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
-	b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
+	b.emitBytes(0x48, 0x83, 0xEC, 0x30) // sub rsp, 48 (16-byte aligned before call)
 	b.emitBytes(0x48, 0x89, 0x55, 0xF8) // mov [rbp - 8], rdx (save defaultVal)
 	b.emitBytes(0x48, 0x89, 0x4D, 0xF0) // mov [rbp - 16], rcx (save key)
-	b.emitMovRCXData(dataOffEnvMap)     // mov rcx, [dataOffEnvMap]
-	b.emitBytes(0x48, 0x85, 0xC9)       // test rcx, rcx
+
+	// 1. Try OS environment variable first (e.g. PORT or JOSS_NATIVE_CHECK_ONLY)
+	if b.target.OS == "windows" {
+		b.emitMovRAXData(dataOffGetEnvVar)
+		b.emitBytes(0x48, 0x85, 0xC0)
+		b.emitJeLabel(".env_try_map")
+		b.emitBytes(0xB9, 0x00, 0x02, 0x00, 0x00) // mov ecx, 512
+		b.emitCallLabel("__joss_os_alloc")
+		b.emitBytes(0x48, 0x89, 0x45, 0xE8)             // mov [rbp - 24], rax (buf)
+		b.emitBytes(0x48, 0x8B, 0x4D, 0xF0)             // mov rcx, [rbp - 16] (key)
+		b.emitBytes(0x48, 0x8B, 0x55, 0xE8)             // mov rdx, [rbp - 24] (buf)
+		b.emitBytes(0x41, 0xB8, 0x00, 0x02, 0x00, 0x00) // mov r8d, 512
+		b.emitMovRAXData(dataOffGetEnvVar)
+		b.emitBytes(0xFF, 0xD0) // call GetEnvironmentVariableA
+		b.emitBytes(0x85, 0xC0) // test eax, eax
+		b.emitJeLabel(".env_try_map")
+		b.emitBytes(0x48, 0x8B, 0x45, 0xE8)       // mov rax, [rbp - 24]
+		b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // ret
+	}
+
+	// 2. Try loaded environment map (.env / env.joss)
+	b.defineLabel(".env_try_map")
+	b.emitMovRCXData(dataOffEnvMap) // mov rcx, [dataOffEnvMap]
+	b.emitBytes(0x48, 0x85, 0xC9)   // test rcx, rcx
 	b.emitJneLabel(".env_map_ready")
 	b.emitCallLabel("__joss_load_env_file")
 	b.defineLabel(".env_map_ready")
@@ -504,11 +601,12 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.emitBytes(0x48, 0x8B, 0x55, 0xF0) // mov rdx, [rbp - 16] (key)
 	b.emitCallLabel("joss_map_get_i64") // rax = val
 	b.emitBytes(0x48, 0x85, 0xC0)       // test rax, rax
-	b.emitJeLabel(".env_use_default")
-	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
+	b.emitJneLabel(".env_have_val")
+
 	b.defineLabel(".env_use_default")
-	b.emitBytes(0x48, 0x8B, 0x45, 0xF8)       // mov rax, [rbp - 8]
-	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
+	b.emitBytes(0x48, 0x8B, 0x45, 0xF8) // mov rax, [rbp - 8]
+	b.defineLabel(".env_have_val")
+	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // ret
 
 	// fn_request / fn_Request_input(rcx = key, rdx = defaultVal) -> rax = val or defaultVal
 	b.defineLabel("fn_request")
@@ -516,7 +614,7 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x48, 0x83, 0xEC, 0x20) // push rbp; mov rbp, rsp; sub rsp, 32
 	b.emitBytes(0x48, 0x89, 0x55, 0xF8)                         // mov [rbp - 8], rdx (save defaultVal)
 	b.emitBytes(0x48, 0x89, 0xCA)                               // mov rdx, rcx (key)
-	b.emitMovRCXData(dataOffRequestParams)                      // mov rcx, [dataOffRequestParams]
+	b.emitMovRCXData(requestParamsOffset)                       // mov rcx, [requestParams]
 	b.emitBytes(0x48, 0x85, 0xC9)                               // test rcx, rcx
 	b.emitJeLabel(".req_use_default")
 	b.emitCallLabel("joss_map_get_i64") // joss_map_get_i64(rcx = map, rdx = key) -> rax
@@ -570,18 +668,18 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.emitJmpLabel(".qp_find_amp")
 
 	b.defineLabel(".qp_save_and_next")
-	b.emitBytes(0xC6, 0x03, 0x00)          // mov byte ptr [rbx], 0
-	b.emitBytes(0x48, 0xFF, 0xC3)          // inc rbx
-	b.emitMovRCXData(dataOffRequestParams) // mov rcx, [dataOffRequestParams]
-	b.emitBytes(0x4C, 0x89, 0xE2)          // mov rdx, r12 (key)
-	b.emitBytes(0x4D, 0x89, 0xE8)          // mov r8, r13 (val)
+	b.emitBytes(0xC6, 0x03, 0x00)         // mov byte ptr [rbx], 0
+	b.emitBytes(0x48, 0xFF, 0xC3)         // inc rbx
+	b.emitMovRCXData(requestParamsOffset) // mov rcx, [requestParams]
+	b.emitBytes(0x4C, 0x89, 0xE2)         // mov rdx, r12 (key)
+	b.emitBytes(0x4D, 0x89, 0xE8)         // mov r8, r13 (val)
 	b.emitCallLabel("joss_map_set_i64")
 	b.emitJmpLabel(".qp_loop")
 
 	b.defineLabel(".qp_save_last")
-	b.emitMovRCXData(dataOffRequestParams) // mov rcx, [dataOffRequestParams]
-	b.emitBytes(0x4C, 0x89, 0xE2)          // mov rdx, r12 (key)
-	b.emitBytes(0x4D, 0x89, 0xE8)          // mov r8, r13 (val)
+	b.emitMovRCXData(requestParamsOffset) // mov rcx, [requestParams]
+	b.emitBytes(0x4C, 0x89, 0xE2)         // mov rdx, r12 (key)
+	b.emitBytes(0x4D, 0x89, 0xE8)         // mov r8, r13 (val)
 	b.emitCallLabel("joss_map_set_i64")
 	b.emitJmpLabel(".qp_done")
 
@@ -1138,8 +1236,45 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 
 	// fn_file_exists(rcx = pathPtr) -> rax = 1 (exists) or 0
 	b.defineLabel("fn_file_exists")
-	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
-	b.emitBytes(0x48, 0x83, 0xEC, 0x40) // sub rsp, 64 (16-byte aligned before call)
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                   // push rbp; mov rbp, rsp
+	b.emitBytes(0x53)                                     // push rbx
+	b.emitBytes(0x48, 0x83, 0xEC, 0x48)                   // sub rsp, 72 (16-byte aligned before call)
+	b.emitBytes(0x48, 0x89, 0xCB)                         // mov rbx, rcx (save pathPtr)
+	b.emitBytes(0x48, 0x81, 0xFB, 0x00, 0x00, 0x01, 0x00) // cmp rbx, 0x10000
+	b.emitJlLabel(".fe_no")
+
+	// Strip leading '/' or '\\' if present
+	b.emitBytes(0x80, 0x3B, 0x2F) // cmp byte ptr [rbx], '/'
+	b.emitBytes(0x75, 0x03)       // jne +3
+	b.emitBytes(0x48, 0xFF, 0xC3) // inc rbx
+	b.emitBytes(0x80, 0x3B, 0x5C) // cmp byte ptr [rbx], '\\'
+	b.emitBytes(0x75, 0x03)       // jne +3
+	b.emitBytes(0x48, 0xFF, 0xC3) // inc rbx
+
+	// Try 1: Open relative to working directory
+	b.emitBytes(0x48, 0x89, 0xD9)                                     // mov rcx, rbx
+	b.emitBytes(0xBA, 0x00, 0x00, 0x00, 0x80)                         // mov edx, 0x80000000 (GENERIC_READ)
+	b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00)                   // mov r8d, 1 (FILE_SHARE_READ)
+	b.emitBytes(0x45, 0x31, 0xC9)                                     // xor r9d, r9d
+	b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x20, 0x03, 0x00, 0x00, 0x00) // [rsp+32] = 3 (OPEN_EXISTING)
+	b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x28, 0x80, 0x00, 0x00, 0x00) // [rsp+40] = 0x80 (FILE_ATTRIBUTE_NORMAL)
+	b.emitBytes(0x48, 0xC7, 0x44, 0x24, 0x30, 0x00, 0x00, 0x00, 0x00) // [rsp+48] = 0
+	b.emitMovRAXData(dataOffCreateFileA)
+	b.emitBytes(0xFF, 0xD0)
+	b.emitBytes(0x48, 0x83, 0xF8, 0xFF)
+	b.emitJneLabel(".fe_yes")
+
+	// Try 2: Fallback with "../" prefix (in case running inside build/)
+	b.emitBytes(0x66, 0x81, 0x3B, 0x2E, 0x2E) // cmp word ptr [rbx], 0x2E2E ("..")
+	b.emitJeLabel(".fe_no")
+	b.emitBytes(0x80, 0x7B, 0x01, 0x3A) // cmp byte ptr [rbx + 1], 0x3A (':')
+	b.emitJeLabel(".fe_no")
+
+	b.emitLeaRCXString("../")
+	b.emitBytes(0x48, 0x89, 0xDA) // mov rdx, rbx
+	b.emitCallLabel("joss_str_concat")
+	b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
+
 	b.emitBytes(0xBA, 0x00, 0x00, 0x00, 0x80)
 	b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00)
 	b.emitBytes(0x45, 0x31, 0xC9)
@@ -1150,14 +1285,17 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.emitBytes(0xFF, 0xD0)
 	b.emitBytes(0x48, 0x83, 0xF8, 0xFF)
 	b.emitJeLabel(".fe_no")
-	b.emitBytes(0x48, 0x89, 0xC1)
+
+	b.defineLabel(".fe_yes")
+	b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
 	b.emitMovRAXData(dataOffCloseHandle)
 	b.emitBytes(0xFF, 0xD0)
 	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1
-	b.emitBytes(0x48, 0x83, 0xC4, 0x40, 0x5D, 0xC3)
+	b.emitBytes(0x48, 0x83, 0xC4, 0x48, 0x5B, 0x5D, 0xC3)
+
 	b.defineLabel(".fe_no")
 	b.emitBytes(0x31, 0xC0) // xor eax, eax
-	b.emitBytes(0x48, 0x83, 0xC4, 0x40, 0x5D, 0xC3)
+	b.emitBytes(0x48, 0x83, 0xC4, 0x48, 0x5B, 0x5D, 0xC3)
 
 	// fn_response(rcx = content, rdx = statusCode, r8 = contentType) -> rax = content
 	b.defineLabel("fn_response")
@@ -1398,6 +1536,289 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	}
 }
 
+// emitNativeStrpos implements strpos(haystack, needle) with the interpreter's
+// character-index result. The search compares UTF-8 bytes, then counts leading
+// bytes before the match so multibyte characters do not shift the returned index.
+func (b *MachineCodeBuilder) emitNativeStrpos() {
+	b.defineLabel("fn_strpos")
+	b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // save rbx, r12-r15
+	b.emitBytes(0x49, 0x89, 0xCC, 0x49, 0x89, 0xD5)                   // r12=haystack, r13=needle
+	b.emitBytes(0x45, 0x31, 0xF6)                                     // r14d=byte offset
+	b.emitBytes(0x4D, 0x85, 0xED)                                     // test r13,r13
+	b.emitJeLabel(".strpos_found")
+	b.emitBytes(0x41, 0x80, 0x7D, 0x00, 0x00) // empty needle => 0
+	b.emitJeLabel(".strpos_found")
+	b.defineLabel(".strpos_outer")
+	b.emitBytes(0x43, 0x8A, 0x04, 0x34, 0x84, 0xC0) // al=[r12+r14]; test al,al
+	b.emitJeLabel(".strpos_missing")
+	b.emitBytes(0x4B, 0x8D, 0x1C, 0x34, 0x4D, 0x89, 0xEF) // rbx=candidate, r15=needle
+	b.defineLabel(".strpos_inner")
+	b.emitBytes(0x41, 0x8A, 0x07, 0x84, 0xC0) // al=[r15]; test al,al
+	b.emitJeLabel(".strpos_found")
+	b.emitBytes(0x3A, 0x03) // cmp al,[rbx]
+	b.emitJneLabel(".strpos_next")
+	b.emitBytes(0x48, 0xFF, 0xC3, 0x49, 0xFF, 0xC7) // inc rbx; inc r15
+	b.emitJmpLabel(".strpos_inner")
+	b.defineLabel(".strpos_next")
+	b.emitBytes(0x49, 0xFF, 0xC6) // inc r14
+	b.emitJmpLabel(".strpos_outer")
+	b.defineLabel(".strpos_found")
+	b.emitBytes(0x31, 0xC0, 0x48, 0x31, 0xDB) // eax=0; rbx=0 (character count/index)
+	b.defineLabel(".strpos_count")
+	b.emitBytes(0x4C, 0x39, 0xF3) // cmp rbx,r14
+	b.emitJgeLabel(".strpos_done")
+	b.emitBytes(0x41, 0x8A, 0x14, 0x1C, 0x80, 0xE2, 0xC0, 0x80, 0xFA, 0x80)
+	b.emitJeLabel(".strpos_continuation")
+	b.emitBytes(0x48, 0xFF, 0xC0) // count one UTF-8 leading byte
+	b.defineLabel(".strpos_continuation")
+	b.emitBytes(0x48, 0xFF, 0xC3) // advance byte index
+	b.emitJmpLabel(".strpos_count")
+	b.defineLabel(".strpos_missing")
+	b.emitBytes(0x31, 0xC0) // false => 0
+	b.defineLabel(".strpos_done")
+	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B, 0xC3)
+}
+
+// emitNativeSubstr provides the standalone string-slice primitive. Joss strings
+// are UTF-8; character ranges are translated to byte offsets before copying.
+func (b *MachineCodeBuilder) emitNativeSubstr() {
+	b.defineLabel("fn_substr")
+	b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // save rbx, r12-r15
+	b.emitBytes(0x48, 0x83, 0xEC, 0x20)                               // shadow space
+	b.emitBytes(0x49, 0x89, 0xCC, 0x49, 0x89, 0xD5, 0x4D, 0x89, 0xC6) // r12=source,r13=start,r14=len
+	b.emitBytes(0x4D, 0x89, 0xD7)                                     // r15=argument count
+	b.emitBytes(0x4C, 0x89, 0xE1)                                     // rcx=source
+	b.emitCallLabel("fn___joss_utf8_len")
+	b.emitBytes(0x48, 0x89, 0xC3) // rbx=source character length
+	b.defineLabel(".substr_length_ready")
+	b.emitBytes(0x49, 0x83, 0xFD, 0x00) // cmp start,0
+	b.emitJgeLabel(".substr_start_positive")
+	b.emitBytes(0x49, 0x01, 0xDD) // start += source length
+	b.emitBytes(0x49, 0x83, 0xFD, 0x00)
+	b.emitJgeLabel(".substr_start_positive")
+	b.emitBytes(0x4D, 0x31, 0xED) // clamp negative start to 0
+	b.defineLabel(".substr_start_positive")
+	b.emitBytes(0x49, 0x39, 0xDD) // cmp start, source length
+	b.emitJleLabel(".substr_start_in_range")
+	b.emitBytes(0x49, 0x89, 0xDD, 0x4D, 0x31, 0xF6) // start=len; result len=0
+	b.emitJmpLabel(".substr_allocate")
+	b.defineLabel(".substr_start_in_range")
+	b.emitBytes(0x49, 0x83, 0xFF, 0x03) // argument count < 3 => omitted length
+	b.emitJgeLabel(".substr_explicit_length")
+	b.emitBytes(0x49, 0x89, 0xDE, 0x4D, 0x29, 0xEE) // len=sourceLen-start
+	b.emitJmpLabel(".substr_allocate")
+	b.defineLabel(".substr_explicit_length")
+	b.emitBytes(0x49, 0x83, 0xFE, 0x00) // cmp requested len,0
+	b.emitJgeLabel(".substr_nonnegative_length")
+	b.emitBytes(0x49, 0x01, 0xDE) // negative length => end=sourceLen+length
+	b.emitBytes(0x4D, 0x39, 0xEE) // cmp end,start
+	b.emitJleLabel(".substr_empty")
+	b.emitBytes(0x4D, 0x29, 0xEE) // len=end-start
+	b.emitJmpLabel(".substr_allocate")
+	b.defineLabel(".substr_nonnegative_length")
+	b.emitBytes(0x49, 0x89, 0xD8, 0x4D, 0x29, 0xE8) // r8=remaining bytes
+	b.emitBytes(0x4D, 0x39, 0xC6)                   // cmp requested len,remaining
+	b.emitJleLabel(".substr_allocate")
+	b.emitBytes(0x4D, 0x89, 0xC6) // clamp len to remaining
+	b.emitJmpLabel(".substr_allocate")
+	b.defineLabel(".substr_empty")
+	b.emitBytes(0x4D, 0x31, 0xF6) // len=0
+	b.defineLabel(".substr_allocate")
+	// Convert the character range into UTF-8 byte offsets.
+	b.emitBytes(0x4C, 0x89, 0xE1, 0x4C, 0x89, 0xEA) // rcx=source, rdx=start rune
+	b.emitCallLabel("fn___joss_utf8_offset")
+	b.emitBytes(0x48, 0x89, 0xC6)                   // rsi=start byte offset
+	b.emitBytes(0x4D, 0x89, 0xEF, 0x4D, 0x01, 0xF7) // r15=start rune + length
+	b.emitBytes(0x49, 0x39, 0xDF)                   // compare end rune with source rune length
+	b.emitJleLabel(".substr_end_in_range")
+	b.emitBytes(0x49, 0x89, 0xDF) // clamp end rune to source length
+	b.defineLabel(".substr_end_in_range")
+	b.emitBytes(0x4C, 0x89, 0xE1, 0x4C, 0x89, 0xFA) // rcx=source, rdx=end rune
+	b.emitCallLabel("fn___joss_utf8_offset")
+	b.emitBytes(0x48, 0x29, 0xF0, 0x49, 0x89, 0xC6) // r14=end byte - start byte
+	b.emitBytes(0x48, 0x89, 0xF3)                   // preserve start byte in rbx
+	b.emitBytes(0x4C, 0x89, 0xF1, 0x48, 0xFF, 0xC1) // rcx=len+1
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x49, 0x89, 0xC7)       // r15=result
+	b.emitBytes(0x49, 0x8D, 0x34, 0x1C) // rsi=source+start byte
+	b.emitBytes(0x48, 0x31, 0xDB)       // rbx=copy index
+	b.defineLabel(".substr_copy")
+	b.emitBytes(0x4C, 0x39, 0xF3) // cmp copied,len
+	b.emitJgeLabel(".substr_copy_done")
+	b.emitBytes(0x8A, 0x04, 0x1E, 0x41, 0x88, 0x04, 0x1F) // copy byte
+	b.emitBytes(0x48, 0xFF, 0xC3)
+	b.emitJmpLabel(".substr_copy")
+	b.defineLabel(".substr_copy_done")
+	b.emitBytes(0x41, 0xC6, 0x04, 0x1F, 0x00, 0x4C, 0x89, 0xF8) // NUL; return output
+	b.emitBytes(0x48, 0x83, 0xC4, 0x20, 0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B, 0xC3)
+}
+
+func (b *MachineCodeBuilder) emitNativeUTF8Helpers() {
+	b.defineLabel("fn___joss_utf8_len")
+	b.emitBytes(0x49, 0x89, 0xC8, 0x4D, 0x31, 0xC9, 0x48, 0x31, 0xC0) // r8=string,r9=byte,rxa=chars
+	b.defineLabel(".utf8_len_loop")
+	b.emitBytes(0x47, 0x8A, 0x14, 0x08, 0x45, 0x84, 0xD2) // r10b=[r8+r9]
+	b.emitJeLabel(".utf8_len_done")
+	b.emitBytes(0x41, 0x80, 0xE2, 0xC0, 0x41, 0x80, 0xFA, 0x80)
+	b.emitJeLabel(".utf8_len_next")
+	b.emitBytes(0x48, 0xFF, 0xC0) // count leading byte
+	b.defineLabel(".utf8_len_next")
+	b.emitBytes(0x49, 0xFF, 0xC1)
+	b.emitJmpLabel(".utf8_len_loop")
+	b.defineLabel(".utf8_len_done")
+	b.emitBytes(0xC3)
+
+	b.defineLabel("fn___joss_utf8_offset")
+	b.emitBytes(0x49, 0x89, 0xC8, 0x49, 0x89, 0xD1, 0x48, 0x31, 0xC0, 0x4D, 0x31, 0xD2) // r8=string,r9=target,rax=byte,r10=rune
+	b.defineLabel(".utf8_offset_loop")
+	b.emitBytes(0x45, 0x8A, 0x1C, 0x00, 0x45, 0x84, 0xDB) // r11b=[r8+rax]
+	b.emitJeLabel(".utf8_offset_done")
+	b.emitBytes(0x41, 0x80, 0xE3, 0xC0, 0x41, 0x80, 0xFB, 0x80)
+	b.emitJeLabel(".utf8_offset_advance")
+	b.emitBytes(0x4D, 0x39, 0xCA) // cmp r10,r9 at a character boundary
+	b.emitJgeLabel(".utf8_offset_done")
+	b.emitBytes(0x49, 0xFF, 0xC2) // count leading byte
+	b.defineLabel(".utf8_offset_advance")
+	b.emitBytes(0x48, 0xFF, 0xC0)
+	b.emitJmpLabel(".utf8_offset_loop")
+	b.defineLabel(".utf8_offset_done")
+	b.emitBytes(0xC3)
+}
+
+func (b *MachineCodeBuilder) emitNativeURLDecode() {
+	b.defineLabel("fn_urldecode")
+	b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57)
+	b.emitBytes(0x48, 0x83, 0xEC, 0x20) // shadow space and call alignment
+	b.emitBytes(0x49, 0x89, 0xCC)       // r12=source
+	b.emitBytes(0x48, 0x31, 0xDB)       // rbx=source byte length
+	b.defineLabel(".url_decode_length")
+	b.emitBytes(0x49, 0x8A, 0x04, 0x1C, 0x84, 0xC0)
+	b.emitJeLabel(".url_decode_length_ready")
+	b.emitBytes(0x48, 0xFF, 0xC3)
+	b.emitJmpLabel(".url_decode_length")
+	b.defineLabel(".url_decode_length_ready")
+	b.emitBytes(0x48, 0x89, 0xD9, 0x48, 0xFF, 0xC1) // rcx=length+1
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x49, 0x89, 0xC5, 0x4D, 0x31, 0xF6, 0x4D, 0x31, 0xFF) // r13=output,r14/r15=indices
+	b.defineLabel(".url_decode_loop")
+	b.emitBytes(0x49, 0x39, 0xDE) // cmp input index,length
+	b.emitJgeLabel(".url_decode_done")
+	b.emitBytes(0x43, 0x8A, 0x04, 0x34, 0x3C, 0x2B) // al=[source+index]; cmp '+'
+	b.emitJeLabel(".url_decode_plus")
+	b.emitBytes(0x3C, 0x25) // cmp '%'
+	b.emitJeLabel(".url_decode_percent")
+	b.emitBytes(0x43, 0x88, 0x44, 0x3D, 0x00) // output[index]=al
+	b.emitBytes(0x49, 0xFF, 0xC6, 0x49, 0xFF, 0xC7)
+	b.emitJmpLabel(".url_decode_loop")
+	b.defineLabel(".url_decode_plus")
+	b.emitBytes(0x43, 0xC6, 0x44, 0x3D, 0x00, 0x20) // output[index]=' '
+	b.emitBytes(0x49, 0xFF, 0xC6, 0x49, 0xFF, 0xC7)
+	b.emitJmpLabel(".url_decode_loop")
+	b.defineLabel(".url_decode_percent")
+	b.emitBytes(0x4F, 0x8D, 0x14, 0x34)                   // r10=source+index
+	b.emitBytes(0x45, 0x8A, 0x5A, 0x01, 0x45, 0x84, 0xDB) // r11b=first hex; reject NUL
+	b.emitJeLabel(".url_decode_invalid")
+	b.emitBytes(0x41, 0x0F, 0xB6, 0xCB) // ecx=r11d
+	b.emitCallLabel("fn___joss_hex_nibble")
+	b.emitBytes(0x83, 0xF8, 0xFF)
+	b.emitJeLabel(".url_decode_invalid")
+	b.emitBytes(0x48, 0x89, 0xC6)                               // rsi=first nibble
+	b.emitBytes(0x47, 0x8A, 0x54, 0x34, 0x02, 0x45, 0x84, 0xD2) // r10b=second hex
+	b.emitJeLabel(".url_decode_invalid")
+	b.emitBytes(0x41, 0x0F, 0xB6, 0xCA) // ecx=r10d
+	b.emitCallLabel("fn___joss_hex_nibble")
+	b.emitBytes(0x83, 0xF8, 0xFF)
+	b.emitJeLabel(".url_decode_invalid")
+	b.emitBytes(0x48, 0xC1, 0xE6, 0x04, 0x48, 0x01, 0xC6) // first*16+second
+	b.emitBytes(0x43, 0x88, 0x74, 0x3D, 0x00)             // output[index]=decoded byte
+	b.emitBytes(0x49, 0x83, 0xC6, 0x03, 0x49, 0xFF, 0xC7)
+	b.emitJmpLabel(".url_decode_loop")
+	b.defineLabel(".url_decode_invalid")
+	b.emitBytes(0x4C, 0x89, 0xE0) // malformed escape returns input unchanged
+	b.emitJmpLabel(".url_decode_return")
+	b.defineLabel(".url_decode_done")
+	b.emitBytes(0x43, 0xC6, 0x44, 0x3D, 0x00, 0x00, 0x4C, 0x89, 0xE8) // NUL; return output
+	b.defineLabel(".url_decode_return")
+	b.emitBytes(0x48, 0x83, 0xC4, 0x20, 0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B, 0xC3)
+
+	b.defineLabel("fn___joss_hex_nibble")
+	b.emitBytes(0x89, 0xC8, 0x3C, 0x30) // eax=ecx; cmp al,'0'
+	b.emitJlLabel(".hex_invalid")
+	b.emitBytes(0x3C, 0x39)
+	b.emitJleLabel(".hex_decimal")
+	b.emitBytes(0x0C, 0x20, 0x3C, 0x61) // lowercase ASCII
+	b.emitJlLabel(".hex_invalid")
+	b.emitBytes(0x3C, 0x66)
+	b.emitJgLabel(".hex_invalid")
+	b.emitBytes(0x2C, 0x57, 0xC3) // 'a' => 10
+	b.defineLabel(".hex_decimal")
+	b.emitBytes(0x2C, 0x30, 0xC3)
+	b.defineLabel(".hex_invalid")
+	b.emitBytes(0xB8, 0xFF, 0xFF, 0xFF, 0xFF, 0xC3)
+}
+
+// emitNativeStringUpper implements ASCII case conversion for HTTP method and
+// protocol tokens. Non-ASCII UTF-8 bytes pass through unchanged.
+func (b *MachineCodeBuilder) emitNativeStringUpper() {
+	b.defineLabel("fn_strtoupper")
+	b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56) // save rbx,r12-r14
+	b.emitBytes(0x48, 0x83, 0xEC, 0x20, 0x49, 0x89, 0xCC, 0x48, 0x31, 0xDB)
+	b.defineLabel(".upper_length")
+	b.emitBytes(0x49, 0x8A, 0x04, 0x1C, 0x84, 0xC0)
+	b.emitJeLabel(".upper_allocate")
+	b.emitBytes(0x48, 0xFF, 0xC3)
+	b.emitJmpLabel(".upper_length")
+	b.defineLabel(".upper_allocate")
+	b.emitBytes(0x48, 0x89, 0xD9, 0x48, 0xFF, 0xC1)
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x49, 0x89, 0xC5, 0x4D, 0x31, 0xF6)
+	b.defineLabel(".upper_loop")
+	b.emitBytes(0x49, 0x39, 0xDE)
+	b.emitJgeLabel(".upper_done")
+	b.emitBytes(0x43, 0x8A, 0x04, 0x34, 0x3C, 0x61)
+	b.emitJlLabel(".upper_store")
+	b.emitBytes(0x3C, 0x7A)
+	b.emitJgLabel(".upper_store")
+	b.emitBytes(0x2C, 0x20)
+	b.defineLabel(".upper_store")
+	b.emitBytes(0x43, 0x88, 0x44, 0x35, 0x00)
+	b.emitBytes(0x49, 0xFF, 0xC6)
+	b.emitJmpLabel(".upper_loop")
+	b.defineLabel(".upper_done")
+	b.emitBytes(0x43, 0xC6, 0x44, 0x35, 0x00, 0x00, 0x4C, 0x89, 0xE8)
+	b.emitBytes(0x48, 0x83, 0xC4, 0x20, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B, 0xC3)
+}
+
+func (b *MachineCodeBuilder) emitNativeStringLower() {
+	b.defineLabel("fn_strtolower")
+	b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56)
+	b.emitBytes(0x48, 0x83, 0xEC, 0x20, 0x49, 0x89, 0xCC, 0x48, 0x31, 0xDB)
+	b.defineLabel(".lower_length")
+	b.emitBytes(0x49, 0x8A, 0x04, 0x1C, 0x84, 0xC0)
+	b.emitJeLabel(".lower_allocate")
+	b.emitBytes(0x48, 0xFF, 0xC3)
+	b.emitJmpLabel(".lower_length")
+	b.defineLabel(".lower_allocate")
+	b.emitBytes(0x48, 0x89, 0xD9, 0x48, 0xFF, 0xC1)
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x49, 0x89, 0xC5, 0x4D, 0x31, 0xF6)
+	b.defineLabel(".lower_loop")
+	b.emitBytes(0x49, 0x39, 0xDE)
+	b.emitJgeLabel(".lower_done")
+	b.emitBytes(0x43, 0x8A, 0x04, 0x34, 0x3C, 0x41)
+	b.emitJlLabel(".lower_store")
+	b.emitBytes(0x3C, 0x5A)
+	b.emitJgLabel(".lower_store")
+	b.emitBytes(0x04, 0x20)
+	b.defineLabel(".lower_store")
+	b.emitBytes(0x43, 0x88, 0x44, 0x35, 0x00)
+	b.emitBytes(0x49, 0xFF, 0xC6)
+	b.emitJmpLabel(".lower_loop")
+	b.defineLabel(".lower_done")
+	b.emitBytes(0x43, 0xC6, 0x44, 0x35, 0x00, 0x00, 0x4C, 0x89, 0xE8)
+	b.emitBytes(0x48, 0x83, 0xC4, 0x20, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B, 0xC3)
+}
+
 // emitStorageIntrinsics emits canonical native low-level primitives for storage:
 // fn___joss_storage_get, fn___joss_storage_put, fn___joss_storage_delete
 func (b *MachineCodeBuilder) emitStorageIntrinsics() {
@@ -1478,6 +1899,9 @@ func (b *MachineCodeBuilder) emitHostFrameworkAdapters() {
 		}
 	}
 	for _, lbl := range missing {
+		if !isFrameworkAdapterTarget(lbl) {
+			continue
+		}
 		b.defineLabel(lbl)
 		// Return first argument (rcx) in rax to preserve fluent method chaining ($obj->m1()->m2())
 		b.emitBytes(0x48, 0x89, 0xC8, 0xC3) // mov rax, rcx; ret

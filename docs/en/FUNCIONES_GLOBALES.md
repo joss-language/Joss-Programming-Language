@@ -2,7 +2,7 @@
 
 [Index](README.md) · Before: [functions](FUNCIONES.md) · [Native classes](MODULOS_NATIVOS.md)
 
-These functions are integrated into the runtime ( `pkg/core/builtins.go` ), without imports or installation.
+These functions are provided by the runtime or the Joss Standard Library, without extra packages or installation. `now()` is implemented in `std/date/` and shares its semantics between the interpreter and native compilation.
 The signature on this page describes the usage supported by the dispatcher;not all
 the parameters are published to the analyzer.`[x]` indicates one optional
 argument and `...` indicates multiple arguments.They are not characters you should copy.
@@ -102,14 +102,15 @@ compound emojis, see [COLECCIONES.md](COLECCIONES.md) text units.
 |`time()` |Unix seconds as integer.|`time()` |
 |`microtime([comoFloat])` |With true, float in seconds;by default text "fraction seconds".|`microtime(true)` |
 |`date([formato,timestamp])` |Text;default Ymd H:i:s and current time.Timestamp supports number, text, or host time.Time value.|`date("Y-m-d",0)` |
-|`now([formato])` |Current date text;same default format.|`now("H:i:s")` |
-|`strtotime(texto,[base])` |Unix integer or null if the text is not recognized.Limited parser of dates and displacements.|`strtotime("+1 day",0)` |
+|`now([formato])` |Local date text; default format `Y-m-d H:i:s`. Offsets and abbreviations come from TZif parsed in Joss on Linux/macOS; Windows reads the offset from the system clock and synthesizes `UTC±HH:MM` for token `T`.|`now("H:i:s")` |
+|`strtotime(texto,[base])` |Unix integer or null if the text is not recognized.Recognizes RFC3339 with an explicit zone; dates without a zone use the base's local time zone.Limited parser of dates and displacements.|`strtotime("+1 day",0)` |
 |`sleep(segundos)` , `usleep(microsegundos)` |They lock the current task;return null.sleep supports float fractions.|`sleep(0.01)` |
 
-The supported date tokens and relative expressions are implemented in
-[date_utils.go](../../pkg/core/date_utils.go) .Not all of PHP's
-date grammar is incorporated.The time zone depends on the process;avoids local
-date outputs in tests that must be identical on any machine.
+The supported tokens for `date()` and relative expressions are implemented in
+[date_utils.go](../../pkg/core/date_utils.go) ; the `now()` formatter and TZif
+parser live in `std/date/` .Not all of PHP's date grammar is incorporated.The
+local time zone depends on system configuration;avoid local date output in
+tests that must be identical on every machine.
 
 ## Files, serialization and processes
 

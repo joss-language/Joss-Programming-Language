@@ -2,7 +2,7 @@
 
 [Índice](README.md) · Antes: [funciones](FUNCIONES.md) · [Clases nativas](MODULOS_NATIVOS.md)
 
-Estas funciones están integradas en el runtime (`pkg/core/builtins.go`), sin imports ni instalación.
+Estas funciones forman parte del runtime o de la Standard Library Joss, sin paquetes externos ni instalación adicional. `now()` está implementada en `std/date/` y comparte su semántica entre intérprete y compilación nativa.
 La firma de esta página describe el uso admitido por el dispatcher; no todos
 los parámetros están publicados al analizador. `[x]` indica un argumento
 opcional y `...` varios argumentos. No son caracteres que debas copiar.
@@ -102,14 +102,15 @@ como emojis compuestos, consulta [unidades de texto](COLECCIONES.md).
 | `time()` | Segundos Unix como entero. | `time()` |
 | `microtime([comoFloat])` | Con true, float en segundos; por defecto texto "fraccion segundos". | `microtime(true)` |
 | `date([formato,timestamp])` | Texto; por defecto Y-m-d H:i:s y hora actual. Timestamp admite número, texto o valor time.Time del host. | `date("Y-m-d",0)` |
-| `now([formato])` | Texto de fecha actual; mismo formato predeterminado. | `now("H:i:s")` |
-| `strtotime(texto,[base])` | Entero Unix o null si no reconoce el texto. Parser limitado de fechas y desplazamientos. | `strtotime("+1 day",0)` |
+| `now([formato])` | Texto con fecha local; formato predeterminado `Y-m-d H:i:s`. Los desplazamientos y abreviaturas se leen desde TZif en Joss en Linux/macOS; Windows obtiene el desplazamiento del reloj del sistema y sintetiza `UTC±HH:MM` para el token `T`. | `now("H:i:s")` |
+| `strtotime(texto,[base])` | Entero Unix o null si no reconoce el texto. Reconoce RFC3339 con zona explícita; las fechas sin zona se interpretan en la zona local de la base. Parser limitado de fechas y desplazamientos. | `strtotime("+1 day",0)` |
 | `sleep(segundos)`, `usleep(microsegundos)` | Bloquean la tarea actual; retorno null. sleep admite fracciones float. | `sleep(0.01)` |
 
-Los tokens de fecha y expresiones relativas admitidos están implementados en
-[date_utils.go](../pkg/core/date_utils.go). No se incorpora toda la gramática
-de fechas de PHP. La zona horaria depende del proceso; evita salidas de fecha
-local en pruebas que deban ser idénticas en cualquier máquina.
+Los tokens de `date()` y expresiones relativas admitidos están implementados
+en [date_utils.go](../pkg/core/date_utils.go); el formateador de `now()` y el
+parser TZif viven en `std/date/`. No se incorpora toda la gramática de fechas
+de PHP. La zona horaria local depende de la configuración del sistema; evita
+salidas de fecha local en pruebas que deban ser idénticas en cualquier máquina.
 
 ## Archivos, serialización y procesos
 

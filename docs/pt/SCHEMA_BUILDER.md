@@ -4,7 +4,10 @@ Uma tabela define quais dados um banco de dados armazena. O esquema cria ou modi
 
 [Índice](README.md) · Antes: [modelos](MODELOS.md) · Depois: [migrações](MIGRACIONES.md)
 
-O exemplo requer conexão e uma tabela de proprietários que suporte a chave composta. É um fragmento esquemático, não um programa independente.```joss
+O exemplo requer conexão e uma tabela de proprietários que suporte a chave composta.
+É um fragmento esquemático, não um programa independente.
+
+```joss
 Schema::create("products", func(Blueprint $table) {
     $table->id()
     $table->string("sku", 50)->unique()
@@ -19,15 +22,27 @@ Schema::create("products", func(Blueprint $table) {
     $table->timestamps()
 })
 ```
+
+`Schema::hasForeign($table, $constraint)` verifica se existe uma chave estrangeira com esse nome. Use-a em migrações que precisem tolerar bancos MySQL parcialmente atualizados:
+
+```joss
+(!Schema::hasForeign("backups", "fk_backups_user")) ? {
+    Schema::table("backups", func(mixed $table) {
+        $table->foreign("user_id", "fk_backups_user")->references("id")->on("users")->onDelete("cascade")
+    })
+}
+```
+<!-- joss-check: requiere una base de datos configurada -->
+
 ## Esquema
 
 - `create($table, func(Blueprint $blueprint))`
 - `table($table, func(Blueprint $blueprint))`
 - `rename($from, $to)`
 - `drop($table)` e `dropIfExists($table)`
-- `hasTable($table)` e `hasColumn($table, $column)`
+- `hasTable($table)`, `hasColumn($table, $column)` e `hasForeign($table, $constraint)`
 
-##Projeto
+## Projeto
 
 Tipos: `id`, `increments`, `integer`, `tinyInteger`, `smallInteger`, `mediumInteger`, `bigInteger`, `unsignedInteger`, `unsignedBigInteger`, `float`, `double`, `decimal`, `char`, `string`, `text`, `mediumText`, `longText`, `date`, `dateTime`, `time`, `timestamp`, `timestamps`, `softDeletes`, `boolean`, `json` e `enum`.
 

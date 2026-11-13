@@ -1,0 +1,137 @@
+// TZif timezone rules parsed in Joss. The platform primitive supplies bytes;
+// transition selection and UTC-offset semantics stay in the Standard Library.
+public class TimeZoneRules {
+    private static func u32(array<int> $bytes, int $offset): int {
+        return(((($bytes [$offset] * 256 + $bytes [$offset + 1]) * 256 + $bytes [$offset + 2]) * 256) + $bytes [$offset + 3])
+    }
+
+    private static func transition(array<int> $bytes, int $offset, int $width): int {
+        ($width == 4) ? {
+            int $value = TimeZoneRules::u32($bytes, $offset)
+            return($value >= 2147483648) ? $value - 4294967296 : $value
+        }
+        int $high = TimeZoneRules::u32($bytes, $offset)
+        int $low = TimeZoneRules::u32($bytes, $offset + 4)
+        return $high * 4294967296 + $low
+    }
+
+    // Returns the UTC offset in seconds for a Unix timestamp. Bad or missing
+    // timezone files fail closed to UTC rather than indexing outside the array.
+    public static func offsetSeconds(array<int> $bytes, int $timestamp) : int {
+        int $length = count($bytes)
+        ($length < 44) ? {
+            return 0
+        }
+        ($bytes [0] != 84 || $bytes [1] != 90 || $bytes [2] != 105 || $bytes [3] != 102) ? {
+            return 0
+        }
+
+        int $header = 0
+        int $width = 4
+        ($bytes [4] == 50 || $bytes [4] == 51 || $bytes [4] == 52) ? {
+            int $firstTime = TimeZoneRules::u32($bytes, 32)
+            int $firstType = TimeZoneRules::u32($bytes, 36)
+            int $firstChar = TimeZoneRules::u32($bytes, 40)
+            int $firstLeap = TimeZoneRules::u32($bytes, 28)
+            int $firstStd = TimeZoneRules::u32($bytes, 24)
+            int $firstGmt = TimeZoneRules::u32($bytes, 20)
+            int $firstBlock = $firstTime * 5 + $firstType * 6 + $firstChar + $firstLeap * 8 + $firstStd + $firstGmt
+            $header = 44 + $firstBlock
+            ($length < $header + 44) ? {
+                return 0
+            }
+            $width = 8
+        }
+
+        int $timeCount = TimeZoneRules::u32($bytes, $header + 32)
+        int $typeCount = TimeZoneRules::u32($bytes, $header + 36)
+        int $charCount = TimeZoneRules::u32($bytes, $header + 40)
+        int $leapCount = TimeZoneRules::u32($bytes, $header + 28)
+        int $stdCount = TimeZoneRules::u32($bytes, $header + 24)
+        int $gmtCount = TimeZoneRules::u32($bytes, $header + 20)
+        ($typeCount <= 0 || $typeCount > 256 || $timeCount > 20000) ? {
+            return 0
+        }
+
+        int $timesStart = $header + 44
+        int $indexesStart = $timesStart + $timeCount * $width
+        int $typesStart = $indexesStart + $timeCount
+        int $blockEnd = $typesStart + $typeCount * 6 + $charCount + $leapCount * ($width + 4) + $stdCount + $gmtCount
+        ($blockEnd > $length) ? {
+            return 0
+        }
+
+        int $typeIndex = 0
+        int $i = 0
+        while ($i < $timeCount) {
+            int $at = $timesStart + $i * $width
+            (TimeZoneRules::transition($bytes, $at, $width) > $timestamp) ? {
+                break
+            }
+            $typeIndex = $bytes [$indexesStart + $i]
+            $i = $i + 1
+        }
+        ($typeIndex >= $typeCount) ? {
+            return 0
+        }
+
+        int $rawOffset = TimeZoneRules::u32($bytes, $typesStart + $typeIndex * 6)
+        return($rawOffset >= 2147483648) ? $rawOffset - 4294967296 : $rawOffset
+    }
+
+    public static func abbreviation(array<int> $bytes, int $timestamp) : string {
+        int $length = count($bytes)
+        ($length < 44 || $bytes [0] != 84 || $bytes [1] != 90 || $bytes [2] != 105 || $bytes [3] != 102) ? {
+            return "UTC"
+        }
+        int $header = 0
+        int $width = 4
+        ($bytes [4] == 50 || $bytes [4] == 51 || $bytes [4] == 52) ? {
+            int $firstBlock = TimeZoneRules::u32($bytes, 32) * 5 + TimeZoneRules::u32($bytes, 36) * 6 + TimeZoneRules::u32($bytes, 40) + TimeZoneRules::u32($bytes, 28) * 8 + TimeZoneRules::u32($bytes, 24) + TimeZoneRules::u32($bytes, 20)
+            $header = 44 + $firstBlock
+            $width = 8
+        }
+        ($length < $header + 44) ? {
+            return "UTC"
+        }
+        int $timeCount = TimeZoneRules::u32($bytes, $header + 32)
+        int $typeCount = TimeZoneRules::u32($bytes, $header + 36)
+        int $charCount = TimeZoneRules::u32($bytes, $header + 40)
+        ($typeCount <= 0 || $typeCount > 256 || $timeCount > 20000) ? {
+            return "UTC"
+        }
+        int $timesStart = $header + 44
+        int $indexesStart = $timesStart + $timeCount * $width
+        int $typesStart = $indexesStart + $timeCount
+        int $charsStart = $typesStart + $typeCount * 6
+        ($charsStart + $charCount > $length) ? {
+            return "UTC"
+        }
+        int $typeIndex = 0
+        int $i = 0
+        while ($i < $timeCount) {
+            (TimeZoneRules::transition($bytes, $timesStart + $i * $width, $width) > $timestamp) ? {
+                break
+            }
+            $typeIndex = $bytes [$indexesStart + $i]
+            $i = $i + 1
+        }
+        ($typeIndex >= $typeCount) ? {
+            return "UTC"
+        }
+        int $nameIndex = $bytes [$typesStart + $typeIndex * 6 + 5]
+        ($nameIndex >= $charCount) ? {
+            return "UTC"
+        }
+        string $name = ""
+        while ($nameIndex < $charCount) {
+            int $value = $bytes [$charsStart + $nameIndex]
+            ($value == 0) ? {
+                break
+            }
+            $name = $name . __joss_byte_string($value)
+            $nameIndex = $nameIndex + 1
+        }
+        return($name == "") ? "UTC" : $name
+    }
+}

@@ -1,0 +1,230 @@
+public class AuthLoginResult {
+    public mixed $email = ""
+    public mixed $password = ""
+    public mixed $success = false
+    public mixed $requires_2fa = false
+    public mixed $error = ""
+    public mixed $jwt = null
+    public mixed $user_id = null
+    public mixed $_response = null
+
+    public func require2FA(): bool {
+        return $this->requires_2fa == true
+    }
+
+    public func onSuccess(mixed $callback): AuthLoginResult {
+        ($this->success &&!$this->requires_2fa) ? {
+            $this->_response = $callback($this->jwt)
+        }
+        return $this
+    }
+
+    public func onChallenge(mixed $callback) : AuthLoginResult {
+        ($this->success && $this->requires_2fa) ? {
+            $this->_response = $callback(Auth::challengeToken($this->user_id, strval($this->email)))
+        }
+        return $this
+    }
+
+    public func onFail(mixed $callback) : AuthLoginResult {
+        (!$this->success) ? {
+            $this->_response = $callback($this->error)
+        }
+        return $this
+    }
+
+    public func response() : mixed {
+        return $this->_response
+    }
+}
+
+public class Auth {
+    public static func create(map $data): mixed {
+        string $email = strtolower(trim(strval($data ["email"] ?? "")))
+        string $password = strval($data ["password"] ?? "")
+        string $username = trim(strval($data ["username"] ?? ""))
+        (!Auth::databaseReady()) ? {
+            return false
+        }
+        ($email == "") ? {
+            return false
+        }
+        (strpos($email, "@") <= 0) ? {
+            return false
+        }
+        (strlen($password) < 8) ? {
+            return false
+        }
+        ($username == "") ? {
+            return false
+        }
+        bool $emailExists = GranDB::table("users")->where("email", $email)->exists()
+        ($emailExists) ? {
+            return false
+        }
+        bool $usernameExists = GranDB::table("users")->where("username", $username)->exists()
+        ($usernameExists) ? {
+            return false
+        }
+
+        string $token = UUID::generate()
+        string $expires = date("Y-m-d H:i:s", time() + 86400)
+        int $roleId = intval($data ["role_id"] ?? 2)
+        map $user = {
+        "user_token" : $token,
+        "username" : $username,
+        "first_name" : trim(strval($data ["first_name"] ?? "")),
+        "last_name" : trim(strval($data ["last_name"] ?? "")),
+        "email" : $email,
+        "phone" : trim(strval($data ["phone"] ?? "")),
+        "password" : Auth::hash($password),
+        "role_id": $roleId,
+        "token_expires_at": $expires,
+        "verificado": 0
+    }
+    int $inserted = GranDB::table("users")->insert($user)
+    ($inserted > 0) ? {
+        return $token
+    }
+    return false
+}
+
+public static func attempt(mixed $emailInput, mixed $passwordInput) : mixed {
+    string $email = strtolower(trim(strval($emailInput)))
+    string $password = strval($passwordInput)
+    mixed $result = false
+    (Auth::databaseReady() && $emailInput !== null && $passwordInput !== null && $email != "" && $password != "") ? {
+        mixed $user = GranDB::table("users")
+            ->select("id, user_token, username, email, password, role_id, verificado")
+            ->where("email", $email)
+            ->first()
+        ($user !== null && intval($user ["verificado"] ?? 0) == 1 && Auth::verifyHash(strval($user ["password"] ?? ""), $password)) ? {
+            mixed $userId = $user ["id"]
+            mixed $role = GranDB::table("roles")->select("name")->where("id", $user ["role_id"] ?? 0)->first()
+            string $roleName = strval($role ["name"] ?? "")
+            Session::put("user_id", $userId)
+            Session::put("user_token", $user ["user_token"] ?? "")
+            Session::put("user_name", $user ["username"] ?? "")
+            Session::put("user_email", $email)
+            Session::put("user_role", $roleName)
+            Session::put("last_login_at", now())
+            GranDB::table("users")->where("id", $userId)->update( {"last_login_at" : now()
+        })
+        $result = Auth::issueToken($userId, $email, strval($user ["username"] ?? ""), $roleName)
+    }
+}
+return $result
+}
+
+public static func login(mixed $emailInput, mixed $passwordInput) : AuthLoginResult {
+    string $email = strtolower(trim(strval($emailInput ?? "")))
+    string $password = strval($passwordInput ?? "")
+    mixed $jwt = Auth::attempt($email, $password)
+    var $result = new AuthLoginResult()
+    $result->email = $email
+    $result->password = $password
+    $result->success = is_string($jwt) && $jwt != ""
+    $result->requires_2fa = false
+    $result->error = "Credenciales incorrectas o cuenta no verificada"
+
+    ($result->success) ? {
+        $result->jwt = $jwt
+        $result->user_id = Auth::id()
+        mixed $mfa = Auth::prepareLogin2FA($result->user_id, $email)
+        (is_array($mfa) && ($mfa ["requires_2fa"] ?? false)) ? {
+            $result->requires_2fa = true
+        }
+    }
+    return $result
+}
+
+public static func forgotPassword(mixed $emailInput) : mixed {
+    string $email = strtolower(trim(strval($emailInput ?? "")))
+    mixed $result = false
+    (Auth::databaseReady() && $email != "" && strpos($email, "@") > 0) ? {
+        mixed $user = GranDB::table("users")->select("id, email")->where("email", $email)->first()
+        ($user !== null) ? {
+            mixed $existing = GranDB::table("password_resets")
+                ->where("email", $email)
+                ->where("used", 0)
+                ->orderByDesc("id")
+                ->first()
+            ($existing !== null && strtotime($existing ["expires_at"] ?? "") > time()) ? {
+                $result = strval($existing ["token"])
+            } : {
+                string $token = UUID::generate()
+                string $expires = date("Y-m-d H:i:s", time() + 3600)
+                int $created = GranDB::table("password_resets")->insert( {
+                "email" : $email,
+                "token" : $token,
+                "expires_at" : $expires,
+                "used": 0
+            })
+            ($created > 0) ? {
+                $result = $token
+            }
+        }
+    }
+}
+return $result
+}
+
+public static func resetPassword(mixed $tokenInput, mixed $passwordInput) : mixed {
+    string $token = trim(strval($tokenInput ?? ""))
+    string $password = strval($passwordInput ?? "")
+    bool $databaseReady = Auth::databaseReady()
+    mixed $result = "database_error"
+    ($databaseReady) ? {
+        $result = "invalid_token"
+    }
+    ($databaseReady && $token != "") ? {
+        (strlen($password) < 8) ? {
+            $result = "weak_password"
+        } : {
+            mixed $reset = GranDB::table("password_resets")->where("token", $token)->first()
+            ($reset !== null) ? {
+                (intval($reset ["used"] ?? 0) == 1) ? {
+                    $result = "used_token"
+                } : {
+                    mixed $passwordHash = Auth::hash($password)
+                    ($passwordHash) ? {
+                        $result = Auth::claimPasswordReset($token, $passwordHash)
+                    } : {
+                        $result = "database_error"
+                    }
+                }
+            }
+        }
+    }
+    return $result
+}
+
+public static func id() : mixed {
+    return Session::get("user_id")
+}
+
+public static func check() : bool {
+    mixed $userId = Auth::id()
+    return $userId != null && intval($userId) > 0
+}
+
+public static func guest() : bool {
+    return!Auth::check()
+}
+
+public static func logout(): bool {
+    Session::forget("user_id")
+    Session::forget("user_token")
+    Session::forget("user_name")
+    Session::forget("user_email")
+    Session::forget("user_role")
+    Session::forget("last_login_at")
+    return true
+}
+
+public static func hasRole(string $role): bool {
+    mixed $currentRole = Session::get("user_role")
+    return $currentRole === $role || $currentRole === "admin"
+}
+
+}

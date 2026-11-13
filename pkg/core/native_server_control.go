@@ -15,7 +15,11 @@ var ServerStartCallback func(fs http.FileSystem)
 func (r *Runtime) executeServerControlMethod(instance *Instance, method string, args []interface{}) interface{} {
 	switch method {
 	case "start":
-		fmt.Println("[Server::start] Iniciando servidor web...")
+		if meta := r.lookupClassMetadata("HttpServer"); meta != nil {
+			if methodInfo, ok := meta.Methods["start"]; ok {
+				return r.callMethodEvaluatedWithPlan(methodInfo.Method, nil, args, nil, methodInfo.Plan)
+			}
+		}
 		if ServerStartCallback != nil {
 			ServerStartCallback(GlobalFileSystem)
 		} else {

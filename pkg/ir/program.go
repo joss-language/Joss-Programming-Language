@@ -99,10 +99,11 @@ func (fn *Function) NewTemp(t Type, hint string) *TempValue {
 
 // GlobalVar representa una variable global en el módulo de IR.
 type GlobalVar struct {
-	Name    string
-	Type    Type
-	InitVal Value // Opcional, inicializador constante
-	IsConst bool
+	Name       string
+	Type       Type
+	InitVal    Value // Opcional, inicializador constante
+	IsConst    bool
+	DataOffset uint32
 }
 
 type ClassLayout struct {

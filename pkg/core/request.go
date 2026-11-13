@@ -3,7 +3,32 @@ package core
 import (
 	"fmt"
 	"strings"
+
+	"github.com/jossecurity/joss/pkg/parser"
 )
+
+// parseHTTPWithStdlib delegates raw HTTP decoding to the canonical Joss
+// Standard Library parser. This adapter only invokes the source implementation;
+// it does not maintain a second request parsing policy in the interpreter.
+func (r *Runtime) parseHTTPWithStdlib(raw string) map[string]interface{} {
+	class := r.Classes["HttpRequestParser"]
+	if class == nil || class.Body == nil {
+		return nil
+	}
+	for _, statement := range class.Body.Statements {
+		method, ok := statement.(*parser.MethodStatement)
+		if !ok || method.Name == nil || method.Name.Value != "parse" {
+			continue
+		}
+		value := r.CallMethodEvaluated(method, nil, []interface{}{raw})
+		request, ok := value.(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		return request
+	}
+	return nil
+}
 
 // executeRequestMethod handles Request methods
 func (r *Runtime) executeRequestMethod(instance *Instance, method string, args []interface{}) interface{} {

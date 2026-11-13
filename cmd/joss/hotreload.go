@@ -142,13 +142,13 @@ func runNativeSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 	}
 
 	if noWatch {
-		// Run standalone native JIT directly without file watching
+		// Run standalone server directly without file watching
 		args := append([]string{"run", entryFile}, extraArgs...)
 		cmd := exec.Command(selfExe, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
-		cmd.Env = os.Environ()
+		cmd.Env = append(os.Environ(), "JOSS_SERVER_MODE=1")
 		if err := cmd.Run(); err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				os.Exit(exitErr.ExitCode())
@@ -178,7 +178,7 @@ func runNativeSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
-		cmd.Env = os.Environ()
+		cmd.Env = append(os.Environ(), "JOSS_SERVER_MODE=1")
 		if err := cmd.Start(); err != nil {
 			return err
 		}

@@ -10,10 +10,17 @@ import (
 
 // Dispatch handles HTTP requests based on defined routes
 func (r *Runtime) Dispatch(method, path string, reqData, sessData map[string]interface{}) (interface{}, error) {
+	if reqData == nil {
+		reqData = make(map[string]interface{})
+	}
+	if sessData == nil {
+		sessData = make(map[string]interface{})
+	}
 	// Inject Request and Session
 	r.Variables["$__request"] = &Instance{Class: r.Classes["Request"], Fields: reqData}
 	r.Variables["$__session"] = &Instance{Class: r.Classes["Session"], Fields: sessData}
 	r.markHostGlobals("$__request", "$__session")
+	r.hydrateAuthSessionFromRequest()
 
 	// Match Route
 	var handler interface{}
@@ -63,13 +70,7 @@ func (r *Runtime) Dispatch(method, path string, reqData, sessData map[string]int
 	for _, mw := range middleware {
 		switch mw {
 		case "auth":
-			// Check if logged in
-			isLoggedIn := false
-			if sessInst, ok := r.Variables["$__session"].(*Instance); ok {
-				if _, ok := sessInst.Fields["user_id"]; ok {
-					isLoggedIn = true
-				}
-			}
+			isLoggedIn := r.currentAuthUserID() > 0
 			if !isLoggedIn {
 				return &Instance{
 					Fields: map[string]interface{}{
@@ -82,13 +83,7 @@ func (r *Runtime) Dispatch(method, path string, reqData, sessData map[string]int
 				}, nil
 			}
 		case "guest":
-			// Check if NOT logged in
-			isLoggedIn := false
-			if sessInst, ok := r.Variables["$__session"].(*Instance); ok {
-				if _, ok := sessInst.Fields["user_id"]; ok {
-					isLoggedIn = true
-				}
-			}
+			isLoggedIn := r.currentAuthUserID() > 0
 			if isLoggedIn {
 				return &Instance{
 					Fields: map[string]interface{}{
@@ -298,6 +293,43 @@ func (r *Runtime) Dispatch(method, path string, reqData, sessData map[string]int
 	}
 
 	return nil, nil
+}
+
+// hydrateAuthSessionFromRequest makes cookie and session authentication use the
+// same identity source for both middleware and Auth::check/Auth::guest.
+func (r *Runtime) hydrateAuthSessionFromRequest() {
+	sessInst, ok := r.Variables["$__session"].(*Instance)
+	if !ok || r.currentAuthUserID() > 0 {
+		return
+	}
+	reqInst, ok := r.Variables["$__request"].(*Instance)
+	if !ok {
+		return
+	}
+	cookies, ok := reqInst.Fields["_cookies"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	token, ok := cookies["joss_token"]
+	if !ok || strings.TrimSpace(fmt.Sprintf("%v", token)) == "" {
+		return
+	}
+	claims, valid := r.ValidateJWT(strings.TrimSpace(fmt.Sprintf("%v", token)))
+	if !valid || claimUserID(claims["user_id"]) <= 0 {
+		return
+	}
+	sessInst.Fields["user_id"] = claimUserID(claims["user_id"])
+	sessInst.Fields["user_email"] = claims["email"]
+	sessInst.Fields["user_name"] = claims["name"]
+	sessInst.Fields["user_role"] = claims["role"]
+}
+
+func (r *Runtime) currentAuthUserID() int {
+	sessInst, ok := r.Variables["$__session"].(*Instance)
+	if !ok || sessInst == nil {
+		return 0
+	}
+	return claimUserID(sessInst.Fields["user_id"])
 }
 
 // extractRouteParams finds the dynamic URL parameters for the given method+path

@@ -17,7 +17,7 @@ func TestDocumentedNativeSurfaceIsRegistered(t *testing.T) {
 		"Router":      {"group", "middleware", "registerMiddleware", "ws"},
 		"Request":     {"input", "post", "all", "except", "file", "cookie", "root", "header"},
 		"Response":    {"json", "error", "redirect", "back", "raw", "stream"},
-		"Schema":      {"create", "table", "rename", "drop", "dropIfExists", "hasTable", "hasColumn"},
+		"Schema":      {"create", "table", "rename", "drop", "dropIfExists", "hasTable", "hasColumn", "hasForeign"},
 		"System":      {"env", "Run", "load_driver", "driver_call", "log", "sleep", "now"},
 		"Blueprint":   {"id", "string", "timestamps", "nullable", "unique", "default", "dropColumn", "renameColumn", "index", "uniqueIndex", "dropIndex", "foreign", "references", "on", "onDelete", "onUpdate"},
 		"MFA":         {"generateTOTP", "verifyTOTP", "generateRecoveryCodes", "verifyRecoveryCode"},

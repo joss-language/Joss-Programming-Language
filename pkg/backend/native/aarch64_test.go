@@ -191,6 +191,70 @@ func TestARM64_ArithmeticAndFunctions(t *testing.T) {
 	_ = asmListing
 }
 
+func TestARM64_StringLengthCountsUTF8Runes(t *testing.T) {
+	prog := ir.NewProgram("strlen_arm64")
+	fn := ir.NewFunction("main", ir.TypeI64)
+	length := fn.NewTemp(ir.TypeI64, "length")
+	fn.EntryBlock.AddInstruction(&ir.CallBuiltinInst{
+		Dest:      length,
+		BuiltinID: "strlen",
+		Args:      []ir.Value{ir.NewConstString("Ñ🚀")},
+	})
+	fn.EntryBlock.SetTerminator(&ir.ReturnTerminator{Val: length})
+	prog.AddFunction(fn)
+
+	for _, target := range []backend.Target{
+		{OS: "linux", Arch: "arm64"},
+		{OS: "windows", Arch: "arm64"},
+		{OS: "darwin", Arch: "arm64"},
+	} {
+		t.Run(target.OS, func(t *testing.T) {
+			builder := backend.NewARM64Builder(target, false)
+			bin, listing, err := builder.Compile(prog)
+			if err != nil {
+				t.Fatalf("Compile(%s) failed: %v", target, err)
+			}
+			if len(bin) == 0 {
+				t.Fatal("empty ARM64 binary")
+			}
+			if !strings.Contains(listing, "fn_strlen:") || !strings.Contains(listing, "cmp x0, x31") || !strings.Contains(listing, "and w6, w4, w5") || !strings.Contains(listing, ".strlen_rune_loop:") {
+				t.Fatalf("%s strlen emitter does not count UTF-8 leading bytes:\n%s", target, listing)
+			}
+		})
+	}
+}
+
+func TestARM64_TimeBuiltinHasPerOSClockPrimitive(t *testing.T) {
+	prog := ir.NewProgram("time_arm64")
+	fn := ir.NewFunction("main", ir.TypeI64)
+	seconds := fn.NewTemp(ir.TypeI64, "seconds")
+	fn.EntryBlock.AddInstruction(&ir.CallBuiltinInst{Dest: seconds, BuiltinID: "time"})
+	fn.EntryBlock.SetTerminator(&ir.ReturnTerminator{Val: seconds})
+	prog.AddFunction(fn)
+
+	targets := []struct {
+		target backend.Target
+		want   string
+	}{
+		{backend.Target{OS: "linux", Arch: "arm64"}, "CLOCK_REALTIME via clock_gettime syscall"},
+		{backend.Target{OS: "android", Arch: "arm64"}, "CLOCK_REALTIME via clock_gettime syscall"},
+		{backend.Target{OS: "darwin", Arch: "arm64"}, "gettimeofday syscall"},
+		{backend.Target{OS: "windows", Arch: "arm64"}, "Windows KUSER_SHARED_DATA SystemTime"},
+	}
+	for _, tc := range targets {
+		t.Run(tc.target.DashString(), func(t *testing.T) {
+			builder := backend.NewARM64Builder(tc.target, false)
+			binary, listing, err := builder.Compile(prog)
+			if err != nil {
+				t.Fatalf("Compile(%s) failed: %v", tc.target, err)
+			}
+			if len(binary) == 0 || !strings.Contains(listing, "fn_time:") || !strings.Contains(listing, tc.want) {
+				t.Fatalf("%s did not emit its clock primitive", tc.target)
+			}
+		})
+	}
+}
+
 func TestARM64_WindowsPE32Plus_And_ObjectsCollections(t *testing.T) {
 	prog := ir.NewProgram("full_arm64")
 	fnMain := ir.NewFunction("main", ir.TypeI64)

@@ -1,23 +1,18 @@
 package native
 
-// emitNativeServer emits the standalone AArch64 native HTTP server (fn_Server_start)
-// supporting Linux AArch64 and Darwin ARM64 POSIX syscalls.
+// emitNativeServer emits the Socket networking primitives for AArch64 (Linux POSIX & Darwin syscalls)
+// and delegates Server::start to Pure Joss Standard Library (fn_HttpServer_start).
 func (b *ARM64Builder) emitNativeServer() {
-	const (
-		httpHeaderHTML  = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
-		httpHeaderJSON  = "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nServer: Joss-Native-AOT/1.0\r\nConnection: close\r\n\r\n"
-		defaultHTMLBody = "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\"><title>JosSecurity — Native AOT</title></head><body><h1>JosSecurity — Native AOT</h1><p>ONLINE (HTTP 200 OK)</p></body></html>"
-		healthResponse  = "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\nhealthy"
-	)
+	if _, exists := b.labels["fn_Socket_listen"]; exists {
+		return
+	}
 
-	hasCompiledRouter := false
-	if b.prog != nil {
-		for _, fn := range b.prog.Functions {
-			if fn.Name == "__joss_http_dispatch" {
-				hasCompiledRouter = true
-				break
-			}
-		}
+	// 1. Point of entry for Server::start -> jumps to Pure Joss HttpServer::start (if not defined in IR)
+	if _, exists := b.labels["fn_Server_start"]; !exists {
+		b.defineLabel("fn_Server_start")
+		b.defineLabel("Server_start")
+		b.defineLabel(".srv_accept_loop")
+		b.emitBranch("fn_HttpServer_start")
 	}
 
 	var (
@@ -25,12 +20,10 @@ func (b *ARM64Builder) emitNativeServer() {
 		sysSetsockopt uint64 = 208
 		sysBind       uint64 = 200
 		sysListen     uint64 = 201
-		sysAccept     uint64 = 242 // __NR_accept4 on Linux AArch64 (asm-generic, universally supported by Docker seccomp)
+		sysAccept     uint64 = 242 // __NR_accept4 on Linux AArch64
 		sysRead       uint64 = 63
 		sysWrite      uint64 = 64
 		sysClose      uint64 = 57
-		sysOpenat     uint64 = 56
-		sysExit       uint64 = 93
 	)
 	if b.target.OS == "darwin" {
 		sysSocket = 0x2000061
@@ -41,8 +34,6 @@ func (b *ARM64Builder) emitNativeServer() {
 		sysRead = 0x2000003
 		sysWrite = 0x2000004
 		sysClose = 0x2000006
-		sysOpenat = 0x20001CE
-		sysExit = 0x2000001
 	}
 
 	emitSyscallNum := func(num uint64) {
@@ -55,149 +46,43 @@ func (b *ARM64Builder) emitNativeServer() {
 		}
 	}
 
-	b.defineLabel("fn_Server_start")
+	// 2. fn_Socket_listen(x0 = host, x1 = portStr) -> x0 = Socket Object
+	b.defineLabel("fn_Socket_listen")
+	b.defineLabel("Socket_listen")
 	b.emitProlog(128)
 
-	// Save callee-saved registers
-	b.emitStr(regX19, regX29, 16)
-	b.emitStr(regX20, regX29, 24)
-	b.emitStr(regX21, regX29, 32)
-	b.emitStr(regX22, regX29, 40)
-	b.emitStr(regX23, regX29, 48)
-	b.emitStr(regX24, regX29, 56)
+	// Save port into x19
+	b.emitMovReg(regX19, regX1)
 
-	// Allocate 16384-byte request buffer into x21
-	b.emitLoadImm64(regX0, 16384)
-	b.emitCall("__joss_os_alloc")
-	b.emitMovReg(regX21, regX0) // x21 = reqBuf
+	// Default port = 80 in x22
+	b.emitLoadImm64(regX22, 80)
+	b.emitCmp(regX19, regXZR)
+	b.emitBranchCond(condEQ, ".arm_sock_have_port")
+	b.emitLoadImm64(regX3, 0x10000)
+	b.emitCmp(regX19, regX3)
+	b.emitBranchCond(condCS, ".arm_sock_parse_str")
+	// Integer port
+	b.emitMovReg(regX22, regX19)
+	b.emitBranch(".arm_sock_have_port")
 
-	// 1. Load environment (.env / env.joss / embedded) into envMap
-	b.emitCall("__joss_load_env_file")
-
-	// Default port: 80 on Linux / Docker, 8000 on Darwin
-	if b.target.OS == "darwin" {
-		b.emitLoadImm64(regX22, 8000)
-	} else {
-		b.emitLoadImm64(regX22, 80)
-	}
-
-	atFdcwd := uint64(0xFFFFFFFFFFFFFF9C) // Linux: AT_FDCWD = -100
-	if b.target.OS == "darwin" {
-		atFdcwd = 0xFFFFFFFFFFFFFFFE // Darwin: AT_FDCWD = -2
-	}
-
-	// 2. Check OS environment /proc/self/environ on Linux
-	if b.target.OS == "linux" {
-		b.emitLoadImm64(regX0, atFdcwd)
-		b.emitLoadStringAddr(regX1, "/proc/self/environ")
-		b.emitLoadImm64(regX2, 0)
-		b.emitLoadImm64(regX3, 0)
-		emitSyscallNum(sysOpenat)
-		b.emitCmp(regX0, regXZR)
-		b.emitBranchCond(condLT, ".srv_check_env_map")
-		b.emitMovReg(regX9, regX0) // x9 = fd
-
-		// read(fd, reqBuf, 4096)
-		b.emitMovReg(regX0, regX9)
-		b.emitMovReg(regX1, regX21)
-		b.emitLoadImm64(regX2, 4096)
-		emitSyscallNum(sysRead)
-		b.emitMovReg(regX10, regX0) // x10 = bytes read
-
-		// close(fd)
-		b.emitMovReg(regX0, regX9)
-		emitSyscallNum(sysClose)
-
-		b.emitCmp(regX10, regXZR)
-		b.emitBranchCond(condLE, ".srv_check_env_map")
-
-		// Scan for "PORT=" with strict boundary (start of buf or \0)
-		b.emitMovReg(regX1, regX21)
-		b.emitAdd(regX2, regX21, regX10)
-
-		b.defineLabel(".srv_proc_scan_loop")
-		b.emitCmp(regX1, regX2)
-		b.emitBranchCond(condGE, ".srv_check_env_map")
-
-		b.emitCmp(regX1, regX21)
-		b.emitBranchCond(condEQ, ".srv_proc_check_port")
-		b.emitSubImm(regX0, regX1, 1)
-		b.emitLdrb(regX0, regX0, 0)
-		b.emitCmp(regX0, regXZR)
-		b.emitBranchCond(condNE, ".srv_proc_scan_next")
-
-		b.defineLabel(".srv_proc_check_port")
-		b.emitLdrb(regX0, regX1, 0)
-		b.emitCmpImm(regX0, 80) // 'P'
-		b.emitBranchCond(condNE, ".srv_proc_scan_next")
-		b.emitLdrb(regX0, regX1, 1)
-		b.emitCmpImm(regX0, 79) // 'O'
-		b.emitBranchCond(condNE, ".srv_proc_scan_next")
-		b.emitLdrb(regX0, regX1, 2)
-		b.emitCmpImm(regX0, 82) // 'R'
-		b.emitBranchCond(condNE, ".srv_proc_scan_next")
-		b.emitLdrb(regX0, regX1, 3)
-		b.emitCmpImm(regX0, 84) // 'T'
-		b.emitBranchCond(condNE, ".srv_proc_scan_next")
-		b.emitLdrb(regX0, regX1, 4)
-		b.emitCmpImm(regX0, 61) // '='
-		b.emitBranchCond(condNE, ".srv_proc_scan_next")
-
-		// Found PORT=, advance past '='
-		b.emitAddImm(regX0, regX1, 5)
-		b.emitBranch(".srv_parse_port_str")
-
-		b.defineLabel(".srv_proc_scan_next")
-		b.emitAddImm(regX1, regX1, 1)
-		b.emitBranch(".srv_proc_scan_loop")
-	}
-
-	b.defineLabel(".srv_check_env_map")
-	// 3. Lookup "PORT" in envMap
-	b.emitLoadDataAddr(regX1, dataOffEnvMap)
-	b.emitLdr(regX0, regX1, 0)
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condEQ, ".srv_port_ready")
-	b.emitLoadStringAddr(regX1, "PORT")
-	b.emitCall("joss_map_get_i64")
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condNE, ".srv_parse_port_str")
-
-	// 4. Lookup "JOSS_PORT" in envMap
-	b.emitLoadDataAddr(regX1, dataOffEnvMap)
-	b.emitLdr(regX0, regX1, 0)
-	b.emitLoadStringAddr(regX1, "JOSS_PORT")
-	b.emitCall("joss_map_get_i64")
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condNE, ".srv_parse_port_str")
-	b.emitBranch(".srv_port_ready")
-
-	b.defineLabel(".srv_parse_port_str")
-	b.emitMovReg(regX1, regX0)
-	b.emitLoadImm64(regX3, 0)
-	b.defineLabel(".srv_str_port_loop")
-	b.emitLdrb(regX0, regX1, 0)
-	b.emitCmpImm(regX0, 48) // '0'
-	b.emitBranchCond(condLT, ".srv_str_port_done")
-	b.emitCmpImm(regX0, 57) // '9'
-	b.emitBranchCond(condGT, ".srv_str_port_done")
-	b.emitSubImm(regX0, regX0, 48)
-	b.emitLoadImm64(regX4, 10)
-	b.emitMul(regX3, regX3, regX4)
-	b.emitAdd(regX3, regX3, regX0)
-	b.emitAddImm(regX1, regX1, 1)
-	b.emitBranch(".srv_str_port_loop")
-
-	b.defineLabel(".srv_str_port_done")
-	b.emitCmp(regX3, regXZR)
-	b.emitBranchCond(condLE, ".srv_port_ready")
-	b.emitLoadImm64(regX4, 65536)
-	b.emitCmp(regX3, regX4)
-	b.emitBranchCond(condGE, ".srv_port_ready")
-	b.emitMovReg(regX22, regX3)
-	b.emitBranch(".srv_port_ready")
-
-	b.defineLabel(".srv_port_ready")
+	b.defineLabel(".arm_sock_parse_str")
+	// Parse ASCII integer from x19 into x22
+	b.emitLoadImm64(regX21, 0) // acc = 0
+	b.defineLabel(".arm_sock_parse_port")
+	b.emitLdrb(regX2, regX19, 0)
+	b.emitCmp(regX2, regXZR)
+	b.emitBranchCond(condEQ, ".arm_sock_parsed")
+	b.emitSubImm(regX2, regX2, 48) // sub '0'
+	b.emitLoadImm64(regX3, 10)
+	b.emitMul(regX21, regX21, regX3)
+	b.emitAdd(regX21, regX21, regX2)
+	b.emitAddImm(regX19, regX19, 1)
+	b.emitBranch(".arm_sock_parse_port")
+	b.defineLabel(".arm_sock_parsed")
+	b.emitCmp(regX21, regXZR)
+	b.emitBranchCond(condEQ, ".arm_sock_have_port")
+	b.emitMovReg(regX22, regX21)
+	b.defineLabel(".arm_sock_have_port")
 
 	// socket(AF_INET=2, SOCK_STREAM=1, 0)
 	b.emitLoadImm64(regX0, 2)
@@ -205,66 +90,12 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitLoadImm64(regX2, 0)
 	emitSyscallNum(sysSocket)
 	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLT, ".srv_exit_fail")
-	b.emitMovReg(regX19, regX0) // x19 = listenSock
+	b.emitBranchCond(condLT, ".arm_sock_fail")
+	b.emitMovReg(regX19, regX0) // x19 = sockFd
 
-	// setsockopt(listenSock, SOL_SOCKET=1, SO_REUSEADDR=2, &optval, 4)
+	// setsockopt(sockFd, SOL_SOCKET=1, SO_REUSEADDR=2, &optval=1, 4)
 	b.emitLoadImm64(regX0, 1)
-	b.emitStr(regX0, regX29, 80) // [x29, #80] = 1 (optval)
-	b.emitMovReg(regX0, regX19)
-	b.emitLoadImm64(regX1, 1) // SOL_SOCKET
-	b.emitLoadImm64(regX2, 2) // SO_REUSEADDR
-	b.emitAddImm(regX3, regX29, 80)
-	b.emitLoadImm64(regX4, 4)
-	emitSyscallNum(sysSetsockopt)
-
-	// Prepare sockaddr_in at [x29, #64]
-	b.emitStr(regXZR, regX29, 64)
-	b.emitStr(regXZR, regX29, 72)
-
-	// htons(x22)
-	b.emitLoadImm64(regX3, 256)
-	b.emitSDiv(regX4, regX22, regX3) // high_byte
-	b.emitMul(regX5, regX4, regX3)
-	b.emitSub(regX6, regX22, regX5) // low_byte
-
-	b.emitLoadImm64(regX0, 2) // AF_INET
-	b.emitStrb(regX0, regX29, 64)
-	b.emitStrb(regXZR, regX29, 65)
-	b.emitStrb(regX4, regX29, 66) // sin_port high_byte (big-endian)
-	b.emitStrb(regX6, regX29, 67) // sin_port low_byte (big-endian)
-
-	// bind(listenSock, &sockaddr_in, 16)
-	b.emitMovReg(regX0, regX19)
-	b.emitAddImm(regX1, regX29, 64)
-	b.emitLoadImm64(regX2, 16)
-	emitSyscallNum(sysBind)
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLT, ".srv_bind_failed")
-	b.emitBranch(".srv_listen_start")
-
-	b.defineLabel(".srv_bind_failed")
-	b.emitLoadImm64(regX3, 8000)
-	b.emitCmp(regX22, regX3)
-	b.emitBranchCond(condEQ, ".srv_exit_fail")
-
-	b.emitLoadStringAddr(regX0, "[Joss Native Server] ADVERTENCIA: No se pudo enlazar el puerto principal (posible falta de permisos para puerto < 1024), intentando fallback en puerto 8000...\n")
-	b.emitCall("joss_print_string")
-
-	// Close old socket that failed to bind before creating a new one
-	b.emitMovReg(regX0, regX19)
-	emitSyscallNum(sysClose)
-
-	// Create fresh socket for fallback port 8000
-	b.emitLoadImm64(regX0, 2)
-	b.emitLoadImm64(regX1, 1)
-	b.emitLoadImm64(regX2, 0)
-	emitSyscallNum(sysSocket)
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLT, ".srv_exit_fail")
-	b.emitMovReg(regX19, regX0) // x19 = listenSock
-
-	// setsockopt(listenSock, SOL_SOCKET=1, SO_REUSEADDR=2, &optval, 4)
+	b.emitStr(regX0, regX29, 80) // [x29, #80] = 1
 	b.emitMovReg(regX0, regX19)
 	b.emitLoadImm64(regX1, 1)
 	b.emitLoadImm64(regX2, 2)
@@ -272,200 +103,182 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitLoadImm64(regX4, 4)
 	emitSyscallNum(sysSetsockopt)
 
-	b.emitLoadImm64(regX22, 8000)
-	b.emitLoadImm64(regX0, 0x1F)
-	b.emitStrb(regX0, regX29, 66)
-	b.emitLoadImm64(regX0, 0x40)
-	b.emitStrb(regX0, regX29, 67)
+	// Prepare sockaddr_in at [x29, #64]
+	b.emitStr(regXZR, regX29, 64)
+	b.emitStr(regXZR, regX29, 72)
+	b.emitLoadImm64(regX0, 2) // AF_INET
+	b.emitStrb(regX0, regX29, 64)
+
+	// htons(x22)
+	b.emitLoadImm64(regX3, 256)
+	b.emitSDiv(regX4, regX22, regX3) // high byte
+	b.emitMul(regX5, regX4, regX3)
+	b.emitSub(regX6, regX22, regX5)  // low byte
+	b.emitStrb(regX4, regX29, 66)    // high byte (network order)
+	b.emitStrb(regX6, regX29, 67)    // low byte (network order)
+
+	// bind(sockFd, &sockaddr, 16)
 	b.emitMovReg(regX0, regX19)
 	b.emitAddImm(regX1, regX29, 64)
 	b.emitLoadImm64(regX2, 16)
 	emitSyscallNum(sysBind)
 	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLT, ".srv_exit_fail")
+	b.emitBranchCond(condNE, ".arm_sock_close_fail")
 
-	b.defineLabel(".srv_listen_start")
-	// listen(listenSock, 128)
+	// listen(sockFd, 128)
 	b.emitMovReg(regX0, regX19)
 	b.emitLoadImm64(regX1, 128)
 	emitSyscallNum(sysListen)
 	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLT, ".srv_exit_fail")
+	b.emitBranchCond(condNE, ".arm_sock_close_fail")
 
-	// Print startup message
-	b.emitLoadImm64(regX3, 80)
-	b.emitCmp(regX22, regX3)
-	b.emitBranchCond(condEQ, ".srv_print_port_80")
-	b.emitLoadImm64(regX3, 8080)
-	b.emitCmp(regX22, regX3)
-	b.emitBranchCond(condEQ, ".srv_print_port_8080")
-	b.emitLoadImm64(regX3, 3000)
-	b.emitCmp(regX22, regX3)
-	b.emitBranchCond(condEQ, ".srv_print_port_3000")
-	b.emitLoadStringAddr(regX0, "[Joss Native Server] Escuchando en http://localhost:8000 (Ctrl+C para detener)\n")
-	b.emitBranch(".srv_print_port_done")
-	b.defineLabel(".srv_print_port_80")
-	b.emitLoadStringAddr(regX0, "[Joss Native Server] Escuchando en http://localhost:80 (Ctrl+C para detener)\n")
-	b.emitBranch(".srv_print_port_done")
-	b.defineLabel(".srv_print_port_8080")
-	b.emitLoadStringAddr(regX0, "[Joss Native Server] Escuchando en http://localhost:8080 (Ctrl+C para detener)\n")
-	b.emitBranch(".srv_print_port_done")
-	b.defineLabel(".srv_print_port_3000")
-	b.emitLoadStringAddr(regX0, "[Joss Native Server] Escuchando en http://localhost:3000 (Ctrl+C para detener)\n")
-	b.defineLabel(".srv_print_port_done")
-	b.emitCall("joss_print_string")
+	// Allocate Socket Object (16 bytes: [0]=className, [8]=fd)
+	b.emitLoadImm64(regX0, 16)
+	b.emitCall("__joss_os_alloc")
+	b.emitMovReg(regX20, regX0) // x20 = obj
+	b.emitLoadStringAddr(regX1, "Socket")
+	b.emitStr(regX1, regX20, 0)
+	b.emitStr(regX19, regX20, 8)
+	b.emitMovReg(regX0, regX20)
+	b.emitBranch(".arm_sock_ret")
 
-	// Accept loop
-	b.defineLabel(".srv_accept_loop")
+	b.defineLabel(".arm_sock_close_fail")
+	b.emitMovReg(regX0, regX19)
+	emitSyscallNum(sysClose)
+
+	b.defineLabel(".arm_sock_fail")
+	b.emitLoadImm64(regX0, 0)
+
+	b.defineLabel(".arm_sock_ret")
+	b.emitEpilog(128)
+
+	// 3. fn_Socket_accept(sockObj) -> x0 = clientObj
+	b.defineLabel("fn_Socket_accept")
+	b.defineLabel("Socket_accept")
+	b.emitProlog(64)
+
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm_acc_fail")
+	b.emitLdr(regX19, regX0, 8) // x19 = listenSock
+	b.emitCmp(regX19, regXZR)
+	b.emitBranchCond(condEQ, ".arm_acc_fail")
+
+	// accept(listenSock, 0, 0)
 	b.emitMovReg(regX0, regX19)
 	b.emitLoadImm64(regX1, 0)
 	b.emitLoadImm64(regX2, 0)
-	b.emitLoadImm64(regX3, 0) // flags = 0 for accept4 on Linux
+	b.emitLoadImm64(regX3, 0)
 	emitSyscallNum(sysAccept)
 	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLT, ".srv_accept_loop")
-	b.emitMovReg(regX20, regX0) // x20 = clientSock
+	b.emitBranchCond(condLT, ".arm_acc_fail")
+	b.emitMovReg(regX19, regX0) // clientFd
 
-	// read(clientSock, reqBuf, 16380)
+	// Allocate client object
+	b.emitLoadImm64(regX0, 16)
+	b.emitCall("__joss_os_alloc")
+	b.emitMovReg(regX20, regX0)
+	b.emitLoadStringAddr(regX1, "Socket")
+	b.emitStr(regX1, regX20, 0)
+	b.emitStr(regX19, regX20, 8)
 	b.emitMovReg(regX0, regX20)
+	b.emitBranch(".arm_acc_ret")
+
+	b.defineLabel(".arm_acc_fail")
+	b.emitLoadImm64(regX0, 0)
+
+	b.defineLabel(".arm_acc_ret")
+	b.emitEpilog(64)
+
+	// 4. fn_Socket_receive(clientObj, maxBytes) -> x0 = string
+	b.defineLabel("fn_Socket_receive")
+	b.defineLabel("Socket_receive")
+	b.emitProlog(64)
+
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm_recv_empty")
+	b.emitLdr(regX19, regX0, 8) // clientFd
+	b.emitCmp(regX19, regXZR)
+	b.emitBranchCond(condEQ, ".arm_recv_empty")
+
+	b.emitCmp(regX1, regXZR)
+	b.emitBranchCond(condGT, ".arm_recv_have_max")
+	b.emitLoadImm64(regX1, 4096)
+	b.defineLabel(".arm_recv_have_max")
+	b.emitMovReg(regX20, regX1) // maxBytes
+
+	// Allocate buffer (maxBytes + 1)
+	b.emitAddImm(regX0, regX20, 1)
+	b.emitCall("__joss_os_alloc")
+	b.emitMovReg(regX21, regX0) // bufPtr
+
+	// sysRead = 63 (clientFd, bufPtr, maxBytes)
+	b.emitMovReg(regX0, regX19)
 	b.emitMovReg(regX1, regX21)
-	b.emitLoadImm64(regX2, 16380)
+	b.emitMovReg(regX2, regX20)
 	emitSyscallNum(sysRead)
 	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLE, ".srv_close_client")
+	b.emitBranchCond(condLE, ".arm_recv_zero")
+	b.emitAdd(regX2, regX21, regX0)
+	b.emitStrb(regXZR, regX2, 0) // buf[n] = 0
+	b.emitMovReg(regX0, regX21)
+	b.emitBranch(".arm_recv_ret")
 
-	// Null-terminate request
-	b.emitAdd(regX1, regX21, regX0)
-	b.emitStrb(regXZR, regX1, 0)
+	b.defineLabel(".arm_recv_zero")
+	b.emitStrb(regXZR, regX21, 0)
+	b.emitMovReg(regX0, regX21)
+	b.emitBranch(".arm_recv_ret")
 
-	// Scan for first space
-	b.emitMovReg(regX1, regX21)
-	b.defineLabel(".srv_space_loop")
-	b.emitLdrb(regX0, regX1, 0)
+	b.defineLabel(".arm_recv_empty")
+	b.emitLoadStringAddr(regX0, "")
+
+	b.defineLabel(".arm_recv_ret")
+	b.emitEpilog(64)
+
+	// 5. fn_Socket_send(clientObj, strPtr) -> x0 = bytesSent
+	b.defineLabel("fn_Socket_send")
+	b.defineLabel("Socket_send")
+	b.emitProlog(64)
+
 	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condEQ, ".srv_default_path")
-	b.emitCmpImm(regX0, 32)
-	b.emitBranchCond(condEQ, ".srv_found_space")
-	b.emitAddImm(regX1, regX1, 1)
-	b.emitBranch(".srv_space_loop")
+	b.emitBranchCond(condEQ, ".arm_send_zero")
+	b.emitLdr(regX19, regX0, 8) // clientFd
+	b.emitCmp(regX19, regXZR)
+	b.emitBranchCond(condEQ, ".arm_send_zero")
+	b.emitMovReg(regX20, regX1) // strPtr
 
-	b.defineLabel(".srv_found_space")
-	b.emitAddImm(regX1, regX1, 1)
-	b.emitMovReg(regX23, regX1) // x23 = path
+	b.emitMovReg(regX0, regX20)
+	b.emitCall("__joss_rt_strlen")
+	b.emitMovReg(regX21, regX0) // len
+	b.emitCmp(regX21, regXZR)
+	b.emitBranchCond(condEQ, ".arm_send_zero")
 
-	// Scan for end of path
-	b.defineLabel(".srv_path_term_loop")
-	b.emitLdrb(regX0, regX1, 0)
+	// sysWrite = 64 (clientFd, strPtr, len)
+	b.emitMovReg(regX0, regX19)
+	b.emitMovReg(regX1, regX20)
+	b.emitMovReg(regX2, regX21)
+	emitSyscallNum(sysWrite)
+	b.emitBranch(".arm_send_ret")
+
+	b.defineLabel(".arm_send_zero")
+	b.emitLoadImm64(regX0, 0)
+
+	b.defineLabel(".arm_send_ret")
+	b.emitEpilog(64)
+
+	// 6. fn_Socket_close(sockObj) -> void
+	b.defineLabel("fn_Socket_close")
+	b.defineLabel("Socket_close")
+	b.emitProlog(32)
+
 	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condEQ, ".srv_path_terminated")
-	b.emitCmpImm(regX0, 32)
-	b.emitBranchCond(condEQ, ".srv_term_char")
-	b.emitCmpImm(regX0, 63) // '?'
-	b.emitBranchCond(condEQ, ".srv_term_char")
-	b.emitCmpImm(regX0, 13) // '\r'
-	b.emitBranchCond(condEQ, ".srv_term_char")
-	b.emitCmpImm(regX0, 10) // '\n'
-	b.emitBranchCond(condEQ, ".srv_term_char")
-	b.emitAddImm(regX1, regX1, 1)
-	b.emitBranch(".srv_path_term_loop")
+	b.emitBranchCond(condEQ, ".arm_close_done")
+	b.emitLdr(regX19, regX0, 8) // fd
+	b.emitCmp(regX19, regXZR)
+	b.emitBranchCond(condEQ, ".arm_close_done")
 
-	b.defineLabel(".srv_term_char")
-	b.emitStrb(regXZR, regX1, 0)
-	b.emitBranch(".srv_have_path")
-
-	b.defineLabel(".srv_default_path")
-	b.emitLoadStringAddr(regX23, "/")
-
-	b.defineLabel(".srv_path_terminated")
-	b.defineLabel(".srv_have_path")
-
-	// Healthcheck route
-	b.emitLoadStringAddr(regX0, "/__joss_health")
-	b.emitMovReg(regX1, regX23)
-	b.emitCall("__joss_rt_strcmp")
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condEQ, ".srv_serve_health")
-
-	if hasCompiledRouter {
-		b.emitMovReg(regX0, regX23)
-		b.emitCall("fn___joss_http_dispatch")
-		b.emitMovReg(regX24, regX0) // x24 = responseBody
-		b.emitCmp(regX24, regXZR)
-		b.emitBranchCond(condNE, ".srv_check_empty_body")
-		b.emitLoadStringAddr(regX24, defaultHTMLBody)
-		b.emitBranch(".srv_send_response")
-		b.defineLabel(".srv_check_empty_body")
-		b.emitLdrb(regX0, regX24, 0)
-		b.emitCmp(regX0, regXZR)
-		b.emitBranchCond(condNE, ".srv_send_response")
-		b.emitLoadStringAddr(regX24, defaultHTMLBody)
-	} else {
-		b.emitLoadStringAddr(regX24, defaultHTMLBody)
-	}
-
-	b.defineLabel(".srv_send_response")
-	// JSON vs HTML header
-	b.emitLdrb(regX0, regX24, 0)
-	b.emitCmpImm(regX0, 123) // '{'
-	b.emitBranchCond(condEQ, ".srv_use_json_hdr")
-	b.emitCmpImm(regX0, 91) // '['
-	b.emitBranchCond(condEQ, ".srv_use_json_hdr")
-	b.emitLoadStringAddr(regX1, httpHeaderHTML)
-	b.emitBranch(".srv_write_hdr")
-
-	b.defineLabel(".srv_use_json_hdr")
-	b.emitLoadStringAddr(regX1, httpHeaderJSON)
-
-	b.defineLabel(".srv_write_hdr")
-	b.emitMovReg(regX9, regX1)
-	b.emitMovReg(regX0, regX1)
-	b.emitCall("__joss_rt_strlen")
-	b.emitMovReg(regX2, regX0)
-	b.emitMovReg(regX1, regX9)
-	b.emitMovReg(regX0, regX20)
-	emitSyscallNum(sysWrite)
-
-	// Write response body
-	b.emitMovReg(regX0, regX24)
-	b.emitCall("__joss_rt_strlen")
-	b.emitMovReg(regX2, regX0)
-	b.emitMovReg(regX1, regX24)
-	b.emitMovReg(regX0, regX20)
-	emitSyscallNum(sysWrite)
-	b.emitBranch(".srv_close_client")
-
-	b.defineLabel(".srv_serve_health")
-	b.emitLoadStringAddr(regX1, healthResponse)
-	b.emitMovReg(regX9, regX1)
-	b.emitMovReg(regX0, regX1)
-	b.emitCall("__joss_rt_strlen")
-	b.emitMovReg(regX2, regX0)
-	b.emitMovReg(regX1, regX9)
-	b.emitMovReg(regX0, regX20)
-	emitSyscallNum(sysWrite)
-
-	b.defineLabel(".srv_close_client")
-	b.emitMovReg(regX0, regX20)
+	b.emitMovReg(regX0, regX19)
 	emitSyscallNum(sysClose)
-	b.emitBranch(".srv_accept_loop")
 
-	b.defineLabel(".srv_exit_fail")
-	b.emitLoadStringAddr(regX9, "[Joss Native Server AArch64] ERROR: No se pudo enlazar el socket TCP. Verifique permisos (puerto < 1024 requiere root o cap_net_bind_service).\n")
-	b.emitMovReg(regX0, regX9)
-	b.emitCall("__joss_rt_strlen")
-	b.emitMovReg(regX2, regX0)
-	b.emitMovReg(regX1, regX9)
-	b.emitLoadImm64(regX0, 2) // stderr fd = 2
-	b.emitCall("__joss_os_write")
-	b.emitLoadImm64(regX0, 1)
-	emitSyscallNum(sysExit)
-
-	b.defineLabel(".srv_exit_ok")
-	b.emitLdr(regX19, regX29, 16)
-	b.emitLdr(regX20, regX29, 24)
-	b.emitLdr(regX21, regX29, 32)
-	b.emitLdr(regX22, regX29, 40)
-	b.emitLdr(regX23, regX29, 48)
-	b.emitLdr(regX24, regX29, 56)
-	b.emitEpilog(128)
+	b.defineLabel(".arm_close_done")
+	b.emitEpilog(32)
 }

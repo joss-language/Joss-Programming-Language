@@ -113,6 +113,14 @@ func (v *IRVerifier) verifyInstruction(fn *Function, block *BasicBlock, inst Ins
 		if i.Ptr == nil {
 			v.addError("load en %s tiene puntero nulo", block.Label)
 		}
+	case *GlobalLoadInst:
+		if i.Dest == nil || i.GlobalName == "" {
+			v.addError("global_load en %s tiene destino o nombre vacío", block.Label)
+		}
+	case *GlobalStoreInst:
+		if i.Val == nil || i.GlobalName == "" {
+			v.addError("global_store en %s tiene valor o nombre vacío", block.Label)
+		}
 	case *NewObjectInst:
 		if i.Dest == nil || i.ClassName == "" {
 			v.addError("new_object en %s tiene destino o nombre de clase inválido", block.Label)

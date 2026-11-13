@@ -18,28 +18,30 @@ func init() {
 
 func newRuntimeState() interface{} {
 	r := &Runtime{
-		Env:                make(map[string]string),
-		Variables:          make(map[string]interface{}),
-		VarTypes:           make(map[string]string),
-		Constants:          make(map[string]bool),
-		HostGlobals:        make(map[string]bool),
-		Classes:            make(map[string]*parser.ClassStatement),
-		Interfaces:         make(map[string]*parser.InterfaceStatement),
-		Enums:              make(map[string]*EnumDefinition),
-		Functions:          make(map[string]*parser.MethodStatement),
-		Routes:             make(map[string]map[string]interface{}),
-		CurrentMiddleware:  make([]string, 0),
-		CustomMiddlewares:  make(map[string]interface{}),
-		NativeHandlers:     make(map[string]NativeHandler),
-		NativePlugins:      make(map[string]*NativePluginDefinition),
-		NativeDrivers:      make(map[string]*NativeDriverDefinition),
-		callablePlans:      make(map[*parser.MethodStatement]*runtimeplan.Callable),
-		functionPlans:      make(map[*parser.FunctionLiteral]*runtimeplan.Callable),
-		classMetadataCache: make(map[string]*classMetadata),
-		pluginASTEngines:   make(map[string]*PluginASTEngine),
-		MaxCallDepth:       DefaultMaxCallDepth,
-		Capabilities:       DefaultHostCapabilities(),
-		Profile:            RuntimeProfileFull,
+		Env:                  make(map[string]string),
+		Variables:            make(map[string]interface{}),
+		VarTypes:             make(map[string]string),
+		Constants:            make(map[string]bool),
+		HostGlobals:          make(map[string]bool),
+		Classes:              make(map[string]*parser.ClassStatement),
+		Interfaces:           make(map[string]*parser.InterfaceStatement),
+		Enums:                make(map[string]*EnumDefinition),
+		Functions:            make(map[string]*parser.MethodStatement),
+		Routes:               make(map[string]map[string]interface{}),
+		CurrentMiddleware:    make([]string, 0),
+		CustomMiddlewares:    make(map[string]interface{}),
+		NativeHandlers:       make(map[string]NativeHandler),
+		NativePlugins:        make(map[string]*NativePluginDefinition),
+		NativeDrivers:        make(map[string]*NativeDriverDefinition),
+		staticProperties:     newStaticPropertyStore(),
+		ownsStaticProperties: true,
+		callablePlans:        make(map[*parser.MethodStatement]*runtimeplan.Callable),
+		functionPlans:        make(map[*parser.FunctionLiteral]*runtimeplan.Callable),
+		classMetadataCache:   make(map[string]*classMetadata),
+		pluginASTEngines:     make(map[string]*PluginASTEngine),
+		MaxCallDepth:         DefaultMaxCallDepth,
+		Capabilities:         DefaultHostCapabilities(),
+		Profile:              RuntimeProfileFull,
 	}
 	r.registerCanonicalHostState()
 	return r
@@ -115,6 +117,10 @@ func (r *Runtime) ensureLifecycleMaps() {
 	if r.NativeDrivers == nil {
 		r.NativeDrivers = make(map[string]*NativeDriverDefinition)
 	}
+	if r.staticProperties == nil {
+		r.staticProperties = newStaticPropertyStore()
+		r.ownsStaticProperties = true
+	}
 	if r.callablePlans == nil {
 		r.callablePlans = make(map[*parser.MethodStatement]*runtimeplan.Callable)
 	}
@@ -175,6 +181,11 @@ func (r *Runtime) Free() {
 	if r == nil || !r.freed.CompareAndSwap(false, true) {
 		return
 	}
+	if r.staticProperties != nil && r.ownsStaticProperties {
+		r.staticProperties.reset()
+	}
+	r.staticProperties = newStaticPropertyStore()
+	r.ownsStaticProperties = true
 	clear(r.Env)
 	clear(r.Variables)
 	clear(r.VarTypes)

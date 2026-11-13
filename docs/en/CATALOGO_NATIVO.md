@@ -15,9 +15,12 @@ Implementación: [executeAuthMethod](../pkg/core/auth.go#L16).
 | Método | Retorno publicado al analizador |
 |---|---|
 | `attempt` | `mixed` |
+| `challengeToken` | `string` |
 | `check` | `bool` |
+| `claimPasswordReset` | `mixed` |
 | `complete2FA` | `mixed` |
 | `create` | `mixed` |
+| `databaseReady` | `bool` |
 | `delete` | `mixed` |
 | `enabledSocialProviders` | `array` |
 | `forgotPassword` | `mixed` |
@@ -25,8 +28,10 @@ Implementación: [executeAuthMethod](../pkg/core/auth.go#L16).
 | `hasRole` | `bool` |
 | `hash` | `mixed` |
 | `id` | `mixed` |
+| `issueToken` | `string` |
 | `login` | `mixed` |
 | `logout` | `mixed` |
+| `prepareLogin2FA` | `map` |
 | `refresh` | `mixed` |
 | `resendVerification` | `mixed` |
 | `resetPassword` | `mixed` |
@@ -38,6 +43,7 @@ Implementación: [executeAuthMethod](../pkg/core/auth.go#L16).
 | `verificationStatus` | `mixed` |
 | `verify` | `bool` |
 | `verify2FAChallenge` | `mixed` |
+| `verifyHash` | `bool` |
 
 ## AuthLoginResult
 
@@ -633,6 +639,7 @@ Implementación: [executeSchemaMethod](../pkg/core/schema.go#L125).
 | `drop` | `mixed` |
 | `dropIfExists` | `mixed` |
 | `hasColumn` | `bool` |
+| `hasForeign` | `bool` |
 | `hasTable` | `bool` |
 | `rename` | `mixed` |
 | `table` | `mixed` |
@@ -856,14 +863,21 @@ Contratos: [funciones globales](FUNCIONES_GLOBALES.md). Variantes que comparten 
 se explican juntas allí; esta lista conserva todas las grafías registradas.
 
 - `__`
+- `__joss_byte_string`
 - `__joss_db_execute`
 - `__joss_db_get_table`
 - `__joss_db_is_connected`
 - `__joss_db_query`
 - `__joss_db_set_table`
+- `__joss_file_get_bytes`
+- `__joss_get_embedded_asset`
+- `__joss_http_dispatch`
+- `__joss_local_utc_offset`
 - `__joss_storage_delete`
 - `__joss_storage_get`
 - `__joss_storage_put`
+- `__joss_string_byte_at`
+- `__joss_timezone_data`
 - `abs`
 - `all`
 - `any`
@@ -947,7 +961,6 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `microtime`
 - `min`
 - `mkdir`
-- `now`
 - `ord`
 - `print`
 - `printf`
@@ -1001,4 +1014,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 53 clases, 517 métodos y 145 built-ins.
+Total: 53 clases, 517 métodos y 147 built-ins.

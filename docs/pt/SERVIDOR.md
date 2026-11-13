@@ -15,6 +15,10 @@ A porta de tempo de execução padrão é 8000. O modelo gerado grava
 - Recarga a quente de código, visualizações, ativos, traduções e ambiente.
 - CSRF, CORS, cabeçalhos de segurança e WebSockets.
 - Sessões persistentes em arquivo por padrão, ou drivers `memory` e `redis`.
+- O cookie canônico de sessão é `joss_session`; `JOSS_SESSION` continua aceito por compatibilidade.
+- `HttpRequestParser` em `std/http/request.joss` é a fonte canônica para método, rota/query, headers, cookies e campos de formulários URL-encoded ou JSON. O interpretador chama esse parser ao receber uma requisição bruta.
+- O servidor AOT despacha por método e rota, mas a execução nativa do parser Joss ainda precisa de paridade nas operações de strings e mapas; o suporte a formulários no AOT está incompleto.
+- `Auth::check`, `Auth::guest` e o middleware web compartilham a identidade da sessão; o token de acesso `joss_token` pode restaurá-la em cada requisição.
 - Limite de taxa por IP configurável com `RATE_LIMIT_REQUESTS` e `RATE_LIMIT_WINDOW_SECONDS`.
 - HTTPS/WSS direto via `TLS_CERT_FILE` e `TLS_KEY_FILE`.
 - HTTP Timeouts: leitura 15 s, escrita 15 s e inatividade 60 s.```env

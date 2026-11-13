@@ -621,6 +621,19 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		core.CompileStyles()
 	}
 
+	// 5. Pre-fetch database seed data for GranDB native compilation if DB is configured
+	var seedTables map[string][]map[string]string
+	envDetect := core.DetectAndLoadEnv(nil)
+	if len(envDetect.EnvMap) > 0 {
+		dbDriver := strings.ToLower(strings.TrimSpace(envDetect.EnvMap["DB"]))
+		if dbDriver == "" {
+			dbDriver = strings.ToLower(strings.TrimSpace(envDetect.EnvMap["DB_CONNECTION"]))
+		}
+		if dbDriver != "" {
+			seedTables = extractGranDBSeedTables(dbDriver, envDetect.EnvMap, trace)
+		}
+	}
+
 	res, err := native.BuildProgram(irProg, native.BuildOptions{
 		Target:     target,
 		Backend:    bKind,
@@ -629,6 +642,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		Debug:      debug,
 		Release:    release,
 		GUI:        enableGUI,
+		SeedTables: seedTables,
 	})
 	if err != nil {
 		fmt.Printf("Error generando ejecutable nativo: %v\n", err)
@@ -684,8 +698,10 @@ func executeScript(filename string) {
 	// JIT Native In-Memory Execution (Unified Native JIT)
 	// Attempts compiling to machine code in RAM and running at native CPU speed.
 	// Falls back transparently to tree-walking interpreter if lowering encounters gaps.
+	// For web servers, canonical Pure Joss Standard Library executes directly in runtime.
 	// =========================================================================
-	if os.Getenv("JOSS_NO_JIT") == "" && (runtime.GOARCH == "amd64" || runtime.GOARCH == "x86_64") {
+	isServerCmd := (len(os.Args) >= 2 && os.Args[1] == "server") || os.Getenv("JOSS_SERVER_MODE") == "1"
+	if !isServerCmd && os.Getenv("JOSS_NO_JIT") == "" && (runtime.GOARCH == "amd64" || runtime.GOARCH == "x86_64") {
 		lowerer := ir.NewLowerer(report.Prepared, nil)
 		progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
 		if irProg, err := lowerer.LowerProgram(progName); err == nil {
@@ -916,4 +932,121 @@ func handleIndexNowCommand(args []string) {
 	fmt.Println("  El servidor web nativo de Joss responderá de forma interna y automática en:")
 	fmt.Printf("  GET /%s.txt\n", key)
 	fmt.Println("  (No requiere crear archivos físicos ni rutas manuales en routes.joss)")
+}
+
+func extractGranDBSeedTables(driver string, envMap map[string]string, trace bool) map[string][]map[string]string {
+	db, err := core.OpenConfiguredDatabase(driver, envMap)
+	if err != nil {
+		if trace {
+			fmt.Printf("  [trace] GranDB build-time seed: no se pudo abrir conexión DB (%s): %v\n", driver, err)
+		}
+		return nil
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		if trace {
+			fmt.Printf("  [trace] GranDB build-time seed: ping falló (%s): %v\n", driver, err)
+		}
+		return nil
+	}
+
+	prefix := envMap["PREFIX"]
+	if prefix == "" {
+		prefix = envMap["DB_PREFIX"]
+	}
+
+	// Discover tables present in the database
+	var query string
+	switch driver {
+	case "sqlite", "sqlite3":
+		query = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+	case "mysql":
+		query = "SHOW TABLES"
+	case "postgres", "postgresql":
+		query = "SELECT table_name FROM information_schema.tables WHERE table_schema='public'"
+	default:
+		return nil
+	}
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var tableNames []string
+	for rows.Next() {
+		var tbl string
+		if err := rows.Scan(&tbl); err == nil && tbl != "" {
+			tableNames = append(tableNames, tbl)
+		}
+	}
+
+	if len(tableNames) == 0 {
+		return nil
+	}
+
+	seedMap := make(map[string][]map[string]string)
+	for _, rawTbl := range tableNames {
+		cleanTbl := rawTbl
+		if prefix != "" && strings.HasPrefix(rawTbl, prefix) {
+			cleanTbl = strings.TrimPrefix(rawTbl, prefix)
+		}
+
+		// Read rows from table (limit 500 rows per table to keep binary compact and fast)
+		q := fmt.Sprintf("SELECT * FROM %s LIMIT 500", rawTbl)
+		tRows, err := db.Query(q)
+		if err != nil {
+			continue
+		}
+
+		cols, err := tRows.Columns()
+		if err != nil {
+			tRows.Close()
+			continue
+		}
+
+		var tableData []map[string]string
+		for tRows.Next() {
+			vals := make([]interface{}, len(cols))
+			valPtrs := make([]interface{}, len(cols))
+			for i := range vals {
+				valPtrs[i] = &vals[i]
+			}
+			if err := tRows.Scan(valPtrs...); err != nil {
+				continue
+			}
+			rowMap := make(map[string]string)
+			for i, col := range cols {
+				val := vals[i]
+				if val == nil {
+					rowMap[col] = ""
+				} else {
+					switch v := val.(type) {
+					case []byte:
+						rowMap[col] = string(v)
+					default:
+						rowMap[col] = fmt.Sprintf("%v", v)
+					}
+				}
+			}
+			tableData = append(tableData, rowMap)
+		}
+		tRows.Close()
+
+		if len(tableData) > 0 {
+			seedMap[cleanTbl] = tableData
+			// Also index with full raw table name if prefixed
+			if cleanTbl != rawTbl {
+				seedMap[rawTbl] = tableData
+			}
+		}
+	}
+
+	if trace && len(seedMap) > 0 {
+		fmt.Printf("  [trace] GranDB seed data precargado para compilación nativa (%d tablas)\n", len(seedMap))
+	}
+
+	return seedMap
 }

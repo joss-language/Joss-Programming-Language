@@ -14,6 +14,7 @@ import (
 type LLVMEmitter struct {
 	stringConstants map[string]string // texto -> @.str.N
 	nextStringID    int
+	program         *ir.Program
 }
 
 func NewLLVMEmitter() *LLVMEmitter {
@@ -26,6 +27,7 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	if prog == nil {
 		return "", fmt.Errorf("llvm emitter: programa nil")
 	}
+	e.program = prog
 
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("; ModuleID = '%s'\n", prog.Name))
@@ -67,6 +69,19 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 		}
 		buf.WriteString("\n")
 	}
+	if len(prog.Globals) > 0 {
+		globalNames := make([]string, 0, len(prog.Globals))
+		for name := range prog.Globals {
+			globalNames = append(globalNames, name)
+		}
+		sort.Strings(globalNames)
+		buf.WriteString("; Joss module globals\n")
+		for _, name := range globalNames {
+			global := prog.Globals[name]
+			buf.WriteString(fmt.Sprintf("@joss_global_%s = internal global %s zeroinitializer, align 8\n", cleanIdent(name), MapLLVMType(global.Type)))
+		}
+		buf.WriteString("\n")
+	}
 
 	// Declarar funciones de runtime requeridas
 	buf.WriteString("; Declaraciones de Runtime Nativo Joss\n")
@@ -74,6 +89,7 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare void @joss_print_f64(double)\n")
 	buf.WriteString("declare void @joss_print_bool(i1)\n")
 	buf.WriteString("declare void @joss_print_string(i8*)\n")
+	buf.WriteString("declare void @joss_print_mixed(i64)\n")
 	buf.WriteString("declare void @joss_panic(i8*)\n")
 	buf.WriteString("declare i8* @joss_str_concat(i8*, i8*)\n")
 	buf.WriteString("declare i8* @joss_obj_new(i8*)\n")
@@ -177,6 +193,24 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		destType := MapLLVMType(i.Dest.ValueType)
 		ptrType := MapLLVMType(i.Ptr.Type())
 		return fmt.Sprintf("%s = load %s, %s %s, align 8", e.formatValue(i.Dest), destType, ptrType, e.formatValue(i.Ptr)), nil
+
+	case *ir.GlobalLoadInst:
+		global := e.program.Globals[i.GlobalName]
+		if global == nil {
+			return "", fmt.Errorf("llvm emitter: global no registrada %q", i.GlobalName)
+		}
+		name := "@joss_global_" + cleanIdent(i.GlobalName)
+		typeName := MapLLVMType(global.Type)
+		return fmt.Sprintf("%s = load %s, %s* %s, align 8", e.formatValue(i.Dest), typeName, typeName, name), nil
+
+	case *ir.GlobalStoreInst:
+		global := e.program.Globals[i.GlobalName]
+		if global == nil {
+			return "", fmt.Errorf("llvm emitter: global no registrada %q", i.GlobalName)
+		}
+		name := "@joss_global_" + cleanIdent(i.GlobalName)
+		typeName := MapLLVMType(global.Type)
+		return fmt.Sprintf("store %s %s, %s* %s, align 8", typeName, e.formatValue(i.Val), typeName, name), nil
 
 	case *ir.MoveInst:
 		destType := MapLLVMType(i.Dest.ValueType)

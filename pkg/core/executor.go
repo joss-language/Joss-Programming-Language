@@ -2,7 +2,9 @@ package core
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
+	"strings"
 
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/parser"
@@ -54,6 +56,26 @@ func (r *Runtime) ExecutePrepared(prep *semanticanalyzer.PreparedProgram) {
 				r.Functions[methodStmt.Name.Value] = methodStmt
 				r.planForMethod(methodStmt)
 			}
+		}
+	}
+
+	// Pre-execute route/configuration units (routes.joss, api.joss) before main entrypoint
+	for idx, unit := range prep.Units {
+		if idx == 0 || unit.Program == nil {
+			continue
+		}
+		cPath := filepath.ToSlash(unit.Path)
+		if strings.HasSuffix(cPath, "routes.joss") || strings.HasSuffix(cPath, "api.joss") {
+			prevSource := r.CurrentSource
+			r.CurrentSource = "routes"
+			for _, stmt := range unit.Program.Statements {
+				if _, ok := stmt.(*parser.ClassStatement); !ok {
+					if _, ok := stmt.(*parser.InterfaceStatement); !ok {
+						r.executeStatement(stmt)
+					}
+				}
+			}
+			r.CurrentSource = prevSource
 		}
 	}
 
@@ -249,6 +271,17 @@ func (r *Runtime) executeBlock(block *parser.BlockStatement) interface{} {
 func (r *Runtime) registerClass(stmt *parser.ClassStatement) {
 	r.Classes[stmt.Name.Value] = stmt
 	if stmt.Body != nil {
+		for _, member := range stmt.Body.Statements {
+			declaration, ok := member.(*parser.LetStatement)
+			if !ok || !declaration.IsStatic || declaration.Name == nil {
+				continue
+			}
+			var initial interface{}
+			if declaration.Value != nil {
+				initial = r.evaluateExpression(declaration.Value)
+			}
+			r.initializeStaticProperty(stmt.Name.Value, declaration.Name.Value, initial)
+		}
 		for _, member := range stmt.Body.Statements {
 			if method, ok := member.(*parser.MethodStatement); ok && method.Body != nil {
 				r.planForMethod(method)

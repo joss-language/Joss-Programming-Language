@@ -22,13 +22,24 @@ Schema::create("products", func(Blueprint $table) {
 })
 ```
 
+`Schema::hasForeign($table, $constraint)` comprueba si existe una clave foránea con ese nombre. Úsalo en migraciones que deban tolerar bases MySQL ya actualizadas parcialmente:
+
+```joss
+(!Schema::hasForeign("backups", "fk_backups_user")) ? {
+    Schema::table("backups", func(mixed $table) {
+        $table->foreign("user_id", "fk_backups_user")->references("id")->on("users")->onDelete("cascade")
+    })
+}
+```
+<!-- joss-check: requiere una base de datos configurada -->
+
 ## Schema
 
 - `create($table, func(Blueprint $blueprint))`
 - `table($table, func(Blueprint $blueprint))`
 - `rename($from, $to)`
 - `drop($table)` y `dropIfExists($table)`
-- `hasTable($table)` y `hasColumn($table, $column)`
+- `hasTable($table)`, `hasColumn($table, $column)` y `hasForeign($table, $constraint)`
 
 ## Blueprint
 

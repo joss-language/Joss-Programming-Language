@@ -31,6 +31,7 @@ type BuildOptions struct {
 	Debug         bool
 	Release       bool
 	GUI           bool
+	SeedTables    map[string][]map[string]string
 }
 
 // BuildResult contiene la información del ejecutable generado y artefactos de trace.
@@ -52,6 +53,7 @@ type BuildResult struct {
 type NativeCodeEmitter interface {
 	Compile(prog *ir.Program) ([]byte, string, error)
 	NeedsHostBridge() bool
+	SetSeedTables(tables map[string][]map[string]string)
 }
 
 // SelectCodeEmitter devuelve el generador nativo correspondiente a la arquitectura objetivo.
@@ -149,6 +151,9 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 	switch selectedBackend {
 	case BackendNative, BackendStandalone:
 		mcBuilder := SelectCodeEmitter(target, opts.GUI)
+		if len(opts.SeedTables) > 0 {
+			mcBuilder.SetSeedTables(opts.SeedTables)
+		}
 		binBytes, asmListing, err := mcBuilder.Compile(prog)
 		if err != nil {
 			return nil, err

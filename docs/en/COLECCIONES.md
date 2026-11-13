@@ -116,6 +116,7 @@ sin teléfono
 
 ### Characteristics of Maps in Joss:
 1. **Creation with braces `{}`**: Each text key is associated with its value using a colon: `{"nombre": "Ada", "edad": 20}`. An empty map is written `{}`.
+   An empty map does not assume its values are `int`; the IR keeps its value type as `mixed` so the first write of another type does not corrupt a compiled read.
 2. **Reading and modification**: Write the key name inside square brackets and quotes: `$persona["nombre"]`.
 3. **Keys that do not exist**: If you look up a key that has not been saved yet (such as `$persona["telefono"]`), Joss returns `null` without failing. Combining it with `??` lets you display clean fallback text.
 4. **Checking if a key exists**: The built-in function `array_key_exists("telefono", $persona)` returns `true` or `false`.

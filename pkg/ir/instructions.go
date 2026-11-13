@@ -48,9 +48,11 @@ const (
 	OpCast Opcode = "cast"
 
 	// Objetos y Clases Dinámicas en Heap
-	OpNewObject  Opcode = "new_object"
-	OpLoadField  Opcode = "load_field"
-	OpStoreField Opcode = "store_field"
+	OpNewObject   Opcode = "new_object"
+	OpLoadField   Opcode = "load_field"
+	OpStoreField  Opcode = "store_field"
+	OpGlobalLoad  Opcode = "global_load"
+	OpGlobalStore Opcode = "global_store"
 
 	// Arrays y Colecciones
 	OpNewArray Opcode = "new_array"
@@ -128,6 +130,32 @@ func (i *LoadInst) String() string     { return fmt.Sprintf("%s = load %s", i.De
 type StoreInst struct {
 	Val Value
 	Ptr Value
+}
+
+// GlobalLoadInst loads a module global value from its native data slot.
+type GlobalLoadInst struct {
+	Dest       *TempValue
+	GlobalName string
+}
+
+func (i *GlobalLoadInst) Opcode() Opcode     { return OpGlobalLoad }
+func (i *GlobalLoadInst) Result() *TempValue { return i.Dest }
+func (i *GlobalLoadInst) Operands() []Value  { return nil }
+func (i *GlobalLoadInst) String() string {
+	return fmt.Sprintf("%s = global_load @%s", i.Dest, i.GlobalName)
+}
+
+// GlobalStoreInst stores a value to a module global's native data slot.
+type GlobalStoreInst struct {
+	GlobalName string
+	Val        Value
+}
+
+func (i *GlobalStoreInst) Opcode() Opcode     { return OpGlobalStore }
+func (i *GlobalStoreInst) Result() *TempValue { return nil }
+func (i *GlobalStoreInst) Operands() []Value  { return []Value{i.Val} }
+func (i *GlobalStoreInst) String() string {
+	return fmt.Sprintf("global_store @%s, %s", i.GlobalName, i.Val)
 }
 
 func (i *StoreInst) Opcode() Opcode     { return OpStore }

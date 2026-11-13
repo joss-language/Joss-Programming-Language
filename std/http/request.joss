@@ -1,0 +1,128 @@
+public class HttpRequestParser {
+    public static func parse(string $raw): map {
+        var $request = {
+        "_headers" : {
+        },
+        "_cookies" : {
+        },
+        "_method": "",
+        "_host": "",
+        "_scheme": "http",
+        "_referer": "",
+        "_token": "",
+        "_path": "/",
+        "_query": ""
+    }
+
+    mixed $headerEnd = strpos($raw, "\r\n\r\n")
+    guard ($headerEnd !== false) : {
+        $request ["_error"] = "malformed_request"
+        return $request
+    }
+
+    int $headerEndIndex = intval($headerEnd)
+    string $head = substr($raw, 0, $headerEndIndex)
+    string $body = substr($raw, $headerEndIndex + 4)
+    $request ["_body"] = $body
+    var $lines = explode("\r\n", $head)
+    guard (count($lines) > 0) : {
+        $request ["_error"] = "missing_request_line"
+        return $request
+    }
+
+    var $parts = explode(" ", trim($lines [0]))
+    guard (count($parts) >= 2) : {
+        $request ["_error"] = "malformed_request_line"
+        return $request
+    }
+
+    $request ["_method"] = strtoupper(trim($parts [0]))
+    string $target = trim($parts [1])
+    mixed $queryStart = strpos($target, "?")
+    ($queryStart !== false) ? {
+        int $queryStartIndex = intval($queryStart)
+        $request ["_path"] = substr($target, 0, $queryStartIndex)
+        $request ["_query"] = substr($target, $queryStartIndex + 1)
+    } : {
+        $request ["_path"] = $target
+    }
+
+    var $headers = {
+}
+var $cookies = {
+}
+int $lineIndex = 1
+while ($lineIndex < count($lines)) {
+    string $line = trim($lines [$lineIndex])
+    mixed $colon = strpos($line, ":")
+    ($colon !== false && intval($colon) > 0) ? {
+        int $colonIndex = intval($colon)
+        string $name = strtolower(trim(substr($line, 0, $colonIndex)))
+        string $value = trim(substr($line, $colonIndex + 1))
+        $headers [$name] = $value
+        ($name == "host") ? {
+            $request ["_host"] = $value
+        }
+        ($name == "referer") ? {
+            $request ["_referer"] = $value
+        }
+        ($name == "cookie") ? {
+            var $cookiePairs = explode(";", $value)
+            foreach ($cookiePairs as $cookiePair) {
+                mixed $equals = strpos($cookiePair, "=")
+                ($equals !== false && intval($equals) > 0) ? {
+                    int $equalsIndex = intval($equals)
+                    string $cookieName = trim(substr($cookiePair, 0, $equalsIndex))
+                    string $cookieValue = trim(substr($cookiePair, $equalsIndex + 1))
+                    $cookies [$cookieName] = $cookieValue
+                }
+            }
+        }
+    }
+    $lineIndex++
+}
+
+$request ["_headers"] = $headers
+$request ["_cookies"] = $cookies
+
+var $queryPairs = explode("&", $request ["_query"])
+foreach ($queryPairs as $queryPair) {
+    mixed $equals = strpos($queryPair, "=")
+    ($equals !== false) ? {
+        int $equalsIndex = intval($equals)
+        string $key = urldecode(substr($queryPair, 0, $equalsIndex))
+        string $value = urldecode(substr($queryPair, $equalsIndex + 1))
+        (strlen($key) > 0) ? {
+            $request [$key] = $value
+        }
+    }
+}
+
+string $contentType = strtolower($headers ["content-type"] ?? "")
+(Str::contains($contentType, "application/json")) ? {
+    var $jsonPayload = json_decode($body)
+    (is_array($jsonPayload)) ? {
+        foreach ($jsonPayload as $key => $value) {
+            $request [strval($key)] = $value
+        }
+    }
+}
+
+(Str::contains($contentType, "application/x-www-form-urlencoded")) ? {
+    var $formPairs = explode("&", $body)
+    foreach ($formPairs as $formPair) {
+        mixed $equals = strpos($formPair, "=")
+        ($equals !== false) ? {
+            int $equalsIndex = intval($equals)
+            string $key = urldecode(substr($formPair, 0, $equalsIndex))
+            string $value = urldecode(substr($formPair, $equalsIndex + 1))
+            (strlen($key) > 0) ? {
+                $request [$key] = $value
+            }
+        }
+    }
+}
+
+return $request
+}
+}

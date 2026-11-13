@@ -37,6 +37,9 @@ func (l *Lowerer) lowerProjectViewsAndRoutes() error {
 	if err := l.synthesizeViewDispatcherFunction(views); err != nil {
 		return err
 	}
+	if err := l.synthesizeEmbeddedAssetsFunction(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -320,7 +323,7 @@ func (l *Lowerer) PruneUnreachableFunctions() {
 	reachable := make(map[string]bool)
 	var worklist []string
 
-	for _, root := range []string{"main", "__joss_http_dispatch", "view"} {
+	for _, root := range []string{"main", "__joss_http_dispatch", "view", "__joss_get_embedded_asset"} {
 		if l.prog.Functions[root] != nil {
 			reachable[root] = true
 			worklist = append(worklist, root)
@@ -525,15 +528,16 @@ func (l *Lowerer) synthesizeHTTPDispatchFunction() error {
 	}
 
 	fn := NewFunction("__joss_http_dispatch", TypeString)
+	methodParam := fn.AddParam("method", TypeString)
 	pathParam := fn.AddParam("path", TypeString)
+	requestParam := fn.AddParam("request", PtrType(StructType("map", nil)))
+	requestGlobal := l.prog.AddGlobal("__joss_request_params", requestParam.Type(), nil, false)
+	fn.EntryBlock.AddInstruction(&GlobalStoreInst{GlobalName: requestGlobal.Name, Val: requestParam})
 
 	curr := fn.EntryBlock
 	dispatched := 0
 
 	for idx, rt := range routes {
-		if rt.method != "GET" && rt.method != "ANY" {
-			continue
-		}
 		targetFnName := rt.controller + "_" + rt.action
 		targetFn, exists := l.prog.Functions[targetFnName]
 		if !exists || len(targetFn.Params) < 1 {
@@ -549,20 +553,32 @@ func (l *Lowerer) synthesizeHTTPDispatchFunction() error {
 		matchBlk := fn.NewBlock(fmt.Sprintf("route_match_%d", idx))
 		nextBlk := fn.NewBlock(fmt.Sprintf("route_next_%d", idx))
 
-		cmpTemp := fn.NewTemp(TypeBool, fmt.Sprintf("rcmp_%d", idx))
+		pathMatch := fn.NewTemp(TypeBool, fmt.Sprintf("rpath_%d", idx))
 		if numPlaceholders == 0 {
 			curr.AddInstruction(&CompareInst{
 				Op:    OpCmpEq,
-				Dest:  cmpTemp,
+				Dest:  pathMatch,
 				Left:  pathParam,
 				Right: NewConstString(rt.path),
 			})
 		} else {
 			curr.AddInstruction(&CallInst{
-				Dest:   cmpTemp,
+				Dest:   pathMatch,
 				Callee: "__joss_rt_route_matches",
 				Args:   []Value{pathParam, NewConstString(rt.path)},
 			})
+		}
+		cmpTemp := pathMatch
+		if rt.method != "ANY" {
+			methodMatch := fn.NewTemp(TypeBool, fmt.Sprintf("rmethod_%d", idx))
+			curr.AddInstruction(&CompareInst{
+				Op:    OpCmpEq,
+				Dest:  methodMatch,
+				Left:  methodParam,
+				Right: NewConstString(strings.ToUpper(rt.method)),
+			})
+			cmpTemp = fn.NewTemp(TypeBool, fmt.Sprintf("rcmp_%d", idx))
+			curr.AddInstruction(&BinaryInst{Dest: cmpTemp, Op: OpAnd, Left: methodMatch, Right: pathMatch})
 		}
 		curr.SetTerminator(&BranchTerminator{
 			Cond:       cmpTemp,
@@ -662,7 +678,7 @@ func extractRouteFromCallExpr(call *parser.CallExpression, walkStmts func([]pars
 				walkStmts(fnLit.Body.Statements)
 			}
 		}
-	case "get", "post":
+	case "get", "post", "put", "patch", "delete", "options":
 		if len(call.Arguments) >= 2 {
 			pathLit, ok1 := call.Arguments[0].(*parser.StringLiteral)
 			targetLit, ok2 := call.Arguments[1].(*parser.StringLiteral)
@@ -716,4 +732,101 @@ func extractRouteFromCallExpr(call *parser.CallExpression, walkStmts func([]pars
 		}
 	}
 	return out
+}
+
+// synthesizeEmbeddedAssetsFunction walks static asset directories (such as public/ and assets/)
+// and any project subdirectories containing static files (.css, .js, .svg, .png, .jpg, .ico, etc.)
+// and synthesizes the native IR function `__joss_get_embedded_asset(path: string): string`
+// which serves the files directly from the standalone binary (.rodata section).
+func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
+	if l.prog.Functions["__joss_get_embedded_asset"] != nil {
+		return nil
+	}
+
+	type assetEntry struct {
+		aliases []string
+		content string
+	}
+
+	var assets []assetEntry
+	ignoredDirs := map[string]bool{
+		".git": true, ".vscode": true, ".idea": true, "build": true, "dist": true,
+		"vendor": true, "node_modules": true, ".gemini": true, ".codex": true,
+		".agents": true, ".github": true, "tests": true, "test": true,
+	}
+
+	staticExts := map[string]bool{
+		".css": true, ".js": true, ".json": true, ".svg": true, ".png": true,
+		".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".ico": true,
+		".woff": true, ".woff2": true, ".ttf": true, ".txt": true, ".xml": true,
+	}
+
+	searchRoots := []string{"public", "assets"}
+	for _, root := range searchRoots {
+		if _, err := os.Stat(root); err != nil {
+			continue
+		}
+		_ = filepath.Walk(root, func(path string, fi os.FileInfo, walkErr error) error {
+			if walkErr != nil || fi == nil || fi.IsDir() {
+				return nil
+			}
+			parts := strings.Split(filepath.ToSlash(path), "/")
+			if len(parts) > 0 && ignoredDirs[parts[0]] {
+				return nil
+			}
+			ext := strings.ToLower(filepath.Ext(path))
+			if !staticExts[ext] || fi.Size() > 2<<20 {
+				return nil
+			}
+			contentBytes, err := os.ReadFile(path)
+			if err != nil {
+				return nil
+			}
+			slashPath := filepath.ToSlash(path) // e.g. "public/css/landing.css"
+			aliases := []string{
+				slashPath,
+				"/" + slashPath,
+			}
+			// Also support path without the root prefix (e.g. "/css/landing.css" and "css/landing.css")
+			withoutRoot := strings.TrimPrefix(slashPath, root+"/")
+			if withoutRoot != slashPath {
+				aliases = append(aliases, withoutRoot, "/"+withoutRoot)
+			}
+			assets = append(assets, assetEntry{
+				aliases: aliases,
+				content: string(contentBytes),
+			})
+			return nil
+		})
+	}
+
+	fn := NewFunction("__joss_get_embedded_asset", TypeString)
+	pathParam := fn.AddParam("path", TypeString)
+	curr := fn.EntryBlock
+
+	for idx, a := range assets {
+		matchBlk := fn.NewBlock(fmt.Sprintf("asset_match_%d", idx))
+		matchBlk.SetTerminator(&ReturnTerminator{Val: NewConstString(a.content)})
+
+		for subIdx, alias := range a.aliases {
+			nextBlk := fn.NewBlock(fmt.Sprintf("asset_next_%d_%d", idx, subIdx))
+			cmpTemp := fn.NewTemp(TypeBool, fmt.Sprintf("acmp_%d_%d", idx, subIdx))
+			curr.AddInstruction(&CompareInst{
+				Op:    OpCmpEq,
+				Dest:  cmpTemp,
+				Left:  pathParam,
+				Right: NewConstString(alias),
+			})
+			curr.SetTerminator(&BranchTerminator{
+				Cond:       cmpTemp,
+				TrueBlock:  matchBlk,
+				FalseBlock: nextBlk,
+			})
+			curr = nextBlk
+		}
+	}
+
+	curr.SetTerminator(&ReturnTerminator{Val: NewConstString("")})
+	l.prog.AddFunction(fn)
+	return nil
 }

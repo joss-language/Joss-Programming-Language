@@ -149,6 +149,35 @@ func TestUnknownNativeSignatureDoesNotCreateArityFalsePositive(t *testing.T) {
 	}
 }
 
+func TestStandardLibraryClassPreservesUnshadowedNativeMethods(t *testing.T) {
+	environment := NewEnvironment()
+	environment.Classes["Auth"] = Class{Name: "Auth", Methods: map[string]Callable{
+		"id":     {Name: "id", ReturnType: typesystem.Type{Kind: typesystem.Mixed}},
+		"logout": {Name: "logout", ReturnType: typesystem.Type{Kind: typesystem.Bool}},
+	}}
+	environment.Builtins["intval"] = Callable{Name: "intval", ReturnType: typesystem.Type{Kind: typesystem.Int}, Variadic: true}
+	p := parser.NewParser(parser.NewLexer(`public class Auth {
+    public static func check(): bool {
+        mixed $userId = Auth::id()
+        return $userId != null && intval($userId) > 0
+    }
+}`))
+	program := p.ParseProgram()
+	if errors := p.Errors(); len(errors) > 0 {
+		t.Fatalf("parse errors: %v", errors)
+	}
+	prepared := PrepareProgram([]SourceUnit{{Path: "<std/auth/auth.joss>", Program: program}}, environment)
+	if prepared.HasErrors() {
+		t.Fatalf("standard Auth override failed analysis: %#v", prepared.Diagnostics)
+	}
+	class := prepared.Environment.Classes["Auth"]
+	for _, methodName := range []string{"check", "id", "logout"} {
+		if _, exists := class.Methods[methodName]; !exists {
+			t.Errorf("Auth method %q was lost while merging standard and native contracts", methodName)
+		}
+	}
+}
+
 func TestIssetDoesNotTreatUnknownAsInvalid(t *testing.T) {
 	items := analyzeSource(t, `isset($optional)`, NewEnvironment())
 	if hasCode(items, "JOSS-SYM-001") {

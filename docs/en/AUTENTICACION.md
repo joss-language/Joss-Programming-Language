@@ -38,13 +38,13 @@ in the entire instance.
 |`create(mapaDatos)` |User token or false depending on insertion;requires schema data.It is not automatic mailing.|
 |`attempt(email,contraseña)` |JWT or false;validates credentials according to table rules.It does not itself incorporate the entire MFA fluid flow.|
 |`login(email,contraseña)` |AuthLoginResult or null for insufficient arguments.|
-|`check()` , `guest()` |Bool on session context.|
-|`user()` , `id()` |Current instance/ID or null.|
-|`hasRole(nombre)` |Bool;does not verify ownership of a resource.|
+|`check()` , `guest()` |Bool on session context; the decision lives in `std/auth/auth.joss` and reads `Auth::id()` .|
+|`user()` , `id()` |Current instance/ID or null; `id()` reads `user_id` from the session in `std/auth/auth.joss`.|
+|`hasRole(nombre)` |Bool;the policy in `std/auth/auth.joss` compares the session role and allows every role when the current role is `admin`. It does not verify resource ownership.|
 |`validateToken(token)` |Bool;verifies JWT and repopulates session context.|
 |`refresh(id)` |JWT renewed or false/null;authorizes first who can request it.|
 |`update(id,mapa)` , `delete(id)` |Bool or null depending on arguments/fault;modify users.|
-|`logout()` |Clear context and return true.It does not imply global revocation of all JWT issued.|
+|`logout()` |Remove the session identity and role keys from `std/auth/auth.joss`, and return true. It does not imply global revocation of all JWT issued.|
 |`verify(token)` |Check mail confirmation token, return bool.|
 |`verificationStatus(email)` |not_found, verified or unverified.|
 |`resendVerification(email)` |verification token or false;message delivery is up to the application.|
@@ -120,3 +120,25 @@ https://tu-dominio.com/auth/{proveedor}/callback
 
 Sources: [Auth](../../pkg/core/auth.go) , [OAuth Social](../../pkg/core/auth_social.go) , [JWT](../../pkg/core/auth_jwt.go) ,
 [MFA flow](../../pkg/core/auth_fluent.go) , [tables](../../pkg/core/auth_tables.go) .
+# Pure Joss Auth flows
+
+`std/auth/auth.joss` is the canonical implementation for registration, login,
+password recovery, and password changes. It reads and updates users through
+`GranDB` while preserving the `Auth::create`, `Auth::attempt`, `Auth::login`,
+`Auth::forgotPassword`, and `Auth::resetPassword` contracts used by web and API
+controllers.
+
+Native primitives are limited to bcrypt (`Auth::hash` and `Auth::verifyHash`),
+JWT signing (`Auth::issueToken`), MySQL connectivity checks
+(`Auth::databaseReady`), 2FA challenge preparation, and the
+transactional claim of a password reset token (`Auth::claimPasswordReset`).
+The last operation marks the token used and changes the password in one MySQL
+transaction so concurrent requests cannot reuse the token.
+
+Public recovery responses remain generic in controllers. The internal method
+returns a token only so the controller can send the email; an unknown account
+does not receive mail. JosSecurity integration tests must use disposable MySQL,
+never the database configured for an installation.
+
+The global `now()` function still depends on `pkg/core/builtins_date.go`; its
+Joss implementation and multi architecture AOT emission remain pending.

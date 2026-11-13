@@ -1,7 +1,9 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,6 +31,46 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 
 	case "view":
 		return r.executeViewMethod(nil, "render", args), true
+
+	case "__joss_http_dispatch":
+		if len(args) >= 3 {
+			method, methodOK := args[0].(string)
+			path, pathOK := args[1].(string)
+			if methodOK && pathOK {
+				requestData, requestOK := args[2].(map[string]interface{})
+				if !requestOK {
+					if rawRequest, ok := args[2].(string); ok {
+						requestData = r.parseHTTPWithStdlib(rawRequest)
+						requestOK = requestData != nil
+					}
+				}
+				if !requestOK {
+					return "", true
+				}
+				if requestPath, ok := requestData["_path"].(string); ok && requestPath != "" {
+					path = requestPath
+				}
+				resp, err := r.Dispatch(method, path, requestData, nil)
+				if err == nil && resp != nil {
+					return formatNativeHTTPResponse(resp), true
+				}
+			}
+		}
+		return "", true
+
+	case "__joss_timezone_data":
+		content, err := os.ReadFile("/etc/localtime")
+		if err != nil {
+			return []interface{}{}, true
+		}
+		bytes := make([]interface{}, len(content))
+		for index, value := range content {
+			bytes[index] = int64(value)
+		}
+		return bytes, true
+
+	case "__joss_get_embedded_asset":
+		return "", true
 
 	case "json":
 		return r.executeResponseMethod(nil, "json", args), true
@@ -83,6 +125,27 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 			}
 		}
 		return nil, true
+
+	case "__joss_file_get_bytes":
+		if err := r.RequireCapability("fs"); err != nil {
+			panic(err)
+		}
+		if len(args) != 1 {
+			return []interface{}{}, true
+		}
+		path, ok := args[0].(string)
+		if !ok || path == "" {
+			return []interface{}{}, true
+		}
+		content, err := ReadFileBytes(path)
+		if err != nil {
+			return []interface{}{}, true
+		}
+		bytes := make([]interface{}, len(content))
+		for i, value := range content {
+			bytes[i] = int64(value)
+		}
+		return bytes, true
 
 	case "file_put_contents":
 		if err := r.RequireCapability("fs"); err != nil {
@@ -336,4 +399,82 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 	}
 
 	return nil, false
+}
+
+func formatNativeHTTPResponse(value interface{}) string {
+	status := http.StatusOK
+	contentType := "text/html; charset=utf-8"
+	location := ""
+	body := ""
+	headers := make(map[string]string)
+	cookies := make(map[string]interface{})
+	if instance, ok := value.(*Instance); ok && instance != nil {
+		fields := instance.Fields
+		if rawStatus, exists := fields["status_code"]; exists {
+			status = toInt(rawStatus)
+		} else if rawStatus, exists := fields["status"]; exists {
+			status = toInt(rawStatus)
+		}
+		if rawHeaders, ok := fields["headers"].(map[string]interface{}); ok {
+			for key, val := range rawHeaders {
+				headers[key] = fmt.Sprintf("%v", val)
+			}
+		}
+		if rawCookies, ok := fields["cookies"].(map[string]interface{}); ok {
+			cookies = rawCookies
+		}
+		switch fmt.Sprintf("%v", fields["_type"]) {
+		case "REDIRECT":
+			if _, hasStatus := fields["status_code"]; !hasStatus {
+				status = http.StatusFound
+			}
+			location = fmt.Sprintf("%v", fields["url"])
+			if location == "<nil>" {
+				location = "/"
+			}
+			body = "Redirecting to " + location
+		case "JSON":
+			contentType = "application/json; charset=utf-8"
+			encoded, err := json.Marshal(fields["data"])
+			if err != nil {
+				status = http.StatusInternalServerError
+				body = `{"error":"response encoding failed"}`
+			} else {
+				body = string(encoded)
+			}
+		case "RAW":
+			if rawType, ok := fields["content_type"].(string); ok && rawType != "" {
+				contentType = rawType
+			}
+			body = fmt.Sprintf("%v", fields["data"])
+		default:
+			body = fmt.Sprintf("%v", fields["data"])
+		}
+	} else {
+		body = fmt.Sprintf("%v", value)
+	}
+	if status < 100 || status > 599 {
+		status = http.StatusInternalServerError
+	}
+	statusText := http.StatusText(status)
+	if statusText == "" {
+		statusText = "Response"
+	}
+	var response strings.Builder
+	fmt.Fprintf(&response, "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nConnection: close\r\n", status, statusText, contentType)
+	if location != "" {
+		fmt.Fprintf(&response, "Location: %s\r\n", location)
+	}
+	for key, val := range headers {
+		fmt.Fprintf(&response, "%s: %s\r\n", key, val)
+	}
+	for key, val := range cookies {
+		cookie := &http.Cookie{Name: key, Value: fmt.Sprintf("%v", val), Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode}
+		if cookie.Value == "" {
+			cookie.MaxAge = -1
+		}
+		fmt.Fprintf(&response, "Set-Cookie: %s\r\n", cookie.String())
+	}
+	fmt.Fprintf(&response, "Content-Length: %d\r\n\r\n%s", len(body), body)
+	return response.String()
 }

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"database/sql"
 	"fmt"
 	"regexp"
 	"strings"
@@ -381,6 +382,40 @@ func (r *Runtime) executeSchemaMethod(instance *Instance, method string, args []
 				r.databaseExecutor().QueryRow(query, tableName, columnName).Scan(&count)
 				return count > 0
 			}
+		}
+
+	case "hasForeign":
+		if len(args) >= 2 {
+			tableName, tableOK := args[0].(string)
+			constraintName, nameOK := args[1].(string)
+			if !tableOK || !nameOK || tableName == "" || constraintName == "" {
+				return false
+			}
+			prefix := r.dbPrefix()
+			if !strings.HasPrefix(tableName, prefix) {
+				tableName = prefix + tableName
+			}
+
+			var count int
+			var query string
+			switch dbDriver {
+			case "sqlite":
+				var definition sql.NullString
+				if err := r.databaseExecutor().QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", tableName).Scan(&definition); err != nil || !definition.Valid {
+					return false
+				}
+				return strings.Contains(definition.String, "CONSTRAINT `"+constraintName+"`") || strings.Contains(definition.String, "CONSTRAINT \""+constraintName+"\"") || strings.Contains(definition.String, "CONSTRAINT "+constraintName+" ")
+			case "postgres":
+				query = "SELECT count(*) FROM information_schema.table_constraints WHERE table_schema = current_schema() AND table_name = ? AND constraint_name = ? AND constraint_type = 'FOREIGN KEY'"
+			case "sqlserver":
+				query = "SELECT count(*) FROM sys.foreign_keys fk JOIN sys.tables t ON t.object_id = fk.parent_object_id WHERE t.name = ? AND fk.name = ?"
+			default:
+				query = "SELECT count(*) FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = ? AND constraint_name = ? AND constraint_type = 'FOREIGN KEY'"
+			}
+			if err := r.databaseExecutor().QueryRow(query, tableName, constraintName).Scan(&count); err != nil {
+				return false
+			}
+			return count > 0
 		}
 	}
 	return nil
