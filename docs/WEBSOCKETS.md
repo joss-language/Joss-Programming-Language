@@ -58,7 +58,10 @@ Los canales son locales al proceso. Un despliegue con varias réplicas necesita
 sticky sessions y un backplane pub/sub externo, o debe mantener una sola
 réplica para funciones de sala.
 
-El servidor aplica keepalive y límites configurables:
+El servidor integrado, incluido el servidor standalone de `std/http`, mantiene
+la conexión activa con frames ping y responde los pong del cliente. Una
+conexión sin actividad se cierra al alcanzar el timeout configurado. Los
+valores predeterminados y límites de mensaje son configurables:
 
 ```env
 WS_MAX_MESSAGE_BYTES="8388608"

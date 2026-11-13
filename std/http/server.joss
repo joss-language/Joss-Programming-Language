@@ -51,13 +51,15 @@ public class HttpServer {
                 continue
             }
 
-            var $response = HttpServer::handle($raw)
-            $client->send($response)
-            $client->close()
+            var $response = HttpServer::handle($raw, $client)
+            ($response != "__JOSS_WEBSOCKET_HANDLED__") ? {
+                $client->send($response)
+                $client->close()
+            }
         }
     }
 
-    public static func handle(string $raw) : string {
+    public static func handle(string $raw, mixed $client = null) : string {
         var $lines = explode("\r\n", $raw)
         guard (count($lines) > 0) : {
             return "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
@@ -71,13 +73,13 @@ public class HttpServer {
         string $_method = $reqLine [0]
         string $path = $reqLine [1]
         var $requestData = HttpRequestParser::parse($raw)
-        ($_method == "POST") ? {
-            var $requestBody = strval($requestData["_body"] ?? "")
-            print("[HTTPTrace] POST bodyBytes=" . strlen($requestBody) . ", turnstileFieldPresent=" . Str::contains($requestBody, "cf-turnstile-response="))
-        }
         var $pathParts = explode("?", $path)
         (count($pathParts) > 0) ? {
             $path = $pathParts [0]
+        }
+        ($_method == "POST") ? {
+            var $requestBody = strval($requestData ["_body"] ?? "")
+            print("[HTTPTrace] POST bodyBytes=" . strlen($requestBody) . ", turnstileFieldPresent=" . Str::contains($requestBody, "cf-turnstile-response="))
         }
 
         // Parse HTTP request headers
@@ -114,8 +116,14 @@ public class HttpServer {
         }
 
         // WebSocket Upgrade detection
-        guard (!WebSocketProtocol::isUpgradeRequest($upgradeHeader, $connectionHeader)) : {
-            return WebSocketProtocol::handshakeResponse($secKey)
+        var $isWebSocket = WebSocketProtocol::isUpgradeRequest($upgradeHeader, $connectionHeader)
+        ($isWebSocket) ? {
+            guard ($secKey != "" && $client != null) : {
+                return "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
+            }
+            $client->send(WebSocketProtocol::handshakeResponse($secKey))
+            __joss_http_dispatch("__websocket__", $path, $client)
+            return "__JOSS_WEBSOCKET_HANDLED__"
         }
 
         // Health endpoint for Hot-Reload probing
@@ -162,40 +170,41 @@ public class HttpServer {
         }
 
         // Keep request session state in the canonical Joss Session store.
-        var $headers = $requestData["_headers"] ?? {}
-        string $cookieHeader = strval($headers["cookie"] ?? "")
-        var $webSession = Session::start($cookieHeader)
+        var $headers = $requestData ["_headers"] ?? {
+    }
+    string $cookieHeader = strval($headers ["cookie"] ?? "")
+    var $webSession = Session::start($cookieHeader)
 
-        // Application Controller Routing via __joss_http_dispatch
-        var $dispatched = __joss_http_dispatch($_method, $path, $requestData, $webSession->data, $webSession->getCookieHeader())
-        guard ($dispatched == "" || $dispatched == null) : {
-            $webSession->save()
-            var $response = (Str::contains($dispatched, "HTTP/1.1")) ? $dispatched : ("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n" . $dispatched)
-            return $response
-        }
-
-        return ErrorPages::render404($path)
+    // Application Controller Routing via __joss_http_dispatch
+    var $dispatched = __joss_http_dispatch($_method, $path, $requestData, $webSession->data, $webSession->getCookieHeader())
+    guard ($dispatched == "" || $dispatched == null) : {
+        $webSession->save()
+        var $response = (Str::contains($dispatched, "HTTP/1.1")) ? $dispatched : ("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n" . $dispatched)
+        return $response
     }
 
-    public static func expectedRequestBytes(string $raw): int {
-        mixed $separator = strpos($raw, "\r\n\r\n")
-        guard ($separator !== false) : {
-            return -1
-        }
-        int $headerEnd = intval($separator)
-        string $headers = substr($raw, 0, $headerEnd)
-        int $expected = $headerEnd + 4
-        foreach (explode("\r\n", $headers) as $line) {
-            string $normalized = strtolower(trim($line))
-            Str::startsWith($normalized, "content-length:") ? {
-                var $parts = explode(":", $line)
-                (count($parts) > 1) ? {
-                    $expected = $headerEnd + 4 + intval(trim($parts[1]))
-                }
+    return ErrorPages::render404($path)
+}
+
+public static func expectedRequestBytes(string $raw) : int {
+    mixed $separator = strpos($raw, "\r\n\r\n")
+    guard ($separator !== false) : {
+        return - 1
+    }
+    int $headerEnd = intval($separator)
+    string $headers = substr($raw, 0, $headerEnd)
+    int $expected = $headerEnd + 4
+    foreach (explode("\r\n", $headers) as $line) {
+        string $normalized = strtolower(trim($line))
+        Str::startsWith($normalized, "content-length:") ? {
+            var $parts = explode(":", $line)
+            (count($parts) > 1) ? {
+                $expected = $headerEnd + 4 + intval(trim($parts [1]))
             }
         }
-        return $expected
     }
+    return $expected
+}
 
 }
 

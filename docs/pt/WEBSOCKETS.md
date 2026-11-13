@@ -52,7 +52,12 @@ Os canais são locais para o processo. Uma implantação com múltiplas réplica
 sessões fixas e um backplane externo de pub/sub, ou você deve manter um único
 réplica para funções de sala.
 
-O servidor aplica limites configuráveis ​​e de manutenção de atividade:```env
+O servidor integrado, incluindo o servidor standalone `std/http`, mantém a
+conexão ativa com frames ping e responde aos frames pong do cliente. Uma
+conexão sem atividade é fechada ao atingir o timeout configurado. Os valores
+padrão e os limites de mensagem são configuráveis:
+
+```env
 WS_MAX_MESSAGE_BYTES="8388608"
 WS_IDLE_TIMEOUT_SECONDS="120"
 WS_PING_INTERVAL_SECONDS="30"

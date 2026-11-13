@@ -52,7 +52,12 @@ The channels are local to the process. A deployment with multiple replicas requi
 sticky sessions and an external pub/sub backplane, or should you maintain a single
 replica for room functions.
 
-The server applies keepalive and configurable limits:```env
+The integrated server, including the standalone `std/http` server, keeps the
+connection alive with ping frames and responds to client pong frames. A
+connection with no activity is closed when the configured timeout is reached.
+The defaults and message limits are configurable:
+
+```env
 WS_MAX_MESSAGE_BYTES="8388608"
 WS_IDLE_TIMEOUT_SECONDS="120"
 WS_PING_INTERVAL_SECONDS="30"

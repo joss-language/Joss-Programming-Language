@@ -47,6 +47,14 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 			method, methodOK := args[0].(string)
 			path, pathOK := args[1].(string)
 			if methodOK && pathOK {
+				if method == "__websocket__" {
+					if len(args) >= 3 {
+						if socket, ok := args[2].(*Instance); ok {
+							return r.startNativeWebSocket(path, socket), true
+						}
+					}
+					return false, true
+				}
 				requestData, requestOK := args[2].(map[string]interface{})
 				if !requestOK {
 					if rawRequest, ok := args[2].(string); ok {
