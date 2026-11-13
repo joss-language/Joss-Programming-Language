@@ -710,8 +710,14 @@ func executeScript(filename string) {
 				mcBuilder := native.NewMachineCodeBuilder(native.HostTarget(), false)
 				if jitExe, err := mcBuilder.CompileInMemory(irProg); err == nil {
 					defer jitExe.Free()
-					exitCode, _ := jitExe.Execute()
+					exitCode, execErr := jitExe.Execute()
+					if execErr != nil {
+						_ = jitExe.Free()
+						fmt.Fprintf(os.Stderr, "JIT execution failed: %v\n", execErr)
+						os.Exit(1)
+					}
 					if exitCode != 0 {
+						_ = jitExe.Free()
 						os.Exit(exitCode)
 					}
 					return

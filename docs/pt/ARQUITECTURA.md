@@ -107,6 +107,8 @@ A compilação nativa oficial (`joss build`) transforma o `PreparedProgram` anal
 
 Um símbolo global de runtime sem implementação para o target interrompe a compilação com erro de símbolo não resolvido. Adaptadores transitórios de passagem ficam reservados às famílias de métodos `Router`, `Schema`, `Plugin`, `GranDB` e `HttpServer`; eles não substituem funções da Standard Library nem comprovam paridade funcional desses serviços. A paridade AOT de `strpos`, `substr`, `urldecode` e outras primitivas deve ser verificada separadamente em AMD64 e ARM64 antes de considerar completo um fluxo HTTP.
 
+As primitivas nativas `Socket::listen`, `Socket::accept`, `Socket::receive`, `Socket::send` e `Socket::close` são verificadas conforme a ABI: AMD64 no Windows e Linux; ARM64 no Linux e macOS. O compilador rejeita essas chamadas nas demais combinações até que exista uma implementação para o sistema operacional correspondente. No modo JIT, os callbacks de HostBridge continuam limitados a Windows AMD64; programas sem callbacks podem usar as primitivas nativas de socket nos targets compatíveis.
+
 Do mesmo modo, JPBC só define execução de plugins. Ao documentar
 “compilação”, indique qual das representações está sendo usada.
 

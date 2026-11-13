@@ -261,6 +261,13 @@ func (j *JITExecutable) Execute() (int, error) {
 // CompileInMemory translates an *ir.Program into native machine code directly in RAM
 // and returns an executable image ready for zero-latency execution.
 func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, error) {
+	host := HostTarget()
+	if b.target.OS == "" && b.target.Arch == "" {
+		b.target = host
+	}
+	if host.Arch != "amd64" || b.target != host {
+		return nil, fmt.Errorf("in-memory JIT requires the current AMD64 host target (host %s, requested %s)", host, b.target)
+	}
 	b.isJITMode = true
 	b.prog = prog
 	if err := assignNativeGlobalOffsets(prog); err != nil {
@@ -360,23 +367,55 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, 
 }
 
 // isSupportedHostService reports host-service calls with a concrete AOT implementation.
-func isSupportedHostService(className, methodName string) bool {
-	return className == "Server" && methodName == "start" ||
+func isSupportedHostService(target Target, className, methodName string) bool {
+	if className == "Server" && methodName == "start" ||
 		className == "Str" && methodName == "contains" ||
-		className == "GranDB"
+		className == "GranDB" {
+		return true
+	}
+	if className != "Socket" {
+		return false
+	}
+	switch methodName {
+	case "listen", "accept", "receive", "send", "close":
+	default:
+		return false
+	}
+	// Socket intrinsics use Winsock on Windows AMD64, Linux syscalls on AMD64,
+	// and Linux or Darwin syscalls on ARM64. Other target combinations must fail
+	// closed until their native socket ABI is implemented.
+	switch target.Arch {
+	case "amd64":
+		return target.OS == "windows" || target.OS == "linux" || target.OS == "android"
+	case "arm64":
+		return target.OS == "linux" || target.OS == "android" || target.OS == "darwin"
+	default:
+		return false
+	}
 }
 
 func (b *MachineCodeBuilder) hostServiceAvailable(className, methodName string) bool {
 	if b.isJITMode {
 		return b.hasNativeHostService(className, methodName) ||
 			programHasJossHostService(b.prog, className, methodName) ||
-			jit.HasHostBridgeHandler(className+"::"+methodName)
+			jit.SupportsInProcessHostBridge() && jit.HasHostBridgeHandler(className+"::"+methodName)
 	}
 	return b.hasNativeHostService(className, methodName) || programHasJossHostService(b.prog, className, methodName)
 }
 
+func jitBuiltinBridgeHandler(id string) (string, bool) {
+	switch id {
+	case "json", "str_contains", "contains", "str_replace", "rsa_sign_sha256",
+		"rawurlencode", "rawurldecode", "gmdate", "date", "sha256_base64", "sha1_base64",
+		"__joss_db_is_connected", "__joss_db_query", "__joss_db_execute":
+		return id, true
+	default:
+		return "", false
+	}
+}
+
 func (b *MachineCodeBuilder) hasNativeHostService(className, methodName string) bool {
-	if isSupportedHostService(className, methodName) {
+	if isSupportedHostService(b.target, className, methodName) {
 		return true
 	}
 	// These adapters are emitted only by the AMD64 backend. Keep the target
@@ -449,6 +488,13 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 						report("primitive method " + i.TypeKind + "::" + i.MethodName)
 					}
 				case *ir.CallBuiltinInst:
+					if b.isJITMode {
+						if handler, bridged := jitBuiltinBridgeHandler(i.BuiltinID); bridged &&
+							(!jit.SupportsInProcessHostBridge() || !jit.HasHostBridgeHandler(handler)) {
+							report("JIT builtin " + i.BuiltinID + " (host callback unavailable)")
+							continue
+						}
+					}
 					if isNativeBuiltin(i.BuiltinID) {
 						if isExtendedStdlibCallee(i.BuiltinID) {
 							b.usesExtendedStdlib = true

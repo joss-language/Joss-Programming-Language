@@ -50,8 +50,8 @@ func TestMachineCodeBuilder_CompileInMemory_Simple(t *testing.T) {
 	defer jitExe.Free()
 
 	exitCode, err := jitExe.Execute()
-	if err != nil && err.Error() != "The operation completed successfully." {
-		t.Logf("Execute notice: %v", err)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
 	}
 
 	if exitCode != 42 {
@@ -101,8 +101,8 @@ func TestMachineCodeBuilder_CompileInMemory_LoopAndWrite(t *testing.T) {
 	defer jitExe.Free()
 
 	exitCode, err := jitExe.Execute()
-	if err != nil && err.Error() != "The operation completed successfully." {
-		t.Logf("Execute notice: %v", err)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
 	}
 
 	// 1 + 2 + ... + 10 = 55

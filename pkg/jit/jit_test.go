@@ -7,6 +7,13 @@ import (
 	"github.com/jossecurity/joss/pkg/jit"
 )
 
+func TestJITHostBridgeSupportMatchesCallbackABI(t *testing.T) {
+	want := runtime.GOOS == "windows" && runtime.GOARCH == "amd64"
+	if got := jit.SupportsInProcessHostBridge(); got != want {
+		t.Fatalf("SupportsInProcessHostBridge() = %v, want %v for %s/%s", got, want, runtime.GOOS, runtime.GOARCH)
+	}
+}
+
 func TestJIT_AllocateAndExecuteBasic(t *testing.T) {
 	if runtime.GOARCH != "amd64" {
 		t.Skip("JIT basic test is x86_64 amd64 only")
@@ -31,9 +38,8 @@ func TestJIT_AllocateAndExecuteBasic(t *testing.T) {
 	}()
 
 	ret, err := jit.CallFunc0(block.Addr)
-	if err != nil && err.Error() != "The operation completed successfully." {
-		// Windows SyscallN returns errno 0 which formats as "The operation completed successfully."
-		t.Logf("CallFunc0 notice: %v", err)
+	if err != nil {
+		t.Fatalf("CallFunc0 failed: %v", err)
 	}
 
 	if ret != 42 {

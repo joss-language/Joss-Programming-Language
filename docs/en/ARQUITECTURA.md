@@ -107,6 +107,8 @@ Official native compilation (`joss build`) transforms the analyzed and validated
 
 A global runtime symbol without an implementation for the target stops compilation with an unresolved-symbol error. Transitional pass-through adapters are reserved for the `Router`, `Schema`, `Plugin`, `GranDB`, and `HttpServer` method families; they do not stand in for Standard Library functions and do not prove functional parity for those services. AOT parity for `strpos`, `substr`, `urldecode`, and other primitives must be checked separately on AMD64 and ARM64 before an HTTP flow is considered complete.
 
+The native primitives `Socket::listen`, `Socket::accept`, `Socket::receive`, `Socket::send`, and `Socket::close` are checked against their ABI: AMD64 on Windows and Linux; ARM64 on Linux and macOS. The compiler rejects these calls on other combinations until the corresponding operating-system implementation exists. In JIT mode, HostBridge callbacks remain limited to Windows AMD64; programs without callbacks can use native socket primitives on supported targets.
+
 Likewise, JPBC only defines plugin execution. When documenting
 “compilation”, state which of the representations is being used.
 

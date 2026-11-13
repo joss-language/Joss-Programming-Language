@@ -1526,7 +1526,7 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		return fmt.Errorf("%s", analyzer.FormatCapabilityError("primitive method "+i.TypeKind+"::"+i.MethodName))
 
 	case *ir.CallHostServiceInst:
-		if isSupportedHostService(i.ClassName, i.MethodName) || programHasJossHostService(b.prog, i.ClassName, i.MethodName) {
+		if isSupportedHostService(b.target, i.ClassName, i.MethodName) || programHasJossHostService(b.prog, i.ClassName, i.MethodName) {
 			b.usesExtendedStdlib = true
 			for idx := 0; idx < 8; idx++ {
 				if idx < len(i.Args) {
