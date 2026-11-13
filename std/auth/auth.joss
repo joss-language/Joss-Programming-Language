@@ -69,7 +69,8 @@ public class Auth {
 
         string $token = UUID::generate()
         string $expires = date("Y-m-d H:i:s", time() + 86400)
-        int $roleId = intval($data ["role_id"] ?? 2)
+        // Public registration must never let caller-controlled data select a privileged role.
+        int $roleId = 2
         map $user = {
         "user_token" : $token,
         "username" : $username,

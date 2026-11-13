@@ -142,3 +142,5 @@ never the database configured for an installation.
 
 The global `now()` function still depends on `pkg/core/builtins_date.go`; its
 Joss implementation and multi architecture AOT emission remain pending.
+
+`Auth::databaseReady()` checks the MySQL connection and prepares missing Auth tables (`roles`, `users`, `password_resets`, and `user_social_accounts`), then adds missing columns to `users`. Run it during application startup with a database account that has migration privileges. Public registration always assigns the `client` role (ID 2); any caller supplied `role_id` is ignored. Controllers send verification and recovery email: SMTP failure does not roll back account creation or change the generic recovery response.

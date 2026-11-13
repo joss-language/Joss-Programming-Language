@@ -40,7 +40,7 @@ func TestPureJossAuthFlowsMySQL(t *testing.T) {
 	}
 
 	prefix := "joss_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:24] + "_"
-	tables := []string{"password_resets", "user_mfa_challenges", "user_recovery_codes", "user_mfa_methods", "security_logs", "users", "roles"}
+	tables := []string{"password_resets", "user_social_accounts", "user_mfa_challenges", "user_recovery_codes", "user_mfa_methods", "security_logs", "users", "roles"}
 	for _, table := range tables {
 		name := prefix + table
 		if _, err := db.Exec("DROP TABLE IF EXISTS " + name); err != nil {
@@ -53,20 +53,6 @@ func TestPureJossAuthFlowsMySQL(t *testing.T) {
 		}
 	}()
 
-	ddl := []string{
-		"CREATE TABLE " + prefix + "roles (id BIGINT PRIMARY KEY, name VARCHAR(80) NOT NULL)",
-		"CREATE TABLE " + prefix + "users (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, user_token VARCHAR(64) NOT NULL, username VARCHAR(120) NOT NULL UNIQUE, first_name VARCHAR(120) NOT NULL DEFAULT '', last_name VARCHAR(120) NOT NULL DEFAULT '', email VARCHAR(190) NOT NULL UNIQUE, phone VARCHAR(80) NOT NULL DEFAULT '', password VARCHAR(255) NOT NULL, role_id BIGINT NOT NULL, token_expires_at DATETIME NULL, verificado TINYINT NOT NULL DEFAULT 0, last_login_at DATETIME NULL)",
-		"CREATE TABLE " + prefix + "password_resets (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, email VARCHAR(190) NOT NULL, token VARCHAR(64) NOT NULL UNIQUE, expires_at DATETIME NOT NULL, used TINYINT NOT NULL DEFAULT 0)",
-	}
-	for _, statement := range ddl {
-		if _, err := db.Exec(statement); err != nil {
-			t.Fatalf("create disposable Auth schema: %v", err)
-		}
-	}
-	if _, err := db.Exec("INSERT INTO " + prefix + "roles (id, name) VALUES (2, 'client')"); err != nil {
-		t.Fatal(err)
-	}
-
 	runtime := NewRuntime()
 	runtime.DB = db
 	runtime.Env = map[string]string{"DB": "mysql", "PREFIX": prefix, "JWT_SECRET": "disposable-auth-test-secret"}
@@ -74,7 +60,13 @@ func TestPureJossAuthFlowsMySQL(t *testing.T) {
 	defer runtime.Free()
 	installJossAuthFlows(t, runtime)
 	if ready := runtime.executeAuthMethod(nil, "databaseReady", nil); ready != true {
-		t.Fatalf("Auth::databaseReady primitive rejected the connected disposable MySQL database: %#v", ready)
+		t.Fatalf("Auth::databaseReady failed to prepare the fresh disposable MySQL schema: %#v", ready)
+	}
+	for _, table := range []string{"roles", "users", "password_resets", "user_social_accounts"} {
+		var exists string
+		if err := db.QueryRow("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?", prefix+table).Scan(&exists); err != nil {
+			t.Fatalf("Auth::databaseReady did not create %s: %v", prefix+table, err)
+		}
 	}
 	if hash := runtime.executeAuthMethod(nil, "hash", []interface{}{"correct horse battery staple"}); hash == nil {
 		t.Fatal("Auth::hash primitive failed before registration")
@@ -87,6 +79,7 @@ func TestPureJossAuthFlowsMySQL(t *testing.T) {
 		"email":      strings.ToUpper("ada_" + prefix + "@example.test"),
 		"password":   "correct horse battery staple",
 		"phone":      "",
+		"role_id":    int64(1), // untrusted input must not grant the admin role
 	}
 	tokenValue := runtime.CallMethodEvaluated(create, nil, []interface{}{data})
 	verificationToken, ok := tokenValue.(string)
@@ -94,6 +87,13 @@ func TestPureJossAuthFlowsMySQL(t *testing.T) {
 		var inserted int
 		_ = db.QueryRow("SELECT count(*) FROM " + prefix + "users").Scan(&inserted)
 		t.Fatalf("Auth::create returned %#v, want a verification token (users inserted: %d)", tokenValue, inserted)
+	}
+	var assignedRole int64
+	if err := db.QueryRow("SELECT role_id FROM "+prefix+"users WHERE user_token = ?", verificationToken).Scan(&assignedRole); err != nil {
+		t.Fatal(err)
+	}
+	if assignedRole != 2 {
+		t.Fatalf("Auth::create accepted caller-selected role_id=%d; public registration must assign client role 2", assignedRole)
 	}
 	if got := runtime.CallMethodEvaluated(create, nil, []interface{}{data}); got != false {
 		t.Fatalf("duplicate Auth::create returned %#v, want false", got)

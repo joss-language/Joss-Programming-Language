@@ -143,3 +143,5 @@ la conexión de una instalación configurada.
 
 La función global `now()` todavía depende de `pkg/core/builtins_date.go`; su
 implementación Joss y la emisión AOT multi arquitectura permanecen pendientes.
+
+`Auth::databaseReady()` comprueba la conexión MySQL y prepara las tablas de Auth que falten (`roles`, `users`, `password_resets` y `user_social_accounts`), además de completar columnas faltantes en `users`. La aplicación debe ejecutarlo durante el arranque con una cuenta de base de datos que tenga permisos de migración. El registro público siempre asigna el rol `client` (ID 2); `role_id` enviado por el cliente se ignora. El correo de verificación y recuperación lo envía el controlador: un fallo SMTP no revierte el alta ni cambia la respuesta genérica de recuperación.

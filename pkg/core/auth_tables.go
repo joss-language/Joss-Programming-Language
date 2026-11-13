@@ -8,16 +8,19 @@ import (
 )
 
 var authTablesEnsured sync.Map
+var authTablesEnsureMu sync.Mutex
 
 // ensureAuthTables creates and auto-migrates Auth tables using Schema & GranDB (100% DB-agnostic)
-func (r *Runtime) ensureAuthTables(usersTable, rolesTable, prefix string) {
+func (r *Runtime) ensureAuthTables(usersTable, rolesTable, prefix string) bool {
 	db := r.GetDB()
 	if db == nil {
-		return
+		return false
 	}
 	ensureKey := fmt.Sprintf("%p:%s", db, usersTable)
+	authTablesEnsureMu.Lock()
+	defer authTablesEnsureMu.Unlock()
 	if _, exists := authTablesEnsured.Load(ensureKey); exists {
-		return
+		return true
 	}
 
 	// 1. Tabla de Roles con Schema::create
@@ -26,7 +29,7 @@ func (r *Runtime) ensureAuthTables(usersTable, rolesTable, prefix string) {
 		{name: "name", definition: "string(50)|unique"},
 	}); err != nil {
 		fmt.Printf("[Auth] Error creando tabla de roles: %v\n", err)
-		return
+		return false
 	}
 
 	// 2. Tabla de Usuarios con Schema::create
@@ -47,7 +50,7 @@ func (r *Runtime) ensureAuthTables(usersTable, rolesTable, prefix string) {
 		{name: "updated_at", definition: "timestamp|nullable"},
 	}); err != nil {
 		fmt.Printf("[Auth] Error creando tabla de usuarios: %v\n", err)
-		return
+		return false
 	}
 
 	// 3. Tabla de Password Resets con Schema::create
@@ -60,7 +63,7 @@ func (r *Runtime) ensureAuthTables(usersTable, rolesTable, prefix string) {
 		{name: "used", definition: "integer|default(0)"},
 	}); err != nil {
 		fmt.Printf("[Auth] Error creando tabla de recuperacion: %v\n", err)
-		return
+		return false
 	}
 
 	// 4. Tabla de Cuentas Sociales (OAuth) con Schema::create
@@ -74,7 +77,7 @@ func (r *Runtime) ensureAuthTables(usersTable, rolesTable, prefix string) {
 		{name: "updated_at", definition: "timestamp|nullable"},
 	}); err != nil {
 		fmt.Printf("[Auth] Error creando tabla user_social_accounts: %v\n", err)
-		return
+		return false
 	}
 
 	// 4. Auto-Patching de columnas en tablas existentes usando Schema::hasColumn y Schema::table
@@ -96,7 +99,7 @@ func (r *Runtime) ensureAuthTables(usersTable, rolesTable, prefix string) {
 		if !hasCol {
 			if err := r.addInternalSchemaColumn("users", schemaColumn{name: colName, definition: colType}); err != nil {
 				fmt.Printf("[Auth] Error agregando users.%s: %v\n", colName, err)
-				return
+				return false
 			}
 		}
 	}
@@ -105,14 +108,22 @@ func (r *Runtime) ensureAuthTables(usersTable, rolesTable, prefix string) {
 	for _, roleName := range []string{"admin", "client"} {
 		var count int
 		checkQuery := fmt.Sprintf("SELECT count(*) FROM %s WHERE name = ?", rolesTable)
-		if err := db.QueryRow(checkQuery, roleName).Scan(&count); err == nil && count == 0 {
-			r.insertFromMap(rolesTable, map[string]interface{}{
+		if err := db.QueryRow(checkQuery, roleName).Scan(&count); err != nil {
+			fmt.Printf("[Auth] Error consultando rol %s: %v\n", roleName, err)
+			return false
+		}
+		if count == 0 {
+			if result := r.insertFromMap(rolesTable, map[string]interface{}{
 				"name": roleName,
-			}, false)
+			}, false); result == nil || result == false {
+				fmt.Printf("[Auth] Error creando rol %s\n", roleName)
+				return false
+			}
 		}
 	}
 
 	authTablesEnsured.Store(ensureKey, true)
+	return true
 }
 
 func normalizeAuthEmail(email string) string {

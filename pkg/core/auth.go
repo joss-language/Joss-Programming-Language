@@ -68,7 +68,10 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		return db.PingContext(ctx) == nil
+		if db.PingContext(ctx) != nil {
+			return false
+		}
+		return r.ensureAuthTables(usersTable, rolesTable, prefix)
 
 	case "prepareLogin2FA":
 		if len(args) >= 2 && r.GetDB() != nil {
@@ -307,10 +310,9 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 				phone := getString(data, "phone", "")
 				password := getString(data, "password", "")
 
+				// Registration data is untrusted; privileged roles are assigned only
+				// through an authenticated administrative workflow.
 				roleId := 2
-				if rId, ok := data["role_id"].(int64); ok {
-					roleId = int(rId)
-				}
 
 				hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 				if err != nil {
