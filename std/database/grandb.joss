@@ -155,7 +155,7 @@ public class GranDB {
             $this->bindings [] = $values [$i]
             $i++
         }
-        var $inClause = "IN (" . join(", ", $placeholders) . ")"
+        var $inClause = "IN (" . implode(", ", $placeholders) . ")"
         $this->wheres [] = ["col" => $col, "op" => $inClause, "val" => null, "boolean" => "AND", "raw_op" => true]
         return $this
     }
@@ -169,7 +169,7 @@ public class GranDB {
             $this->bindings [] = $values [$i]
             $i++
         }
-        var $inClause = "NOT IN (" . join(", ", $placeholders) . ")"
+        var $inClause = "NOT IN (" . implode(", ", $placeholders) . ")"
         $this->wheres [] = ["col" => $col, "op" => $inClause, "val" => null, "boolean" => "AND", "raw_op" => true]
         return $this
     }

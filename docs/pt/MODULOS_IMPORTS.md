@@ -40,10 +40,7 @@ O Joss inclui uma biblioteca padrão escrita no próprio Joss localizada no dire
    - `MathUtils::sign(int $n): int`: Retorna `1` se positivo, `-1` se negativo e `0` se zero.
    - `MathUtils::gcd(int $a, int $b): int`: Calcula o máximo divisor comum de dois inteiros usando o algoritmo de Euclides.
 
-2. **`StringUtils` (`stdlib/strings/strings.joss`):**
-   - `StringUtils::isEmpty(string $s): bool`: Verifica com eficiência se uma string tem tamanho 0.
-   - `StringUtils::isNotEmpty(string $s): bool`: Verifica se uma string contém pelo menos um caractere.
-   - `StringUtils::padZero(int $num, int $width): string`: Preenche um número com zeros à esquerda até atingir a largura especificada.
+2. **Funções globais de texto (`std/strings/strings.joss`):** `strlen`, `str_contains`, `str_starts_with`, `str_ends_with`, `str_replace`, `strtolower`, `strtoupper`, `trim`, `substr`, `strpos`, `str_pad`, `str_repeat`, `explode`, `implode` e `str_random`. Consulte [Funções globais](FUNCIONES_GLOBALES.md#texto-y-formato) para o contrato completo.
 
 ### Exemplo de uso
 
@@ -55,8 +52,8 @@ echo $minimo; // 100
 int $signo = MathUtils::sign(-45);
 echo $signo; // -1
 
-string $codigo = StringUtils::padZero(42, 5);
-echo $codigo; // "00042"
+string $codigo = str_pad("42", 5, "0");
+echo $codigo; // "42000"
 ```
 
 ## Interface de funções externas (C FFI)

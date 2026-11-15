@@ -105,7 +105,7 @@ func TestJITRejectsCrossTargetCompilation(t *testing.T) {
 }
 
 func TestJITBridgeBuiltinsHaveExplicitHandlerNames(t *testing.T) {
-	for _, id := range []string{"json", "str_contains", "rawurldecode", "__joss_db_query"} {
+	for _, id := range []string{"json", "rawurldecode", "__joss_db_query"} {
 		if handler, ok := jitBuiltinBridgeHandler(id); !ok || handler != id {
 			t.Errorf("JIT bridge builtin %q maps to (%q, %v), want (%q, true)", id, handler, ok, id)
 		}
@@ -162,9 +162,6 @@ func TestHostServiceAvailabilityMatchesExecutionMode(t *testing.T) {
 			}
 			if !builder.hostServiceAvailable("Session", "get") {
 				t.Fatal("AMD64 Session::get must use its emitted native implementation")
-			}
-			if !builder.hostServiceAvailable("Str", "contains") {
-				t.Fatal("Str::contains must use its emitted native implementation")
 			}
 			program := ir.NewProgram("joss_grandb_service")
 			program.AddFunction(ir.NewFunction("GranDB_table", ir.TypeI64))

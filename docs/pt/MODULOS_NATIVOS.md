@@ -19,12 +19,6 @@ metadados de parâmetro em parte da biblioteca.
 |---|---|
 | `Math::random(min,max)` | inteiro inclusivo; requer dois inteiros e intervalos válidos; Faixa invertida pode causar pânico. Não criptográfico. Ex.: Matemática::aleatório(1,6). |
 | `Math::floor(n)`, `ceil(n)`, `abs(n)` | resultado flutuante para entradas numéricas conversíveis; Eles não são equivalentes em tipo aos auxiliares globais de piso/teto. |
-| `Str::length(texto)` | Bytes UTF-8, 0 para argumento inválido. |
-| `Str::random([longitud])` | Texto alfanumérico, padrão 16, matemática/rand; não use como token secreto. O comprimento negativo falha. |
-| `Str::startsWith(texto,prefijo)`, `contains(texto,parte)` | Bool; requer cordas. |
-| `Str::substring(texto,inicio,[longitud])` | Pontos Unicode; o início negativo é definido como zero. O comprimento negativo pode falhar. |
-| `Str::indexOf(texto,parte)` | Índice em pontos Unicode ou -1. |
-| `Str::trim(texto)`, `replace(texto,buscar,nuevo)` | Corda. A ordem de substituição difere de str_replace. |
 | `UUID::generate()`, `v4()` | Identificador UUID textual. |
 | `JSON::parse(texto)`, `decode(texto)` | Valor decodificado ou nulo; Os números JSON são flutuantes, e não números inteiros arbitrariamente precisos. |
 | `JSON::stringify(valor)`, `encode(valor)` | JSON compacto ou "" em caso de falha. |
@@ -40,8 +34,8 @@ metadados de parâmetro em parte da biblioteca.
 | `DateInterval::days(n)`, `hours(n)`, ... | Intervalos de tempo para operações aritméticas em `DateTime`. |
 | `new Mutex()`, `new RWMutex()`, `new WaitGroup()` | Primitivas de sincronização concorrente seguras (`lock`, `unlock`, `add`, `done`, `wait`). |<!-- joss-run: ["abc", "1", "dos", "uno"] -->
 ```joss
-print(Str::trim(" abc "))
-print(Str::indexOf("casa", "a"))
+print(trim(" abc "))
+print(strpos("casa", "a"))
 var $pila = new Stack()
 $pila->push("uno")
 $pila->push("dos")

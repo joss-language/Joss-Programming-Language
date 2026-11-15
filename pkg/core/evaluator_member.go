@@ -298,13 +298,6 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 		return nil
 	}
 
-	// Support fluent methods on string ($str->trim(), $str->lower(), etc.)
-	if s, ok := left.(string); ok {
-		if fn, ok := r.resolveStringMethod(s, me.Property); ok {
-			return fn
-		}
-	}
-
 	// Support fluent methods on array ($arr->map(...), $arr->join(...), etc.)
 	if arr, ok := left.([]interface{}); ok {
 		if fn, ok := r.resolveArrayMethod(arr, me.Property); ok {

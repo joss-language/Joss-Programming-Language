@@ -56,7 +56,7 @@ func GetControllerFiles(path string) map[string]string {
     public func activate2FA() {
         var $userId = Auth::id()
         var $secret = Session::get("temp_2fa_secret")
-        var $code = Str::trim(request("code"))
+        var $code = trim(request("code"))
         
         (empty($secret) || empty($code)) ? {
             return redirect("/profile")->with("error", "Código o sesión de 2FA no válida.")
@@ -128,7 +128,7 @@ func GetControllerFiles(path string) map[string]string {
     }
     
     public func doLogin() {
-        var $email = Str::trim(request("email"))
+        var $email = trim(request("email"))
         var $password = request("password")
         
         var $loginResult = Auth::login($email, $password)
@@ -172,7 +172,7 @@ func GetControllerFiles(path string) map[string]string {
         var $tempToken = Session::get("temp_2fa_token")
         (empty($tempToken)) ? { return redirect("/login") }
         
-        var $code = Str::trim(request("code"))
+        var $code = trim(request("code"))
         var $finalToken = Auth::verify2FAChallenge($tempToken, $code)
 
         return ($finalToken) ? {
@@ -230,7 +230,7 @@ func GetControllerFiles(path string) map[string]string {
 
     public func socialRedirect(mixed $provider) {
         var $redirectUri = Request::root() . "/auth/" . $provider . "/callback"
-        var $state = Str::random(16)
+        var $state = UUID::v4()
         Session::put("oauth_state", $state)
         var $url = Auth::socialRedirect($provider, $redirectUri, $state)
         (!$url) ? {

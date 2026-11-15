@@ -9,17 +9,17 @@ func TestUploadPathEvaluation(t *testing.T) {
 var $file = {"name": "test.png", "type": "image/png"}
 var $rawName = (!empty($file["name"])) ? $file["name"] : "image.png"
 var $originalName = $rawName
-(!Str::contains($originalName, ".")) ? {
+(!str_contains($originalName, ".")) ? {
     var $ext = ".png"
     var $mime = $file["type"] ?? ""
-    (Str::contains($mime, "jpeg") || Str::contains($mime, "jpg")) ? { $ext = ".jpg" }
-    (Str::contains($mime, "webp")) ? { $ext = ".webp" }
-    (Str::contains($mime, "gif")) ? { $ext = ".gif" }
-    (Str::contains($mime, "svg")) ? { $ext = ".svg" }
+    (str_contains($mime, "jpeg") || str_contains($mime, "jpg")) ? { $ext = ".jpg" }
+    (str_contains($mime, "webp")) ? { $ext = ".webp" }
+    (str_contains($mime, "gif")) ? { $ext = ".gif" }
+    (str_contains($mime, "svg")) ? { $ext = ".svg" }
     $originalName = $originalName . $ext
 }
 var $ts = 1792620142
-var $safeName = Str::replace(" ", "_", $originalName)
+var $safeName = str_replace(" ", "_", $originalName)
 var $objectPath = "cms-media/" . $ts . "_" . $safeName
 `)
 

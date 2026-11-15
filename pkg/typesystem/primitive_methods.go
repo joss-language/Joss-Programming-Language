@@ -25,22 +25,6 @@ type PrimitiveMethodDefinition struct {
 }
 
 var primitiveMethods = map[Kind]map[string]PrimitiveMethodDefinition{
-	String: primitiveMethodMap(
-		PrimitiveMethodDefinition{Name: "trim", Return: PrimitiveReturnsString},
-		PrimitiveMethodDefinition{Name: "lower", Return: PrimitiveReturnsString},
-		PrimitiveMethodDefinition{Name: "upper", Return: PrimitiveReturnsString},
-		PrimitiveMethodDefinition{Name: "replace", Return: PrimitiveReturnsString},
-		PrimitiveMethodDefinition{Name: "substring", Return: PrimitiveReturnsString},
-		PrimitiveMethodDefinition{Name: "substr", Return: PrimitiveReturnsString},
-		PrimitiveMethodDefinition{Name: "repeat", Return: PrimitiveReturnsString},
-		PrimitiveMethodDefinition{Name: "length", Return: PrimitiveReturnsInt},
-		PrimitiveMethodDefinition{Name: "indexOf", Return: PrimitiveReturnsInt},
-		PrimitiveMethodDefinition{Name: "contains", Return: PrimitiveReturnsBool},
-		PrimitiveMethodDefinition{Name: "startsWith", Return: PrimitiveReturnsBool},
-		PrimitiveMethodDefinition{Name: "endsWith", Return: PrimitiveReturnsBool},
-		PrimitiveMethodDefinition{Name: "split", Return: PrimitiveReturnsStringArray},
-		PrimitiveMethodDefinition{Name: "lines", Return: PrimitiveReturnsStringArray},
-	),
 	Array: primitiveMethodMap(
 		PrimitiveMethodDefinition{Name: "length", Return: PrimitiveReturnsInt},
 		PrimitiveMethodDefinition{Name: "count", Return: PrimitiveReturnsInt},

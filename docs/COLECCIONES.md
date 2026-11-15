@@ -231,14 +231,14 @@ cliente
 
 ---
 
-## 5. Métodos directos sobre textos, listas y mapas (`->`)
+## 5. Métodos directos sobre listas y mapas (`->`)
 
-En Joss, los textos (`string`), listas (`array`) y mapas (`map`) traen **herramientas integradas (métodos)** que puedes invocar escribiendo una flecha delgada **`->`** después de la variable:
+Las listas (`array`) y mapas (`map`) traen **herramientas integradas (métodos)** que puedes invocar escribiendo una flecha delgada **`->`** después de la variable. Los textos usan las funciones globales de [texto y formato](FUNCIONES_GLOBALES.md#texto-y-formato), como `trim`, `strtolower` y `str_replace`.
 
 <!-- joss-run: ["hola-mundo", "a-b"] -->
 ```joss
 var $txt = "  Hola Mundo  "
-print($txt->trim()->lower()->replace(" ", "-"))
+print(str_replace(" ", "-", strtolower(trim($txt))))
 
 var $mapa = {"a": 1, "b": 2}
 print($mapa->keys()->join("-"))
@@ -251,10 +251,7 @@ hola-mundo
 a-b
 ```
 
-Observa cómo se lee de izquierda a derecha:
-1. `$txt->trim()`: Quita los espacios sobrantes de los extremos (`"Hola Mundo"`).
-2. `->lower()`: Convierte las letras a minúsculas (`"hola mundo"`).
-3. `->replace(" ", "-")`: Cambia el espacio por un guion (`"hola-mundo"`).
+Las funciones de texto se pueden componer anidando llamadas; los métodos fluent se reservan para objetos y colecciones.
 
 ### Procesamiento funcional de listas
 
@@ -274,7 +271,7 @@ print($numeros |> any(func(int $x): bool { return $x == 3; }))
 <!-- joss-run: ["hola-mundo", "6, 8", "a-b"] -->
 ```joss
 var $txt = "  Hola Mundo  "
-print($txt->trim()->lower()->replace(" ", "-"))
+print(str_replace(" ", "-", strtolower(trim($txt))))
 
 var $nums = [1, 2, 3, 4]
 var $filtrados = $nums->map(func(int $n, int $i): int { return $n * 2; })->filter(func(int $n, int $i): bool { return $n > 4; })
@@ -356,10 +353,9 @@ En los idiomas modernos usamos tildes (`á`, `é`), eñes (`ñ`) y emojis (`�
 
 Mira cómo Joss te permite medir exactamente lo que necesitas:
 
-<!-- joss-run: ["3", "2", "é"] -->
+<!-- joss-run: ["2", "é"] -->
 ```joss
 var $texto = "é"
-print(len($texto))
 print(strlen($texto))
 print($texto[0])
 ```
@@ -367,7 +363,6 @@ print($texto[0])
 Salida:
 
 ```text
-3
 2
 é
 ```
@@ -376,7 +371,7 @@ é
 |---|---|---|
 | `$texto[0]` | El **carácter visible completo** (*grafema*) | Cuando trabajas con nombres de personas o mensajes con tildes y emojis, sin romperlos por la mitad. |
 | `strlen($texto)` | Cantidad de **puntos de código Unicode** | Para conteo estándar de caracteres Unicode. |
-| `len($texto)` | Cantidad de **bytes en memoria (UTF-8)** | Para tamaños de archivo o envíos por red. |
+| `count($col)` / `len($col)` | Cantidad de elementos de un array o map | Para contar elementos de una colección. |
 
 ---
 

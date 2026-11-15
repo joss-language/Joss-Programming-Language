@@ -39,10 +39,10 @@ você precisa. Consulte os tipos [SISTEMA_TIPOS.md](SISTEMA_TIPOS.md) e a sintax
 
 | Assinatura | Resultado, mutação e erros | Exemplo |
 |---|---|---|
-| `len(valor)` , `count(valor)` | comprimento da matriz/mapa; bytes de string; outros valores dão 0. | `count([2,3])` → 2 |
+| `len(array|map)`, `count(array|map)` | Número de elementos de uma coleção. Use `strlen` para texto. | `count([2,3])` → 2 |
 | `keys(map)` , `array_keys(map)` | Matriz de chaves sem ordem garantida; inválido dá []. | `keys({"a":1})` |
 | `values(map)` , `array_values(map)` | Matriz de valores sem pedido garantido; inválido dá []. | `values({"a":1})` |
-| `explode(separador, texto)` | Matriz de segmentos; requer duas strings, inválido retorna nulo. | `explode(",", "a,b")` |
+| `explode(separador, texto)` | Array de segmentos; requer duas strings e o analisador rejeita tipos incompatíveis. | `explode(",", "a,b")` |
 | `append(array, elemento)` | Retornar array expandido; reatribui o resultado. Inválido dá nulo. | `$a = append($a, 2)` |
 | `merge(array1, array2)` | Novo contêiner com ambas as sequências; inválido dá nulo. | `merge([1],[2])` |
 | `array_merge(primero, otros...)` | Matriz concatenada ou mapa combinado de acordo com o primeiro argumento; as últimas chaves vencem. Ignore o seguimento de outros tipos; inválido dá []. | `array_merge({"a":1},{"a":2})` |
@@ -67,21 +67,22 @@ você precisa. Consulte os tipos [SISTEMA_TIPOS.md](SISTEMA_TIPOS.md) e a sintax
 | `print(valores...)` , `echo(valores...)` | Eles imprimem cada argumento com uma quebra de linha; retornar nulo. | `print("Hola")` |
 | `printf(formato,valores...)` | Formato Go, sem salto implícito; retornar nulo. | `printf("%s: %d\\n","Edad",20)` |
 | `strlen(texto)` | Número de pontos Unicode; nulo dá 0. | `strlen("é")` → 1 |
-| `str_contains(texto,parte)` , `contains(texto,parte)` | Bool; argumentos são convertidos em texto. | `contains("casa","as")` |
-| `str_starts_with(texto,prefijo)` , `starts_with(...)` | Prefixo bool. | `starts_with("abc","a")` |
-| `str_ends_with(texto,sufijo)` , `ends_with(...)` | Postfix bool. | `ends_with("abc","c")` |
-| `str_replace(buscar,reemplazo,texto)` | Substitui todas as correspondências. A ordem difere de Str::replace. | `str_replace("a","o","casa")` |
-| `strtolower(texto)` , `to_lower(texto)` | Unicode minúscula. | `to_lower("HOLA")` |
-| `strtoupper(texto)` , `to_upper(texto)` | Unicode maiúscula. | `to_upper("hola")` |
+| `str_contains(texto,parte)` | Bool; requer duas strings. | `str_contains("casa","as")` |
+| `str_starts_with(texto,prefijo)` | Prefixo bool. | `str_starts_with("abc","a")` |
+| `str_ends_with(texto,sufijo)` | Postfix bool. | `str_ends_with("abc","c")` |
+| `str_replace(buscar,reemplazo,texto)` | Substitui todas as correspondências. | `str_replace("a","o","casa")` |
+| `strtolower(texto)` | Unicode minúscula. | `strtolower("HOLA")` |
+| `strtoupper(texto)` | Unicode maiúscula. | `strtoupper("hola")` |
 | `ucfirst(texto)` , `lcfirst(texto)` | Altere o primeiro ponto Unicode para maiúsculas/minúsculas. | `ucfirst("hola")` |
 | `ucwords(texto)` | Capitalização de acordo com Go strings.Title; não análise linguística. | `ucwords("hola mundo")` |
 | `trim(texto,[conjunto])` | Remove espaços ou caracteres Unicode do conjunto nas extremidades. | `trim(" hola ")` |
 | `ltrim(texto,[conjunto])` , `rtrim(texto,[conjunto])` | Apare em uma extremidade; espaços ASCII padrão. | `ltrim(" hola")` |
 | `substr(texto,inicio,[longitud])` | Pontos Unicode; negativos em relação ao final; sai dá "". | `substr("abc",-2)` → bc |
 | `strpos(texto,parte)` | Posição em pontos Unicode ou falso se estiver faltando. Zero é uma correspondência válida. | `strpos("abc","a")` → 0 |
-| `implode(separador,array)` , `join(separador,array)` | Converta elementos em texto e junte; inválido dá "". | `join("-",[1,2])` |
+| `implode(separador,array)` | Converte os elementos do array para texto e os une; requer uma string e um array. | `implode("-",[1,2])` |
 | `str_pad(texto,longitud,[relleno])` | Adiciona preenchimento à direita em **bytes**, espaço padrão. O enchimento vazio pode causar pânico; não use. | `str_pad("7",3,"0")` → 700 |
 | `str_repeat(texto,cantidad)` | Texto repetido; Negativo é igual a zero. | `str_repeat("a",3)` |
+| `str_random([longitud])` | Texto alfanumérico não criptográfico, 16 por padrão; zero ou negativo retorna texto vazio. Não use para tokens ou segredos. | `str_random(8)` |
 | `html_escape(valor)` | Escapes &, <, > e aspas para HTML; nulo dá "". | `html_escape("<b>")` |
 | `md5(texto)` , `sha1(texto)` , `sha256(texto)` | resumo hexadecimal de bytes; sem criptografia ou hash de senha. | `sha256("dato")` |
 | `base64_encode(texto)` | Texto Base64, sem segredo criptográfico. | `base64_encode("a")` → YQ== |
@@ -168,7 +169,7 @@ Exemplo executável de utilitários
 ```joss
 print(ucfirst(trim(" ana ")))
 print(strlen("sol"))
-print(join("-", ["a", "b"]))
+print(implode("-", ["a", "b"]))
 print(array_key_exists("id", {"id": null}))
 print(base64_decode(base64_encode("Hola")))
 print(floor(2.8))

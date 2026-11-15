@@ -545,7 +545,7 @@ func TestModelAccessorsMutatorsAndSerializationOrder(t *testing.T) {
 	source := `
 public class User extends Model {
     protected bool $timestamps = false
-    public func setNameAttribute(string $value): string { return $value->lower() }
+    public func setNameAttribute(string $value): string { return strtolower($value) }
     public func getNameAttribute(mixed $value): string { return "Hello " . $value }
 }
 $user = new User()

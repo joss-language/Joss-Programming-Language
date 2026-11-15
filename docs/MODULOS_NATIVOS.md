@@ -19,12 +19,6 @@ metadatos de parámetros en parte de la biblioteca.
 |---|---|
 | `Math::random(min,max)` | Entero inclusivo; exige dos int y rango válido; rango invertido puede provocar panic. No criptográfico. Ej.: Math::random(1,6). |
 | `Math::floor(n)`, `ceil(n)`, `abs(n)` | Resultado float para entradas numéricas convertibles; no equivalen en tipo a los helpers globales floor/ceil. |
-| `Str::length(texto)` | Bytes UTF-8, 0 para argumento inválido. |
-| `Str::random([longitud])` | Texto alfanumérico, 16 por defecto, math/rand; no usar como token secreto. Longitud negativa falla. |
-| `Str::startsWith(texto,prefijo)`, `contains(texto,parte)` | Bool; exige strings. |
-| `Str::substring(texto,inicio,[longitud])` | Puntos Unicode; inicio negativo se ajusta a cero. Longitud negativa puede fallar. |
-| `Str::indexOf(texto,parte)` | Índice en puntos Unicode o -1. |
-| `Str::trim(texto)`, `replace(texto,buscar,nuevo)` | String. El orden de replace difiere de str_replace. |
 | `UUID::generate()`, `v4()` | Identificador UUID textual. |
 | `JSON::parse(texto)`, `decode(texto)` | Valor decodificado o null; números JSON son float, no enteros arbitrariamente precisos. |
 | `JSON::stringify(valor)`, `encode(valor)` | JSON compacto o "" al fallar. |
@@ -43,8 +37,8 @@ metadatos de parámetros en parte de la biblioteca.
 
 <!-- joss-run: ["abc", "1", "dos", "uno"] -->
 ```joss
-print(Str::trim(" abc "))
-print(Str::indexOf("casa", "a"))
+print(trim(" abc "))
+print(strpos("casa", "a"))
 var $pila = new Stack()
 $pila->push("uno")
 $pila->push("dos")

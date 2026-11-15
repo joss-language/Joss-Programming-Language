@@ -250,9 +250,6 @@ func (r *Runtime) callBuiltinArray(name string, args []interface{}) (interface{}
 			if m, ok := args[0].(map[string]interface{}); ok {
 				return int64(len(m)), true
 			}
-			if str, ok := args[0].(string); ok {
-				return int64(len(str)), true
-			}
 			val := reflect.ValueOf(args[0])
 			if val.Kind() == reflect.Slice || val.Kind() == reflect.Array {
 				return int64(val.Len()), true
@@ -283,21 +280,6 @@ func (r *Runtime) callBuiltinArray(name string, args []interface{}) (interface{}
 			}
 		}
 		return []interface{}{}, true
-
-	case "explode":
-		if len(args) == 2 {
-			sep, ok1 := args[0].(string)
-			str, ok2 := args[1].(string)
-			if ok1 && ok2 {
-				parts := strings.Split(str, sep)
-				result := []interface{}{}
-				for _, p := range parts {
-					result = append(result, p)
-				}
-				return result, true
-			}
-		}
-		return nil, true
 
 	case "end":
 		if len(args) == 1 {

@@ -657,10 +657,10 @@ public func testGuard(int $val): string {
 	}
 }
 
-func TestFluentPrimitiveMethods(t *testing.T) {
+func TestFluentCollectionMethodsAndGlobalStringFunctions(t *testing.T) {
 	src := `
 public func testStringMethods(string $input): string {
-    return $input->trim()->lower()->replace(" ", "-")
+    return str_replace(" ", "-", strtolower(trim($input)))
 }
 
 public func testArrayMethods(): string {
@@ -674,6 +674,7 @@ public func testMapMethods(): string {
 }
 `
 	rt := benchmarkPreparedRuntime(t, src)
+	rt.loadStdlib()
 
 	// String
 	fnStr := rt.Functions["testStringMethods"]

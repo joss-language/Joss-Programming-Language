@@ -172,7 +172,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L385).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L381).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -655,7 +655,7 @@ Implementación: [executeServerControlMethod](../pkg/core/native_server_control.
 
 ## Session
 
-Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L78).
+Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L77).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -709,22 +709,6 @@ Implementación: [executeSmtpClientMethod](../pkg/core/smtp_native.go#L12).
 | `peek` | `mixed` |
 | `pop` | `mixed` |
 | `push` | `mixed` |
-
-## Str
-
-| Método | Retorno publicado al analizador |
-|---|---|
-| `contains` | `bool` |
-| `endsWith` | `bool` |
-| `indexOf` | `int` |
-| `length` | `int` |
-| `lower` | `string` |
-| `random` | `string` |
-| `replace` | `string` |
-| `startsWith` | `bool` |
-| `substr` | `string` |
-| `substring` | `string` |
-| `trim` | `string` |
 
 ## Stream
 
@@ -905,7 +889,6 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `chr`
 - `close`
 - `config`
-- `contains`
 - `count`
 - `cout`
 - `csrf_field`
@@ -915,9 +898,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `echo`
 - `empty`
 - `end`
-- `ends_with`
 - `env`
-- `explode`
 - `file_delete`
 - `file_exists`
 - `file_get_contents`
@@ -929,7 +910,6 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `gmdate`
 - `hive_read_box`
 - `html_escape`
-- `implode`
 - `in_array`
 - `intval`
 - `is_array`
@@ -944,7 +924,6 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `is_numeric`
 - `is_string`
 - `isset`
-- `join`
 - `json`
 - `json_decode`
 - `json_encode`
@@ -983,13 +962,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `sha256`
 - `sha256_base64`
 - `sleep`
-- `starts_with`
-- `str_contains`
-- `str_ends_with`
 - `str_pad`
-- `str_repeat`
-- `str_replace`
-- `str_starts_with`
 - `strlen`
 - `strpos`
 - `strtolower`
@@ -999,8 +972,6 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `substr`
 - `sum`
 - `time`
-- `to_lower`
-- `to_upper`
 - `toon_decode`
 - `toon_encode`
 - `toon_verify`
@@ -1014,4 +985,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 53 clases, 524 métodos y 151 built-ins.
+Total: 52 clases, 513 métodos y 138 built-ins.

@@ -106,7 +106,7 @@ public class Main {
         $lenguajes[] = "TypeScript"
         var $config = {"modo": "estricto", "version": 3}
         string $bandera = "Hola 🇲🇽"
-        print("Items: " . count($lenguajes) . " | Modo: " . $config["modo"] . " | Chars: " . $bandera->length())
+        print("Items: " . count($lenguajes) . " | Modo: " . $config["modo"] . " | Chars: " . strlen($bandera))
 
         print("=== 4. FUNCIONES, REF Y PIPELINE ===")
         int $visitas = 10

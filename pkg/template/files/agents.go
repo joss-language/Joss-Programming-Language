@@ -167,7 +167,7 @@ project-root/
 - **HTTP Responses**: ` + "`Response::json($data, $code)`" + `, ` + "`Response::redirect($url)`" + `, ` + "`view($viewPath, $data)`" + `
 - **Authentication**: ` + "`Auth::user()`" + `, ` + "`Auth::id()`" + `, ` + "`Auth::check()`" + `, ` + "`Auth::login($email, $password)`" + `, ` + "`Auth::logout()`" + `
 - **Security & Crypto**: ` + "`Hash::make($password)`" + `, ` + "`Hash::check($password, $hash)`" + `, ` + "`AES::encrypt($text, $key)`" + `, ` + "`Turnstile::verify($token)`" + `
-- **String Helpers**: ` + "`Str::contains($str, $sub)`" + `, ` + "`Str::upper($str)`" + `, ` + "`Str::lower($str)`" + `, ` + "`Str::trim($str)`" + `
+- **String Helpers**: ` + "`str_contains($str, $sub)`" + `, ` + "`strtoupper($str)`" + `, ` + "`strtolower($str)`" + `, ` + "`trim($str)`" + `
 - **Desktop Windowing**: ` + "`new Window($title, $width, $height)`" + ` (Native OS WebView engine)
 - **File I/O**: ` + "`file_put_contents($path, $content)`" + `, ` + "`file_get_contents($path)`" + `
 - **Cron Jobs**: ` + "`Cron::schedule($name, $cronExpr, $closure)`" + `

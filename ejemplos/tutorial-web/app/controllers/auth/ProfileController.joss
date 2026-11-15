@@ -50,7 +50,7 @@ public class ProfileController {
     public func activate2FA() {
         var $userId = Auth::id()
         var $secret = Session::get("temp_2fa_secret")
-        var $code = Str::trim(request("code"))
+        var $code = trim(request("code"))
         
         (empty($secret) || empty($code)) ? {
             return redirect("/profile")->with("error", "Código o sesión de 2FA no válida.")

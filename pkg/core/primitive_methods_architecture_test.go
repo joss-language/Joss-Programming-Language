@@ -14,13 +14,6 @@ func TestPrimitiveMethodCatalogHasRuntimeImplementations(t *testing.T) {
 		resolve func(string) bool
 	}{
 		{
-			kind: typesystem.String,
-			resolve: func(name string) bool {
-				_, ok := runtime.resolveStringMethod("sample", &parser.Identifier{Value: name})
-				return ok
-			},
-		},
-		{
 			kind: typesystem.Array,
 			resolve: func(name string) bool {
 				_, ok := runtime.resolveArrayMethod([]interface{}{}, &parser.Identifier{Value: name})
@@ -42,5 +35,11 @@ func TestPrimitiveMethodCatalogHasRuntimeImplementations(t *testing.T) {
 				t.Errorf("canonical %s method %q has no runtime implementation", test.kind, definition.Name)
 			}
 		}
+	}
+}
+
+func TestStringsDoNotExposePrimitiveMethods(t *testing.T) {
+	if definitions := typesystem.PrimitiveMethodDefinitions(typesystem.String); len(definitions) != 0 {
+		t.Fatalf("string primitive methods remain public: %#v", definitions)
 	}
 }

@@ -141,7 +141,6 @@ func TestMigratedNativeSignaturesPublishReliableOptionalArity(t *testing.T) {
 		returned string
 	}{
 		"Math":    {method: "random", minimum: 2, maximum: 2, returned: "int"},
-		"Str":     {method: "substring", minimum: 2, maximum: 3, returned: "string"},
 		"Lang":    {method: "get", minimum: 1, maximum: 2, returned: "mixed"},
 		"Console": {method: "log", minimum: 0, maximum: 1, returned: "void"},
 	}
@@ -185,10 +184,6 @@ func TestMigratedNativeSignaturesDriveCallDiagnostics(t *testing.T) {
 	}
 
 	valid := parse(`Math::random(1, 2)
-Str::random()
-Str::random(8)
-Str::substring("joss", 1)
-Str::substring("joss", 1, 2)
 Lang::get("welcome")
 Lang::get("welcome", {})
 Console::log()`)
@@ -197,10 +192,45 @@ Console::log()`)
 	}
 
 	invalid := parse(`Math::random(1)
-Str::substring("joss")
 Lang::get()
 Console::clear("unexpected")`)
-	if got := invalid.Count(diagnostics.SeverityError); got != 4 {
-		t.Fatalf("native arity error count = %d, want 4; diagnostics: %#v", got, invalid.Diagnostics)
+	if got := invalid.Count(diagnostics.SeverityError); got != 3 {
+		t.Fatalf("native arity error count = %d, want 3; diagnostics: %#v", got, invalid.Diagnostics)
+	}
+}
+
+func TestRetiredStringAPIsFailAnalysis(t *testing.T) {
+	for _, source := range []string{
+		`Str::trim(" x ")`,
+		`StringUtils::repeat("x", 2)`,
+		`" x "->trim()`,
+		`"text"->length()`,
+		`contains("abc", "a")`,
+		`join(",", ["a", "b"])`,
+		`len("text")`,
+		`count("text")`,
+	} {
+		p := parser.NewParser(parser.NewLexer(source))
+		report := AnalyzeProgram(p.ParseProgram())
+		if !report.HasErrors() {
+			t.Errorf("retired string API unexpectedly analyzed: %s", source)
+		}
+	}
+	for _, source := range []string{`strlen("🙂")`, `str_contains("abc", "a")`, `implode(",", ["a", "b"])`, `str_repeat("x", 3)`, `ucfirst("éclair")`, `lcfirst("Éclair")`, `len([1])`, `count({"a": 1})`, `str_random(8)`, `json({"ok": true})->withCookie("session", "value")`} {
+		p := parser.NewParser(parser.NewLexer(source))
+		report := AnalyzeProgram(p.ParseProgram())
+		if report.HasErrors() {
+			t.Errorf("canonical string API failed analysis: %s: %#v", source, report.Diagnostics)
+		}
+	}
+}
+
+func TestStringAPIsRejectWrongArgumentTypes(t *testing.T) {
+	for _, source := range []string{`explode(",", 7)`, `implode(",", 7)`, `str_replace("x", "y", 7)`} {
+		p := parser.NewParser(parser.NewLexer(source))
+		report := AnalyzeProgram(p.ParseProgram())
+		if !report.HasErrors() {
+			t.Errorf("string API accepted an argument with the wrong type: %s", source)
+		}
 	}
 }

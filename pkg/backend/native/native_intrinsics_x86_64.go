@@ -98,7 +98,7 @@ func (b *MachineCodeBuilder) hasRelocTarget(labels ...string) bool {
 // - Dynamic SEO state & rendering (SEO::title, SEO::description, SEO::canonical, SEO::keywords, SEO::og, SEO::meta, SEO::render)
 // - Map iteration helpers (fn_joss_map_key_at, fn_joss_map_val_at)
 // - Disk-backed Markdown::readFile
-// - Framework helpers (fn_Str_trim, fn_Math_ceil)
+// - Framework helper (fn_Math_ceil)
 func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	requestParamsOffset := uint32(dataOffRequestParams)
 	if b.prog != nil {
@@ -112,58 +112,12 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.emitJmpLabel("joss_to_string")
 
 	// String and Math helper passthroughs
-	b.defineLabel("fn_Str_trim")
 	b.defineLabel("fn_trim")
 	b.defineLabel("fn_ltrim")
 	b.defineLabel("fn_rtrim")
 	b.defineLabel("fn_Math_ceil")
 	b.emitBytes(0x48, 0x89, 0xC8, 0xC3) // mov rax, rcx; ret
 
-	// fn_str_contains(rcx = haystack, rdx = needle) -> rax = 1 (true) or 0 (false)
-	b.defineLabel("fn_str_contains")
-	b.defineLabel("fn_contains")
-	b.defineLabel("fn_Str_contains")
-	if b.isJITMode {
-		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
-		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
-		b.emitBytes(0x49, 0x89, 0xD0)       // mov r8, rdx (needle)
-		b.emitBytes(0x48, 0x89, 0xCA)       // mov rdx, rcx (haystack)
-		b.emitLeaRCXString("fn_str_contains")
-		b.emitCallIAT(IATGetProcAddress + 1)
-		b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
-		b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
-	} else {
-		b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
-		b.emitJeLabel(".sc_true")
-		b.emitBytes(0x80, 0x3A, 0x00) // cmp byte ptr [rdx], 0
-		b.emitJeLabel(".sc_true")
-		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-		b.emitJeLabel(".sc_false")
-		b.defineLabel(".sc_outer")
-		b.emitBytes(0x8A, 0x01) // mov al, [rcx]
-		b.emitBytes(0x84, 0xC0) // test al, al
-		b.emitJeLabel(".sc_false")
-		b.emitBytes(0x49, 0x89, 0xC8) // mov r8, rcx
-		b.emitBytes(0x49, 0x89, 0xD1) // mov r9, rdx
-		b.defineLabel(".sc_inner")
-		b.emitBytes(0x41, 0x8A, 0x01) // mov al, [r9]
-		b.emitBytes(0x84, 0xC0)       // test al, al
-		b.emitJeLabel(".sc_true")
-		b.emitBytes(0x41, 0x38, 0x00) // cmp [r8], al
-		b.emitJneLabel(".sc_next")
-		b.emitBytes(0x49, 0xFF, 0xC0) // inc r8
-		b.emitBytes(0x49, 0xFF, 0xC1) // inc r9
-		b.emitJmpLabel(".sc_inner")
-		b.defineLabel(".sc_next")
-		b.emitBytes(0x48, 0xFF, 0xC1) // inc rcx
-		b.emitJmpLabel(".sc_outer")
-		b.defineLabel(".sc_true")
-		b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1
-		b.emitBytes(0xC3)                         // ret
-		b.defineLabel(".sc_false")
-		b.emitBytes(0x31, 0xC0) // xor eax, eax
-		b.emitBytes(0xC3)       // ret
-	}
 	b.emitNativeStrpos()
 	b.emitNativeSubstr()
 	b.emitNativeUTF8Helpers()
@@ -174,7 +128,7 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	// Http client, System::Run, String, Crypto & Date host bridge intrinsics
 	for _, fnName := range []string{
 		"fn_Http_json", "fn_Http_request", "fn_Http_get", "fn_Http_post", "fn_System_Run",
-		"fn_str_replace", "fn_rsa_sign_sha256", "fn_rawurlencode", "fn_rawurldecode",
+		"fn_rsa_sign_sha256", "fn_rawurlencode", "fn_rawurldecode",
 		"fn_gmdate", "fn_date", "fn_sha256_base64", "fn_sha1_base64",
 	} {
 		b.defineLabel(fnName)

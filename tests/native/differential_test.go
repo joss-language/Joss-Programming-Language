@@ -211,7 +211,6 @@ func TestDifferential_HTTPParserStringPrimitives(t *testing.T) {
 		"substr_negative_length": `echo substr("aé😊z", 1, -1);`,
 		"substr_omitted_length":  `echo substr("aé😊z", 2);`,
 		"substr_zero_length":     `echo substr("abc", 1, 0);`,
-		"explode":                `var $source = "a=1&b=2"; var $parts = explode("&", $source); echo $parts[1]; echo $source;`,
 		"urldecode":              `echo urldecode("a%20b");`,
 		"urldecode_plus":         `echo urldecode("a+b");`,
 		"urldecode_utf8":         `echo urldecode("%C3%A9");`,
@@ -366,6 +365,90 @@ func TestDifferential_StringsAndMultiplePrints(t *testing.T) {
 		echo "Fin de prueba";
 	`
 	assertDifferential(t, "strings_echo", source)
+}
+
+func TestDifferential_PureJossStringPredicates(t *testing.T) {
+	const source = `
+print(str_contains("abc", "b"));
+print(str_contains("abc", "a"));
+print(str_contains("café", "é"));
+print(str_contains("abc", ""));
+print(str_starts_with("café", "ca"));
+print(str_starts_with("café", "café"));
+print(str_starts_with("abc", "abcd"));
+print(str_starts_with("abc", ""));
+print(str_ends_with("café", "fé"));
+print(str_ends_with("café", "café"));
+print(str_ends_with("abc", ""));
+print(str_ends_with("", "x"));
+print(str_replace("aa", "b", "aaa"));
+print(str_replace("é", "_", "café"));
+print(str_replace("x", "y", "abc"));
+print(str_replace("a", "", "banana"));
+print(str_replace("", "-", "ab"));
+print(str_replace("", "-", ""));
+array<string> $parts = explode("::", "a::b::");
+print(count($parts));
+print($parts[0]);
+print($parts[1]);
+print($parts[2]);
+array<string> $emptyParts = explode("::", "");
+print(count($emptyParts));
+print($emptyParts[0]);
+array<string> $characters = explode("", "é🙂");
+print(count($characters));
+print($characters[0]);
+print($characters[1]);
+print(implode("-", [1, "two", 3]));
+print(implode(",", []));
+print(str_repeat("é", 3));
+print(str_repeat("x", 0));
+print(str_repeat("x", -2));
+`
+	var stringUnits []analyzer.SourceUnit
+	for _, unit := range std.GetStdlibUnits() {
+		if unit.Path == "<std/strings/strings.joss>" {
+			stringUnits = append(stringUnits, unit)
+		}
+	}
+	if len(stringUnits) != 1 {
+		t.Fatalf("strings Standard Library modules embedded = %d, want 1", len(stringUnits))
+	}
+	interpOut, interpSuccess, interpErr := runInterpreter(t, source)
+	if !interpSuccess {
+		t.Fatalf("interpreter failed: %s", interpErr)
+	}
+	nativeOut, nativeExit, err := compileAndRunNativeWithUnits(t, source, "pure_joss_string_predicates", stringUnits)
+	if err != nil {
+		t.Fatalf("native compiler failed: %v", err)
+	}
+	if nativeExit != 0 || strings.ReplaceAll(nativeOut, "\r\n", "\n") != strings.ReplaceAll(interpOut, "\r\n", "\n") {
+		t.Fatalf("string predicate differential mismatch: interpreted=%q native=%q exit=%d", interpOut, nativeOut, nativeExit)
+	}
+}
+
+func TestDifferential_PureJossStringRandomLength(t *testing.T) {
+	const source = `print(strlen(str_random(8))); print(strlen(str_random(0))); print(strlen(str_random(-2)));`
+	var stringUnits []analyzer.SourceUnit
+	for _, unit := range std.GetStdlibUnits() {
+		if unit.Path == "<std/strings/strings.joss>" {
+			stringUnits = append(stringUnits, unit)
+		}
+	}
+	if len(stringUnits) != 1 {
+		t.Fatalf("strings Standard Library modules embedded = %d, want 1", len(stringUnits))
+	}
+	interpOut, interpSuccess, interpErr := runInterpreter(t, source)
+	if !interpSuccess {
+		t.Fatalf("interpreter failed: %s", interpErr)
+	}
+	nativeOut, nativeExit, err := compileAndRunNativeWithUnits(t, source, "pure_joss_str_random_length", stringUnits)
+	if err != nil {
+		t.Fatalf("native compiler failed: %v", err)
+	}
+	if nativeExit != 0 || strings.ReplaceAll(nativeOut, "\r\n", "\n") != strings.ReplaceAll(interpOut, "\r\n", "\n") {
+		t.Fatalf("str_random differential mismatch: interpreted=%q native=%q exit=%d", interpOut, nativeOut, nativeExit)
+	}
 }
 
 func TestDifferential_ClassesAndFields(t *testing.T) {
@@ -749,7 +832,7 @@ func TestDifferential_PrimitiveMethods_ArrayStringMap(t *testing.T) {
 		echo $nums2[3];
 
 		string $txt = "Joss Lang";
-		echo $txt->length();
+		echo strlen($txt);
 
 		var $dict = {"alpha": 1, "beta": 2, "gamma": 3};
 		echo $dict->length();

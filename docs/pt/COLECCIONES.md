@@ -231,14 +231,14 @@ cliente
 
 ---
 
-## 5. Métodos diretos sobre textos, listas e mapas (`->`)
+## 5. Métodos diretos sobre listas e mapas (`->`)
 
-No Joss, os textos (`string`), listas (`array`) e mapas (`map`) trazem **ferramentas integradas (métodos)** que você pode invocar escrevendo uma seta fina **`->`** após a variável:
+No Joss, listas (`array`) e mapas (`map`) trazem **ferramentas integradas (métodos)** que você pode invocar escrevendo uma seta fina **`->`** após a variável. Textos usam funções globais como `trim`, `strtolower` e `str_replace` em [texto e formato](FUNCIONES_GLOBALES.md#texto-y-formato):
 
 <!-- joss-run: ["hola-mundo", "a-b"] -->
 ```joss
 var $txt = "  Hola Mundo  "
-print($txt->trim()->lower()->replace(" ", "-"))
+print(str_replace(" ", "-", strtolower(trim($txt))))
 
 var $mapa = {"a": 1, "b": 2}
 print($mapa->keys()->join("-"))
@@ -251,10 +251,7 @@ hola-mundo
 a-b
 ```
 
-Observe como se lê da esquerda para a direita:
-1. `$txt->trim()`: Remove os espaços excedentes das extremidades (`"Hola Mundo"`).
-2. `->lower()`: Converte as letras para minúsculas (`"hola mundo"`).
-3. `->replace(" ", "-")`: Troca o espaço por um hífen (`"hola-mundo"`).
+As funções de texto são compostas com chamadas aninhadas; métodos fluent permanecem para classes e coleções.
 
 ### Processamento funcional de listas
 
@@ -274,7 +271,7 @@ print($numeros |> any(func(int $x): bool { return $x == 3; }))
 <!-- joss-run: ["hola-mundo", "6, 8", "a-b"] -->
 ```joss
 var $txt = "  Hola Mundo  "
-print($txt->trim()->lower()->replace(" ", "-"))
+print(str_replace(" ", "-", strtolower(trim($txt))))
 
 var $nums = [1, 2, 3, 4]
 var $filtrados = $nums->map(func(int $n, int $i): int { return $n * 2; })->filter(func(int $n, int $i): bool { return $n > 4; })
@@ -356,10 +353,9 @@ Nos idiomas modernos usamos acentos (`á`, `é`), caracteres especiais (`ñ`) e
 
 Veja como o Joss permite medir exatamente o que você precisa:
 
-<!-- joss-run: ["3", "2", "é"] -->
+<!-- joss-run: ["2", "é"] -->
 ```joss
 var $texto = "é"
-print(len($texto))
 print(strlen($texto))
 print($texto[0])
 ```
@@ -367,7 +363,6 @@ print($texto[0])
 Saída:
 
 ```text
-3
 2
 é
 ```
@@ -376,7 +371,7 @@ é
 |---|---|---|
 | `$texto[0]` | O **caractere visível completo** (*grafema*) | Quando você trabalha com nomes de pessoas ou mensagens com acentos e emojis, sem parti-los ao meio. |
 | `strlen($texto)` | Quantidade de **pontos de código Unicode** | Para contagem padrão de caracteres Unicode. |
-| `len($texto)` | Quantidade de **bytes na memória (UTF-8)** | Para tamanhos de arquivo ou envios pela rede. |
+| `count($col)` / `len($col)` | Quantidade de elementos de um array ou map | Para contar itens de uma coleção. |
 
 ---
 

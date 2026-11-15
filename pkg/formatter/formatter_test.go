@@ -209,8 +209,8 @@ func TestFormatterControllerSnippet(t *testing.T) {
 	input := `public class AdminCmsController {
     public func posts() {
         $db = new GranDB()
-        $q = Str::trim(Request::input("q") ?? "")
-        $type = Str::trim(Request::input("type") ?? "")
+        $q = trim(Request::input("q") ?? "")
+        $type = trim(Request::input("type") ?? "")
         $pVal = Request::input("page")
         $page = $pVal ? JSON::parse($pVal) : 1
         ($page < 1) ? {

@@ -106,9 +106,14 @@ func BuildAnalysisEnvironment() semanticanalyzer.Environment {
 func buildAnalysisEnvironment() semanticanalyzer.Environment {
 	environment := semanticanalyzer.NewEnvironment()
 	for _, definition := range builtinDefinitions {
-		environment.Builtins[definition.name] = semanticanalyzer.Callable{
+		callable := semanticanalyzer.Callable{
 			Name: definition.name, ReturnType: definition.returnType, Variadic: true,
 		}
+		if definition.name == "len" || definition.name == "count" {
+			callable.Variadic = false
+			callable.Parameters = []semanticanalyzer.Parameter{{Name: "collection", Type: typesystem.Type{Kind: typesystem.Mixed}}}
+		}
+		environment.Builtins[definition.name] = callable
 	}
 
 	runtime := NewRuntime()

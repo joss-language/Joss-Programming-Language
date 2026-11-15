@@ -40,10 +40,7 @@ Joss includes a standard library written in pure Joss located in the `stdlib/` d
    - `MathUtils::sign(int $n): int`: Returns `1` if positive, `-1` if negative, and `0` if zero.
    - `MathUtils::gcd(int $a, int $b): int`: Computes the greatest common divisor of two integers using Euclid's algorithm.
 
-2. **`StringUtils` (`stdlib/strings/strings.joss`):**
-   - `StringUtils::isEmpty(string $s): bool`: Efficiently checks if a string has a length of 0.
-   - `StringUtils::isNotEmpty(string $s): bool`: Checks if a string contains at least one character.
-   - `StringUtils::padZero(int $num, int $width): string`: Left-pads a number with zeros until reaching the specified width.
+2. **Global string functions (`std/strings/strings.joss`):** `strlen`, `str_contains`, `str_starts_with`, `str_ends_with`, `str_replace`, `strtolower`, `strtoupper`, `trim`, `substr`, `strpos`, `str_pad`, `str_repeat`, `explode`, `implode`, and `str_random`. See [Global functions](FUNCIONES_GLOBALES.md#texto-y-formato) for the complete contract.
 
 ### Usage Example
 
@@ -55,8 +52,8 @@ echo $minimo; // 100
 int $signo = MathUtils::sign(-45);
 echo $signo; // -1
 
-string $codigo = StringUtils::padZero(42, 5);
-echo $codigo; // "00042"
+string $codigo = str_pad("42", 5, "0");
+echo $codigo; // "42000"
 ```
 
 ## Foreign Function Interface (C FFI)

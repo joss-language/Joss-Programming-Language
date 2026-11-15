@@ -12,6 +12,24 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 	if identifier, ok := call.Function.(*parser.Identifier); ok {
 		name := identifier.Value
 		if builtin, exists := a.environment.Builtins[name]; exists {
+			if name == "len" || name == "count" {
+				if len(call.Arguments) != 1 {
+					a.callArityError(builtin, len(call.Arguments), identifier.Token)
+					for _, argument := range call.Arguments {
+						a.inferExpression(argument, current)
+					}
+				} else {
+					argumentType := a.inferExpression(call.Arguments[0], current)
+					if argumentType.Kind != typesystem.Array && argumentType.Kind != typesystem.Map && argumentType.Kind != typesystem.Unknown && argumentType.Kind != typesystem.Mixed {
+						a.add("JOSS-TYPE-003", diagnostics.SeverityError, a.file, tokenOfExpression(call.Arguments[0]),
+							fmt.Sprintf("`%s` accepts only arrays or maps; received `%s`.", name, argumentType.String()),
+							"Collection length functions count collection elements; text length is measured in Unicode points.",
+							"Use `strlen($text)` for strings or pass an array or map.")
+					}
+				}
+				a.recordResolvedCall(call, "builtin::"+name, CallKindBuiltin, builtin.ReturnType)
+				return builtin.ReturnType
+			}
 			a.checkCall(builtin, call.Arguments, current, identifier.Token)
 			a.recordResolvedCall(call, "builtin::"+name, CallKindBuiltin, builtin.ReturnType)
 			if name == "send" && len(call.Arguments) >= 2 {
@@ -111,6 +129,11 @@ func (a *Analyzer) inferCall(call *parser.CallExpression, current *scope) typesy
 			if primType, isPrim := a.inferPrimitiveMethod(receiver, member.Property.Value, call, current); isPrim {
 				a.recordResolvedCall(call, "primitive::"+receiver.String()+"::"+member.Property.Value, CallKindPrimitive, primType)
 				return primType
+			}
+			if receiver.Kind == typesystem.String {
+				a.add("JOSS-MEMBER-001", diagnostics.SeverityError, a.file, member.Property.Token,
+					fmt.Sprintf("Strings do not have a primitive method `%s`.", member.Property.Value),
+					"String operations use the canonical global functions in std/strings.", "Call the matching global function, such as strlen($text) or trim($text).")
 			}
 		}
 		for _, argument := range call.Arguments {

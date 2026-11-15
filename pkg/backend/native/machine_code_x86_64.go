@@ -369,7 +369,6 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, 
 // isSupportedHostService reports host-service calls with a concrete AOT implementation.
 func isSupportedHostService(target Target, className, methodName string) bool {
 	if className == "Server" && methodName == "start" ||
-		className == "Str" && methodName == "contains" ||
 		className == "GranDB" {
 		return true
 	}
@@ -405,7 +404,7 @@ func (b *MachineCodeBuilder) hostServiceAvailable(className, methodName string) 
 
 func jitBuiltinBridgeHandler(id string) (string, bool) {
 	switch id {
-	case "json", "str_contains", "contains", "str_replace", "rsa_sign_sha256",
+	case "json", "rsa_sign_sha256",
 		"rawurlencode", "rawurldecode", "gmdate", "date", "sha256_base64", "sha1_base64",
 		"__joss_db_is_connected", "__joss_db_query", "__joss_db_execute":
 		return id, true
@@ -425,7 +424,7 @@ func (b *MachineCodeBuilder) hasNativeHostService(className, methodName string) 
 
 func (b *MachineCodeBuilder) hasNativeIntrinsic(className, methodName string) bool {
 	switch className {
-	case "Socket", "Server", "SEO", "Str", "Math", "Request", "Response", "Session", "Auth", "Turnstile", "Markdown", "Router", "Schema", "View":
+	case "Socket", "Server", "SEO", "Math", "Request", "Response", "Session", "Auth", "Turnstile", "Markdown", "Router", "Schema", "View":
 		return true
 	}
 	return false
@@ -450,7 +449,7 @@ func isExtendedStdlibCallee(name string) bool {
 		strings.HasPrefix(name, "SEO_") || strings.HasPrefix(name, "Markdown_") ||
 		strings.HasPrefix(name, "Auth_") || strings.HasPrefix(name, "Turnstile_") ||
 		strings.HasPrefix(name, "Request_") || strings.HasPrefix(name, "Response_") ||
-		strings.HasPrefix(name, "Session_") || strings.HasPrefix(name, "Str_") ||
+		strings.HasPrefix(name, "Session_") ||
 		strings.HasPrefix(name, "Math_") || strings.HasPrefix(name, "View_") ||
 		strings.HasPrefix(name, "__joss_view_") {
 		return true
@@ -543,7 +542,7 @@ func isNativeBuiltin(id string) bool {
 	case "strlen", "len", "count", "array_push", "append", "to_string", "strval",
 		"abs", "min", "max", "intval", "floatval", "boolval", "array_pop", "time", "microtime", "array_fill",
 		"__joss_local_utc_offset", "__joss_timezone_data", "__joss_string_byte_at", "__joss_byte_string",
-		"file_get_contents", "__joss_file_get_bytes", "explode", "async", "await", "str_contains", "contains",
+		"file_get_contents", "__joss_file_get_bytes", "async", "await",
 		"env", "request", "csrf_field", "html_escape", "view",
 		"joss_map_len", "joss_map_key_at", "joss_map_val_at",
 		"__joss_db_get_table", "__joss_db_set_table", "__joss_db_is_connected",

@@ -231,14 +231,14 @@ cliente
 
 ---
 
-## 5. Direct Methods on Strings, Lists, and Maps (`->`)
+## 5. Direct Methods on Lists and Maps (`->`)
 
-In Joss, strings (`string`), lists (`array`), and maps (`map`) come with **built-in tools (methods)** that you can invoke by writing a thin arrow **`->`** after the variable:
+In Joss, lists (`array`) and maps (`map`) come with **built-in tools (methods)** that you can invoke by writing a thin arrow **`->`** after the variable. Strings use the global functions in [Text and format](FUNCIONES_GLOBALES.md#texto-y-formato), such as `trim`, `strtolower`, and `str_replace`:
 
 <!-- joss-run: ["hola-mundo", "a-b"] -->
 ```joss
 var $txt = "  Hola Mundo  "
-print($txt->trim()->lower()->replace(" ", "-"))
+print(str_replace(" ", "-", strtolower(trim($txt))))
 
 var $mapa = {"a": 1, "b": 2}
 print($mapa->keys()->join("-"))
@@ -251,10 +251,7 @@ hola-mundo
 a-b
 ```
 
-Notice how it reads from left to right:
-1. `$txt->trim()`: Removes extra spaces from both ends (`"Hola Mundo"`).
-2. `->lower()`: Converts the letters to lowercase (`"hola mundo"`).
-3. `->replace(" ", "-")`: Replaces the space with a hyphen (`"hola-mundo"`).
+Text functions compose by nesting calls; fluent methods remain available for classes and collections.
 
 ### Functional list processing
 
@@ -274,7 +271,7 @@ print($numeros |> any(func(int $x): bool { return $x == 3; }))
 <!-- joss-run: ["hola-mundo", "6, 8", "a-b"] -->
 ```joss
 var $txt = "  Hola Mundo  "
-print($txt->trim()->lower()->replace(" ", "-"))
+print(str_replace(" ", "-", strtolower(trim($txt))))
 
 var $nums = [1, 2, 3, 4]
 var $filtrados = $nums->map(func(int $n, int $i): int { return $n * 2; })->filter(func(int $n, int $i): bool { return $n > 4; })
@@ -356,10 +353,9 @@ In modern languages we use accents (`á`, `é`), special characters (`ñ`), and
 
 See how Joss lets you measure exactly what you need:
 
-<!-- joss-run: ["3", "2", "é"] -->
+<!-- joss-run: ["2", "é"] -->
 ```joss
 var $texto = "é"
-print(len($texto))
 print(strlen($texto))
 print($texto[0])
 ```
@@ -367,7 +363,6 @@ print($texto[0])
 Output:
 
 ```text
-3
 2
 é
 ```
@@ -376,7 +371,7 @@ é
 |---|---|---|
 | `$texto[0]` | The **complete visible character** (*grapheme*) | When working with people's names or messages containing accents and emojis, without splitting them in half. |
 | `strlen($texto)` | Number of **Unicode code points** | For standard Unicode character counting. |
-| `len($texto)` | Number of **bytes in memory (UTF-8)** | For file sizes or network transmissions. |
+| `count($col)` / `len($col)` | Number of items in an array or map | For counting collection items. |
 
 ---
 

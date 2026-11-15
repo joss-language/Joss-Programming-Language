@@ -99,7 +99,7 @@ foreach ($queryPairs as $queryPair) {
 }
 
 string $contentType = strtolower($headers ["content-type"] ?? "")
-(Str::contains($contentType, "application/json")) ? {
+(str_contains($contentType, "application/json")) ? {
     var $jsonPayload = json_decode($body)
     (is_array($jsonPayload)) ? {
         foreach ($jsonPayload as $key => $value) {
@@ -108,7 +108,7 @@ string $contentType = strtolower($headers ["content-type"] ?? "")
     }
 }
 
-(Str::contains($contentType, "application/x-www-form-urlencoded")) ? {
+(str_contains($contentType, "application/x-www-form-urlencoded")) ? {
     var $formPairs = explode("&", $body)
     foreach ($formPairs as $formPair) {
         mixed $equals = strpos($formPair, "=")

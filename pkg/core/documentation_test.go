@@ -62,6 +62,7 @@ func TestDocumentationContracts(t *testing.T) {
 				t.Chdir(t.TempDir())
 				r := benchmarkRuntimeInstance()
 				r.RegisterNativeClasses()
+				r.loadStdlib()
 				r.CurrentFile = path
 				output := captureDocumentationOutput(t, func() { r.Execute(program) })
 				want := strings.Join(lines, "\n")

@@ -75,46 +75,13 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 		}
 		return nil, true
 
-	case "str_contains", "contains":
-		if len(args) >= 2 {
-			s1 := fmt.Sprintf("%v", args[0])
-			s2 := fmt.Sprintf("%v", args[1])
-			return strings.Contains(s1, s2), true
-		}
-		return false, true
-
-	case "str_starts_with", "starts_with":
-		if len(args) >= 2 {
-			s1 := fmt.Sprintf("%v", args[0])
-			s2 := fmt.Sprintf("%v", args[1])
-			return strings.HasPrefix(s1, s2), true
-		}
-		return false, true
-
-	case "str_ends_with", "ends_with":
-		if len(args) >= 2 {
-			s1 := fmt.Sprintf("%v", args[0])
-			s2 := fmt.Sprintf("%v", args[1])
-			return strings.HasSuffix(s1, s2), true
-		}
-		return false, true
-
-	case "str_replace":
-		if len(args) >= 3 {
-			search := fmt.Sprintf("%v", args[0])
-			replace := fmt.Sprintf("%v", args[1])
-			subject := fmt.Sprintf("%v", args[2])
-			return strings.ReplaceAll(subject, search, replace), true
-		}
-		return "", true
-
-	case "strtolower", "to_lower":
+	case "strtolower":
 		if len(args) > 0 {
 			return strings.ToLower(fmt.Sprintf("%v", args[0])), true
 		}
 		return "", true
 
-	case "strtoupper", "to_upper":
+	case "strtoupper":
 		if len(args) > 0 {
 			return strings.ToUpper(fmt.Sprintf("%v", args[0])), true
 		}
@@ -211,19 +178,6 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 			return int64(runeIdx), true
 		}
 		return false, true
-
-	case "implode", "join":
-		if len(args) >= 2 {
-			glue := fmt.Sprintf("%v", args[0])
-			if list, ok := args[1].([]interface{}); ok {
-				strs := make([]string, len(list))
-				for i, item := range list {
-					strs[i] = fmt.Sprintf("%v", item)
-				}
-				return strings.Join(strs, glue), true
-			}
-		}
-		return "", true
 
 	case "md5":
 		if len(args) > 0 {
@@ -372,6 +326,13 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 		}
 		return int64(0), true
 
+	case "ucwords":
+		if len(args) > 0 {
+			str := fmt.Sprintf("%v", args[0])
+			return titleCaseWords(str), true
+		}
+		return "", true
+
 	case "ucfirst":
 		if len(args) > 0 {
 			str := fmt.Sprintf("%v", args[0])
@@ -396,13 +357,6 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 		}
 		return "", true
 
-	case "ucwords":
-		if len(args) > 0 {
-			str := fmt.Sprintf("%v", args[0])
-			return titleCaseWords(str), true
-		}
-		return "", true
-
 	case "str_pad":
 		if len(args) >= 2 {
 			input := fmt.Sprintf("%v", args[0])
@@ -423,23 +377,6 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 			diff := padLen - len(input)
 			pad := strings.Repeat(padStr, (diff/len(padStr))+1)
 			return input + pad[:diff], true
-		}
-		return "", true
-
-	case "str_repeat":
-		if len(args) >= 2 {
-			str := fmt.Sprintf("%v", args[0])
-			count := 0
-			switch v := args[1].(type) {
-			case int:
-				count = v
-			case int64:
-				count = int(v)
-			}
-			if count < 0 {
-				count = 0
-			}
-			return strings.Repeat(str, count), true
 		}
 		return "", true
 

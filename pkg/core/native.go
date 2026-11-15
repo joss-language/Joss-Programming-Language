@@ -243,10 +243,6 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.registerNativeDefinitions("UUID", migratedNativeMethods["UUID"], (*Runtime).executeUUIDMethod)
 	r.Variables["UUID"] = &Instance{Class: r.Classes["UUID"], Fields: make(map[string]interface{})}
 
-	// Str
-	r.registerNativeDefinitions("Str", migratedNativeMethods["Str"], (*Runtime).executeStrMethod)
-	r.Variables["Str"] = &Instance{Class: r.Classes["Str"], Fields: make(map[string]interface{})}
-
 	// UserStorage is canonical Pure Joss standard library (std/storage/storage.joss)
 	// r.registerNative("UserStorage", []string{"put", "get", "getToFile", "delete", "path", "url"}, (*Runtime).executeUserStorageMethod)
 	// r.Variables["UserStorage"] = &Instance{Class: r.Classes["UserStorage"], Fields: make(map[string]interface{})}

@@ -40,11 +40,6 @@ var (
 	// Fix deprecated type aliases
 	reDeprecatedType = regexp.MustCompile(`\b(integer|double|boolean|dynamic|any|list)\b(\s+\$[a-zA-Z_][a-zA-Z0-9_]*|\s*[\)|,])`)
 
-	// Fix deprecated procedural string helpers to canonical static methods
-	reStrContains       = regexp.MustCompile(`\bstr_contains\s*\(`)
-	reStrStartsWith     = regexp.MustCompile(`\bstr_starts_with\s*\(`)
-	reStrEndsWith       = regexp.MustCompile(`\bstr_ends_with\s*\(`)
-	reStrReplace        = regexp.MustCompile(`\bstr_replace\s*\(`)
 	reLegacyLetDynamic  = regexp.MustCompile(`(?m)^([ \t]*)let[ \t]+(\$[a-zA-Z_][a-zA-Z0-9_]*)`)
 	reLegacyLetTyped    = regexp.MustCompile(`(?m)^([ \t]*)let[ \t]+([a-zA-Z_][a-zA-Z0-9_]*(?:<[^\r\n>]+>)?(?:\|[a-zA-Z_][a-zA-Z0-9_]*)*)[ \t]+(\$[a-zA-Z_][a-zA-Z0-9_]*)`)
 	reLegacyConstructor = regexp.MustCompile(`(?m)^([ \t]*)Init[ \t]+constructor[ \t]*(\([^\r\n]*\))[ \t]*\{`)
@@ -125,33 +120,7 @@ func (f *Fixer) FixSource(src string) (string, int) {
 		})
 	}
 
-	// 5. Fix procedural helpers to canonical Str calls
-	if reStrContains.MatchString(fixed) {
-		fixed = reStrContains.ReplaceAllStringFunc(fixed, func(match string) string {
-			applied++
-			return "Str::contains("
-		})
-	}
-	if reStrStartsWith.MatchString(fixed) {
-		fixed = reStrStartsWith.ReplaceAllStringFunc(fixed, func(match string) string {
-			applied++
-			return "Str::startsWith("
-		})
-	}
-	if reStrEndsWith.MatchString(fixed) {
-		fixed = reStrEndsWith.ReplaceAllStringFunc(fixed, func(match string) string {
-			applied++
-			return "Str::endsWith("
-		})
-	}
-	if reStrReplace.MatchString(fixed) {
-		fixed = reStrReplace.ReplaceAllStringFunc(fixed, func(match string) string {
-			applied++
-			return "Str::replace("
-		})
-	}
-
-	// 6. Format canonically
+	// 5. Format canonically
 	formatted, err := formatter.FormatSource(fixed)
 	if err == nil && formatted != "" {
 		if formatted != fixed {

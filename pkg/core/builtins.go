@@ -51,7 +51,7 @@ var builtinDefinitions = joinBuiltinGroups(
 	builtinGroup(builtinCollections, typesystem.Decimal, "decimal"),
 	builtinGroup(builtinCollections, typesystem.String, "strval"),
 	builtinGroup(builtinCollections, typesystem.Array,
-		"keys", "array_keys", "values", "array_values", "explode", "merge", "array_merge", "array_slice",
+		"keys", "array_keys", "values", "array_values", "merge", "array_merge", "array_slice",
 		"array_unique", "array_reverse", "array_column", "array_fill", "map", "filter"),
 	builtinGroup(builtinCollections, typesystem.Mixed,
 		"end", "append", "array_push", "array_pop", "array_shift", "reduce", "find", "sum"),
@@ -65,7 +65,8 @@ var builtinDefinitions = joinBuiltinGroups(
 	builtinGroup(builtinDate, typesystem.Mixed, "strtotime", "sleep", "usleep"),
 
 	builtinGroup(builtinIO, typesystem.Bool, "file_exists", "is_dir", "is_file", "toon_verify"),
-	builtinGroup(builtinIO, typesystem.String, "env", "config", "view", "json", "toon_encode", "__joss_http_dispatch", "__joss_get_embedded_asset"),
+	builtinGroup(builtinIO, typesystem.String, "env", "config", "view", "toon_encode", "__joss_http_dispatch", "__joss_get_embedded_asset"),
+	[]builtinDefinition{{name: "json", domain: builtinIO, returnType: typesystem.Type{Kind: typesystem.Class, Name: "WebResponse"}}},
 	builtinGroup(builtinIO, typesystem.Array, "__joss_db_query", "__joss_db_get_table"),
 	[]builtinDefinition{
 		{name: "__joss_timezone_data", domain: builtinIO, returnType: typesystem.Type{Kind: typesystem.Array, Element: &typesystem.Type{Kind: typesystem.Int}}},
@@ -81,16 +82,14 @@ var builtinDefinitions = joinBuiltinGroups(
 	builtinGroup(builtinSerialization, typesystem.String, "json_encode"),
 	builtinGroup(builtinSerialization, typesystem.Mixed, "json_decode"),
 
-	builtinGroup(builtinString, typesystem.Bool,
-		"str_contains", "contains", "str_starts_with", "starts_with", "str_ends_with", "ends_with"),
 	builtinGroup(builtinString, typesystem.Int, "strlen", "rand", "ord", "__joss_string_byte_at"),
 	[]builtinDefinition{{name: "strpos", domain: builtinString, returnType: typesystem.Parse("int|bool")}},
 	builtinGroup(builtinString, typesystem.Float, "round", "floor", "ceil", "abs"),
 	builtinGroup(builtinString, typesystem.String,
 		"__joss_byte_string",
-		"html_escape", "__", "csrf_field", "str_replace", "strtolower", "to_lower", "strtoupper", "to_upper",
-		"trim", "ltrim", "rtrim", "substr", "implode", "join", "md5", "sha1", "sha256", "base64_encode",
-		"base64_decode", "ucfirst", "lcfirst", "ucwords", "str_pad", "str_repeat", "rsa_sign_sha256", "sha256_base64", "sha1_base64",
+		"html_escape", "__", "csrf_field", "strtolower", "strtoupper",
+		"trim", "ltrim", "rtrim", "substr", "md5", "sha1", "sha256", "base64_encode",
+		"base64_decode", "ucfirst", "lcfirst", "ucwords", "str_pad", "rsa_sign_sha256", "sha256_base64", "sha1_base64",
 		"chr", "urlencode", "urldecode", "rawurlencode", "rawurldecode"),
 	builtinGroup(builtinString, typesystem.Mixed, "print", "echo", "cout", "cerr", "printf", "min", "max"),
 )

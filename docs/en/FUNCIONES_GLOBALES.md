@@ -39,10 +39,10 @@ you need.See [types](SISTEMA_TIPOS.md) and [syntax](SINTAXIS.md) .
 
 |Signature |Result, mutation and errors |Example |
 |---|---|---|
-|`len(valor)` , `count(valor)` |array/map length;string bytes;other values ​​give 0. |`count([2,3])` → 2 |
+|`len(array|map)`, `count(array|map)` |Number of collection elements. Use `strlen` for text. |`count([2,3])` → 2 |
 |`keys(map)` , `array_keys(map)` |Array of keys without guaranteed order;invalid gives [].|`keys({"a":1})` |
 |`values(map)` , `array_values(map)` |Array of values ​​without guaranteed order;invalid gives [].|`values({"a":1})` |
-|`explode(separador, texto)` |Array of segments;requires two strings, invalid returns null.|`explode(",", "a,b")` |
+|`explode(separador, texto)` |Array of segments; requires two strings and rejects incompatible types during analysis.|`explode(",", "a,b")` |
 |`append(array, elemento)` |Return expanded array;reassigns the result.Invalid gives null.|`$a = append($a, 2)` |
 |`merge(array1, array2)` |New container with both sequences;invalid gives null.|`merge([1],[2])` |
 |`array_merge(primero, otros...)` |Concatenated array or combined map according to first argument;last keys win.Ignore following of other types;invalid gives [].|`array_merge({"a":1},{"a":2})` |
@@ -67,21 +67,22 @@ you need.See [types](SISTEMA_TIPOS.md) and [syntax](SINTAXIS.md) .
 |`print(valores...)` , `echo(valores...)` |They print each argument with a line break;return null.|`print("Hola")` |
 |`printf(formato,valores...)` |Go format, no implicit jump;return null.|`printf("%s: %d\\n","Edad",20)` |
 |`strlen(texto)` |Number of Unicode points;null gives 0. |`strlen("é")` → 1 |
-|`str_contains(texto,parte)` , `contains(texto,parte)` |Bool;arguments are converted to text.|`contains("casa","as")` |
-|`str_starts_with(texto,prefijo)` , `starts_with(...)` |Prefix bool.|`starts_with("abc","a")` |
-|`str_ends_with(texto,sufijo)` , `ends_with(...)` |Postfix bool.|`ends_with("abc","c")` |
-|`str_replace(buscar,reemplazo,texto)` |Replaces all matches.The order differs from Str::replace.|`str_replace("a","o","casa")` |
-|`strtolower(texto)` , `to_lower(texto)` |Unicode lowercase.|`to_lower("HOLA")` |
-|`strtoupper(texto)` , `to_upper(texto)` |Unicode uppercase.|`to_upper("hola")` |
+|`str_contains(texto,parte)` |Bool;requires two strings.|`str_contains("casa","as")` |
+|`str_starts_with(texto,prefijo)` |Prefix bool.|`str_starts_with("abc","a")` |
+|`str_ends_with(texto,sufijo)` |Postfix bool.|`str_ends_with("abc","c")` |
+|`str_replace(buscar,reemplazo,texto)` |Replaces all matches.|`str_replace("a","o","casa")` |
+|`strtolower(texto)` |Unicode lowercase.|`strtolower("HOLA")` |
+|`strtoupper(texto)` |Unicode uppercase.|`strtoupper("hola")` |
 |`ucfirst(texto)` , `lcfirst(texto)` |Change Unicode first point to upper/lower case.|`ucfirst("hola")` |
 |`ucwords(texto)` |Capitalization according to Go strings.Title;not linguistic analysis.|`ucwords("hola mundo")` |
 |`trim(texto,[conjunto])` |Removes Unicode spaces or characters from the set at ends.|`trim(" hola ")` |
 |`ltrim(texto,[conjunto])` , `rtrim(texto,[conjunto])` |Trim at one end;default ASCII spaces.|`ltrim(" hola")` |
 |`substr(texto,inicio,[longitud])` |Unicode Points;negatives relative to the end;out gives "".|`substr("abc",-2)` → bc |
 |`strpos(texto,parte)` |Position in Unicode points or false if missing.Zero is a valid match.|`strpos("abc","a")` → 0 |
-|`implode(separador,array)` , `join(separador,array)` |Convert elements to text and join;invalid gives "".|`join("-",[1,2])` |
+|`implode(separador,array)` |Converts array items to text and joins them; requires a string and an array.|`implode("-",[1,2])` |
 |`str_pad(texto,longitud,[relleno])` |Adds padding to the right by **bytes**, default space.Empty filling can cause panic;do not use.|`str_pad("7",3,"0")` → 700 |
 |`str_repeat(texto,cantidad)` |Repeated text;Negative equals zero.|`str_repeat("a",3)` |
+|`str_random([longitud])` |Non-cryptographic alphanumeric text, 16 by default; zero or negative returns empty text. Do not use for tokens or secrets.|`str_random(8)` |
 |`html_escape(valor)` |Escapes &, <, > and quotes for HTML;null gives "".|`html_escape("<b>")` |
 |`md5(texto)` , `sha1(texto)` , `sha256(texto)` |hexadecimal digest of bytes;no encryption or password hashing.|`sha256("dato")` |
 |`base64_encode(texto)` |Base64 text, without cryptographic secret.|`base64_encode("a")` → YQ== |
@@ -168,7 +169,7 @@ Utilities Executable Example
 ```joss
 print(ucfirst(trim(" ana ")))
 print(strlen("sol"))
-print(join("-", ["a", "b"]))
+print(implode("-", ["a", "b"]))
 print(array_key_exists("id", {"id": null}))
 print(base64_decode(base64_encode("Hola")))
 print(floor(2.8))

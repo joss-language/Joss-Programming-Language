@@ -19,12 +19,6 @@ parameter metadata in part of the library.
 |---|---|
 | `Math::random(min,max)` | inclusive integer; requires two valid int and range; Inverted range can cause panic. Not cryptographic. Ex.: Math::random(1,6). |
 | `Math::floor(n)`, `ceil(n)`, `abs(n)` | float result for convertible numeric inputs; They are not equivalent in type to the floor/ceil global helpers. |
-| `Str::length(texto)` | UTF-8 bytes, 0 for invalid argument. |
-| `Str::random([longitud])` | Alphanumeric text, default 16, math/rand; do not use as secret token. Negative length fails. |
-| `Str::startsWith(texto,prefijo)`, `contains(texto,parte)` | Bool; requires strings. |
-| `Str::substring(texto,inicio,[longitud])` | Unicode Points; negative start is set to zero. Negative length may fail. |
-| `Str::indexOf(texto,parte)` | Index in Unicode points or -1. |
-| `Str::trim(texto)`, `replace(texto,buscar,nuevo)` | String. The order of replace differs from str_replace. |
 | `UUID::generate()`, `v4()` | Textual UUID identifier. |
 | `JSON::parse(texto)`, `decode(texto)` | Decoded value or null; JSON numbers are floats, not arbitrarily precise integers. |
 | `JSON::stringify(valor)`, `encode(valor)` | Compact JSON or "" on failure. |
@@ -41,8 +35,8 @@ parameter metadata in part of the library.
 | `new Mutex()`, `new RWMutex()`, `new WaitGroup()` | Thread-safe concurrency synchronization primitives (`lock`, `unlock`, `add`, `done`, `wait`). |
 <!-- joss-run: ["abc", "1", "dos", "uno"] -->
 ```joss
-print(Str::trim(" abc "))
-print(Str::indexOf("casa", "a"))
+print(trim(" abc "))
+print(strpos("casa", "a"))
 var $pila = new Stack()
 $pila->push("uno")
 $pila->push("dos")

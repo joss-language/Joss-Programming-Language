@@ -56,8 +56,8 @@ func TestFixerNormalizesDeprecatedTypesAndProceduralHelpers(t *testing.T) {
 	if !strings.Contains(fixed, "mixed $opt") {
 		t.Fatalf("expected 'dynamic' to be fixed to 'mixed', got:\n%s", fixed)
 	}
-	if !strings.Contains(fixed, "Str::contains(") {
-		t.Fatalf("expected 'str_contains' to be fixed to 'Str::contains', got:\n%s", fixed)
+	if !strings.Contains(fixed, "str_contains(") {
+		t.Fatalf("expected canonical 'str_contains' to remain unchanged, got:\n%s", fixed)
 	}
 }
 

@@ -1,38 +1,163 @@
-// Standard Library: Strings module
-// Rutinas auxiliares de cadenas en lenguaje Joss
-public class StringUtils {
-    public static func isEmpty(string $s): bool {
-        return strlen($s) == 0
+// String predicates are defined in Joss and share the runtime's Unicode-aware
+// strpos/strlen/substr primitives across interpreter, JIT, and AOT.
+public func str_contains(string $haystack, string $needle): bool {
+    ($needle == "") ? {
+        return true
     }
-
-    public static func isNotEmpty(string $s): bool {
-        return strlen($s) > 0
+    (substr($haystack, 0, strlen($needle)) == $needle) ? {
+        return true
     }
+    return strpos($haystack, $needle) !== false
+}
 
-    public static func padZero(int $num, int $width): string {
-        string $s = strval($num)
-        while (strlen($s) < $width) {
-            $s = "0" . $s
+public func str_starts_with(string $haystack, string $needle) : bool {
+    return substr($haystack, 0, strlen($needle)) == $needle
+}
+
+public func str_ends_with(string $haystack, string $needle) : bool {
+    int $haystackLength = strlen($haystack)
+    int $needleLength = strlen($needle)
+    ($needleLength > $haystackLength) ? {
+        return false
+    }
+    return substr($haystack, $haystackLength - $needleLength, $needleLength) == $needle
+}
+
+public func str_replace(string $search, string $replacement, string $subject) : string {
+    int $subjectLength = strlen($subject)
+    int $searchLength = strlen($search)
+    string $result = ""
+    int $cursor = 0
+
+    ($searchLength == 0) ? {
+        $result = $replacement
+        while ($cursor < $subjectLength) {
+            $result = $result . substr($subject, $cursor, 1) . $replacement
+            $cursor = $cursor + 1
         }
-        return $s
+        return $result
     }
 
-    public static func repeat(string $s, int $count): string {
-        string $res = ""
-        int $i = 0
-        while ($i < $count) {
-            $res = $res . $s
-            $i = $i + 1
+    while ($cursor <= $subjectLength) {
+        string $remaining = substr($subject, $cursor)
+        int $matchIndex = - 1
+        (substr($remaining, 0, $searchLength) == $search) ? {
+            $matchIndex = 0
+        } : {
+            mixed $relative = strpos($remaining, $search)
+            ($relative !== false) ? {
+                $matchIndex = intval($relative)
+            }
         }
-        return $res
+        ($matchIndex < 0) ? {
+            $result = $result . $remaining
+            $cursor = $subjectLength + 1
+        } : {
+            $result = $result . substr($remaining, 0, $matchIndex) . $replacement
+            $cursor = $cursor + $matchIndex + $searchLength
+        }
     }
 
-    public static func padRight(string $s, int $width, string $pad): string {
-        string $res = $s
-        string $ch = (strlen($pad) > 0) ? $pad : " "
-        while (strlen($res) < $width) {
-            $res = $res . $ch
+    return $result
+}
+
+public func explode(string $separator, string $subject) : array<string> {
+    string $separatorText = $separator
+    string $subjectText = $subject
+    int $subjectLength = strlen($subjectText)
+    int $separatorLength = strlen($separatorText)
+
+    ($separatorLength == 0) ? {
+        ($subjectLength == 0) ? {
+            return []
         }
-        return $res
+        var $characters = [substr($subjectText, 0, 1)]
+        int $cursor = 1
+        while ($cursor < $subjectLength) {
+            $characters [] = substr($subjectText, $cursor, 1)
+            $cursor = $cursor + 1
+        }
+        return $characters
     }
+
+    string $firstPart = $subjectText
+    int $cursor = $subjectLength + 1
+    int $firstIndex = - 1
+    (substr($subjectText, 0, $separatorLength) == $separatorText) ? {
+        $firstIndex = 0
+    } : {
+        mixed $firstRelative = strpos($subjectText, $separatorText)
+        ($firstRelative !== false) ? {
+            $firstIndex = intval($firstRelative)
+        }
+    }
+    ($firstIndex >= 0) ? {
+        $firstPart = substr($subjectText, 0, $firstIndex)
+        $cursor = $firstIndex + $separatorLength
+    }
+    array<string> $parts = [$firstPart]
+
+    while ($cursor <= $subjectLength) {
+        string $remaining = substr($subjectText, $cursor)
+        int $matchIndex = - 1
+        (substr($remaining, 0, $separatorLength) == $separatorText) ? {
+            $matchIndex = 0
+        } : {
+            mixed $relative = strpos($remaining, $separatorText)
+            ($relative !== false) ? {
+                $matchIndex = intval($relative)
+            }
+        }
+        ($matchIndex < 0) ? {
+            $parts [] = $remaining
+            $cursor = $subjectLength + 1
+        } : {
+            $parts [] = substr($remaining, 0, $matchIndex)
+            $cursor = $cursor + $matchIndex + $separatorLength
+        }
+    }
+    return $parts
+}
+
+public func implode(string $separator, array<mixed> $parts) : string {
+    string $separatorText = $separator
+    string $result = ""
+    int $index = 0
+    int $length = count($parts)
+    while ($index < $length) {
+        ($index > 0) ? {
+            $result = $result . $separatorText
+        }
+        $result = $result . strval($parts [$index])
+        $index = $index + 1
+    }
+    return $result
+}
+
+public func str_repeat(string $text, int $count) : string {
+    string $result = ""
+    int $index = 0
+    while ($index < $count) {
+        $result = $result . $text
+        $index = $index + 1
+    }
+    return $result
+}
+
+// This convenience function is deliberately non-cryptographic; use the
+// secure random API for tokens and secrets.
+public func str_random(int $length = 16) : string {
+    var $alphabet = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    string $result = ""
+    int $index = 0
+    int $state = (time() * 1000000) % 2147483647
+    ($length > 0) ? {
+        while ($index < $length) {
+            $state = (($state * 1103515245) + 12345) % 2147483647
+            int $alphabetIndex = $state % 62
+            $result = $result . $alphabet [$alphabetIndex]
+            $index = $index + 1
+        }
+    }
+    return $result
 }

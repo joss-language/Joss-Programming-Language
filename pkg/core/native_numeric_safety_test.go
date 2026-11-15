@@ -20,8 +20,6 @@ func TestNativeStringAndRandomRangesRejectNegativeLengths(t *testing.T) {
 	defer r.Free()
 	checks := []func(){
 		func() { r.executeMathMethod(nil, "random", []interface{}{int64(2), int64(1)}) },
-		func() { r.executeStrMethod(nil, "random", []interface{}{int64(-1)}) },
-		func() { r.executeStrMethod(nil, "substring", []interface{}{"joss", int64(0), int64(-1)}) },
 	}
 	for index, check := range checks {
 		func() {
@@ -34,23 +32,5 @@ func TestNativeStringAndRandomRangesRejectNegativeLengths(t *testing.T) {
 			}()
 			check()
 		}()
-	}
-}
-
-func TestStrCompatibilityMethodsHaveRuntimeImplementations(t *testing.T) {
-	r := NewRuntime()
-	defer r.Free()
-	checks := map[string]struct {
-		args []interface{}
-		want interface{}
-	}{
-		"endsWith": {args: []interface{}{"main.joss", ".joss"}, want: true},
-		"substr":   {args: []interface{}{"Joss", int64(1), int64(2)}, want: "os"},
-		"lower":    {args: []interface{}{"JOSS"}, want: "joss"},
-	}
-	for method, check := range checks {
-		if got := r.executeStrMethod(nil, method, check.args); got != check.want {
-			t.Errorf("Str::%s = %#v, want %#v", method, got, check.want)
-		}
 	}
 }

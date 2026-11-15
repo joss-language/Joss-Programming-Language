@@ -2365,12 +2365,10 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	}
 
 	// String and Math helper passthroughs
-	b.defineLabel("fn_Str_trim")
 	b.defineLabel("fn_trim")
 	b.defineLabel("fn_ltrim")
 	b.defineLabel("fn_rtrim")
 	b.defineLabel("fn_Math_ceil")
-	b.defineLabel("fn_str_replace")
 	b.defineLabel("fn_rsa_sign_sha256")
 	b.defineLabel("fn_rawurlencode")
 	b.defineLabel("fn_rawurldecode")
@@ -2382,12 +2380,6 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.defineLabel("fn_Http_get")
 	b.defineLabel("fn_Http_post")
 	b.defineLabel("fn_Http_json")
-	b.emitRet(regX30)
-
-	b.defineLabel("fn_str_contains")
-	b.defineLabel("fn_contains")
-	b.defineLabel("fn_Str_contains")
-	b.emitLoadImm64(regX0, 1)
 	b.emitRet(regX30)
 
 	if b.hasRelocTarget("fn_Server_start", "Server_start", "fn_Socket_listen", "Socket_listen") {
