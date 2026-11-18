@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"strings"
 
@@ -282,10 +283,10 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (InMemoryExecutab
 		return nil, err
 	}
 
-	// 4. Memory Layout Layout in RAM:
+	// 4. Memory Layout in RAM:
 	// [.text code bytes]
-	// [.rodata string constants, aligned to 16]
-	// [.data runtime globals + IAT table slots, aligned to 16]
+	// [.rodata string constants, page-aligned]
+	// [.data runtime globals + IAT table slots, page-aligned]
 	textBytes := append([]byte(nil), b.text.Bytes()...)
 	rodataBytes := b.rodata.Bytes()
 
@@ -293,8 +294,9 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (InMemoryExecutab
 	rodataLen := uint32(len(rodataBytes))
 
 	textRVA := uint32(0)
-	rodataRVA := alignUpU32(textLen, 16)
-	dataRVA := alignUpU32(rodataRVA+rodataLen, 16)
+	pageSize := uint32(os.Getpagesize())
+	rodataRVA := alignUpU32(textLen, pageSize)
+	dataRVA := alignUpU32(rodataRVA+rodataLen, pageSize)
 
 	// Allocate IAT slots inside .data section
 	var iatRVAs [iatSlotCount]uint32
@@ -334,7 +336,7 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (InMemoryExecutab
 		_ = block.Free()
 		return nil, fmt.Errorf("jit write failed: %w", err)
 	}
-	if err := block.FinalizeCode(int(rodataRVA)); err != nil {
+	if err := block.FinalizeCode(len(textBytes)); err != nil {
 		_ = block.Free()
 		return nil, fmt.Errorf("jit finalize code failed: %w", err)
 	}
