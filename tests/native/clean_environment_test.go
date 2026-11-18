@@ -86,7 +86,7 @@ echo "Hola Joss Standalone";
 		"TEMP=" + userWorkDir,
 	}
 
-	jossBuildCmd := exec.Command(jossBinPath, "build", "hello.joss", "--trace")
+	jossBuildCmd := exec.Command(jossBinPath, "build", "hello.joss", "--native", "--trace")
 	jossBuildCmd.Dir = userWorkDir
 	jossBuildCmd.Env = cleanBuildEnv
 	buildOut, err := jossBuildCmd.CombinedOutput()

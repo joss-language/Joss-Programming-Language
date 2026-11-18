@@ -456,8 +456,16 @@ func TestHostServiceAvailabilityMatchesExecutionMode(t *testing.T) {
 			if !builder.hostServiceAvailable("Server", "start") {
 				t.Fatal("Server::start should delegate to the Joss-owned HttpServer::start")
 			}
-			if mode.jit && !builder.hostServiceAvailable("ParityProbe", "invoke") {
-				t.Fatal("registered JIT callback should be accepted")
+			if mode.jit {
+				if jit.SupportsInProcessHostBridge() {
+					if !builder.hostServiceAvailable("ParityProbe", "invoke") {
+						t.Fatal("registered JIT callback should be accepted")
+					}
+				} else {
+					if builder.hostServiceAvailable("ParityProbe", "invoke") {
+						t.Fatal("registered JIT callback should be rejected when platform has no callback ABI")
+					}
+				}
 			}
 			if builder.hostServiceAvailable("TestService", "missing") {
 				t.Fatal("unimplemented service must be rejected")
@@ -531,3 +539,4 @@ func TestUnresolvedRuntimeSymbolsFailForBothNativeBackends(t *testing.T) {
 		}
 	})
 }
+
