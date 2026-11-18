@@ -529,6 +529,74 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 		b.emitJeLabel(".env_try_map")
 		b.emitBytes(0x48, 0x8B, 0x45, 0xE8)       // mov rax, [rbp - 24]
 		b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // ret
+	} else if b.target.OS == "linux" {
+		// Read /proc/self/environ via sys_open, sys_read, sys_close
+		b.emitLeaRCXString("/proc/self/environ")
+		b.emitBytes(0x48, 0x89, 0xCF)             // mov rdi, rcx
+		b.emitBytes(0x31, 0xF6)                   // xor esi, esi (O_RDONLY)
+		b.emitBytes(0x31, 0xD2)                   // xor edx, edx
+		b.emitBytes(0xB8, 0x02, 0x00, 0x00, 0x00) // mov eax, 2 (sys_open)
+		b.emitBytes(0x0F, 0x05)                   // syscall
+		b.emitBytes(0x48, 0x83, 0xF8, 0x00)       // cmp rax, 0
+		b.emitJlLabel(".env_try_map")
+		b.emitBytes(0x48, 0x89, 0x45, 0xE8)       // mov [rbp - 24], rax (fd)
+		b.emitBytes(0xB9, 0x02, 0x00, 0x01, 0x00) // mov ecx, 65538
+		b.emitCallLabel("__joss_os_alloc")
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJeLabel(".env_linux_close_fail")
+		b.emitBytes(0x48, 0x89, 0x45, 0xE0)       // mov [rbp - 32], rax (buf)
+		b.emitBytes(0x48, 0x8B, 0x7D, 0xE8)       // mov rdi, [rbp - 24] (fd)
+		b.emitBytes(0x48, 0x8B, 0x75, 0xE0)       // mov rsi, [rbp - 32] (buf)
+		b.emitBytes(0xBA, 0xFF, 0xFF, 0x00, 0x00) // mov edx, 65535
+		b.emitBytes(0x31, 0xC0)                   // xor eax, eax (sys_read)
+		b.emitBytes(0x0F, 0x05)                   // syscall
+		b.emitBytes(0x48, 0x89, 0x45, 0xD8)       // mov [rbp - 40], rax (bytesRead)
+		b.emitBytes(0x48, 0x8B, 0x7D, 0xE8)       // mov rdi, [rbp - 24] (fd)
+		b.emitBytes(0xB8, 0x03, 0x00, 0x00, 0x00) // mov eax, 3 (sys_close)
+		b.emitBytes(0x0F, 0x05)                   // syscall
+		b.emitBytes(0x48, 0x8B, 0x45, 0xD8)       // mov rax, [rbp - 40]
+		b.emitBytes(0x48, 0x83, 0xF8, 0x00)       // cmp rax, 0
+		b.emitJleLabel(".env_try_map")
+		b.emitBytes(0x48, 0x8B, 0x4D, 0xE0)             // mov rcx, [rbp - 32] (p = buf)
+		b.emitBytes(0x66, 0xC7, 0x04, 0x01, 0x00, 0x00) // mov word ptr [rcx + rax], 0
+
+		b.defineLabel(".env_linux_scan")
+		b.emitBytes(0x80, 0x39, 0x00) // cmp byte ptr [rcx], 0
+		b.emitJeLabel(".env_try_map")
+		b.emitBytes(0x48, 0x8B, 0x55, 0xF0) // mov rdx, [rbp - 16] (key)
+		b.emitBytes(0x45, 0x31, 0xC0)       // xor r8d, r8d (i = 0)
+
+		b.defineLabel(".env_linux_cmp")
+		b.emitBytes(0x42, 0x8A, 0x04, 0x02) // mov al, [rdx + r8]
+		b.emitBytes(0x84, 0xC0)             // test al, al
+		b.emitJeLabel(".env_linux_check_eq")
+		b.emitBytes(0x42, 0x3A, 0x04, 0x01) // cmp al, [rcx + r8]
+		b.emitJneLabel(".env_linux_next_entry")
+		b.emitBytes(0x49, 0xFF, 0xC0) // inc r8
+		b.emitJmpLabel(".env_linux_cmp")
+
+		b.defineLabel(".env_linux_check_eq")
+		b.emitBytes(0x42, 0x80, 0x3C, 0x01, 0x3D) // cmp byte ptr [rcx + r8], '='
+		b.emitJneLabel(".env_linux_next_entry")
+		b.emitBytes(0x4A, 0x8D, 0x44, 0x01, 0x01) // lea rax, [rcx + r8 + 1]
+		b.emitBytes(0x80, 0x38, 0x00)             // cmp byte ptr [rax], 0
+		b.emitJeLabel(".env_try_map")
+		b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // ret
+
+		b.defineLabel(".env_linux_next_entry")
+		b.emitBytes(0x80, 0x39, 0x00) // cmp byte ptr [rcx], 0
+		b.emitJeLabel(".env_linux_entry_end")
+		b.emitBytes(0x48, 0xFF, 0xC1) // inc rcx
+		b.emitJmpLabel(".env_linux_next_entry")
+
+		b.defineLabel(".env_linux_entry_end")
+		b.emitBytes(0x48, 0xFF, 0xC1) // inc rcx
+		b.emitJmpLabel(".env_linux_scan")
+
+		b.defineLabel(".env_linux_close_fail")
+		b.emitBytes(0x48, 0x8B, 0x7D, 0xE8)       // mov rdi, [rbp - 24]
+		b.emitBytes(0xB8, 0x03, 0x00, 0x00, 0x00) // mov eax, 3 (sys_close)
+		b.emitBytes(0x0F, 0x05)                   // syscall
 	}
 
 	// 2. Try loaded environment map (.env / env.joss)
