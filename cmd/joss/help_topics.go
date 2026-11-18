@@ -31,7 +31,8 @@ func printTopicHelpCore(cmd string) bool {
 	case "run":
 		fmt.Printf("%s joss run <archivo.joss> [--native]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicRun"))
-		fmt.Println("  Sin --native usa el runtime anterior; --native opta por JIT y falla explícitamente si falta soporte.")
+		fmt.Println("  Por defecto intenta JIT; si falta una capacidad nativa conocida, informa y usa el runtime Go de compatibilidad.")
+		fmt.Println("  --native exige JIT nativo y falla si falta soporte; no cambia al intérprete.")
 		fmt.Println(helpHeaderExamples)
 		fmt.Println("  joss run main.joss")
 		fmt.Println("  joss run script.joss")
@@ -48,11 +49,13 @@ func printTopicHelpCore(cmd string) bool {
 	case "server":
 		fmt.Printf("%s joss server start [--native]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicServer"))
+		fmt.Println("  Por defecto selecciona JIT o runtime Go según las capacidades; --native exige JIT sin fallback.")
 		return true
 
 	case "program":
 		fmt.Printf("%s joss program start [--native]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicProgram"))
+		fmt.Println("  Por defecto selecciona el modo disponible según las capacidades; --native exige AOT/JIT nativo.")
 		return true
 
 	case "build":
@@ -69,7 +72,7 @@ func printTopicHelpCore(cmd string) bool {
 		fmt.Println("  --debug              Compilación con información de depuración")
 		fmt.Println("  --gui                Habilita subsistema de interfaz gráfica de escritorio (GUI)")
 		fmt.Println("  --trace              Emite y conserva artefactos intermedios (.ir, .ll, .asm)")
-		fmt.Println("  --native             Genera AOT directo; sin esta opción empaqueta el runtime anterior")
+		fmt.Println("  --native             Exige AOT nativo puro; sin esta opción se selecciona automáticamente")
 		fmt.Println("\nSubcomandos auxiliares:")
 		fmt.Printf("  package <ruta>       %s\n", i18n.Tr("helpTopicBuildModePackage"))
 		fmt.Printf("  web                  %s\n", i18n.Tr("helpTopicBuildModeWeb"))
@@ -78,7 +81,7 @@ func printTopicHelpCore(cmd string) bool {
 		fmt.Println("  joss build linux")
 		fmt.Println("  joss build macos")
 		fmt.Println("  joss build android")
-		fmt.Println("  joss build main.joss --native --target=linux-amd64")
+		fmt.Println("  joss build main.joss --target=linux-amd64")
 		fmt.Println("  joss build main.joss --native --target=darwin-arm64")
 		fmt.Println("  joss build main.joss --gui")
 		fmt.Println("  joss build main.joss -o build/mi_programa.exe")

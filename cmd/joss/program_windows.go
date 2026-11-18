@@ -67,7 +67,7 @@ func startProgram(args []string) {
 	cmd := exec.Command(exePath, childArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = append(os.Environ(), "JOSS_GUI=true", "JOSS_SERVER_MODE=1")
+	cmd.Env = append(serverModeEnvironment(os.Environ(), mode), "JOSS_GUI=true")
 	if err := cmd.Start(); err != nil {
 		fmt.Printf("❌ [Desktop GUI] Error iniciando proceso nativo: %v\n", err)
 		os.Exit(1)

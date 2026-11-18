@@ -429,7 +429,7 @@ func handleBuildCommand(args []string) {
 		fmt.Println("  --debug              Compilación con información de depuración")
 		fmt.Println("  --gui                Habilita subsistema de interfaz gráfica de escritorio (GUI)")
 		fmt.Println("  --trace              Emite y conserva artefactos intermedios (.ir, .ll, .asm)")
-		fmt.Println("  --native             Usar compilación AOT nativa; por defecto se empaqueta el runtime anterior")
+		fmt.Println("  --native             Exigir backend nativo puro; sin esta opción se elige automáticamente")
 		fmt.Println("\nSubcomandos de distribución:")
 		fmt.Println("  package <ruta>       Empaquetar librería o plugin en formato .jp")
 		fmt.Println("  web                  Preparar bundle de archivos y assets para despliegue web")
@@ -528,7 +528,28 @@ func buildProgramForMode(filename, outExe, targetStr string, release, debug, tra
 	if mode == executionModeNative {
 		return buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName)
 	}
+	if mode == executionModeAuto {
+		if projectUsesHTTPServer(filename) {
+			fmt.Println("[Auto] El proyecto inicia HTTP; se selecciona runner Go con servidor concurrente net/http.")
+			return buildLegacyProgram(filename, outExe, targetStr, enableGUI)
+		}
+		path, err := buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName)
+		if err == nil {
+			fmt.Println("[Auto] Capacidades nativas disponibles; se seleccionó AOT puro, sin runtime Go.")
+			return path, nil
+		}
+		if !isNativeCapabilityGap(err) {
+			return "", err
+		}
+		fmt.Fprintf(os.Stderr, "[Auto] El backend nativo aún no cubre una capacidad requerida; se selecciona el runner de compatibilidad Go: %v\n", err)
+	}
 	return buildLegacyProgram(filename, outExe, targetStr, enableGUI)
+}
+
+func projectUsesHTTPServer(filename string) bool {
+	units, _ := semanticanalyzer.LoadProject(filename, "app")
+	analysis := core.AnalyzeSourceUnits(units)
+	return preparedProgramUsesHTTPServer(analysis.Prepared)
 }
 
 // lowerPreparedProject is the single CLI entry to the canonical native IR
@@ -708,16 +729,24 @@ func executeScriptWithMode(filename string, mode executionMode) {
 		return
 	}
 
-	// =========================================================================
-	// The previous Go runtime remains the default. --native opts into the
-	// shared PreparedProgram-to-verified-IR JIT pipeline.
-	// =========================================================================
-	if mode == executionModeNative {
+	// All modes analyze the same PreparedProgram. Auto normally attempts shared
+	// IR/JIT first; server startup can explicitly select the concurrent Go HTTP
+	// runtime. A known capability gap uses the compatibility interpreter, while
+	// --native remains strict and never changes engines.
+	goHTTPServer := shouldUseGoHTTPRuntime(mode, os.Getenv("JOSS_HTTP_BACKEND")) ||
+		(mode != executionModeNative && preparedProgramUsesHTTPServer(report.Prepared))
+	if goHTTPServer {
+		fmt.Println("[Server] Backend HTTP seleccionado: runtime Go con net/http concurrente.")
+	}
+	if mode == executionModeNative || (mode == executionModeAuto && !goHTTPServer) {
 		irProg, irErr := lowerPreparedProject(report.Prepared, filename)
 		if irErr == nil {
 			emitter := native.SelectCodeEmitter(native.HostTarget(), false)
 			jitExe, jitErr := emitter.CompileInMemory(irProg)
 			if jitErr == nil {
+				if mode == executionModeAuto {
+					fmt.Println("[Auto] Capacidades nativas disponibles; se seleccionó JIT.")
+				}
 				defer jitExe.Free()
 				exitCode, execErr := jitExe.Execute()
 				if execErr != nil {
@@ -729,17 +758,28 @@ func executeScriptWithMode(filename string, mode executionMode) {
 				}
 				return
 			}
-			fmt.Fprintf(os.Stderr, "[Execution] JIT compilation failed; interpreter fallback is disabled: %v\n", jitErr)
-			os.Exit(1)
+			if mode == executionModeAuto && isNativeCapabilityGap(jitErr) {
+				fmt.Fprintf(os.Stderr, "[Auto] JIT no cubre una capacidad requerida; se selecciona el runtime de compatibilidad Go: %v\n", jitErr)
+			} else {
+				fmt.Fprintf(os.Stderr, "[Execution] JIT compilation failed; interpreter fallback is disabled: %v\n", jitErr)
+				os.Exit(1)
+			}
 		} else {
-			fmt.Fprintf(os.Stderr, "[Execution] shared IR pipeline failed; interpreter fallback is disabled: %v\n", irErr)
-			os.Exit(1)
+			if mode == executionModeAuto && isNativeCapabilityGap(irErr) {
+				fmt.Fprintf(os.Stderr, "[Auto] IR no cubre una capacidad requerida; se selecciona el runtime de compatibilidad Go: %v\n", irErr)
+			} else {
+				fmt.Fprintf(os.Stderr, "[Execution] shared IR pipeline failed; interpreter fallback is disabled: %v\n", irErr)
+				os.Exit(1)
+			}
 		}
 	}
 
 	rt := core.NewRuntime()
 	rt.CurrentFile = filename
 	rt.LoadEnv(nil)
+	if goHTTPServer {
+		rt.Env["JOSS_HTTP_BACKEND"] = "go"
+	}
 
 	defer func() {
 		if r := recover(); r != nil {

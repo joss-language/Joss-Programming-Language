@@ -15,6 +15,17 @@ var ServerStartCallback func(fs http.FileSystem)
 func (r *Runtime) executeServerControlMethod(instance *Instance, method string, args []interface{}) interface{} {
 	switch method {
 	case "start":
+		// The normal server command uses the concurrent net/http implementation.
+		// The native server remains available explicitly with --native.
+		if r.Env["JOSS_HTTP_BACKEND"] == "go" {
+			if ServerStartCallback == nil {
+				fmt.Println("Error: el servidor HTTP Go no está disponible en esta distribución de Joss.")
+				return false
+			}
+			fmt.Println("[Server] Usando servidor HTTP Go concurrente (net/http).")
+			ServerStartCallback(GlobalFileSystem)
+			return true
+		}
 		if meta := r.lookupClassMetadata("HttpServer"); meta != nil {
 			if methodInfo, ok := meta.Methods["start"]; ok {
 				return r.callMethodEvaluatedWithPlan(methodInfo.Method, nil, args, nil, methodInfo.Plan)

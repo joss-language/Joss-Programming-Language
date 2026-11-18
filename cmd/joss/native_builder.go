@@ -28,8 +28,12 @@ const (
 	sqliteWalFile = "database.sqlite-wal"
 )
 
-func collectProjectFiles(enableGUI bool) (map[string][]byte, map[string]bool, error) {
+func collectProjectFiles(enableGUI bool, entrypoint ...string) (map[string][]byte, map[string]bool, error) {
 	files := make(map[string][]byte)
+	entryFile := "main.joss"
+	if len(entrypoint) > 0 && strings.TrimSpace(entrypoint[0]) != "" {
+		entryFile = entrypoint[0]
+	}
 	ignoredDirs := map[string]bool{
 		".git": true, ".vscode": true, ".idea": true, "build": true, "dist": true, "vendor": true,
 		"node_modules": true, ".gemini": true, ".codex": true, ".agents": true, ".github": true,
@@ -38,7 +42,7 @@ func collectProjectFiles(enableGUI bool) (map[string][]byte, map[string]bool, er
 
 	// 1. Run reachability analysis starting from main.joss
 	bCfg := LoadProjectBuildConfig()
-	reachGraph, units, reachErr := AnalyzeProjectReachability("main.joss", bCfg.KeepClasses, bCfg.KeepSymbols)
+	reachGraph, units, reachErr := AnalyzeProjectReachability(entryFile, bCfg.KeepClasses, bCfg.KeepSymbols)
 	if reachErr != nil {
 		fmt.Printf("⚠️  [Build Warning] Reachability analysis fallback: %v\n", reachErr)
 	}
@@ -101,7 +105,7 @@ func collectProjectFiles(enableGUI bool) (map[string][]byte, map[string]bool, er
 
 	if reachGraph != nil {
 		manifest := buildmanifest.GenerateManifest(
-			"main.joss", bCfg.Mode, runtime.GOOS, runtime.GOARCH, bCfg.Profile,
+			entryFile, bCfg.Mode, runtime.GOOS, runtime.GOARCH, bCfg.Profile,
 			filepath.Join("build", "app"), allDiscoveredFiles, reachGraph, 0,
 		)
 		_ = manifest.SaveToFile(filepath.Join(".joss", "cache", "build-manifest.json"))
@@ -124,7 +128,7 @@ func collectProjectFiles(enableGUI bool) (map[string][]byte, map[string]bool, er
 
 	envDetect := core.DetectAndLoadEnv(nil)
 	envMap := envDetect.EnvMap
-	dbDriver := strings.ToLower(strings.TrimSpace(envMap["DB"]))
+	dbDriver := configuredDatabaseDriver(envMap)
 	switch dbDriver {
 	case "mysql":
 		capsMap["mysql"] = true
@@ -370,6 +374,14 @@ func computePruningTags(detectedCaps map[string]bool) []string {
 		}
 	}
 	return tags
+}
+
+func configuredDatabaseDriver(env map[string]string) string {
+	driver := strings.TrimSpace(env["DB"])
+	if driver == "" {
+		driver = strings.TrimSpace(env["DB_CONNECTION"])
+	}
+	return strings.ToLower(driver)
 }
 
 func copyDatabaseFiles(buildDir string) {

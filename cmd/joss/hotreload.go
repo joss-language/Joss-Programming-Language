@@ -169,7 +169,7 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
-		cmd.Env = serverChildEnv(enableGUI)
+		cmd.Env = serverChildEnv(enableGUI, mode)
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 		defer signal.Stop(sigChan)
@@ -212,7 +212,7 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
-		cmd.Env = serverChildEnv(enableGUI)
+		cmd.Env = serverChildEnv(enableGUI, mode)
 		child, err := startManagedServerChild(cmd)
 		if err != nil {
 			return err
@@ -305,10 +305,22 @@ func serverChildArgs(entryFile string, extraArgs []string, mode executionMode) [
 	return append(args, extraArgs...)
 }
 
-func serverChildEnv(gui bool) []string {
-	env := append(os.Environ(), "JOSS_SERVER_MODE=1")
+func serverChildEnv(gui bool, mode executionMode) []string {
+	env := serverModeEnvironment(os.Environ(), mode)
 	if gui {
 		env = append(env, "JOSS_GUI=true")
 	}
+	return env
+}
+
+func serverModeEnvironment(base []string, mode executionMode) []string {
+	env := make([]string, 0, len(base)+2)
+	for _, item := range base {
+		if strings.HasPrefix(strings.ToUpper(item), "JOSS_HTTP_BACKEND=") {
+			continue
+		}
+		env = append(env, item)
+	}
+	env = append(env, "JOSS_SERVER_MODE=1", "JOSS_HTTP_BACKEND="+serverBackendForMode(mode), "DISABLE_WATCHDOG=true")
 	return env
 }

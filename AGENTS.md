@@ -36,9 +36,9 @@ No asuma que un comentario, un archivo histórico o una tesis describe el compor
                     ┌──────────────────────┼──────────────────────┐
                     ▼                      ▼                      ▼
                `joss run`             `joss server`          `joss build`
-               Intérprete            Servidor HTTP         Native Compiler
-              (`pkg/core`)           (`pkg/server`)           (`pkg/ir` →
-                   │                      │              `pkg/backend/native`)
+               Selección auto        Selección auto        Selección auto
+              JIT o Go compat.       JIT o Go compat.      AOT o runner Go
+                   │                      │              `pkg/ir` → backend
                    ▼                      ▼                       ▼
              Salida Consola        Respuesta HTTP        Binario Standalone (.exe/ELF)
 ```
@@ -49,7 +49,7 @@ No asuma que un comentario, un archivo histórico o una tesis describe el compor
 - `pkg/diagnostics`: Modelo de errores y advertencias (`Diagnostic`) con código estable, severidad, rango, explicación y sugerencia.
 - `pkg/core`: Evaluador de AST, runtime Go, frames léxicos, slots, built-ins globales y clases nativas integradas; consume directamente `PreparedProgram`.
 - `pkg/ir`: Representación intermedia canónica (*Joss Native IR*), lowering de `PreparedProgram`, instrucciones SSA/3AC y verificador de tipos de bajo nivel (`ir.Verifier`).
-- `pkg/backend/native`: Generadores de código nativo para compilación AOT standalone y emisión LLVM; genera ejecutables independientes de máquina real sin AST serializado ni runtime Go embebido.
+- `pkg/backend/native`: Generadores de código nativo para compilación AOT standalone y emisión LLVM; el perfil nativo puro genera ejecutables independientes sin AST serializado ni runtime Go.
 - `pkg/server`: Runtime HTTP multinivel, multiplexor, WebSockets y controladores MVC basados en el mismo modelo semántico.
 - `pkg/bytecode`: Serialización comprimida del AST (`JOSSBC2Z`) para plugins `.jp`, no para ejecutables nativos AOT.
 - `pkg/pluginruntime`, `pkg/pluginpkg`, `pkg/plugincompiler`: Runtime, paquetes y JPBC de plugins.
@@ -275,10 +275,11 @@ Todo cambio debe mantener en verde `tests/architecture/architecture_contract_tes
 
 ## 11. Compilación Nativa (`joss build`), Modo Autónomo Standalone y Cero DLLs
 
-### 11.1 Principio de Binario Único Standalone (Prohibición Absoluta de DLLs)
+### 11.1 Principio de Binario Único y selección automática
 > **REGLA ESTRICTA DE ARQUITECTURA**: Todo ejecutable generado por `joss build` es un binario único, autocontenido y autónomo (`build/<nombre>.exe` en Windows o `build/<nombre>` en Linux/macOS).
-* **Cero DLLs**: Queda terminantemente prohibido generar, distribuir o requerir archivos `.dll` complementarios (como `joss_host.dll`), librerías dinámicas o dependencias externas junto al ejecutable final.
-* **Sin Runtime Monolítico ni Runners Inflados**: Queda prohibido volver a runners de 40 MB o runtime monolítico de Go embebido. `joss build` compila directamente a código máquina nativo real (PE32+ / ELF) mediante `pkg/backend/native`, produciendo ejecutables ultra-optimizados (desde ~5 KB para utilidades CLI hasta ~1.68 MB para aplicaciones web completas con servidor HTTP integrado).
+* **Sin DLLs complementarias**: No generar, distribuir ni requerir bibliotecas dinámicas junto al ejecutable final. El runtime de plataforma del sistema operativo no cuenta como archivo complementario distribuido por Joss.
+* **Selección automática**: `joss run`, `program` y `build` intentan JIT/AOT nativo con `PreparedProgram → IR` para programas sin servidor HTTP; los proyectos que resuelven `Server::start`, `HttpServer::start` o `HttpServer::run` usan el runtime Go concurrente en `run`/`program` y el runner Go en `build`. `joss server start` usa por defecto `pkg/server`/`net/http`; `--native` selecciona el bucle TCP de `std/http/server.joss`. Las brechas nativas conocidas pueden seleccionar runtime Go; errores de análisis, verificación o emisión nunca activan fallback. `--native` exige la ruta nativa y falla explícitamente ante cualquier capacidad no soportada.
+* **Estado de la migración híbrida**: Los ejecutables AOT puros no contienen runtime Go. El runner de compatibilidad actual aún contiene el intérprete completo; no debe describirse como host Go mínimo ni como AOT híbrido. La ABI tipada para invocar adaptadores Go desde código máquina Joss es trabajo pendiente. La poda por capacidades debe ser determinista; builds desde checkout pueden compilar runners con tags y una distribución sin Go debe incluir sus perfiles precompilados. Mantener ~80 KB como meta de utilidades puras y medir por separado las aplicaciones de compatibilidad.
 * **Desacoplamiento Estricto de Catálogos de Terminal (i18n)**: Los archivos de traducción de consola CLI (`intl_*.arb`) pertenecen exclusivamente a la herramienta interactiva de desarrollo (`joss`) y nunca deben compilarse ni embeberse en binarios de producción generados con `joss build` (gobernado por la poda `noembedlocales`).
 
 ### 11.2 Directorio de salida y Compilación Cruzada (Multi-OS / Multi-Arch)

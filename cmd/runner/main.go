@@ -178,6 +178,9 @@ func main() {
 		r := core.NewRuntime()
 		defer r.Free()
 		r.LoadEnv(memFS)
+		// Compatibility builds use the concurrent Go server for applications
+		// that invoke Server::start or HttpServer::start.
+		r.Env["JOSS_HTTP_BACKEND"] = "go"
 
 		// Autoload plugins packaged in VFS
 		for k, data := range files {

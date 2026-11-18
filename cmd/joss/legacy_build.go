@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/jossecurity/joss/pkg/backend/native"
@@ -40,7 +41,13 @@ func buildLegacyProgram(filename, outExe, targetStr string, enableGUI bool) (str
 		outExe += ".exe"
 	}
 
-	runner, cleanup, err := resolveLegacyRunner(target)
+	files, detectedCaps, err := collectProjectFiles(enableGUI, filename)
+	if err != nil {
+		return "", fmt.Errorf("empaquetar proyecto: %w", err)
+	}
+	detectedCaps["gui"] = enableGUI
+	pruningTags := computePruningTags(detectedCaps)
+	runner, cleanup, err := resolveLegacyRunner(target, pruningTags)
 	if err != nil {
 		return "", err
 	}
@@ -55,11 +62,6 @@ func buildLegacyProgram(filename, outExe, targetStr string, enableGUI bool) (str
 		_ = os.Chmod(outExe, 0755)
 	}
 
-	files, _, err := collectProjectFiles(enableGUI)
-	if err != nil {
-		_ = os.Remove(outExe)
-		return "", fmt.Errorf("empaquetar proyecto: %w", err)
-	}
 	if filepath.ToSlash(filepath.Clean(filename)) != "main.joss" {
 		source, readErr := os.ReadFile(filename)
 		if readErr != nil {
@@ -108,7 +110,7 @@ func buildLegacyProgram(filename, outExe, targetStr string, enableGUI bool) (str
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("✓ Ejecutable autónomo generado: %s (%.1f MB) [modo anterior, target: %s]\n", outExe, float64(info.Size())/(1024*1024), target.DashString())
+	fmt.Printf("✓ Ejecutable autónomo generado: %s (%.1f MB) [compatibilidad Go, perfil: %s, target: %s]\n", outExe, float64(info.Size())/(1024*1024), runnerProfileName(pruningTags), target.DashString())
 	return outExe, nil
 }
 
@@ -136,22 +138,27 @@ func sealLegacyProject(files map[string][]byte) ([]byte, []byte, error) {
 	return sealed, key, nil
 }
 
-func resolveLegacyRunner(target native.Target) (string, func(), error) {
+func resolveLegacyRunner(target native.Target, pruningTags []string) (string, func(), error) {
 	name := "joss-runner"
 	if target.OS == "windows" {
 		name += ".exe"
 	}
-	var candidates []string
+	profile := runnerProfileName(pruningTags)
+	var profileCandidates []string
+	var genericCandidates []string
 	if dir := os.Getenv("JOSS_RUNNER_DIR"); dir != "" {
-		candidates = append(candidates, filepath.Join(dir, target.DashString(), name))
+		profileCandidates = append(profileCandidates, filepath.Join(dir, target.DashString(), "profiles", profile, name))
+		genericCandidates = append(genericCandidates, filepath.Join(dir, target.DashString(), name))
 	}
 	if executable, err := os.Executable(); err == nil {
-		candidates = append(candidates, filepath.Join(filepath.Dir(executable), "runners", target.DashString(), name))
+		profileCandidates = append(profileCandidates, filepath.Join(filepath.Dir(executable), "runners", target.DashString(), "profiles", profile, name))
+		genericCandidates = append(genericCandidates, filepath.Join(filepath.Dir(executable), "runners", target.DashString(), name))
 	}
 	if root := findJossRepoRoot(); root != "" {
-		candidates = append(candidates, filepath.Join(root, "runners", target.DashString(), name))
+		profileCandidates = append(profileCandidates, filepath.Join(root, "runners", target.DashString(), "profiles", profile, name))
+		genericCandidates = append(genericCandidates, filepath.Join(root, "runners", target.DashString(), name))
 	}
-	for _, candidate := range candidates {
+	for _, candidate := range profileCandidates {
 		if info, err := os.Stat(candidate); err == nil && !info.IsDir() && info.Size() > 0 {
 			return candidate, func() {}, nil
 		}
@@ -159,11 +166,28 @@ func resolveLegacyRunner(target native.Target) (string, func(), error) {
 
 	root := findJossRepoRoot()
 	if root == "" {
+		for _, candidate := range genericCandidates {
+			if info, err := os.Stat(candidate); err == nil && !info.IsDir() && info.Size() > 0 {
+				return candidate, func() {}, nil
+			}
+		}
 		return "", func() {}, fmt.Errorf("runner anterior para %s no está instalado; se esperaba %s junto a Joss", target.DashString(), filepath.Join("runners", target.DashString(), name))
 	}
 	goPath, err := exec.LookPath("go")
 	if err != nil {
-		return "", func() {}, fmt.Errorf("runner anterior para %s no está instalado y no hay toolchain Go en el checkout para generarlo", target.DashString())
+		for _, candidate := range genericCandidates {
+			if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() && info.Size() > 0 {
+				return candidate, func() {}, nil
+			}
+		}
+		return "", func() {}, fmt.Errorf("runner anterior para %s (perfil %s) no está instalado y no hay toolchain Go en el checkout para generarlo", target.DashString(), profile)
+	}
+	if len(pruningTags) == 0 {
+		for _, candidate := range genericCandidates {
+			if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() && info.Size() > 0 {
+				return candidate, func() {}, nil
+			}
+		}
 	}
 	temp, err := os.CreateTemp("", "joss-legacy-runner-*")
 	if err != nil {
@@ -171,7 +195,11 @@ func resolveLegacyRunner(target native.Target) (string, func(), error) {
 	}
 	_ = temp.Close()
 	_ = os.Remove(temp.Name())
-	args := []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w", "-o", temp.Name(), "./cmd/runner"}
+	args := []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w", "-o", temp.Name()}
+	if len(pruningTags) > 0 {
+		args = append(args, "-tags="+strings.Join(pruningTags, ","))
+	}
+	args = append(args, "./cmd/runner")
 	cmd := exec.Command(goPath, args...)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+target.OS, "GOARCH="+target.Arch)
@@ -181,6 +209,15 @@ func resolveLegacyRunner(target native.Target) (string, func(), error) {
 	}
 	cleanup := func() { _ = os.Remove(temp.Name()) }
 	return temp.Name(), cleanup, nil
+}
+
+func runnerProfileName(tags []string) string {
+	if len(tags) == 0 {
+		return "full"
+	}
+	ordered := append([]string(nil), tags...)
+	sort.Strings(ordered)
+	return strings.Join(ordered, "_")
 }
 
 func findJossRepoRoot() string {
