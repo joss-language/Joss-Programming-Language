@@ -326,9 +326,17 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (InMemoryExecutab
 	}
 
 	// 7. Allocate executable memory page and copy full image
-	block, err := jit.AllocateExecutable(fullImage)
+	block, err := jit.AllocateJITImage(len(fullImage))
 	if err != nil {
 		return nil, fmt.Errorf("jit allocation failed: %w", err)
+	}
+	if err := block.Write(fullImage); err != nil {
+		_ = block.Free()
+		return nil, fmt.Errorf("jit write failed: %w", err)
+	}
+	if err := block.FinalizeCode(int(rodataRVA)); err != nil {
+		_ = block.Free()
+		return nil, fmt.Errorf("jit finalize code failed: %w", err)
 	}
 
 	lastSizeAddr := block.Addr + uintptr(dataRVA+dataOffLastFileSize)

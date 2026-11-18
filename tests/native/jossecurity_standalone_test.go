@@ -469,5 +469,3 @@ func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
 		}
 	}
 }
-
-

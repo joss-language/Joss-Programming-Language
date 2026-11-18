@@ -539,4 +539,3 @@ func TestUnresolvedRuntimeSymbolsFailForBothNativeBackends(t *testing.T) {
 		}
 	})
 }
-
