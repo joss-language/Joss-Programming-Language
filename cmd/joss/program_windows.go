@@ -17,7 +17,8 @@ import (
 	"github.com/jossecurity/joss/pkg/i18n"
 )
 
-func startProgram() {
+func startProgram(args []string) {
+	mode, args := takeExecutionMode(args)
 	// Bloquear el hilo principal del sistema operativo para Win32 / COM (STA)
 	runtime.LockOSThread()
 
@@ -31,11 +32,24 @@ func startProgram() {
 		os.Exit(1)
 	}
 
-	fmt.Println("⚡ [Desktop GUI] Compilando aplicación a binario nativo AOT...")
-	exePath, err := buildNativeProgram("main.joss", "", "", false, false, false, true, "auto")
-	if err != nil {
-		fmt.Printf("❌ [Desktop GUI] Error compilando binario nativo: %v\n", err)
-		os.Exit(1)
+	var exePath string
+	var childArgs []string
+	if mode == executionModeNative {
+		fmt.Println("⚡ [Desktop GUI] Compilando aplicación a binario nativo AOT...")
+		var err error
+		exePath, err = buildNativeProgram("main.joss", "", "", false, false, false, true, "auto")
+		if err != nil {
+			fmt.Printf("❌ [Desktop GUI] Error compilando binario nativo: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		var err error
+		exePath, err = os.Executable()
+		if err != nil {
+			fmt.Printf("❌ [Desktop GUI] No se pudo resolver el ejecutable Joss: %v\n", err)
+			os.Exit(1)
+		}
+		childArgs = append([]string{"run", "main.joss"}, args...)
 	}
 
 	// Resolver puerto configurado desde .env / env.joss o variable de entorno
@@ -49,11 +63,11 @@ func startProgram() {
 		}
 	}
 
-	fmt.Printf("[Desktop GUI] Iniciando backend nativo (%s) en puerto %s...\n", exePath, port)
-	cmd := exec.Command(exePath)
+	fmt.Printf("[Desktop GUI] Iniciando backend en modo %s (%s) en puerto %s...\n", executionModeName(mode), exePath, port)
+	cmd := exec.Command(exePath, childArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), "JOSS_GUI=true", "JOSS_SERVER_MODE=1")
 	if err := cmd.Start(); err != nil {
 		fmt.Printf("❌ [Desktop GUI] Error iniciando proceso nativo: %v\n", err)
 		os.Exit(1)

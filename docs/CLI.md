@@ -6,28 +6,29 @@ La fuente canónica de comandos es `cmd/joss/main.go`. `joss help` muestra la ay
 
 La CLI es el programa que recibe comandos en la terminal. Incorpora un entorno REPL
 interactivo (`joss repl`), ejecución directa de scripts (`joss run`), servidor web de alto
-rendimiento (`joss server start` / `joss server`), compilación nativa AOT (`joss build`) y un conjunto completo de herramientas de calidad de código y gestión de paquetes (`pub`).
+rendimiento (`joss server start` / `joss server`) y compilación. Durante la migración,
+el runtime anterior de Go es el predeterminado; `--native` opta por JIT/AOT nativo.
 
 ---
 
 ## 1. Ejecución, REPL y Build Nativo
 
 ```bash
-joss run archivo.joss
+joss run archivo.joss [--native]
 joss repl
-joss server start
-joss program start
-joss build [archivo.joss] [opciones]
+joss server start [--native]
+joss program start [--native]
+joss build [archivo.joss] [opciones] [--native]
 joss emit-ir [archivo.joss] [-o salida.ir]
 joss analyze [archivo.joss]
 joss update [-f|--canary|--stable]
 ```
 
-- `run [archivo]`: Ejecuta un script `.joss` después de analizar el proyecto (`LoadProject`) y validar su `PreparedProgram` con el intérprete de Joss. Los errores semánticos bloquean la ejecución; los warnings no.
+- `run [archivo]`: Ejecuta un script `.joss` después de analizar el proyecto (`LoadProject`). Por defecto usa el runtime anterior; `--native` selecciona JIT desde el IR compartido. Los errores semánticos bloquean la ejecución; los warnings no.
 - `repl`: Inicia la consola interactiva (Read-Eval-Print Loop) con prompt `joss> ` para evaluar expresiones, probar funciones y experimentar con código en tiempo real. Escribe `exit` o presiona `Ctrl+C` para salir.
-- `server start` (o `joss server`): Requiere el punto de entrada `main.joss` e inicia el servidor HTTP multinivel de alto rendimiento interpretado por el runtime de servidor. Presiona `q` o `Ctrl+C` para detenerlo de manera segura.
-- `program start`: Inicia la aplicación en modo escritorio.
-- `build [archivo.joss]`: **Compilador nativo oficial de Joss**. Compila el programa a un ejecutable binario nativo real autocontenido (PE `.exe` en Windows, ELF en Linux, Mach-O en macOS) depositándolo por defecto dentro de la carpeta `build/`. Realiza análisis semántico exhaustivo (`PreparedProgram`), análisis de alcance (*Reachability Analysis*), lowering a Joss Native IR (`pkg/ir`), verificación de IR (`ir.Verifier`) y generación de código nativo (`pkg/backend/native`).
+- `server start` (o `joss server`): Requiere `main.joss`. Por defecto usa el runtime anterior; `--native` selecciona JIT. Presiona `q` o `Ctrl+C` para detenerlo de manera segura.
+- `program start`: Inicia la aplicación en modo escritorio; acepta el mismo selector `--native`.
+- `build [archivo.joss]`: Por defecto empaqueta el runtime anterior con el proyecto sellado en un único ejecutable autónomo. `--native` activa el análisis semántico (`PreparedProgram`), lowering a Joss Native IR (`pkg/ir`), verificación y código nativo (`pkg/backend/native`).
   - **Binarios CLI puros**: Se compilan a código máquina puro ultracompacto (~5.5 KB - 32 KB) sin `joss_host.dll` ni trailer VFS.
   - **Aplicaciones completas con servicios web/DB**: Enlazan selectivamente `_joss_host_bridge` (podando motores no utilizados mediante tags `no<driver>`) y sellan el sistema de archivos virtual encriptado (`env.enc` con AES-256) dentro del ejecutable.
   - `-o <salida>`: Nombre o ruta personalizada del binario ejecutable final.
@@ -35,6 +36,7 @@ joss update [-f|--canary|--stable]
   - `--release`: Compilación optimizada para producción sin símbolos de depuración.
   - `--debug`: Compilación con información de depuración.
   - `--trace`: Emite y conserva artefactos intermedios del pipeline nativo (`.ir`, `.ll`, `.standalone.go`).
+  - `--native`: Selecciona AOT nativo; sin esta opción el build usa el runner anterior incluido con la distribución Joss.
   - `build package [ruta]`: Empaqueta extensiones y plugins en paquetes `.jp` (v2) firmados con Ed25519 conteniendo bytecode puro.
   - `build web`: Prepara assets y distribución estática para despliegue web.
 - `emit-ir [archivo.joss] [-o salida.ir]`: Emite la representación intermedia canónica (Joss Native IR) en formato textual determinista tras el análisis semántico y lowering.

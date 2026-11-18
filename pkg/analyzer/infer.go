@@ -347,7 +347,7 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 			if !existing.Dynamic && !a.assignableExpression(targetType, valueType, assignment.Value) {
 				a.typeMismatch("JOSS-TYPE-001", name, targetType, valueType, identifier.Token, "assignment")
 			} else if !existing.Dynamic {
-				a.warnUnsafeCollectionNarrowing(targetType, valueType, identifier.Token)
+				a.warnUnsafeCollectionNarrowing(targetType, valueType, assignment.Value, identifier.Token)
 			}
 			if existing.Synthetic {
 				existing.Type = valueType
@@ -477,7 +477,7 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 						fmt.Sprintf("Cannot assign `%s` to property `%s::%s` of type `%s`.", valueType.String(), receiver.Name, member.Property.Value, field.Type.String()),
 						"Properties keep their declared type.", "Assign a compatible value or correct the property declaration.")
 				}
-				a.warnUnsafeCollectionNarrowing(field.Type, valueType, member.Property.Token)
+				a.warnUnsafeCollectionNarrowing(field.Type, valueType, assignment.Value, member.Property.Token)
 				return field.Type
 			}
 		}

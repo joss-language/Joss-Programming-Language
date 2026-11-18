@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/bytecode"
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/crypto"
@@ -186,17 +187,19 @@ func main() {
 			}
 		}
 
-		// Preload application domain classes
-		for _, u := range units {
-			if strings.HasPrefix(filepath.ToSlash(u.Path), "app/") && u.Program != nil {
-				r.Execute(u.Program)
-			}
+		sourceUnits := make([]semanticanalyzer.SourceUnit, 0, len(units))
+		for _, unit := range units {
+			sourceUnits = append(sourceUnits, semanticanalyzer.SourceUnit{Path: unit.Path, Program: unit.Program})
 		}
-
-		// Execute entrypoint (main.joss)
-		if len(units) > 0 && units[0].Program != nil {
-			r.Execute(units[0].Program)
+		report := core.AnalyzeSourceUnits(sourceUnits)
+		if report.HasIssues() {
+			report.PrintReport()
 		}
+		if report.HasErrors() {
+			log.Printf("Program execution stopped because semantic analysis failed")
+			return
+		}
+		r.ExecutePrepared(report.Prepared)
 		isServerApp := len(r.Routes) > 0 || os.Getenv("JOSS_SERVER") == "true"
 		for k := range files {
 			if strings.HasSuffix(k, "routes.joss") || strings.HasSuffix(k, "api.joss") {

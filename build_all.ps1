@@ -51,6 +51,24 @@ function Copy-Required {
     Copy-Item -LiteralPath $Source -Destination $Destination -Force
 }
 
+function Copy-LegacyRunners {
+    param([string]$DestinationRoot)
+    $targets = @(
+        @('windows', 'amd64'), @('windows', 'arm64'),
+        @('linux', 'amd64'), @('linux', 'arm64'),
+        @('darwin', 'amd64'), @('darwin', 'arm64'),
+        @('android', 'arm64')
+    )
+    foreach ($target in $targets) {
+        $goos, $goarch = $target
+        $runnerName = if ($goos -eq 'windows') { 'joss-runner.exe' } else { 'joss-runner' }
+        $source = Join-Path $root "dist/runners/$goos-$goarch/$runnerName"
+        $destination = Join-Path $DestinationRoot "runners/$goos-$goarch"
+        New-Item -ItemType Directory -Force -Path $destination | Out-Null
+        Copy-Required $source (Join-Path $destination $runnerName)
+    }
+}
+
 function Compress-Directory {
     param([string]$Source, [string]$Destination)
     if (Test-Path -LiteralPath $Destination) {
@@ -121,6 +139,7 @@ try {
     Copy-Required (Join-Path $dist 'windows-arm64/joss.exe') (Join-Path $windows 'joss-windows-arm64.exe')
     Copy-Required (Join-Path $root 'install/remote-install.ps1') (Join-Path $windows 'remote-install.ps1')
     Copy-Required (Join-Path $root 'LICENSE') (Join-Path $windows 'LICENSE')
+    Copy-LegacyRunners $windows
 
     $linux = New-StagingDirectory 'linux'
     Copy-Required (Join-Path $dist 'linux-amd64/joss') (Join-Path $linux 'joss-linux-amd64')
@@ -128,17 +147,20 @@ try {
     Copy-Required (Join-Path $dist 'linux-armv7/joss') (Join-Path $linux 'joss-linux-armv7')
     Copy-Required (Join-Path $root 'install/remote-install.sh') (Join-Path $linux 'remote-install.sh')
     Copy-Required (Join-Path $root 'LICENSE') (Join-Path $linux 'LICENSE')
+    Copy-LegacyRunners $linux
 
     $macos = New-StagingDirectory 'macos'
     Copy-Required (Join-Path $dist 'darwin-amd64/joss') (Join-Path $macos 'joss-macos-amd64')
     Copy-Required (Join-Path $dist 'darwin-arm64/joss') (Join-Path $macos 'joss-macos-arm64')
     Copy-Required (Join-Path $root 'install/remote-install.sh') (Join-Path $macos 'remote-install.sh')
     Copy-Required (Join-Path $root 'LICENSE') (Join-Path $macos 'LICENSE')
+    Copy-LegacyRunners $macos
 
     $android = New-StagingDirectory 'android'
     Copy-Required (Join-Path $dist 'android-arm64/joss') (Join-Path $android 'joss-android-arm64')
     Copy-Required (Join-Path $dist 'linux-armv7/joss') (Join-Path $android 'joss-android-armv7')
     Copy-Required (Join-Path $root 'LICENSE') (Join-Path $android 'LICENSE')
+    Copy-LegacyRunners $android
     $androidReadme = @"
 Joss para Android (CLI / Termux)
 ================================

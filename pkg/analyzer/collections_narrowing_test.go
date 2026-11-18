@@ -128,6 +128,11 @@ array<int> $typed = [1]
 array<int> $same = $typed
 array $legacy = $typed
 mixed $dynamic = $typed
+array<string> $emptyArr = []
+map<string, int> $emptyMap = {}
+public func emptyStrings(): array<string> { return [] }
+public func acceptStrings(array<string> $items): int { return count($items) }
+acceptStrings([])
 `, NewEnvironment())
 	if hasCode(items, "JOSS-TYPE-012") {
 		t.Fatalf("unexpected narrowing warning: %#v", items)

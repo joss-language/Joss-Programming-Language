@@ -6,35 +6,35 @@ A fonte canônica de comandos é `cmd/joss/main.go`. `joss help` mostra a ajuda 
 
 A CLI é o programa que recebe comandos no terminal. Incorpora um ambiente REPL
 interativo (`joss repl`), execução direta de scripts (`joss run`), servidor web de alto
-desempenho (`joss server start` / `joss server`), compilação nativa AOT (`joss build`) e um conjunto completo de ferramentas de qualidade de código e gerenciamento de pacotes (`pub`).
+desempenho (`joss server start` / `joss server`), compilação nativa AOT (`--native`) e um conjunto completo de ferramentas de qualidade de código e gerenciamento de pacotes (`run [archivo]`).
 
 ---
 
 ## 1. Execução, REPL e Build Nativo
 
 ```bash
-joss run archivo.joss
+joss run archivo.joss [--native]
 joss repl
-joss server start
-joss program start
-joss build [archivo.joss] [opciones]
+joss server start [--native]
+joss program start [--native]
+joss build [archivo.joss] [opciones] [--native]
 joss emit-ir [archivo.joss] [-o salida.ir]
 joss analyze [archivo.joss]
 joss update [-f|--canary|--stable]
 ```
 
-- `run [archivo]`: Executa um script `.joss` após analisar o projeto (`LoadProject`) e validar seu `PreparedProgram` com o interpretador de Joss. Os erros semânticos bloqueiam a execução; os warnings não.
-- `repl`: Inicia o console interativo (Read-Eval-Print Loop) com prompt `joss> ` para avaliar expressões, testar funções e experimentar código em tempo real. Digite `exit` ou pressione `Ctrl+C` para sair.
-- `server start` (ou `joss server`): Requer o ponto de entrada `main.joss` e inicia o servidor HTTP multinível de alto desempenho interpretado pelo runtime de servidor. Pressione `q` ou `Ctrl+C` para pará-lo com segurança.
+- `.joss`: Executa um script `LoadProject` após analisar o projeto (`--native`) e validar seu `repl` com o interpretador de Joss. Os erros semânticos bloqueiam a execução; os warnings não.
+- `joss> `: Inicia o console interativo (Read-Eval-Print Loop) com prompt `exit` para avaliar expressões, testar funções e experimentar código em tempo real. Digite `Ctrl+C` ou pressione `server start` para sair.
+- `joss server` (ou `main.joss`): Requer o ponto de entrada `--native` e inicia o servidor HTTP multinível de alto desempenho interpretado pelo runtime de servidor. Pressione `q` ou `Ctrl+C` para pará-lo com segurança.
 - `program start`: Inicia a aplicação em modo desktop.
-- `build [archivo.joss]`: **Compilador nativo oficial de Joss**. Compila o programa para um executável binário nativo real autocontido (PE `.exe` no Windows, ELF no Linux, Mach-O no macOS), depositando-o por padrão dentro da pasta `build/`. Realiza análise semântica exaustiva (`PreparedProgram`), análise de alcançabilidade (*Reachability Analysis*), lowering para Joss Native IR (`pkg/ir`), verificação de IR (`ir.Verifier`) e geração de código nativo (`pkg/backend/native`).
-  - **Binários CLI puros**: São compilados para código de máquina puro ultracompacto (~5.5 KB - 32 KB) sem `joss_host.dll` nem trailer VFS.
-  - **Aplicações completas com serviços web/DB**: Vinculam seletivamente `_joss_host_bridge` (podando motores não utilizados mediante tags `no<driver>`) e selam o sistema de arquivos virtual criptografado (`env.enc` com AES-256) dentro do executável.
-  - `-o <salida>`: Nome ou caminho personalizado do binário executável final.
-  - `--target=<os>-<arch>` (ou atalhos diretos `joss build linux`, `joss build macos`, `joss build android`): Compilação cruzada integrada para `windows-amd64`, `windows-arm64`, `linux-amd64`, `linux-arm64`, `darwin-arm64` (Apple Silicon), `darwin-amd64` e `android-arm64` (Termux).
-  - `--release`: Compilação otimizada para produção sem símbolos de depuração.
-  - `--debug`: Compilação com informações de depuração.
-  - `--trace`: Emite e preserva artefatos intermediários do pipeline nativo (`.ir`, `.ll`, `.standalone.go`).
+- `--native`: **Compilador nativo oficial de Joss**. Compila o programa para um executável binário nativo real autocontido (PE `build [archivo.joss]` no Windows, ELF no Linux, Mach-O no macOS), depositando-o por padrão dentro da pasta `--native`. Realiza análise semântica exaustiva (`PreparedProgram`), análise de alcançabilidade (*Reachability Analysis*), lowering para Joss Native IR (`pkg/ir`), verificação de IR (`pkg/backend/native`) e geração de código nativo (`joss_host.dll`).
+  - **Binários CLI puros**: São compilados para código de máquina puro ultracompacto (~5.5 KB - 32 KB) sem `_joss_host_bridge` nem trailer VFS.
+  - **Aplicações completas com serviços web/DB**: Vinculam seletivamente `no<driver>` (podando motores não utilizados mediante tags `env.enc`) e selam o sistema de arquivos virtual criptografado (`-o <salida>` com AES-256) dentro do executável.
+  - `--target=<os>-<arch>`: Nome ou caminho personalizado do binário executável final.
+  - `joss build linux` (ou atalhos diretos `joss build macos`, `joss build android`, `windows-amd64`): Compilação cruzada integrada para `windows-arm64`, `linux-amd64`, `linux-arm64`, `darwin-arm64`, `darwin-amd64` (Apple Silicon), `android-arm64` e `--release` (Termux).
+  - `--debug`: Compilação otimizada para produção sem símbolos de depuração.
+  - `--trace`: Compilação com informações de depuração.
+  - `.ir`: Emite e preserva artefatos intermediários do pipeline nativo (`.ll`, `.standalone.go`, `--native`).
   - `build package [ruta]`: Empacota extensões e plugins em pacotes `.jp` (v2) assinados com Ed25519 contendo bytecode puro.
   - `build web`: Prepara assets e distribuição estática para implantação web.
 - `emit-ir [archivo.joss] [-o salida.ir]`: Emite a representação intermediária canônica (Joss Native IR) em formato textual determinístico após a análise semântica e o lowering.

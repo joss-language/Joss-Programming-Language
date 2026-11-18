@@ -156,6 +156,17 @@ function Install-JosSecurity {
         }
 
         Copy-Item -Path $binaryPath.FullName -Destination "$InstallDir\joss.exe" -Force
+
+        $runnerRoot = Get-ChildItem -Path $TempDir -Directory -Filter "runners" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($null -eq $runnerRoot) {
+            Write-Log "[X] Legacy runners directory not found in release package" "ERROR"
+            return $false
+        }
+        $installedRunners = Join-Path $InstallDir "runners"
+        if (Test-Path -LiteralPath $installedRunners) {
+            Remove-Item -LiteralPath $installedRunners -Recurse -Force
+        }
+        Copy-Item -LiteralPath $runnerRoot.FullName -Destination $installedRunners -Recurse -Force
         
         if (Test-Path "$InstallDir\joss.exe") {
             Write-Log "[OK] Binary installed" "SUCCESS"
@@ -223,6 +234,10 @@ function Uninstall-JosSecurity {
         if (Test-Path "$InstallDir\joss.exe") {
             Remove-Item "$InstallDir\joss.exe" -Force
             Write-Log "[OK] Binary removed" "SUCCESS"
+        }
+        $installedRunners = Join-Path $InstallDir "runners"
+        if (Test-Path -LiteralPath $installedRunners) {
+            Remove-Item -LiteralPath $installedRunners -Recurse -Force
         }
 
         # Clean installations made by releases that still shipped the legacy SDK.

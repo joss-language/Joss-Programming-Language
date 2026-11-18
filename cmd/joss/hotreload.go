@@ -121,9 +121,9 @@ func killChildProcess(cmd *exec.Cmd) {
 	_ = cmd.Process.Kill()
 }
 
-// handleNativeServerStart handles 'joss server start' by compiling and executing the native binary
-// produced by joss build, with Hot-Reload supervisor by default.
-func handleNativeServerStart(args []string) {
+// handleServerStart supervises the selected runtime and keeps its mode across
+// child restarts during hot reload.
+func handleServerStart(args []string) {
 	if _, err := os.Stat("main.joss"); os.IsNotExist(err) {
 		fmt.Println(i18n.Tr("cliErrNoMain"))
 		fmt.Println("  main.joss")
@@ -131,13 +131,17 @@ func handleNativeServerStart(args []string) {
 		os.Exit(1)
 	}
 
+	mode, args := takeExecutionMode(args)
 	noWatch := false
+	gui := false
 	var extraArgs []string
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--no-watch" || arg == "--nowatch" {
 			noWatch = true
+		} else if arg == "--gui" {
+			gui = true
 		} else if strings.HasPrefix(arg, "--port=") {
 			portVal := strings.TrimPrefix(arg, "--port=")
 			_ = os.Setenv("PORT", portVal)
@@ -149,10 +153,10 @@ func handleNativeServerStart(args []string) {
 		}
 	}
 
-	runNativeSupervisor("main.joss", "", false, extraArgs, noWatch)
+	runServerSupervisor("main.joss", "", gui, extraArgs, noWatch, mode)
 }
 
-func runNativeSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []string, noWatch bool) {
+func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []string, noWatch bool, mode executionMode) {
 	selfExe, err := os.Executable()
 	if err != nil || selfExe == "" {
 		selfExe = "joss"
@@ -160,12 +164,12 @@ func runNativeSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 
 	if noWatch {
 		// Run standalone server directly without file watching
-		args := append([]string{"run", entryFile}, extraArgs...)
+		args := serverChildArgs(entryFile, extraArgs, mode)
 		cmd := exec.Command(selfExe, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
-		cmd.Env = append(os.Environ(), "JOSS_SERVER_MODE=1")
+		cmd.Env = serverChildEnv(enableGUI)
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 		defer signal.Stop(sigChan)
@@ -186,7 +190,7 @@ func runNativeSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 		case <-cliShutdownRequested:
 			stopManagedServerChild(child)
 		case sig := <-sigChan:
-			fmt.Printf("\n\n[Joss Native Server] Deteniendo servidor y procesos asociados (%s)...\n", sig)
+			fmt.Printf("\n\n[Joss Server] Deteniendo servidor y procesos asociados (%s)...\n", sig)
 			stopManagedServerChild(child)
 		}
 		return
@@ -203,12 +207,12 @@ func runNativeSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 	}
 
 	startChild := func() error {
-		args := append([]string{"run", entryFile}, extraArgs...)
+		args := serverChildArgs(entryFile, extraArgs, mode)
 		cmd := exec.Command(selfExe, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
-		cmd.Env = append(os.Environ(), "JOSS_SERVER_MODE=1")
+		cmd.Env = serverChildEnv(enableGUI)
 		child, err := startManagedServerChild(cmd)
 		if err != nil {
 			return err
@@ -222,14 +226,14 @@ func runNativeSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 	defer signal.Stop(sigChan)
 	defer stopCurrent()
 
-	fmt.Println("⚡ [Joss Native Server] Iniciando servidor JIT...")
+	fmt.Printf("⚡ [Joss Server] Iniciando servidor en modo %s...\n", executionModeName(mode))
 	if err := startChild(); err != nil {
 		fmt.Printf("❌ Error iniciando servidor: %v\n", err)
 		return
 	}
 
 	fmt.Println("\n========================================================")
-	fmt.Println("⚡ Joss Native Server Supervisor (Hot-Reload JIT ACTIVO)")
+	fmt.Printf("⚡ Joss Server Supervisor (Hot-Reload %s)\n", strings.ToUpper(executionModeName(mode)))
 	fmt.Println("📂 Vigilando cambios en .joss, vistas (.html) y entorno")
 	fmt.Println("💡 Presiona Ctrl+C para detener")
 	fmt.Println("========================================================")
@@ -249,15 +253,15 @@ func runNativeSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 			stopCurrent()
 			return
 		case sig := <-sigChan:
-			fmt.Printf("\n\n[Joss Native Server] Deteniendo servidor y procesos asociados (%s)...\n", sig)
+			fmt.Printf("\n\n[Joss Server] Deteniendo servidor y procesos asociados (%s)...\n", sig)
 			stopCurrent()
 			return
 		case err := <-childDone:
 			currentChild = nil
 			if err != nil {
-				fmt.Printf("\n[Joss Native Server] El proceso del servidor terminó con error: %v\n", err)
+				fmt.Printf("\n[Joss Server] El proceso del servidor terminó con error: %v\n", err)
 			} else {
-				fmt.Println("\n[Joss Native Server] El proceso del servidor terminó.")
+				fmt.Println("\n[Joss Server] El proceso del servidor terminó.")
 			}
 			return
 		case <-ticker.C:
@@ -291,4 +295,20 @@ func runNativeSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 			fmt.Println()
 		}
 	}
+}
+
+func serverChildArgs(entryFile string, extraArgs []string, mode executionMode) []string {
+	args := []string{"run", entryFile}
+	if mode == executionModeNative {
+		args = append(args, "--native")
+	}
+	return append(args, extraArgs...)
+}
+
+func serverChildEnv(gui bool) []string {
+	env := append(os.Environ(), "JOSS_SERVER_MODE=1")
+	if gui {
+		env = append(env, "JOSS_GUI=true")
+	}
+	return env
 }

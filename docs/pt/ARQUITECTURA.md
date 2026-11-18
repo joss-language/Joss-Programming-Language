@@ -15,10 +15,9 @@ fuentes .joss
   → PreparedProgram (Canónico)
   ┌───────────────────────┼──────────────────────────┐
   ▼                       ▼                          ▼
-`joss run`             `joss server`            `joss build`
-IR verificado → JIT    IR verificado → JIT       IR verificado
-(AMD64/ARM64); error claro   (AMD64/ARM64); error claro      → Native Backend
-si falta soporte       si falta soporte          → Ejecutable standalone
+`joss run`             `joss server/program`     `joss build`
+Runtime Go por defecto Runtime Go por defecto  Runner Go + proyecto sellado
+`--native` → IR/JIT    `--native` → IR/JIT      `--native` → Native Backend
 ```
 
 ```mermaid
@@ -30,37 +29,41 @@ flowchart TD
     A --> N["Analyzer"]
     N --> D["Diagnósticos"]
     N -->|sin errores| PP["PreparedProgram"]
-    PP -->|joss run / server| IR["LowerAndVerify: Joss Native IR"]
-    IR --> JIT["JIT AMD64/ARM64 en memoria, según soporte del host"]
-    IR -->|si JIT falla| E["Error explícito; sin fallback"]
-    E --> R["Runtime y servicios"]
-    PP -->|joss build / emit-ir| IR
+    PP -->|run / server / program, predeterminado| GO["Runtime Go / intérprete"]
+    PP -->|--native| IR["LowerAndVerify: Joss Native IR"]
+    IR --> JIT["JIT AMD64/ARM64 en memoria"]
+    IR -->|capacidad ausente| E["Error explícito; sin fallback"]
+    PP -->|build, predeterminado| RUNNER["Runner Go autónomo + VFS sellado"]
+    PP -->|build --native / emit-ir| IR
     IR --> V["IR Verifier"]
     V --> NB["Native Backend"]
     NB --> EXE["Ejecutable nativo real"]
 ```
 
-A transição para um backend comum já centraliza lowering e verificação em
-`ir.LowerAndVerify`. No AMD64, `joss run`, `joss build` e `joss emit-ir` usam a
-mesma entrada e preservam a etapa em que ocorreu um erro de lowering ou
-verificação. JIT e AOT agora compartilham a emissão de instruções x86_64; eles
-diferem apenas na publicação do código em memória ou em um contêiner executável.
-O JIT em memória agora também tem um caminho para ARM64 Unix, com relocations
-para o endereço alocado e páginas de código RX separadas dos dados RW; o teste
-de execução roda em um host ARM64. No Windows ARM64, o invocador em memória
-aceita por enquanto apenas IR puro: aritmética, controle de fluxo e chamadas
-diretas a funções Joss. Chamadas indiretas, exceções, operações de heap,
-built-ins, serviços do host e primitivas de runtime falham com
-`JOSS-NATIVE-001` até que sua ABI do Windows seja emitida, evitando a execução
-de syscalls Unix.
-O ABI de sockets nativo cobre atualmente Windows AMD64, Linux/Android AMD64 e
-Linux, Android e macOS ARM64. Windows ARM64 e macOS AMD64 falham explicitamente
-ao compilar um serviço `Socket` sem emissor de plataforma.
-`joss server` também tenta o caminho JIT em cada processo recarregado. Se o JIT
-não consegue compilar um recurso, a CLI
-informa o diagnóstico e encerra sem trocar de mecanismo.
-`JOSS_NO_JIT=1` seleciona explicitamente o interpretador como oráculo de
-referência.
+A execução anterior é o padrão durante a migração: `joss run`, `joss server`,
+`joss program` e `joss build` usam Go. `--native` seleciona explicitamente JIT
+para execução e AOT para builds. Builds no modo anterior empacotam o runner e o
+projeto em um executável; as distribuições Joss fornecem runners por target.
+`joss emit-ir` sempre usa o pipeline nativo. Uma capacidade nativa ausente
+nunca causa uma troca automática de mecanismo.
+
+O caminho nativo centraliza lowering e verificação em `ir.LowerAndVerify`.
+`joss run --native`, `joss build --native` e `joss emit-ir` usam a mesma entrada
+e preservam a etapa do erro de lowering ou verificação. JIT e AOT compartilham
+a emissão de instruções x86_64; diferem apenas ao publicar o código em memória
+ou em um executável. O JIT em memória também tem um caminho ARM64 Unix, com
+relocations e páginas de código RX separadas dos dados RW. No Windows ARM64, o
+invocador aceita apenas IR puro: aritmética, controle de fluxo e chamadas
+diretas a funções Joss. Chamadas sem suporte, exceções, operações de heap,
+serviços do host e primitivas de runtime falham com `JOSS-NATIVE-001` até que
+sua ABI do Windows seja emitida.
+
+O ABI de sockets nativo cobre Windows AMD64, Linux/Android AMD64 e Linux,
+Android e macOS ARM64. Windows ARM64 e macOS AMD64 falham explicitamente ao
+compilar um serviço `Socket` sem emissor de plataforma.
+`joss server --native` mantém a seleção JIT nas recargas. Se o JIT não consegue
+compilar um recurso, a CLI informa o diagnóstico e encerra sem trocar de
+mecanismo; sem `--native`, o servidor usa o runtime Go anterior.
 
 O lowering remove funções IR inalcançáveis em projetos de console e web. As
 raízes são `main` e, quando existe, `__joss_http_dispatch`; helpers de views e
@@ -151,7 +154,7 @@ os ternários/match, um limite registrado na auditoria.
 
 As referências seguras não expõem ponteiros de Go: `core.VariableReference` preserva o binding de valor/tipo/constância durante uma chamada e o evaluator desreferencia automaticamente. Uma referência não é um valor Joss armazenável nem cruza fronteiras async/plugin.
 
-A compilação nativa oficial (`joss build`) transforma o `PreparedProgram` analisado e validado em **Joss Native IR** (`pkg/ir`), com CFG, basic blocks e instruções estritamente tipadas. Após a verificação formal (`ir.VerifyProgram`), o **Native Backend** (`pkg/backend/native`) gera executáveis nativos reais autocontidos (PE `.exe`, ELF, Mach-O) em `build/` sem serializar AST:
+`joss build` sem uma flag cria um executável independente com o runtime Go anterior e o projeto selado. `joss build --native` transforma o `PreparedProgram` analisado e validado em **Joss Native IR** (`pkg/ir`), com CFG, basic blocks e instruções estritamente tipadas. Após a verificação formal (`ir.VerifyProgram`), o **Native Backend** (`pkg/backend/native`) gera executáveis nativos reais autocontidos (PE `.exe`, ELF, Mach-O) em `build/` sem serializar AST:
 - **Programas CLI puros**: São compilados para código de máquina puro (~5.5 KB - 32 KB) sem `joss_host.dll` e sem trailer VFS (`JOSS_RUNNER_DATA`).
 - **Aplicações com serviços web/DB**: Binários standalone não vinculam `_joss_host_bridge` nem uma DLL complementar. Cada serviço precisa ser resolvido para código Joss ou uma primitiva nativa emitida; se a implementação estiver ausente, o backend rejeita a compilação. As build tags `no<driver>` removem drivers não utilizados, e o VFS pode ser selado com AES-256 (`env.enc`).
 

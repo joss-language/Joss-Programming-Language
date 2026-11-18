@@ -102,7 +102,7 @@ public class GranDB {
 
     private func assertSelectList(string $columns) : string {
         var $items = explode(",", $columns)
-        var $safeItems = []
+        array<string> $safeItems = []
         foreach ($items as $item) {
             $safeItems [] = $this->assertSelectItem(strval($item))
         }
@@ -305,7 +305,7 @@ public class GranDB {
     }
 
     public func whereIn(string $col, array $values): GranDB {
-        var $placeholders = []
+        array<string> $placeholders = []
         var $len = count($values)
         var $i = 0
         while ($i < $len) {
@@ -319,7 +319,7 @@ public class GranDB {
     }
 
     public func whereNotIn(string $col, array $values): GranDB {
-        var $placeholders = []
+        array<string> $placeholders = []
         var $len = count($values)
         var $i = 0
         while ($i < $len) {
@@ -664,7 +664,7 @@ public class GranDB {
         (__joss_db_is_connected()) ? {
             var $prefix = env("PREFIX", env("DB_PREFIX", ""))
             var $fullTable = $this->assertIdentifier($prefix . $this->tableName)
-            var $setClauses = []
+            array<string> $setClauses = []
             var $vals = []
             foreach ($data as $k => $v) {
                 $setClauses [] = $this->assertIdentifier(strval($k)) . " = ?"
@@ -741,8 +741,8 @@ public class GranDB {
         (__joss_db_is_connected()) ? {
             var $prefix = env("PREFIX", env("DB_PREFIX", ""))
             var $fullTable = $this->assertIdentifier($prefix . $this->tableName)
-            var $cols = []
-            var $placeholders = []
+            array<string> $cols = []
+            array<string> $placeholders = []
             var $vals = []
             foreach ($data as $k => $v) {
                 $cols [] = $this->assertIdentifier(strval($k))

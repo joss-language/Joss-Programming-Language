@@ -321,7 +321,7 @@ print(nombre(null))
 
 ## Compilação nativa (`JOSS-NATIVE-001`)
 
-Este diagnóstico indica que a linguagem e o interpretador suportam um recurso, mas o backend nativo ainda não consegue materializá-lo. `joss run` usa JIT por padrão; para executar o interpretador de referência enquanto a emissão nativa é implementada, execute `joss run` com `JOSS_NO_JIT=1`.
+Este diagnóstico indica que a linguagem e o runtime anterior suportam um recurso, mas o backend nativo ainda não consegue materializá-lo. O runtime anterior é o padrão; `joss run --native` força JIT e apresenta este erro quando falta suporte, sem trocar de mecanismo automaticamente.
 
 ## Próximo passo
 

@@ -45,16 +45,16 @@ Su filosofía de diseño se apoya en cuatro pilares:
 3. **Pila completa incluida (Batteries-Included)**: Joss incluye nativamente servidor HTTP de alto rendimiento, sistema de rutas, motor de plantillas HTML, ORM y generador de esquemas para bases de datos (GranDB / Schema), soporte para WebSockets en tiempo real, hashing criptográfico y tareas asíncronas.
 4. **Concurrencia limpia y canales**: Puedes delegar tareas pesadas a segundo plano de forma no bloqueante con `async` y comunicar procesos con canales seguros (`channel`).
 
-#### Un solo lenguaje, dos formas de ejecutarlo: `joss run` y `joss build`
+#### Un solo lenguaje, modo anterior y ejecución nativa optativa
 
-El código que escribes en Joss se define una sola vez y tiene exactamente el mismo significado en todos los modos:
+El modo anterior conserva el runtime Go como opción predeterminada mientras se migra la cobertura nativa. Agrega `--native` para ejecutar JIT o compilar AOT; esa ruta informa claramente si una capacidad todavía no está implementada.
 
 ```mermaid
 flowchart TD
     SRC["1. Tu código fuente (.joss) — Tus instrucciones legibles"] --> ANA["2. Analizador Semántico (joss analyze) — Revisa tipos, nombres y coherencia"]
-    ANA --> RUN["A. Desarrollo inmediato: joss run main.joss (Ejecuta al instante en terminal)"]
-    ANA --> WEB["B. Servidor HTTP nativo: joss server start (Levanta tu aplicación web MVC)"]
-    ANA --> BUILD["C. Distribución nativa AOT: joss build main.joss (Compila a .exe / ELF / Mach-O)"]
+    ANA --> RUN["Predeterminado: joss run / joss server start / joss program start"]
+    ANA --> BUILD["Predeterminado: joss build (runner autónomo con runtime anterior)"]
+    ANA --> NAT["Optativo: --native (JIT en run/server, AOT en build)"]
 ```
 
 - **El lenguaje Joss**: Las reglas de escritura, palabras reservadas y sintaxis que aprenderás en este curso.
@@ -397,7 +397,8 @@ Guarda esta tabla como referencia de lo que ya dominas:
 | **Generar componentes del proyecto** | `joss make:<tipo> <Nombre>` | `joss make:controller SaludoController` |
 | **Ejecutar tu proyecto** | `joss run main.joss` | `joss run main.joss` |
 | **Revisar errores sin ejecutar** | `joss analyze main.joss` | `joss analyze main.joss` |
-| **Compilar a ejecutable nativo** | `joss build main.joss` | Genera `build/main.exe` (o `build/main`) |
+| **Empaquetar con runtime anterior** | `joss build main.joss` | Genera un ejecutable autónomo con runner y proyecto |
+| **Compilar a ejecutable nativo** | `joss build main.joss --native` | Genera AOT nativo cuando las capacidades tienen soporte |
 | **Mostrar un mensaje en pantalla** | `print(...)` | `print("¡Hola mundo!")` |
 | **Crear una variable nueva** | `var $variable = valor` | `var $ciudad = "Madrid"` |
 | **Cambiar una variable ya creada** | `$variable = nuevo_valor` | `$ciudad = "Lima"` |

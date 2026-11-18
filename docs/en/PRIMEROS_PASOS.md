@@ -45,16 +45,18 @@ Its design philosophy rests on four pillars:
 3. **Full stack included (Batteries-Included)**: Joss natively includes a high-performance HTTP server, routing system, HTML template engine, ORM and schema builder for databases (GranDB / Schema), real-time WebSocket support, cryptographic hashing and asynchronous tasks.
 4. **Clean concurrency and channels**: You can delegate heavy tasks to the background in a non-blocking way with `async` and communicate processes using safe channels (`channel`).
 
-#### One language, two ways to run it: `joss run` and `joss build`
+#### One language, previous mode by default and optional native execution
 
-The code you write in Joss is defined once and has the exact same meaning across all modes:
+The previous runtime remains the default while native coverage is migrated. Add
+`--native` to run with JIT or compile with AOT; that route reports when a
+capability has not been implemented yet.
 
 ```mermaid
 flowchart TD
     SRC["1. Tu código fuente (.joss) — Tus instrucciones legibles"] --> ANA["2. Analizador Semántico (joss analyze) — Revisa tipos, nombres y coherencia"]
-    ANA --> RUN["A. Desarrollo inmediato: joss run main.joss (Ejecuta al instante en terminal)"]
-    ANA --> WEB["B. Servidor HTTP nativo: joss server start (Levanta tu aplicación web MVC)"]
-    ANA --> BUILD["C. Distribución nativa AOT: joss build main.joss (Compila a .exe / ELF / Mach-O)"]
+    ANA --> RUN["Predeterminado: joss run / joss server start / joss program start"]
+    ANA --> BUILD["Predeterminado: joss build (runner autónomo con runtime anterior)"]
+    ANA --> NAT["Optativo: --native (JIT en run/server, AOT en build)"]
 ```
 
 - **The Joss language**: The writing rules, reserved words and syntax you will learn in this course.
@@ -397,7 +399,8 @@ Keep this table as a reference for what you already master:
 | **Generate project components** | `joss make:<tipo> <Nombre>` | `joss make:controller SaludoController` |
 | **Run your project** | `joss run main.joss` | `joss run main.joss` |
 | **Check errors without running** | `joss analyze main.joss` | `joss analyze main.joss` |
-| **Compile to a native executable** | `joss build main.joss` | Generates `build/main.exe` (or `build/main`) |
+| **Package with the previous runtime** | `joss build main.joss` | Generates a standalone executable with the runner and project |
+| **Compile to a native executable** | `joss build main.joss --native` | Generates native AOT when the capabilities are supported |
 | **Display a message on screen** | `print(...)` | `print("¡Hola mundo!")` |
 | **Create a new variable** | `var $variable = valor` | `var $ciudad = "Madrid"` |
 | **Change an existing variable** | `$variable = nuevo_valor` | `$ciudad = "Lima"` |

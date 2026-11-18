@@ -321,7 +321,7 @@ print(nombre(null))
 
 ## Native compilation (`JOSS-NATIVE-001`)
 
-This diagnostic means the language and interpreter support a feature, but the native backend cannot materialize it yet. `joss run` uses JIT by default; to execute the reference interpreter while native emission is implemented, run `joss run` with `JOSS_NO_JIT=1`.
+This diagnostic means the language and previous runtime support a feature, but the native backend cannot materialize it yet. The previous runtime is the default; `joss run --native` forces JIT and reports this error when support is missing, without switching engines automatically.
 
 ## Next step
 

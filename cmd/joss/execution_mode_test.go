@@ -7,16 +7,27 @@ import (
 	"testing"
 )
 
-func TestServerChildUsesJITUnlessInterpreterOracleIsExplicit(t *testing.T) {
-	t.Setenv("JOSS_SERVER_MODE", "1")
-	t.Setenv("JOSS_NO_JIT", "")
-	if !shouldAttemptJIT() {
-		t.Fatal("server child must attempt JIT through the shared IR pipeline")
+func TestExecutionModeDefaultsToPreviousAndNativeIsExplicit(t *testing.T) {
+	mode, args := takeExecutionMode([]string{"main.joss"})
+	if mode != executionModePrevious || len(args) != 1 || args[0] != "main.joss" {
+		t.Fatalf("default mode = %q, args = %v; want previous mode and untouched args", executionModeName(mode), args)
 	}
 
-	t.Setenv("JOSS_NO_JIT", "1")
-	if shouldAttemptJIT() {
-		t.Fatal("explicit interpreter-oracle mode must skip JIT")
+	mode, args = takeExecutionMode([]string{"main.joss", "--native"})
+	if mode != executionModeNative || len(args) != 1 || args[0] != "main.joss" {
+		t.Fatalf("native mode = %q, args = %v; want native mode and selector removed", executionModeName(mode), args)
+	}
+}
+
+func TestServerChildPreservesNativeModeThroughReload(t *testing.T) {
+	got := serverChildArgs("main.joss", []string{"--port=9000"}, executionModeNative)
+	want := []string{"run", "main.joss", "--native", "--port=9000"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Fatalf("native child args = %v, want %v", got, want)
+	}
+	got = serverChildArgs("main.joss", nil, executionModePrevious)
+	if strings.Join(got, " ") != "run main.joss" {
+		t.Fatalf("previous child args = %v, want no native selector", got)
 	}
 }
 

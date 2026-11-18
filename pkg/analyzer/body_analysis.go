@@ -202,7 +202,7 @@ func (a *Analyzer) analyzeStatement(statement parser.Statement, current *scope) 
 				fmt.Sprintf("Return value has type `%s`; callable requires `%s`.", actualType.String(), a.currentReturnType.String()),
 				"Declared return types apply to every explicit return in the callable.", "Return a compatible value or correct the return annotation.")
 		}
-		a.warnUnsafeCollectionNarrowing(a.currentReturnType, actualType, node.Token)
+		a.warnUnsafeCollectionNarrowing(a.currentReturnType, actualType, node.ReturnValue, node.Token)
 		return true
 	case *parser.ThrowStatement:
 		a.inferExpression(node.Value, current)
@@ -319,7 +319,7 @@ func (a *Analyzer) analyzeDeclaration(node *parser.LetStatement, current *scope,
 	} else if node.Value != nil && !a.assignableExpression(declaredType, valueType, node.Value) {
 		a.typeMismatch("JOSS-TYPE-002", name, declaredType, valueType, node.Name.Token, "initializer")
 	} else if node.Value != nil {
-		a.warnUnsafeCollectionNarrowing(declaredType, valueType, node.Name.Token)
+		a.warnUnsafeCollectionNarrowing(declaredType, valueType, node.Value, node.Name.Token)
 	}
 	kind := symbolVariable
 	if !warnUnused {

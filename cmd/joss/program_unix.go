@@ -9,6 +9,6 @@ import (
 //go:embed default_logo.png
 var defaultLogo []byte
 
-func startProgram() {
-	handleNativeServerStart([]string{"--gui"})
+func startProgram(args []string) {
+	handleServerStart(append(args, "--gui"))
 }

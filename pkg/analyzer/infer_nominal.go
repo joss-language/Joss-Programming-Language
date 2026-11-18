@@ -38,14 +38,25 @@ func (a *Analyzer) assignableExpression(destination, source typesystem.Type, exp
 // its aliasing risk visible. Untyped mutable collections do not carry enough
 // information to guarantee that another alias will only insert values accepted
 // by the typed destination.
-func (a *Analyzer) warnUnsafeCollectionNarrowing(destination, source typesystem.Type, token parser.Token) {
-	if !unsafeCollectionNarrowing(destination, source) {
+func (a *Analyzer) warnUnsafeCollectionNarrowing(destination, source typesystem.Type, expression parser.Expression, token parser.Token) {
+	if isFreshEmptyCollectionLiteral(expression) || !unsafeCollectionNarrowing(destination, source) {
 		return
 	}
 	a.add("JOSS-TYPE-012", diagnostics.SeverityWarning, a.file, token,
 		fmt.Sprintf("Untyped mutable collection `%s` is being used as `%s`.", source.String(), destination.String()),
 		"Another alias can mutate the same collection without preserving the destination element types.",
 		"Validate and copy the collection at the boundary, or keep the source typed from its declaration.")
+}
+
+func isFreshEmptyCollectionLiteral(expression parser.Expression) bool {
+	switch literal := expression.(type) {
+	case *parser.ArrayLiteral:
+		return len(literal.Elements) == 0
+	case *parser.MapLiteral:
+		return len(literal.Pairs) == 0
+	default:
+		return false
+	}
 }
 
 func unsafeCollectionNarrowing(destination, source typesystem.Type) bool {

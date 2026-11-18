@@ -145,6 +145,19 @@ install_jossecurity() {
         return 1
     fi
 
+    RUNNERS_SOURCE=$(find "$TEMP_DIR" -type d -name runners -print -quit)
+    if [ -z "$RUNNERS_SOURCE" ]; then
+        log ERROR "[X] Legacy runners directory not found in release package."
+        return 1
+    fi
+    if ! run_privileged rm -rf "$INSTALL_DIR/runners" ||
+       ! run_privileged mkdir -p "$INSTALL_DIR/runners" ||
+       ! run_privileged cp -R "$RUNNERS_SOURCE/." "$INSTALL_DIR/runners/"; then
+        log ERROR "[X] Failed to install legacy runners in $INSTALL_DIR/runners."
+        return 1
+    fi
+    run_privileged find "$INSTALL_DIR/runners" -type f -exec chmod +x {} \;
+
     log SUCCESS "[OK] Binary installed and executable."
     if ! command -v joss &> /dev/null; then
         log WARNING "$INSTALL_DIR is not currently in PATH. Restart the terminal or add it to your shell profile."
@@ -195,6 +208,12 @@ uninstall_jossecurity() {
         log SUCCESS "[OK] Binary removed from $INSTALL_DIR"
     else
         log INFO "[OK] Binary not found."
+    fi
+    if [ -d "$INSTALL_DIR/runners" ]; then
+        if ! run_privileged rm -rf "$INSTALL_DIR/runners"; then
+            log ERROR "[X] Failed to remove $INSTALL_DIR/runners"
+            return 1
+        fi
     fi
     # Clean installations made by releases that still shipped the legacy SDK.
     if [ -d "$LEGACY_SDK_INSTALL_DIR" ]; then

@@ -20,6 +20,7 @@ import (
 	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/mobile"
 	"github.com/jossecurity/joss/pkg/parser"
+	_ "github.com/jossecurity/joss/pkg/server"
 	"github.com/jossecurity/joss/pkg/template"
 	"github.com/jossecurity/joss/pkg/version"
 	"golang.org/x/term"
@@ -109,15 +110,15 @@ func main() {
 		handleIndexNowCommand(os.Args[2:])
 	case "server":
 		if len(os.Args) >= 3 && os.Args[2] == "start" {
-			handleNativeServerStart(os.Args[3:])
+			handleServerStart(os.Args[3:])
 		} else {
-			fmt.Printf("%s joss server start [--no-watch] [--port=8000]\n", i18n.Tr("cliUsageLabel"))
+			fmt.Printf("%s joss server start [--native] [--no-watch] [--port=8000]\n", i18n.Tr("cliUsageLabel"))
 		}
 	case "program":
 		if len(os.Args) >= 3 && os.Args[2] == "start" {
-			startProgram()
+			startProgram(os.Args[3:])
 		} else {
-			fmt.Printf("%s joss program start\n", i18n.Tr("cliUsageLabel"))
+			fmt.Printf("%s joss program start [--native]\n", i18n.Tr("cliUsageLabel"))
 		}
 	case "format":
 		handleFormatCommand(os.Args[2:])
@@ -165,20 +166,25 @@ func main() {
 		}
 		executeEval(source, asJSON)
 	case "run":
-		if len(os.Args) < 3 {
-			fmt.Printf("%s joss run [archivo.joss | -e \"codigo\"]\n", i18n.Tr("cliUsageLabel"))
+		mode, args := takeExecutionMode(os.Args[2:])
+		if len(args) < 1 {
+			fmt.Printf("%s joss run [archivo.joss | -e \"codigo\"] [--native]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
-		if os.Args[2] == "-e" {
-			if len(os.Args) < 4 {
+		if args[0] == "-e" {
+			if len(args) < 2 {
 				fmt.Printf("%s joss run -e \"codigo\"\n", i18n.Tr("cliUsageLabel"))
 				return
 			}
-			executeEval(os.Args[3], false)
+			if mode == executionModeNative {
+				fmt.Fprintln(os.Stderr, "joss run -e --native no está disponible; guarda el código en un archivo .joss")
+				os.Exit(2)
+			}
+			executeEval(args[1], false)
 			return
 		}
-		filename := os.Args[2]
-		executeScript(filename)
+		filename := args[0]
+		executeScriptWithMode(filename, mode)
 	case "repl":
 		runRepl()
 
@@ -406,9 +412,10 @@ func emitIRCommand(filename, outFile string) {
 }
 
 func handleBuildCommand(args []string) {
+	mode, args := takeExecutionMode(args)
 	if len(args) == 0 {
 		if _, err := os.Stat("main.joss"); err == nil {
-			if _, err := buildNativeProgram("main.joss", "", "", false, false, false, false, "auto"); err != nil {
+			if _, err := buildProgramForMode("main.joss", "", "", false, false, false, false, "auto", mode); err != nil {
 				os.Exit(1)
 			}
 			return
@@ -422,6 +429,7 @@ func handleBuildCommand(args []string) {
 		fmt.Println("  --debug              Compilación con información de depuración")
 		fmt.Println("  --gui                Habilita subsistema de interfaz gráfica de escritorio (GUI)")
 		fmt.Println("  --trace              Emite y conserva artefactos intermedios (.ir, .ll, .asm)")
+		fmt.Println("  --native             Usar compilación AOT nativa; por defecto se empaqueta el runtime anterior")
 		fmt.Println("\nSubcomandos de distribución:")
 		fmt.Println("  package <ruta>       Empaquetar librería o plugin en formato .jp")
 		fmt.Println("  web                  Preparar bundle de archivos y assets para despliegue web")
@@ -431,8 +439,7 @@ func handleBuildCommand(args []string) {
 	first := args[0]
 	// Subcomandos de paquetes y bundles existentes
 	if first == "bundle" || first == "app" {
-		fmt.Println("Aviso: El empaquetado con runner Go ha sido deprecado en favor de la compilación nativa directa AOT.")
-		fmt.Println("Usa 'joss build [archivo.joss]' para compilar nativamente sin runtime.")
+		fmt.Println("Aviso: 'joss build bundle/app' está en deprecación; usa 'joss build [archivo.joss]'.")
 		return
 	}
 	if first == "package" {
@@ -451,7 +458,8 @@ func handleBuildCommand(args []string) {
 	// Subcomandos históricos en deprecación redirigidos de forma transparente
 	shift := 0
 	if first == "native-backend" || first == "native" {
-		fmt.Println("[aviso] 'joss build native' y 'joss build native-backend' están en deprecación. Usa directamente 'joss build [archivo.joss]'")
+		fmt.Println("[aviso] Usa 'joss build --native' para seleccionar explícitamente AOT nativo.")
+		mode = executionModeNative
 		shift = 1
 	} else if first == "program" {
 		fmt.Println("[aviso] 'joss build program' está en deprecación. Usa directamente 'joss build [archivo.joss]'")
@@ -511,9 +519,16 @@ func handleBuildCommand(args []string) {
 		}
 	}
 
-	if _, err := buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName); err != nil {
+	if _, err := buildProgramForMode(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName, mode); err != nil {
 		os.Exit(1)
 	}
+}
+
+func buildProgramForMode(filename, outExe, targetStr string, release, debug, trace, enableGUI bool, backendName string, mode executionMode) (string, error) {
+	if mode == executionModeNative {
+		return buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName)
+	}
+	return buildLegacyProgram(filename, outExe, targetStr, enableGUI)
 }
 
 // lowerPreparedProject is the single CLI entry to the canonical native IR
@@ -535,10 +550,6 @@ func lowerPreparedProject(prepared *semanticanalyzer.PreparedProgram, filename s
 	})
 	name := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
 	return ir.LowerAndVerify(prepared, name, reachability)
-}
-
-func shouldAttemptJIT() bool {
-	return os.Getenv("JOSS_NO_JIT") == ""
 }
 
 func buildNativeProgram(filename, outExe, targetStr string, release, debug, trace, enableGUI bool, backendName string) (string, error) {
@@ -673,6 +684,10 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 }
 
 func executeScript(filename string) {
+	executeScriptWithMode(filename, executionModePrevious)
+}
+
+func executeScriptWithMode(filename string, mode executionMode) {
 	// Analyze the same project surface that the runtime will preload. Semantic
 	// errors are blocking; warnings remain visible but do not prevent execution.
 	units, parseDiagnostics := semanticanalyzer.LoadProject(filename, "app")
@@ -694,11 +709,10 @@ func executeScript(filename string) {
 	}
 
 	// =========================================================================
-	// JIT and AOT use the same PreparedProgram-to-verified-IR pipeline. Server
-	// children go through this path too; the execution sink is the only intended
-	// difference. JOSS_NO_JIT remains an explicit interpreter-oracle switch.
+	// The previous Go runtime remains the default. --native opts into the
+	// shared PreparedProgram-to-verified-IR JIT pipeline.
 	// =========================================================================
-	if shouldAttemptJIT() {
+	if mode == executionModeNative {
 		irProg, irErr := lowerPreparedProject(report.Prepared, filename)
 		if irErr == nil {
 			emitter := native.SelectCodeEmitter(native.HostTarget(), false)
@@ -721,8 +735,6 @@ func executeScript(filename string) {
 			fmt.Fprintf(os.Stderr, "[Execution] shared IR pipeline failed; interpreter fallback is disabled: %v\n", irErr)
 			os.Exit(1)
 		}
-	} else {
-		fmt.Fprintln(os.Stderr, "[Execution] JOSS_NO_JIT=1; running the interpreter oracle explicitly")
 	}
 
 	rt := core.NewRuntime()
