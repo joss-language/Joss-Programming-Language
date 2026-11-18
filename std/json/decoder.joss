@@ -1,0 +1,488 @@
+// JSON decoding is implemented in Joss so interpreter, JIT, and AOT can share
+// the same parser and value construction rules.
+public class JSONDecoder {
+    public static func decode(string $source): mixed {
+        string $input = trim($source)
+        (substr($input, 0, 1) == "﻿") ? {
+            $input = substr($input, 1)
+        }
+        int $length = strlen($input)
+        map $state = {"index" : 0, "invalid": false
+    }
+    mixed $value = JSONDecoder::parseValue($input, $state, $length)
+    JSONDecoder::skipWhitespace($input, $state, $length)
+    ($state ["invalid"] == true || intval($state ["index"]) != $length) ? {
+        return null
+    }
+    return $value
+}
+
+private static func skipWhitespace(string $source, map $state, int $length) : void {
+    while (intval($state ["index"]) < $length) {
+        string $character = substr($source, intval($state ["index"]), 1)
+        ($character == " " || $character == "\t" || $character == "\r" || $character == "\n") ? {
+            $state ["index"] = intval($state ["index"]) + 1
+        } : {
+            return
+        }
+    }
+}
+
+private static func parseValue(string $source, map $state, int $length): mixed {
+    JSONDecoder::skipWhitespace($source, $state, $length)
+    int $index = intval($state ["index"])
+    ($index >= $length) ? {
+        $state ["invalid"] = true
+        return null
+    }
+    string $character = substr($source, $index, 1)
+    ($character == "\"") ? {
+        return JSONDecoder::parseString($source, $state, $length)
+    }
+    ($character == "{") ? {
+        return JSONDecoder::parseObject($source, $state, $length)
+    }
+    ($character == "[") ? {
+        return JSONDecoder::parseArray($source, $state, $length)
+    }
+    ($character == "t") ? {
+        return JSONDecoder::parseLiteral($source, $state, $length, "true", true)
+    }
+    ($character == "f") ? {
+        return JSONDecoder::parseLiteral($source, $state, $length, "false", false)
+    }
+    ($character == "n") ? {
+        return JSONDecoder::parseLiteral($source, $state, $length, "null", null)
+    }
+    return JSONDecoder::parseNumber($source, $state, $length)
+}
+
+private static func parseLiteral(string $source, map $state, int $length, string $literal, mixed $value) : mixed {
+    int $index = intval($state ["index"])
+    int $literalLength = strlen($literal)
+    (substr($source, $index, $literalLength) != $literal || $index + $literalLength > $length) ? {
+        $state ["invalid"] = true
+        return null
+    }
+    $state ["index"] = $index + $literalLength
+    return $value
+}
+
+private static func parseObject(string $source, map $state, int $length) : mixed {
+    $state ["index"] = intval($state ["index"]) + 1
+    JSONDecoder::skipWhitespace($source, $state, $length)
+    map $result = {
+}
+(substr($source, intval($state ["index"]), 1) == "}") ? {
+    $state ["index"] = intval($state ["index"]) + 1
+    return $result
+}
+
+while (intval($state ["index"]) < $length && $state ["invalid"] != true) {
+    mixed $keyValue = JSONDecoder::parseString($source, $state, $length)
+    ($keyValue === null) ? {
+        $state ["invalid"] = true
+        return null
+    }
+    JSONDecoder::skipWhitespace($source, $state, $length)
+    (substr($source, intval($state ["index"]), 1) != ":") ? {
+        $state ["invalid"] = true
+        return null
+    }
+    $state ["index"] = intval($state ["index"]) + 1
+    mixed $value = JSONDecoder::parseValue($source, $state, $length)
+    ($state ["invalid"] == true) ? {
+        return null
+    }
+    $result [strval($keyValue)] = $value
+    JSONDecoder::skipWhitespace($source, $state, $length)
+    string $separator = substr($source, intval($state ["index"]), 1)
+    ($separator == "}") ? {
+        $state ["index"] = intval($state ["index"]) + 1
+        return $result
+    }
+    ($separator != ",") ? {
+        $state ["invalid"] = true
+        return null
+    }
+    $state ["index"] = intval($state ["index"]) + 1
+    JSONDecoder::skipWhitespace($source, $state, $length)
+}
+$state ["invalid"] = true
+return null
+}
+
+private static func parseArray(string $source, map $state, int $length) : mixed {
+    $state ["index"] = intval($state ["index"]) + 1
+    JSONDecoder::skipWhitespace($source, $state, $length)
+    array<mixed> $result = []
+    (substr($source, intval($state ["index"]), 1) == "]") ? {
+        $state ["index"] = intval($state ["index"]) + 1
+        return $result
+    }
+
+    while (intval($state ["index"]) < $length && $state ["invalid"] != true) {
+        mixed $value = JSONDecoder::parseValue($source, $state, $length)
+        ($state ["invalid"] == true) ? {
+            return null
+        }
+        $result [] = $value
+        JSONDecoder::skipWhitespace($source, $state, $length)
+        string $separator = substr($source, intval($state ["index"]), 1)
+        ($separator == "]") ? {
+            $state ["index"] = intval($state ["index"]) + 1
+            return $result
+        }
+        ($separator != ",") ? {
+            $state ["invalid"] = true
+            return null
+        }
+        $state ["index"] = intval($state ["index"]) + 1
+        JSONDecoder::skipWhitespace($source, $state, $length)
+    }
+    $state ["invalid"] = true
+    return null
+}
+
+private static func parseString(string $source, map $state, int $length) : mixed {
+    (substr($source, intval($state ["index"]), 1) != "\"") ? {
+        $state ["invalid"] = true
+        return null
+    }
+    $state ["index"] = intval($state ["index"]) + 1
+    string $result = ""
+    while (intval($state ["index"]) < $length) {
+        int $characterIndex = intval($state ["index"])
+        string $character = substr($source, $characterIndex, 1)
+        $state ["index"] = intval($state ["index"]) + 1
+        ($character == "\"") ? {
+            return $result
+        }
+        (__joss_string_byte_at($source, $characterIndex) < 32) ? {
+            $state ["invalid"] = true
+            return null
+        }
+        ($character == "\\") ? {
+            (intval($state ["index"]) >= $length) ? {
+                $state ["invalid"] = true
+                return null
+            }
+            string $escape = substr($source, intval($state ["index"]), 1)
+            $state ["index"] = intval($state ["index"]) + 1
+            ($escape == "\"") ? {
+                $result = $result . "\""
+            } : {
+                ($escape == "\\") ? {
+                    $result = $result . "\\"
+                } : {
+                    ($escape == "/") ? {
+                        $result = $result . "/"
+                    } : {
+                        ($escape == "b") ? {
+                            $result = $result . "\x08"
+                        } : {
+                            ($escape == "f") ? {
+                                $result = $result . "\x0c"
+                            } : {
+                                ($escape == "n") ? {
+                                    $result = $result . "\n"
+                                } : {
+                                    ($escape == "r") ? {
+                                        $result = $result . "\r"
+                                    } : {
+                                        ($escape == "t") ? {
+                                            $result = $result . "\t"
+                                        } : {
+                                            ($escape == "u") ? {
+                                                int $codepoint = JSONDecoder::parseHex4($source, $state, $length)
+                                                ($codepoint < 0) ? {
+                                                    $state ["invalid"] = true
+                                                    return null
+                                                }
+                                                ($codepoint >= 55296 && $codepoint <= 56319) ? {
+                                                    (substr($source, intval($state ["index"]), 2) != "\\u") ? {
+                                                        $state ["invalid"] = true
+                                                        return null
+                                                    }
+                                                    $state ["index"] = intval($state ["index"]) + 2
+                                                    int $low = JSONDecoder::parseHex4($source, $state, $length)
+                                                    ($low < 56320 || $low > 57343) ? {
+                                                        $state ["invalid"] = true
+                                                        return null
+                                                    }
+                                                    $codepoint = 65536 + (($codepoint - 55296) * 1024) + ($low - 56320)
+                                                } : {
+                                                    ($codepoint >= 56320 && $codepoint <= 57343) ? {
+                                                        $state ["invalid"] = true
+                                                        return null
+                                                    }
+                                                }
+                                                $result = $result . JSONDecoder::encodeCodepoint($codepoint)
+                                            } : {
+                                                $state ["invalid"] = true
+                                                return null
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } : {
+            $result = $result . $character
+        }
+    }
+    $state ["invalid"] = true
+    return null
+}
+
+private static func parseHex4(string $source, map $state, int $length) : int {
+    int $value = 0
+    int $digit = 0
+    while ($digit < 4) {
+        (intval($state ["index"]) >= $length) ? {
+            return - 1
+        }
+        string $character = substr($source, intval($state ["index"]), 1)
+        int $hex = JSONDecoder::hexDigit($character)
+        ($hex < 0) ? {
+            return - 1
+        }
+        $value = ($value * 16) + $hex
+        $state ["index"] = intval($state ["index"]) + 1
+        $digit = $digit + 1
+    }
+    return $value
+}
+
+private static func hexDigit(string $character) : int {
+    ($character == "0") ? {
+        return 0
+    }
+    ($character == "1") ? {
+        return 1
+    }
+    ($character == "2") ? {
+        return 2
+    }
+    ($character == "3") ? {
+        return 3
+    }
+    ($character == "4") ? {
+        return 4
+    }
+    ($character == "5") ? {
+        return 5
+    }
+    ($character == "6") ? {
+        return 6
+    }
+    ($character == "7") ? {
+        return 7
+    }
+    ($character == "8") ? {
+        return 8
+    }
+    ($character == "9") ? {
+        return 9
+    }
+    ($character == "a" || $character == "A") ? {
+        return 10
+    }
+    ($character == "b" || $character == "B") ? {
+        return 11
+    }
+    ($character == "c" || $character == "C") ? {
+        return 12
+    }
+    ($character == "d" || $character == "D") ? {
+        return 13
+    }
+    ($character == "e" || $character == "E") ? {
+        return 14
+    }
+    ($character == "f" || $character == "F") ? {
+        return 15
+    }
+    return - 1
+}
+
+private static func encodeCodepoint(int $codepoint) : string {
+    ($codepoint <= 127) ? {
+        return __joss_byte_string($codepoint)
+    }
+    ($codepoint <= 2047) ? {
+        return __joss_byte_string(192 + intval($codepoint / 64)) . __joss_byte_string(128 + ($codepoint % 64))
+    }
+    ($codepoint <= 65535) ? {
+        return __joss_byte_string(224 + intval($codepoint / 4096)) . __joss_byte_string(128 + (intval($codepoint / 64) % 64)) . __joss_byte_string(128 + ($codepoint % 64))
+    }
+    return __joss_byte_string(240 + intval($codepoint / 262144)) . __joss_byte_string(128 + (intval($codepoint / 4096) % 64)) . __joss_byte_string(128 + (intval($codepoint / 64) % 64)) . __joss_byte_string(128 + ($codepoint % 64))
+}
+
+private static func parseNumber(string $source, map $state, int $length) : mixed {
+    int $index = intval($state ["index"])
+    int $start = $index
+    bool $negative = false
+    (substr($source, $index, 1) == "-") ? {
+        $negative = true
+        $index = $index + 1
+    }
+    ($index >= $length) ? {
+        $state ["invalid"] = true
+        return null
+    }
+    string $firstDigit = substr($source, $index, 1)
+    int $firstValue = JSONDecoder::decimalDigit($firstDigit)
+    ($firstValue < 0) ? {
+        $state ["invalid"] = true
+        return null
+    }
+    float $value = 0.0
+    int $integerDigits = 0
+    while ($index < $length) {
+        string $digitText = substr($source, $index, 1)
+        int $digit = JSONDecoder::decimalDigit($digitText)
+        ($digit < 0) ? {
+            break
+        }
+        $value = ($value * 10.0) + floatval($digit)
+        $index = $index + 1
+        $integerDigits = $integerDigits + 1
+    }
+    int $integerStart = $start
+    ($negative) ? {
+        $integerStart = $start + 1
+    }
+    ($integerDigits > 1 && substr($source, $integerStart, 1) == "0") ? {
+        $state ["invalid"] = true
+        return null
+    }
+    int $fractionDigits = 0
+    (substr($source, $index, 1) == ".") ? {
+        $index = $index + 1
+        int $fractionStart = $index
+        float $scale = 0.1
+        while ($index < $length) {
+            string $digitText = substr($source, $index, 1)
+            int $digit = JSONDecoder::decimalDigit($digitText)
+            ($digit < 0) ? {
+                break
+            }
+            $value = $value + (floatval($digit) * $scale)
+            $scale = $scale / 10.0
+            $index = $index + 1
+        }
+        $fractionDigits = $index - $fractionStart
+        ($fractionDigits == 0) ? {
+            $state ["invalid"] = true
+            return null
+        }
+    }
+    int $exponent = 0
+    string $exponentMarker = substr($source, $index, 1)
+    ($exponentMarker == "e" || $exponentMarker == "E") ? {
+        $index = $index + 1
+        bool $exponentNegative = false
+        (substr($source, $index, 1) == "-" || substr($source, $index, 1) == "+") ? {
+            $exponentNegative = substr($source, $index, 1) == "-"
+            $index = $index + 1
+        }
+        int $exponentDigits = 0
+        while ($index < $length) {
+            string $digitText = substr($source, $index, 1)
+            int $digit = JSONDecoder::decimalDigit($digitText)
+            ($digit < 0) ? {
+                break
+            }
+            ($exponent < 1000) ? {
+                $exponent = ($exponent * 10) + $digit
+            }
+            $index = $index + 1
+            $exponentDigits = $exponentDigits + 1
+        }
+        ($exponentDigits == 0) ? {
+            $state ["invalid"] = true
+            return null
+        }
+        ($exponentNegative) ? {
+            $exponent = 0 - $exponent
+        }
+    }
+    ($index == $start || $exponent > 308 || $exponent < - 324) ? {
+        $state ["invalid"] = true
+        return null
+    }
+    ($exponent != 0) ? {
+        float $factor = 1.0
+        int $steps = 0 - $exponent
+        ($exponent > 0) ? {
+            $steps = $exponent
+        }
+        while ($steps > 0) {
+            $factor = $factor * 10.0
+            $steps = $steps - 1
+        }
+        ($exponent > 0) ? {
+            $value = $value * $factor
+        } : {
+            $value = $value / $factor
+        }
+    }
+    ($negative) ? {
+        $value = 0.0 - $value
+    }
+    $state ["index"] = $index
+    return $value
+}
+
+private static func decimalDigit(string $character) : int {
+    ($character == "0") ? {
+        return 0
+    }
+    ($character == "1") ? {
+        return 1
+    }
+    ($character == "2") ? {
+        return 2
+    }
+    ($character == "3") ? {
+        return 3
+    }
+    ($character == "4") ? {
+        return 4
+    }
+    ($character == "5") ? {
+        return 5
+    }
+    ($character == "6") ? {
+        return 6
+    }
+    ($character == "7") ? {
+        return 7
+    }
+    ($character == "8") ? {
+        return 8
+    }
+    ($character == "9") ? {
+        return 9
+    }
+    return - 1
+}
+}
+
+// Both the source builtin and JSON native-class APIs use this owner. The
+// execution modes therefore enter the same parser implementation.
+public func __joss_builtin_json_decode(string $source) : mixed {
+    return JSONDecoder::decode($source)
+}
+
+public func __joss_host_JSON_parse(string $source) : mixed {
+    return JSONDecoder::decode($source)
+}
+
+public func __joss_host_JSON_decode(string $source) : mixed {
+    return JSONDecoder::decode($source)
+}

@@ -319,6 +319,10 @@ print(nombre(null))
 
 ---
 
+## Native compilation (`JOSS-NATIVE-001`)
+
+This diagnostic means the language and interpreter support a feature, but the native backend cannot materialize it yet. `joss run` uses JIT by default; to execute the reference interpreter while native emission is implemented, run `joss run` with `JOSS_NO_JIT=1`.
+
 ## Next step
 
 Now that you know all the diagnostics and how to resolve them, you can dive deeper into how the semantic analyzer inspects the abstract syntax tree to emit these codes:

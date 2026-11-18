@@ -68,6 +68,14 @@ func (r *Runtime) executeCall(call *parser.CallExpression) interface{} {
 
 // callBuiltin dispatches canonical built-in definitions to their domain handler.
 func (r *Runtime) callBuiltin(name string, arguments []interface{}) (interface{}, bool) {
+	if name == "json_decode" && len(arguments) == 1 {
+		if function := r.Functions["__joss_builtin_json_decode"]; function != nil {
+			if _, ok := arguments[0].(string); !ok {
+				return nil, true
+			}
+			return r.callMethodEvaluatedWithPlan(function, nil, arguments, nil, r.planForMethod(function)), true
+		}
+	}
 	definition, exists := builtinDefinitionFor(name)
 	if !exists {
 		return nil, false

@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -41,9 +42,14 @@ func TestExecutionContextCancelsOutgoingHTTP(t *testing.T) {
 		<-req.Context().Done()
 	}))
 	defer server.Close()
+	probe, err := net.DialTimeout("tcp", server.Listener.Addr().String(), 250*time.Millisecond)
+	if err != nil {
+		t.Skipf("local HTTP sockets are unavailable in this environment: %v", err)
+	}
+	_ = probe.Close()
 	r := newRuntimeState().(*Runtime)
 	defer r.Free()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 	defer cancel()
 	r.SetExecutionContext(ctx)
 	defer func() {

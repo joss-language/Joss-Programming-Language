@@ -13,6 +13,7 @@ import (
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/std"
 )
 
 func prepareTestProgram(t *testing.T, source string, name string) *ir.Program {
@@ -42,6 +43,35 @@ func prepareTestProgram(t *testing.T, source string, name string) *ir.Program {
 	}
 
 	return irProg
+}
+
+func prepareGranDBStdlibTestProgram(t *testing.T, source string, name string) *ir.Program {
+	t.Helper()
+	p := parser.NewParser(parser.NewLexer(source))
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	units := []analyzer.SourceUnit{{Path: name + ".joss", Program: program}}
+	for _, unit := range std.GetStdlibUnits() {
+		if unit.Path == "<std/database/grandb.joss>" || unit.Path == "<std/strings/strings.joss>" {
+			units = append(units, unit)
+		}
+	}
+	if len(units) != 3 {
+		t.Fatalf("canonical GranDB/string modules are incomplete: found %d units", len(units))
+	}
+	prepared := analyzer.PrepareProgram(units, core.BuildAnalysisEnvironment())
+	if prepared.HasErrors() {
+		t.Fatalf("analyzer errors: %v", prepared.Diagnostics)
+	}
+	reachability := analyzer.BuildReachabilityGraph(prepared, analyzer.ReachabilityOptions{Entrypoint: name + ".joss"})
+	programIR, err := ir.LowerAndVerify(prepared, name, reachability)
+	if err != nil {
+		t.Fatalf("lowering/verifying failed: %v", err)
+	}
+	return programIR
 }
 
 func TestVerification_TraceArtifactsAndCleanExecution(t *testing.T) {

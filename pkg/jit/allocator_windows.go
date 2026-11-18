@@ -3,14 +3,73 @@ package jit
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"golang.org/x/sys/windows"
 )
 
+var procFlushInstructionCache = windows.NewLazySystemDLL("kernel32.dll").NewProc("FlushInstructionCache")
+
 // ExecutableBlock represents an allocated page of executable memory in RAM.
 type ExecutableBlock struct {
-	Addr uintptr
-	Size uintptr
+	Addr      uintptr
+	Size      uintptr
+	codeReady bool
+}
+
+func AllocateJITImage(size int) (*ExecutableBlock, error) {
+	if size <= 0 {
+		return nil, errors.New("cannot allocate an empty JIT image")
+	}
+	addr, err := windows.VirtualAlloc(0, uintptr(size), windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	if err != nil {
+		return nil, fmt.Errorf("VirtualAlloc writable JIT image failed: %w", err)
+	}
+	return &ExecutableBlock{Addr: addr, Size: uintptr(size)}, nil
+}
+
+func (b *ExecutableBlock) Write(image []byte) error {
+	if b == nil || b.Addr == 0 || b.codeReady {
+		return errors.New("JIT image is not writable")
+	}
+	if uintptr(len(image)) > b.Size {
+		return fmt.Errorf("JIT image exceeds allocated size: %d > %d", len(image), b.Size)
+	}
+	if len(image) > 0 {
+		var written uintptr
+		err := windows.WriteProcessMemory(windows.CurrentProcess(), b.Addr, &image[0], uintptr(len(image)), &written)
+		if err != nil {
+			return fmt.Errorf("WriteProcessMemory JIT image failed: %w", err)
+		}
+		if written != uintptr(len(image)) {
+			return fmt.Errorf("incomplete JIT image write: %d of %d bytes", written, len(image))
+		}
+	}
+	return nil
+}
+
+func (b *ExecutableBlock) FinalizeCode(codeSize int) error {
+	if b == nil || b.Addr == 0 || b.codeReady || codeSize <= 0 || uintptr(codeSize) > b.Size {
+		return fmt.Errorf("invalid JIT code size %d for image size %d", codeSize, b.Size)
+	}
+	pageSize := os.Getpagesize()
+	protectedSize := uintptr((codeSize + pageSize - 1) / pageSize * pageSize)
+	if protectedSize > b.Size {
+		return fmt.Errorf("JIT code page range exceeds image: %d > %d", protectedSize, b.Size)
+	}
+	flushed, _, flushErr := procFlushInstructionCache.Call(uintptr(windows.CurrentProcess()), b.Addr, uintptr(codeSize))
+	if flushed == 0 {
+		if flushErr != nil {
+			return fmt.Errorf("FlushInstructionCache failed: %w", flushErr)
+		}
+		return errors.New("FlushInstructionCache failed without a Windows error")
+	}
+	var oldProtect uint32
+	if err := windows.VirtualProtect(b.Addr, protectedSize, windows.PAGE_EXECUTE_READ, &oldProtect); err != nil {
+		return fmt.Errorf("VirtualProtect JIT text RX failed: %w", err)
+	}
+	b.codeReady = true
+	return nil
 }
 
 // AllocateExecutable allocates memory with PAGE_EXECUTE_READWRITE permissions,
@@ -43,8 +102,9 @@ func AllocateExecutable(code []byte) (*ExecutableBlock, error) {
 	}
 
 	return &ExecutableBlock{
-		Addr: addr,
-		Size: size,
+		Addr:      addr,
+		Size:      size,
+		codeReady: true,
 	}, nil
 }
 

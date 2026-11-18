@@ -3,16 +3,18 @@ package native
 // emitNativeServer emits the Socket networking primitives for x86_64 (Windows Winsock2 & POSIX syscalls)
 // and delegates Server::start to Pure Joss Standard Library (fn_HttpServer_start).
 func (b *MachineCodeBuilder) emitNativeServer() {
+	// Server::start is only a thin ABI adapter when its Pure Joss owner is part
+	// of the program. Socket primitives alone must not create a fake server path.
+	if b.hasRelocTarget("fn_Server_start", "Server_start") {
+		if _, exists := b.labels["fn_Server_start"]; !exists {
+			b.defineLabel("fn_Server_start")
+			b.defineLabel("Server_start")
+			b.defineLabel(".srv_accept_loop")
+			b.emitJmpLabel("fn_HttpServer_start")
+		}
+	}
 	if _, exists := b.labels["fn_Socket_listen"]; exists {
 		return
-	}
-
-	// 1. Point of entry for Server::start -> jumps to Pure Joss HttpServer::start (if not defined in IR)
-	if _, exists := b.labels["fn_Server_start"]; !exists {
-		b.defineLabel("fn_Server_start")
-		b.defineLabel("Server_start")
-		b.defineLabel(".srv_accept_loop")
-		b.emitJmpLabel("fn_HttpServer_start")
 	}
 
 	// 2. Windows Winsock initializer helper (now initialized in __joss_os_init)
@@ -40,7 +42,7 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitJmpLabel(".sock_win_have_port")
 
 		b.defineLabel(".sock_win_parse_str")
-		b.emitBytes(0x31, 0xDB)       // xor ebx, ebx
+		b.emitBytes(0x31, 0xDB) // xor ebx, ebx
 		b.defineLabel(".sock_win_parse_port")
 		b.emitBytes(0x0F, 0xB6, 0x02) // movzx eax, byte ptr [rdx]
 		b.emitBytes(0x84, 0xC0)       // test al, al
@@ -90,8 +92,8 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x66, 0x89, 0x44, 0x24, 0x32) // mov [rsp + 50], ax
 
 		// bind(listenSock, &sockaddr, 16)
-		b.emitBytes(0x4C, 0x89, 0xF1)                    // mov rcx, r14
-		b.emitBytes(0x48, 0x8D, 0x54, 0x24, 0x30)        // lea rdx, [rsp + 48]
+		b.emitBytes(0x4C, 0x89, 0xF1)                   // mov rcx, r14
+		b.emitBytes(0x48, 0x8D, 0x54, 0x24, 0x30)       // lea rdx, [rsp + 48]
 		b.emitBytes(0x41, 0xB8, 0x10, 0x00, 0x00, 0x00) // mov r8d, 16
 		b.emitMovRAXData(dataOffBind)
 		b.emitBytes(0xFF, 0xD0) // call bind
@@ -123,7 +125,7 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x48, 0x31, 0xC0) // xor rax, rax (null)
 
 		b.defineLabel(".sock_listen_ret")
-		b.emitBytes(0x48, 0x83, 0xC4, 0x40) // add rsp, 64
+		b.emitBytes(0x48, 0x83, 0xC4, 0x40)                               // add rsp, 64
 		b.emitBytes(0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B, 0x5D, 0xC3) // pop r14..r12, rbx, rbp; ret
 	} else {
 		// POSIX (Linux x86_64): rdi = host, rsi = port (int or string)
@@ -238,8 +240,8 @@ func (b *MachineCodeBuilder) emitNativeServer() {
 		b.emitBytes(0x48, 0x8B, 0x49, 0x08) // mov rcx, [rcx + 8] (listenSock)
 		b.emitBytes(0x48, 0x85, 0xC9)       // test rcx, rcx
 		b.emitJeLabel(".sock_accept_fail")
-		b.emitBytes(0x31, 0xD2)             // xor edx, edx
-		b.emitBytes(0x45, 0x31, 0xC0)       // xor r8d, r8d
+		b.emitBytes(0x31, 0xD2)       // xor edx, edx
+		b.emitBytes(0x45, 0x31, 0xC0) // xor r8d, r8d
 		b.emitMovRAXData(dataOffAccept)
 		b.emitBytes(0xFF, 0xD0)             // call accept
 		b.emitBytes(0x48, 0x83, 0xF8, 0xFF) // cmp rax, -1

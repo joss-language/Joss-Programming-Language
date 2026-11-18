@@ -46,7 +46,7 @@ em toda a instância.
 | `update(id,mapa)` , `delete(id)` | Bool ou nulo dependendo dos argumentos/falha; modificar usuários. |
 | `logout()` | Remove as chaves de identidade e função da sessão em `std/auth/auth.joss` e retorna verdadeiro. Isso não implica revogação global de todos os JWT emitidos. |
 | `verify(token)` | Verifique o token de confirmação do e-mail, retorne bool. |
-| `verificationStatus(email)` | not_found, verificado ou não verificado. |
+| `verificationStatus(email)` | `not_found`, `verified` ou `unverified`. |
 | `resendVerification(email)` | token de verificação ou falso; a entrega da mensagem fica por conta do aplicativo. |
 | `forgotPassword(email)` | Token de recuperação ou falso; Não é confirmação de envio SMTP. |
 | `resetPassword(token,nueva)` | texto verdadeiro ou de erro: invalid_token, fraca_password, database_error, used_token, expired_token. Compare com a verdade, não apenas com a veracidade do texto. |
@@ -114,11 +114,11 @@ A URL de redirecionamento (callback) registrada no console de desenvolvedor deve
 https://tu-dominio.com/auth/{proveedor}/callback
 ```
 
-- `Auth::enabledSocialProviders()` retorna apenas a lista de provedores com credenciais configuradas.
+- `Auth::enabledSocialProviders()` executa a política canônica em `std/auth/auth.joss` e retorna, em ordem estável, os provedores com Client ID e Client Secret não vazios após `trim`. Se `X_CLIENT_ID` estiver vazio, usa `TWITTER_CLIENT_ID` e `TWITTER_CLIENT_SECRET` como compatibilidade.
 - `Auth::socialRedirect(proveedor, urlRetorno)` gera a URL segura para o provedor OAuth com proteção `state` anti-CSRF.
 - `Auth::socialCallback(proveedor, codigo, urlRetorno)` troca o código, recupera o perfil, vincula em `user_social_accounts` e retorna um `AuthLoginResult`.
 
-Fontes: [Auth](../../pkg/core/auth.go) , [OAuth Social](../../pkg/core/auth_social.go) , [JWT](../../pkg/core/auth_jwt.go) ,
+A seleção de provedores fica em Joss; Go mantém as operações de transporte e protocolo OAuth. Fontes: [Auth Joss](../../std/auth/auth.joss) , [OAuth Social](../../pkg/core/auth_social.go) , [JWT](../../pkg/core/auth_jwt.go) ,
 [Fluxo MFA](../../pkg/core/auth_fluent.go) , Tabelas [../pkg/core/auth_tables.go](../../pkg/core/auth_tables.go) .
 # Fluxos Auth em Pure Joss
 

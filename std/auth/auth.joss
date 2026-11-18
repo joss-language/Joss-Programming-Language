@@ -38,8 +38,45 @@ public class AuthLoginResult {
     }
 }
 
+// OAuth provider selection is policy in Joss. The interpreter's native Auth
+// façade and both native emitters bind to this same owner.
+public func __joss_host_Auth_enabledSocialProviders(): array<string> {
+    array<string> $enabled = []
+    (trim(env("GOOGLE_CLIENT_ID")) != "" && trim(env("GOOGLE_CLIENT_SECRET")) != "") ? {
+        $enabled [] = "google"
+    }
+    (trim(env("APPLE_CLIENT_ID")) != "" && trim(env("APPLE_CLIENT_SECRET")) != "") ? {
+        $enabled [] = "apple"
+    }
+    (trim(env("FACEBOOK_CLIENT_ID")) != "" && trim(env("FACEBOOK_CLIENT_SECRET")) != "") ? {
+        $enabled [] = "facebook"
+    }
+    string $xClientId = trim(env("X_CLIENT_ID"))
+    string $xClientSecret = trim(env("X_CLIENT_SECRET"))
+    ($xClientId == "") ? {
+        $xClientId = trim(env("TWITTER_CLIENT_ID"))
+        $xClientSecret = trim(env("TWITTER_CLIENT_SECRET"))
+    }
+    ($xClientId != "" && $xClientSecret != "") ? {
+        $enabled [] = "x"
+    }
+    (trim(env("GITHUB_CLIENT_ID")) != "" && trim(env("GITHUB_CLIENT_SECRET")) != "") ? {
+        $enabled [] = "github"
+    }
+    (trim(env("TWITCH_CLIENT_ID")) != "" && trim(env("TWITCH_CLIENT_SECRET")) != "") ? {
+        $enabled [] = "twitch"
+    }
+    (trim(env("YAHOO_CLIENT_ID")) != "" && trim(env("YAHOO_CLIENT_SECRET")) != "") ? {
+        $enabled [] = "yahoo"
+    }
+    (trim(env("MICROSOFT_CLIENT_ID")) != "" && trim(env("MICROSOFT_CLIENT_SECRET")) != "") ? {
+        $enabled [] = "microsoft"
+    }
+    return $enabled
+}
+
 public class Auth {
-    public static func create(map $data): mixed {
+    public static func create(map $data) : mixed {
         string $email = strtolower(trim(strval($data ["email"] ?? "")))
         string $password = strval($data ["password"] ?? "")
         string $username = trim(strval($data ["username"] ?? ""))
@@ -79,9 +116,9 @@ public class Auth {
         "email" : $email,
         "phone" : trim(strval($data ["phone"] ?? "")),
         "password" : Auth::hash($password),
-        "role_id": $roleId,
-        "token_expires_at": $expires,
-        "verificado": 0
+        "role_id" : $roleId,
+        "token_expires_at" : $expires,
+        "verificado" : 0
     }
     int $inserted = GranDB::table("users")->insert($user)
     ($inserted > 0) ? {
@@ -102,10 +139,10 @@ public static func attempt(mixed $emailInput, mixed $passwordInput) : mixed {
             ->where("email", $email)
             ->first()
         bool $userFound = $user !== null
-        bool $accountVerified = $userFound && intval($user["verificado"] ?? 0) == 1
+        bool $accountVerified = $userFound && intval($user ["verificado"] ?? 0) == 1
         bool $passwordMatches = false
         ($userFound && $accountVerified) ? {
-            $passwordMatches = Auth::verifyHash(strval($user["password"] ?? ""), $password)
+            $passwordMatches = Auth::verifyHash(strval($user ["password"] ?? ""), $password)
         }
         print("[AuthTrace] userFound=" . $userFound . ", verified=" . $accountVerified . ", passwordMatches=" . $passwordMatches)
         ($userFound && $accountVerified && $passwordMatches) ? {
@@ -121,10 +158,10 @@ public static func attempt(mixed $emailInput, mixed $passwordInput) : mixed {
             GranDB::table("users")->where("id", $userId)->update( {"last_login_at" : now()
         })
         $result = Auth::issueToken($userId, $email, strval($user ["username"] ?? ""), $roleName)
-            print("[AuthTrace] access token issuance completed")
+        print("[AuthTrace] access token issuance completed")
     }
-    } : {
-        print("[AuthTrace] skipped database lookup because readiness or inputs failed")
+} : {
+    print("[AuthTrace] skipped database lookup because readiness or inputs failed")
 }
 return $result
 }
@@ -171,7 +208,7 @@ public static func forgotPassword(mixed $emailInput) : mixed {
                 "email" : $email,
                 "token" : $token,
                 "expires_at" : $expires,
-                "used": 0
+                "used" : 0
             })
             ($created > 0) ? {
                 $result = $token
@@ -225,7 +262,7 @@ public static func guest() : bool {
     return!Auth::check()
 }
 
-public static func logout(): bool {
+public static func logout() : bool {
     Session::forget("user_id")
     Session::forget("user_token")
     Session::forget("user_name")
@@ -235,7 +272,7 @@ public static func logout(): bool {
     return true
 }
 
-public static func hasRole(string $role): bool {
+public static func hasRole(string $role) : bool {
     mixed $currentRole = Session::get("user_role")
     return $currentRole === $role || $currentRole === "admin"
 }

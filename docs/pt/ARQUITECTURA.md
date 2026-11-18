@@ -13,13 +13,12 @@ fuentes .joss
     (collectDeclarations → projectScope → validateNominalContracts → analyzeSourceBodies)
   → diagnósticos (`pkg/diagnostics`)
   → PreparedProgram (Canónico)
-  ┌───────────────────────┼───────────────────────┐
-  ▼                       ▼                       ▼
-`joss run`             `joss server`           `joss build`
-Intérprete AST         Servidor HTTP           Joss Native IR (`pkg/ir`)
-(`pkg/core`)           (`pkg/server`)            → IR Verifier (`ir.Verifier`)
-                                                 → Native Backend (`pkg/backend/native`)
-                                                 → Ejecutable Nativo (.exe, ELF, Mach-O)
+  ┌───────────────────────┼──────────────────────────┐
+  ▼                       ▼                          ▼
+`joss run`             `joss server`            `joss build`
+IR verificado → JIT    IR verificado → JIT       IR verificado
+(AMD64/ARM64); error claro   (AMD64/ARM64); error claro      → Native Backend
+si falta soporte       si falta soporte          → Ejecutable standalone
 ```
 
 ```mermaid
@@ -31,13 +30,62 @@ flowchart TD
     A --> N["Analyzer"]
     N --> D["Diagnósticos"]
     N -->|sin errores| PP["PreparedProgram"]
-    PP -->|joss run / server| E["Intérprete core"]
+    PP -->|joss run / server| IR["LowerAndVerify: Joss Native IR"]
+    IR --> JIT["JIT AMD64/ARM64 en memoria, según soporte del host"]
+    IR -->|si JIT falla| E["Error explícito; sin fallback"]
     E --> R["Runtime y servicios"]
-    PP -->|joss build| IR["Joss Native IR"]
+    PP -->|joss build / emit-ir| IR
     IR --> V["IR Verifier"]
     V --> NB["Native Backend"]
     NB --> EXE["Ejecutable nativo real"]
 ```
+
+A transição para um backend comum já centraliza lowering e verificação em
+`ir.LowerAndVerify`. No AMD64, `joss run`, `joss build` e `joss emit-ir` usam a
+mesma entrada e preservam a etapa em que ocorreu um erro de lowering ou
+verificação. JIT e AOT agora compartilham a emissão de instruções x86_64; eles
+diferem apenas na publicação do código em memória ou em um contêiner executável.
+O JIT em memória agora também tem um caminho para ARM64 Unix, com relocations
+para o endereço alocado e páginas de código RX separadas dos dados RW; o teste
+de execução roda em um host ARM64. No Windows ARM64, o invocador em memória
+aceita por enquanto apenas IR puro: aritmética, controle de fluxo e chamadas
+diretas a funções Joss. Chamadas indiretas, exceções, operações de heap,
+built-ins, serviços do host e primitivas de runtime falham com
+`JOSS-NATIVE-001` até que sua ABI do Windows seja emitida, evitando a execução
+de syscalls Unix.
+O ABI de sockets nativo cobre atualmente Windows AMD64, Linux/Android AMD64 e
+Linux, Android e macOS ARM64. Windows ARM64 e macOS AMD64 falham explicitamente
+ao compilar um serviço `Socket` sem emissor de plataforma.
+`joss server` também tenta o caminho JIT em cada processo recarregado. Se o JIT
+não consegue compilar um recurso, a CLI
+informa o diagnóstico e encerra sem trocar de mecanismo.
+`JOSS_NO_JIT=1` seleciona explicitamente o interpretador como oráculo de
+referência.
+
+O lowering remove funções IR inalcançáveis em projetos de console e web. As
+raízes são `main` e, quando existe, `__joss_http_dispatch`; helpers de views e
+assets são mantidos somente quando alcançáveis a partir dessas raízes. Assim,
+uma operação pura como `GranDB::toSql` não inclui consultas DB de outros
+métodos. `json_decode` e `JSON::parse/decode` usam o parser canônico em
+`std/json/decoder.joss` e são reduzidos a chamadas Joss compartilhadas pelo
+interpretador, JIT e AOT quando o argumento tem tipo estático `string`. Os
+emissores AMD64 e ARM64 compilam o parser; mapas homogêneos de strings usam
+helpers tipados. Mapas dinâmicos heterogêneos ainda perdem as etiquetas de tipo
+no IR/backend nativo; portanto, argumentos `mixed` e ler uma string de um
+objeto JSON ainda não têm paridade completa de JIT/AOT e continuam pendentes.
+Os emissores também deixaram de fabricar adaptadores vazios para métodos
+ausentes de `Router`, `Schema`, `Plugin`, `GranDB` ou `HttpServer`. Cada chamada
+precisa ter uma implementação Joss ou uma primitiva nativa real; caso contrário,
+a compilação falha com `JOSS-NATIVE-001`.
+
+Quando um serviço é declarado como chamada de plataforma, mas seu módulo fonte
+fornece `__joss_host_<Clase>_<metodo>`, o lowering comum só substitui
+`CallHostService` por uma chamada Joss direta quando coincidem a quantidade e
+os tipos dos argumentos, o receptor e o tipo de retorno. O receptor de
+instância é passado como primeiro argumento do owner. Os emissores JIT e AOT
+consomem essa mesma função; se o contrato não coincidir, a chamada de
+plataforma permanece e a validação do backend deve comprovar que essa rota está
+implementada.
 
 `semanticanalyzer.LoadProject` preserva cada arquivo como uma `analyzer.SourceUnit` (incluindo `main.joss`, `routes.joss`, `api.joss` e todos os arquivos `.joss` sob `app/`); não concatena ASTs perdendo a origem. Primeiro registra declarações globais de funções, classes, interfaces e enums, depois valida contratos nominais e finalmente analisa cada método com um escopo léxico independente. As classes nativas provêm de `Runtime.RegisterNativeClasses`; os plugins fornecem seus índices de símbolos JP v2.
 
@@ -90,6 +138,8 @@ O CI executa `go run ./tools/cataloggen --check` e `go run ./tools/docgen --chec
 
 ## Build e execução
 
+Os emissores desta versão cobrem AMD64 e ARM64. A seleção de arquitetura não pode cair por padrão em AMD64: targets desconhecidos e ARM de 32 bits são rejeitados explicitamente porque não há emissor implementado para eles.
+
 O modo de desenvolvimento interpreta o `PreparedProgram` (`Runtime.ExecutePrepared`). Cada invocação de callable cria um frame léxico independente; não existe escopo dinâmico entre caller e callee. Isso evita que uma chamada recursiva leia ou sobrescreva locais do caller. O runtime limita a profundidade a 1024 frames por padrão e as closures escrevem unicamente sobre seu ambiente capturado. Os tipos de retorno anotados são validados no analyzer/runtime e o analyzer exige terminação exaustiva demonstrável.
 
 Antes de executar um callable, `pkg/runtime/plan` pode atribuir slots a parâmetros
@@ -103,9 +153,9 @@ As referências seguras não expõem ponteiros de Go: `core.VariableReference` p
 
 A compilação nativa oficial (`joss build`) transforma o `PreparedProgram` analisado e validado em **Joss Native IR** (`pkg/ir`), com CFG, basic blocks e instruções estritamente tipadas. Após a verificação formal (`ir.VerifyProgram`), o **Native Backend** (`pkg/backend/native`) gera executáveis nativos reais autocontidos (PE `.exe`, ELF, Mach-O) em `build/` sem serializar AST:
 - **Programas CLI puros**: São compilados para código de máquina puro (~5.5 KB - 32 KB) sem `joss_host.dll` e sem trailer VFS (`JOSS_RUNNER_DATA`).
-- **Aplicações com serviços web/DB**: Vinculam seletivamente `_joss_host_bridge` (aplicando poda automática por build tags `no<driver>` para excluir motores como SQLite, MySQL, PostgreSQL, SQL Server, Redis ou OCI quando o projeto não os utiliza) e selam o VFS criptografado com AES-256 (`env.enc`).
+- **Aplicações com serviços web/DB**: Binários standalone não vinculam `_joss_host_bridge` nem uma DLL complementar. Cada serviço precisa ser resolvido para código Joss ou uma primitiva nativa emitida; se a implementação estiver ausente, o backend rejeita a compilação. As build tags `no<driver>` removem drivers não utilizados, e o VFS pode ser selado com AES-256 (`env.enc`).
 
-Um símbolo global de runtime sem implementação para o target interrompe a compilação com erro de símbolo não resolvido. Adaptadores transitórios de passagem ficam reservados às famílias de métodos `Router`, `Schema`, `Plugin`, `GranDB` e `HttpServer`; eles não substituem funções da Standard Library nem comprovam paridade funcional desses serviços. A paridade AOT de `strpos`, `substr`, `urldecode` e outras primitivas deve ser verificada separadamente em AMD64 e ARM64 antes de considerar completo um fluxo HTTP.
+Um símbolo global de runtime sem implementação para o target interrompe a compilação com erro de símbolo não resolvido. A CLI valida as capacidades AOT antes de preparar CSS ou consultar dados externos; assim, um target incompleto falha antes desses efeitos. Adaptadores transitórios de passagem ficam reservados às famílias de métodos `Router`, `Schema`, `Plugin`, `GranDB` e `HttpServer`; eles não substituem funções da Standard Library nem comprovam paridade funcional desses serviços. Os placeholders de `Auth`, `SEO` e `Turnstile` não ocultam mais a lógica ausente: essas chamadas exigem uma implementação Joss e falham com `JOSS-NATIVE-001` quando ela não existe. A paridade AOT de `strpos`, `substr`, `urldecode` e outras primitivas deve ser verificada separadamente em AMD64 e ARM64 antes de considerar completo um fluxo HTTP.
 
 As primitivas nativas `Socket::listen`, `Socket::accept`, `Socket::receive`, `Socket::send` e `Socket::close` são verificadas conforme a ABI: AMD64 no Windows e Linux; ARM64 no Linux e macOS. O compilador rejeita essas chamadas nas demais combinações até que exista uma implementação para o sistema operacional correspondente. No modo JIT, os callbacks de HostBridge continuam limitados a Windows AMD64; programas sem callbacks podem usar as primitivas nativas de socket nos targets compatíveis.
 

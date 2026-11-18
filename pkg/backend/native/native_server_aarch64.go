@@ -3,16 +3,18 @@ package native
 // emitNativeServer emits the Socket networking primitives for AArch64 (Linux POSIX & Darwin syscalls)
 // and delegates Server::start to Pure Joss Standard Library (fn_HttpServer_start).
 func (b *ARM64Builder) emitNativeServer() {
+	// Server::start is only a thin ABI adapter when its Pure Joss owner is part
+	// of the program. Socket primitives alone must not create a fake server path.
+	if b.hasRelocTarget("fn_Server_start", "Server_start") {
+		if _, exists := b.labels["fn_Server_start"]; !exists {
+			b.defineLabel("fn_Server_start")
+			b.defineLabel("Server_start")
+			b.defineLabel(".srv_accept_loop")
+			b.emitBranch("fn_HttpServer_start")
+		}
+	}
 	if _, exists := b.labels["fn_Socket_listen"]; exists {
 		return
-	}
-
-	// 1. Point of entry for Server::start -> jumps to Pure Joss HttpServer::start (if not defined in IR)
-	if _, exists := b.labels["fn_Server_start"]; !exists {
-		b.defineLabel("fn_Server_start")
-		b.defineLabel("Server_start")
-		b.defineLabel(".srv_accept_loop")
-		b.emitBranch("fn_HttpServer_start")
 	}
 
 	var (
@@ -113,9 +115,9 @@ func (b *ARM64Builder) emitNativeServer() {
 	b.emitLoadImm64(regX3, 256)
 	b.emitSDiv(regX4, regX22, regX3) // high byte
 	b.emitMul(regX5, regX4, regX3)
-	b.emitSub(regX6, regX22, regX5)  // low byte
-	b.emitStrb(regX4, regX29, 66)    // high byte (network order)
-	b.emitStrb(regX6, regX29, 67)    // low byte (network order)
+	b.emitSub(regX6, regX22, regX5) // low byte
+	b.emitStrb(regX4, regX29, 66)   // high byte (network order)
+	b.emitStrb(regX6, regX29, 67)   // low byte (network order)
 
 	// bind(sockFd, &sockaddr, 16)
 	b.emitMovReg(regX0, regX19)

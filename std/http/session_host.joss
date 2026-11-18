@@ -1,0 +1,21 @@
+// Static Session host-service policy is expressed in Joss. The HTTP lowering
+// supplies request-local session data as an ordinary argument.
+private func __joss_host_Session_get(map $requestSession, string $key, mixed $defaultValue = null): mixed {
+    return($requestSession != null && isset($requestSession [$key])) ? $requestSession [$key] : $defaultValue
+}
+
+private func __joss_host_Session_put(map $requestSession, string $key, mixed $value): void {
+    ($requestSession != null) ? {
+        $requestSession [$key] = $value
+    }
+}
+
+private func __joss_host_Session_has(map $requestSession, string $key) : bool {
+    return $requestSession != null && isset($requestSession [$key])
+}
+
+private func __joss_host_Session_forget(map $requestSession, string $key): void {
+    ($requestSession != null && isset($requestSession [$key])) ? {
+        map_delete($requestSession, $key)
+    }
+}

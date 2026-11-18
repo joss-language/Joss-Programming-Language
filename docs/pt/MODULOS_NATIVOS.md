@@ -13,6 +13,15 @@ Muitas APIs retornam nulo/falso ou imprimem um erro em vez de lançar uma exceç
 O fato de o analisador aceitar uma chamada nativa não demonstra aridade correta: faltando
 metadados de parâmetro em parte da biblioteca.
 
+A política de `Request` vive nos proprietários Joss de
+`std/http/request.joss`: `all`, `except`, `cookie`, `header`, `root`, `method`,
+`isMethod`, `path`, `url`, `uri`, `ip`, `userAgent`, `bearerToken`, `has`,
+`file` e `hasFile` são derivados de
+`Request::input`. Este último é a primitiva limitada que lê o contexto da
+requisição. Seu intrínseco AOT está disponível em AMD64 e ARM64 para Windows,
+Linux e macOS, e em ARM64 para Android. `Request::header` retorna `""` quando
+o cabeçalho não existe.
+
 ## Utilitários sem serviços externos
 
 | Classe e assinatura | Resultado, erros e exemplo |
@@ -22,6 +31,15 @@ metadados de parâmetro em parte da biblioteca.
 | `UUID::generate()`, `v4()` | Identificador UUID textual. |
 | `JSON::parse(texto)`, `decode(texto)` | Valor decodificado ou nulo; Os números JSON são flutuantes, e não números inteiros arbitrariamente precisos. |
 | `JSON::stringify(valor)`, `encode(valor)` | JSON compacto ou "" em caso de falha. |
+
+`json_decode(texto)`, `JSON::parse(texto)` e `JSON::decode(texto)` compartilham
+o parser canônico em `std/json/decoder.joss`. Ele aceita objetos, arrays,
+literais, números e escapes Unicode, incluindo pares substitutos. O
+interpretador, JIT e AOT chamam o mesmo parser quando o argumento tem tipo
+estático `string`. A emissão nativa ainda descarta as etiquetas dinâmicas de
+valores `mixed`; por isso, argumentos dinâmicos e a leitura de strings de
+objetos JSON ainda não têm paridade completa entre JIT e AOT. Também rejeita
+caracteres de controle U+0000–U+001F sem escape em strings JSON.
 | `Markdown::toHtml(texto)`, `readFile(ruta)` | HTML renderizado; readFile requer capacidade de sistema de arquivos. Não substitui a autorização de rota nem a higienização de conteúdo não confiável. |
 | `new Stack()` → `push(valor)`, `pop()`, `peek()` | Pilha: último a entrar, primeiro a sair. pop remove; vazio retorna nulo. |
 | `new Queue()` → `enqueue(valor)`, `dequeue()`, `peek()` | Fila: primeiro a entrar, primeiro a sair. desenfileirar remove; nulo nulo. |
@@ -79,8 +97,8 @@ $respuesta["success"] ? {
 |---|---|
 | `Router` | get/post/put/patch/delete/head/options/query(caminho,manipulador); qualquer(caminho,manipulador); match(métodos, caminho, manipulador); api(caminho,manipulador); ws(caminho, manipulador). Cadastrar rotas; não faz solicitações de saída. group(name,callback), middleware(name), RegisterMiddleware(name,callback), end() gerencia middleware. Consulte [HTTP](CONTROLADORES.md) e [middleware](MIDDLEWARE.md). |
 | `Request` | input/post(key,[default]) obtém dados combinados; all() e except(arrayClaves) retornam um mapa filtrado por uma lista específica de campos internos. Eles não são uma validação ou uma lista de campos permitidos. |
-| `Request` | arquivo(chave) → mapear com conteúdo ou nulo; hasFile/hasfile(chave) → bool; has(key) requer valor diferente de null e "". |
-| `Request` | cookie(chave,[padrão]), cabeçalho(chave), root(), método(), isMethod/ismethod(verbo), path(), url(), ip(), userAgent/useragent(), bearerToken/bearertoken(). url atualmente prioriza _path; não promete URL absoluto. uri não está registrado. Sem contexto, vários retornam valores padrão. |
+| `Request` | file(chave) → mapear com conteúdo ou nulo; hasFile/hasfile(chave) → bool; esses acessores são derivados de `Request::input` em Joss. `has(key)` requer valor diferente de null e "". |
+| `Request` | cookie(chave,[padrão]), header(chave), root(), method(), isMethod/ismethod(verbo), path(), url(), uri(), ip(), userAgent/useragent(), bearerToken/bearertoken(). A política está em `std/http/request.joss`; `header` retorna `""` quando ausente e `uri` prioriza `_uri` antes de `path`. `url` retorna a rota e não promete URL absoluta. Sem contexto vários retornam valores padrão. |
 | `Response` | json(dados,[status=200]), erro(mensagem,[status=400]), redirecionamento(url,[status=302]), back(), raw(corpo,[status=200,mime,cabeçalhos]), stream(retorno de chamada), download(caminho,[nome]). retornar WebResponse; download e stream são resolvidos ao despachar HTTP. |
 | `Redirect` | to(url,[status=302]) → WebResponse. |
 | `WebResponse` | com(chave,valor) adicione flash; withCookie(nome,valor), withHeader(nome,valor), status(código) sofrem mutação e retornam a mesma resposta. |
@@ -123,7 +141,7 @@ torna automaticamente todos os valores armazenados seguros.
 | `System::Run(comando,[arrayArgs])` | Executa processo externo e retorna saída; requer ALLOW_SYSTEM_RUN=true/1. Não avalia o código Joss. |
 | `System::load_driver(ruta,[nombre])` | Bool ao carregar DLL/SO/dylib ABI C v1; depende da plataforma/construção. |
 | `System::driver_call(nombre,metodo,[args])` | Resultado JSON decodificado, texto ou nulo em caso de erro. |
-| `System::log(mensaje)`, `sleep(segundos)`, `now([dias])` | Log, espera inteira e data textual com deslocamento de dias. System::now não é formatado pelo auxiliar now. |
+| `System::log(mensaje)`, `sleep(segundos)`, `now([días])` | Log, espera inteira e data textual delegada a `now("Y-m-d H:i:s", días)` da biblioteca Joss. |
 | `Plugin::platform()`, `path(nombre,ruta)` | plataforma os-arch e caminho de recursos; Rotas inválidas podem ser iniciadas. |
 | `Plugin::call(nombre,metodo,[args])`, `stream(nombre,metodo,[args,callback])` | Ponte para plugin; resultados polimórficos e erro de mapa/nulo dependendo da rota. [Plugins](PLUGINS.md). || `new Process(comando,[arrayArgs])` | Preparar processo; requer permissão. start() → bool; wait() → código de saída ou -1; matar() → bool; pid() → inteiro; stdin(texto) → instância; stdout_chan()/stderr_chan() → canais. Drene as saídas para evitar bloqueios. |
 | `Cron::schedule(nombre,expresion,callback)` | Registrar trabalhos de casa; cron de minuto com gramática e estado local limitados. |

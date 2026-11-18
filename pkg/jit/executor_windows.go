@@ -12,10 +12,10 @@ func CallFunc0(entry uintptr) (uintptr, error) {
 	if entry == 0 {
 		return 0, fmt.Errorf("cannot call null function pointer")
 	}
-	r1, _, errno := syscall.SyscallN(entry)
-	if errno != 0 {
-		return r1, errno
-	}
+	// SyscallN applies the Win32 API last-error convention. A Joss JIT entrypoint
+	// is a plain native function, so a zero return value is valid and stale
+	// GetLastError state must not be reported as an execution failure.
+	r1, _, _ := syscall.SyscallN(entry)
 	return r1, nil
 }
 
@@ -24,10 +24,7 @@ func CallFunc1(entry uintptr, a1 uintptr) (uintptr, error) {
 	if entry == 0 {
 		return 0, fmt.Errorf("cannot call null function pointer")
 	}
-	r1, _, errno := syscall.SyscallN(entry, a1)
-	if errno != 0 {
-		return r1, errno
-	}
+	r1, _, _ := syscall.SyscallN(entry, a1)
 	return r1, nil
 }
 
@@ -36,9 +33,6 @@ func CallFunc2(entry uintptr, a1, a2 uintptr) (uintptr, error) {
 	if entry == 0 {
 		return 0, fmt.Errorf("cannot call null function pointer")
 	}
-	r1, _, errno := syscall.SyscallN(entry, a1, a2)
-	if errno != 0 {
-		return r1, errno
-	}
+	r1, _, _ := syscall.SyscallN(entry, a1, a2)
 	return r1, nil
 }

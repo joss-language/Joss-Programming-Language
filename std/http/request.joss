@@ -49,6 +49,7 @@ public class HttpRequestParser {
 
     var $headers = {
 }
+
 var $cookies = {
 }
 int $lineIndex = 1
@@ -125,4 +126,165 @@ string $contentType = strtolower($headers ["content-type"] ?? "")
 
 return $request
 }
+}
+
+// Request facade policy lives in Joss. Request::input is the narrow runtime
+// primitive that exposes the current request map; all derived accessors share
+// these rules in the interpreter, JIT, and AOT.
+public func __joss_host_Request_root() : string {
+    mixed $missing = "__JOSS_REQUEST_CONTEXT_MISSING__"
+    mixed $hostValue = Request::input("_host", $missing)
+    ($hostValue == $missing) ? {
+        return ""
+    }
+    string $scheme = strval(Request::input("_scheme", "http"))
+    string $host = strval($hostValue)
+    return $scheme . "://" . $host
+}
+
+public func __joss_host_Request_cookie(string $key, mixed $defaultValue = "") : mixed {
+    map $cookies = Request::input("_cookies", {
+})
+return $cookies [$key] ?? $defaultValue
+}
+
+public func __joss_host_Request_header(string $key) : string {
+    mixed $value = Request::input($key, null)
+    ($value !== null) ? {
+        return strval($value)
+    }
+    map $headers = Request::input("_headers", {
+})
+string $normalized = strtolower($key)
+mixed $normalizedValue = $headers [$normalized] ?? null
+($normalizedValue !== null) ? {
+    return strval($normalizedValue)
+}
+foreach ($headers as $headerName => $headerValue) {
+    (strtolower(strval($headerName)) == $normalized) ? {
+        return strval($headerValue)
+    }
+}
+return ""
+}
+
+public func __joss_host_Request_method() : string {
+    mixed $missing = "__JOSS_REQUEST_CONTEXT_MISSING__"
+    mixed $method = Request::input("_method", $missing)
+    return($method == $missing) ? "GET" : strval($method)
+}
+
+public func __joss_host_Request_isMethod(string $expected) : bool {
+    mixed $missing = "__JOSS_REQUEST_CONTEXT_MISSING__"
+    mixed $method = Request::input("_method", $missing)
+    return $method != $missing && strval($method) == $expected
+}
+
+public func __joss_host_Request_ismethod(string $expected) : bool {
+    return __joss_host_Request_isMethod($expected)
+}
+
+public func __joss_host_Request_path() : string {
+    mixed $missing = "__JOSS_REQUEST_CONTEXT_MISSING__"
+    mixed $path = Request::input("_path", $missing)
+    ($path == $missing) ? {
+        return "/"
+    }
+    (strval($path) != "") ? {
+        return strval($path)
+    }
+    mixed $url = Request::input("_url", "")
+    (strval($url) != "") ? {
+        return strval($url)
+    }
+    mixed $uri = Request::input("_uri", "")
+    return(strval($uri) != "") ? strval($uri) : "/"
+}
+
+public func __joss_host_Request_url() : string {
+    return __joss_host_Request_path()
+}
+
+public func __joss_host_Request_uri() : string {
+    mixed $uri = Request::input("_uri", "")
+    (strval($uri) != "") ? {
+        return strval($uri)
+    }
+    return __joss_host_Request_path()
+}
+
+public func __joss_host_Request_ip() : string {
+    return strval(Request::input("_ip", "127.0.0.1"))
+}
+
+public func __joss_host_Request_userAgent() : string {
+    return Request::header("User-Agent")
+}
+
+public func __joss_host_Request_useragent() : string {
+    return Request::userAgent()
+}
+
+public func __joss_host_Request_bearerToken() : string {
+    mixed $header = Request::header("Authorization")
+    string $value = strval($header ?? "")
+    return(str_starts_with($value, "Bearer ")) ? substr($value, 7) : ((str_starts_with($value, "bearer ")) ? substr($value, 7) : "")
+}
+
+public func __joss_host_Request_bearertoken() : string {
+    return Request::bearerToken()
+}
+
+public func __joss_host_Request_has(string $key) : bool {
+    mixed $value = Request::input($key, null)
+    return $value !== null && $value != ""
+}
+
+public func __joss_host_Request_file(string $key) : mixed {
+    map $files = Request::input("_files", {
+})
+return $files [$key] ?? null
+}
+
+public func __joss_host_Request_hasFile(string $key) : bool {
+    return Request::file($key) !== null
+}
+
+public func __joss_host_Request_hasfile(string $key) : bool {
+    return Request::hasFile($key)
+}
+
+public func __joss_host_Request_isInternalField(string $key) : bool {
+    return $key == "_headers" || $key == "_host" || $key == "_scheme" || $key == "_files" || $key == "_cookies" || $key == "_method" || $key == "_referer" || $key == "_token"
+}
+
+public func __joss_host_Request_all() : map {
+    map $fields = Request::input("__joss_request_all_fields", {
+})
+map $result = {
+}
+foreach ($fields as $key => $value) {
+    (__joss_host_Request_isInternalField(strval($key)) == false) ? {
+        $result [$key] = $value
+    }
+}
+return $result
+}
+
+public func __joss_host_Request_except(mixed $excludedKeys) : map {
+    map $fields = Request::all()
+    map $excluded = {
+}
+foreach ($excludedKeys as $key) {
+    $excluded [strval($key)] = true
+}
+map $result = {
+}
+foreach ($fields as $key => $value) {
+    ($excluded [strval($key)] ?? false) ? {
+        continue
+    }
+    $result [$key] = $value
+}
+return $result
 }

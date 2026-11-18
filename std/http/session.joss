@@ -2,6 +2,7 @@ public class Session {
     public string $id = ""
     public map $data = {
 }
+
 public static map $globalStore = {
 }
 
@@ -51,14 +52,14 @@ public static func start(string $cookieHeader) : Session {
         $sess->id = $newId
         $sess->data = {
     }
-    }
+}
 
-    (!isset($sess->data["csrf_token"])) ? {
-        string $csrfToken = UUID::generate()
-        $sess->data["csrf_token"] = $csrfToken
-        $sess->data["_token"] = $csrfToken
-    }
-    Session::$globalStore [$sess->id] = $sess->data
+(!isset($sess->data ["csrf_token"])) ? {
+    string $csrfToken = UUID::generate()
+    $sess->data ["csrf_token"] = $csrfToken
+    $sess->data ["_token"] = $csrfToken
+}
+Session::$globalStore [$sess->id] = $sess->data
 return $sess
 }
 
@@ -66,7 +67,7 @@ public func getId() : string {
     return $this->id
 }
 
-public func get(string $key, mixed $defaultValue = null): mixed {
+public func get(string $key, mixed $defaultValue = null) : mixed {
     return(isset($this->data [$key])) ? $this->data [$key] : $defaultValue
 }
 

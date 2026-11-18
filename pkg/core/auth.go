@@ -853,7 +853,7 @@ func (r *Runtime) executeAuthMethod(instance *Instance, method string, args []in
 		}
 
 	case "enabledSocialProviders":
-		return r.EnabledSocialProviders()
+		panic("Auth::enabledSocialProviders requires the canonical std/auth/auth.joss owner")
 
 	case "socialRedirect":
 		if len(args) >= 2 {

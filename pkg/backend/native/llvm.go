@@ -110,6 +110,7 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare i64 @joss_map_get_i64(i8*, i8*)\n")
 	buf.WriteString("declare void @joss_map_set_str(i8*, i8*, i8*)\n")
 	buf.WriteString("declare i8* @joss_map_get_str(i8*, i8*)\n\n")
+	buf.WriteString("declare void @joss_map_delete_i64(i8*, i8*)\n\n")
 
 	// Emitir funciones de usuario
 	fnNames := make([]string, 0, len(prog.Functions))
@@ -415,6 +416,9 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 			return fmt.Sprintf("call void @joss_map_set_str(i8* %s, i8* %s, i8* %s)", mapVal, keyVal, valVal), nil
 		}
 		return fmt.Sprintf("call void @joss_map_set_i64(i8* %s, i8* %s, i64 %s)", mapVal, keyVal, valVal), nil
+
+	case *ir.MapDeleteInst:
+		return fmt.Sprintf("call void @joss_map_delete_i64(i8* %s, i8* %s)", e.formatValue(i.Map), e.formatValue(i.Key)), nil
 	}
 
 	return "", fmt.Errorf("llvm emitter: instrucción no soportada %s", inst)

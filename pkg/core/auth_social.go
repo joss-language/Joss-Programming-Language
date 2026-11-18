@@ -54,26 +54,6 @@ func getProviderEnvKeys(provider string) (idKey, secretKey string) {
 	}
 }
 
-// EnabledSocialProviders returns the list of social providers that have their credentials set in Env
-func (r *Runtime) EnabledSocialProviders() []interface{} {
-	providers := []string{"google", "apple", "facebook", "x", "github", "twitch", "yahoo", "microsoft"}
-	var enabled []interface{}
-	for _, p := range providers {
-		idKey, secretKey := getProviderEnvKeys(p)
-		clientId := r.getEnvOrOs(idKey)
-		clientSecret := r.getEnvOrOs(secretKey)
-		// For X/Twitter, also check TWITTER_CLIENT_ID if X_CLIENT_ID is not set
-		if p == "x" && clientId == "" {
-			clientId = r.getEnvOrOs("TWITTER_CLIENT_ID")
-			clientSecret = r.getEnvOrOs("TWITTER_CLIENT_SECRET")
-		}
-		if clientId != "" && clientSecret != "" {
-			enabled = append(enabled, p)
-		}
-	}
-	return enabled
-}
-
 func (r *Runtime) getEnvOrOs(key string) string {
 	if val, ok := r.Env[key]; ok && strings.TrimSpace(val) != "" {
 		return strings.TrimSpace(val)

@@ -44,3 +44,4 @@ TLS_KEY_FILE="certs/private.key"
 Em implantações públicas, você ainda pode usar um proxy reverso para compactação, balanceamento e renovação automática de certificados.
 
 O servidor de sockets Pure Joss inicia ou recupera `joss_session` em cada rota dinâmica, passa seus dados ao despacho de rotas e emite o cookie na resposta. O estado da sessão (incluindo tokens temporários de 2FA e CSRF) fica na memória do processo; não é compartilhado entre reinicializações ou processos.
+No dispatcher nativo, o mapa de sessão viaja como parâmetro oculto pelas chamadas IR de cada requisição; ele não é armazenado em um global compartilhado. As políticas `Session::get`, `put`, `has` e `forget` são escritas em Joss e usam as operações genéricas `MapGet`, `MapSet` e `MapDelete` do IR, compartilhadas pelos emissores AMD64 e ARM64.

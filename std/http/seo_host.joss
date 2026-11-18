@@ -1,0 +1,103 @@
+// SEO behavior is Joss code. The request map is the owner of this state, so
+// parallel requests never share metadata through process-global variables.
+private func __joss_seo_state(map $request): map {
+    (!isset($request ["__joss_seo"])) ? {
+        $request ["__joss_seo"] = {
+        "title" : "",
+        "description": "",
+        "canonical": "",
+        "keywords": "",
+        "meta_html": "",
+        "og_html": "",
+        "has_og_title": false,
+        "has_og_description": false
+    }
+}
+return $request ["__joss_seo"]
+}
+
+private func __joss_seo_escape(string $value): string {
+    string $escaped = str_replace("&", "&amp;", $value)
+    $escaped = str_replace("<", "&lt;", $escaped)
+    $escaped = str_replace(">", "&gt;", $escaped)
+    $escaped = str_replace("\"", "&quot;", $escaped)
+    return str_replace("'", "&#39;", $escaped)
+}
+
+public func __joss_host_SEO_title(map $request, mixed $title): void {
+    var $state = __joss_seo_state($request)
+    $state ["title"] = strval($title)
+}
+
+public func __joss_host_SEO_description(map $request, mixed $description): void {
+    var $state = __joss_seo_state($request)
+    $state ["description"] = strval($description)
+}
+
+public func __joss_host_SEO_canonical(map $request, mixed $url): void {
+    var $state = __joss_seo_state($request)
+    $state ["canonical"] = strval($url)
+}
+
+public func __joss_host_SEO_keywords(map $request, string $keywords): void {
+    var $state = __joss_seo_state($request)
+    $state ["keywords"] = str_replace(",", ", ", $keywords)
+}
+
+public func __joss_host_SEO_keywords_array(map $request, array<mixed> $keywords): void {
+    var $state = __joss_seo_state($request)
+    $state ["keywords"] = implode(", ", $keywords)
+}
+
+public func __joss_host_SEO_meta(map $request, mixed $name, mixed $content): void {
+    var $state = __joss_seo_state($request)
+    string $tag = "<meta name=\"" . __joss_seo_escape(strval($name)) . "\" content=\"" . __joss_seo_escape(strval($content)) . "\">\n"
+    $state ["meta_html"] = strval($state ["meta_html"]) . $tag
+}
+
+public func __joss_host_SEO_og(map $request, mixed $property, mixed $content): void {
+    var $state = __joss_seo_state($request)
+    string $name = strval($property)
+    (str_starts_with($name, "og:") == false) ? {
+        $name = "og:" . $name
+    }
+    ($name == "og:title") ? {
+        $state ["has_og_title"] = true
+    }
+    ($name == "og:description") ? {
+        $state ["has_og_description"] = true
+    }
+    string $tag = "<meta property=\"" . __joss_seo_escape($name) . "\" content=\"" . __joss_seo_escape(strval($content)) . "\">\n"
+    $state ["og_html"] = strval($state ["og_html"]) . $tag
+}
+
+public func __joss_host_SEO_render(map $request) : string {
+    var $state = __joss_seo_state($request)
+    string $title = strval($state ["title"])
+    string $description = strval($state ["description"])
+    string $html = ""
+
+    (strlen($title) > 0) ? {
+        $html = $html . "<title>" . __joss_seo_escape($title) . "</title>\n"
+    }
+    (strlen($description) > 0) ? {
+        $html = $html . "<meta name=\"description\" content=\"" . __joss_seo_escape($description) . "\">\n"
+    }
+    string $keywords = strval($state ["keywords"])
+    (strlen($keywords) > 0) ? {
+        $html = $html . "<meta name=\"keywords\" content=\"" . __joss_seo_escape($keywords) . "\">\n"
+    }
+    string $canonical = strval($state ["canonical"])
+    (strlen($canonical) > 0) ? {
+        $html = $html . "<link rel=\"canonical\" href=\"" . __joss_seo_escape($canonical) . "\">\n"
+    }
+
+    $html = $html . strval($state ["meta_html"]) . strval($state ["og_html"])
+    (!$state ["has_og_title"] && strlen($title) > 0) ? {
+        $html = $html . "<meta property=\"og:title\" content=\"" . __joss_seo_escape($title) . "\">\n"
+    }
+    (!$state ["has_og_description"] && strlen($description) > 0) ? {
+        $html = $html . "<meta property=\"og:description\" content=\"" . __joss_seo_escape($description) . "\">\n"
+    }
+    return $html . "<meta name=\"twitter:card\" content=\"summary_large_image\">\n"
+}

@@ -318,6 +318,10 @@ print(nombre(null))
 
 ---
 
+## Compilación nativa (`JOSS-NATIVE-001`)
+
+Este diagnóstico indica que el lenguaje y el intérprete soportan una característica, pero el backend nativo aún no puede materializarla. `joss run` usa JIT por defecto; para ejecutar el intérprete de referencia mientras se implementa la emisión nativa, ejecuta `joss run` con `JOSS_NO_JIT=1`.
+
 ## Siguiente paso
 
 Ahora que conoces todos los diagnósticos y cómo resolverlos, puedes profundizar en cómo el analizador semántico examina el árbol de sintaxis abstracta para emitir estos códigos:

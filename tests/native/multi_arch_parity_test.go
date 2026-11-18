@@ -79,7 +79,7 @@ try {
 
 	units := []analyzer.SourceUnit{{Path: "parity.joss", Program: prog}}
 	for _, unit := range std.GetStdlibUnits() {
-		if unit.Path == "<std/auth/auth.joss>" || strings.HasPrefix(unit.Path, "<std/date/") {
+		if unit.Path == "<std/auth/auth.joss>" || unit.Path == "<std/http/session_host.joss>" || strings.HasPrefix(unit.Path, "<std/date/") {
 			units = append(units, unit)
 		}
 	}
@@ -160,14 +160,25 @@ try {
 	}
 }
 
-// TestMultiArchAndDistro_WebServerParity ensures Server::start() emits the native HTTP server
-// across all supported targets without any target throwing errors or emitting dummy stubs.
+// TestMultiArchAndDistro_WebServerParity verifies the Joss-owned HTTP server
+// loop is emitted on targets with a socket ABI and explicitly rejected on
+// Windows ARM64 until that ABI is implemented.
 func TestMultiArchAndDistro_WebServerParity(t *testing.T) {
 	source := `
 public class Main {
 	Init main() {
 		echo "Iniciando servidor...";
 		Server::start();
+		HttpServer::start();
+	}
+}
+public class HttpServer {
+	public static func start(): void {
+		var $server = Socket::listen("0.0.0.0", "80");
+		while (true) {
+			var $client = $server->accept();
+			($client != null) ? { $client->close(); }
+		}
 	}
 }
 `
@@ -203,6 +214,12 @@ public class Main {
 		t.Run(target.DashString(), func(t *testing.T) {
 			emitter := backend.SelectCodeEmitter(target, false)
 			binBytes, asmListing, err := emitter.Compile(irProg)
+			if target.OS == "windows" && target.Arch == "arm64" || target.OS == "darwin" && target.Arch == "amd64" {
+				if err == nil || !strings.Contains(err.Error(), "JOSS-NATIVE-001") || !strings.Contains(err.Error(), "Socket::") {
+					t.Fatalf("unsupported %s socket ABI must fail explicitly, got %v", target.DashString(), err)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatalf("Compile(%s) failed: %v", target.DashString(), err)
 			}

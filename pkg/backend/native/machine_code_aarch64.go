@@ -5,11 +5,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"os"
+	"runtime"
 	"sort"
 	"strings"
 
 	"github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/ir"
+	"github.com/jossecurity/joss/pkg/jit"
 )
 
 // AArch64 Registers
@@ -89,6 +92,7 @@ type arm64Reloc struct {
 type ARM64Builder struct {
 	target                  Target
 	guiMode                 bool
+	isJITMode               bool
 	prog                    *ir.Program
 	text                    bytes.Buffer
 	rodata                  bytes.Buffer
@@ -123,6 +127,73 @@ func NewARM64Builder(target Target, guiMode bool) *ARM64Builder {
 
 func (b *ARM64Builder) NeedsHostBridge() bool {
 	return b.needsHostBridge
+}
+
+type ARM64JITExecutable struct {
+	Block *jit.ExecutableBlock
+}
+
+func (j *ARM64JITExecutable) Execute() (int, error) {
+	if j == nil || j.Block == nil {
+		return 0, fmt.Errorf("cannot execute null ARM64 JIT code")
+	}
+	code, err := jit.CallFunc0(j.Block.Addr)
+	return int(code), err
+}
+
+func (j *ARM64JITExecutable) Free() error {
+	if j == nil || j.Block == nil {
+		return nil
+	}
+	return j.Block.Free()
+}
+
+// CompileInMemory uses the same ARM64 emitter as AOT, then applies image-base
+// relocations to the allocated memory image. Windows ARM64 currently permits
+// only a pure core subset until its operating-system primitives are emitted.
+func (b *ARM64Builder) CompileInMemory(prog *ir.Program) (InMemoryExecutable, error) {
+	host := HostTarget()
+	if runtime.GOARCH != "arm64" || b.target != host {
+		return nil, fmt.Errorf("ARM64 in-memory JIT requires the current ARM64 target (host %s, requested %s)", host, b.target)
+	}
+	if runtime.GOOS == "windows" {
+		if err := validateWindowsARM64JITCapabilities(prog); err != nil {
+			return nil, err
+		}
+	}
+	if err := b.emitProgram(prog, true); err != nil {
+		return nil, err
+	}
+
+	textBytes := append([]byte(nil), b.text.Bytes()...)
+	rodataBytes := b.rodata.Bytes()
+	textLen := uint32(len(textBytes))
+	rodataLen := uint32(len(rodataBytes))
+	textRVA := uint32(0)
+	pageSize := uint32(os.Getpagesize())
+	rodataRVA := alignUpU32(textLen, pageSize)
+	dataRVA := alignUpU32(rodataRVA+rodataLen, pageSize)
+	image := make([]byte, dataRVA+dataFixedSize)
+	block, err := jit.AllocateJITImage(len(image))
+	if err != nil {
+		return nil, fmt.Errorf("ARM64 JIT executable allocation failed: %w", err)
+	}
+
+	if err := b.applyRelocationsAt(textBytes, textRVA, rodataRVA, dataRVA, uint64(block.Addr)); err != nil {
+		_ = block.Free()
+		return nil, err
+	}
+	copy(image[textRVA:], textBytes)
+	copy(image[rodataRVA:], rodataBytes)
+	if err := block.Write(image); err != nil {
+		_ = block.Free()
+		return nil, fmt.Errorf("ARM64 JIT image initialization failed: %w", err)
+	}
+	if err := block.FinalizeCode(len(textBytes)); err != nil {
+		_ = block.Free()
+		return nil, fmt.Errorf("ARM64 JIT code protection failed: %w", err)
+	}
+	return &ARM64JITExecutable{Block: block}, nil
 }
 
 func (b *ARM64Builder) SetSeedTables(tables map[string][]map[string]string) {
@@ -164,14 +235,18 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	// __joss_os_exit(x0 = exit_code)
 	b.defineLabel("__joss_os_exit")
-	if b.target.OS == "darwin" {
+	if b.isJITMode {
+		b.emitRet(regX30)
+	} else if b.target.OS == "darwin" {
 		b.emitLoadImm64(regX16, 1)
 		b.emitSyscall()
 	} else {
 		b.emitLoadImm64(regX8, 93)
 		b.emitSyscall()
 	}
-	b.emitRet(regX30)
+	if !b.isJITMode {
+		b.emitRet(regX30)
+	}
 
 	// __joss_os_write(x0 = fd, x1 = buf, x2 = count)
 	b.defineLabel("__joss_os_write")
@@ -668,6 +743,7 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	b.defineLabel("joss_arr_len")
 	b.defineLabel("joss_map_len")
+	b.defineLabel("fn_joss_map_len")
 	b.defineLabel("fn_len")
 	b.defineLabel("fn_count")
 	b.emitCmp(regX0, regXZR)
@@ -704,6 +780,7 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitRet(regX30)
 
 	b.defineLabel("joss_arr_push_i64")
+	b.defineLabel("fn_array_push")
 	b.emitCmp(regX0, regXZR)
 	b.emitBranchCond(condEQ, ".arr_push_ret")
 	b.emitLdr(regX2, regX0, 0) // len
@@ -761,6 +838,56 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("joss_map_set_str")
 	b.emitBranch("joss_obj_set_field_i64")
 
+	// Remove a map/object entry by unlinking its node from the chain.
+	b.defineLabel("joss_map_delete_i64")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".map_delete_null")
+	b.emitProlog(48)
+	b.emitStr(regX0, regSP, 16) // map/object
+	b.emitStr(regX1, regSP, 24) // key
+	b.emitLoadImm64(regX2, 0)
+	b.emitStr(regX2, regSP, 32) // previous = nil
+	b.emitLdr(regX2, regX0, 8)  // current = head
+	b.emitStr(regX2, regSP, 40)
+	b.defineLabel(".map_delete_loop")
+	b.emitLdr(regX2, regSP, 40)
+	b.emitCmp(regX2, regXZR)
+	b.emitBranchCond(condEQ, ".map_delete_done")
+	b.emitLdr(regX3, regX2, 0)  // node key
+	b.emitLdr(regX1, regSP, 24) // requested key
+	b.emitCmp(regX3, regX1)
+	b.emitBranchCond(condEQ, ".map_delete_found")
+	b.emitLoadImm64(regX4, 0x10000)
+	b.emitCmp(regX3, regX4)
+	b.emitBranchCond(condLT, ".map_delete_next")
+	b.emitCmp(regX1, regX4)
+	b.emitBranchCond(condLT, ".map_delete_next")
+	b.emitMovReg(regX0, regX3)
+	b.emitCall("__joss_rt_strcmp")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".map_delete_found")
+	b.defineLabel(".map_delete_next")
+	b.emitLdr(regX2, regSP, 40)
+	b.emitStr(regX2, regSP, 32) // previous = current
+	b.emitLdr(regX2, regX2, 16) // current = current.next
+	b.emitStr(regX2, regSP, 40)
+	b.emitBranch(".map_delete_loop")
+	b.defineLabel(".map_delete_found")
+	b.emitLdr(regX2, regSP, 40) // current
+	b.emitLdr(regX3, regX2, 16) // next
+	b.emitLdr(regX4, regSP, 32) // previous
+	b.emitCmp(regX4, regXZR)
+	b.emitBranchCond(condNE, ".map_delete_after_prev")
+	b.emitLdr(regX5, regSP, 16)
+	b.emitStr(regX3, regX5, 8) // map.head = next
+	b.emitBranch(".map_delete_done")
+	b.defineLabel(".map_delete_after_prev")
+	b.emitStr(regX3, regX4, 16) // previous.next = next
+	b.defineLabel(".map_delete_done")
+	b.emitEpilog(48)
+	b.defineLabel(".map_delete_null")
+	b.emitRet(regX30)
+
 	b.defineLabel("fn_joss_map_key_at")
 	b.defineLabel("joss_map_key_at")
 	b.emitCmp(regX0, regXZR)
@@ -802,6 +929,46 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel(".map_val_null")
 	b.emitLoadImm64(regX0, 0)
 	b.emitRet(regX30)
+
+	// fn_array_key_exists(x0 = key string, x1 = map) -> x0 = bool.
+	// The ARM64 map representation is a linked list of key/value nodes; inspect
+	// keys directly so null and zero values still count as present.
+	b.defineLabel("fn_array_key_exists")
+	b.emitProlog(48)
+	b.emitStr(regX0, regSP, 16) // requested key
+	b.emitStr(regX1, regSP, 24) // map
+	b.emitCmp(regX1, regXZR)
+	b.emitBranchCond(condEQ, ".ake_arm_false")
+	b.emitLdr(regX2, regX1, 8) // head
+	b.emitStr(regX2, regSP, 32)
+	b.defineLabel(".ake_arm_loop")
+	b.emitLdr(regX2, regSP, 32)
+	b.emitCmp(regX2, regXZR)
+	b.emitBranchCond(condEQ, ".ake_arm_false")
+	b.emitLdr(regX3, regX2, 0)  // node key
+	b.emitLdr(regX1, regSP, 16) // requested key
+	b.emitCmp(regX3, regX1)
+	b.emitBranchCond(condEQ, ".ake_arm_true")
+	b.emitLoadImm64(regX4, 0x10000)
+	b.emitCmp(regX3, regX4)
+	b.emitBranchCond(condLT, ".ake_arm_next")
+	b.emitCmp(regX1, regX4)
+	b.emitBranchCond(condLT, ".ake_arm_next")
+	b.emitMovReg(regX0, regX3)
+	b.emitCall("__joss_rt_strcmp")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".ake_arm_true")
+	b.defineLabel(".ake_arm_next")
+	b.emitLdr(regX2, regSP, 32)
+	b.emitLdr(regX2, regX2, 16) // next
+	b.emitStr(regX2, regSP, 32)
+	b.emitBranch(".ake_arm_loop")
+	b.defineLabel(".ake_arm_true")
+	b.emitLoadImm64(regX0, 1)
+	b.emitEpilog(48)
+	b.defineLabel(".ake_arm_false")
+	b.emitLoadImm64(regX0, 0)
+	b.emitEpilog(48)
 
 	// Exception helpers and stack-unwinding __joss_rt_throw
 	b.defineLabel("fn_Exception_constructor")
@@ -1478,12 +1645,44 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		b.emitStr(regX2, regX29, uint32(disp))
 
 	case *ir.CallBuiltinInst:
+		if i.BuiltinID == "floatval" && len(i.Args) > 0 {
+			arg := i.Args[0]
+			b.emitLoadValToReg(layout, regX0, arg)
+			switch arg.Type().Kind {
+			case ir.TypeKindI64:
+				b.emitScvtf(0, regX0)
+				b.emitFmovToGen(regX0, 0)
+			case ir.TypeKindF64, ir.TypeKindDecimal:
+				// Float values already use their IEEE-754 bits in the IR slot.
+			default:
+				// Keep the existing native parser for string inputs and other
+				// conversions whose semantics are not a bit-preserving cast.
+				goto callBuiltinNormally
+			}
+			if i.Dest != nil {
+				b.emitStr(regX0, regX29, uint32(layout.tempOffsets[i.Dest.ID]))
+			}
+			return nil
+		}
+	callBuiltinNormally:
+		if i.BuiltinID == "intval" && len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+			b.emitLoadValToReg(layout, regX0, i.Args[0])
+			b.emitFmovFromGen(0, regX0)
+			b.emitFcvtzs(regX0, 0)
+			if i.Dest != nil {
+				b.emitStr(regX0, regX29, uint32(layout.tempOffsets[i.Dest.ID]))
+			}
+			return nil
+		}
 		if isExtendedStdlibCallee(i.BuiltinID) || !isNativeBuiltin(i.BuiltinID) {
 			b.usesExtendedStdlib = true
 		}
 		for idx := 0; idx < 8; idx++ {
 			if idx < len(i.Args) {
 				b.emitLoadValToReg(layout, uint32(idx), i.Args[idx])
+			} else if i.BuiltinID == "substr" && idx == 2 && len(i.Args) < 3 {
+				// max int64 is the native sentinel for an omitted length.
+				b.emitLoadImm64(uint32(idx), ^uint64(0))
 			} else {
 				b.emitLoadImm64(uint32(idx), 0)
 			}
@@ -1526,7 +1725,7 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		return fmt.Errorf("%s", analyzer.FormatCapabilityError("primitive method "+i.TypeKind+"::"+i.MethodName))
 
 	case *ir.CallHostServiceInst:
-		if isSupportedHostService(b.target, i.ClassName, i.MethodName) || programHasJossHostService(b.prog, i.ClassName, i.MethodName) {
+		if isSupportedHostService(b.target, i.ClassName, i.MethodName) || hasJossHostServiceImplementation(b.prog, i.ClassName, i.MethodName) {
 			b.usesExtendedStdlib = true
 			for idx := 0; idx < 8; idx++ {
 				if idx < len(i.Args) {
@@ -1535,7 +1734,7 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 					b.emitLoadImm64(uint32(idx), 0)
 				}
 			}
-			fnLabel := "fn_" + i.ClassName + "_" + i.MethodName
+			fnLabel := "fn_" + jossHostServiceFunctionName(b.prog, i.ClassName, i.MethodName)
 			if i.ClassName == "View" && i.MethodName == "render" {
 				fnLabel = "fn_view"
 			}
@@ -1549,6 +1748,32 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		return fmt.Errorf("%s", analyzer.FormatCapabilityError("host service "+i.ClassName+"::"+i.MethodName))
 
 	case *ir.CallInst:
+		if i.Callee == "floatval" && len(i.Args) > 0 {
+			arg := i.Args[0]
+			b.emitLoadValToReg(layout, regX0, arg)
+			switch arg.Type().Kind {
+			case ir.TypeKindI64:
+				b.emitScvtf(0, regX0)
+				b.emitFmovToGen(regX0, 0)
+			case ir.TypeKindF64, ir.TypeKindDecimal:
+			default:
+				goto callNormally
+			}
+			if i.Dest != nil {
+				b.emitStr(regX0, regX29, uint32(layout.tempOffsets[i.Dest.ID]))
+			}
+			return nil
+		}
+	callNormally:
+		if i.Callee == "intval" && len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+			b.emitLoadValToReg(layout, regX0, i.Args[0])
+			b.emitFmovFromGen(0, regX0)
+			b.emitFcvtzs(regX0, 0)
+			if i.Dest != nil {
+				b.emitStr(regX0, regX29, uint32(layout.tempOffsets[i.Dest.ID]))
+			}
+			return nil
+		}
 		if (i.Callee == "print" || i.Callee == "println" || i.Callee == "echo") && len(i.Args) > 0 {
 			arg := i.Args[0]
 			b.emitLoadValToReg(layout, regX0, arg)
@@ -1684,13 +1909,21 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 			b.emitLoadValToReg(layout, regX1, pair[0])
 			b.emitLoadValToReg(layout, regX2, pair[1])
 			b.emitLdr(regX0, regX29, uint32(disp))
-			b.emitCall("joss_map_set_i64")
+			helper := "joss_map_set_i64"
+			if pair[1].Type().Kind == ir.TypeKindString {
+				helper = "joss_map_set_str"
+			}
+			b.emitCall(helper)
 		}
 
 	case *ir.MapGetInst:
 		b.emitLoadValToReg(layout, regX0, i.Map)
 		b.emitLoadValToReg(layout, regX1, i.Key)
-		b.emitCall("joss_map_get_i64")
+		helper := "joss_map_get_i64"
+		if i.Dest.Type().Kind == ir.TypeKindString {
+			helper = "joss_map_get_str"
+		}
+		b.emitCall(helper)
 		disp := layout.tempOffsets[i.Dest.ID]
 		b.emitStr(regX0, regX29, uint32(disp))
 
@@ -1699,6 +1932,11 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		b.emitLoadValToReg(layout, regX1, i.Key)
 		b.emitLoadValToReg(layout, regX2, i.Val)
 		b.emitCall("joss_map_set_i64")
+
+	case *ir.MapDeleteInst:
+		b.emitLoadValToReg(layout, regX0, i.Map)
+		b.emitLoadValToReg(layout, regX1, i.Key)
+		b.emitCall("joss_map_delete_i64")
 
 	case *ir.ThrowInst:
 		b.emitLoadValToReg(layout, regX0, i.Val)
@@ -1911,7 +2149,8 @@ func (b *ARM64Builder) emitNativeFileGetContents() {
 
 func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.emitNativeFileGetContents()
-	// fn_html_escape / fn_env / fn_request / fn_csrf_field / fn_isset / fn_SEO_* / fn_Markdown_readFile / fn_GranDB_* / fn_Server_start
+	b.emitNativeStringSearchSliceARM64()
+	// fn_html_escape / fn_env / fn_request / fn_csrf_field / fn_isset / fn_Markdown_readFile / fn_GranDB_* / fn_Server_start
 	b.defineLabel("fn_html_escape")
 	b.emitBranch("joss_to_string")
 
@@ -2187,6 +2426,42 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.emitLoadStringAddr(regX0, "")
 	b.emitRet(regX30)
 
+	// Request::input reads the request map injected by the compiled HTTP
+	// dispatcher. The sentinel key returns the whole map for Joss-owned
+	// Request::all/except policies; all other keys use the shared map helper.
+	b.defineLabel("fn_Request_input")
+	b.emitProlog(48)
+	b.emitStr(regX0, regX29, 16) // key
+	b.emitStr(regX1, regX29, 24) // default value
+	requestParamsOffset, hasRequestParams := nativeGlobalOffset(b.prog, "__joss_request_params")
+	if hasRequestParams {
+		b.emitLoadDataAddr(regX2, requestParamsOffset)
+		b.emitLdr(regX2, regX2, 0) // request map
+		b.emitCmp(regX2, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_request_input_default")
+		b.emitLdr(regX3, regX29, 16) // key
+		b.emitCmp(regX3, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_request_input_lookup")
+		for index, value := range []byte("__joss_request_all_fields\x00") {
+			b.emitLdrb(regX4, regX3, uint32(index))
+			b.emitCmpImm(regX4, uint32(value))
+			b.emitBranchCond(condNE, ".arm64_request_input_lookup")
+		}
+		b.emitMovReg(regX0, regX2) // return the whole request map
+		b.emitEpilog(48)
+
+		b.defineLabel(".arm64_request_input_lookup")
+		b.emitMovReg(regX0, regX2)
+		b.emitLdr(regX1, regX29, 16)
+		b.emitCall("joss_map_get_i64")
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_request_input_default")
+		b.emitEpilog(48)
+	}
+	b.defineLabel(".arm64_request_input_default")
+	b.emitLdr(regX0, regX29, 24)
+	b.emitEpilog(48)
+
 	b.defineLabel("fn_csrf_field")
 	b.emitLoadStringAddr(regX0, "<input type=\"hidden\" name=\"_token\" value=\"joss-native-csrf\">")
 	b.emitRet(regX30)
@@ -2200,28 +2475,22 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.emitLoadImm64(regX0, 1)
 	b.emitRet(regX30)
 
-	b.defineLabel("fn_SEO_render")
-	b.emitLoadStringAddr(regX0, "<title>JosSecurity — Native AOT</title>")
-	b.emitRet(regX30)
-
-	for _, seoFn := range []string{"fn_SEO_title", "fn_SEO_description", "fn_SEO_canonical", "fn_SEO_og", "fn_SEO_twitter", "fn_SEO_robots", "fn_SEO_jsonLd"} {
-		b.defineLabel(seoFn)
-		b.emitRet(regX30)
+	for _, authFn := range []string{"Auth_check", "Auth_id", "Auth_user", "Auth_logout"} {
+		if !hasProgramFunction(b.prog, authFn) {
+			b.defineLabel("fn_" + authFn)
+			b.emitLoadImm64(regX0, 0)
+			b.emitRet(regX30)
+		}
 	}
-
-	b.defineLabel("fn_Auth_check")
-	b.defineLabel("fn_Auth_id")
-	b.defineLabel("fn_Auth_user")
-	b.defineLabel("fn_Auth_logout")
-	b.emitLoadImm64(regX0, 0)
-	b.emitRet(regX30)
 
 	b.defineLabel("fn_response")
 	b.emitRet(regX30)
 
 	b.defineLabel("fn_redirect")
 	b.defineLabel("fn_json")
-	b.defineLabel("fn_Turnstile_siteKey")
+	if !hasProgramFunction(b.prog, "Turnstile_siteKey") {
+		b.defineLabel("fn_Turnstile_siteKey")
+	}
 	b.defineLabel("fn_Markdown_toHtml")
 	b.defineLabel("Markdown_toHtml")
 	b.emitLoadStringAddr(regX0, "")
@@ -2244,7 +2513,7 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.emitLoadStringAddr(regX0, "")
 	b.emitRet(regX30)
 
-	if b.hasRelocTarget("__joss_grandb_get_tables", "fn___joss_db_get_table", "fn___joss_db_set_table", "fn___joss_db_is_connected") {
+	if b.hasRelocTarget("__joss_grandb_get_tables", "fn___joss_db_get_table", "fn___joss_db_set_table") {
 		// GranDB QueryBuilder in AArch64 machine code
 		b.defineLabel("__joss_grandb_get_tables")
 		b.emitProlog(16)
@@ -2296,18 +2565,6 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 		b.emitCall("joss_map_set_i64")
 		b.emitLoadImm64(regX0, 1)
 		b.emitEpilog(32)
-
-		b.defineLabel("fn___joss_db_is_connected")
-		b.emitLoadImm64(regX0, 0)
-		b.emitRet(regX30)
-
-		b.defineLabel("fn___joss_db_query")
-		b.emitLoadImm64(regX0, 0)
-		b.emitRet(regX30)
-
-		b.defineLabel("fn___joss_db_execute")
-		b.emitLoadImm64(regX0, 0)
-		b.emitRet(regX30)
 
 		if len(b.seedTables) > 0 {
 			b.defineLabel("__joss_grandb_seed_tables")
@@ -2387,27 +2644,6 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	}
 }
 
-func (b *ARM64Builder) emitHostFrameworkAdapters() {
-	seen := make(map[string]bool)
-	var missing []string
-	for _, rel := range b.relocs {
-		if (rel.kind == arm64RelocBranch || rel.kind == arm64RelocCodeAddr) && strings.HasPrefix(rel.targetLabel, "fn_") {
-			if _, exists := b.labels[rel.targetLabel]; !exists && !seen[rel.targetLabel] {
-				seen[rel.targetLabel] = true
-				missing = append(missing, rel.targetLabel)
-			}
-		}
-	}
-	sort.Strings(missing)
-	for _, lbl := range missing {
-		if !isFrameworkAdapterTarget(lbl) {
-			continue
-		}
-		b.defineLabel(lbl)
-		b.emitRet(regX30)
-	}
-}
-
 func (b *ARM64Builder) patchMovzMovk64(textBytes []byte, patchOffset int, absAddr uint64) {
 	orig := binary.LittleEndian.Uint32(textBytes[patchOffset : patchOffset+4])
 	reg := orig & 0x1F
@@ -2429,6 +2665,10 @@ func (b *ARM64Builder) applyRelocations(textBytes []byte, textRVA, rodataRVA, da
 	} else if b.target.OS == "windows" {
 		baseAddr = peImageBase
 	}
+	return b.applyRelocationsAt(textBytes, textRVA, rodataRVA, dataRVA, baseAddr)
+}
+
+func (b *ARM64Builder) applyRelocationsAt(textBytes []byte, textRVA, rodataRVA, dataRVA uint32, baseAddr uint64) error {
 
 	for _, rel := range b.relocs {
 		targetAddr := uint32(0)
@@ -2475,14 +2715,22 @@ func (b *ARM64Builder) applyRelocations(textBytes []byte, textRVA, rodataRVA, da
 	return nil
 }
 
-// Compile traduce el ir.Program a un ejecutable nativo puro ARM64 (ELF64, Mach-O o PE32+)
-func (b *ARM64Builder) Compile(prog *ir.Program) ([]byte, string, error) {
+// emitProgram is the shared ARM64 instruction pipeline for both executable-file
+// and executable-memory sinks. The sink mode only changes process termination.
+func (b *ARM64Builder) emitProgram(prog *ir.Program, jitMode bool) error {
 	if !SupportsNativeTarget(b.target) {
-		return nil, "", fmt.Errorf("ERROR: native target not available (%s/%s)", b.target.OS, b.target.Arch)
+		return fmt.Errorf("ERROR: native target not available (%s/%s)", b.target.OS, b.target.Arch)
+	}
+	if err := ir.NewVerifier().Verify(prog); err != nil {
+		return fmt.Errorf("backend nativo: IR no verificado: %w", err)
+	}
+	if err := validateSharedBackendCapabilities(prog, b.target, jitMode); err != nil {
+		return err
 	}
 	b.prog = prog
+	b.isJITMode = jitMode
 	if err := assignNativeGlobalOffsets(prog); err != nil {
-		return nil, "", err
+		return err
 	}
 
 	b.asmListing.WriteString(fmt.Sprintf("; Joss Self-Contained Native Compiler — AArch64 Machine Code Listing\n; Target: %s/%s\n\n", b.target.OS, b.target.Arch))
@@ -2497,7 +2745,7 @@ func (b *ARM64Builder) Compile(prog *ir.Program) ([]byte, string, error) {
 
 	for _, name := range fnNames {
 		if err := b.emitIRFunction(prog.Functions[name]); err != nil {
-			return nil, "", err
+			return err
 		}
 	}
 
@@ -2506,7 +2754,14 @@ func (b *ARM64Builder) Compile(prog *ir.Program) ([]byte, string, error) {
 	} else if b.hasRelocTarget("fn_Server_start", "Server_start", "fn_Socket_listen", "Socket_listen") {
 		b.emitNativeServer()
 	}
-	b.emitHostFrameworkAdapters()
+	return nil
+}
+
+// Compile translates verified ARM64 IR into a standalone ELF64, Mach-O, or PE32+ executable.
+func (b *ARM64Builder) Compile(prog *ir.Program) ([]byte, string, error) {
+	if err := b.emitProgram(prog, false); err != nil {
+		return nil, "", err
+	}
 
 	textBytes := append([]byte(nil), b.text.Bytes()...)
 	rodataBytes := b.rodata.Bytes()

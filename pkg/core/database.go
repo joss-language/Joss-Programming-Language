@@ -689,7 +689,11 @@ func (r *Runtime) executeRawDBQuery(sqlStr string, bindings []interface{}) inter
 		return []interface{}{}
 	}
 	defer rows.Close()
-	rowsMap := rowsToMap(rows)
+	rowsMap, err := DatabaseRowsToMaps(rows)
+	if err != nil {
+		fmt.Printf("[GranDB Error] Query result conversion failed: %v | SQL: %s\n", err, sqlStr)
+		return []interface{}{}
+	}
 	res := make([]interface{}, len(rowsMap))
 	for i, rm := range rowsMap {
 		res[i] = rm
@@ -712,12 +716,10 @@ func (r *Runtime) executeRawDBExecute(sqlStr string, bindings []interface{}) int
 		}
 		return int64(0)
 	}
-	trimmed := strings.ToUpper(strings.TrimSpace(sqlStr))
-	if strings.HasPrefix(trimmed, "INSERT") {
-		if id, err := res.LastInsertId(); err == nil && id > 0 {
-			return id
-		}
+	count, err := DatabaseExecutionResult(sqlStr, res)
+	if err != nil {
+		fmt.Printf("[GranDB Error] Could not read execution result: %v | SQL: %s\n", err, sqlStr)
+		return int64(0)
 	}
-	n, _ := res.RowsAffected()
-	return n
+	return count
 }

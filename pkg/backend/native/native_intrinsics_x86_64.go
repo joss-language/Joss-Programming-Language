@@ -9,9 +9,6 @@ import (
 
 const (
 	dataOffGranDBTables  uint32 = 0x0680
-	dataOffSEOTitle      uint32 = 0x0688
-	dataOffSEODesc       uint32 = 0x0690
-	dataOffSEOCanonical  uint32 = 0x0698
 	dataOffEnvMap        uint32 = 0x06A0
 	dataOffPort          uint32 = 0x06A8
 	dataOffLastFileSize  uint32 = 0x06B0
@@ -95,7 +92,6 @@ func (b *MachineCodeBuilder) hasRelocTarget(labels ...string) bool {
 // - fn_csrf_field / fn_isset / fn_empty
 // - fn_Auth_* (guest, check, user, id, enabledSocialProviders)
 // - fn_Turnstile_siteKey
-// - Dynamic SEO state & rendering (SEO::title, SEO::description, SEO::canonical, SEO::keywords, SEO::og, SEO::meta, SEO::render)
 // - Map iteration helpers (fn_joss_map_key_at, fn_joss_map_val_at)
 // - Disk-backed Markdown::readFile
 // - Framework helper (fn_Math_ceil)
@@ -127,7 +123,7 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 
 	// Http client, System::Run, String, Crypto & Date host bridge intrinsics
 	for _, fnName := range []string{
-		"fn_Http_json", "fn_Http_request", "fn_Http_get", "fn_Http_post", "fn_System_Run",
+		"fn_Http_json", "fn_Http_request", "fn_Http_get", "fn_Http_post", "fn_System_Run", "fn_json_decode",
 		"fn_rsa_sign_sha256", "fn_rawurlencode", "fn_rawurldecode",
 		"fn_gmdate", "fn_date", "fn_sha256_base64", "fn_sha1_base64",
 	} {
@@ -218,48 +214,41 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 		b.emitBytes(0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C)
 		b.emitBytes(0x5D, 0xC3)
 
-		// __joss_db_is_connected() -> rax = 1 if connected, 0 if not
-		b.defineLabel("fn___joss_db_is_connected")
-		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
-		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
-		b.emitLeaRCXString("__joss_db_is_connected")
+		// Database callbacks are a JIT-only host boundary. Standalone AOT has no
+		// Go SQL runtime, so capability validation rejects these calls before
+		// emission instead of leaving unresolved host-bridge relocations behind.
 		if b.isJITMode {
+			// __joss_db_is_connected() -> rax = 1 if connected, 0 if not
+			b.defineLabel("fn___joss_db_is_connected")
+			b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+			b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+			b.emitLeaRCXString("__joss_db_is_connected")
 			b.emitCallIAT(IATGetProcAddress + 1)
-		} else {
-			b.emitCallLabel("_joss_host_bridge")
-		}
-		b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
-		b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
+			b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
+			b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
 
-		// __joss_db_query(rcx = sql, rdx = bindings) -> rax = arrPtr
-		b.defineLabel("fn___joss_db_query")
-		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
-		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
-		b.emitBytes(0x49, 0x89, 0xD0)       // mov r8, rdx  (bindings)
-		b.emitBytes(0x48, 0x89, 0xCA)       // mov rdx, rcx (sql)
-		b.emitLeaRCXString("__joss_db_query")
-		if b.isJITMode {
+			// __joss_db_query(rcx = sql, rdx = bindings) -> rax = arrPtr
+			b.defineLabel("fn___joss_db_query")
+			b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+			b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+			b.emitBytes(0x49, 0x89, 0xD0)       // mov r8, rdx  (bindings)
+			b.emitBytes(0x48, 0x89, 0xCA)       // mov rdx, rcx (sql)
+			b.emitLeaRCXString("__joss_db_query")
 			b.emitCallIAT(IATGetProcAddress + 1)
-		} else {
-			b.emitCallLabel("_joss_host_bridge")
-		}
-		b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
-		b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
+			b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
+			b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
 
-		// __joss_db_execute(rcx = sql, rdx = bindings) -> rax = count
-		b.defineLabel("fn___joss_db_execute")
-		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
-		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
-		b.emitBytes(0x49, 0x89, 0xD0)       // mov r8, rdx  (bindings)
-		b.emitBytes(0x48, 0x89, 0xCA)       // mov rdx, rcx (sql)
-		b.emitLeaRCXString("__joss_db_execute")
-		if b.isJITMode {
+			// __joss_db_execute(rcx = sql, rdx = bindings) -> rax = count
+			b.defineLabel("fn___joss_db_execute")
+			b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+			b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+			b.emitBytes(0x49, 0x89, 0xD0)       // mov r8, rdx  (bindings)
+			b.emitBytes(0x48, 0x89, 0xCA)       // mov rdx, rcx (sql)
+			b.emitLeaRCXString("__joss_db_execute")
 			b.emitCallIAT(IATGetProcAddress + 1)
-		} else {
-			b.emitCallLabel("_joss_host_bridge")
+			b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
+			b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
 		}
-		b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
-		b.emitBytes(0x5D, 0xC3)             // pop rbp; ret
 
 		// __joss_grandb_seed_tables: Populates dataOffGranDBTables with build-time seeded data
 		if len(b.seedTables) > 0 {
@@ -567,10 +556,27 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.defineLabel("fn_Request_input")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x48, 0x83, 0xEC, 0x20) // push rbp; mov rbp, rsp; sub rsp, 32
 	b.emitBytes(0x48, 0x89, 0x55, 0xF8)                         // mov [rbp - 8], rdx (save defaultVal)
-	b.emitBytes(0x48, 0x89, 0xCA)                               // mov rdx, rcx (key)
+	b.emitBytes(0x48, 0x89, 0x4D, 0xF0)                         // mov [rbp - 16], rcx (save key)
 	b.emitMovRCXData(requestParamsOffset)                       // mov rcx, [requestParams]
 	b.emitBytes(0x48, 0x85, 0xC9)                               // test rcx, rcx
 	b.emitJeLabel(".req_use_default")
+	b.emitBytes(0x48, 0x89, 0x4D, 0xE8) // mov [rbp - 24], rcx (save request map)
+	b.emitBytes(0x48, 0x8B, 0x55, 0xF0) // mov rdx, [rbp - 16] (key)
+	b.emitBytes(0x48, 0x85, 0xD2)       // test rdx, rdx
+	b.emitJeLabel(".req_input_lookup")
+	for offset, value := range []byte("__joss_request_all_fields\x00") {
+		if offset == 0 {
+			b.emitBytes(0x80, 0x3A, value) // cmp byte ptr [rdx], imm8
+		} else {
+			b.emitBytes(0x80, 0x7A, byte(offset), value) // cmp byte ptr [rdx + offset], imm8
+		}
+		b.emitJneLabel(".req_input_lookup")
+	}
+	b.emitBytes(0x48, 0x8B, 0x45, 0xE8) // mov rax, [rbp - 24] (the full request map)
+	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3)
+	b.defineLabel(".req_input_lookup")
+	b.emitBytes(0x48, 0x8B, 0x4D, 0xE8) // mov rcx, [rbp - 24] (request map)
+	b.emitBytes(0x48, 0x8B, 0x55, 0xF0) // mov rdx, [rbp - 16] (key)
 	b.emitCallLabel("joss_map_get_i64") // joss_map_get_i64(rcx = map, rdx = key) -> rax
 	b.emitBytes(0x48, 0x85, 0xC0)       // test rax, rax
 	b.emitJeLabel(".req_use_default")
@@ -578,9 +584,6 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.defineLabel(".req_use_default")
 	b.emitBytes(0x48, 0x8B, 0x45, 0xF8)       // mov rax, [rbp - 8]
 	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3) // mov rsp, rbp; pop rbp; ret
-
-	b.defineLabel("fn_Session_get")
-	b.emitBytes(0x48, 0x89, 0xD0, 0xC3) // mov rax, rdx; ret
 
 	// __joss_parse_query_params(rcx = queryStringPtr)
 	b.defineLabel("__joss_parse_query_params")
@@ -662,57 +665,26 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.emitJmpLabel("joss_is_empty")
 
 	// Auth & Turnstile runtime intrinsics for unauthenticated HTTP requests
-	b.defineLabel("fn_Auth_guest")
-	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // mov eax, 1; ret
-
-	b.defineLabel("fn_Auth_check")
-	b.defineLabel("fn_Auth_user")
-	b.defineLabel("fn_Auth_id")
-	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
-
-	b.defineLabel("fn_Auth_enabledSocialProviders")
-	b.emitBytes(0xB9, 0x08, 0x00, 0x00, 0x00) // mov ecx, 8
-	b.emitJmpLabel("joss_arr_new")
-
-	b.defineLabel("fn_Turnstile_siteKey")
-	b.emitLeaRAXString("1x00000000000000000000AA")
-	b.emitBytes(0xC3)
-
-	// Dynamic SEO state & rendering (SEO::title, SEO::description, SEO::canonical, SEO::keywords, SEO::og, SEO::render)
-	b.defineLabel("fn_SEO_title")
-	b.emitMovDataRCX(dataOffSEOTitle)
-	b.emitBytes(0x31, 0xC0, 0xC3)
-
-	b.defineLabel("fn_SEO_description")
-	b.emitMovDataRCX(dataOffSEODesc)
-	b.emitBytes(0x31, 0xC0, 0xC3)
-
-	b.defineLabel("fn_SEO_canonical")
-	b.emitMovDataRCX(dataOffSEOCanonical)
-	b.emitBytes(0x31, 0xC0, 0xC3)
-
-	b.defineLabel("fn_SEO_keywords")
-	b.defineLabel("fn_SEO_og")
-	b.defineLabel("fn_SEO_meta")
-	b.emitBytes(0x31, 0xC0, 0xC3)
-
-	b.defineLabel("fn_SEO_render")
-	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
-	b.emitBytes(0x41, 0x54, 0x41, 0x55) // push r12; push r13
-	b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
-	b.emitLeaRCXString("<title>")
-	b.emitMovRDXData(dataOffSEOTitle)
-	b.emitCallLabel("joss_str_concat")
-	b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
-	b.emitLeaRDXString("</title>\n<meta name=\"description\" content=\"")
-	b.emitCallLabel("joss_str_concat")
-	b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
-	b.emitMovRDXData(dataOffSEODesc)
-	b.emitCallLabel("joss_str_concat")
-	b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
-	b.emitLeaRDXString("\">\n")
-	b.emitCallLabel("joss_str_concat")
-	b.emitBytes(0x48, 0x83, 0xC4, 0x20, 0x41, 0x5D, 0x41, 0x5C, 0x5D, 0xC3)
+	if !hasProgramFunction(b.prog, "Auth_guest") {
+		b.defineLabel("fn_Auth_guest")
+		b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // Legacy placeholder; capability validation rejects its use.
+	}
+	for _, name := range []string{"Auth_check", "Auth_user", "Auth_id", "Auth_logout"} {
+		if !hasProgramFunction(b.prog, name) {
+			b.defineLabel("fn_" + name)
+			b.emitBytes(0x31, 0xC0, 0xC3) // Legacy placeholder; capability validation rejects its use.
+		}
+	}
+	if !hasProgramFunction(b.prog, "Auth_enabledSocialProviders") {
+		b.defineLabel("fn_Auth_enabledSocialProviders")
+		b.emitBytes(0xB9, 0x08, 0x00, 0x00, 0x00)
+		b.emitJmpLabel("joss_arr_new")
+	}
+	if !hasProgramFunction(b.prog, "Turnstile_siteKey") {
+		b.defineLabel("fn_Turnstile_siteKey")
+		b.emitLeaRAXString("1x00000000000000000000AA")
+		b.emitBytes(0xC3) // Legacy placeholder; capability validation rejects its use.
+	}
 
 	// Map iteration helpers for foreach ($map as $k => $v) on 32768-bucket FNV-1a hash table
 	// Map layout: [0]=className, [8]=count, [16 + bucketIdx*8]=headNode (bucketIdx 0..32767)
@@ -1829,35 +1801,4 @@ func (b *MachineCodeBuilder) emitStorageIntrinsics() {
 	// __joss_storage_delete(rcx = provider, rdx = userId, r8 = objectPath) -> rax = 1/0
 	b.defineLabel("fn___joss_storage_delete")
 	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // mov eax, 1; ret
-}
-
-// emitHostFrameworkAdapters emits deterministic native pass-through adapters for any
-// remaining MVC/Schema/Plugin host methods referenced in relocations so fluent chains
-// ($table->foreign()->references()->on(), Router::get(), View::render(), etc.) resolve cleanly.
-func (b *MachineCodeBuilder) emitHostFrameworkAdapters() {
-	missingMap := make(map[string]bool)
-	var missing []string
-	for _, r := range b.relocs {
-		if r.kind == relocTextLabel {
-			if _, ok := b.labels[r.targetLabel]; !ok && !missingMap[r.targetLabel] {
-				missingMap[r.targetLabel] = true
-				missing = append(missing, r.targetLabel)
-			}
-		}
-	}
-	for i := 0; i < len(missing); i++ {
-		for j := i + 1; j < len(missing); j++ {
-			if missing[j] < missing[i] {
-				missing[i], missing[j] = missing[j], missing[i]
-			}
-		}
-	}
-	for _, lbl := range missing {
-		if !isFrameworkAdapterTarget(lbl) {
-			continue
-		}
-		b.defineLabel(lbl)
-		// Return first argument (rcx) in rax to preserve fluent method chaining ($obj->m1()->m2())
-		b.emitBytes(0x48, 0x89, 0xC8, 0xC3) // mov rax, rcx; ret
-	}
 }

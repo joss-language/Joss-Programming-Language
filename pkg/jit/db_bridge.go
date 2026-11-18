@@ -217,41 +217,15 @@ func handleDBQuery(args ...uintptr) uintptr {
 		return nativeEmptyArray()
 	}
 
-	// Execute query
 	rows, err := db.Query(sqlStr, bindings...)
 	if err != nil {
 		return nativeEmptyArray()
 	}
 	defer rows.Close()
-
-	cols, err := rows.Columns()
+	results, err := core.DatabaseRowsToMaps(rows)
 	if err != nil {
 		return nativeEmptyArray()
 	}
-
-	var results []map[string]interface{}
-	vals := make([]interface{}, len(cols))
-	valPtrs := make([]interface{}, len(cols))
-	for i := range cols {
-		valPtrs[i] = &vals[i]
-	}
-
-	for rows.Next() {
-		if err := rows.Scan(valPtrs...); err != nil {
-			continue
-		}
-		row := make(map[string]interface{}, len(cols))
-		for i, colName := range cols {
-			val := vals[i]
-			if b, ok := val.([]byte); ok {
-				row[colName] = string(b)
-			} else {
-				row[colName] = val
-			}
-		}
-		results = append(results, row)
-	}
-
 	return nativeArray(results)
 }
 
@@ -278,14 +252,11 @@ func handleDBExecute(args ...uintptr) uintptr {
 		return 0
 	}
 
-	trimmed := strings.ToUpper(strings.TrimSpace(sqlStr))
-	if strings.HasPrefix(trimmed, "INSERT") {
-		if id, err := res.LastInsertId(); err == nil && id > 0 {
-			return uintptr(id)
-		}
+	count, err := core.DatabaseExecutionResult(sqlStr, res)
+	if err != nil {
+		return 0
 	}
-	n, _ := res.RowsAffected()
-	return uintptr(n)
+	return uintptr(count)
 }
 
 func init() {

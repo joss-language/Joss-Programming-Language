@@ -1,11 +1,25 @@
 // now() is a Standard Library function. Native code supplies only the clock
 // and local timezone file bytes (or the Windows kernel timezone bias).
-public func now(string $format = "Y-m-d H:i:s"): string {
+public func now(string $format = "Y-m-d H:i:s", int $days = 0): string {
     int $timestamp = time()
     int $offset = __joss_local_utc_offset()
     array<int> $timezone = __joss_timezone_data()
     (count($timezone) > 0) ? {
         $offset = TimeZoneRules::offsetSeconds($timezone, $timestamp)
+    }
+    ($days != 0) ? {
+        int $currentOffset = $offset
+        int $candidate = $timestamp + ($days * 86400)
+        int $targetOffset = __joss_local_utc_offset()
+        (count($timezone) > 0) ? {
+            $targetOffset = TimeZoneRules::offsetSeconds($timezone, $candidate)
+        }
+        $timestamp = $candidate + $currentOffset - $targetOffset
+        (count($timezone) > 0) ? {
+            $offset = TimeZoneRules::offsetSeconds($timezone, $timestamp)
+        } : {
+            $offset = $targetOffset
+        }
     }
     string $timezoneName = DateFormatter::zoneName($offset)
     (count($timezone) > 0) ? {

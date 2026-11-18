@@ -7,6 +7,17 @@ import (
 	"github.com/jossecurity/joss/pkg/parser"
 )
 
+func (r *Runtime) callJossRequestOwner(method string, args []interface{}) (interface{}, bool) {
+	if r == nil {
+		return nil, false
+	}
+	owner := r.Functions["__joss_host_Request_"+method]
+	if owner == nil {
+		return nil, false
+	}
+	return r.callMethodEvaluatedWithPlan(owner, nil, args, nil, r.planForMethod(owner)), true
+}
+
 // parseHTTPWithStdlib delegates raw HTTP decoding to the canonical Joss
 // Standard Library parser. This adapter only invokes the source implementation;
 // it does not maintain a second request parsing policy in the interpreter.
@@ -32,6 +43,11 @@ func (r *Runtime) parseHTTPWithStdlib(raw string) map[string]interface{} {
 
 // executeRequestMethod handles Request methods
 func (r *Runtime) executeRequestMethod(instance *Instance, method string, args []interface{}) interface{} {
+	if method != "input" && method != "post" {
+		if result, handled := r.callJossRequestOwner(method, args); handled {
+			return result
+		}
+	}
 	switch method {
 
 	case "file":
@@ -67,6 +83,9 @@ func (r *Runtime) executeRequestMethod(instance *Instance, method string, args [
 			// Access $__request variable injected by Dispatch
 			if reqVal, ok := r.Variables["$__request"]; ok {
 				if reqInstance, ok := reqVal.(*Instance); ok {
+					if key == "__joss_request_all_fields" {
+						return reqInstance.Fields
+					}
 					if val, ok := reqInstance.Fields[key]; ok {
 						return val
 					}
@@ -162,7 +181,7 @@ func (r *Runtime) executeRequestMethod(instance *Instance, method string, args [
 		if len(args) > 0 {
 			key, ok := args[0].(string)
 			if !ok {
-				return nil
+				return ""
 			}
 			if reqVal, ok := r.Variables["$__request"]; ok {
 				if reqInstance, ok := reqVal.(*Instance); ok {
@@ -190,7 +209,7 @@ func (r *Runtime) executeRequestMethod(instance *Instance, method string, args [
 					}
 				}
 			}
-			return nil
+			return ""
 		}
 
 	case "hasFile", "hasfile":

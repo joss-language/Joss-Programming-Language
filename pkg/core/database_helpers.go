@@ -87,10 +87,18 @@ func (r *Runtime) stopQueryCounting() int64 {
 	return r.queryCount.Load()
 }
 
-// rowsToMap converts SQL rows to []map[string]interface{}
-func rowsToMap(rows *sql.Rows) []map[string]interface{} {
+// DatabaseRowsToMaps converts driver rows to the shared Joss map representation.
+// Interpreter and JIT adapters use this normalization so SQL drivers do not
+// create separate value conversion semantics.
+func DatabaseRowsToMaps(rows *sql.Rows) ([]map[string]interface{}, error) {
+	if rows == nil {
+		return nil, fmt.Errorf("database rows are nil")
+	}
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
 	var results []map[string]interface{}
-	cols, _ := rows.Columns()
 	vals := make([]interface{}, len(cols))
 	valPtrs := make([]interface{}, len(cols))
 	for i := range cols {
@@ -98,7 +106,9 @@ func rowsToMap(rows *sql.Rows) []map[string]interface{} {
 	}
 
 	for rows.Next() {
-		rows.Scan(valPtrs...)
+		if err := rows.Scan(valPtrs...); err != nil {
+			return nil, err
+		}
 		row := make(map[string]interface{})
 		for i, colName := range cols {
 			valVal := vals[i]
@@ -110,6 +120,31 @@ func rowsToMap(rows *sql.Rows) []map[string]interface{} {
 		}
 		results = append(results, row)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// DatabaseExecutionResult applies one result contract to interpreter and JIT:
+// INSERT returns its generated ID when available; other statements return the
+// affected row count.
+func DatabaseExecutionResult(query string, result sql.Result) (int64, error) {
+	if result == nil {
+		return 0, fmt.Errorf("database execution returned a nil result")
+	}
+	if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(query)), "INSERT") {
+		if id, err := result.LastInsertId(); err == nil && id > 0 {
+			return id, nil
+		}
+	}
+	return result.RowsAffected()
+}
+
+// rowsToMap retains the interpreter's historical helper contract. Callers that
+// surface query errors should use DatabaseRowsToMaps directly.
+func rowsToMap(rows *sql.Rows) []map[string]interface{} {
+	results, _ := DatabaseRowsToMaps(rows)
 	return results
 }
 

@@ -308,7 +308,7 @@ func TestCleanEnvironment004_NoGoFallbackAndExplicitJOSSNative001(t *testing.T) 
 		t.Errorf("expected JOSS-NATIVE-001 diagnostic, got: %v", err)
 	}
 
-	// 2. Unavailable target architecture -> ERROR: native target not available
+	// 2. Unavailable target architecture -> explicit unsupported-target error
 	validSrc := `
 		int $x = 1;
 		echo $x;
@@ -321,7 +321,7 @@ func TestCleanEnvironment004_NoGoFallbackAndExplicitJOSSNative001(t *testing.T) 
 	if targetErr == nil {
 		t.Fatal("expected unavailable target freebsd/riscv64 to fail explicitly")
 	}
-	if !strings.Contains(targetErr.Error(), "ERROR: native target not available") {
-		t.Errorf("expected 'ERROR: native target not available', got: %v", targetErr)
+	if !strings.Contains(targetErr.Error(), "target no soportado") || !strings.Contains(targetErr.Error(), "freebsd/riscv64") {
+		t.Errorf("expected explicit unsupported-target error for freebsd/riscv64, got: %v", targetErr)
 	}
 }

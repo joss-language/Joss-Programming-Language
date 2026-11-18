@@ -1,7 +1,9 @@
 package native_test
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -32,6 +34,27 @@ func runInterpreter(t *testing.T, source string) (string, bool, string) {
 		errInfo += " | Diags: " + strings.Join(diags, "; ")
 	}
 	return out, res.Success, errInfo
+}
+
+func runInterpreterWithUnits(t *testing.T, source string, additionalUnits []analyzer.SourceUnit) (string, bool, string) {
+	t.Helper()
+	parsed := parser.NewParser(parser.NewLexer(source))
+	program := parsed.ParseProgram()
+	if len(parsed.Diagnostics()) > 0 {
+		return "", false, fmt.Sprintf("parse diagnostics: %v", parsed.Diagnostics())
+	}
+	units := append([]analyzer.SourceUnit{{Path: "differential.joss", Program: program}}, additionalUnits...)
+	prepared := analyzer.PrepareProgram(units, core.BuildAnalysisEnvironment())
+	if prepared.HasErrors() {
+		return "", false, fmt.Sprintf("analysis diagnostics: %v", prepared.Diagnostics)
+	}
+	var stdout, stderr bytes.Buffer
+	runtime := core.NewRuntime()
+	defer runtime.Free()
+	runtime.Out = &stdout
+	runtime.ErrOut = &stderr
+	runtime.ExecutePrepared(prepared)
+	return strings.TrimSpace(stdout.String()), true, stderr.String()
 }
 
 // compileAndRunNative compila código Joss mediante la ruta oficial de compilador nativo (joss build)
@@ -72,7 +95,7 @@ func compileAndRunNativeWithUnits(t *testing.T, source string, name string, addi
 		Backend:    backend.BackendAuto,
 	})
 	if err != nil {
-		return "", -1, err
+		return "", -1, fmt.Errorf("%w\nIR:\n%s", err, irProg.Dump())
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -89,6 +112,9 @@ func compileAndRunNativeWithUnits(t *testing.T, source string, name string, addi
 			return "", -1, runErr
 		}
 	}
+	if exitCode != 0 {
+		return strings.TrimSpace(string(outBytes)), exitCode, fmt.Errorf("native executable exited with %d\nIR:\n%s", exitCode, irProg.Dump())
+	}
 
 	return strings.TrimSpace(string(outBytes)), exitCode, nil
 }
@@ -97,12 +123,12 @@ func TestDifferential_PureJossAuthUnauthenticatedPolicies(t *testing.T) {
 	source := `echo Auth::check(); echo Auth::guest(); echo Auth::hasRole("admin");`
 	var authUnit []analyzer.SourceUnit
 	for _, unit := range std.GetStdlibUnits() {
-		if unit.Path == "<std/auth/auth.joss>" || strings.HasPrefix(unit.Path, "<std/date/") {
+		if unit.Path == "<std/auth/auth.joss>" || unit.Path == "<std/http/session_host.joss>" || strings.HasPrefix(unit.Path, "<std/date/") {
 			authUnit = append(authUnit, unit)
 		}
 	}
-	if len(authUnit) != 4 {
-		t.Fatalf("Auth and date Standard Library modules embedded = %d, want 4", len(authUnit))
+	if len(authUnit) != 5 {
+		t.Fatalf("Auth, session, and date Standard Library modules embedded = %d, want 5", len(authUnit))
 	}
 	interpOut, interpSuccess, interpErr := runInterpreter(t, source)
 	if !interpSuccess {
@@ -117,8 +143,378 @@ func TestDifferential_PureJossAuthUnauthenticatedPolicies(t *testing.T) {
 	}
 }
 
+func TestDifferential_PureJossRequestFacadeOwners(t *testing.T) {
+	source := `echo Request::root();
+echo Request::cookie("missing", "fallback");
+echo Request::header("x-test");
+echo Request::cookie("sid");
+echo Request::method();
+echo Request::path();
+echo Request::isMethod("POST") ? "match" : "mismatch";
+echo Request::ip();
+echo Request::bearerToken();
+echo count(Request::all());
+echo count(Request::except(["email"]));`
+	var requestUnit []analyzer.SourceUnit
+	for _, unit := range std.GetStdlibUnits() {
+		if unit.Path == "<std/http/request.joss>" || unit.Path == "<std/strings/strings.joss>" {
+			requestUnit = append(requestUnit, unit)
+		}
+	}
+	if len(requestUnit) != 2 {
+		t.Fatalf("embedded HTTP request and string module count = %d, want 2", len(requestUnit))
+	}
+	interpOut, interpSuccess, interpErr := runInterpreterWithUnits(t, source, requestUnit)
+	if !interpSuccess {
+		t.Fatalf("interpreter failed: %s", interpErr)
+	}
+	nativeOut, nativeExit, err := compileAndRunNativeWithUnits(t, source, "pure_joss_request_facades", requestUnit)
+	if err != nil {
+		t.Fatalf("native compiler failed: %v", err)
+	}
+	if nativeExit != 0 || strings.ReplaceAll(nativeOut, "\r\n", "\n") != strings.ReplaceAll(interpOut, "\r\n", "\n") {
+		t.Fatalf("Request facade differential mismatch: interpreted=%q native=%q exit=%d", interpOut, nativeOut, nativeExit)
+	}
+	if want := "fallback\n\n\nGET\n/\nmismatch\n127.0.0.1\n\n0\n0"; interpOut != want {
+		t.Fatalf("Request facade output=%q, want %q", interpOut, want)
+	}
+
+	parsed := parser.NewParser(parser.NewLexer(source))
+	program := parsed.ParseProgram()
+	prepared := analyzer.PrepareProgram(append([]analyzer.SourceUnit{{Path: "pure_joss_request_facades.joss", Program: program}}, requestUnit...), core.BuildAnalysisEnvironment())
+	if prepared.HasErrors() {
+		t.Fatalf("analyze Request facade target matrix: %v", prepared.Diagnostics)
+	}
+	irProgram, err := ir.LowerAndVerify(prepared, "pure_joss_request_facades", nil)
+	if err != nil {
+		t.Fatalf("lower Request facade target matrix: %v", err)
+	}
+	for _, target := range []backend.Target{
+		{OS: "windows", Arch: "amd64"},
+		{OS: "linux", Arch: "amd64"},
+		{OS: "darwin", Arch: "amd64"},
+		{OS: "windows", Arch: "arm64"},
+		{OS: "linux", Arch: "arm64"},
+		{OS: "darwin", Arch: "arm64"},
+		{OS: "android", Arch: "arm64"},
+	} {
+		if _, _, err := backend.SelectCodeEmitter(target, false).Compile(irProgram); err != nil {
+			t.Errorf("compile Request facade for %s: %v", target.DashString(), err)
+		}
+	}
+}
+
+func TestNativeRequestAllUsesCompiledRequestContext(t *testing.T) {
+	mainSource := `echo __joss_http_dispatch("GET", "/request", {"email": "ada@example.test", "name": "Ada", "_host": "example.test", "_files": {}}, {}, "");`
+	routesSource := `Router::get("/request", "RequestController@show");`
+	controllerSource := `public class RequestController { public func show(): string { map $all = Request::all(); map $filtered = Request::except(["email"]); return strval(count($all)) . ":" . strval(count($filtered)) . ":" . strval($all["name"]); } }`
+	var projectUnits []analyzer.SourceUnit
+	for _, source := range []struct{ path, code string }{
+		{path: "routes.joss", code: routesSource},
+		{path: "RequestController.joss", code: controllerSource},
+	} {
+		parsed := parser.NewParser(parser.NewLexer(source.code))
+		program := parsed.ParseProgram()
+		if len(parsed.Diagnostics()) > 0 {
+			t.Fatalf("parse %s: %v", source.path, parsed.Diagnostics())
+		}
+		projectUnits = append(projectUnits, analyzer.SourceUnit{Path: source.path, Program: program})
+	}
+	for _, unit := range std.GetStdlibUnits() {
+		if unit.Path == "<std/http/request.joss>" || unit.Path == "<std/strings/strings.joss>" {
+			projectUnits = append(projectUnits, unit)
+		}
+	}
+	if len(projectUnits) != 4 {
+		t.Fatalf("request context Standard Library and project units = %d, want 4", len(projectUnits))
+	}
+	interpreted, ok, errText := runInterpreterWithUnits(t, mainSource, projectUnits)
+	if !ok {
+		t.Fatalf("interpreted request dispatcher failed: %s", errText)
+	}
+	if _, body, found := strings.Cut(interpreted, "\r\n\r\n"); found {
+		interpreted = body
+	}
+	mainParser := parser.NewParser(parser.NewLexer(mainSource))
+	mainProgram := mainParser.ParseProgram()
+	if len(mainParser.Diagnostics()) > 0 {
+		t.Fatalf("parse request dispatcher entrypoint: %v", mainParser.Diagnostics())
+	}
+	allUnits := append([]analyzer.SourceUnit{{Path: "main.joss", Program: mainProgram}}, projectUnits...)
+	prepared := analyzer.PrepareProgram(allUnits, core.BuildAnalysisEnvironment())
+	if prepared.HasErrors() {
+		t.Fatalf("analyze request dispatcher project: %v", prepared.Diagnostics)
+	}
+	irProgram, err := ir.NewLowerer(prepared, nil).LowerProgram("native_request_all_context")
+	if err != nil {
+		t.Fatalf("lower request dispatcher: %v", err)
+	}
+	if err := ir.NewVerifier().Verify(irProgram); err != nil {
+		t.Fatalf("verify request dispatcher: %v", err)
+	}
+	if irProgram.Functions["__joss_http_dispatch"] == nil {
+		t.Fatal("request route did not produce the shared native HTTP dispatcher")
+	}
+	for _, target := range []backend.Target{
+		{OS: "windows", Arch: "amd64"},
+		{OS: "linux", Arch: "amd64"},
+		{OS: "darwin", Arch: "amd64"},
+		{OS: "windows", Arch: "arm64"},
+		{OS: "linux", Arch: "arm64"},
+		{OS: "darwin", Arch: "arm64"},
+		{OS: "android", Arch: "arm64"},
+	} {
+		if _, _, err := backend.SelectCodeEmitter(target, false).Compile(irProgram); err != nil {
+			t.Errorf("compile request dispatcher for %s: %v", target.DashString(), err)
+		}
+	}
+	outputPath := filepath.Join(t.TempDir(), "native_request_all_context")
+	if backend.HostTarget().OS == "windows" {
+		outputPath += ".exe"
+	}
+	if _, err := backend.BuildProgram(irProgram, backend.BuildOptions{Target: backend.HostTarget(), OutputPath: outputPath}); err != nil {
+		t.Fatalf("build request dispatcher: %v", err)
+	}
+	output, err := exec.Command(outputPath).CombinedOutput()
+	if err != nil {
+		t.Fatalf("run request dispatcher: %v, output=%q", err, output)
+	}
+	nativeOut := strings.TrimSpace(strings.ReplaceAll(string(output), "\r\n", "\n"))
+	exitCode := 0
+	if exitCode != 0 || nativeOut != interpreted {
+		t.Fatalf("request context mismatch: interpreted=%q native=%q exit=%d", interpreted, nativeOut, exitCode)
+	}
+	if want := "2:1:Ada"; interpreted != want {
+		t.Fatalf("Request::all/except response=%q, want %q", interpreted, want)
+	}
+}
+
+func TestDifferential_PureJossJSONDecoder(t *testing.T) {
+	source := `string $source = "{\"items\":[1,true],\"message\":\"Jos\\u0073!\"}";
+mixed $decoded = json_decode($source);
+echo count($decoded["items"]);
+echo JSONDecoder::decode("\"plain\"");
+echo JSONDecoder::decode("[1,]") == null;
+echo JSONDecoder::decode("\"raw\ncontrol\"") == null;
+echo JSONDecoder::decode("01") == null;
+echo JSONDecoder::decode("-0.5E+2") != null;`
+	var jsonUnits []analyzer.SourceUnit
+	for _, unit := range std.GetStdlibUnits() {
+		if unit.Path == "<std/json/decoder.joss>" {
+			jsonUnits = append(jsonUnits, unit)
+		}
+	}
+	if len(jsonUnits) != 1 {
+		t.Fatalf("JSON Standard Library decoder units = %d, want 1", len(jsonUnits))
+	}
+	interpOut, interpSuccess, interpErr := runInterpreter(t, source)
+	if !interpSuccess {
+		t.Fatalf("interpreter failed: %s", interpErr)
+	}
+	nativeOut, nativeExit, err := compileAndRunNativeWithUnits(t, source, "pure_joss_json_decoder", jsonUnits)
+	if err != nil {
+		t.Fatalf("native compiler failed: %v", err)
+	}
+	if nativeExit != 0 || strings.ReplaceAll(nativeOut, "\r\n", "\n") != strings.ReplaceAll(interpOut, "\r\n", "\n") {
+		t.Fatalf("JSON decoder differential mismatch: interpreted=%q native=%q exit=%d", interpOut, nativeOut, nativeExit)
+	}
+
+	parsed := parser.NewParser(parser.NewLexer(source))
+	program := parsed.ParseProgram()
+	if issues := parsed.Diagnostics(); len(issues) > 0 {
+		t.Fatalf("parse JSON decoder target matrix: %v", issues)
+	}
+	units := append([]analyzer.SourceUnit{{Path: "pure_joss_json_decoder.joss", Program: program}}, jsonUnits...)
+	prepared := analyzer.PrepareProgram(units, core.BuildAnalysisEnvironment())
+	if prepared.HasErrors() {
+		t.Fatalf("analyze JSON decoder target matrix: %v", prepared.Diagnostics)
+	}
+	irProgram, err := ir.LowerAndVerify(prepared, "pure_joss_json_decoder", nil)
+	if err != nil {
+		t.Fatalf("lower and verify JSON decoder target matrix: %v", err)
+	}
+	targets := []backend.Target{
+		{OS: "linux", Arch: "amd64"}, {OS: "linux", Arch: "arm64"},
+		{OS: "windows", Arch: "amd64"}, {OS: "windows", Arch: "arm64"},
+		{OS: "darwin", Arch: "amd64"}, {OS: "darwin", Arch: "arm64"},
+		{OS: "android", Arch: "arm64"},
+	}
+	for _, target := range targets {
+		t.Run("target/"+target.DashString(), func(t *testing.T) {
+			if _, _, err := backend.SelectCodeEmitter(target, false).Compile(irProgram); err != nil {
+				t.Fatalf("compile pure Joss JSON decoder for %s: %v", target.DashString(), err)
+			}
+		})
+	}
+}
+
+func TestJITAndAOTSharePureJossGranDBStructureValidation(t *testing.T) {
+	source := `
+public func main(): int {
+    int $blocked = 0
+    try { GranDB::table("users; DROP TABLE users")->toSql(); } catch ($error) { $blocked = $blocked + 1; }
+    try { GranDB::table("users")->where("email", "= ? OR 1=1 --", "x")->toSql(); } catch ($error) { $blocked = $blocked + 1; }
+    try { GranDB::table("users")->orderBy("id; DROP")->toSql(); } catch ($error) { $blocked = $blocked + 1; }
+    string $safe = GranDB::table("users")->where("email", "ada; DROP TABLE users")->orderBy("id")->toSql()
+    ($safe == "SELECT * FROM users WHERE email = ? ORDER BY id ASC") ? { $blocked = $blocked + 1; }
+    string $stringSelect = GranDB::table("users")->select("email, id")->toSql()
+    string $arraySelect = GranDB::table("users")->select(["email", "id"])->toSql()
+    ($stringSelect == $arraySelect) ? { $blocked = $blocked + 1; }
+    return ($blocked == 5) ? 0 : 1
+}
+`
+	parsed := parser.NewParser(parser.NewLexer(source))
+	program := parsed.ParseProgram()
+	if issues := parsed.Diagnostics(); len(issues) > 0 {
+		t.Fatalf("parse GranDB security parity source: %v", issues)
+	}
+	units := append([]analyzer.SourceUnit{{Path: "grandb_security_parity.joss", Program: program}}, std.GetStdlibUnits()...)
+	prepared := analyzer.PrepareProgram(units, core.BuildAnalysisEnvironment())
+	if prepared.HasErrors() {
+		t.Fatalf("analyze GranDB security parity source: %v", prepared.Diagnostics)
+	}
+	interpreterOut, interpreterOK, interpreterErr := runInterpreterWithUnits(t, source+"\necho main();", std.GetStdlibUnits())
+	if !interpreterOK || interpreterErr != "" || interpreterOut != "0" {
+		t.Fatalf("interpreter GranDB security result out=%q err=%q ok=%v, want out=0", interpreterOut, interpreterErr, interpreterOK)
+	}
+	irProgram, err := ir.LowerAndVerify(prepared, "grandb_security_parity", nil)
+	if err != nil {
+		t.Fatalf("lower GranDB security parity source: %v", err)
+	}
+	jitExecutable, err := backend.SelectCodeEmitter(backend.HostTarget(), true).CompileInMemory(irProgram)
+	if err != nil {
+		t.Fatalf("compile GranDB security parity source in JIT: %v", err)
+	}
+	defer jitExecutable.Free()
+	if exitCode, err := jitExecutable.Execute(); err != nil || exitCode != 0 {
+		t.Fatalf("JIT GranDB security result exit=%d err=%v, want 0", exitCode, err)
+	}
+	aotPath := filepath.Join(t.TempDir(), "grandb_security_parity.exe")
+	if _, err := backend.BuildProgram(irProgram, backend.BuildOptions{OutputPath: aotPath, Backend: backend.BackendNative}); err != nil {
+		t.Fatalf("compile GranDB security source in AOT: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, aotPath)
+	cmd.Dir = filepath.Dir(aotPath)
+	_, err = cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		t.Fatalf("run AOT GranDB security source: %v", ctx.Err())
+	}
+	aotExit := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			aotExit = exitErr.ExitCode()
+		} else {
+			t.Fatalf("run AOT GranDB security source: %v", err)
+		}
+	}
+	if aotExit != 0 {
+		t.Fatalf("AOT GranDB security result exit=%d, want 0 (interpreter returned %q)", aotExit, interpreterOut)
+	}
+}
+
+func TestGranDBSelectFormsCompileAcrossNativeTargets(t *testing.T) {
+	source := `
+string $stringSelect = GranDB::table("users")->select("email, id")->toSql()
+string $arraySelect = GranDB::table("users")->select(["email", "id"])->toSql()
+echo $stringSelect == $arraySelect
+`
+	parsed := parser.NewParser(parser.NewLexer(source))
+	program := parsed.ParseProgram()
+	if issues := parsed.Diagnostics(); len(issues) > 0 {
+		t.Fatalf("parse GranDB select target matrix source: %v", issues)
+	}
+	units := append([]analyzer.SourceUnit{{Path: "grandb_select_targets.joss", Program: program}}, std.GetStdlibUnits()...)
+	prepared := analyzer.PrepareProgram(units, core.BuildAnalysisEnvironment())
+	if prepared.HasErrors() {
+		t.Fatalf("analyze GranDB select target matrix source: %v", prepared.Diagnostics)
+	}
+	irProgram, err := ir.LowerAndVerify(prepared, "grandb_select_targets", nil)
+	if err != nil {
+		t.Fatalf("lower GranDB select target matrix source: %v", err)
+	}
+	targets := []backend.Target{
+		{OS: "linux", Arch: "amd64"}, {OS: "linux", Arch: "arm64"},
+		{OS: "windows", Arch: "amd64"}, {OS: "windows", Arch: "arm64"},
+		{OS: "darwin", Arch: "amd64"}, {OS: "darwin", Arch: "arm64"},
+		{OS: "android", Arch: "arm64"},
+	}
+	for _, target := range targets {
+		t.Run(target.DashString(), func(t *testing.T) {
+			if _, _, err := backend.SelectCodeEmitter(target, false).Compile(irProgram); err != nil {
+				t.Fatalf("compile both GranDB select forms for %s: %v", target.DashString(), err)
+			}
+		})
+	}
+}
+
+func TestDifferential_NullConsoleOutput(t *testing.T) {
+	assertDifferential(t, "null_console_output", `echo null; echo ""; echo 0;`)
+}
+
 func TestDifferential_TimeBuiltinUsesUnixWallClock(t *testing.T) {
 	assertDifferential(t, "time_builtin_wall_clock", `echo time() > 0;`)
+}
+
+func TestDifferential_FloatToIntConversion(t *testing.T) {
+	assertDifferential(t, "float_to_int_conversion", `echo intval(floatval(1.25));`)
+}
+
+func TestDifferential_FloatFunctionArgumentAndReturn(t *testing.T) {
+	assertDifferential(t, "float_function_argument_and_return", `public func identity(float $value): float { return $value; } echo intval(identity(floatval(1.25)));`)
+}
+
+func TestDifferential_FloatComparisonAndBranch(t *testing.T) {
+	source := `public func ceilLike(float $value): float { int $truncated = intval($value); float $truncatedFloat = floatval($truncated); return ($value > $truncatedFloat) ? floatval($truncated + 1) : $truncatedFloat; } echo intval(ceilLike(floatval(1.25)));`
+	assertDifferential(t, "float_comparison_and_branch", source)
+
+	parsed := parser.NewParser(parser.NewLexer(source))
+	program := parsed.ParseProgram()
+	if issues := parsed.Diagnostics(); len(issues) > 0 {
+		t.Fatalf("parse float parity source: %v", issues)
+	}
+	prepared := analyzer.PrepareProgram([]analyzer.SourceUnit{{Path: "float_parity.joss", Program: program}}, core.BuildAnalysisEnvironment())
+	if prepared.HasErrors() {
+		t.Fatalf("analyze float parity source: %v", prepared.Diagnostics)
+	}
+	irProgram, err := ir.LowerAndVerify(prepared, "float_parity", nil)
+	if err != nil {
+		t.Fatalf("lower float parity source: %v", err)
+	}
+	for _, target := range []backend.Target{
+		{OS: "linux", Arch: "amd64"}, {OS: "linux", Arch: "arm64"},
+		{OS: "windows", Arch: "amd64"}, {OS: "windows", Arch: "arm64"},
+		{OS: "darwin", Arch: "amd64"}, {OS: "darwin", Arch: "arm64"},
+		{OS: "android", Arch: "arm64"},
+	} {
+		if _, _, err := backend.SelectCodeEmitter(target, false).Compile(irProgram); err != nil {
+			t.Errorf("float AOT compile for %s failed: %v", target.DashString(), err)
+		}
+	}
+
+	jitSource := `public func ceilLike(float $value): float { int $truncated = intval($value); float $truncatedFloat = floatval($truncated); return ($value > $truncatedFloat) ? floatval($truncated + 1) : $truncatedFloat; } public func main(): int { return intval(ceilLike(floatval(1.25))) + intval(ceilLike(floatval(-1.25))); }`
+	jitParsed := parser.NewParser(parser.NewLexer(jitSource))
+	jitAST := jitParsed.ParseProgram()
+	if issues := jitParsed.Diagnostics(); len(issues) > 0 {
+		t.Fatalf("parse JIT float parity source: %v", issues)
+	}
+	jitPrepared := analyzer.PrepareProgram([]analyzer.SourceUnit{{Path: "float_jit_parity.joss", Program: jitAST}}, core.BuildAnalysisEnvironment())
+	if jitPrepared.HasErrors() {
+		t.Fatalf("analyze JIT float parity source: %v", jitPrepared.Diagnostics)
+	}
+	jitIR, err := ir.LowerAndVerify(jitPrepared, "float_jit_parity", nil)
+	if err != nil {
+		t.Fatalf("lower JIT float parity source: %v", err)
+	}
+	jitExecutable, err := backend.SelectCodeEmitter(backend.HostTarget(), true).CompileInMemory(jitIR)
+	if err != nil {
+		t.Fatalf("JIT compile float parity source: %v", err)
+	}
+	defer jitExecutable.Free()
+	if exitCode, err := jitExecutable.Execute(); err != nil || exitCode != 1 {
+		t.Fatalf("JIT float conversion returned exit=%d, err=%v; want exit=1", exitCode, err)
+	}
 }
 
 func TestDifferential_PureJossNowFormatsLocalClock(t *testing.T) {
@@ -172,38 +568,35 @@ func TestDifferential_PureJossDateFormatterNative(t *testing.T) {
 	}
 }
 
-func TestDifferential_PureJossHTTPFormParser(t *testing.T) {
+func TestNativeHTTPFormParserReportsMissingJSONDecodeEmission(t *testing.T) {
 	source := `
 string $raw = "POST /password/reset HTTP/1.1\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\ntoken=smoke&password=strong-password-123&password_confirmation=different-password";
 var $request = HttpRequestParser::parse($raw);
 echo $request["password_confirmation"];
 `
-	var requestUnit []analyzer.SourceUnit
+	var requestUnits []analyzer.SourceUnit
 	for _, unit := range std.GetStdlibUnits() {
-		if unit.Path == "<std/http/request.joss>" {
-			requestUnit = append(requestUnit, unit)
-			break
+		if unit.Path == "<std/http/request.joss>" || unit.Path == "<std/strings/strings.joss>" {
+			requestUnits = append(requestUnits, unit)
 		}
 	}
-	if len(requestUnit) != 1 {
-		t.Fatal("canonical std/http/request.joss unit was not embedded")
+	if len(requestUnits) != 2 {
+		t.Fatalf("canonical request and string Standard Library units embedded = %d, want 2", len(requestUnits))
 	}
 	interpOut, interpSuccess, interpErr := runInterpreter(t, source)
 	if !interpSuccess {
 		t.Fatalf("interpreter failed: %s", interpErr)
 	}
-	nativeOut, nativeExit, err := compileAndRunNativeWithUnits(t, source, "pure_joss_http_form_parser", requestUnit)
-	if err != nil {
-		t.Fatalf("native compiler failed: %v", err)
-	}
-	if nativeExit != 0 || strings.ReplaceAll(nativeOut, "\r\n", "\n") != strings.ReplaceAll(interpOut, "\r\n", "\n") {
-		t.Fatalf("HTTP form parser differential mismatch: interpreted=%q native=%q exit=%d", interpOut, nativeOut, nativeExit)
+	_, _, err := compileAndRunNativeWithUnits(t, source, "pure_joss_http_form_parser", requestUnits)
+	if err == nil || !strings.Contains(err.Error(), "JOSS-NATIVE-001") || !strings.Contains(err.Error(), "json_decode") {
+		t.Fatalf("AOT must report the JSON decoder gap before emitting a partial HTTP parser, got %v (interpreter output %q)", err, interpOut)
 	}
 }
 
 func TestDifferential_HTTPParserStringPrimitives(t *testing.T) {
 	cases := map[string]string{
 		"strpos":                 `echo strpos("abc", "b");`,
+		"strpos_at_start":        `echo strpos("abc", "a");`,
 		"strpos_unicode":         `echo strpos("café", "é");`,
 		"substr":                 `echo substr("abc", 1, 1);`,
 		"substr_unicode":         `echo substr("aé😊z", 1, 2);`,
@@ -221,6 +614,38 @@ func TestDifferential_HTTPParserStringPrimitives(t *testing.T) {
 	}
 	for name, source := range cases {
 		t.Run(name, func(t *testing.T) { assertDifferential(t, "http_parser_primitive_"+name, source) })
+	}
+}
+
+func TestJITAndAOTShareUnicodeStringIR(t *testing.T) {
+	source := `public func main(): int { return strlen(substr("aé😊z", -2, 1)) + intval(strpos("aé😊z", "😊")); }`
+	p := parser.NewParser(parser.NewLexer(source))
+	parsed := p.ParseProgram()
+	if parseErrors := p.Errors(); len(parseErrors) > 0 {
+		t.Fatalf("parse string parity program: %v", parseErrors)
+	}
+	prepared := analyzer.PrepareProgram([]analyzer.SourceUnit{{Path: "string_parity.joss", Program: parsed}}, core.BuildAnalysisEnvironment())
+	if prepared.HasErrors() {
+		t.Fatalf("analyze string parity program: %v", prepared.Diagnostics)
+	}
+	program, err := ir.LowerAndVerify(prepared, "string_parity", nil)
+	if err != nil {
+		t.Fatalf("lower and verify string parity program: %v", err)
+	}
+	jitExecutable, err := backend.SelectCodeEmitter(backend.HostTarget(), true).CompileInMemory(program)
+	if err != nil {
+		t.Fatalf("JIT compile string parity program: %v", err)
+	}
+	defer jitExecutable.Free()
+	jitCode, err := jitExecutable.Execute()
+	if err != nil {
+		t.Fatalf("JIT execute string parity program: %v", err)
+	}
+	if jitCode != 3 {
+		t.Fatalf("JIT string result = %d, want 3", jitCode)
+	}
+	if _, _, err := backend.SelectCodeEmitter(backend.HostTarget(), false).Compile(program); err != nil {
+		t.Fatalf("AOT compile shared string IR: %v", err)
 	}
 }
 
@@ -425,6 +850,28 @@ print(str_repeat("x", -2));
 	if nativeExit != 0 || strings.ReplaceAll(nativeOut, "\r\n", "\n") != strings.ReplaceAll(interpOut, "\r\n", "\n") {
 		t.Fatalf("string predicate differential mismatch: interpreted=%q native=%q exit=%d", interpOut, nativeOut, nativeExit)
 	}
+}
+
+func TestDifferential_ArrayKeyExists(t *testing.T) {
+	const source = `
+	var $values = {"present_null": null, "present_false": false, "present_zero": 0}
+	print(array_key_exists("present_null", $values))
+	print(array_key_exists("present_false", $values))
+	print(array_key_exists("present_zero", $values))
+	print(array_key_exists("missing", $values))
+	`
+	assertDifferential(t, "array_key_exists", source)
+}
+
+func TestDifferential_MapDeleteRemovesKeyFromMutableMap(t *testing.T) {
+	const source = `
+	var $values = {"remove": 1, "keep": 2}
+	map_delete($values, "remove")
+	print(array_key_exists("remove", $values))
+	print(array_key_exists("keep", $values))
+	print(count($values))
+	`
+	assertDifferential(t, "map_delete", source)
 }
 
 func TestDifferential_PureJossStringRandomLength(t *testing.T) {

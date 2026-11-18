@@ -154,6 +154,7 @@
     "ltrim",
     "make_chan",
     "map",
+    "map_delete",
     "max",
     "md5",
     "merge",

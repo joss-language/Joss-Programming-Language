@@ -19,10 +19,10 @@ import (
 	"github.com/jossecurity/joss/pkg/ir"
 )
 
-// TestNativeGranDBInsertionAndQuery compiles and executes a standalone native binary
-// that exercises GranDB::table, insert, insertGetId, where, count, first, get (with foreach),
-// update, and delete, together with newly lowered AST constructs (foreach, match, ??, ++, isset, empty, '.' concat).
-func TestNativeGranDBInsertionAndQuery(t *testing.T) {
+// TestNativeGranDBQueriesRejectMissingStandaloneDatabaseRuntime ensures a
+// standalone build reports the missing DB runtime instead of emitting a
+// HostBridge stub that silently returns zero for GranDB queries.
+func TestNativeGranDBQueriesRejectMissingStandaloneDatabaseRuntime(t *testing.T) {
 	src := `
 		// 1. Insert rows into 'users' table using GranDB::table()->insert() and insertGetId()
 		int $id1 = GranDB::table("users")->insert({
@@ -81,37 +81,10 @@ func TestNativeGranDBInsertionAndQuery(t *testing.T) {
 		echo "AfterDelete:" . $deleted . ":" . $remaining;
 	`
 
-	irProg := prepareTestProgram(t, src, "test_grandb_insert_query")
-	tempDir := t.TempDir()
-	outExe := filepath.Join(tempDir, "grandb_insert_query.exe")
-
-	_, err := backend.BuildProgram(irProg, backend.BuildOptions{
-		Backend:    backend.BackendStandalone,
-		OutputPath: outExe,
-	})
-	if err != nil {
-		t.Fatalf("BuildProgram failed for GranDB insertion test: %v", err)
-	}
-
-	if runtime.GOOS == "windows" {
-		cmd := exec.Command(outExe)
-		cmd.Dir = tempDir
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("GranDB native executable failed: %v\nOutput:\n%s", err, string(out))
-		}
-		got := strings.ReplaceAll(strings.TrimSpace(string(out)), "\r\n", "\n")
-		want := strings.Join([]string{
-			"IDs:1-2-3",
-			"Counts:3/2",
-			"First:joss_admin:admin:95",
-			"UpdatedAda:999",
-			"Admins:2:pair:1094",
-			"AfterDelete:1:2",
-		}, "\n")
-		if got != want {
-			t.Fatalf("GranDB native output mismatch:\ngot:\n%s\nwant:\n%s", got, want)
-		}
+	irProg := prepareGranDBStdlibTestProgram(t, src, "test_grandb_insert_query")
+	_, err := backend.BuildProgram(irProg, backend.BuildOptions{Backend: backend.BackendStandalone, OutputPath: filepath.Join(t.TempDir(), "grandb_insert_query.exe")})
+	if err == nil || !strings.Contains(err.Error(), "JOSS-NATIVE-001") || !strings.Contains(err.Error(), "__joss_db_query") {
+		t.Fatalf("AOT must reject DB queries without a standalone database implementation, got %v", err)
 	}
 }
 
@@ -129,7 +102,17 @@ func TestNativeGranDBToSqlMultiDialect(t *testing.T) {
 		string $sql2 = $q2->toSql();
 		echo "SQL2:" . $sql2;
 	`
-	irProg := prepareTestProgram(t, src, "test_grandb_tosql")
+	irProg := prepareGranDBStdlibTestProgram(t, src, "test_grandb_tosql")
+	for _, target := range []backend.Target{
+		{OS: "linux", Arch: "amd64"}, {OS: "linux", Arch: "arm64"},
+		{OS: "windows", Arch: "amd64"}, {OS: "windows", Arch: "arm64"},
+		{OS: "darwin", Arch: "amd64"}, {OS: "darwin", Arch: "arm64"},
+		{OS: "android", Arch: "arm64"},
+	} {
+		if _, _, err := backend.SelectCodeEmitter(target, false).Compile(irProg); err != nil {
+			t.Errorf("GranDB::toSql AOT compilation for %s failed: %v", target.DashString(), err)
+		}
+	}
 	tempDir := t.TempDir()
 	outExe := filepath.Join(tempDir, "grandb_tosql.exe")
 
@@ -141,42 +124,58 @@ func TestNativeGranDBToSqlMultiDialect(t *testing.T) {
 		t.Fatalf("BuildProgram failed for GranDB toSql test: %v", err)
 	}
 
-	if runtime.GOOS == "windows" {
-		cmd := exec.Command(outExe)
-		cmd.Dir = tempDir
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("GranDB toSql executable failed: %v\nOutput:\n%s", err, string(out))
-		}
-		outStr := string(out)
-		expectedSQL1 := "SQL1:SELECT id, name FROM users WHERE role = ? ORDER BY id ASC LIMIT 10 OFFSET 5"
-		expectedSQL2 := "SQL2:SELECT * FROM logs WHERE level = ?"
-		if !strings.Contains(outStr, expectedSQL1) {
-			t.Errorf("Expected %q in output, got:\n%s", expectedSQL1, outStr)
-		}
-		if !strings.Contains(outStr, expectedSQL2) {
-			t.Errorf("Expected %q in output, got:\n%s", expectedSQL2, outStr)
-		}
+	cmd := exec.Command(outExe)
+	cmd.Dir = tempDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("GranDB toSql executable failed: %v\nOutput:\n%s", err, string(out))
+	}
+	outStr := string(out)
+	expectedSQL1 := "SQL1:SELECT id, name FROM users WHERE role = ? ORDER BY id ASC LIMIT 10 OFFSET 5"
+	expectedSQL2 := "SQL2:SELECT * FROM logs WHERE level = ?"
+	if !strings.Contains(outStr, expectedSQL1) {
+		t.Errorf("Expected %q in output, got:\n%s", expectedSQL1, outStr)
+	}
+	if !strings.Contains(outStr, expectedSQL2) {
+		t.Errorf("Expected %q in output, got:\n%s", expectedSQL2, outStr)
+	}
 
-		// Test dynamic SQL Server dialect & table prefix loading from .env
-		envFile := filepath.Join(tempDir, ".env")
-		if err := os.WriteFile(envFile, []byte("DB=sqlserver\nPREFIX=sec_\n"), 0644); err != nil {
-			t.Fatalf("Failed to write .env: %v", err)
+	// Test dynamic SQL Server dialect & table prefix loading from .env.
+	envFile := filepath.Join(tempDir, ".env")
+	if err := os.WriteFile(envFile, []byte("DB=sqlserver\nPREFIX=sec_\n"), 0644); err != nil {
+		t.Fatalf("Failed to write .env: %v", err)
+	}
+	cmdSS := exec.Command(outExe)
+	cmdSS.Dir = tempDir
+	outSS, err := cmdSS.CombinedOutput()
+	if err != nil {
+		t.Fatalf("GranDB toSql with sqlserver failed: %v\nOutput:\n%s", err, string(outSS))
+	}
+	outSSStr := string(outSS)
+	expectedSS1 := "SQL1:SELECT id, name FROM sec_users WHERE role = ? ORDER BY id ASC OFFSET 5 ROWS FETCH NEXT 10 ROWS ONLY"
+	expectedSS2 := "SQL2:SELECT * FROM sec_logs WHERE level = ?"
+	if !strings.Contains(outSSStr, expectedSS1) {
+		t.Errorf("Expected SQL Server %q in output, got:\n%s", expectedSS1, outSSStr)
+	}
+	if !strings.Contains(outSSStr, expectedSS2) {
+		t.Errorf("Expected SQL Server %q in output, got:\n%s", expectedSS2, outSSStr)
+	}
+
+	for _, driver := range []string{"sqlite", "mysql", "postgres"} {
+		contents := []byte("DB=" + driver + "\nPREFIX=sec_\n")
+		if err := os.WriteFile(envFile, contents, 0644); err != nil {
+			t.Fatalf("write %s dialect config: %v", driver, err)
 		}
-		cmdSS := exec.Command(outExe)
-		cmdSS.Dir = tempDir
-		outSS, err := cmdSS.CombinedOutput()
+		cmdDialect := exec.Command(outExe)
+		cmdDialect.Dir = tempDir
+		outDialect, err := cmdDialect.CombinedOutput()
 		if err != nil {
-			t.Fatalf("GranDB toSql with sqlserver failed: %v\nOutput:\n%s", err, string(outSS))
+			t.Fatalf("GranDB toSql with %s failed: %v\nOutput:\n%s", driver, err, string(outDialect))
 		}
-		outSSStr := string(outSS)
-		expectedSS1 := "SQL1:SELECT id, name FROM sec_users WHERE role = ? ORDER BY id ASC OFFSET 5 ROWS FETCH NEXT 10 ROWS ONLY"
-		expectedSS2 := "SQL2:SELECT * FROM sec_logs WHERE level = ?"
-		if !strings.Contains(outSSStr, expectedSS1) {
-			t.Errorf("Expected SQL Server %q in output, got:\n%s", expectedSS1, outSSStr)
-		}
-		if !strings.Contains(outSSStr, expectedSS2) {
-			t.Errorf("Expected SQL Server %q in output, got:\n%s", expectedSS2, outSSStr)
+		dialectOutput := string(outDialect)
+		expectedSQL := "SQL1:SELECT id, name FROM sec_users WHERE role = ? ORDER BY id ASC LIMIT 10 OFFSET 5"
+		if !strings.Contains(dialectOutput, expectedSQL) || !strings.Contains(dialectOutput, "SQL2:SELECT * FROM sec_logs WHERE level = ?") {
+			t.Errorf("GranDB AOT SQL for %s did not use its configured dialect/prefix: %s", driver, dialectOutput)
 		}
 	}
 }
@@ -220,6 +219,18 @@ func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
 	irProg, err := lowerer.LowerProgram("JosSecurity")
 	if err != nil {
 		t.Fatalf("Lowering Joss-Red-JosSecurity failed: %v", err)
+	}
+	if irProg.Functions["__joss_host_SEO_render"] == nil {
+		t.Fatal("compiled HTTP templates must retain the Pure Joss SEO render owner")
+	}
+	for functionName, function := range irProg.Functions {
+		for _, block := range function.Blocks {
+			for _, instruction := range block.Instructions {
+				if call, ok := instruction.(*ir.CallInst); ok && (call.Callee == "SEO_render" || call.Callee == "SEO::render") {
+					t.Fatalf("template function %s kept unresolved SEO call %q instead of lowering to Pure Joss", functionName, call.Callee)
+				}
+			}
+		}
 	}
 
 	verifier := ir.NewVerifier()

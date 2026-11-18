@@ -18,7 +18,7 @@ func TestParseBuildTarget(t *testing.T) {
 		{"darwin-arm64", true},
 		{"darwin-amd64", true},
 		{"android-arm64", true},
-		{"android-arm", true},
+		{"android-arm", false},
 		{"windows", true},
 		{"linux", true},
 		{"macos", true},

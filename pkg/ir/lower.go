@@ -177,10 +177,15 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 	if err := l.lowerProjectViewsAndRoutes(); err != nil {
 		return nil, err
 	}
+	l.lowerGenericCollectionBuiltins()
+	l.lowerRequestSessionContext()
+	l.lowerRequestSEOContext()
+	l.lowerJossHostServiceCalls()
 
-	if l.prog.Functions["__joss_http_dispatch"] != nil {
-		l.PruneUnreachableFunctions()
-	}
+	// Prune dead functions for every execution mode. Restricting this to HTTP
+	// projects left unrelated standard-library methods in CLI IR and could pull
+	// in unavailable platform services (for example DB calls beside pure toSql).
+	l.PruneUnreachableFunctions()
 	if err := l.lowerStaticPropertyInitializer(); err != nil {
 		return nil, err
 	}
@@ -229,6 +234,7 @@ func (l *Lowerer) lowerMethod(stmt *parser.MethodStatement) error {
 	for _, param := range stmt.Parameters {
 		paramType := l.mapType(param.Type.Literal)
 		paramVal := fn.AddParam(param.Name.Value, paramType)
+		fn.DefaultArgs = append(fn.DefaultArgs, l.lowerConstantDefault(param.DefaultValue, paramType))
 
 		// Crear alloca local para el parámetro de modo que sea mutable en el cuerpo
 		ptrTemp := fn.NewTemp(PtrType(paramType), param.Name.Value+"_ptr")
@@ -273,6 +279,7 @@ func (l *Lowerer) lowerClassMethod(className string, stmt *parser.MethodStatemen
 	if !stmt.IsStatic {
 		thisType := PtrType(StructType(className, nil))
 		thisVal := fn.AddParam("this", thisType)
+		fn.DefaultArgs = append(fn.DefaultArgs, nil)
 		ptrTemp := fn.NewTemp(PtrType(thisType), "this_ptr")
 		l.currBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: thisType})
 		l.currBlock.AddInstruction(&StoreInst{Val: thisVal, Ptr: ptrTemp})
@@ -282,6 +289,7 @@ func (l *Lowerer) lowerClassMethod(className string, stmt *parser.MethodStatemen
 	for _, param := range stmt.Parameters {
 		paramType := l.mapType(param.Type.Literal)
 		paramVal := fn.AddParam(param.Name.Value, paramType)
+		fn.DefaultArgs = append(fn.DefaultArgs, l.lowerConstantDefault(param.DefaultValue, paramType))
 
 		ptrTemp := fn.NewTemp(PtrType(paramType), param.Name.Value+"_ptr")
 		l.currBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: paramType})
@@ -678,6 +686,8 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 			l.currBlock.AddInstruction(&CallRuntimeInst{Func: "print_string", Args: []Value{val}})
 		} else if val.Type().Kind == TypeKindBool {
 			l.currBlock.AddInstruction(&CallRuntimeInst{Func: "print_bool", Args: []Value{val}})
+		} else if val.Type().Kind == TypeKindPtr && val.Type().Elem != nil && val.Type().Elem.Kind == TypeKindVoid {
+			l.currBlock.AddInstruction(&CallRuntimeInst{Func: "print_string", Args: []Value{NewConstString("<nil>")}})
 		} else if val.Type().Kind == TypeKindMixed {
 			l.currBlock.AddInstruction(&CallRuntimeInst{Func: "print_mixed", Args: []Value{val}})
 		} else {
@@ -1831,6 +1841,18 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				args = append(args, NewConstNull(PtrType(TypeVoid)))
 			}
 		}
+		// GranDB::select accepts both strings and arrays for interpreter
+		// semantics. At statically typed call sites, lower directly to the
+		// corresponding Pure Joss helper so native modes do not need a runtime
+		// mixed-value type tag just to choose between those two forms.
+		if calleeName == "GranDB_select" && len(args) > 1 {
+			switch args[1].Type().Kind {
+			case TypeKindString:
+				calleeName = "GranDB_selectString"
+			case TypeKindArray:
+				calleeName = "GranDB_selectArray"
+			}
+		}
 
 		if (calleeName == "GranDB_table" || calleeName == "table") && len(args) == 2 {
 			calleeName = "GranDB_table"
@@ -1840,7 +1862,11 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			calleeName = "view"
 		}
 		if (calleeName == "env" || calleeName == "request" || calleeName == "Request_input" || calleeName == "Session_get") && len(args) == 1 {
-			args = append(args, NewConstInt(0, TypeI64))
+			if calleeName == "Session_get" {
+				args = append(args, NewConstNull(PtrType(TypeVoid)))
+			} else {
+				args = append(args, NewConstInt(0, TypeI64))
+			}
 		}
 
 		// Determinar tipo de retorno usando AnalysisFacts o resolución de método en jerarquía
@@ -1901,7 +1927,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			} else {
 				retType = TypeI64
 			}
-		case "GranDB_table", "GranDB_where", "GranDB_orWhere", "GranDB_whereIn", "GranDB_orderBy", "GranDB_orderByDesc", "orderByDesc", "GranDB_whereLike", "whereLike", "GranDB_orWhereLike", "orWhereLike", "GranDB_limit", "GranDB_offset", "GranDB_select", "GranDB_join", "GranDB_leftJoin":
+		case "GranDB_table", "GranDB_where", "GranDB_orWhere", "GranDB_whereIn", "GranDB_orderBy", "GranDB_orderByDesc", "orderByDesc", "GranDB_whereLike", "whereLike", "GranDB_orWhereLike", "orWhereLike", "GranDB_limit", "GranDB_offset", "GranDB_select", "GranDB_selectString", "GranDB_selectArray", "GranDB_join", "GranDB_leftJoin":
 			retType = PtrType(StructType("GranDB", nil))
 		case "GranDB_first", "GranDB_find", "GranDB_paginate", "paginate":
 			retType = PtrType(StructType("map", nil))
@@ -1959,7 +1985,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			if calleeName == "strlen" || calleeName == "count" || calleeName == "len" || calleeName == "array_push" || calleeName == "append" || calleeName == "to_string" ||
 				calleeName == "abs" || calleeName == "min" || calleeName == "max" || calleeName == "intval" || calleeName == "floatval" || calleeName == "boolval" || calleeName == "array_pop" ||
 				calleeName == "microtime" || calleeName == "array_fill" || calleeName == "file_get_contents" || calleeName == "explode" || calleeName == "async" || calleeName == "await" ||
-				calleeName == "str_contains" || calleeName == "contains" {
+				calleeName == "str_contains" || calleeName == "contains" || calleeName == "map_delete" {
 				l.currBlock.AddInstruction(&CallBuiltinInst{
 					Dest:      dest,
 					BuiltinID: calleeName,
@@ -2480,8 +2506,12 @@ func (l *Lowerer) mapType(lit string) Type {
 	if strings.HasPrefix(lit, "map<") {
 		return PtrType(StructType("map", nil))
 	}
-	if strings.HasPrefix(lit, "array<") {
-		return ArrayType(TypeI64)
+	if strings.HasPrefix(lit, "array<") && strings.HasSuffix(lit, ">") {
+		element := strings.TrimSpace(lit[len("array<") : len(lit)-1])
+		if element == "" {
+			return ArrayType(TypeI64)
+		}
+		return ArrayType(l.mapType(element))
 	}
 	if strings.HasSuffix(lit, "?") {
 		return l.mapType(strings.TrimSuffix(lit, "?"))
@@ -2513,7 +2543,9 @@ func (l *Lowerer) mapType(lit string) Type {
 		return PtrType(StructType("map", nil))
 	case "array":
 		return ArrayType(TypeI64)
-	case "var", "mixed", "unknown":
+	case "mixed":
+		return TypeMixed
+	case "var", "unknown":
 		return TypeUnknown
 	default:
 		if l.prep != nil {
@@ -2530,6 +2562,32 @@ func (l *Lowerer) mapType(lit string) Type {
 		}
 		return TypeI64
 	}
+}
+
+func (l *Lowerer) lowerConstantDefault(expression parser.Expression, parameterType Type) Value {
+	switch value := expression.(type) {
+	case *parser.IntegerLiteral:
+		return NewConstInt(value.Value, parameterType)
+	case *parser.FloatLiteral:
+		return NewConstFloat(value.Value, parameterType)
+	case *parser.StringLiteral:
+		return NewConstString(value.Value)
+	case *parser.Boolean:
+		return NewConstBool(value.Value)
+	case *parser.NullLiteral:
+		return NewConstNull(PtrType(TypeVoid))
+	case *parser.PrefixExpression:
+		if value.Operator != "-" {
+			return nil
+		}
+		switch operand := value.Right.(type) {
+		case *parser.IntegerLiteral:
+			return NewConstInt(-operand.Value, parameterType)
+		case *parser.FloatLiteral:
+			return NewConstFloat(-operand.Value, parameterType)
+		}
+	}
+	return nil
 }
 
 func mapInfixOp(op string) (Opcode, bool) {

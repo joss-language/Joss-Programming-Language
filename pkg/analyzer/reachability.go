@@ -258,6 +258,15 @@ func BuildReachabilityGraph(prepared *PreparedProgram, opts ReachabilityOptions)
 		ctx.scanStatements(entryUnit.Program.Statements)
 	}
 
+	// Compiled HTTP views are synthesized after source reachability is built.
+	// Their layout expressions (including SEO::render()) therefore do not exist
+	// in the AST yet. Retain the small Pure Joss SEO owner for server projects so
+	// template lowering can bind those expressions instead of leaving a runtime
+	// shim in the native IR.
+	if graph.RuntimeCapabilities[CapServer] || graph.RuntimeCapabilities[CapHTTP] {
+		ctx.markFunctionLive("__joss_host_SEO_render")
+	}
+
 	// Transitive expansion for all marked classes and functions
 	ctx.expandTransitive()
 
@@ -517,6 +526,14 @@ func (ctx *reachabilityContext) inspectCall(call *parser.CallExpression) {
 	if call == nil {
 		return
 	}
+	if identifier, ok := call.Function.(*parser.Identifier); ok && identifier.Value == "json_decode" {
+		// json_decode is lowered through a canonical Joss owner when the stdlib
+		// is present. Keep that owner before lowering/pruning, just like owners of
+		// static native methods.
+		if _, exists := ctx.funcDeclMap["__joss_builtin_json_decode"]; exists {
+			ctx.markFunctionLive("__joss_builtin_json_decode")
+		}
+	}
 
 	// Route handler detection in any CallExpression (e.g. nested in Router::group closures)
 	for _, arg := range call.Arguments {
@@ -566,6 +583,17 @@ func (ctx *reachabilityContext) inspectCall(call *parser.CallExpression) {
 				}
 				ctx.graph.detectNativeCapability(className, methodName)
 				ctx.markMethodLive(className, methodName)
+				if className == "View" && methodName == "render" {
+					ctx.markFunctionLive("__joss_host_SEO_render")
+				}
+				// A native static host-service call can be implemented by a Joss
+				// function named Class_method; retain that owner for IR lowering.
+				if _, exists := ctx.funcDeclMap[className+"_"+methodName]; exists {
+					ctx.markFunctionLive(className + "_" + methodName)
+				}
+				if _, exists := ctx.funcDeclMap["__joss_host_"+className+"_"+methodName]; exists {
+					ctx.markFunctionLive("__joss_host_" + className + "_" + methodName)
+				}
 				return
 			}
 		} else if member.Token.Literal == "->" {
@@ -603,6 +631,16 @@ func (ctx *reachabilityContext) inspectCall(call *parser.CallExpression) {
 							}
 						}
 					}
+					// Native classes may expose their product policy as a top-level
+					// Joss owner. Retain that owner when a live instance call uses it,
+					// even though the native class has no source ClassStatement.
+					if _, hasSourceClass := ctx.classDeclMap[cName]; !hasSourceClass {
+						ownerName := "__joss_host_" + cName + "_" + methodName
+						if _, exists := ctx.funcDeclMap[ownerName]; exists {
+							ctx.markFunctionLive(ownerName)
+							ctx.graph.detectNativeCapability(cName, methodName)
+						}
+					}
 				}
 			}
 		}
@@ -612,6 +650,12 @@ func (ctx *reachabilityContext) inspectCall(call *parser.CallExpression) {
 	if ident, ok := call.Function.(*parser.Identifier); ok {
 		fnName := ident.Value
 		ctx.markFunctionLive(fnName)
+		if fnName == "view" {
+			// Compiled templates may call SEO::render even though those calls are
+			// discovered after source reachability. Retain its Pure Joss owner so
+			// view lowering can thread the current request context into the template.
+			ctx.markFunctionLive("__joss_host_SEO_render")
+		}
 		if fnName == "print" || fnName == "println" || fnName == "printf" {
 			ctx.graph.RuntimeCapabilities[CapIO] = true
 		}

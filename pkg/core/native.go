@@ -16,8 +16,21 @@ var (
 // Helper to register a native class and its handler
 func (r *Runtime) registerNative(name string, methods []string, handler NativeHandler) {
 	definitions := make([]NativeMethodDefinition, 0, len(methods))
+	declared := make(map[string]NativeMethodDefinition, len(migratedNativeMethods[name]))
+	for _, definition := range migratedNativeMethods[name] {
+		declared[definition.Name] = definition
+	}
 	for _, method := range methods {
-		definitions = append(definitions, NativeMethodDefinition{Name: method, ReturnType: nativeMethodReturnType(name, method)})
+		if definition, exists := declared[method]; exists {
+			definitions = append(definitions, definition)
+			continue
+		}
+		definitions = append(definitions, NativeMethodDefinition{
+			Name:           method,
+			ReturnType:     nativeMethodReturnType(name, method),
+			Variadic:       true,
+			ContractStatus: NativeContractLegacyIncomplete,
+		})
 	}
 	r.registerNativeDefinitions(name, definitions, handler)
 }
@@ -415,6 +428,17 @@ func (r *Runtime) executeNativeMethod(instance *Instance, method string, args []
 	currentClass := instance.Class
 	for currentClass != nil {
 		className := currentClass.Name.Value
+		if owner := r.Functions["__joss_host_"+className+"_"+method]; owner != nil && owner.Body != nil {
+			required := 0
+			for _, parameter := range owner.Parameters {
+				if parameter.DefaultValue == nil {
+					required++
+				}
+			}
+			if len(args) >= required && len(args) <= len(owner.Parameters) {
+				return r.callMethodEvaluatedWithPlan(owner, nil, args, nil, r.planForMethod(owner))
+			}
+		}
 
 		// Optimize: Check simple map lookup
 		if handler, ok := r.NativeHandlers[className]; ok {

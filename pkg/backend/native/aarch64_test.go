@@ -2,12 +2,33 @@ package native_test
 
 import (
 	"encoding/binary"
+	"runtime"
 	"strings"
 	"testing"
 
 	backend "github.com/jossecurity/joss/pkg/backend/native"
 	"github.com/jossecurity/joss/pkg/ir"
 )
+
+func TestARM64_JITExecutesSharedEmitterOutput(t *testing.T) {
+	if runtime.GOARCH != "arm64" {
+		t.Skip("ARM64 in-memory JIT requires an ARM64 host")
+	}
+	program := ir.NewProgram("arm64_jit_return")
+	main := ir.NewFunction("main", ir.TypeI64)
+	main.EntryBlock.SetTerminator(&ir.ReturnTerminator{Val: ir.NewConstInt(42, ir.TypeI64)})
+	program.AddFunction(main)
+
+	emitter := backend.NewARM64Builder(backend.HostTarget(), false)
+	executable, err := emitter.CompileInMemory(program)
+	if err != nil {
+		t.Fatalf("CompileInMemory() error = %v", err)
+	}
+	defer executable.Free()
+	if got, err := executable.Execute(); err != nil || got != 42 {
+		t.Fatalf("ARM64 JIT Execute() = (%d, %v), want (42, nil)", got, err)
+	}
+}
 
 func TestARM64_HelloWorld_InstructionsAndELF(t *testing.T) {
 	prog := ir.NewProgram("hello_arm64")
@@ -336,13 +357,6 @@ func TestARM64_FloatingPoint_TryCatch_And_GranDB(t *testing.T) {
 	catchBlock := &ir.BasicBlock{Label: "catch_body"}
 	excTemp := fnMain.NewTemp(ir.TypeString, "err")
 
-	tTable := fnMain.NewTemp(ir.TypeI64, "tbl")
-	tryBlock.AddInstruction(&ir.CallHostServiceInst{
-		Dest:       tTable,
-		ClassName:  "GranDB",
-		MethodName: "table",
-		Args:       []ir.Value{ir.NewConstString("users")},
-	})
 	tryBlock.AddInstruction(&ir.ThrowInst{Val: ir.NewConstString("boom")})
 
 	catchBlock.AddInstruction(&ir.CallInst{
@@ -353,6 +367,7 @@ func TestARM64_FloatingPoint_TryCatch_And_GranDB(t *testing.T) {
 	fnMain.EntryBlock.AddInstruction(&ir.TryCatchInst{
 		ID:          1,
 		TryBlocks:   []*ir.BasicBlock{tryBlock},
+		CatchVar:    "err",
 		CatchBlocks: []*ir.BasicBlock{catchBlock},
 		CatchVarPtr: excTemp,
 	})
@@ -367,7 +382,7 @@ func TestARM64_FloatingPoint_TryCatch_And_GranDB(t *testing.T) {
 		builder := backend.NewARM64Builder(target, false)
 		binBytes, asmListing, err := builder.Compile(prog)
 		if err != nil {
-			t.Fatalf("ARM64Builder.Compile(%s) falló en FP/TryCatch/GranDB: %v", target, err)
+			t.Fatalf("ARM64Builder.Compile(%s) falló en FP/TryCatch: %v", target, err)
 		}
 		if len(binBytes) < 4096 {
 			t.Fatalf("Binario(%s) demasiado pequeño: %d", target, len(binBytes))
@@ -386,7 +401,7 @@ func TestARM64_FloatingPoint_TryCatch_And_GranDB(t *testing.T) {
 	}
 }
 
-func TestARM64_GranDB_MultiDialect_QueryBuilder(t *testing.T) {
+func TestARM64_RejectsUnownedGranDBHostServices(t *testing.T) {
 	prog := ir.NewProgram("grandb_arm64")
 	fnMain := ir.NewFunction("main", ir.TypeI64)
 
@@ -427,39 +442,9 @@ func TestARM64_GranDB_MultiDialect_QueryBuilder(t *testing.T) {
 		{OS: "windows", Arch: "arm64"},
 	} {
 		builder := backend.NewARM64Builder(target, false)
-		binBytes, asmListing, err := builder.Compile(prog)
-		if err != nil {
-			t.Fatalf("ARM64Builder.Compile(%s) falló en GranDB MultiDialect: %v", target, err)
+		if _, _, err := builder.Compile(prog); err == nil || !strings.Contains(err.Error(), "JOSS-NATIVE-001") || !strings.Contains(err.Error(), "GranDB::table") {
+			t.Errorf("ARM64 %s must reject direct GranDB host shims without a Joss owner, got %v", target, err)
 		}
-		if len(binBytes) < 4096 {
-			t.Fatalf("Binario ARM64(%s) demasiado pequeño: %d", target, len(binBytes))
-		}
-
-		switch target.OS {
-		case "linux":
-			if string(binBytes[0:4]) != "\x7fELF" {
-				t.Errorf("Cabecera ELF inválida en %s", target)
-			}
-			eMachine := binary.LittleEndian.Uint16(binBytes[18:20])
-			if eMachine != 0x00B7 {
-				t.Errorf("e_machine esperado 0x00B7 (EM_AARCH64), obtenido 0x%04X", eMachine)
-			}
-		case "darwin":
-			magic := binary.LittleEndian.Uint32(binBytes[0:4])
-			if magic != 0xfeedfacf {
-				t.Errorf("Mach-O magic inválido en %s: 0x%08X", target, magic)
-			}
-		case "windows":
-			if string(binBytes[0:2]) != "MZ" {
-				t.Errorf("Cabecera MZ inválida para windows/arm64")
-			}
-			machine := binary.LittleEndian.Uint16(binBytes[0x44:0x46])
-			if machine != 0xAA64 {
-				t.Errorf("PE Machine esperado 0xAA64 (IMAGE_FILE_MACHINE_ARM64), obtenido 0x%04X", machine)
-			}
-		}
-
-		_ = asmListing
 	}
 }
 
@@ -473,6 +458,12 @@ func TestARM64_ServerStart_FullEmission(t *testing.T) {
 	})
 	fnMain.EntryBlock.SetTerminator(&ir.ReturnTerminator{Val: ir.NewConstInt(0, ir.TypeI64)})
 	prog.AddFunction(fnMain)
+	httpStart := ir.NewFunction("HttpServer_start", ir.TypeI64)
+	loop := httpStart.NewBlock("server_accept_loop")
+	httpStart.EntryBlock.SetTerminator(&ir.JumpTerminator{Target: loop})
+	loop.AddInstruction(&ir.CallHostServiceInst{ClassName: "Socket", MethodName: "listen", Args: []ir.Value{ir.NewConstString("0.0.0.0"), ir.NewConstInt(80, ir.TypeI64)}})
+	loop.SetTerminator(&ir.JumpTerminator{Target: loop})
+	prog.AddFunction(httpStart)
 
 	for _, target := range []backend.Target{
 		{OS: "linux", Arch: "arm64"},
@@ -481,17 +472,23 @@ func TestARM64_ServerStart_FullEmission(t *testing.T) {
 	} {
 		builder := backend.NewARM64Builder(target, false)
 		binBytes, asmListing, err := builder.Compile(prog)
+		if target.OS == "windows" {
+			if err == nil || !strings.Contains(err.Error(), "JOSS-NATIVE-001") || !strings.Contains(err.Error(), "Socket::listen") {
+				t.Errorf("Windows ARM64 must report its missing socket ABI explicitly, got %v", err)
+			}
+			continue
+		}
 		if err != nil {
 			t.Fatalf("ARM64Builder.Compile(%s) falló con Server.start: %v", target, err)
 		}
 		if len(binBytes) < 4096 {
 			t.Fatalf("Binario ARM64(%s) demasiado pequeño: %d", target, len(binBytes))
 		}
-		if !strings.Contains(asmListing, "fn_Server_start:") {
+		if !strings.Contains(asmListing, "fn_Server_start:") || !strings.Contains(asmListing, "fn_HttpServer_start:") {
 			t.Errorf("asmListing(%s) no contiene la etiqueta fn_Server_start", target)
 		}
-		if !strings.Contains(asmListing, ".srv_accept_loop:") {
-			t.Errorf("asmListing(%s) no contiene el bucle de accept de servidor nativo", target)
+		if !strings.Contains(asmListing, "server_accept_loop") {
+			t.Errorf("asmListing(%s) no contiene el bucle de aceptación Joss", target)
 		}
 	}
 }

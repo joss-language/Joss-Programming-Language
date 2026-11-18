@@ -56,6 +56,7 @@ necesites. Véase [tipos](SISTEMA_TIPOS.md) y [sintaxis](SINTAXIS.md).
 | `array_column(array,clave)` | Valores de esa clave en elementos map; omite otros elementos/claves ausentes. | `array_column([{"id":1}],"id")` |
 | `in_array(valor,array)` | Bool; en arrays Joss admite igualdad profunda o textual. | `in_array(1,["1"])` → true |
 | `array_key_exists(clave,map)` | Bool de existencia; no confundir con valor no nulo. | `array_key_exists("a",{"a":null})` |
+| `map_delete(map, clave)` | Elimina una clave del mapa compartido; no hace nada si el mapa es null o la clave no existe. | `map_delete($datos, "temporal")` |
 | `map(array, closure)` | Retorna un nuevo array aplicando `closure` a cada elemento. | `map([1,2], func(int $x): int { return $x * 2 })` |
 | `filter(array, closure)` | Retorna un nuevo array con los elementos donde `closure` devuelva verdadero. | `filter([1,2,3], func(int $x): bool { return $x > 1 })` |
 | `sum(array)` | Suma numérica de los elementos; conserva `decimal`, verifica overflow entero y rechaza mezclar `float` con `decimal` (`JOSS-ARITH-003`). | `sum([10, 20, 30])` → 60 |
@@ -66,6 +67,11 @@ necesites. Véase [tipos](SISTEMA_TIPOS.md) y [sintaxis](SINTAXIS.md).
 |---|---|---|
 | `print(valores...)`, `echo(valores...)` | Imprimen cada argumento con salto de línea; retorno null. | `print("Hola")` |
 | `printf(formato,valores...)` | Formato Go, sin salto implícito; retorno null. | `printf("%s: %d\\n","Edad",20)` |
+
+<!-- joss-run: ["<nil>"] -->
+```joss
+echo null;
+```
 | `strlen(texto)` | Cantidad de puntos Unicode; null da 0. | `strlen("é")` → 1 |
 | `str_contains(texto,parte)` | Bool; requiere dos strings. | `str_contains("casa","as")` |
 | `str_starts_with(texto,prefijo)` | Bool de prefijo. | `str_starts_with("abc","a")` |
@@ -103,7 +109,7 @@ como emojis compuestos, consulta [unidades de texto](COLECCIONES.md).
 | `time()` | Segundos Unix como entero. | `time()` |
 | `microtime([comoFloat])` | Con true, float en segundos; por defecto texto "fraccion segundos". | `microtime(true)` |
 | `date([formato,timestamp])` | Texto; por defecto Y-m-d H:i:s y hora actual. Timestamp admite número, texto o valor time.Time del host. | `date("Y-m-d",0)` |
-| `now([formato])` | Texto con fecha local; formato predeterminado `Y-m-d H:i:s`. Los desplazamientos y abreviaturas se leen desde TZif en Joss en Linux/macOS; Windows obtiene el desplazamiento del reloj del sistema y sintetiza `UTC±HH:MM` para el token `T`. | `now("H:i:s")` |
+| `now([formato[, días]])` | Texto con fecha local; formato predeterminado `Y-m-d H:i:s`. `días` desplaza la fecha conservando la hora local, incluso al cruzar cambios de horario estacional. Los desplazamientos y abreviaturas se leen desde TZif en Joss en Linux/macOS; Windows obtiene el desplazamiento del reloj del sistema y sintetiza `UTC±HH:MM` para el token `T`. | `now("H:i:s", 2)` |
 | `strtotime(texto,[base])` | Entero Unix o null si no reconoce el texto. Reconoce RFC3339 con zona explícita; las fechas sin zona se interpretan en la zona local de la base. Parser limitado de fechas y desplazamientos. | `strtotime("+1 day",0)` |
 | `sleep(segundos)`, `usleep(microsegundos)` | Bloquean la tarea actual; retorno null. sleep admite fracciones float. | `sleep(0.01)` |
 

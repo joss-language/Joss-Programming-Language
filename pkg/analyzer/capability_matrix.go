@@ -421,7 +421,8 @@ func IsNativeSupported(feature string) bool {
 
 // FormatCapabilityError formats the standardized diagnostic message when a language feature
 // is supported by the language/semantic model and interpreter/server but not currently supported
-// by the native compiler lowering.
+// by the native compiler lowering. joss run selects JIT by default, so the interpreter oracle
+// must be requested explicitly when this feature gap is encountered.
 func FormatCapabilityError(feature string) string {
-	return fmt.Sprintf("[JOSS-NATIVE-001] [JOSS-NATIVE-CAPABILITY] Característica semántica no materializable en backend nativo:\n\nFeature:\n    %s\n\nLanguage:\n    supported\n\nInterpreter:\n    supported\n\nServer:\n    supported\n\nNative compiler:\n    not currently supported\n\nMotivo:\n    La característica existe y es válida en la semántica de Joss, pero el compilador nativo todavía no cuenta con la infraestructura física de runtime para materializarla.\n\nSugerencia: Ejecute el programa con 'joss run' para ejecución interpretada.", feature)
+	return fmt.Sprintf("[JOSS-NATIVE-001] [JOSS-NATIVE-CAPABILITY] Característica semántica no materializable en backend nativo:\n\nFeature:\n    %s\n\nLanguage:\n    supported\n\nInterpreter:\n    supported\n\nServer:\n    supported\n\nNative compiler:\n    not currently supported\n\nMotivo:\n    La característica existe y es válida en la semántica de Joss, pero el compilador nativo todavía no cuenta con la infraestructura física de runtime para materializarla.\n\nSugerencia: Para usar el intérprete de referencia, ejecute 'joss run' con JOSS_NO_JIT=1.", feature)
 }

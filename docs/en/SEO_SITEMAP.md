@@ -4,17 +4,22 @@
 
 SEO prepares tags for search engines and networks. A sitemap lists URLs that a
 search engine can visit; it does not by itself improve the quality or authorization of a page.
+The `SEO::*` operations and rendering live in `std/http/seo_host.joss`. Their
+data is stored in the current request map, with no global state shared between
+requests. The native backend emits only generic IR operations.
 
+<!-- joss-check: Requiere una petición HTTP activa para conservar el contexto SEO -->
 ```joss
 SEO::title("Productos")
 SEO::description("Catálogo")
 SEO::keywords(["joss", "productos"])
 SEO::canonical("https://example.com/products")
 SEO::og("image", "https://example.com/cover.png")
-$tags = SEO::render()
+var $tags = SEO::render()
 ```
 
 There is also `SEO::meta($name, $content)`. The output escapes HTML attributes and adds a default Twitter card.
+For `SEO::og`, pass the property with or without the prefix (for example, `image` or `og:image`); Joss ensures there is only one `og:` when rendering.
 
 ## Dynamic Sitemap Generation (`/sitemap.xml`)
 

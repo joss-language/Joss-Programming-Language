@@ -1,3 +1,8 @@
+private func __joss_empty_request_session(): map {
+    return {
+}
+}
+
 public class HttpServer {
     public static func start(): void {
         var $portStr = env("PORT")
@@ -122,7 +127,8 @@ public class HttpServer {
                 return "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
             }
             $client->send(WebSocketProtocol::handshakeResponse($secKey))
-            __joss_http_dispatch("__websocket__", $path, $client)
+            map $websocketSession = __joss_empty_request_session()
+            __joss_http_dispatch("__websocket__", $path, $client, $websocketSession, "")
             return "__JOSS_WEBSOCKET_HANDLED__"
         }
 

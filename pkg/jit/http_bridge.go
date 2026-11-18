@@ -352,6 +352,14 @@ func handleJson(args ...uintptr) uintptr {
 	return nativeString(string(b))
 }
 
+func handleJsonDecode(args ...uintptr) uintptr {
+	if len(args) == 0 || args[0] == 0 {
+		return 0
+	}
+	decoded := core.JsonDecode(readCString(args[0]))
+	return uintptr(nativeValue(decoded))
+}
+
 func handleStrContains(args ...uintptr) uintptr {
 	if len(args) < 2 {
 		return 0
@@ -458,6 +466,8 @@ func init() {
 	RegisterHostBridgeHandler("System::Run", handleSystemRun)
 	RegisterHostBridgeHandler("json", handleJson)
 	RegisterHostBridgeHandler("fn_json", handleJson)
+	RegisterHostBridgeHandler("json_decode", handleJsonDecode)
+	RegisterHostBridgeHandler("fn_json_decode", handleJsonDecode)
 	RegisterHostBridgeHandler("str_contains", handleStrContains)
 	RegisterHostBridgeHandler("fn_str_contains", handleStrContains)
 	RegisterHostBridgeHandler("str_replace", handleStrReplace)

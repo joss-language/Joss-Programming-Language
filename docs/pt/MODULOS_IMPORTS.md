@@ -40,7 +40,11 @@ O Joss inclui uma biblioteca padrão escrita no próprio Joss localizada no dire
    - `MathUtils::sign(int $n): int`: Retorna `1` se positivo, `-1` se negativo e `0` se zero.
    - `MathUtils::gcd(int $a, int $b): int`: Calcula o máximo divisor comum de dois inteiros usando o algoritmo de Euclides.
 
+   A classe integrada `Math` mantém métodos como `Math::ceil(float $val): float`. No backend nativo, `Math::ceil` é vinculado à implementação canônica em Joss para que JIT e AOT compartilhem a mesma semântica.
+
 2. **Funções globais de texto (`std/strings/strings.joss`):** `strlen`, `str_contains`, `str_starts_with`, `str_ends_with`, `str_replace`, `strtolower`, `strtoupper`, `trim`, `substr`, `strpos`, `str_pad`, `str_repeat`, `explode`, `implode` e `str_random`. Consulte [Funções globais](FUNCIONES_GLOBALES.md#texto-y-formato) para o contrato completo.
+
+3. **Sistema (`std/system/system.joss`):** `System::log` mantém o prefixo `[System Log]`; `System::now([días])` delega para `now()` da biblioteca Joss. Ambos usam funções canônicas compartilhadas pelo JIT e pelo AOT.
 
 ### Exemplo de uso
 

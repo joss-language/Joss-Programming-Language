@@ -1,19 +1,30 @@
-# Datos y modelos con GranDB
+# Dados e modelos com GranDB
 
 [Índice](README.md) · Antes: [mapas](COLECCIONES.md), [configuración](CONFIGURACION.md) · Después: [migraciones](MIGRACIONES.md)
 
-Una base de datos conserva registros organizados en tablas. Cada fila representa
-un registro; cada columna, un dato como nombre o precio. GranDB construye SQL
-mediante llamadas encadenadas: los filtros preparan la consulta y una operación
-como `get()` la ejecuta. Su API se inspira en query builders conocidos; **no
-es una implementación completa de Laravel Eloquent**. Cuando una clase hereda
-`Model`, la misma infraestructura hidrata instancias con estado y casts.
+Um banco de dados armazena registros organizados em tabelas. Cada linha
+representa um registro; cada coluna contém um valor como nome ou preço. GranDB
+monta SQL por meio de chamadas encadeadas: os filtros preparam a consulta e uma
+operação como `get()` a executa. Sua API se inspira em query builders conhecidos;
+**não é uma implementação completa do Laravel Eloquent**. Uma classe que herda
+`Model` usa a mesma infraestrutura para hidratar instâncias com estado e casts.
+
+### Segurança das consultas
+
+GranDB envia valores como parâmetros vinculados. Nomes de tabelas, colunas, joins
+e ordenação são validados como identificadores antes de montar SQL. `select()`
+aceita uma string de identificadores separados por vírgulas ou um array de nomes
+de colunas, além de `*` e das agregações `COUNT`, `SUM`, `AVG`, `MIN` e `MAX`;
+expressões SQL arbitrárias são rejeitadas nesses campos. `update()`,
+`delete()`, `increment()` e `decrement()` exigem filtros e falham antes de
+executar uma consulta sem filtro.
 
 ## Model ORM
 
-Un modelo declara configuración mediante propiedades protegidas con valores
-literales. La metadata se calcula una vez por clase. Por seguridad, la asignación
-masiva queda bloqueada por defecto: declara `fillable` o configura `guarded`.
+Um modelo declara sua configuração por meio de propriedades protegidas com
+valores literais. Os metadados são calculados uma vez por classe. A atribuição
+em massa fica bloqueada por padrão por segurança: declare `fillable` ou
+configure `guarded`.
 
 <!-- joss-check: requiere tabla users y conexión configurada -->
 ```joss
@@ -141,7 +152,7 @@ registrados están enumerados en el [catálogo](CATALOGO_NATIVO.md).
 | Método y argumentos | Efecto |
 |---|---|
 | `table(nombre)` | Selecciona tabla y reinicia estado de lectura. |
-| `select(stringOArray)`, `distinct()` | Columnas o expresión SQL de confianza; filas distintas. |
+| `select(string|array<string>)`, `distinct()` | Colunas; linhas distintas. |
 | `where(col,valor)`, `where(col,op,valor)`, `orWhere(...)` | Compara con valores ligados como parámetros. |
 | `where(callback)` | Agrupa filtros del callback, que recibe un GranDB. |
 | `whereColumn(a,[op,]b)`, `orWhereColumn` | Compara columnas. |

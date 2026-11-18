@@ -1,6 +1,7 @@
 package core
 
 import (
+	"net"
 	"path/filepath"
 	"testing"
 	"time"
@@ -107,6 +108,18 @@ $ok = true;
 }
 
 func TestNativeSocket(t *testing.T) {
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("local socket access is unavailable in this environment: %v", err)
+	}
+	connection, err := net.DialTimeout("tcp", probe.Addr().String(), 250*time.Millisecond)
+	if err != nil {
+		_ = probe.Close()
+		t.Skipf("local socket connections are unavailable in this environment: %v", err)
+	}
+	_ = connection.Close()
+	_ = probe.Close()
+
 	code := `
 $server = new Socket();
 $server->listen("127.0.0.1", "0");

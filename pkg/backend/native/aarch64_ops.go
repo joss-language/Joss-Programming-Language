@@ -282,6 +282,21 @@ func (b *ARM64Builder) emitFmovToGen(xd, dn uint32) {
 	b.asmListing.WriteString(fmt.Sprintf("    fmov x%d, d%d\n", xd, dn))
 }
 
+// FCVTZS xd, dn converts an IEEE-754 double to a signed integer by truncating
+// toward zero, matching the language's intval(float) behavior.
+func (b *ARM64Builder) emitFcvtzs(xd, dn uint32) {
+	inst := uint32(0x9E780000) | (dn << 5) | xd
+	b.emitInst(inst)
+	b.asmListing.WriteString(fmt.Sprintf("    fcvtzs x%d, d%d\n", xd, dn))
+}
+
+// SCVTF dd, xn converts a signed integer to an IEEE-754 double.
+func (b *ARM64Builder) emitScvtf(dd, xn uint32) {
+	inst := uint32(0x9E620000) | (xn << 5) | dd
+	b.emitInst(inst)
+	b.asmListing.WriteString(fmt.Sprintf("    scvtf d%d, x%d\n", dd, xn))
+}
+
 // FADD dd, dn, dm
 func (b *ARM64Builder) emitFadd(dd, dn, dm uint32) {
 	inst := uint32(0x1E602800) | (dm << 16) | (dn << 5) | dd

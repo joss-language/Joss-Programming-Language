@@ -37,9 +37,9 @@ func HostTarget() Target {
 // SupportedTargets registra las plataformas y arquitecturas con soporte verificado en Joss.
 var SupportedTargets = map[string][]string{
 	"windows": {"amd64", "arm64"},
-	"linux":   {"amd64", "arm64", "arm"},
+	"linux":   {"amd64", "arm64"},
 	"darwin":  {"amd64", "arm64"},
-	"android": {"arm64", "arm"},
+	"android": {"arm64"},
 }
 
 // ParseTarget valida y normaliza un objetivo de compilación (ej. "windows-amd64", "linux-arm64", "linux", "macos").

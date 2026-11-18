@@ -20,7 +20,8 @@ type compiledViewEntry struct {
 
 // lowerProjectViewsAndRoutes scans app/views (if present in the working directory)
 // and routes.joss / api.joss in l.prep.Units to synthesize:
-//  1. __joss_http_dispatch(path): dispatches HTTP request paths to compiled native Controller_method functions
+//  1. __joss_http_dispatch(method, path, request, session, cookie): dispatches
+//     HTTP requests to compiled native Controller_method functions with their request context.
 //  2. __joss_view_<idx>(__data): compiled native IR functions for each reachable .joss.html template
 //  3. view(viewName, dataMap): dispatches viewName to the compiled view IR function
 func (l *Lowerer) lowerProjectViewsAndRoutes() error {
@@ -314,7 +315,8 @@ func (l *Lowerer) compileProjectViewsToIR(viewsRoot string) ([]compiledViewEntry
 }
 
 // PruneUnreachableFunctions eliminates functions in l.prog.Functions that are not reachable
-// from `main`, `__joss_http_dispatch`, or `view`.
+// from `main` or the server dispatch entrypoint. View and asset helpers are
+// retained only when called from those roots.
 func (l *Lowerer) PruneUnreachableFunctions() {
 	if l.prog == nil || len(l.prog.Functions) == 0 {
 		return
@@ -323,7 +325,7 @@ func (l *Lowerer) PruneUnreachableFunctions() {
 	reachable := make(map[string]bool)
 	var worklist []string
 
-	for _, root := range []string{"main", "__joss_http_dispatch", "view", "__joss_get_embedded_asset"} {
+	for _, root := range []string{"main", "__joss_http_dispatch"} {
 		if l.prog.Functions[root] != nil {
 			reachable[root] = true
 			worklist = append(worklist, root)
@@ -361,10 +363,11 @@ func (l *Lowerer) PruneUnreachableFunctions() {
 						}
 					}
 				case *CallHostServiceInst:
-					mName := i.ClassName + "_" + i.MethodName
-					if l.prog.Functions[mName] != nil && !reachable[mName] {
-						reachable[mName] = true
-						worklist = append(worklist, mName)
+					for _, mName := range []string{i.ClassName + "_" + i.MethodName, "__joss_host_" + i.ClassName + "_" + i.MethodName} {
+						if l.prog.Functions[mName] != nil && !reachable[mName] {
+							reachable[mName] = true
+							worklist = append(worklist, mName)
+						}
 					}
 					if i.ClassName == "View" && i.MethodName == "render" && l.prog.Functions["view"] != nil && !reachable["view"] {
 						reachable["view"] = true
@@ -400,6 +403,411 @@ func (l *Lowerer) PruneUnreachableFunctions() {
 		if !reachable[fnName] {
 			delete(l.prog.Functions, fnName)
 		}
+	}
+}
+
+// lowerRequestSessionContext threads request-local session state through the
+// ordinary IR call graph reachable from the synthesized HTTP dispatcher. This
+// avoids process globals and leaves ISA emitters with generic calls and maps.
+func (l *Lowerer) lowerRequestSessionContext() {
+	if l.prog == nil {
+		return
+	}
+	const dispatcherName = "__joss_http_dispatch"
+	const sessionOwner = "__joss_host_Session_get"
+	dispatcher := l.prog.Functions[dispatcherName]
+	contextType := PtrType(StructType("map", nil))
+	if dispatcher != nil && len(dispatcher.Params) >= 4 {
+		contextType = dispatcher.Params[3].Type()
+	}
+
+	// Find functions reachable from HTTP route dispatch.
+	reachable := make(map[string]bool)
+	callEdges := make(map[string]map[string]bool)
+	requiresSession := make(map[string]bool)
+	worklist := []string(nil)
+	if dispatcher != nil {
+		reachable[dispatcherName] = true
+		worklist = append(worklist, dispatcherName)
+	}
+	var scanBlocks func(string, []*BasicBlock)
+	scanBlocks = func(caller string, blocks []*BasicBlock) {
+		for _, block := range blocks {
+			for _, instruction := range block.Instructions {
+				callee := ""
+				switch call := instruction.(type) {
+				case *CallInst:
+					callee = call.Callee
+				case *CallBuiltinInst:
+					if call.BuiltinID == "view" && l.prog.Functions["view"] != nil {
+						callee = "view"
+					}
+				case *CallHostServiceInst:
+					if call.ClassName == "Session" && (call.MethodName == "get" || call.MethodName == "put" || call.MethodName == "has" || call.MethodName == "forget") {
+						requiresSession[caller] = true
+					}
+					for _, candidate := range []string{call.ClassName + "_" + call.MethodName, "__joss_host_" + call.ClassName + "_" + call.MethodName} {
+						if l.prog.Functions[candidate] != nil {
+							callee = candidate
+							break
+						}
+					}
+				case *TryCatchInst:
+					scanBlocks(caller, call.TryBlocks)
+					scanBlocks(caller, call.CatchBlocks)
+				}
+				if callee != "" && l.prog.Functions[callee] != nil && !reachable[callee] {
+					reachable[callee] = true
+					worklist = append(worklist, callee)
+				}
+				if callee != "" && l.prog.Functions[callee] != nil {
+					if callEdges[caller] == nil {
+						callEdges[caller] = make(map[string]bool)
+					}
+					callEdges[caller][callee] = true
+				}
+				for _, value := range instruction.Operands() {
+					if fnPtr, ok := value.(*ConstFnPtr); ok && l.prog.Functions[fnPtr.FnName] != nil && !reachable[fnPtr.FnName] {
+						reachable[fnPtr.FnName] = true
+						worklist = append(worklist, fnPtr.FnName)
+					}
+					if fnPtr, ok := value.(*ConstFnPtr); ok && l.prog.Functions[fnPtr.FnName] != nil {
+						if callEdges[caller] == nil {
+							callEdges[caller] = make(map[string]bool)
+						}
+						callEdges[caller][fnPtr.FnName] = true
+					}
+				}
+			}
+		}
+	}
+	for len(worklist) > 0 {
+		name := worklist[0]
+		worklist = worklist[1:]
+		if fn := l.prog.Functions[name]; fn != nil {
+			scanBlocks(name, fn.Blocks)
+		}
+	}
+
+	// Add the hidden parameter only to route functions that use Session or call
+	// another function that does. Unrelated controller/helpers keep their ABI.
+	contextual := make(map[string]bool, len(requiresSession))
+	for name := range requiresSession {
+		contextual[name] = true
+	}
+	changed := true
+	for changed {
+		changed = false
+		for caller, callees := range callEdges {
+			if contextual[caller] {
+				continue
+			}
+			for callee := range callees {
+				if contextual[callee] {
+					contextual[caller] = true
+					changed = true
+					break
+				}
+			}
+		}
+	}
+	for name := range contextual {
+		if name == dispatcherName || name == sessionOwner || strings.HasPrefix(name, "__joss_host_Session_") {
+			delete(contextual, name)
+			continue
+		}
+		fn := l.prog.Functions[name]
+		if fn == nil {
+			continue
+		}
+		fn.AddParam("__request_session_context", contextType)
+		fn.Attributes["request_session_context"] = "true"
+		contextual[name] = true
+	}
+
+	contextFor := func(fn *Function) Value {
+		if dispatcher != nil && fn.Name == dispatcherName {
+			return dispatcher.Params[3]
+		}
+		if fn.Attributes["request_session_context"] == "true" {
+			for _, param := range fn.Params {
+				if param.Name == "__request_session_context" {
+					return param
+				}
+			}
+		}
+		return NewConstNull(contextType)
+	}
+	var rewriteBlocks func(*Function, []*BasicBlock)
+	rewriteBlocks = func(fn *Function, blocks []*BasicBlock) {
+		for _, block := range blocks {
+			instructions := make([]Instruction, 0, len(block.Instructions))
+			for _, instruction := range block.Instructions {
+				switch call := instruction.(type) {
+				case *CallInst:
+					if contextual[call.Callee] {
+						call.Args = append(call.Args, contextFor(fn))
+					}
+				case *CallBuiltinInst:
+					if call.BuiltinID == "view" && contextual["view"] {
+						args := append([]Value(nil), call.Args...)
+						args = append(args, contextFor(fn))
+						instructions = append(instructions, &CallInst{Dest: call.Dest, Callee: "view", Args: args})
+						continue
+					}
+				case *CallHostServiceInst:
+					if call.ClassName == "Session" && (call.MethodName == "get" || call.MethodName == "put" || call.MethodName == "has" || call.MethodName == "forget") {
+						owner := "__joss_host_Session_" + call.MethodName
+						if l.prog.Functions[owner] == nil {
+							instructions = append(instructions, instruction)
+							continue
+						}
+						args := []Value{contextFor(fn)}
+						args = append(args, call.Args...)
+						instructions = append(instructions, &CallInst{Dest: call.Dest, Callee: owner, Args: args})
+						continue
+					}
+				case *TryCatchInst:
+					rewriteBlocks(fn, call.TryBlocks)
+					rewriteBlocks(fn, call.CatchBlocks)
+				}
+				instructions = append(instructions, instruction)
+			}
+			block.Instructions = instructions
+		}
+	}
+	for _, fn := range l.prog.Functions {
+		rewriteBlocks(fn, fn.Blocks)
+	}
+}
+
+// lowerRequestSEOContext keeps SEO metadata in the request map and threads it
+// through only the HTTP call graph that touches SEO. Product formatting remains
+// in std/http/seo_host.joss; emitters implement only generic map/string ops.
+func (l *Lowerer) lowerRequestSEOContext() {
+	if l.prog == nil {
+		return
+	}
+	const dispatcherName = "__joss_http_dispatch"
+	dispatcher := l.prog.Functions[dispatcherName]
+	if dispatcher == nil || len(dispatcher.Params) < 3 {
+		return
+	}
+	contextType := dispatcher.Params[2].Type()
+	seoOwner := func(call *CallHostServiceInst) string {
+		method := call.MethodName
+		if method == "keywords" && len(call.Args) > 0 && call.Args[0].Type().Kind == TypeKindArray && l.prog.Functions["__joss_host_SEO_keywords_array"] != nil {
+			return "__joss_host_SEO_keywords_array"
+		}
+		return "__joss_host_SEO_" + method
+	}
+	seoRuntimeOwner := func(name string) string {
+		name = strings.TrimPrefix(name, "fn_")
+		method := ""
+		switch {
+		case strings.HasPrefix(name, "SEO_"):
+			method = strings.TrimPrefix(name, "SEO_")
+		case strings.HasPrefix(name, "SEO::"):
+			method = strings.TrimPrefix(name, "SEO::")
+		default:
+			return ""
+		}
+		switch method {
+		case "title", "description", "keywords", "canonical", "og", "meta", "render":
+			return "__joss_host_SEO_" + method
+		default:
+			return ""
+		}
+	}
+	contextual := make(map[string]bool)
+	edges := make(map[string]map[string]bool)
+	worklist := []string{dispatcherName}
+	reachable := map[string]bool{dispatcherName: true}
+	var scan func(string, []*BasicBlock)
+	scan = func(caller string, blocks []*BasicBlock) {
+		for _, block := range blocks {
+			for _, instruction := range block.Instructions {
+				callee := ""
+				switch call := instruction.(type) {
+				case *CallInst:
+					callee = call.Callee
+					if owner := seoRuntimeOwner(call.Callee); owner != "" && l.prog.Functions[owner] != nil {
+						contextual[caller] = true
+						callee = owner
+					}
+				case *CallBuiltinInst:
+					if call.BuiltinID == "view" && l.prog.Functions["view"] != nil {
+						callee = "view"
+					} else if call.BuiltinID == "SEO_render" && l.prog.Functions["__joss_host_SEO_render"] != nil {
+						contextual[caller] = true
+						callee = "__joss_host_SEO_render"
+					}
+				case *CallRuntimeInst:
+					if owner := seoRuntimeOwner(call.Func); owner != "" && l.prog.Functions[owner] != nil {
+						contextual[caller] = true
+						callee = owner
+					}
+				case *CallHostServiceInst:
+					if call.ClassName == "SEO" && (call.MethodName == "title" || call.MethodName == "description" || call.MethodName == "keywords" || call.MethodName == "canonical" || call.MethodName == "og" || call.MethodName == "meta" || call.MethodName == "render") {
+						contextual[caller] = true
+						callee = seoOwner(call)
+					}
+				case *TryCatchInst:
+					scan(caller, call.TryBlocks)
+					scan(caller, call.CatchBlocks)
+				}
+				if callee != "" && l.prog.Functions[callee] != nil {
+					if !reachable[callee] {
+						reachable[callee] = true
+						worklist = append(worklist, callee)
+					}
+					if edges[caller] == nil {
+						edges[caller] = make(map[string]bool)
+					}
+					edges[caller][callee] = true
+				}
+				for _, value := range instruction.Operands() {
+					if ptr, ok := value.(*ConstFnPtr); ok && l.prog.Functions[ptr.FnName] != nil {
+						if !reachable[ptr.FnName] {
+							reachable[ptr.FnName] = true
+							worklist = append(worklist, ptr.FnName)
+						}
+						if edges[caller] == nil {
+							edges[caller] = make(map[string]bool)
+						}
+						edges[caller][ptr.FnName] = true
+					}
+				}
+			}
+		}
+	}
+	for len(worklist) > 0 {
+		name := worklist[0]
+		worklist = worklist[1:]
+		if fn := l.prog.Functions[name]; fn != nil {
+			scan(name, fn.Blocks)
+		}
+	}
+	changed := true
+	for changed {
+		changed = false
+		for caller, callees := range edges {
+			if contextual[caller] {
+				continue
+			}
+			for callee := range callees {
+				if contextual[callee] {
+					contextual[caller] = true
+					changed = true
+					break
+				}
+			}
+		}
+	}
+	delete(contextual, dispatcherName)
+	delete(contextual, "__joss_host_SEO_title")
+	for name := range contextual {
+		if fn := l.prog.Functions[name]; fn != nil {
+			fn.AddParam("__request_seo_context", contextType)
+			fn.Attributes["request_seo_context"] = "true"
+		}
+	}
+	contextFor := func(fn *Function) Value {
+		if fn.Name == dispatcherName {
+			return dispatcher.Params[2]
+		}
+		if fn.Attributes["request_seo_context"] == "true" {
+			for _, param := range fn.Params {
+				if param.Name == "__request_seo_context" {
+					return param
+				}
+			}
+		}
+		return NewConstNull(contextType)
+	}
+	var rewrite func(*Function, []*BasicBlock)
+	rewrite = func(fn *Function, blocks []*BasicBlock) {
+		for _, block := range blocks {
+			items := make([]Instruction, 0, len(block.Instructions))
+			for _, instruction := range block.Instructions {
+				switch call := instruction.(type) {
+				case *CallInst:
+					if owner := seoRuntimeOwner(call.Callee); owner != "" && l.prog.Functions[owner] != nil {
+						args := []Value{contextFor(fn)}
+						args = append(args, call.Args...)
+						items = append(items, &CallInst{Dest: call.Dest, Callee: owner, Args: args})
+						continue
+					}
+					if contextual[call.Callee] {
+						call.Args = append(call.Args, contextFor(fn))
+					}
+				case *CallBuiltinInst:
+					if call.BuiltinID == "view" && contextual["view"] {
+						args := append([]Value(nil), call.Args...)
+						args = append(args, contextFor(fn))
+						items = append(items, &CallInst{Dest: call.Dest, Callee: "view", Args: args})
+						continue
+					}
+					if call.BuiltinID == "SEO_render" && l.prog.Functions["__joss_host_SEO_render"] != nil {
+						items = append(items, &CallInst{Dest: call.Dest, Callee: "__joss_host_SEO_render", Args: []Value{contextFor(fn)}})
+						continue
+					}
+				case *CallRuntimeInst:
+					if owner := seoRuntimeOwner(call.Func); owner != "" && l.prog.Functions[owner] != nil {
+						args := []Value{contextFor(fn)}
+						args = append(args, call.Args...)
+						items = append(items, &CallInst{Dest: call.Dest, Callee: owner, Args: args})
+						continue
+					}
+				case *CallHostServiceInst:
+					owner := seoOwner(call)
+					if call.ClassName == "SEO" && l.prog.Functions[owner] != nil {
+						args := []Value{contextFor(fn)}
+						args = append(args, call.Args...)
+						items = append(items, &CallInst{Dest: call.Dest, Callee: owner, Args: args})
+						continue
+					}
+				case *TryCatchInst:
+					rewrite(fn, call.TryBlocks)
+					rewrite(fn, call.CatchBlocks)
+				}
+				items = append(items, instruction)
+			}
+			block.Instructions = items
+		}
+	}
+	for _, fn := range l.prog.Functions {
+		rewrite(fn, fn.Blocks)
+	}
+}
+
+// lowerGenericCollectionBuiltins converts map deletion into a canonical IR
+// operation so the interpreter and each native sink share the same Joss-level
+// policy while the emitters only implement the map representation operation.
+func (l *Lowerer) lowerGenericCollectionBuiltins() {
+	if l.prog == nil {
+		return
+	}
+	var rewrite func([]*BasicBlock)
+	rewrite = func(blocks []*BasicBlock) {
+		for _, block := range blocks {
+			instructions := make([]Instruction, 0, len(block.Instructions))
+			for _, instruction := range block.Instructions {
+				if call, ok := instruction.(*CallBuiltinInst); ok && call.BuiltinID == "map_delete" && len(call.Args) == 2 {
+					instructions = append(instructions, &MapDeleteInst{Map: call.Args[0], Key: call.Args[1]})
+					continue
+				}
+				if nested, ok := instruction.(*TryCatchInst); ok {
+					rewrite(nested.TryBlocks)
+					rewrite(nested.CatchBlocks)
+				}
+				instructions = append(instructions, instruction)
+			}
+			block.Instructions = instructions
+		}
+	}
+	for _, function := range l.prog.Functions {
+		rewrite(function.Blocks)
 	}
 }
 
@@ -531,6 +939,8 @@ func (l *Lowerer) synthesizeHTTPDispatchFunction() error {
 	methodParam := fn.AddParam("method", TypeString)
 	pathParam := fn.AddParam("path", TypeString)
 	requestParam := fn.AddParam("request", PtrType(StructType("map", nil)))
+	fn.AddParam("session", PtrType(StructType("map", nil)))
+	fn.AddParam("cookieHeader", TypeString)
 	requestGlobal := l.prog.AddGlobal("__joss_request_params", requestParam.Type(), nil, false)
 	fn.EntryBlock.AddInstruction(&GlobalStoreInst{GlobalName: requestGlobal.Name, Val: requestParam})
 

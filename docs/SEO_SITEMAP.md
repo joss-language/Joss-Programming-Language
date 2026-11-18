@@ -4,17 +4,22 @@
 
 SEO prepara etiquetas para buscadores y redes. Un sitemap enumera URLs que un
 buscador puede visitar; no mejora por sí solo la calidad o autorización de una página.
+Las operaciones `SEO::*` y el renderizado viven en `std/http/seo_host.joss`; sus
+datos se guardan en el mapa de la petición actual, sin estado global entre
+peticiones. El backend nativo solo emite operaciones genéricas del IR.
 
+<!-- joss-check: Requiere una petición HTTP activa para conservar el contexto SEO -->
 ```joss
 SEO::title("Productos")
 SEO::description("Catálogo")
 SEO::keywords(["joss", "productos"])
 SEO::canonical("https://example.com/products")
 SEO::og("image", "https://example.com/cover.png")
-$tags = SEO::render()
+var $tags = SEO::render()
 ```
 
 También existe `SEO::meta($name, $content)`. La salida escapa atributos HTML y agrega una Twitter card predeterminada.
+En `SEO::og`, pasa el nombre con o sin el prefijo (por ejemplo, `image` u `og:image`); Joss garantiza un solo `og:` al renderizar.
 
 ## Generación Dinámica de Sitemap (`/sitemap.xml`)
 

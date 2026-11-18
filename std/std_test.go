@@ -240,3 +240,30 @@ print(Auth::guest());
 		t.Fatalf("Auth check/guest = %q, want %q", got, want)
 	}
 }
+
+func TestPureJossJSONDecoderParsesNestedValuesAndEscapes(t *testing.T) {
+	source := `
+var $decoded = json_decode("{\"name\":\"Jos\\u0073\\u0021\",\"items\":[1,true,null,{\"emoji\":\"\\uD83D\\uDE80\"}],\"ratio\":1.25e2}");
+print(json_encode($decoded));
+print(json_encode(JSON::parse("{\"shared\":true}")));
+print(JSONDecoder::decode("[1,]") == null);
+print(JSONDecoder::decode("\"raw\ncontrol\"") == null);
+print(json_encode(json_decode(123)));
+`
+	result := mobile.RunDirect(source, 5000)
+	if !result.Success {
+		t.Fatalf("Pure Joss JSON decoder failed: %s; diagnostics: %#v", result.Error, result.Diagnostics)
+	}
+	if !strings.Contains(result.Stdout, `"name":"Joss!"`) || !strings.Contains(result.Stdout, `"emoji":"🚀"`) || !strings.Contains(result.Stdout, `"ratio":125`) {
+		t.Fatalf("decoded JSON did not preserve nested values/escapes: %s", result.Stdout)
+	}
+	if !strings.Contains(result.Stdout, `{"shared":true}`) {
+		t.Fatalf("JSON::parse did not use the shared Joss decoder: %s", result.Stdout)
+	}
+	if !strings.Contains(result.Stdout, "true") {
+		t.Fatalf("malformed JSON should decode to null: %s", result.Stdout)
+	}
+	if !strings.Contains(result.Stdout, "null") {
+		t.Fatalf("json_decode(non-string) should return null: %s", result.Stdout)
+	}
+}

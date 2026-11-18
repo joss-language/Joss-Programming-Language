@@ -390,6 +390,21 @@ func (r *Runtime) callBuiltinArray(name string, args []interface{}) (interface{}
 		}
 		return nil, true
 
+	case "map_delete":
+		if len(args) >= 2 {
+			key := fmt.Sprint(args[1])
+			switch m := args[0].(type) {
+			case map[string]interface{}:
+				delete(m, key)
+			default:
+				value := reflect.ValueOf(args[0])
+				if value.IsValid() && value.Kind() == reflect.Map && value.Type().Key().Kind() == reflect.String && !value.IsNil() {
+					value.SetMapIndex(reflect.ValueOf(key).Convert(value.Type().Key()), reflect.Value{})
+				}
+			}
+		}
+		return nil, true
+
 	case "array_shift":
 		if len(args) >= 1 {
 			if list, ok := args[0].([]interface{}); ok && len(list) > 0 {

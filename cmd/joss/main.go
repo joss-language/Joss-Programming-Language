@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 
@@ -388,31 +387,9 @@ func emitIRCommand(filename, outFile string) {
 		os.Exit(1)
 	}
 
-	routeFiles := []string{}
-	if _, err := os.Stat("routes.joss"); err == nil {
-		routeFiles = append(routeFiles, "routes.joss")
-	}
-	if _, err := os.Stat("api.joss"); err == nil {
-		routeFiles = append(routeFiles, "api.joss")
-	}
-	bCfg := LoadProjectBuildConfig()
-	reachGraph := semanticanalyzer.BuildReachabilityGraph(report.Prepared, semanticanalyzer.ReachabilityOptions{
-		Entrypoint:  filename,
-		KeepClasses: bCfg.KeepClasses,
-		KeepSymbols: bCfg.KeepSymbols,
-		RouteFiles:  routeFiles,
-	})
-	lowerer := ir.NewLowerer(report.Prepared, reachGraph)
-	progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
-	irProg, err := lowerer.LowerProgram(progName)
+	irProg, err := lowerPreparedProject(report.Prepared, filename)
 	if err != nil {
 		fmt.Printf("Error generando IR: %v\n", err)
-		os.Exit(1)
-	}
-
-	verifier := ir.NewVerifier()
-	if err := verifier.Verify(irProg); err != nil {
-		fmt.Printf("Error de verificación IR: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -539,6 +516,31 @@ func handleBuildCommand(args []string) {
 	}
 }
 
+// lowerPreparedProject is the single CLI entry to the canonical native IR
+// pipeline. It gives run, build, and emit-ir identical reachability inputs and
+// the same lowering/verifier behavior.
+func lowerPreparedProject(prepared *semanticanalyzer.PreparedProgram, filename string) (*ir.Program, error) {
+	routeFiles := make([]string, 0, 2)
+	for _, routeFile := range []string{"routes.joss", "api.joss"} {
+		if _, err := os.Stat(routeFile); err == nil {
+			routeFiles = append(routeFiles, routeFile)
+		}
+	}
+	buildConfig := LoadProjectBuildConfig()
+	reachability := semanticanalyzer.BuildReachabilityGraph(prepared, semanticanalyzer.ReachabilityOptions{
+		Entrypoint:  filename,
+		KeepClasses: buildConfig.KeepClasses,
+		KeepSymbols: buildConfig.KeepSymbols,
+		RouteFiles:  routeFiles,
+	})
+	name := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
+	return ir.LowerAndVerify(prepared, name, reachability)
+}
+
+func shouldAttemptJIT() bool {
+	return os.Getenv("JOSS_NO_JIT") == ""
+}
+
 func buildNativeProgram(filename, outExe, targetStr string, release, debug, trace, enableGUI bool, backendName string) (string, error) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		fmt.Printf("Error: archivo '%s' no encontrado.\n", filename)
@@ -585,37 +587,17 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	if trace {
 		fmt.Println("  [trace] 2. Generando Joss Native IR (Lowering)...")
 	}
-	routeFiles := []string{}
-	if _, err := os.Stat("routes.joss"); err == nil {
-		routeFiles = append(routeFiles, "routes.joss")
-	}
-	if _, err := os.Stat("api.joss"); err == nil {
-		routeFiles = append(routeFiles, "api.joss")
-	}
-	bCfg := LoadProjectBuildConfig()
-	reachGraph := semanticanalyzer.BuildReachabilityGraph(report.Prepared, semanticanalyzer.ReachabilityOptions{
-		Entrypoint:  filename,
-		KeepClasses: bCfg.KeepClasses,
-		KeepSymbols: bCfg.KeepSymbols,
-		RouteFiles:  routeFiles,
-	})
-	lowerer := ir.NewLowerer(report.Prepared, reachGraph)
-	progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
-	irProg, err := lowerer.LowerProgram(progName)
+	irProg, err := lowerPreparedProject(report.Prepared, filename)
 	if err != nil {
-		fmt.Printf("Error de compilación nativa AOT (Lowering): %v\n", err)
-		fmt.Println("Sugerencia: La compilación nativa AOT requiere que las características del programa cuenten con representación en Joss Native IR.")
-		return "", fmt.Errorf("error lowering IR: %w", err)
+		fmt.Printf("Error de compilación nativa AOT: %v\n", err)
+		return "", fmt.Errorf("error preparando IR: %w", err)
 	}
-
+	if err := native.ValidateAOTCapabilities(irProg, target); err != nil {
+		fmt.Printf("Error de capacidades AOT: %v\n", err)
+		return "", fmt.Errorf("capacidades AOT no disponibles: %w", err)
+	}
 	if trace {
-		fmt.Println("  [trace] 3. Verificando integridad de CFG y tipos en IR...")
-	}
-	verifier := ir.NewVerifier()
-	if err := verifier.Verify(irProg); err != nil {
-		fmt.Printf("Error de compilación nativa AOT (Verificación de IR): %v\n", err)
-		fmt.Println("Sugerencia: El IR generado contiene instrucciones o tipos no válidos para el backend nativo.")
-		return "", fmt.Errorf("error verificación IR: %w", err)
+		fmt.Println("  [trace] 3. IR validado; seleccionando destino del backend nativo...")
 	}
 
 	bKind := native.BackendAuto
@@ -712,35 +694,35 @@ func executeScript(filename string) {
 	}
 
 	// =========================================================================
-	// JIT Native In-Memory Execution (Unified Native JIT)
-	// Attempts compiling to machine code in RAM and running at native CPU speed.
-	// Falls back transparently to tree-walking interpreter if lowering encounters gaps.
-	// For web servers, canonical Pure Joss Standard Library executes directly in runtime.
+	// JIT and AOT use the same PreparedProgram-to-verified-IR pipeline. Server
+	// children go through this path too; the execution sink is the only intended
+	// difference. JOSS_NO_JIT remains an explicit interpreter-oracle switch.
 	// =========================================================================
-	isServerCmd := (len(os.Args) >= 2 && os.Args[1] == "server") || os.Getenv("JOSS_SERVER_MODE") == "1"
-	if !isServerCmd && os.Getenv("JOSS_NO_JIT") == "" && (runtime.GOARCH == "amd64" || runtime.GOARCH == "x86_64") {
-		lowerer := ir.NewLowerer(report.Prepared, nil)
-		progName := strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
-		if irProg, err := lowerer.LowerProgram(progName); err == nil {
-			verifier := ir.NewVerifier()
-			if err := verifier.Verify(irProg); err == nil {
-				mcBuilder := native.NewMachineCodeBuilder(native.HostTarget(), false)
-				if jitExe, err := mcBuilder.CompileInMemory(irProg); err == nil {
-					defer jitExe.Free()
-					exitCode, execErr := jitExe.Execute()
-					if execErr != nil {
-						_ = jitExe.Free()
-						fmt.Fprintf(os.Stderr, "JIT execution failed: %v\n", execErr)
-						os.Exit(1)
-					}
-					if exitCode != 0 {
-						_ = jitExe.Free()
-						os.Exit(exitCode)
-					}
-					return
+	if shouldAttemptJIT() {
+		irProg, irErr := lowerPreparedProject(report.Prepared, filename)
+		if irErr == nil {
+			emitter := native.SelectCodeEmitter(native.HostTarget(), false)
+			jitExe, jitErr := emitter.CompileInMemory(irProg)
+			if jitErr == nil {
+				defer jitExe.Free()
+				exitCode, execErr := jitExe.Execute()
+				if execErr != nil {
+					fmt.Fprintf(os.Stderr, "JIT execution failed: %v\n", execErr)
+					os.Exit(1)
 				}
+				if exitCode != 0 {
+					os.Exit(exitCode)
+				}
+				return
 			}
+			fmt.Fprintf(os.Stderr, "[Execution] JIT compilation failed; interpreter fallback is disabled: %v\n", jitErr)
+			os.Exit(1)
+		} else {
+			fmt.Fprintf(os.Stderr, "[Execution] shared IR pipeline failed; interpreter fallback is disabled: %v\n", irErr)
+			os.Exit(1)
 		}
+	} else {
+		fmt.Fprintln(os.Stderr, "[Execution] JOSS_NO_JIT=1; running the interpreter oracle explicitly")
 	}
 
 	rt := core.NewRuntime()

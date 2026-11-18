@@ -21,17 +21,158 @@ public class GranDB {
         $this->distinctVal = false
     }
 
-    public static func table(string $name): GranDB {
+    private func trimSQLWhitespace(string $value): string {
+        int $start = 0
+        int $end = strlen($value)
+        while ($start < $end) {
+            string $character = substr($value, $start, 1)
+            ($character == " " || $character == "\t" || $character == "\n" || $character == "\r") ? {
+                $start++
+            } : {
+                break
+            }
+        }
+        while ($end > $start) {
+            string $character = substr($value, $end - 1, 1)
+            ($character == " " || $character == "\t" || $character == "\n" || $character == "\r") ? {
+                $end--
+            } : {
+                break
+            }
+        }
+        return substr($value, $start, $end - $start)
+    }
+
+    private func assertIdentifier(string $name, bool $allowWildcard = false): string {
+        string $normalized = $this->trimSQLWhitespace($name)
+        ($allowWildcard && $normalized == "*") ? {
+            return "*"
+        }
+        var $parts = explode(".", $normalized)
+        (count($parts) == 0) ? {
+            throw "GranDB Error: identificador SQL inválido"
+        }
+        foreach ($parts as $part) {
+            (strlen($part) == 0) ? {
+                throw "GranDB Error: identificador SQL inválido"
+            }
+            ($allowWildcard && $part == "*") ? {
+                continue
+            }
+            int $index = 0
+            while ($index < strlen($part)) {
+                string $character = substr($part, $index, 1)
+                bool $valid = strpos("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_", $character) !== false
+                ($index > 0) ? {
+                    $valid = $valid || strpos("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789$", $character) !== false
+                }
+                (!$valid) ? {
+                    throw "GranDB Error: identificador SQL inválido"
+                }
+                $index++
+            }
+        }
+        return $normalized
+    }
+
+    private func assertComparisonOperator(string $operator) : string {
+        string $normalized = strtoupper($this->trimSQLWhitespace($operator))
+        ($normalized == "=" || $normalized == "!=" || $normalized == "<>" || $normalized == "<" || $normalized == "<=" || $normalized == ">" || $normalized == ">=" || $normalized == "LIKE" || $normalized == "NOT LIKE" || $normalized == "IS" || $normalized == "IS NOT") ? {
+            return $normalized
+        }
+        throw "GranDB Error: operador SQL inválido"
+    }
+
+    private func assertSelectItem(string $item) : string {
+        string $normalized = $this->trimSQLWhitespace($item)
+        ($normalized == "*") ? {
+            return "*"
+        }
+        var $functions = ["COUNT(", "SUM(", "AVG(", "MIN(", "MAX("]
+        foreach ($functions as $allowedFunction) {
+            int $prefixLength = strlen($allowedFunction)
+            (strtolower(substr($normalized, 0, $prefixLength)) == strtolower($allowedFunction) && substr($normalized, - 1) == ")") ? {
+                string $argument = substr($normalized, $prefixLength, strlen($normalized) - $prefixLength - 1)
+                $this->assertIdentifier($argument, true)
+                return $normalized
+            }
+        }
+        return $this->assertIdentifier($normalized)
+    }
+
+    private func assertSelectList(string $columns) : string {
+        var $items = explode(",", $columns)
+        var $safeItems = []
+        foreach ($items as $item) {
+            $safeItems [] = $this->assertSelectItem(strval($item))
+        }
+        (count($safeItems) == 0) ? {
+            throw "GranDB Error: lista SELECT vacía"
+        }
+        return implode(", ", $safeItems)
+    }
+
+    private func renderWhere() : string {
+        int $whereCount = count($this->wheres)
+        ($whereCount == 0) ? {
+            return ""
+        }
+        string $sql = " WHERE "
+        int $index = 0
+        while ($index < $whereCount) {
+            map $where = $this->wheres [$index]
+            string $boolean = strtoupper(strval($where ["boolean"]))
+            ($boolean != "AND" && $boolean != "OR") ? {
+                throw "GranDB Error: conector SQL inválido"
+            }
+            ($index > 0) ? {
+                $sql = $sql . " " . $boolean . " "
+            }
+            string $column = $this->assertIdentifier(strval($where ["col"]))
+            bool $rawOperator = array_key_exists("raw_op", $where) && $where ["raw_op"]
+            ($rawOperator) ? {
+                string $operator = strval($where ["op"])
+                (($operator == "IS NULL" || $operator == "IS NOT NULL" || $operator == "BETWEEN ? AND ?" || $operator == "NOT BETWEEN ? AND ?")) ? {
+                    $sql = $sql . $column . " " . $operator
+                } : {
+                    bool $validIn = str_starts_with($operator, "IN (") || str_starts_with($operator, "NOT IN (")
+                    (!$validIn || substr($operator, - 1) != ")") ? {
+                        throw "GranDB Error: operador SQL interno inválido"
+                    }
+                    string $placeholders = str_starts_with($operator, "NOT IN (") ? substr($operator, 8, strlen($operator) - 9) : substr($operator, 4, strlen($operator) - 5)
+                    (strlen($placeholders) == 0) ? {
+                        throw "GranDB Error: lista IN vacía"
+                    }
+                    int $p = 0
+                    while ($p < strlen($placeholders)) {
+                        string $char = substr($placeholders, $p, 1)
+                        ($char != "?" && $char != "," && $char != " ") ? {
+                            throw "GranDB Error: operador SQL interno inválido"
+                        }
+                        $p++
+                    }
+                    $sql = $sql . $column . " " . $operator
+                }
+            } : {
+                string $operator = $this->assertComparisonOperator(strval($where ["op"]))
+                $sql = $sql . $column . " " . $operator . " ?"
+            }
+            $index++
+        }
+        return $sql
+    }
+
+    public static func table(string $name) : GranDB {
         var $q = new GranDB()
-        $q->tableName = $name
+        $q->tableName = $q->assertIdentifier($name)
         return $q
     }
 
-    public static func from(string $name): GranDB {
+    public static func from(string $name) : GranDB {
         return self::table($name)
     }
 
-    public static func transaction(mixed $callback): mixed {
+    public static func transaction(mixed $callback) : mixed {
         __joss_db_execute("BEGIN", [])
         var $db = new GranDB()
         var $res = $callback($db)
@@ -39,43 +180,60 @@ public class GranDB {
         return $res
     }
 
-    public func select(mixed $cols): GranDB {
-        $this->selectCols = strval($cols)
+    private func selectString(string $cols) : GranDB {
+        $this->selectCols = $this->assertSelectList($cols)
         return $this
     }
 
-    public func distinct(): GranDB {
+    private func selectArray(array<string> $cols) : GranDB {
+        array<string> $parts = []
+        foreach ($cols as $column) {
+            $parts [] = $this->assertSelectList($column)
+        }
+        $this->selectCols = implode(", ", $parts)
+        return $this
+    }
+
+    public func select(mixed $cols) : GranDB {
+        (is_array($cols)) ? {
+            return $this->selectArray($cols)
+        } : {
+            return $this->selectString(strval($cols))
+        }
+    }
+
+    public func distinct() : GranDB {
         $this->distinctVal = true
         return $this
     }
 
-    public func join(string $table, string $first, string $op = "=", string $second = ""): GranDB {
+    public func join(string $table, string $first, string $op = "=", string $second = "") : GranDB {
         var $actualOp = ($second == "") ? "=" : $op
         var $actualSec = ($second == "") ? $op : $second
-        $this->joins [] = ["type" => "INNER", "table" => $table, "first" => $first, "op" => $actualOp, "second" => $actualSec]
+        $this->joins [] = ["type" => "INNER", "table" => $this->assertIdentifier($table), "first" => $this->assertIdentifier($first), "op" => $this->assertComparisonOperator($actualOp), "second" => $this->assertIdentifier($actualSec)]
         return $this
     }
 
-    public func innerJoin(string $table, string $first, string $op = "=", string $second = ""): GranDB {
+    public func innerJoin(string $table, string $first, string $op = "=", string $second = "") : GranDB {
         return $this->join($table, $first, $op, $second)
     }
 
-    public func leftJoin(string $table, string $first, string $op = "=", string $second = ""): GranDB {
+    public func leftJoin(string $table, string $first, string $op = "=", string $second = "") : GranDB {
         var $actualOp = ($second == "") ? "=" : $op
         var $actualSec = ($second == "") ? $op : $second
-        $this->joins [] = ["type" => "LEFT", "table" => $table, "first" => $first, "op" => $actualOp, "second" => $actualSec]
+        $this->joins [] = ["type" => "LEFT", "table" => $this->assertIdentifier($table), "first" => $this->assertIdentifier($first), "op" => $this->assertComparisonOperator($actualOp), "second" => $this->assertIdentifier($actualSec)]
         return $this
     }
 
-    public func rightJoin(string $table, string $first, string $op = "=", string $second = ""): GranDB {
+    public func rightJoin(string $table, string $first, string $op = "=", string $second = "") : GranDB {
         var $actualOp = ($second == "") ? "=" : $op
         var $actualSec = ($second == "") ? $op : $second
-        $this->joins [] = ["type" => "RIGHT", "table" => $table, "first" => $first, "op" => $actualOp, "second" => $actualSec]
+        $this->joins [] = ["type" => "RIGHT", "table" => $this->assertIdentifier($table), "first" => $this->assertIdentifier($first), "op" => $this->assertComparisonOperator($actualOp), "second" => $this->assertIdentifier($actualSec)]
         return $this
     }
 
-    public func crossJoin(string $table): GranDB {
-        $this->joins [] = ["type" => "CROSS", "table" => $table, "first" => "", "op" => "", "second" => ""]
+    public func crossJoin(string $table) : GranDB {
+        $this->joins [] = ["type" => "CROSS", "table" => $this->assertIdentifier($table), "first" => "", "op" => "", "second" => ""]
         return $this
     }
 
@@ -101,7 +259,7 @@ public class GranDB {
         } : {
             var $op = ($val !== null) ? strval($opOrVal) : "="
             mixed $value = ($val !== null) ? $val : $opOrVal
-            $this->wheres [] = ["col" => strval($colOrClosure), "op" => $op, "val" => $value, "boolean" => "AND", "raw_op" => false]
+            $this->wheres [] = ["col" => $this->assertIdentifier(strval($colOrClosure)), "op" => $this->assertComparisonOperator($op), "val" => $value, "boolean" => "AND", "raw_op" => false]
             $this->bindings [] = $value
         }
         return $this
@@ -130,7 +288,7 @@ public class GranDB {
         } : {
             var $op = ($val !== null) ? strval($opOrVal) : "="
             mixed $value = ($val !== null) ? $val : $opOrVal
-            $this->wheres [] = ["col" => strval($colOrClosure), "op" => $op, "val" => $value, "boolean" => "OR", "raw_op" => false]
+            $this->wheres [] = ["col" => $this->assertIdentifier(strval($colOrClosure)), "op" => $this->assertComparisonOperator($op), "val" => $value, "boolean" => "OR", "raw_op" => false]
             $this->bindings [] = $value
         }
         return $this
@@ -156,7 +314,7 @@ public class GranDB {
             $i++
         }
         var $inClause = "IN (" . implode(", ", $placeholders) . ")"
-        $this->wheres [] = ["col" => $col, "op" => $inClause, "val" => null, "boolean" => "AND", "raw_op" => true]
+        $this->wheres [] = ["col" => $this->assertIdentifier($col), "op" => $inClause, "val" => null, "boolean" => "AND", "raw_op" => true]
         return $this
     }
 
@@ -170,29 +328,29 @@ public class GranDB {
             $i++
         }
         var $inClause = "NOT IN (" . implode(", ", $placeholders) . ")"
-        $this->wheres [] = ["col" => $col, "op" => $inClause, "val" => null, "boolean" => "AND", "raw_op" => true]
+        $this->wheres [] = ["col" => $this->assertIdentifier($col), "op" => $inClause, "val" => null, "boolean" => "AND", "raw_op" => true]
         return $this
     }
 
     public func whereNull(string $col): GranDB {
-        $this->wheres [] = ["col" => $col, "op" => "IS NULL", "val" => null, "boolean" => "AND", "raw_op" => true]
+        $this->wheres [] = ["col" => $this->assertIdentifier($col), "op" => "IS NULL", "val" => null, "boolean" => "AND", "raw_op" => true]
         return $this
     }
 
     public func whereNotNull(string $col): GranDB {
-        $this->wheres [] = ["col" => $col, "op" => "IS NOT NULL", "val" => null, "boolean" => "AND", "raw_op" => true]
+        $this->wheres [] = ["col" => $this->assertIdentifier($col), "op" => "IS NOT NULL", "val" => null, "boolean" => "AND", "raw_op" => true]
         return $this
     }
 
     public func whereBetween(string $col, mixed $min, mixed $max): GranDB {
-        $this->wheres [] = ["col" => $col, "op" => "BETWEEN ? AND ?", "val" => null, "boolean" => "AND", "raw_op" => true]
+        $this->wheres [] = ["col" => $this->assertIdentifier($col), "op" => "BETWEEN ? AND ?", "val" => null, "boolean" => "AND", "raw_op" => true]
         $this->bindings [] = $min
         $this->bindings [] = $max
         return $this
     }
 
     public func whereNotBetween(string $col, mixed $min, mixed $max): GranDB {
-        $this->wheres [] = ["col" => $col, "op" => "NOT BETWEEN ? AND ?", "val" => null, "boolean" => "AND", "raw_op" => true]
+        $this->wheres [] = ["col" => $this->assertIdentifier($col), "op" => "NOT BETWEEN ? AND ?", "val" => null, "boolean" => "AND", "raw_op" => true]
         $this->bindings [] = $min
         $this->bindings [] = $max
         return $this
@@ -200,7 +358,7 @@ public class GranDB {
 
     public func orderBy(string $col, string $dir = "asc"): GranDB {
         var $normalizedDir = ($dir == "desc" || $dir == "DESC") ? "DESC" : "ASC"
-        $this->orders [] = ["col" => $col, "dir" => $normalizedDir]
+        $this->orders [] = ["col" => $this->assertIdentifier($col), "dir" => $normalizedDir]
         return $this
     }
 
@@ -278,42 +436,30 @@ public class GranDB {
         }
         var $driver = env("DB", env("DB_CONNECTION", "mysql"))
         var $prefix = env("PREFIX", env("DB_PREFIX", ""))
-        var $fullTable = $prefix . $this->tableName
+        var $fullTable = $this->assertIdentifier($prefix . $this->tableName)
 
         var $sql = ($this->distinctVal) ? "SELECT DISTINCT " : "SELECT "
-        $sql = $sql . $this->selectCols . " FROM " . $fullTable
+        $sql = $sql . $this->assertSelectList($this->selectCols) . " FROM " . $fullTable
 
         var $joinCount = count($this->joins)
         ($joinCount > 0) ? {
             var $k = 0
             while ($k < $joinCount) {
                 var $j = $this->joins [$k]
-                ($j ["type"] == "CROSS") ? {
-                    $sql = $sql . " CROSS JOIN " . $j ["table"]
+                string $joinType = strtoupper(strval($j ["type"]))
+                ($joinType != "INNER" && $joinType != "LEFT" && $joinType != "RIGHT" && $joinType != "CROSS") ? {
+                    throw "GranDB Error: tipo JOIN inválido"
+                }
+                ($joinType == "CROSS") ? {
+                    $sql = $sql . " CROSS JOIN " . $this->assertIdentifier(strval($j ["table"]))
                 } : {
-                    $sql = $sql . " " . $j ["type"] . " JOIN " . $j ["table"] . " ON " . $j ["first"] . " " . $j ["op"] . " " . $j ["second"]
+                    $sql = $sql . " " . $joinType . " JOIN " . $this->assertIdentifier(strval($j ["table"])) . " ON " . $this->assertIdentifier(strval($j ["first"])) . " " . $this->assertComparisonOperator(strval($j ["op"])) . " " . $this->assertIdentifier(strval($j ["second"]))
                 }
                 $k++
             }
         }
 
-        var $whereCount = count($this->wheres)
-        ($whereCount > 0) ? {
-            $sql = $sql . " WHERE "
-            var $i = 0
-            while ($i < $whereCount) {
-                var $w = $this->wheres [$i]
-                ($i > 0) ? {
-                    $sql = $sql . " " . $w ["boolean"] . " "
-                }
-                (array_key_exists("raw_op", $w) && $w ["raw_op"]) ? {
-                    $sql = $sql . $w ["col"] . " " . $w ["op"]
-                } : {
-                    $sql = $sql . $w ["col"] . " " . $w ["op"] . " ?"
-                }
-                $i++
-            }
-        }
+        $sql = $sql . $this->renderWhere()
 
         var $orderCount = count($this->orders)
         ($orderCount > 0) ? {
@@ -324,7 +470,7 @@ public class GranDB {
                 ($j > 0) ? {
                     $sql = $sql . ", "
                 }
-                $sql = $sql . $o ["col"] . " " . $o ["dir"]
+                $sql = $sql . $this->assertIdentifier(strval($o ["col"])) . " " . (($o ["dir"] == "DESC") ? "DESC" : "ASC")
                 $j++
             }
         }
@@ -509,33 +655,22 @@ public class GranDB {
         ($this->tableName == "") ? {
             return 0
         }
+        (count($this->wheres) == 0) ? {
+            throw "GranDB Error: update requiere filtros"
+        }
+        (count($data) == 0) ? {
+            return 0
+        }
         (__joss_db_is_connected()) ? {
             var $prefix = env("PREFIX", env("DB_PREFIX", ""))
-            var $fullTable = $prefix . $this->tableName
+            var $fullTable = $this->assertIdentifier($prefix . $this->tableName)
             var $setClauses = []
             var $vals = []
             foreach ($data as $k => $v) {
-                $setClauses [] = $k . " = ?"
+                $setClauses [] = $this->assertIdentifier(strval($k)) . " = ?"
                 $vals [] = $v
             }
-            var $sql = "UPDATE " . $fullTable . " SET " . implode(", ", $setClauses)
-            var $whereCount = count($this->wheres)
-            ($whereCount > 0) ? {
-                $sql = $sql . " WHERE "
-                var $i = 0
-                while ($i < $whereCount) {
-                    var $w = $this->wheres [$i]
-                    ($i > 0) ? {
-                        $sql = $sql . " " . $w ["boolean"] . " "
-                    }
-                    (array_key_exists("raw_op", $w) && $w ["raw_op"]) ? {
-                        $sql = $sql . $w ["col"] . " " . $w ["op"]
-                    } : {
-                        $sql = $sql . $w ["col"] . " " . $w ["op"] . " ?"
-                    }
-                    $i++
-                }
-            }
+            var $sql = "UPDATE " . $fullTable . " SET " . implode(", ", $setClauses) . $this->renderWhere()
             var $allBindings = []
             foreach ($vals as $v) {
                 $allBindings [] = $v
@@ -571,27 +706,13 @@ public class GranDB {
         ($this->tableName == "") ? {
             return 0
         }
+        (count($this->wheres) == 0) ? {
+            throw "GranDB Error: delete requiere filtros"
+        }
         (__joss_db_is_connected()) ? {
             var $prefix = env("PREFIX", env("DB_PREFIX", ""))
-            var $fullTable = $prefix . $this->tableName
-            var $sql = "DELETE FROM " . $fullTable
-            var $whereCount = count($this->wheres)
-            ($whereCount > 0) ? {
-                $sql = $sql . " WHERE "
-                var $i = 0
-                while ($i < $whereCount) {
-                    var $w = $this->wheres [$i]
-                    ($i > 0) ? {
-                        $sql = $sql . " " . $w ["boolean"] . " "
-                    }
-                    (array_key_exists("raw_op", $w) && $w ["raw_op"]) ? {
-                        $sql = $sql . $w ["col"] . " " . $w ["op"]
-                    } : {
-                        $sql = $sql . $w ["col"] . " " . $w ["op"] . " ?"
-                    }
-                    $i++
-                }
-            }
+            var $fullTable = $this->assertIdentifier($prefix . $this->tableName)
+            var $sql = "DELETE FROM " . $fullTable . $this->renderWhere()
             return intval(__joss_db_execute($sql, $this->bindings))
         }
         var $rows = __joss_db_get_table($this->tableName)
@@ -614,14 +735,17 @@ public class GranDB {
     }
 
     public func insert(map $data) : int {
+        ($this->tableName == "" || count($data) == 0) ? {
+            return 0
+        }
         (__joss_db_is_connected()) ? {
             var $prefix = env("PREFIX", env("DB_PREFIX", ""))
-            var $fullTable = $prefix . $this->tableName
+            var $fullTable = $this->assertIdentifier($prefix . $this->tableName)
             var $cols = []
             var $placeholders = []
             var $vals = []
             foreach ($data as $k => $v) {
-                $cols [] = $k
+                $cols [] = $this->assertIdentifier(strval($k))
                 $placeholders [] = "?"
                 $vals [] = $v
             }
@@ -652,50 +776,38 @@ public class GranDB {
     }
 
     public func increment(string $col, mixed $amount = 1) : int {
-        var $prefix = env("PREFIX", env("DB_PREFIX", ""))
-        var $fullTable = $prefix . $this->tableName
-        var $sql = "UPDATE " . $fullTable . " SET " . $col . " = " . $col . " + " . strval($amount)
-        var $whereCount = count($this->wheres)
-        ($whereCount > 0) ? {
-            $sql = $sql . " WHERE "
-            var $i = 0
-            while ($i < $whereCount) {
-                var $w = $this->wheres [$i]
-                ($i > 0) ? {
-                    $sql = $sql . " " . $w ["boolean"] . " "
-                }
-                (array_key_exists("raw_op", $w) && $w ["raw_op"]) ? {
-                    $sql = $sql . $w ["col"] . " " . $w ["op"]
-                } : {
-                    $sql = $sql . $w ["col"] . " " . $w ["op"] . " ?"
-                }
-                $i++
-            }
+        ($this->tableName == "") ? {
+            return 0
         }
-        return __joss_db_execute($sql, $this->bindings)
+        var $prefix = env("PREFIX", env("DB_PREFIX", ""))
+        (count($this->wheres) == 0) ? {
+            throw "GranDB Error: increment requiere filtros"
+        }
+        var $safeCol = $this->assertIdentifier($col)
+        var $fullTable = $this->assertIdentifier($prefix . $this->tableName)
+        var $sql = "UPDATE " . $fullTable . " SET " . $safeCol . " = " . $safeCol . " + ?" . $this->renderWhere()
+        var $allBindings = [$amount]
+        foreach ($this->bindings as $binding) {
+            $allBindings [] = $binding
+        }
+        return __joss_db_execute($sql, $allBindings)
     }
 
     public func decrement(string $col, mixed $amount = 1) : int {
-        var $prefix = env("PREFIX", env("DB_PREFIX", ""))
-        var $fullTable = $prefix . $this->tableName
-        var $sql = "UPDATE " . $fullTable . " SET " . $col . " = " . $col . " - " . strval($amount)
-        var $whereCount = count($this->wheres)
-        ($whereCount > 0) ? {
-            $sql = $sql . " WHERE "
-            var $i = 0
-            while ($i < $whereCount) {
-                var $w = $this->wheres [$i]
-                ($i > 0) ? {
-                    $sql = $sql . " " . $w ["boolean"] . " "
-                }
-                (array_key_exists("raw_op", $w) && $w ["raw_op"]) ? {
-                    $sql = $sql . $w ["col"] . " " . $w ["op"]
-                } : {
-                    $sql = $sql . $w ["col"] . " " . $w ["op"] . " ?"
-                }
-                $i++
-            }
+        ($this->tableName == "") ? {
+            return 0
         }
-        return __joss_db_execute($sql, $this->bindings)
+        var $prefix = env("PREFIX", env("DB_PREFIX", ""))
+        (count($this->wheres) == 0) ? {
+            throw "GranDB Error: decrement requiere filtros"
+        }
+        var $safeCol = $this->assertIdentifier($col)
+        var $fullTable = $this->assertIdentifier($prefix . $this->tableName)
+        var $sql = "UPDATE " . $fullTable . " SET " . $safeCol . " = " . $safeCol . " - ?" . $this->renderWhere()
+        var $allBindings = [$amount]
+        foreach ($this->bindings as $binding) {
+            $allBindings [] = $binding
+        }
+        return __joss_db_execute($sql, $allBindings)
     }
 }

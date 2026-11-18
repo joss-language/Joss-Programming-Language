@@ -80,7 +80,7 @@ func TestNativeMethodDefinitionsProjectToRuntimeAndAnalyzer(t *testing.T) {
 	runtime := NewRuntime()
 	defer runtime.Free()
 
-	for _, className := range []string{"Stack", "Queue", "Math", "JSON", "Markdown", "Str", "UUID", "Lang", "Console", "Zip"} {
+	for _, className := range []string{"Stack", "Queue", "Math", "JSON", "Markdown", "UUID", "Lang", "Console", "System", "Zip"} {
 		classDefinitions := definitions[className]
 		if len(classDefinitions) == 0 {
 			t.Fatalf("migrated native class %s has no semantic definitions", className)
@@ -134,20 +134,23 @@ func TestNativeEffectsProjectIntoPreparedProgramFacts(t *testing.T) {
 
 func TestMigratedNativeSignaturesPublishReliableOptionalArity(t *testing.T) {
 	definitions := GetNativeMethodDefinitions()
-	checks := map[string]struct {
-		method   string
-		minimum  int
-		maximum  int
-		returned string
+	checks := []struct {
+		className string
+		method    string
+		minimum   int
+		maximum   int
+		returned  string
 	}{
-		"Math":    {method: "random", minimum: 2, maximum: 2, returned: "int"},
-		"Lang":    {method: "get", minimum: 1, maximum: 2, returned: "mixed"},
-		"Console": {method: "log", minimum: 0, maximum: 1, returned: "void"},
+		{className: "Math", method: "random", minimum: 2, maximum: 2, returned: "int"},
+		{className: "Lang", method: "get", minimum: 1, maximum: 2, returned: "mixed"},
+		{className: "Console", method: "log", minimum: 0, maximum: 1, returned: "void"},
+		{className: "System", method: "log", minimum: 0, maximum: 1, returned: "void"},
+		{className: "System", method: "now", minimum: 0, maximum: 1, returned: "string"},
 	}
-	for className, check := range checks {
+	for _, check := range checks {
 		var found NativeMethodDefinition
 		foundDefinition := false
-		for _, definition := range definitions[className] {
+		for _, definition := range definitions[check.className] {
 			if definition.Name == check.method {
 				found = definition
 				foundDefinition = true
@@ -155,7 +158,7 @@ func TestMigratedNativeSignaturesPublishReliableOptionalArity(t *testing.T) {
 			}
 		}
 		if !foundDefinition {
-			t.Fatalf("missing %s::%s", className, check.method)
+			t.Fatalf("missing %s::%s", check.className, check.method)
 		}
 		minimum := 0
 		for _, parameter := range found.Parameters {
@@ -164,7 +167,7 @@ func TestMigratedNativeSignaturesPublishReliableOptionalArity(t *testing.T) {
 			}
 		}
 		if !found.ArityKnown || minimum != check.minimum || len(found.Parameters) != check.maximum || found.ReturnType.String() != check.returned {
-			t.Fatalf("%s::%s signature = known:%v %d..%d -> %s, want %d..%d -> %s", className, check.method, found.ArityKnown, minimum, len(found.Parameters), found.ReturnType, check.minimum, check.maximum, check.returned)
+			t.Fatalf("%s::%s signature = known:%v %d..%d -> %s, want %d..%d -> %s", check.className, check.method, found.ArityKnown, minimum, len(found.Parameters), found.ReturnType, check.minimum, check.maximum, check.returned)
 		}
 	}
 }
@@ -186,7 +189,9 @@ func TestMigratedNativeSignaturesDriveCallDiagnostics(t *testing.T) {
 	valid := parse(`Math::random(1, 2)
 Lang::get("welcome")
 Lang::get("welcome", {})
-Console::log()`)
+Console::log()
+System::now()
+System::now(2)`)
 	if valid.HasErrors() {
 		t.Fatalf("valid native calls produced diagnostics: %#v", valid.Diagnostics)
 	}

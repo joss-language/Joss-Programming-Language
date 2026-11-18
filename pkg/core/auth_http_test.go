@@ -1,6 +1,7 @@
 package core
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -18,11 +19,65 @@ func installJossHTTPParser(t *testing.T, runtime *Runtime) {
 		for _, statement := range unit.Program.Statements {
 			if class, ok := statement.(*parser.ClassStatement); ok && class.Name != nil && class.Name.Value == "HttpRequestParser" {
 				runtime.registerClass(class)
+				for _, owner := range unit.Program.Statements {
+					if function, ok := owner.(*parser.MethodStatement); ok && function.Name != nil && strings.HasPrefix(function.Name.Value, "__joss_host_Request_") {
+						runtime.Functions[function.Name.Value] = function
+					}
+				}
 				return
 			}
 		}
 	}
 	t.Fatal("canonical std/http/request.joss parser was not embedded")
+}
+
+func TestRequestFacadeAccessorsUsePureJossOwners(t *testing.T) {
+	runtime := NewRuntime()
+	defer runtime.Free()
+	installJossHTTPParser(t, runtime)
+	requestData := runtime.parseHTTPWithStdlib("GET /account HTTP/1.1\r\nHost: example.test\r\nAuthorization: Bearer abc123\r\nUser-Agent: JossTest\r\nCookie: sid=session-42\r\n\r\n")
+	if requestData == nil {
+		t.Fatal("Joss HTTP parser returned no request map")
+	}
+	runtime.Variables["$__request"] = &Instance{Class: runtime.Classes["Request"], Fields: requestData}
+	requestData["_files"] = map[string]interface{}{"upload": map[string]interface{}{"name": "avatar.png"}}
+	requestData["email"] = "ada@example.test"
+	requestData["remember"] = "1"
+
+	cases := []struct {
+		method string
+		args   []interface{}
+		want   interface{}
+	}{
+		{method: "root", want: "http://example.test"},
+		{method: "cookie", args: []interface{}{"sid"}, want: "session-42"},
+		{method: "cookie", args: []interface{}{"missing", "fallback"}, want: "fallback"},
+		{method: "header", args: []interface{}{"authorization"}, want: "Bearer abc123"},
+		{method: "method", want: "GET"},
+		{method: "isMethod", args: []interface{}{"GET"}, want: true},
+		{method: "path", want: "/account"},
+		{method: "uri", want: "/account"},
+		{method: "ip", want: "127.0.0.1"},
+		{method: "userAgent", want: "JossTest"},
+		{method: "bearerToken", want: "abc123"},
+		{method: "has", args: []interface{}{"_method"}, want: true},
+		{method: "hasFile", args: []interface{}{"upload"}, want: true},
+		{method: "hasfile", args: []interface{}{"missing"}, want: false},
+		{method: "file", args: []interface{}{"upload"}, want: map[string]interface{}{"name": "avatar.png"}},
+	}
+	for _, tc := range cases {
+		if got := runtime.executeRequestMethod(nil, tc.method, tc.args); !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("Request::%s(%v) = %#v, want %#v", tc.method, tc.args, got, tc.want)
+		}
+	}
+	allFields := runtime.executeRequestMethod(nil, "all", nil).(map[string]interface{})
+	if allFields["email"] != "ada@example.test" || allFields["_headers"] != nil || allFields["_files"] != nil {
+		t.Fatalf("Request::all() did not keep user input and filter internal context: %#v", allFields)
+	}
+	exceptFields := runtime.executeRequestMethod(nil, "except", []interface{}{[]interface{}{"email"}}).(map[string]interface{})
+	if _, exists := exceptFields["email"]; exists {
+		t.Fatalf("Request::except() retained the excluded field: %#v", exceptFields)
+	}
 }
 
 func installJossAuthPolicy(t *testing.T, runtime *Runtime) {
@@ -31,11 +86,15 @@ func installJossAuthPolicy(t *testing.T, runtime *Runtime) {
 		if unit.Path != "<std/auth/auth.joss>" || unit.Program == nil {
 			continue
 		}
+		var authClass *parser.ClassStatement
 		for _, statement := range unit.Program.Statements {
 			if class, ok := statement.(*parser.ClassStatement); ok && class.Name != nil && class.Name.Value == "Auth" {
-				runtime.registerClass(class)
-				return
+				authClass = class
 			}
+		}
+		if authClass != nil {
+			runtime.registerClass(authClass)
+			return
 		}
 	}
 	t.Fatal("canonical std/auth/auth.joss policy was not embedded")

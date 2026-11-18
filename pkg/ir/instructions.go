@@ -60,9 +60,10 @@ const (
 	OpArraySet Opcode = "array_set"
 
 	// Mapas Asociativos
-	OpNewMap Opcode = "new_map"
-	OpMapGet Opcode = "map_get"
-	OpMapSet Opcode = "map_set"
+	OpNewMap    Opcode = "new_map"
+	OpMapGet    Opcode = "map_get"
+	OpMapSet    Opcode = "map_set"
+	OpMapDelete Opcode = "map_delete"
 
 	// Excepciones y Control de Flujo Avanzado
 	OpThrow    Opcode = "throw"
@@ -517,6 +518,19 @@ func (i *MapSetInst) Result() *TempValue { return nil }
 func (i *MapSetInst) Operands() []Value  { return []Value{i.Val, i.Map, i.Key} }
 func (i *MapSetInst) String() string {
 	return fmt.Sprintf("map_set %s[%s] = %s", i.Map, i.Key, i.Val)
+}
+
+// MapDeleteInst removes a key from a map without changing its identity.
+type MapDeleteInst struct {
+	Map Value
+	Key Value
+}
+
+func (i *MapDeleteInst) Opcode() Opcode     { return OpMapDelete }
+func (i *MapDeleteInst) Result() *TempValue { return nil }
+func (i *MapDeleteInst) Operands() []Value  { return []Value{i.Map, i.Key} }
+func (i *MapDeleteInst) String() string {
+	return fmt.Sprintf("map_delete %s[%s]", i.Map, i.Key)
 }
 
 // ThrowInst: throw %val

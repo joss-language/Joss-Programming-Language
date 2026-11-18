@@ -157,6 +157,10 @@ func (v *IRVerifier) verifyInstruction(fn *Function, block *BasicBlock, inst Ins
 		if i.Map == nil || i.Key == nil || i.Val == nil {
 			v.addError("map_set en %s tiene operandos inválidos", block.Label)
 		}
+	case *MapDeleteInst:
+		if i.Map == nil || i.Key == nil {
+			v.addError("map_delete en %s tiene operandos inválidos", block.Label)
+		}
 	case *ThrowInst:
 		if i.Val == nil {
 			v.addError("throw en %s tiene valor nulo", block.Label)

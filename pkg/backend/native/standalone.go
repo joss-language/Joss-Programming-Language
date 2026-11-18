@@ -48,27 +48,15 @@ func (b *StandaloneBuilder) BuildNativeExecutableWithOptions(prog *ir.Program, o
 		target = HostTarget()
 	}
 
-	// Smart Selective Linking (Dead Code Elimination de Stdlib)
-	needsHostBridge := false
-	for _, fn := range prog.Functions {
-		for _, blk := range fn.Blocks {
-			for _, inst := range blk.Instructions {
-				if call, ok := inst.(*ir.CallRuntimeInst); ok && isSupportedRuntimeCallee(call.Func) {
-					needsHostBridge = true
-					break
-				}
-			}
-		}
-	}
-	// Optimizamos el binario final: si no usa Stdlib o GranDB, no inyectamos dependencias (Binarios ultra-ligeros)
+	// Native output is a single standalone executable. Runtime calls must be
+	// lowered to emitted code or rejected by the selected backend; no bridge DLL
+	// is linked or inferred here.
 	mc := SelectCodeEmitter(target, opts.GUI)
 	binBytes, asmSource, err := mc.Compile(prog)
 	if err != nil {
 		return err
 	}
 
-	// If needsHostBridge is true, the PE/ELF emitter imports _joss_host_bridge from the host bridge runtime.
-	_ = needsHostBridge
 	_ = asmSource
 	if err != nil {
 		return err

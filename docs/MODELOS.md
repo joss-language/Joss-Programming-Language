@@ -9,6 +9,16 @@ como `get()` la ejecuta. Su API se inspira en query builders conocidos; **no
 es una implementación completa de Laravel Eloquent**. Cuando una clase hereda
 `Model`, la misma infraestructura hidrata instancias con estado y casts.
 
+### Seguridad de consultas
+
+GranDB envía los valores como parámetros enlazados. Los nombres de tablas,
+columnas, joins y ordenamiento se validan como identificadores antes de formar
+SQL; `select()` admite una cadena con identificadores separados por comas o un
+array de nombres de columna, además de `*` y las agregaciones `COUNT`, `SUM`,
+`AVG`, `MIN` y `MAX`. No acepta expresiones SQL arbitrarias en esos campos.
+`update()`, `delete()`, `increment()` y `decrement()` requieren filtros; las
+operaciones sin filtro fallan antes de ejecutar una consulta.
+
 ## Model ORM
 
 Un modelo declara configuración mediante propiedades protegidas con valores
@@ -141,7 +151,7 @@ registrados están enumerados en el [catálogo](CATALOGO_NATIVO.md).
 | Método y argumentos | Efecto |
 |---|---|
 | `table(nombre)` | Selecciona tabla y reinicia estado de lectura. |
-| `select(stringOArray)`, `distinct()` | Columnas o expresión SQL de confianza; filas distintas. |
+| `select(string|array<string>)`, `distinct()` | Columnas; filas distintas. |
 | `where(col,valor)`, `where(col,op,valor)`, `orWhere(...)` | Compara con valores ligados como parámetros. |
 | `where(callback)` | Agrupa filtros del callback, que recibe un GranDB. |
 | `whereColumn(a,[op,]b)`, `orWhereColumn` | Compara columnas. |

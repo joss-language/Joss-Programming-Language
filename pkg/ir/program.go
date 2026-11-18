@@ -44,6 +44,7 @@ func (b *BasicBlock) Successors() []*BasicBlock {
 type Function struct {
 	Name        string
 	Params      []*ParamValue
+	DefaultArgs []Value // Constant source defaults, aligned with Params; nil means required/non-constant.
 	ReturnType  Type
 	EntryBlock  *BasicBlock
 	Blocks      []*BasicBlock

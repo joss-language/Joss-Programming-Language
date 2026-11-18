@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jossecurity/joss/pkg/parser"
@@ -42,6 +43,9 @@ func TestCapabilityMatrixLookup(t *testing.T) {
 	errStr := FormatCapabilityError("Channels")
 	if errStr == "" {
 		t.Fatal("expected formatted capability error to be non-empty")
+	}
+	if !strings.Contains(errStr, "JOSS_NO_JIT=1") {
+		t.Fatalf("capability guidance must select the explicit interpreter oracle, got %q", errStr)
 	}
 
 	// Matrix 2.0 Ownership & State Checks

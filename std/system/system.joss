@@ -1,0 +1,9 @@
+// Standard Library: system-level behavior expressed once in Joss.
+
+public func __joss_host_System_log(mixed $value): void {
+    print("[System Log] " . strval($value))
+}
+
+public func __joss_host_System_now(int $days = 0): string {
+    return now("Y-m-d H:i:s", $days)
+}

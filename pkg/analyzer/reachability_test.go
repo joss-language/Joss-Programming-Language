@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/pkg/typesystem"
 )
 
 func parseReachUnit(path, src string) SourceUnit {
@@ -187,6 +188,7 @@ print($res)
 public func helper_1(): string {
     return "one"
 }
+
 public func helper_2(): string {
     return "two"
 }
@@ -259,5 +261,96 @@ public func helper_12(): string {
 	fnStmt, ok := prunedLib.Program.Statements[0].(*parser.MethodStatement)
 	if !ok || fnStmt.Name.Value != "helper_1" {
 		t.Fatalf("expected retained function to be helper_1")
+	}
+}
+
+func TestReachabilityKeepsJossOwnerForStaticHostService(t *testing.T) {
+	main := parseReachUnit("main.joss", `echo Session::get("user_id");`)
+	owner := parseReachUnit("std/http/session_host.joss", `private func __joss_host_Session_get(string $key): mixed { return session($key); }`)
+	env := NewEnvironment()
+	valueType := typesystem.Type{Kind: typesystem.Mixed}
+	env.Classes["Session"] = Class{Name: "Session", Methods: map[string]Callable{
+		"get": {Name: "get", Owner: "Session", ReturnType: valueType, Parameters: []Parameter{{Name: "key", Type: typesystem.Type{Kind: typesystem.String}}}},
+	}}
+	env.Builtins["session"] = Callable{Name: "session", ReturnType: valueType, Parameters: []Parameter{{Name: "key", Type: typesystem.Type{Kind: typesystem.String}}}}
+	prep := PrepareProgram([]SourceUnit{main, owner}, env)
+	if prep.HasErrors() {
+		t.Fatalf("prepare source units: %v", prep.Diagnostics)
+	}
+	graph := BuildReachabilityGraph(prep, ReachabilityOptions{Entrypoint: "main.joss"})
+	if !graph.IsFunctionReachable("__joss_host_Session_get") {
+		t.Fatal("static Session::get must retain its Joss-owned host-service implementation")
+	}
+	if !graph.IsFileReachable("std/http/session_host.joss") {
+		t.Fatal("the Joss host-service owner source unit must remain reachable")
+	}
+}
+
+func TestReachabilityKeepsJossOwnerForNativeInstanceService(t *testing.T) {
+	main := parseReachUnit("main.joss", `var $request = new Request(); var $safe = $request->except(["_token"]);`)
+	owner := parseReachUnit("std/http/request.joss", `public func __joss_host_Request_except(mixed $excluded): map { return {}; }`)
+	env := NewEnvironment()
+	mapType := typesystem.Type{Kind: typesystem.Map}
+	arrayType := typesystem.Type{Kind: typesystem.Array}
+	env.Classes["Request"] = Class{Name: "Request", Methods: map[string]Callable{
+		"except": {Name: "except", Owner: "Request", ReturnType: mapType, Parameters: []Parameter{{Name: "excluded", Type: arrayType}}},
+	}}
+	prepared := PrepareProgram([]SourceUnit{main, owner}, env)
+	if prepared.HasErrors() {
+		t.Fatalf("prepare source units: %v", prepared.Diagnostics)
+	}
+	graph := BuildReachabilityGraph(prepared, ReachabilityOptions{Entrypoint: "main.joss"})
+	if !graph.IsFunctionReachable("__joss_host_Request_except") {
+		t.Fatal("native Request instance calls must retain their Joss-owned method policy")
+	}
+	if !graph.IsFileReachable("std/http/request.joss") {
+		t.Fatal("the Request Joss policy source unit must remain reachable")
+	}
+}
+
+func TestReachabilityKeepsJossOwnerForJSONDecodeBuiltin(t *testing.T) {
+	main := parseReachUnit("main.joss", `echo json_decode("{}");`)
+	owner := parseReachUnit("std/json/decoder.joss", `public func __joss_builtin_json_decode(string $source): mixed { return null; }`)
+	env := NewEnvironment()
+	env.Builtins["json_decode"] = Callable{
+		Name: "json_decode", ReturnType: typesystem.Type{Kind: typesystem.Mixed},
+		Parameters: []Parameter{{Name: "source", Type: typesystem.Type{Kind: typesystem.String}}},
+	}
+	prepared := PrepareProgram([]SourceUnit{main, owner}, env)
+	if prepared.HasErrors() {
+		t.Fatalf("prepare source units: %v", prepared.Diagnostics)
+	}
+	graph := BuildReachabilityGraph(prepared, ReachabilityOptions{Entrypoint: "main.joss"})
+	if !graph.IsFunctionReachable("__joss_builtin_json_decode") || !graph.IsFileReachable("std/json/decoder.joss") {
+		t.Fatal("reachable json_decode calls must retain the canonical Joss decoder owner")
+	}
+}
+
+func TestReachabilityKeepsSEORenderOwnerForCompiledViews(t *testing.T) {
+	main := parseReachUnit("main.joss", `view("welcome");`)
+	owner := parseReachUnit("std/http/seo_host.joss", `public func __joss_host_SEO_render(map $request): string { return ""; }`)
+	env := NewEnvironment()
+	env.Builtins["view"] = Callable{Name: "view", ReturnType: typesystem.Type{Kind: typesystem.String}, Parameters: []Parameter{{Name: "name", Type: typesystem.Type{Kind: typesystem.String}}}}
+	prep := PrepareProgram([]SourceUnit{main, owner}, env)
+	if prep.HasErrors() {
+		t.Fatalf("prepare source units: %v", prep.Diagnostics)
+	}
+	graph := BuildReachabilityGraph(prep, ReachabilityOptions{Entrypoint: "main.joss"})
+	if !graph.IsFunctionReachable("__joss_host_SEO_render") || !graph.IsFileReachable("std/http/seo_host.joss") {
+		t.Fatal("compiled view use must retain the Pure Joss SEO render owner for template lowering")
+	}
+}
+
+func TestReachabilityKeepsSEORenderOwnerForRoutedTemplates(t *testing.T) {
+	main := parseReachUnit("main.joss", `Server::start();`)
+	routes := parseReachUnit("routes.joss", `Router::get("/", "HomeController@index");`)
+	controller := parseReachUnit("HomeController.joss", `public class HomeController { public func index(): string { return view("home"); } }`)
+	owner := parseReachUnit("std/http/seo_host.joss", `public func __joss_host_SEO_render(map $request): string { return ""; }`)
+	env := NewEnvironment()
+	env.Builtins["view"] = Callable{Name: "view", ReturnType: typesystem.Type{Kind: typesystem.String}, Parameters: []Parameter{{Name: "name", Type: typesystem.Type{Kind: typesystem.String}}}}
+	prep := PrepareProgram([]SourceUnit{main, routes, controller, owner}, env)
+	graph := BuildReachabilityGraph(prep, ReachabilityOptions{Entrypoint: "main.joss"})
+	if !graph.IsFunctionReachable("__joss_host_SEO_render") || !graph.IsFileReachable("std/http/seo_host.joss") {
+		t.Fatal("routed view templates must retain the Pure Joss SEO owner before template lowering")
 	}
 }

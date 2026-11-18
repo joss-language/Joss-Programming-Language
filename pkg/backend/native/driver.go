@@ -49,20 +49,76 @@ type BuildResult struct {
 	BootstrapPath   string
 }
 
-// NativeCodeEmitter define el contrato que deben cumplir los generadores de código máquina por arquitectura.
+// InMemoryExecutable is code emitted for direct execution by the current host.
+// A target backend may reject this sink until its executable-memory ABI exists.
+type InMemoryExecutable interface {
+	Execute() (int, error)
+	Free() error
+}
+
+// NativeCodeEmitter is the shared backend contract for file and memory sinks.
+// Target-specific implementations own only ISA, ABI, and executable-format
+// details; lowering and verification happen before this boundary.
 type NativeCodeEmitter interface {
 	Compile(prog *ir.Program) ([]byte, string, error)
+	CompileInMemory(prog *ir.Program) (InMemoryExecutable, error)
 	NeedsHostBridge() bool
 	SetSeedTables(tables map[string][]map[string]string)
 }
 
 // SelectCodeEmitter devuelve el generador nativo correspondiente a la arquitectura objetivo.
 func SelectCodeEmitter(target Target, guiMode bool) NativeCodeEmitter {
-	if target.Arch == "arm64" || target.Arch == "aarch64" {
+	if target.OS == "" && target.Arch == "" {
+		target = HostTarget()
+	}
+	arch := strings.ToLower(target.Arch)
+	switch arch {
+	case "aarch64":
+		arch = "arm64"
+	case "x86_64", "x64":
+		arch = "amd64"
+	}
+	os := strings.ToLower(target.OS)
+	switch os {
+	case "macos", "mac", "osx":
+		os = "darwin"
+	case "win":
+		os = "windows"
+	}
+	target = Target{OS: os, Arch: arch}
+	archSupported := false
+	for _, supportedArch := range SupportedTargets[target.OS] {
+		if supportedArch == target.Arch {
+			archSupported = true
+			break
+		}
+	}
+	if !archSupported {
+		return &unsupportedCodeEmitter{target: target}
+	}
+	if target.Arch == "arm64" {
 		return NewARM64Builder(target, guiMode)
 	}
-	return NewMachineCodeBuilder(target, guiMode)
+	if target.Arch == "amd64" {
+		return NewMachineCodeBuilder(target, guiMode)
+	}
+	return &unsupportedCodeEmitter{target: target}
 }
+
+// unsupportedCodeEmitter prevents an unknown target from accidentally using
+// the AMD64 emitter through SelectCodeEmitter's default branch.
+type unsupportedCodeEmitter struct{ target Target }
+
+func (e *unsupportedCodeEmitter) Compile(_ *ir.Program) ([]byte, string, error) {
+	return nil, "", fmt.Errorf("backend nativo: target no soportado %s (emisores disponibles: amd64, arm64)", e.target)
+}
+
+func (e *unsupportedCodeEmitter) CompileInMemory(_ *ir.Program) (InMemoryExecutable, error) {
+	return nil, fmt.Errorf("JIT nativo: target no soportado %s (emisores disponibles: amd64, arm64)", e.target)
+}
+
+func (e *unsupportedCodeEmitter) NeedsHostBridge() bool                        { return false }
+func (e *unsupportedCodeEmitter) SetSeedTables(map[string][]map[string]string) {}
 
 // BuildProgram compila un ir.Program directamente a código máquina nativo (PE32+ / ELF64)
 // sin invocar compiladores externos (sin Go, sin GCC, sin Clang, sin MSVC).

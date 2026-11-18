@@ -56,6 +56,7 @@ you need.See [types](SISTEMA_TIPOS.md) and [syntax](SINTAXIS.md) .
 |`array_column(array,clave)` |Values ​​of that key in map elements;omits other missing elements/keys.|`array_column([{"id":1}],"id")` |
 |`in_array(valor,array)` |Bool;in Joss arrays it supports deep or textual equality.|`in_array(1,["1"])` → true |
 |`array_key_exists(clave,map)` |existence bool;not to be confused with non-null value.|`array_key_exists("a",{"a":null})` |
+| `map_delete(map, clave)` | Removes a key from the shared map; does nothing when the map is null or the key does not exist. | `map_delete($datos, "temporal")` |
 |`map(array, closure)` |Returns a new array applying `closure` to each element.|`map([1,2], func(int $x): int { return $x * 2 })` |
 |`filter(array, closure)` |Returns a new array with the elements where `closure` returns true.|`filter([1,2,3], func(int $x): bool { return $x > 1 })` |
 |`sum(array)` |Numerical sum of the elements;preserves `decimal` , checks integer overflow and rejects mixing `float` with `decimal` ( `JOSS-ARITH-003` ).|`sum([10, 20, 30])` → 60 |
@@ -66,6 +67,11 @@ you need.See [types](SISTEMA_TIPOS.md) and [syntax](SINTAXIS.md) .
 |---|---|---|
 |`print(valores...)` , `echo(valores...)` |They print each argument with a line break;return null.|`print("Hola")` |
 |`printf(formato,valores...)` |Go format, no implicit jump;return null.|`printf("%s: %d\\n","Edad",20)` |
+
+<!-- joss-run: ["<nil>"] -->
+```joss
+echo null;
+```
 |`strlen(texto)` |Number of Unicode points;null gives 0. |`strlen("é")` → 1 |
 |`str_contains(texto,parte)` |Bool;requires two strings.|`str_contains("casa","as")` |
 |`str_starts_with(texto,prefijo)` |Prefix bool.|`str_starts_with("abc","a")` |
@@ -103,7 +109,7 @@ compound emojis, see [COLECCIONES.md](COLECCIONES.md) text units.
 |`time()` |Unix seconds as integer.|`time()` |
 |`microtime([comoFloat])` |With true, float in seconds;by default text "fraction seconds".|`microtime(true)` |
 |`date([formato,timestamp])` |Text;default Ymd H:i:s and current time.Timestamp supports number, text, or host time.Time value.|`date("Y-m-d",0)` |
-|`now([formato])` |Local date text; default format `Y-m-d H:i:s`. Offsets and abbreviations come from TZif parsed in Joss on Linux/macOS; Windows reads the offset from the system clock and synthesizes `UTC±HH:MM` for token `T`.|`now("H:i:s")` |
+|`now([formato[, días]])` |Local date text; default format `Y-m-d H:i:s`. The `días` argument shifts the calendar date while preserving local wall time across daylight-saving transitions. Offsets and abbreviations come from TZif parsed in Joss on Linux/macOS; Windows reads the offset from the system clock and synthesizes `UTC±HH:MM` for token `T`.|`now("H:i:s", 2)` |
 |`strtotime(texto,[base])` |Unix integer or null if the text is not recognized.Recognizes RFC3339 with an explicit zone; dates without a zone use the base's local time zone.Limited parser of dates and displacements.|`strtotime("+1 day",0)` |
 |`sleep(segundos)` , `usleep(microsegundos)` |They lock the current task;return null.sleep supports float fractions.|`sleep(0.01)` |
 

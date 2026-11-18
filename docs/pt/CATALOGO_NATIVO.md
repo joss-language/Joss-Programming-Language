@@ -22,7 +22,7 @@ Implementación: [executeAuthMethod](../pkg/core/auth.go#L16).
 | `create` | `mixed` |
 | `databaseReady` | `bool` |
 | `delete` | `mixed` |
-| `enabledSocialProviders` | `array` |
+| `enabledSocialProviders` | `array<string>` |
 | `forgotPassword` | `mixed` |
 | `guest` | `bool` |
 | `hasRole` | `bool` |
@@ -554,7 +554,7 @@ Implementación: [executeRequestMethod](../pkg/core/request.go#L9).
 | `has` | `bool` |
 | `hasFile` | `bool` |
 | `hasfile` | `bool` |
-| `header` | `mixed` |
+| `header` | `string` |
 | `input` | `mixed` |
 | `ip` | `mixed` |
 | `isMethod` | `bool` |
@@ -565,8 +565,8 @@ Implementación: [executeRequestMethod](../pkg/core/request.go#L9).
 | `root` | `string` |
 | `uri` | `string` |
 | `url` | `string` |
-| `userAgent` | `mixed` |
-| `useragent` | `mixed` |
+| `userAgent` | `string` |
+| `useragent` | `string` |
 
 ## Response
 
@@ -748,8 +748,8 @@ Implementación: [executeSystemMethod](../pkg/core/system.go#L14).
 | `driver_call` | `mixed` |
 | `env` | `mixed` |
 | `load_driver` | `mixed` |
-| `log` | `mixed` |
-| `now` | `int` |
+| `log` | `void` |
+| `now` | `string` |
 | `sleep` | `mixed` |
 
 ## Task
@@ -934,6 +934,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `ltrim`
 - `make_chan`
 - `map`
+- `map_delete`
 - `max`
 - `md5`
 - `merge`
@@ -985,4 +986,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 52 clases, 513 métodos y 138 built-ins.
+Total: 52 clases, 513 métodos y 139 built-ins.

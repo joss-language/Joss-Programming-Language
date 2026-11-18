@@ -70,7 +70,6 @@ type MachineCodeBuilder struct {
 	target             Target
 	guiMode            bool
 	isJITMode          bool
-	needsHostBridge    bool
 	usesExtendedStdlib bool
 	prog               *ir.Program
 	text               bytes.Buffer
@@ -123,9 +122,10 @@ func NewMachineCodeBuilder(target Target, guiMode bool) *MachineCodeBuilder {
 	return b
 }
 
-// NeedsHostBridge reports whether the compiled program requires joss_host dynamic library.
+// NeedsHostBridge is retained for API compatibility. Standalone native binaries
+// never use or depend on a host bridge.
 func (b *MachineCodeBuilder) NeedsHostBridge() bool {
-	return b.needsHostBridge
+	return false
 }
 
 // SetSeedTables configures pre-seeded tables for GranDB native compilation.
@@ -164,45 +164,8 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	if !SupportsNativeTarget(b.target) {
 		return nil, "", fmt.Errorf("ERROR: native target not available (%s/%s)", b.target.OS, b.target.Arch)
 	}
-	b.prog = prog
-	if err := assignNativeGlobalOffsets(prog); err != nil {
+	if err := b.emitSharedCode(prog); err != nil {
 		return nil, "", err
-	}
-
-	b.asmListing.WriteString(fmt.Sprintf("; Joss Self-Contained Native Compiler — %s Machine Code Listing\n; Target: %s/%s\n\n", b.target.Arch, b.target.OS, b.target.Arch))
-
-	// 1. Validate that all called functions are either user IR functions or supported native runtime intrinsics
-	if err := b.validateProgramCalls(prog); err != nil {
-		return nil, "", err
-	}
-
-	// 2. Emit _start entrypoint and Native Joss Runtime in machine code
-	b.emitEntrypointAndRuntime(prog.Functions["main"] != nil)
-
-	// 3. Sort function names for deterministic binary output
-	fnNames := make([]string, 0, len(prog.Functions))
-	for name := range prog.Functions {
-		fnNames = append(fnNames, name)
-	}
-	sort.Strings(fnNames)
-
-	for _, name := range fnNames {
-		if err := b.emitIRFunction(prog.Functions[name]); err != nil {
-			return nil, "", err
-		}
-	}
-
-	b.emitToStringStub()
-	b.emitF64ToStringStub()
-	if b.usesExtendedStdlib {
-		if b.hasRelocTarget("fn_Server_start", "Server_start", "fn_Socket_listen", "Socket_listen") {
-			b.emitNativeServer()
-		}
-		if b.hasRelocTarget("fn___joss_storage_get", "fn___joss_storage_put", "fn___joss_storage_delete") {
-			b.emitStorageIntrinsics()
-		}
-		b.emitNativeIntrinsics()
-		b.emitHostFrameworkAdapters()
 	}
 
 	// 4. Resolve all relocations and emit the final executable container (PE32+, ELF64, or Mach-O)
@@ -210,11 +173,11 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	rodataBytes := b.rodata.Bytes()
 
 	if b.target.OS == "windows" {
-		peLayout := PreparePERData(len(textBytes), rodataBytes, b.needsHostBridge)
+		peLayout := PreparePERData(len(textBytes), rodataBytes, false)
 		if err := b.applyRelocations(textBytes, peLayout.TextRVA, peLayout.RODataRVA, peLayout.DataRVA, peLayout.IATRVAs[:]); err != nil {
 			return nil, "", err
 		}
-		exeBytes := EmitPE32PlusExecutable(peLayout, textBytes, dataFixedSize, b.guiMode, b.needsHostBridge)
+		exeBytes := EmitPE32PlusExecutable(peLayout, textBytes, dataFixedSize, b.guiMode, false)
 		return exeBytes, b.asmListing.String(), nil
 	}
 
@@ -233,6 +196,52 @@ func (b *MachineCodeBuilder) Compile(prog *ir.Program) ([]byte, string, error) {
 	}
 	elfBytes := EmitELF64Executable(elfLayout, textBytes, rodataBytes, dataFixedSize, b.target.Arch)
 	return elfBytes, b.asmListing.String(), nil
+}
+
+// emitSharedCode is the single x86_64 instruction-emission path used by both
+// the in-memory JIT and standalone AOT. The callers differ only in how they
+// lay out and publish the resulting code/data image.
+func (b *MachineCodeBuilder) emitSharedCode(prog *ir.Program) error {
+	if err := ir.NewVerifier().Verify(prog); err != nil {
+		return fmt.Errorf("backend nativo: IR no verificado: %w", err)
+	}
+	if err := validateSharedBackendCapabilities(prog, b.target, b.isJITMode); err != nil {
+		return err
+	}
+	b.prog = prog
+	if err := assignNativeGlobalOffsets(prog); err != nil {
+		return err
+	}
+	b.asmListing.WriteString(fmt.Sprintf("; Joss Self-Contained Native Compiler — %s Machine Code Listing\n; Target: %s/%s\n\n", b.target.Arch, b.target.OS, b.target.Arch))
+
+	if err := b.validateProgramCalls(prog); err != nil {
+		return err
+	}
+	b.emitEntrypointAndRuntime(prog.Functions["main"] != nil)
+
+	fnNames := make([]string, 0, len(prog.Functions))
+	for name := range prog.Functions {
+		fnNames = append(fnNames, name)
+	}
+	sort.Strings(fnNames)
+	for _, name := range fnNames {
+		if err := b.emitIRFunction(prog.Functions[name]); err != nil {
+			return err
+		}
+	}
+
+	b.emitToStringStub()
+	b.emitF64ToStringStub()
+	if b.usesExtendedStdlib {
+		if b.hasRelocTarget("fn_Server_start", "Server_start", "fn_Socket_listen", "Socket_listen") {
+			b.emitNativeServer()
+		}
+		if b.hasRelocTarget("fn___joss_storage_get", "fn___joss_storage_put", "fn___joss_storage_delete") {
+			b.emitStorageIntrinsics()
+		}
+		b.emitNativeIntrinsics()
+	}
+	return nil
 }
 
 // JITExecutable represents compiled machine code and data loaded directly into RAM.
@@ -260,7 +269,7 @@ func (j *JITExecutable) Execute() (int, error) {
 
 // CompileInMemory translates an *ir.Program into native machine code directly in RAM
 // and returns an executable image ready for zero-latency execution.
-func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, error) {
+func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (InMemoryExecutable, error) {
 	host := HostTarget()
 	if b.target.OS == "" && b.target.Arch == "" {
 		b.target = host
@@ -269,43 +278,8 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, 
 		return nil, fmt.Errorf("in-memory JIT requires the current AMD64 host target (host %s, requested %s)", host, b.target)
 	}
 	b.isJITMode = true
-	b.prog = prog
-	if err := assignNativeGlobalOffsets(prog); err != nil {
+	if err := b.emitSharedCode(prog); err != nil {
 		return nil, err
-	}
-
-	// 1. Validate that all called functions are either user IR functions or supported runtime intrinsics
-	if err := b.validateProgramCalls(prog); err != nil {
-		return nil, err
-	}
-
-	// 2. Emit _start entrypoint and Native Joss Runtime in machine code
-	b.emitEntrypointAndRuntime(prog.Functions["main"] != nil)
-
-	// 3. Sort function names for deterministic output
-	fnNames := make([]string, 0, len(prog.Functions))
-	for name := range prog.Functions {
-		fnNames = append(fnNames, name)
-	}
-	sort.Strings(fnNames)
-
-	for _, name := range fnNames {
-		if err := b.emitIRFunction(prog.Functions[name]); err != nil {
-			return nil, err
-		}
-	}
-
-	b.emitToStringStub()
-	b.emitF64ToStringStub()
-	if b.usesExtendedStdlib {
-		if b.hasRelocTarget("fn_Server_start", "Server_start", "fn_Socket_listen", "Socket_listen") {
-			b.emitNativeServer()
-		}
-		if b.hasRelocTarget("fn___joss_storage_get", "fn___joss_storage_put", "fn___joss_storage_delete") {
-			b.emitStorageIntrinsics()
-		}
-		b.emitNativeIntrinsics()
-		b.emitHostFrameworkAdapters()
 	}
 
 	// 4. Memory Layout Layout in RAM:
@@ -368,9 +342,11 @@ func (b *MachineCodeBuilder) CompileInMemory(prog *ir.Program) (*JITExecutable, 
 
 // isSupportedHostService reports host-service calls with a concrete AOT implementation.
 func isSupportedHostService(target Target, className, methodName string) bool {
-	if className == "Server" && methodName == "start" ||
-		className == "GranDB" {
-		return true
+	// Request::input is a backend context primitive. Both ISA emitters load the
+	// request map injected by the shared HTTP dispatcher; OS formats do not
+	// change this in-process map ABI.
+	if className == "Request" && methodName == "input" {
+		return SupportsNativeTarget(target)
 	}
 	if className != "Socket" {
 		return false
@@ -396,15 +372,15 @@ func isSupportedHostService(target Target, className, methodName string) bool {
 func (b *MachineCodeBuilder) hostServiceAvailable(className, methodName string) bool {
 	if b.isJITMode {
 		return b.hasNativeHostService(className, methodName) ||
-			programHasJossHostService(b.prog, className, methodName) ||
+			hasJossHostServiceImplementation(b.prog, className, methodName) ||
 			jit.SupportsInProcessHostBridge() && jit.HasHostBridgeHandler(className+"::"+methodName)
 	}
-	return b.hasNativeHostService(className, methodName) || programHasJossHostService(b.prog, className, methodName)
+	return b.hasNativeHostService(className, methodName) || hasJossHostServiceImplementation(b.prog, className, methodName)
 }
 
 func jitBuiltinBridgeHandler(id string) (string, bool) {
 	switch id {
-	case "json", "rsa_sign_sha256",
+	case "json", "json_decode", "rsa_sign_sha256",
 		"rawurlencode", "rawurldecode", "gmdate", "date", "sha256_base64", "sha1_base64",
 		"__joss_db_is_connected", "__joss_db_query", "__joss_db_execute":
 		return id, true
@@ -414,17 +390,15 @@ func jitBuiltinBridgeHandler(id string) (string, bool) {
 }
 
 func (b *MachineCodeBuilder) hasNativeHostService(className, methodName string) bool {
-	if isSupportedHostService(b.target, className, methodName) {
-		return true
-	}
-	// These adapters are emitted only by the AMD64 backend. Keep the target
-	// check here so ARM64 fails closed until it has the same implementation.
-	return b.target.Arch == "amd64" && className == "Session" && methodName == "get"
+	return isSupportedHostService(b.target, className, methodName)
 }
 
 func (b *MachineCodeBuilder) hasNativeIntrinsic(className, methodName string) bool {
+	if className == "Session" && methodName == "get" {
+		return false
+	}
 	switch className {
-	case "Socket", "Server", "SEO", "Math", "Request", "Response", "Session", "Auth", "Turnstile", "Markdown", "Router", "Schema", "View":
+	case "Socket", "Server", "Math", "Request", "Response", "Session", "Auth", "Turnstile", "Markdown", "Router", "Schema", "View":
 		return true
 	}
 	return false
@@ -446,7 +420,7 @@ func isExtendedStdlibCallee(name string) bool {
 	}
 	if strings.HasPrefix(name, "Server_") ||
 		strings.HasPrefix(name, "Router_") || strings.HasPrefix(name, "Schema_") ||
-		strings.HasPrefix(name, "SEO_") || strings.HasPrefix(name, "Markdown_") ||
+		strings.HasPrefix(name, "Markdown_") ||
 		strings.HasPrefix(name, "Auth_") || strings.HasPrefix(name, "Turnstile_") ||
 		strings.HasPrefix(name, "Request_") || strings.HasPrefix(name, "Response_") ||
 		strings.HasPrefix(name, "Session_") ||
@@ -487,6 +461,10 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 						report("primitive method " + i.TypeKind + "::" + i.MethodName)
 					}
 				case *ir.CallBuiltinInst:
+					if !b.isJITMode && isDatabaseHostBridgeRuntime(i.BuiltinID) {
+						report("standalone database runtime " + i.BuiltinID + " (HostBridge is unavailable in AOT)")
+						continue
+					}
 					if b.isJITMode {
 						if handler, bridged := jitBuiltinBridgeHandler(i.BuiltinID); bridged &&
 							(!jit.SupportsInProcessHostBridge() || !jit.HasHostBridgeHandler(handler)) {
@@ -502,10 +480,18 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 						b.usesExtendedStdlib = true
 					}
 				case *ir.CallRuntimeInst:
+					if !b.isJITMode && isDatabaseHostBridgeRuntime(i.Func) {
+						report("standalone database runtime " + i.Func + " (HostBridge is unavailable in AOT)")
+						continue
+					}
 					if isExtendedStdlibCallee(i.Func) {
 						b.usesExtendedStdlib = true
 					}
 				case *ir.CallInst:
+					if !b.isJITMode && isDatabaseHostBridgeRuntime(i.Callee) {
+						report("standalone database runtime " + i.Callee + " (HostBridge is unavailable in AOT)")
+						continue
+					}
 					if isExtendedStdlibCallee(i.Callee) {
 						b.usesExtendedStdlib = true
 					} else if !isNativeBuiltin(i.Callee) && !isNativeBuiltinHelper(i.Callee) {
@@ -540,7 +526,7 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 func isNativeBuiltin(id string) bool {
 	switch id {
 	case "strlen", "len", "count", "array_push", "append", "to_string", "strval",
-		"abs", "min", "max", "intval", "floatval", "boolval", "array_pop", "time", "microtime", "array_fill",
+		"abs", "min", "max", "intval", "floatval", "boolval", "array_pop", "array_key_exists", "time", "microtime", "array_fill",
 		"__joss_local_utc_offset", "__joss_timezone_data", "__joss_string_byte_at", "__joss_byte_string",
 		"file_get_contents", "__joss_file_get_bytes", "async", "await",
 		"env", "request", "csrf_field", "html_escape", "view",
@@ -615,14 +601,11 @@ func (b *MachineCodeBuilder) defineLabel(name string) {
 }
 
 func (b *MachineCodeBuilder) emitCallHostBridge(target string) {
-	if b.isJITMode {
-		b.emitLeaRCXString(target)
-		b.emitCallIAT(IATGetProcAddress + 1) // In JIT mode, slot 7 holds procHostBridgePtr in RAM
-		return
+	if !b.isJITMode {
+		panic("AOT compilation cannot call the JIT host bridge")
 	}
-	b.needsHostBridge = false
 	b.emitLeaRCXString(target)
-	b.emitCallLabel("_joss_host_bridge")
+	b.emitCallIAT(IATGetProcAddress + 1) // In JIT mode, slot 7 holds procHostBridgePtr in RAM
 }
 
 func (b *MachineCodeBuilder) emitCallHostBridgeWithArgs(layout *fnFrameLayout, target string, args []ir.Value) {
@@ -1540,6 +1523,78 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel(".map_set_ret_null")
 	b.emitBytes(0xC3)
 
+	// joss_map_delete_i64 (rcx = mapPtr, rdx = keyStr). Unlink the matching
+	// bucket node and decrement the map's live entry count.
+	b.defineLabel("joss_map_delete_i64")
+	b.emitBytes(0x48, 0x85, 0xC9)
+	b.emitJeLabel(".map_delete_ret")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00)
+	b.emitJlLabel(".map_delete_ret")
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x4A4F53534D415021)
+	b.emitBytes(0x4C, 0x39, 0x11)
+	b.emitJneLabel(".map_delete_ret")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)
+	b.emitBytes(0x53, 0x56, 0x57)
+	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57)
+	b.emitBytes(0x48, 0x83, 0xEC, 0x28)
+	b.emitBytes(0x49, 0x89, 0xCC) // r12 = map
+	b.emitBytes(0x49, 0x89, 0xD5) // r13 = key
+	b.emitBytes(0x45, 0x31, 0xF6) // r14 = previous node = nil
+	b.emitBytes(0x48, 0xB8)
+	b.emitU64(0xCBF29CE484222325)
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x00000100000001B3)
+	b.emitBytes(0x4C, 0x89, 0xEA)
+	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00)
+	b.emitJlLabel(".map_delete_hash_done")
+	b.defineLabel(".map_delete_hash_loop")
+	b.emitBytes(0x0F, 0xB6, 0x0A)
+	b.emitBytes(0x85, 0xC9)
+	b.emitJeLabel(".map_delete_hash_done")
+	b.emitBytes(0x48, 0x31, 0xC8)
+	b.emitBytes(0x49, 0x0F, 0xAF, 0xC2)
+	b.emitBytes(0x48, 0xFF, 0xC2)
+	b.emitJmpLabel(".map_delete_hash_loop")
+	b.defineLabel(".map_delete_hash_done")
+	b.emitBytes(0x48, 0x89, 0xC3)                         // rbx = hash
+	b.emitBytes(0x48, 0x89, 0xC6)                         // rsi = hash
+	b.emitBytes(0x48, 0x81, 0xE6, 0xFF, 0x7F, 0x00, 0x00) // bucket index
+	b.emitBytes(0x4D, 0x8B, 0x7C, 0xF4, 0x10)             // r15 = bucket head
+	b.emitBytes(0x45, 0x31, 0xF6)                         // r14 = nil prev
+	b.defineLabel(".map_delete_chain_loop")
+	b.emitBytes(0x4D, 0x85, 0xFF)
+	b.emitJeLabel(".map_delete_done")
+	b.emitBytes(0x49, 0x39, 0x5F, 0x18)
+	b.emitJneLabel(".map_delete_next")
+	b.emitBytes(0x49, 0x8B, 0x0F)
+	b.emitBytes(0x4C, 0x89, 0xEA)
+	b.emitBytes(0x48, 0x39, 0xD1)
+	b.emitJeLabel(".map_delete_found")
+	b.emitCallLabel("__joss_rt_strcmp")
+	b.emitBytes(0x48, 0x85, 0xC0)
+	b.emitJeLabel(".map_delete_found")
+	b.defineLabel(".map_delete_next")
+	b.emitBytes(0x4D, 0x89, 0xFE)       // r14 = current
+	b.emitBytes(0x4D, 0x8B, 0x7F, 0x10) // r15 = current.next
+	b.emitJmpLabel(".map_delete_chain_loop")
+	b.defineLabel(".map_delete_found")
+	b.emitBytes(0x49, 0x8B, 0x47, 0x10) // rax = current.next
+	b.emitBytes(0x4D, 0x85, 0xF6)
+	b.emitJneLabel(".map_delete_unlink_after_prev")
+	b.emitBytes(0x49, 0x89, 0x44, 0xF4, 0x10) // bucket head = next
+	b.emitJmpLabel(".map_delete_dec_count")
+	b.defineLabel(".map_delete_unlink_after_prev")
+	b.emitBytes(0x49, 0x89, 0x46, 0x10) // previous.next = next
+	b.defineLabel(".map_delete_dec_count")
+	b.emitBytes(0x49, 0xFF, 0x4C, 0x24, 0x08) // count--
+	b.defineLabel(".map_delete_done")
+	b.emitBytes(0x48, 0x83, 0xC4, 0x28)
+	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5F, 0x5E, 0x5B)
+	b.emitBytes(0x5D)
+	b.defineLabel(".map_delete_ret")
+	b.emitBytes(0xC3)
+
 	// joss_map_get_i64 (rcx = mapPtr, rdx = keyStr) -> rax = val64 (0 if missing)
 	b.defineLabel("joss_map_get_i64")
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
@@ -1604,6 +1659,66 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x5D)                                                 // pop rbp
 	b.defineLabel(".map_get_ret_null")
 	b.emitBytes(0xC3)
+
+	// fn_array_key_exists(rcx = key string, rdx = map) -> rax = bool.
+	// Inspect the hash chain directly so a present key with a null/zero value
+	// remains distinguishable from an absent key.
+	b.defineLabel("fn_array_key_exists")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5)                         // push rbp; mov rbp, rsp
+	b.emitBytes(0x53, 0x56)                                     // preserve rbx, rsi
+	b.emitBytes(0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // preserve r12..r15
+	b.emitBytes(0x48, 0x83, 0xEC, 0x20)                         // sub rsp, 32
+	b.emitBytes(0x49, 0x89, 0xD4)                               // r12 = map
+	b.emitBytes(0x49, 0x89, 0xCD)                               // r13 = key
+	b.emitBytes(0x48, 0x85, 0xD2)                               // test map
+	b.emitJeLabel(".ake_false")
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x4A4F53534D415021)
+	b.emitBytes(0x4D, 0x39, 0x14, 0x24) // cmp [r12], JOSSMAP!
+	b.emitJneLabel(".ake_false")
+	b.emitBytes(0x48, 0xB8)
+	b.emitU64(0xCBF29CE484222325) // FNV-1a offset basis
+	b.emitBytes(0x49, 0xBA)
+	b.emitU64(0x00000100000001B3) // FNV-1a prime
+	b.emitBytes(0x4C, 0x89, 0xEA) // rdx = key
+	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x01, 0x00)
+	b.emitJlLabel(".ake_hash_done")
+	b.defineLabel(".ake_hash_loop")
+	b.emitBytes(0x0F, 0xB6, 0x0A) // movzx ecx, byte [rdx]
+	b.emitBytes(0x85, 0xC9)
+	b.emitJeLabel(".ake_hash_done")
+	b.emitBytes(0x48, 0x31, 0xC8)       // xor rax, rcx
+	b.emitBytes(0x49, 0x0F, 0xAF, 0xC2) // imul rax, r10
+	b.emitBytes(0x48, 0xFF, 0xC2)       // inc rdx
+	b.emitJmpLabel(".ake_hash_loop")
+	b.defineLabel(".ake_hash_done")
+	b.emitBytes(0x48, 0x89, 0xC3)                   // rbx = full hash
+	b.emitBytes(0x48, 0x89, 0xC6)                   // rsi = hash
+	b.emitBytes(0x48, 0x81, 0xE6, 0xFF, 0x7F, 0, 0) // rsi &= 32767
+	b.emitBytes(0x4D, 0x8B, 0x7C, 0xF4, 0x10)       // r15 = bucket head
+	b.defineLabel(".ake_chain_loop")
+	b.emitBytes(0x4D, 0x85, 0xFF)
+	b.emitJeLabel(".ake_false")
+	b.emitBytes(0x49, 0x39, 0x5F, 0x18) // compare node hash
+	b.emitJneLabel(".ake_next")
+	b.emitBytes(0x49, 0x8B, 0x0F) // rcx = node key
+	b.emitBytes(0x4C, 0x89, 0xEA) // rdx = requested key
+	b.emitBytes(0x48, 0x39, 0xD1)
+	b.emitJeLabel(".ake_true")
+	b.emitCallLabel("__joss_rt_strcmp")
+	b.emitBytes(0x48, 0x85, 0xC0)
+	b.emitJeLabel(".ake_true")
+	b.defineLabel(".ake_next")
+	b.emitBytes(0x4D, 0x8B, 0x7F, 0x10) // r15 = node.next
+	b.emitJmpLabel(".ake_chain_loop")
+	b.defineLabel(".ake_true")
+	b.emitBytes(0xB8, 1, 0, 0, 0)
+	b.emitJmpLabel(".ake_done")
+	b.defineLabel(".ake_false")
+	b.emitBytes(0x31, 0xC0)
+	b.defineLabel(".ake_done")
+	b.emitBytes(0x48, 0x83, 0xC4, 0x20)
+	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5E, 0x5B, 0x5D, 0xC3)
 
 	// joss_map_get_str -> returns "" if missing/null
 	b.defineLabel("joss_map_get_str")
@@ -2590,9 +2705,6 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitNativeFileBytes()
 	}
 
-	b.defineLabel("_joss_host_bridge")
-	b.asmListing.WriteString("    xor eax, eax\n    ret\n")
-	b.emitBytes(0x31, 0xC0, 0xC3)
 }
 
 func (b *MachineCodeBuilder) emitNativeLocalUTCOffset() {
@@ -2932,7 +3044,9 @@ func (b *MachineCodeBuilder) emitBlocks(fn *ir.Function, layout *fnFrameLayout, 
 
 		if bt, ok := blk.Terminator.(*ir.BranchTerminator); ok && nInst > 0 {
 			if ci, isCmp := blk.Instructions[nInst-1].(*ir.CompareInst); isCmp && ci.Op != ir.OpSpaceship {
-				if condTemp, isTemp := bt.Cond.(*ir.TempValue); isTemp && condTemp.ID == ci.Dest.ID {
+				isFloatCmp := ci.Left.Type().Kind == ir.TypeKindF64 || ci.Right.Type().Kind == ir.TypeKindF64 ||
+					ci.Left.Type().Kind == ir.TypeKindDecimal || ci.Right.Type().Kind == ir.TypeKindDecimal
+				if condTemp, isTemp := bt.Cond.(*ir.TempValue); isTemp && condTemp.ID == ci.Dest.ID && !isFloatCmp {
 					fuseBranch = true
 					cmpInst = ci
 					brTerm = bt
@@ -3384,6 +3498,13 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			} else {
 				fnLabel = "joss_to_string"
 			}
+		} else if i.BuiltinID == "intval" && len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+			b.emitLoadValToXMM0(layout, i.Args[0])
+			b.emitBytes(0xF2, 0x48, 0x0F, 0x2C, 0xC0) // cvttsd2si rax, xmm0 (truncate toward zero)
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
+			return nil
 		} else if i.BuiltinID == "floatval" && len(i.Args) > 0 {
 			argKind := i.Args[0].Type().Kind
 			if argKind == ir.TypeKindString {
@@ -3442,7 +3563,7 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			return nil
 		}
 		if i.ClassName == "Plugin" {
-			fnLabel := "fn_" + i.ClassName + "_" + i.MethodName
+			fnLabel := "fn_" + jossHostServiceFunctionName(b.prog, i.ClassName, i.MethodName)
 			b.emitCallWithArgs(layout, fnLabel, i.Args)
 			if i.Dest != nil {
 				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
@@ -3450,14 +3571,14 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			return nil
 		}
 		if b.hostServiceAvailable(i.ClassName, i.MethodName) {
-			if b.isJITMode && !b.hasNativeIntrinsic(i.ClassName, i.MethodName) {
+			if b.isJITMode && !b.hasNativeIntrinsic(i.ClassName, i.MethodName) && !hasJossHostServiceImplementation(b.prog, i.ClassName, i.MethodName) {
 				b.emitCallHostBridgeWithArgs(layout, i.ClassName+"::"+i.MethodName, i.Args)
 				if i.Dest != nil {
 					b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 				}
 				return nil
 			}
-			fnLabel := "fn_" + i.ClassName + "_" + i.MethodName
+			fnLabel := "fn_" + jossHostServiceFunctionName(b.prog, i.ClassName, i.MethodName)
 			if i.ClassName == "View" && i.MethodName == "render" {
 				fnLabel = "fn_view"
 			}
@@ -3497,6 +3618,13 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			} else {
 				fnLabel = "joss_to_string"
 			}
+		} else if i.Callee == "intval" && len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+			b.emitLoadValToXMM0(layout, i.Args[0])
+			b.emitBytes(0xF2, 0x48, 0x0F, 0x2C, 0xC0) // cvttsd2si rax, xmm0 (truncate toward zero)
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
+			return nil
 		} else if i.Callee == "floatval" && len(i.Args) > 0 {
 			argKind := i.Args[0].Type().Kind
 			if argKind == ir.TypeKindString {
@@ -3677,7 +3805,11 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		b.emitCallLabel("joss_map_new")
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 		for _, pair := range i.Pairs {
-			b.emitCallWithArgs(layout, "joss_map_set_i64", []ir.Value{i.Dest, pair[0], pair[1]})
+			helper := "joss_map_set_i64"
+			if pair[1].Type().Kind == ir.TypeKindString {
+				helper = "joss_map_set_str"
+			}
+			b.emitCallWithArgs(layout, helper, []ir.Value{i.Dest, pair[0], pair[1]})
 		}
 
 	case *ir.MapGetInst:
@@ -3694,6 +3826,8 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 			helper = "joss_map_set_str"
 		}
 		b.emitCallWithArgs(layout, helper, []ir.Value{i.Map, i.Key, i.Val})
+	case *ir.MapDeleteInst:
+		b.emitCallWithArgs(layout, "joss_map_delete_i64", []ir.Value{i.Map, i.Key})
 
 	case *ir.ThrowInst:
 		b.emitLoadValToRAX(layout, i.Val)

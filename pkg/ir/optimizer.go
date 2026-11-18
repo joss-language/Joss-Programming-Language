@@ -840,6 +840,9 @@ func remapInstructionValues(inst Instruction, valMap map[Value]Value) {
 		i.Val = remap(i.Val)
 		i.Map = remap(i.Map)
 		i.Key = remap(i.Key)
+	case *MapDeleteInst:
+		i.Map = remap(i.Map)
+		i.Key = remap(i.Key)
 	case *NewArrayInst:
 		for idx := range i.Elements {
 			i.Elements[idx] = remap(i.Elements[idx])

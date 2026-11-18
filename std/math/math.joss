@@ -50,3 +50,11 @@ public class MathUtils {
         return($n % 2) != 0
     }
 }
+
+// Native backends bind Math::ceil to this shared Joss implementation instead
+// of maintaining separate numeric behavior in each machine-code emitter.
+public func __joss_host_Math_ceil(float $value): float {
+    int $truncated = intval($value)
+    float $truncatedFloat = floatval($truncated)
+    return($value > $truncatedFloat) ? floatval($truncated + 1) : $truncatedFloat
+}
