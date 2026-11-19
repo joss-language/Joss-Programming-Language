@@ -206,12 +206,34 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 		sig := fmt.Sprintf("declare %s @%s(%s)\n", retStr, sym, strings.Join(argTs, ", "))
 		if prev, seen := externDecls[sym]; seen {
 			if prev != sig {
-				e.varargSyms[sym] = true
 				prevRet := e.symRetTypes[sym]
 				if prevRet == "void" && retStr != "void" {
 					e.symRetTypes[sym] = retStr
+				} else if prevRet != retStr && retStr != "void" {
+					e.symRetTypes[sym] = "i64"
 				}
-				externDecls[sym] = fmt.Sprintf("declare %s @%s(...)\n", e.symRetTypes[sym], sym)
+				prevArgs := e.symArgTypes[sym]
+				maxLen := len(prevArgs)
+				if len(argTs) > maxLen {
+					maxLen = len(argTs)
+				}
+				merged := make([]string, maxLen)
+				for idx := 0; idx < maxLen; idx++ {
+					switch {
+					case idx < len(prevArgs) && idx < len(argTs):
+						if prevArgs[idx] == argTs[idx] {
+							merged[idx] = prevArgs[idx]
+						} else {
+							merged[idx] = "i64"
+						}
+					case idx < len(prevArgs):
+						merged[idx] = prevArgs[idx]
+					default:
+						merged[idx] = argTs[idx]
+					}
+				}
+				e.symArgTypes[sym] = merged
+				externDecls[sym] = fmt.Sprintf("declare %s @%s(%s)\n", e.symRetTypes[sym], sym, strings.Join(merged, ", "))
 			}
 			return
 		}
@@ -1305,10 +1327,28 @@ func (e *LLVMEmitter) emitDirectCall(sym string, dest *ir.TempValue, args []ir.V
 	} else if userFn != nil && len(args) > len(userFn.Params) {
 		args = args[:len(userFn.Params)]
 	}
-	argStrs := make([]string, len(args))
 	extArgTs := e.symArgTypes[sym]
 	isVararg := e.varargSyms != nil && e.varargSyms[sym]
-	for idx, a := range args {
+	argCount := len(args)
+	if userFn == nil && !isVararg && len(extArgTs) > argCount {
+		argCount = len(extArgTs)
+	}
+	argStrs := make([]string, argCount)
+	for idx := 0; idx < argCount; idx++ {
+		if idx >= len(args) {
+			switch extArgTs[idx] {
+			case "i8*":
+				argStrs[idx] = "i8* null"
+			case "double":
+				argStrs[idx] = "double 0.0"
+			case "i1":
+				argStrs[idx] = "i1 false"
+			default:
+				argStrs[idx] = extArgTs[idx] + " 0"
+			}
+			continue
+		}
+		a := args[idx]
 		if userFn != nil && idx < len(userFn.Params) {
 			paramLLVM := MapLLVMType(userFn.Params[idx].Type())
 			p, expr := e.coerceLLVM(a, paramLLVM, fmt.Sprintf("%s_a%d", tag, idx))
