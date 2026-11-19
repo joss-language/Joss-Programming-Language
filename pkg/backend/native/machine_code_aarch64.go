@@ -1329,7 +1329,7 @@ func (b *ARM64Builder) emitNativeTime() {
 	case "darwin":
 		b.asmListing.WriteString("; time(): gettimeofday syscall\n")
 		b.emitSubImm(regSP, regSP, 16)
-		b.emitMovReg(regX0, regSP)
+		b.emitAddImm(regX0, regSP, 0)
 		b.emitLoadImm64(regX1, 0)
 		b.emitLoadImm64(regX16, 116) // SYS_gettimeofday
 		b.emitSyscall()

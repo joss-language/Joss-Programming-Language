@@ -940,6 +940,9 @@ void fn_Socket_close(void* sock) {
  * ========================================================================= */
 
 void joss_set_active_request(void* req) {
+    if (req) {
+        req = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)req);
+    }
     g_joss_active_request = req;
 }
 
