@@ -2,7 +2,6 @@ package main
 
 import (
 	"archive/zip"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -245,50 +244,21 @@ func handleUpdateCommand(args []string) {
 	}
 
 	binaryToApply := downloadPath
+	stagedRunnersDir := ""
+	stagedToolchainDir := ""
 
-	// Extract binary if download is a ZIP archive
-	if data, err := os.ReadFile(downloadPath); err == nil && len(data) >= 4 && data[0] == 'P' && data[1] == 'K' {
-		zipReader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-		if err == nil {
-			extractedBin := filepath.Join(tempDir, "extracted_joss_binary")
-			found := false
-			expectedName := fmt.Sprintf("joss-%s-%s", runtime.GOOS, runtime.GOARCH)
-			if runtime.GOOS == "windows" {
-				expectedName += ".exe"
-			}
-			for _, file := range zipReader.File {
-				name := strings.ToLower(filepath.Base(file.Name))
-				if name == "joss.exe" || name == "joss" || name == expectedName {
-					rc, err := file.Open()
-					if err == nil {
-						content, _ := io.ReadAll(rc)
-						rc.Close()
-						if len(content) > 0 {
-							os.WriteFile(extractedBin, content, 0755)
-							binaryToApply = extractedBin
-							found = true
-							break
-						}
-					}
-				}
-			}
-			if !found {
-				for _, file := range zipReader.File {
-					if !file.FileInfo().IsDir() && strings.HasPrefix(strings.ToLower(filepath.Base(file.Name)), "joss") {
-						rc, err := file.Open()
-						if err == nil {
-							content, _ := io.ReadAll(rc)
-							rc.Close()
-							if len(content) > 0 {
-								os.WriteFile(extractedBin, content, 0755)
-								binaryToApply = extractedBin
-								break
-							}
-						}
-					}
-				}
-			}
+	// Extract binary and companion directories (runners, bundled toolchain) if download is a ZIP archive
+	if isZipArchive(downloadPath) {
+		pkg, err := extractUpdatePackage(downloadPath, tempDir, runtime.GOOS, runtime.GOARCH)
+		if err != nil {
+			fmt.Println(i18n.Tr("updaterApplyError", i18n.M{"error": err.Error()}))
+			return
 		}
+		if pkg.BinaryPath != "" {
+			binaryToApply = pkg.BinaryPath
+		}
+		stagedRunnersDir = pkg.RunnersDir
+		stagedToolchainDir = pkg.ToolchainDir
 	}
 
 	fmt.Println(i18n.Tr("updaterApplying"))
@@ -305,6 +275,16 @@ func handleUpdateCommand(args []string) {
 		return
 	}
 
+	// Sync companion directories (runners, bundled toolchain) and clean legacy leftovers
+	installDir := filepath.Dir(currentExe)
+	if resolved, err := filepath.EvalSymlinks(currentExe); err == nil && resolved != "" {
+		installDir = filepath.Dir(resolved)
+	}
+	if err := syncUpdateCompanionDirs(installDir, stagedRunnersDir, stagedToolchainDir, runtime.GOOS, runtime.GOARCH); err != nil {
+		fmt.Println(i18n.Tr("updaterApplyError", i18n.M{"error": err.Error()}))
+		return
+	}
+
 	cfg.LastCheck = time.Now().Unix()
 	cfg.LatestVersion = remoteVer
 	cfg.LatestAssetURL = assetURL
@@ -313,6 +293,241 @@ func handleUpdateCommand(args []string) {
 	fmt.Printf("\n%s\n", i18n.Tr("updaterSuccessTitle"))
 	fmt.Printf(" %s : v%s (%s)\n", i18n.Tr("updaterNewVersion"), remoteVer, strings.ToUpper(cfg.Channel))
 	fmt.Printf(" %s     : %s\n\n", i18n.Tr("updaterExecutable"), currentExe)
+}
+
+type extractedUpdatePackage struct {
+	BinaryPath   string
+	RunnersDir   string
+	ToolchainDir string
+}
+
+func isZipArchive(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	var header [4]byte
+	n, err := f.Read(header[:])
+	return err == nil && n >= 2 && header[0] == 'P' && header[1] == 'K'
+}
+
+func expectedUpdateBinaryNames(goos, goarch string) []string {
+	osAlias := goos
+	if goos == "darwin" {
+		osAlias = "macos"
+	}
+	suffix := ""
+	if goos == "windows" {
+		suffix = ".exe"
+	}
+	names := []string{
+		fmt.Sprintf("joss-%s-%s%s", osAlias, goarch, suffix),
+	}
+	if osAlias != goos {
+		names = append(names, fmt.Sprintf("joss-%s-%s%s", goos, goarch, suffix))
+	}
+	// Generic fallback (e.g., joss.exe is windows-amd64 in release zips)
+	if goos == "windows" {
+		names = append(names, "joss.exe")
+	} else {
+		names = append(names, "joss")
+	}
+	return names
+}
+
+func extractUpdatePackage(zipPath, tempDir, goos, goarch string) (*extractedUpdatePackage, error) {
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return nil, fmt.Errorf("no se pudo abrir el paquete ZIP de actualización: %w", err)
+	}
+	defer zr.Close()
+
+	res := &extractedUpdatePackage{}
+	expectedNames := expectedUpdateBinaryNames(goos, goarch)
+	bestPriority := len(expectedNames) + 1
+	var bestBinFile *zip.File
+
+	toolchainTargetPrefix := "toolchain/" + goos + "-" + goarch + "/"
+	stagedRunners := filepath.Join(tempDir, "staged-runners")
+	stagedToolchain := filepath.Join(tempDir, "staged-toolchain", goos+"-"+goarch)
+	hasRunners := false
+	hasToolchain := false
+
+	for _, file := range zr.File {
+		if file.FileInfo().IsDir() {
+			continue
+		}
+		cleanName := strings.TrimPrefix(filepath.ToSlash(filepath.Clean(file.Name)), "./")
+		if cleanName == "" || strings.HasPrefix(cleanName, "../") || strings.HasPrefix(cleanName, "/") {
+			continue
+		}
+		lowerClean := strings.ToLower(cleanName)
+
+		// 1. Check companion runners/ directory
+		if strings.HasPrefix(lowerClean, "runners/") {
+			rel := cleanName[len("runners/"):]
+			destPath, ok := safeJoinPath(stagedRunners, rel)
+			if ok {
+				if err := extractZipFileEntry(file, destPath); err != nil {
+					return nil, err
+				}
+				hasRunners = true
+			}
+			continue
+		}
+
+		// 2. Check bundled toolchain for the current host os-arch only
+		if strings.HasPrefix(lowerClean, strings.ToLower(toolchainTargetPrefix)) {
+			rel := cleanName[len(toolchainTargetPrefix):]
+			destPath, ok := safeJoinPath(stagedToolchain, rel)
+			if ok {
+				if err := extractZipFileEntry(file, destPath); err != nil {
+					return nil, err
+				}
+				hasToolchain = true
+			}
+			continue
+		}
+
+		// 3. Match main joss binary at root (skip nested toolchain/runners entries already handled above)
+		if !strings.Contains(cleanName, "/") {
+			base := strings.ToLower(filepath.Base(cleanName))
+			for idx, cand := range expectedNames {
+				if base == cand && idx < bestPriority {
+					bestPriority = idx
+					bestBinFile = file
+					break
+				}
+			}
+			if bestBinFile == nil && strings.HasPrefix(base, "joss") && !strings.HasSuffix(base, ".ps1") && !strings.HasSuffix(base, ".sh") {
+				bestBinFile = file
+			}
+		}
+	}
+
+	if bestBinFile != nil {
+		extractedBin := filepath.Join(tempDir, "extracted_joss_binary")
+		if err := extractZipFileEntry(bestBinFile, extractedBin); err != nil {
+			return nil, err
+		}
+		res.BinaryPath = extractedBin
+	}
+	if hasRunners {
+		res.RunnersDir = stagedRunners
+	}
+	if hasToolchain {
+		res.ToolchainDir = stagedToolchain
+	}
+	return res, nil
+}
+
+func safeJoinPath(baseDir, relPath string) (string, bool) {
+	cleaned := filepath.Clean(filepath.FromSlash(relPath))
+	if cleaned == "." || cleaned == "" || filepath.IsAbs(cleaned) || strings.HasPrefix(cleaned, "..") {
+		return "", false
+	}
+	dest := filepath.Join(baseDir, cleaned)
+	baseAbs, err1 := filepath.Abs(baseDir)
+	destAbs, err2 := filepath.Abs(dest)
+	if err1 != nil || err2 != nil {
+		return "", false
+	}
+	if destAbs != baseAbs && !strings.HasPrefix(destAbs, baseAbs+string(os.PathSeparator)) {
+		return "", false
+	}
+	return dest, true
+}
+
+func extractZipFileEntry(file *zip.File, destPath string) error {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return err
+	}
+	rc, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	mode := file.Mode()
+	if mode == 0 {
+		mode = 0755
+	}
+	out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, rc)
+	return err
+}
+
+func syncUpdateCompanionDirs(installDir, stagedRunnersDir, stagedToolchainDir, goos, goarch string) error {
+	// Clean legacy SDK directory if present from older releases
+	legacySDK := filepath.Join(installDir, "sdk")
+	if info, err := os.Stat(legacySDK); err == nil && info.IsDir() {
+		_ = os.RemoveAll(legacySDK)
+	}
+
+	if stagedRunnersDir != "" {
+		dstRunners := filepath.Join(installDir, "runners")
+		if err := replaceDirectoryClean(dstRunners, stagedRunnersDir); err != nil {
+			return fmt.Errorf("no se pudo actualizar el directorio runners: %w", err)
+		}
+	}
+
+	if stagedToolchainDir != "" {
+		// Replace the entire toolchain directory cleanly so stale architectures/versions are removed
+		dstToolchainRoot := filepath.Join(installDir, "toolchain")
+		dstToolchainTarget := filepath.Join(dstToolchainRoot, goos+"-"+goarch)
+		if err := os.RemoveAll(dstToolchainRoot); err != nil {
+			return fmt.Errorf("no se pudo limpiar el directorio toolchain anterior: %w", err)
+		}
+		if err := copyDirectoryRecursive(stagedToolchainDir, dstToolchainTarget); err != nil {
+			return fmt.Errorf("no se pudo instalar el toolchain nativo empaquetado: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func replaceDirectoryClean(dstDir, srcDir string) error {
+	if err := os.RemoveAll(dstDir); err != nil {
+		return err
+	}
+	return copyDirectoryRecursive(srcDir, dstDir)
+}
+
+func copyDirectoryRecursive(srcDir, dstDir string) error {
+	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dstDir, rel)
+		if info.IsDir() {
+			return os.MkdirAll(target, 0755)
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+			return err
+		}
+		srcFile, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer srcFile.Close()
+		dstFile, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+		if err != nil {
+			return err
+		}
+		defer dstFile.Close()
+		_, err = io.Copy(dstFile, srcFile)
+		return err
+	})
 }
 
 func selectReleaseByChannel(releases []GitHubRelease, channel string) *GitHubRelease {
