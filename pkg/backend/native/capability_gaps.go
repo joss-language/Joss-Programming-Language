@@ -92,7 +92,7 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 		}
 	}
 	checkARM64Stub := func(name string) {
-		if target.Arch != "arm64" {
+		if target.Arch != "arm64" || backend == BackendLLVM {
 			return
 		}
 		clean := strings.TrimPrefix(name, "fn_")

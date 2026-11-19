@@ -527,8 +527,9 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		typeName := MapLLVMType(global.Type)
 		pre, valExpr := e.coerceLLVM(i.Val, typeName, fmt.Sprintf("gst_%p", i))
 		storeLine := fmt.Sprintf("%sstore %s %s, %s* %s, align 8", pre, typeName, valExpr, typeName, name)
-		if cleanIdent(i.GlobalName) == "__joss_request_params" && typeName == "i8*" {
-			storeLine += fmt.Sprintf("\n\tcall void @joss_set_active_request(i8* %s)", valExpr)
+		if cleanIdent(i.GlobalName) == "__joss_request_params" {
+			preReq, reqPtr := e.coerceLLVM(i.Val, "i8*", fmt.Sprintf("gst_req_%p", i))
+			storeLine += fmt.Sprintf("\n\t%scall void @joss_set_active_request(i8* %s)", preReq, reqPtr)
 		}
 		return storeLine, nil
 

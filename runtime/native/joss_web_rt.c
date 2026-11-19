@@ -46,35 +46,18 @@ const char* joss_str_concat_i64(const char* a, int64_t b) {
     return joss_str_concat(a ? a : "", buf);
 }
 
-const char* joss_strval(int64_t v) {
-    uint64_t u = (uint64_t)v;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
-        if (joss_is_arr_ptr(v)) return "[Array]";
-        if (joss_is_map_ptr(v)) return "[Map]";
-        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)u;
-        if ((box->header >> 32) == JOSS_BOX_MAGIC) {
-            uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
-            if (tag == JOSS_TAG_STRING) return (const char*)(uintptr_t)box->payload;
-            if (tag == JOSS_TAG_BOOL) return box->payload ? "true" : "false";
-            if (tag == JOSS_TAG_NULL) return "";
-            if (tag == JOSS_TAG_INT) {
-                char* out = (char*)malloc(32);
-                snprintf(out, 32, "%lld", (long long)(int64_t)box->payload);
-                return out;
-            }
-        }
-        return (const char*)(uintptr_t)u;
+static const char* unbox_web_cstr(const char* s) {
+    if (!s) return NULL;
+    int64_t v = (int64_t)(uintptr_t)s;
+    if (joss_is_boxed_ptr(v)) {
+        return joss_strval(v);
     }
-    char* out = (char*)malloc(32);
-    snprintf(out, 32, "%lld", (long long)v);
-    return out;
-}
-
-const char* joss_to_string(int64_t v) {
-    return joss_strval(v);
+    return s;
 }
 
 int64_t joss_strpos(const char* haystack, const char* needle) {
+    haystack = unbox_web_cstr(haystack);
+    needle = unbox_web_cstr(needle);
     if (!haystack || !needle) return 0;
     const char* found = strstr(haystack, needle);
     if (!found) return 0;
@@ -88,6 +71,9 @@ int64_t joss_strpos(const char* haystack, const char* needle) {
 }
 
 const char* joss_substr(const char* s, int64_t start, int64_t length) {
+    s = unbox_web_cstr(s);
+    start = joss_unbox_value(start);
+    if (length != INT64_MIN) length = joss_unbox_value(length);
     if (!s) return "";
     int64_t total_runes = 0;
     for (const char* p = s; *p; p++) {
@@ -135,6 +121,7 @@ const char* joss_substr(const char* s, int64_t start, int64_t length) {
 }
 
 const char* joss_trim(const char* s) {
+    s = unbox_web_cstr(s);
     if (!s) return "";
     while (*s && isspace((unsigned char)*s)) s++;
     size_t n = strlen(s);
@@ -147,6 +134,7 @@ const char* joss_trim(const char* s) {
 }
 
 const char* joss_strtolower(const char* s) {
+    s = unbox_web_cstr(s);
     if (!s) return "";
     size_t n = strlen(s);
     char* out = (char*)malloc(n + 1);
@@ -157,6 +145,7 @@ const char* joss_strtolower(const char* s) {
 }
 
 const char* joss_strtoupper(const char* s) {
+    s = unbox_web_cstr(s);
     if (!s) return "";
     size_t n = strlen(s);
     char* out = (char*)malloc(n + 1);
@@ -167,6 +156,7 @@ const char* joss_strtoupper(const char* s) {
 }
 
 const char* joss_urldecode(const char* s) {
+    s = unbox_web_cstr(s);
     if (!s) return "";
     size_t n = strlen(s);
     char* out = (char*)malloc(n + 1);
@@ -192,6 +182,8 @@ const char* joss_rawurldecode(const char* s) {
 }
 
 void* joss_explode(const char* sep, const char* subj) {
+    sep = unbox_web_cstr(sep);
+    subj = unbox_web_cstr(subj);
     void* arr = joss_arr_new(4);
     if (!subj) return arr;
     if (!sep || !*sep) {
@@ -234,41 +226,42 @@ void* joss_explode(const char* sep, const char* subj) {
  * ========================================================================= */
 int64_t joss_count(void* container) {
     if (!container) return 0;
-    int64_t v = (int64_t)(uintptr_t)container;
-    if (joss_is_map_ptr(v)) return joss_map_len(container);
-    if (joss_is_arr_ptr(v)) return joss_arr_len(container);
+    int64_t v = joss_unbox_value((int64_t)(uintptr_t)container);
+    if (joss_is_map_ptr(v)) return joss_map_len((void*)(uintptr_t)v);
+    if (joss_is_arr_ptr(v)) return joss_arr_len((void*)(uintptr_t)v);
     return 0;
 }
 
 int64_t len(void* container) {
     if (!container) return 0;
-    int64_t v = (int64_t)(uintptr_t)container;
-    if (joss_is_map_ptr(v)) return joss_map_len(container);
-    if (joss_is_arr_ptr(v)) return joss_arr_len(container);
+    int64_t v = joss_unbox_value((int64_t)(uintptr_t)container);
+    if (joss_is_map_ptr(v)) return joss_map_len((void*)(uintptr_t)v);
+    if (joss_is_arr_ptr(v)) return joss_arr_len((void*)(uintptr_t)v);
     uint64_t u = (uint64_t)v;
     if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
-        return (int64_t)strlen((const char*)container);
+        return joss_strlen((const char*)(uintptr_t)u);
     }
     return 0;
 }
 
 int64_t joss_is_truthy(int64_t v) {
     if (v == 0) return 0;
+    if (joss_is_boxed_ptr(v)) {
+        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)v;
+        uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
+        if (tag == JOSS_TAG_NULL) return 0;
+        if (tag == JOSS_TAG_BOOL || tag == JOSS_TAG_INT) return box->payload != 0 ? 1 : 0;
+        if (tag == JOSS_TAG_STRING) {
+            const char* s = (const char*)(uintptr_t)box->payload;
+            return (s && s[0] != '\0') ? 1 : 0;
+        }
+        v = (int64_t)box->payload;
+    }
+    if (v == 0) return 0;
     if (joss_is_arr_ptr(v)) return joss_arr_len((void*)(uintptr_t)v) > 0 ? 1 : 0;
     if (joss_is_map_ptr(v)) return joss_map_len((void*)(uintptr_t)v) > 0 ? 1 : 0;
     uint64_t u = (uint64_t)v;
     if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
-        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)u;
-        if ((box->header >> 32) == JOSS_BOX_MAGIC) {
-            uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
-            if (tag == JOSS_TAG_NULL) return 0;
-            if (tag == JOSS_TAG_BOOL || tag == JOSS_TAG_INT) return box->payload != 0 ? 1 : 0;
-            if (tag == JOSS_TAG_STRING) {
-                const char* s = (const char*)(uintptr_t)box->payload;
-                return (s && s[0] != '\0') ? 1 : 0;
-            }
-            return 1;
-        }
         const char* s = (const char*)(uintptr_t)u;
         return s[0] != '\0' ? 1 : 0;
     }
@@ -276,21 +269,23 @@ int64_t joss_is_truthy(int64_t v) {
 }
 
 int64_t joss_is_array(int64_t v) {
+    v = joss_unbox_value(v);
     return joss_is_arr_ptr(v) ? 1 : 0;
 }
 
 int64_t joss_is_map(int64_t v) {
+    v = joss_unbox_value(v);
     return joss_is_map_ptr(v) ? 1 : 0;
 }
 
 int64_t joss_is_string(int64_t v) {
     if (joss_is_arr_ptr(v) || joss_is_map_ptr(v)) return 0;
-    uint64_t u = (uint64_t)v;
-    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return 0;
-    const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)u;
-    if ((box->header >> 32) == JOSS_BOX_MAGIC) {
+    if (joss_is_boxed_ptr(v)) {
+        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)v;
         return (uint32_t)(box->header & 0xFFFFFFFFULL) == JOSS_TAG_STRING ? 1 : 0;
     }
+    uint64_t u = (uint64_t)v;
+    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return 0;
     return 1;
 }
 
@@ -636,16 +631,18 @@ static void json_encode_value(JossStringBuilder* sb, int64_t val) {
         joss_buf_append_byte(sb, ']');
         return;
     }
+    if (joss_is_boxed_ptr(val)) {
+        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)val;
+        uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
+        if (tag == JOSS_TAG_NULL) { joss_sb_append(sb, "null"); return; }
+        if (tag == JOSS_TAG_BOOL) { joss_sb_append(sb, box->payload ? "true" : "false"); return; }
+        if (tag == JOSS_TAG_INT)  { joss_sb_append_i64(sb, (int64_t)box->payload); return; }
+        if (tag == JOSS_TAG_STRING) { json_escape_append(sb, (const char*)(uintptr_t)box->payload); return; }
+        json_encode_value(sb, (int64_t)box->payload);
+        return;
+    }
     uint64_t u = (uint64_t)val;
     if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
-        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)u;
-        if ((box->header >> 32) == JOSS_BOX_MAGIC) {
-            uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
-            if (tag == JOSS_TAG_NULL) { joss_sb_append(sb, "null"); return; }
-            if (tag == JOSS_TAG_BOOL) { joss_sb_append(sb, box->payload ? "true" : "false"); return; }
-            if (tag == JOSS_TAG_INT)  { joss_sb_append_i64(sb, (int64_t)box->payload); return; }
-            if (tag == JOSS_TAG_STRING) { json_escape_append(sb, (const char*)(uintptr_t)box->payload); return; }
-        }
         json_escape_append(sb, (const char*)(uintptr_t)u);
         return;
     }
