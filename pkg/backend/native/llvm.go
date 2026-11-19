@@ -53,11 +53,10 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 		buf.WriteString("; Joss module globals\n")
 		for _, name := range globalNames {
 			global := prog.Globals[name]
-			linkage := "internal"
+			buf.WriteString(fmt.Sprintf("@joss_global_%s = internal global %s zeroinitializer, align 8\n", cleanIdent(name), MapLLVMType(global.Type)))
 			if cleanIdent(name) == "__joss_request_params" {
-				linkage = "weak_odr"
+				buf.WriteString("declare void @joss_set_active_request(i8*)\n")
 			}
-			buf.WriteString(fmt.Sprintf("@joss_global_%s = %s global %s zeroinitializer, align 8\n", cleanIdent(name), linkage, MapLLVMType(global.Type)))
 		}
 		buf.WriteString("\n")
 	}
@@ -527,7 +526,11 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		name := "@joss_global_" + cleanIdent(i.GlobalName)
 		typeName := MapLLVMType(global.Type)
 		pre, valExpr := e.coerceLLVM(i.Val, typeName, fmt.Sprintf("gst_%p", i))
-		return fmt.Sprintf("%sstore %s %s, %s* %s, align 8", pre, typeName, valExpr, typeName, name), nil
+		storeLine := fmt.Sprintf("%sstore %s %s, %s* %s, align 8", pre, typeName, valExpr, typeName, name)
+		if cleanIdent(i.GlobalName) == "__joss_request_params" && typeName == "i8*" {
+			storeLine += fmt.Sprintf("\n\tcall void @joss_set_active_request(i8* %s)", valExpr)
+		}
+		return storeLine, nil
 
 	case *ir.MoveInst:
 		destType := MapLLVMType(i.Dest.ValueType)

@@ -317,7 +317,7 @@ void joss_sb_free(JossStringBuilder* sb) {
  * Core Printing & Strings
  * ========================================================================= */
 void joss_print_i64(int64_t v) {
-    printf("%" PRId64 "\n", joss_unbox_value(v));
+    printf("%" PRId64 "\n", v);
     fflush(stdout);
 }
 

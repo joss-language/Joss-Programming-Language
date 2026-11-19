@@ -84,7 +84,7 @@ int64_t joss_strpos(const char* haystack, const char* needle) {
             rune_idx++;
         }
     }
-    return (int64_t)(uintptr_t)joss_box_i64(rune_idx);
+    return rune_idx;
 }
 
 const char* joss_substr(const char* s, int64_t start, int64_t length) {
@@ -464,10 +464,83 @@ int64_t joss_strtotime(const char* s) {
     return (int64_t)time(NULL);
 }
 
+static void* g_joss_env_map = NULL;
+
+static void joss_load_env_file_if_needed(void) {
+    if (g_joss_env_map != NULL) return;
+    g_joss_env_map = joss_map_new();
+    const char* candidates[] = {"env.joss", ".env", "../env.joss", "../.env"};
+    for (int i = 0; i < 4; i++) {
+        FILE* f = fopen(candidates[i], "rb");
+        if (!f) continue;
+        fseek(f, 0, SEEK_END);
+        long sz = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        if (sz <= 0) {
+            fclose(f);
+            continue;
+        }
+        char* buf = (char*)malloc((size_t)sz + 1);
+        if (!buf) {
+            fclose(f);
+            continue;
+        }
+        size_t rd = fread(buf, 1, (size_t)sz, f);
+        buf[rd] = '\0';
+        fclose(f);
+        char* p = buf;
+        while (*p) {
+            while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+            if (!*p) break;
+            if (*p == '#') {
+                while (*p && *p != '\n') p++;
+                continue;
+            }
+            char* key_start = p;
+            while (*p && *p != '=' && *p != '\n' && *p != '\r') p++;
+            if (*p != '=') {
+                while (*p && *p != '\n') p++;
+                continue;
+            }
+            char* key_end = p;
+            while (key_end > key_start && (key_end[-1] == ' ' || key_end[-1] == '\t')) key_end--;
+            *key_end = '\0';
+            p++;
+            while (*p == ' ' || *p == '\t') p++;
+            char* val_start = p;
+            if (*p == '"' || *p == '\'') {
+                char q = *p++;
+                val_start = p;
+                while (*p && *p != q) p++;
+                if (*p == q) *p++ = '\0';
+                while (*p && *p != '\n') p++;
+            } else {
+                while (*p && *p != '\r' && *p != '\n' && *p != '#') p++;
+                char* val_end = p;
+                while (val_end > val_start && (val_end[-1] == ' ' || val_end[-1] == '\t')) val_end--;
+                if (*p == '#') {
+                    while (*p && *p != '\n') p++;
+                }
+                if (*p) p++;
+                *val_end = '\0';
+            }
+            joss_map_set_str(g_joss_env_map, key_start, val_start);
+        }
+        break;
+    }
+}
+
 const char* joss_env(const char* key, const char* defVal) {
     if (!key) return defVal ? defVal : "";
-    const char* v = getenv(key);
-    if (v) return v;
+    joss_load_env_file_if_needed();
+    if (g_joss_env_map != NULL && joss_array_key_exists(key, g_joss_env_map)) {
+        const char* mv = joss_map_get_str(g_joss_env_map, key);
+        if (mv) return mv;
+    }
+    if (strcmp(key, "PREFIX") != 0) {
+        const char* v = getenv(key);
+        if (v) return v;
+    }
     return defVal ? defVal : "";
 }
 
@@ -869,16 +942,12 @@ void fn_Socket_close(void* sock) {
  * Web Context Helpers
  * ========================================================================= */
 
-#if defined(__GNUC__) || defined(__clang__)
-__attribute__((weak))
-#endif
-void* joss_global___joss_request_params = NULL;
+void joss_set_active_request(void* req) {
+    g_joss_active_request = req;
+}
 
 const char* joss_request(const char* key, int64_t defVal) {
     void* active_req = g_joss_active_request;
-    if (!active_req && joss_global___joss_request_params) {
-        active_req = joss_global___joss_request_params;
-    }
     if (key && strcmp(key, "__joss_request_all_fields") == 0) {
         if (active_req && joss_is_map_ptr((int64_t)(uintptr_t)active_req)) {
             return (const char*)active_req;

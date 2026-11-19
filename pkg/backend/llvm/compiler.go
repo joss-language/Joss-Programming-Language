@@ -173,7 +173,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	rtDir := filepath.Dir(rtCPath)
 	needsDB := strings.Contains(llvmIR, "joss___joss_db_")
 	needsCrypto := strings.Contains(llvmIR, "joss_sha256") || strings.Contains(llvmIR, "joss_password_") || strings.Contains(llvmIR, "joss_random_hex") || strings.Contains(llvmIR, "joss_jwt_") || strings.Contains(llvmIR, "joss_totp_")
-	needsWeb := needsDB || llvmNeedsWebRuntime(llvmIR)
+	needsWeb := needsDB || llvmNeedsWebRuntime(llvmIR) || strings.Contains(llvmIR, "@joss_set_active_request")
 	needsThreads := strings.Contains(llvmIR, "@joss_async") || strings.Contains(llvmIR, "@joss_make_chan")
 	needsConcurrency := needsThreads || strings.Contains(llvmIR, "@joss_dp_get") || strings.Contains(llvmIR, "@joss_dp_put")
 

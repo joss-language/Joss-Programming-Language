@@ -262,6 +262,8 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// __joss_rt_strlen(x0 = strPtr) -> x0 = len
 	b.defineLabel("__joss_rt_strlen")
 	b.emitLoadImm64(regX1, 0)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".strlen_done")
 	b.defineLabel(".strlen_loop")
 	b.emitAdd(regX2, regX0, regX1)
 	b.emitLdrb(regX3, regX2, 0)
@@ -276,6 +278,8 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	// joss_print_string(x0 = strPtr)
 	b.defineLabel("joss_print_string")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".print_str_null")
 	b.emitProlog(32)
 	b.emitStr(regX0, regSP, 16)
 
@@ -291,6 +295,8 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitCall("__joss_os_write")
 
 	b.emitEpilog(32)
+	b.defineLabel(".print_str_null")
+	b.emitRet(regX30)
 
 	// joss_print_bool(x0 = boolVal)
 	b.defineLabel("joss_print_bool")
@@ -526,6 +532,22 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("fn_to_string")
 	b.defineLabel("fn_strval")
 	b.defineLabel("joss_f64_to_string")
+	// Unbox if boxed
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".tostr_convert_int")
+	b.emitLoadImm64(regX1, 0x10000)
+	b.emitCmp(regX0, regX1)
+	b.emitBranchCond(condLT, ".tostr_convert_int")
+	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".tostr_convert_int")
+	b.emitLdr(regX2, regX0, 0)
+	b.emitInst(0xD360FC43) // lsr x3, x2, #32
+	b.emitLoadImm64(regX4, 0x8192A3B4)
+	b.emitCmp(regX3, regX4)
+	b.emitBranchCond(condNE, ".tostr_check_ptr")
+	b.emitLdr(regX0, regX0, 8)
+	b.defineLabel(".tostr_check_ptr")
 	// If x0 >= 0x400000 and (x0 >> 47) == 0, it is already a string pointer in rodata or heap, return it
 	b.emitLoadImm64(regX1, 0x400000)
 	b.emitCmp(regX0, regX1)
@@ -676,21 +698,20 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("joss_obj_get_field_str")
 	b.emitCmp(regX0, regXZR)
 	b.emitBranchCond(condEQ, ".obj_get_null")
-	b.emitLdr(regX2, regX0, 8)
-	b.emitCmp(regX2, regXZR)
-	b.emitBranchCond(condEQ, ".obj_get_null")
-	// Fast leaf path: if first node matches key directly
-	b.emitLdr(regX3, regX2, 0)
-	b.emitCmp(regX3, regX1)
-	b.emitBranchCond(condNE, ".obj_get_frame")
-	b.emitLdr(regX0, regX2, 8)
-	b.emitRet(regX30)
-
-	b.defineLabel(".obj_get_frame")
 	b.emitProlog(48)
 	b.emitStr(regX0, regSP, 16) // obj
 	b.emitStr(regX1, regSP, 24) // key
+	b.emitCall("joss_unbox_value")
+	b.emitStr(regX0, regSP, 16) // unboxed obj
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".obj_get_notfound")
+	b.emitLdr(regX2, regX0, 8)
+	b.emitCmp(regX2, regXZR)
+	b.emitBranchCond(condEQ, ".obj_get_notfound")
 	b.emitStr(regX2, regSP, 32) // currNode
+	b.emitLdr(regX0, regSP, 24)
+	b.emitCall("joss_unbox_value")
+	b.emitStr(regX0, regSP, 24) // unboxed key
 
 	b.defineLabel(".obj_get_loop")
 	b.emitLdr(regX2, regSP, 32)
@@ -743,8 +764,13 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitStr(regX0, regSP, 16) // obj
 	b.emitStr(regX1, regSP, 24) // key
 	b.emitStr(regX2, regSP, 32) // val
+	b.emitCall("joss_unbox_value")
+	b.emitStr(regX0, regSP, 16) // unboxed obj
 	b.emitLdr(regX4, regX0, 8)  // head
 	b.emitStr(regX4, regSP, 40) // currNode
+	b.emitLdr(regX0, regSP, 24)
+	b.emitCall("joss_unbox_value")
+	b.emitStr(regX0, regSP, 24) // unboxed key
 
 	b.defineLabel(".obj_set_loop")
 	b.emitLdr(regX2, regSP, 40)
@@ -793,6 +819,14 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLdr(regX4, regX3, 8) // old head
 	b.emitStr(regX4, regX0, 16)
 	b.emitStr(regX0, regX3, 8)
+	// Increment map/object count at [obj, #0] if it is not a class name pointer (>= 0x10000)
+	b.emitLdr(regX5, regX3, 0)
+	b.emitLoadImm64(regX6, 0x10000)
+	b.emitCmp(regX5, regX6)
+	b.emitBranchCond(condCS, ".obj_set_skip_cnt")
+	b.emitAddImm(regX5, regX5, 1)
+	b.emitStr(regX5, regX3, 0)
+	b.defineLabel(".obj_set_skip_cnt")
 	b.emitEpilog(48)
 
 	b.defineLabel(".obj_set_ret")
@@ -827,13 +861,15 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("fn_joss_map_len")
 	b.defineLabel("fn_len")
 	b.defineLabel("fn_count")
+	b.emitProlog(16)
+	b.emitCall("joss_unbox_value")
 	b.emitCmp(regX0, regXZR)
 	b.emitBranchCond(condEQ, ".arr_len_zero")
 	b.emitLdr(regX0, regX0, 0)
-	b.emitRet(regX30)
+	b.emitEpilog(16)
 	b.defineLabel(".arr_len_zero")
 	b.emitLoadImm64(regX0, 0)
-	b.emitRet(regX30)
+	b.emitEpilog(16)
 
 	// fn_strlen(x0 = UTF-8 string) -> x0 = Unicode code-point count.
 	// Keep this separate from __joss_rt_strlen, which returns byte length for I/O.
@@ -879,12 +915,22 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	b.defineLabel("joss_arr_get_i64")
 	b.defineLabel("joss_arr_get_str")
+	b.emitProlog(32)
+	b.emitStr(regX1, regSP, 16)
+	b.emitCall("joss_unbox_value")
+	b.emitStr(regX0, regSP, 24)
+	b.emitLdr(regX0, regSP, 16)
+	b.emitCall("joss_unbox_value")
+	b.emitMovReg(regX1, regX0)
+	b.emitLdr(regX0, regSP, 24)
 	b.emitLoadImm64(regX2, 0x10000)
 	b.emitCmp(regX1, regX2)
 	b.emitBranchCond(condLT, ".arr_get_by_idx")
 	b.emitInst(0xD36FFC30) // lsr x16, x1, #47
 	b.emitCmp(regX16, regXZR)
-	b.emitBranchCond(condEQ, "joss_map_get_i64")
+	b.emitBranchCond(condNE, ".arr_get_by_idx")
+	b.emitCall("joss_map_get_i64")
+	b.emitEpilog(32)
 	b.defineLabel(".arr_get_by_idx")
 	b.emitCmp(regX0, regXZR)
 	b.emitBranchCond(condEQ, ".arr_get_zero")
@@ -894,19 +940,31 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitAdd(regX4, regX4, regX5)
 	b.emitAdd(regX4, regX0, regX4)
 	b.emitLdr(regX0, regX4, 0)
-	b.emitRet(regX30)
+	b.emitEpilog(32)
 	b.defineLabel(".arr_get_zero")
 	b.emitLoadImm64(regX0, 0)
-	b.emitRet(regX30)
+	b.emitEpilog(32)
 
 	b.defineLabel("joss_arr_set_i64")
 	b.defineLabel("joss_arr_set_str")
+	b.emitProlog(48)
+	b.emitStr(regX1, regSP, 16)
+	b.emitStr(regX2, regSP, 24)
+	b.emitCall("joss_unbox_value")
+	b.emitStr(regX0, regSP, 32)
+	b.emitLdr(regX0, regSP, 16)
+	b.emitCall("joss_unbox_value")
+	b.emitMovReg(regX1, regX0)
+	b.emitLdr(regX0, regSP, 32)
+	b.emitLdr(regX2, regSP, 24)
 	b.emitLoadImm64(regX3, 0x10000)
 	b.emitCmp(regX1, regX3)
 	b.emitBranchCond(condLT, ".arr_set_by_idx")
 	b.emitInst(0xD36FFC30) // lsr x16, x1, #47
 	b.emitCmp(regX16, regXZR)
-	b.emitBranchCond(condEQ, "joss_map_set_i64")
+	b.emitBranchCond(condNE, ".arr_set_by_idx")
+	b.emitCall("joss_map_set_i64")
+	b.emitEpilog(48)
 	b.defineLabel(".arr_set_by_idx")
 	b.emitCmp(regX0, regXZR)
 	b.emitBranchCond(condEQ, ".arr_set_ret")
@@ -917,7 +975,7 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitAdd(regX4, regX0, regX4)
 	b.emitStr(regX2, regX4, 0)
 	b.defineLabel(".arr_set_ret")
-	b.emitRet(regX30)
+	b.emitEpilog(48)
 
 	b.defineLabel("joss_map_get_i64")
 	b.defineLabel("joss_map_get_str")
@@ -1201,13 +1259,14 @@ func (b *ARM64Builder) emitNativeByteString() {
 func (b *ARM64Builder) emitNativeIntval() {
 	// Preserve integer inputs and parse a signed decimal prefix from strings.
 	b.defineLabel("fn_intval")
+	b.emitProlog(48)
+	b.emitCall("joss_unbox_value")
 	b.emitLoadImm64(regX1, 0x10000)
 	b.emitCmp(regX0, regX1)
 	b.emitBranchCond(condLT, ".intval_return_input")
 	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
 	b.emitCmp(regX16, regXZR)
 	b.emitBranchCond(condNE, ".intval_return_input")
-	b.emitProlog(48)
 	b.emitStr(regX19, regSP, 16)
 	b.emitStr(regX20, regSP, 24)
 	b.emitStr(regX21, regSP, 32)
@@ -1249,9 +1308,8 @@ func (b *ARM64Builder) emitNativeIntval() {
 	b.emitLdr(regX19, regSP, 16)
 	b.emitLdr(regX20, regSP, 24)
 	b.emitLdr(regX21, regSP, 32)
-	b.emitEpilog(48)
 	b.defineLabel(".intval_return_input")
-	b.emitRet(regX30)
+	b.emitEpilog(48)
 }
 
 // emitNativeTime emits the standalone OS clock primitive used by time().
