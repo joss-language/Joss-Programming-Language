@@ -204,6 +204,26 @@ var migratedNativeMethods = map[string][]NativeMethodDefinition{
 		nativeMethodWithArity("render", "void", nativeOptionalParam("view", "mixed")),
 		nativeMethodWithArity("on", "void", nativeParam("event", "string"), nativeParam("handler", "mixed")),
 	},
+	"ByteBuffer": {
+		nativeMethodWithArity("Init", "ByteBuffer", nativeOptionalParam("capacity", "int")),
+		nativeMethodWithArity("new", "ByteBuffer", nativeOptionalParam("capacity", "int")),
+		nativeMethodWithArity("appendByte", "void", nativeParam("b", "int")),
+		nativeMethodWithArity("appendString", "void", nativeParam("s", "string")),
+		nativeMethodWithArity("get", "int", nativeParam("index", "int")),
+		nativeMethodWithArity("set", "void", nativeParam("index", "int"), nativeParam("value", "int")),
+		nativeMethodWithArity("len", "int"),
+		nativeMethodWithArity("toString", "string"),
+		nativeMethodWithArity("free", "void"),
+	},
+	"StringBuilder": {
+		nativeMethodWithArity("Init", "StringBuilder"),
+		nativeMethodWithArity("new", "StringBuilder"),
+		nativeMethodWithArity("append", "void", nativeParam("s", "string")),
+		nativeMethodWithArity("appendInt", "void", nativeParam("v", "int")),
+		nativeMethodWithArity("len", "int"),
+		nativeMethodWithArity("toString", "string"),
+		nativeMethodWithArity("free", "void"),
+	},
 }
 
 // nativeMethodReturnType is the return-signature source of truth for core

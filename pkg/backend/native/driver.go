@@ -32,6 +32,7 @@ type BuildOptions struct {
 	Release       bool
 	GUI           bool
 	SeedTables    map[string][]map[string]string
+	StaticLibs    []string
 }
 
 // BuildResult contiene la información del ejecutable generado y artefactos de trace.
@@ -240,6 +241,28 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 		llvmIR, err := llvmEmitter.Emit(prog)
 		if err != nil {
 			return nil, fmt.Errorf("error generando LLVM IR: %w", err)
+		}
+		if len(prog.ExternLibraries) > 0 {
+			seen := make(map[string]bool, len(opts.StaticLibs))
+			for _, s := range opts.StaticLibs {
+				seen[s] = true
+			}
+			outDir := filepath.Dir(outExe)
+			for _, lib := range prog.ExternLibraries {
+				resolved := lib
+				if !filepath.IsAbs(lib) {
+					if _, err := os.Stat(lib); err != nil && outDir != "" {
+						cand := filepath.Join(outDir, lib)
+						if _, err := os.Stat(cand); err == nil {
+							resolved = cand
+						}
+					}
+				}
+				if !seen[resolved] {
+					seen[resolved] = true
+					opts.StaticLibs = append(opts.StaticLibs, resolved)
+				}
+			}
 		}
 		if err := compiler.CompileLLVMWithOptions(llvmIR, outExe, opts); err != nil {
 			return nil, err

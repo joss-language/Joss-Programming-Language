@@ -92,6 +92,7 @@ func (v *IRVerifier) verifyFunction(fn *Function) {
 			v.verifyInstruction(fn, block, inst)
 		}
 	}
+	v.verifyDominance(fn)
 }
 
 func (v *IRVerifier) verifyInstruction(fn *Function, block *BasicBlock, inst Instruction) {
@@ -120,6 +121,38 @@ func (v *IRVerifier) verifyInstruction(fn *Function, block *BasicBlock, inst Ins
 	case *GlobalStoreInst:
 		if i.Val == nil || i.GlobalName == "" {
 			v.addError("global_store en %s tiene valor o nombre vacío", block.Label)
+		}
+	case *BoxValueInst:
+		if i.Dest == nil || i.Val == nil {
+			v.addError("box_value en %s tiene operando nulo", block.Label)
+		}
+	case *UnboxValueInst:
+		if i.Dest == nil || i.Val == nil {
+			v.addError("unbox_value en %s tiene operando nulo", block.Label)
+		}
+	case *AllocBufferInst:
+		if i.Dest == nil || i.Cap == nil {
+			v.addError("alloc_buffer en %s tiene operando nulo", block.Label)
+		}
+	case *FreeBufferInst:
+		if i.Buf == nil {
+			v.addError("free_buffer en %s tiene operando nulo", block.Label)
+		}
+	case *BufferLenInst:
+		if i.Dest == nil || i.Buf == nil {
+			v.addError("buffer_len en %s tiene operando nulo", block.Label)
+		}
+	case *BufferGetInst:
+		if i.Dest == nil || i.Buf == nil || i.Index == nil {
+			v.addError("buffer_get en %s tiene operando nulo", block.Label)
+		}
+	case *BufferSetInst:
+		if i.Buf == nil || i.Index == nil || i.Val == nil {
+			v.addError("buffer_set en %s tiene operando nulo", block.Label)
+		}
+	case *ExternCallInst:
+		if i.Symbol == "" {
+			v.addError("extern_call en %s tiene símbolo vacío", block.Label)
 		}
 	case *NewObjectInst:
 		if i.Dest == nil || i.ClassName == "" {
@@ -190,6 +223,156 @@ func (v *IRVerifier) verifyInstruction(fn *Function, block *BasicBlock, inst Ins
 
 func (v *IRVerifier) addError(format string, args ...interface{}) {
 	v.errors = append(v.errors, fmt.Sprintf(format, args...))
+}
+
+func (v *IRVerifier) verifyDominance(fn *Function) {
+	if fn.EntryBlock == nil || len(fn.Blocks) == 0 {
+		return
+	}
+	// 1. Collect reachable blocks and predecessors via DFS
+	reachable := make(map[*BasicBlock]bool)
+	var rpo []*BasicBlock
+	var dfs func(b *BasicBlock)
+	dfs = func(b *BasicBlock) {
+		if b == nil || reachable[b] {
+			return
+		}
+		reachable[b] = true
+		for _, succ := range b.Successors() {
+			dfs(succ)
+		}
+		rpo = append(rpo, b)
+	}
+	dfs(fn.EntryBlock)
+
+	// Reverse postorder
+	for i, j := 0, len(rpo)-1; i < j; i, j = i+1, j-1 {
+		rpo[i], rpo[j] = rpo[j], rpo[i]
+	}
+
+	preds := make(map[*BasicBlock][]*BasicBlock)
+	for _, b := range rpo {
+		for _, succ := range b.Successors() {
+			if reachable[succ] {
+				preds[succ] = append(preds[succ], b)
+			}
+		}
+	}
+
+	// 2. Iterative dominator computation
+	dom := make(map[*BasicBlock]map[*BasicBlock]bool, len(rpo))
+	for _, b := range rpo {
+		if b == fn.EntryBlock {
+			dom[b] = map[*BasicBlock]bool{b: true}
+		} else {
+			all := make(map[*BasicBlock]bool, len(rpo))
+			for _, other := range rpo {
+				all[other] = true
+			}
+			dom[b] = all
+		}
+	}
+	changed := true
+	for changed {
+		changed = false
+		for _, b := range rpo {
+			if b == fn.EntryBlock || len(preds[b]) == 0 {
+				continue
+			}
+			newDom := make(map[*BasicBlock]bool)
+			firstPred := preds[b][0]
+			for candidate := range dom[firstPred] {
+				inAll := true
+				for _, p := range preds[b][1:] {
+					if !dom[p][candidate] {
+						inAll = false
+						break
+					}
+				}
+				if inAll {
+					newDom[candidate] = true
+				}
+			}
+			newDom[b] = true
+			if len(newDom) != len(dom[b]) {
+				dom[b] = newDom
+				changed = true
+			} else {
+				for k := range newDom {
+					if !dom[b][k] {
+						dom[b] = newDom
+						changed = true
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Index definitions in reachable blocks (and nested try/catch blocks)
+	type defLoc struct {
+		block *BasicBlock
+		index int
+	}
+	defs := make(map[int]defLoc)
+	var indexNested func(host *BasicBlock, idx int, inst Instruction)
+	indexNested = func(host *BasicBlock, idx int, inst Instruction) {
+		if res := inst.Result(); res != nil {
+			defs[res.ID] = defLoc{block: host, index: idx}
+		}
+		if tc, ok := inst.(*TryCatchInst); ok {
+			for _, tb := range tc.TryBlocks {
+				for _, ti := range tb.Instructions {
+					indexNested(host, idx, ti)
+				}
+			}
+			for _, cb := range tc.CatchBlocks {
+				for _, ci := range cb.Instructions {
+					indexNested(host, idx, ci)
+				}
+			}
+		}
+	}
+	for _, b := range rpo {
+		for idx, inst := range b.Instructions {
+			indexNested(b, idx, inst)
+		}
+	}
+
+	// 4. Verify every TempValue use is dominated by its definition
+	checkUse := func(useBlock *BasicBlock, useIdx int, op Value) {
+		t, ok := op.(*TempValue)
+		if !ok {
+			return
+		}
+		loc, defined := defs[t.ID]
+		if !defined {
+			v.addError("SSA dominance: temporal %s usado en %s de @%s sin definición alcanzable", t, useBlock.Label, fn.Name)
+			return
+		}
+		if loc.block == useBlock {
+			if loc.index >= useIdx {
+				v.addError("SSA dominance: temporal %s usado antes de su definición en %s de @%s", t, useBlock.Label, fn.Name)
+			}
+			return
+		}
+		if !dom[useBlock][loc.block] {
+			v.addError("SSA dominance: definición de %s en %s no domina su uso en %s de @%s", t, loc.block.Label, useBlock.Label, fn.Name)
+		}
+	}
+
+	for _, b := range rpo {
+		for idx, inst := range b.Instructions {
+			for _, op := range inst.Operands() {
+				checkUse(b, idx, op)
+			}
+		}
+		if b.Terminator != nil {
+			for _, op := range b.Terminator.Operands() {
+				checkUse(b, len(b.Instructions), op)
+			}
+		}
+	}
 }
 
 func joinErrors(errs []string, sep string) string {

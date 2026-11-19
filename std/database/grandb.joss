@@ -5,6 +5,8 @@ public class GranDB {
     public array $bindings = []
     public array $orders = []
     public array $joins = []
+    public array $groups = []
+    public array $havings = []
     public int $limitVal = - 1
     public int $offsetVal = - 1
     public bool $distinctVal = false
@@ -16,6 +18,8 @@ public class GranDB {
         $this->bindings = []
         $this->orders = []
         $this->joins = []
+        $this->groups = []
+        $this->havings = []
         $this->limitVal = - 1
         $this->offsetVal = - 1
         $this->distinctVal = false
@@ -174,10 +178,15 @@ public class GranDB {
 
     public static func transaction(mixed $callback) : mixed {
         __joss_db_execute("BEGIN", [])
-        var $db = new GranDB()
-        var $res = $callback($db)
-        __joss_db_execute("COMMIT", [])
-        return $res
+        try {
+            var $db = new GranDB()
+            var $res = $callback($db)
+            __joss_db_execute("COMMIT", [])
+            return $res
+        }  catch ($e) {
+            __joss_db_execute("ROLLBACK", [])
+            throw $e
+        }
     }
 
     private func selectString(string $cols) : GranDB {
@@ -461,6 +470,33 @@ public class GranDB {
 
         $sql = $sql . $this->renderWhere()
 
+        var $groupCount = count($this->groups)
+        ($groupCount > 0) ? {
+            $sql = $sql . " GROUP BY "
+            var $gIdx = 0
+            while ($gIdx < $groupCount) {
+                ($gIdx > 0) ? {
+                    $sql = $sql . ", "
+                }
+                $sql = $sql . $this->assertIdentifier(strval($this->groups [$gIdx]))
+                $gIdx++
+            }
+        }
+
+        var $havingCount = count($this->havings)
+        ($havingCount > 0) ? {
+            $sql = $sql . " HAVING "
+            var $hIdx = 0
+            while ($hIdx < $havingCount) {
+                var $h = $this->havings [$hIdx]
+                ($hIdx > 0) ? {
+                    $sql = $sql . " " . strval($h ["bool"]) . " "
+                }
+                $sql = $sql . $this->assertIdentifier(strval($h ["col"])) . " " . $this->assertComparisonOperator(strval($h ["op"])) . " ?"
+                $hIdx++
+            }
+        }
+
         var $orderCount = count($this->orders)
         ($orderCount > 0) ? {
             $sql = $sql . " ORDER BY "
@@ -470,7 +506,11 @@ public class GranDB {
                 ($j > 0) ? {
                     $sql = $sql . ", "
                 }
-                $sql = $sql . $this->assertIdentifier(strval($o ["col"])) . " " . (($o ["dir"] == "DESC") ? "DESC" : "ASC")
+                (strval($o ["col"]) == "__RANDOM__") ? {
+                    $sql = $sql . "RANDOM()"
+                } : {
+                    $sql = $sql . $this->assertIdentifier(strval($o ["col"])) . " " . (($o ["dir"] == "DESC") ? "DESC" : "ASC")
+                }
                 $j++
             }
         }
@@ -810,4 +850,138 @@ public class GranDB {
         }
         return __joss_db_execute($sql, $allBindings)
     }
+
+    public func groupBy(string $col) : GranDB {
+        $this->groups [] = $this->assertIdentifier($col)
+        return $this
+    }
+
+    public func having(string $col, string $op, mixed $val) : GranDB {
+        $this->havings [] = {"bool" : "AND", "col" : $this->assertIdentifier($col), "op" : $this->assertComparisonOperator($op)
+    }
+    $this->bindings [] = $val
+    return $this
+}
+
+public func orHaving(string $col, string $op, mixed $val) : GranDB {
+    $this->havings [] = {"bool" : "OR", "col" : $this->assertIdentifier($col), "op" : $this->assertComparisonOperator($op)
+}
+$this->bindings [] = $val
+return $this
+}
+
+public func whereColumn(string $first, string $op, string $second) : GranDB {
+    string $expr = $this->assertIdentifier($first) . " " . $this->assertComparisonOperator($op) . " " . $this->assertIdentifier($second)
+    $this->wheres [] = {"bool" : "AND", "type" : "raw", "sql" : $expr
+}
+return $this
+}
+
+public func whereNot(string $col, mixed $val) : GranDB {
+    return $this->where($col, "!=", $val)
+}
+
+public func inRandomOrder() : GranDB {
+    $this->orders [] = {"col" : "__RANDOM__", "dir" : "ASC"
+}
+return $this
+}
+
+public func getBindings() : array {
+    return $this->bindings
+}
+
+public func value(string $col) : mixed {
+    var $row = $this->first()
+    ($row == null) ? {
+        return null
+    }
+    return $row [$col] ?? null
+}
+
+public func firstOrFail() : mixed {
+    var $row = $this->first()
+    ($row == null) ? {
+        throw "GranDB Error: registro no encontrado"
+    }
+    return $row
+}
+
+public func findOrFail(mixed $id) : mixed {
+    var $row = $this->find($id)
+    ($row == null) ? {
+        throw "GranDB Error: registro no encontrado para id"
+    }
+    return $row
+}
+
+public func findMany(array $ids) : array {
+    (count($ids) == 0) ? {
+        return []
+    }
+    return $this->whereIn("id", $ids)->get()
+}
+
+public func sole() : mixed {
+    var $rows = $this->limit(2)->get()
+    int $n = count($rows)
+    ($n == 0) ? {
+        throw "GranDB Error: no se encontró ningún registro (sole)"
+    }
+    ($n > 1) ? {
+        throw "GranDB Error: se encontraron múltiples registros (sole)"
+    }
+    return $rows [0]
+}
+
+public func updateOrInsert(map $attributes, map $values) : int {
+    var $q = GranDB::table($this->tableName)
+    foreach ($attributes as $k => $v) {
+        $q->where(strval($k), $v)
+    }
+    ($q->exists()) ? {
+        return $q->update($values)
+    }
+    map $merged = {
+}
+foreach ($attributes as $k => $v) {
+    $merged [$k] = $v
+}
+foreach ($values as $k => $v) {
+    $merged [$k] = $v
+}
+return GranDB::table($this->tableName)->insert($merged)
+}
+
+public func deleteAll() : int {
+    ($this->tableName == "") ? {
+        return 0
+    }
+    var $prefix = env("PREFIX", env("DB_PREFIX", ""))
+    var $fullTable = $this->assertIdentifier($prefix . $this->tableName)
+    return __joss_db_execute("DELETE FROM " . $fullTable, [])
+}
+
+public func truncate() : int {
+    return $this->deleteAll()
+}
+
+public func simplePaginate(int $perPage = 15, int $page = 1) : map {
+    ($page < 1) ? {
+        $page = 1
+    }
+    ($perPage < 1) ? {
+        $perPage = 15
+    }
+    var $rows = $this->forPage($page, $perPage + 1)->get()
+    bool $hasMore = count($rows) > $perPage
+    array $items = []
+    int $i = 0
+    while ($i < count($rows) && $i < $perPage) {
+        $items [] = $rows [$i]
+        $i++
+    }
+    return {"data" : $items, "per_page" : $perPage, "current_page" : $page, "has_more": $hasMore
+}
+}
 }

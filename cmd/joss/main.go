@@ -14,6 +14,7 @@ import (
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	_ "modernc.org/sqlite"
 
+	_ "github.com/jossecurity/joss/pkg/backend/llvm"
 	"github.com/jossecurity/joss/pkg/backend/native"
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/i18n"
@@ -624,14 +625,6 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		fmt.Printf("Error de compilación nativa AOT: %v\n", err)
 		return "", fmt.Errorf("error preparando IR: %w", err)
 	}
-	if err := native.ValidateAOTCapabilities(irProg, target); err != nil {
-		fmt.Printf("Error de capacidades AOT: %v\n", err)
-		return "", fmt.Errorf("capacidades AOT no disponibles: %w", err)
-	}
-	if trace {
-		fmt.Println("  [trace] 3. IR validado; seleccionando destino del backend nativo...")
-	}
-
 	bKind := native.BackendAuto
 	switch strings.ToLower(backendName) {
 	case "native":
@@ -642,6 +635,22 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		bKind = native.BackendStandalone
 	default:
 		bKind = native.BackendAuto
+	}
+
+	if err := native.ValidateAOTCapabilitiesForBackend(irProg, target, bKind); err != nil {
+		if bKind == native.BackendAuto && native.NewNativeCompiler().HasNativeToolchain() {
+			if llvmErr := native.ValidateAOTCapabilitiesForBackend(irProg, target, native.BackendLLVM); llvmErr == nil {
+				bKind = native.BackendLLVM
+				err = nil
+			}
+		}
+		if err != nil {
+			fmt.Printf("Error de capacidades AOT: %v\n", err)
+			return "", fmt.Errorf("capacidades AOT no disponibles: %w", err)
+		}
+	}
+	if trace {
+		fmt.Println("  [trace] 3. IR validado; seleccionando destino del backend nativo...")
 	}
 
 	if trace {

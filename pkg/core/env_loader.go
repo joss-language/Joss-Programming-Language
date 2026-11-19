@@ -62,13 +62,17 @@ func DetectAndLoadEnv(fs http.FileSystem) EnvFileDetectResult {
 				if len(content) > 16 {
 					salt := content[:16]
 					ciphertext := content[16:]
-					masterSecret := []byte("JOSSECURITY_MASTER_SECRET_2025")
-					key := crypto.DeriveKey(masterSecret, salt)
-					decrypted, decErr := crypto.DecryptAES(ciphertext, key)
-					if decErr == nil {
-						content = decrypted
+					masterSecret, keyErr := crypto.ResolveEnvEncryptionKey()
+					if keyErr != nil {
+						fmt.Printf("[EnvLoader] Error desencriptando %s: %v\n", name, keyErr)
 					} else {
-						fmt.Printf("[EnvLoader] Error desencriptando %s: %v\n", name, decErr)
+						key := crypto.DeriveKey(masterSecret, salt)
+						decrypted, decErr := crypto.DecryptAES(ciphertext, key)
+						if decErr == nil {
+							content = decrypted
+						} else {
+							fmt.Printf("[EnvLoader] Error desencriptando %s: %v\n", name, decErr)
+						}
 					}
 				}
 			}

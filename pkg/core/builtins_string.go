@@ -1,17 +1,24 @@
 package core
 
 import (
+	"crypto/hmac"
 	"crypto/md5"
+	crand "crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base32"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"html"
 	"math"
 	"math/rand"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/jossecurity/joss/pkg/crypto"
@@ -229,6 +236,50 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 			return base64.StdEncoding.EncodeToString(h[:]), true
 		}
 		return "", true
+
+	case "password_hash":
+		if len(args) == 0 {
+			return "", true
+		}
+		return jossPBKDF2Hash(fmt.Sprintf("%v", args[0])), true
+
+	case "password_verify":
+		if len(args) < 2 {
+			return false, true
+		}
+		return jossPBKDF2Verify(fmt.Sprintf("%v", args[0]), fmt.Sprintf("%v", args[1])), true
+
+	case "jwt_sign":
+		if len(args) < 2 {
+			return "", true
+		}
+		return jossJWTSignHS256(fmt.Sprintf("%v", args[0]), fmt.Sprintf("%v", args[1])), true
+
+	case "jwt_verify":
+		if len(args) < 2 {
+			return false, true
+		}
+		return jossJWTVerifyHS256(fmt.Sprintf("%v", args[0]), fmt.Sprintf("%v", args[1])), true
+
+	case "totp_generate":
+		if len(args) == 0 {
+			return "000000", true
+		}
+		var unixTS int64
+		if len(args) >= 2 {
+			unixTS = toInt64Arg(args[1])
+		}
+		return jossTOTPGenerate(fmt.Sprintf("%v", args[0]), unixTS), true
+
+	case "totp_verify":
+		if len(args) < 2 {
+			return false, true
+		}
+		var unixTS int64
+		if len(args) >= 3 {
+			unixTS = toInt64Arg(args[2])
+		}
+		return jossTOTPVerify(fmt.Sprintf("%v", args[0]), fmt.Sprintf("%v", args[1]), unixTS), true
 
 	case "chr":
 		if len(args) > 0 {
@@ -546,4 +597,164 @@ func titleCaseWords(s string) string {
 		}
 	}
 	return b.String()
+}
+
+func toInt64Arg(v interface{}) int64 {
+	switch x := v.(type) {
+	case int:
+		return int64(x)
+	case int32:
+		return int64(x)
+	case int64:
+		return x
+	case float64:
+		return int64(x)
+	case string:
+		n, _ := strconv.ParseInt(strings.TrimSpace(x), 10, 64)
+		return n
+	}
+	return 0
+}
+
+func pbkdf2HMACSHA256(password, salt []byte, iterations int) []byte {
+	prf := hmac.New(sha256.New, password)
+	var block [4]byte
+	binary.BigEndian.PutUint32(block[:], 1)
+	prf.Write(salt)
+	prf.Write(block[:])
+	u := prf.Sum(nil)
+	out := make([]byte, len(u))
+	copy(out, u)
+	for i := 1; i < iterations; i++ {
+		prf.Reset()
+		prf.Write(u)
+		u = prf.Sum(u[:0])
+		for j := range out {
+			out[j] ^= u[j]
+		}
+	}
+	return out
+}
+
+func jossPBKDF2Hash(password string) string {
+	const iterations = 100000
+	salt := make([]byte, 16)
+	_, _ = crand.Read(salt)
+	dk := pbkdf2HMACSHA256([]byte(password), salt, iterations)
+	return fmt.Sprintf("$pbkdf2-sha256$%d$%s$%s", iterations, hex.EncodeToString(salt), hex.EncodeToString(dk))
+}
+
+func jossPBKDF2Verify(hashStr, password string) bool {
+	if !strings.HasPrefix(hashStr, "$pbkdf2-sha256$") {
+		return false
+	}
+	parts := strings.Split(hashStr[len("$pbkdf2-sha256$"):], "$")
+	if len(parts) != 3 {
+		return false
+	}
+	iterations, err := strconv.Atoi(parts[0])
+	if err != nil || iterations < 1000 || iterations > 5000000 {
+		return false
+	}
+	salt, err := hex.DecodeString(parts[1])
+	if err != nil || len(salt) != 16 {
+		return false
+	}
+	expectedDK, err := hex.DecodeString(parts[2])
+	if err != nil || len(expectedDK) != 32 {
+		return false
+	}
+	actualDK := pbkdf2HMACSHA256([]byte(password), salt, iterations)
+	return subtle.ConstantTimeCompare(actualDK, expectedDK) == 1
+}
+
+func jossJWTSignHS256(payloadJSON, secret string) string {
+	if payloadJSON == "" {
+		payloadJSON = "{}"
+	}
+	headerB64 := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payloadB64 := base64.RawURLEncoding.EncodeToString([]byte(payloadJSON))
+	msg := headerB64 + "." + payloadB64
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(msg))
+	sigB64 := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	return msg + "." + sigB64
+}
+
+func jossJWTVerifyHS256(token, secret string) bool {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 || parts[2] == "" {
+		return false
+	}
+	msg := parts[0] + "." + parts[1]
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(msg))
+	expectedSig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	return subtle.ConstantTimeCompare([]byte(expectedSig), []byte(parts[2])) == 1
+}
+
+func decodeBase32Key(secret string) []byte {
+	cleaned := strings.ToUpper(strings.Map(func(r rune) rune {
+		if r == ' ' || r == '-' || r == '=' || r == '\t' || r == '\r' || r == '\n' {
+			return -1
+		}
+		return r
+	}, secret))
+	key, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(cleaned)
+	if err != nil || len(key) == 0 {
+		return []byte(secret)
+	}
+	return key
+}
+
+func totpForStepGo(key []byte, step uint64) string {
+	var msg [8]byte
+	binary.BigEndian.PutUint64(msg[:], step)
+	mac := hmac.New(sha1.New, key)
+	mac.Write(msg[:])
+	digest := mac.Sum(nil)
+	offset := digest[19] & 0x0f
+	binCode := (uint32(digest[offset]&0x7f) << 24) |
+		(uint32(digest[offset+1]) << 16) |
+		(uint32(digest[offset+2]) << 8) |
+		uint32(digest[offset+3])
+	return fmt.Sprintf("%06d", binCode%1000000)
+}
+
+func jossTOTPGenerate(secret string, unixTime int64) string {
+	if secret == "" {
+		return "000000"
+	}
+	if unixTime <= 0 {
+		unixTime = time.Now().Unix()
+	}
+	key := decodeBase32Key(secret)
+	return totpForStepGo(key, uint64(unixTime/30))
+}
+
+func jossTOTPVerify(secret, code string, unixTime int64) bool {
+	clean := strings.TrimSpace(code)
+	if secret == "" || len(clean) != 6 {
+		return false
+	}
+	for i := 0; i < 6; i++ {
+		if clean[i] < '0' || clean[i] > '9' {
+			return false
+		}
+	}
+	if unixTime <= 0 {
+		unixTime = time.Now().Unix()
+	}
+	key := decodeBase32Key(secret)
+	baseStep := unixTime / 30
+	for delta := int64(-1); delta <= 1; delta++ {
+		if baseStep+delta < 0 {
+			continue
+		}
+		expected := totpForStepGo(key, uint64(baseStep+delta))
+		if subtle.ConstantTimeCompare([]byte(expected), []byte(clean)) == 1 {
+			return true
+		}
+	}
+	return false
 }

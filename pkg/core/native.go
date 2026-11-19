@@ -347,6 +347,12 @@ func (r *Runtime) RegisterNativeClasses() {
 	// Window (Desktop GUI & GPU Canvas)
 	r.registerNativeDefinitions("Window", migratedNativeMethods["Window"], (*Runtime).executeWindowMethod)
 	r.Variables["Window"] = &Instance{Class: r.Classes["Window"], Fields: make(map[string]interface{})}
+
+	// ByteBuffer & StringBuilder (Phase 1 Memory & Buffer Foundations)
+	r.registerNativeDefinitions("ByteBuffer", migratedNativeMethods["ByteBuffer"], (*Runtime).executeByteBufferMethod)
+	r.Variables["ByteBuffer"] = &Instance{Class: r.Classes["ByteBuffer"], Fields: make(map[string]interface{})}
+	r.registerNativeDefinitions("StringBuilder", migratedNativeMethods["StringBuilder"], (*Runtime).executeStringBuilderMethod)
+	r.Variables["StringBuilder"] = &Instance{Class: r.Classes["StringBuilder"], Fields: make(map[string]interface{})}
 }
 
 const ansiReset = "\033[0m"

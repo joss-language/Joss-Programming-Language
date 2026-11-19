@@ -43,9 +43,19 @@ const (
 	// Llamadas
 	OpCall        Opcode = "call"
 	OpCallRuntime Opcode = "call_runtime"
+	OpExternCall  Opcode = "extern_call"
 
-	// Conversión de tipos
-	OpCast Opcode = "cast"
+	// Conversión y boxing de tipos
+	OpCast       Opcode = "cast"
+	OpBoxValue   Opcode = "box_value"
+	OpUnboxValue Opcode = "unbox_value"
+
+	// Buffers Deterministas y Memoria Indexada (Phase 1)
+	OpAllocBuffer Opcode = "alloc_buffer"
+	OpFreeBuffer  Opcode = "free_buffer"
+	OpBufferLen   Opcode = "buffer_len"
+	OpBufferGet   Opcode = "buffer_get"
+	OpBufferSet   Opcode = "buffer_set"
 
 	// Objetos y Clases Dinámicas en Heap
 	OpNewObject   Opcode = "new_object"
@@ -618,3 +628,114 @@ func (t *UnreachableTerminator) Result() *TempValue        { return nil }
 func (t *UnreachableTerminator) Operands() []Value         { return nil }
 func (t *UnreachableTerminator) Successors() []*BasicBlock { return nil }
 func (t *UnreachableTerminator) String() string            { return "unreachable" }
+
+// BoxValueInst: %dst = box_value %val (boxes a statically typed value into a tagged mixed value)
+type BoxValueInst struct {
+	Dest *TempValue
+	Val  Value
+}
+
+func (i *BoxValueInst) Opcode() Opcode     { return OpBoxValue }
+func (i *BoxValueInst) Result() *TempValue { return i.Dest }
+func (i *BoxValueInst) Operands() []Value  { return []Value{i.Val} }
+func (i *BoxValueInst) String() string {
+	return fmt.Sprintf("%s = box_value %s", i.Dest, i.Val)
+}
+
+// UnboxValueInst: %dst = unbox_value %val (extracts payload if %val is a JossBoxedValue, otherwise returns %val)
+type UnboxValueInst struct {
+	Dest *TempValue
+	Val  Value
+}
+
+func (i *UnboxValueInst) Opcode() Opcode     { return OpUnboxValue }
+func (i *UnboxValueInst) Result() *TempValue { return i.Dest }
+func (i *UnboxValueInst) Operands() []Value  { return []Value{i.Val} }
+func (i *UnboxValueInst) String() string {
+	return fmt.Sprintf("%s = unbox_value %s", i.Dest, i.Val)
+}
+
+// AllocBufferInst: %dst = alloc_buffer %cap
+type AllocBufferInst struct {
+	Dest *TempValue
+	Cap  Value
+}
+
+func (i *AllocBufferInst) Opcode() Opcode     { return OpAllocBuffer }
+func (i *AllocBufferInst) Result() *TempValue { return i.Dest }
+func (i *AllocBufferInst) Operands() []Value  { return []Value{i.Cap} }
+func (i *AllocBufferInst) String() string {
+	return fmt.Sprintf("%s = alloc_buffer %s", i.Dest, i.Cap)
+}
+
+// FreeBufferInst: free_buffer %buf
+type FreeBufferInst struct {
+	Buf Value
+}
+
+func (i *FreeBufferInst) Opcode() Opcode     { return OpFreeBuffer }
+func (i *FreeBufferInst) Result() *TempValue { return nil }
+func (i *FreeBufferInst) Operands() []Value  { return []Value{i.Buf} }
+func (i *FreeBufferInst) String() string     { return fmt.Sprintf("free_buffer %s", i.Buf) }
+
+// BufferLenInst: %dst = buffer_len %buf
+type BufferLenInst struct {
+	Dest *TempValue
+	Buf  Value
+}
+
+func (i *BufferLenInst) Opcode() Opcode     { return OpBufferLen }
+func (i *BufferLenInst) Result() *TempValue { return i.Dest }
+func (i *BufferLenInst) Operands() []Value  { return []Value{i.Buf} }
+func (i *BufferLenInst) String() string     { return fmt.Sprintf("%s = buffer_len %s", i.Dest, i.Buf) }
+
+// BufferGetInst: %dst = buffer_get %buf, %idx
+type BufferGetInst struct {
+	Dest  *TempValue
+	Buf   Value
+	Index Value
+}
+
+func (i *BufferGetInst) Opcode() Opcode     { return OpBufferGet }
+func (i *BufferGetInst) Result() *TempValue { return i.Dest }
+func (i *BufferGetInst) Operands() []Value  { return []Value{i.Buf, i.Index} }
+func (i *BufferGetInst) String() string {
+	return fmt.Sprintf("%s = buffer_get %s, %s", i.Dest, i.Buf, i.Index)
+}
+
+// BufferSetInst: buffer_set %buf, %idx, %val
+type BufferSetInst struct {
+	Buf   Value
+	Index Value
+	Val   Value
+}
+
+func (i *BufferSetInst) Opcode() Opcode     { return OpBufferSet }
+func (i *BufferSetInst) Result() *TempValue { return nil }
+func (i *BufferSetInst) Operands() []Value  { return []Value{i.Buf, i.Index, i.Val} }
+func (i *BufferSetInst) String() string {
+	return fmt.Sprintf("buffer_set %s, %s, %s", i.Buf, i.Index, i.Val)
+}
+
+// ExternCallInst: %dst = extern_call @symbol(%arg1, ...)
+type ExternCallInst struct {
+	Dest     *TempValue // nil si void
+	Symbol   string
+	Args     []Value
+	RetType  Type
+	ArgTypes []Type
+}
+
+func (i *ExternCallInst) Opcode() Opcode     { return OpExternCall }
+func (i *ExternCallInst) Result() *TempValue { return i.Dest }
+func (i *ExternCallInst) Operands() []Value  { return i.Args }
+func (i *ExternCallInst) String() string {
+	argStrs := make([]string, len(i.Args))
+	for idx, a := range i.Args {
+		argStrs[idx] = a.String()
+	}
+	if i.Dest != nil {
+		return fmt.Sprintf("%s = extern_call @%s(%s)", i.Dest, i.Symbol, strings.Join(argStrs, ", "))
+	}
+	return fmt.Sprintf("extern_call @%s(%s)", i.Symbol, strings.Join(argStrs, ", "))
+}

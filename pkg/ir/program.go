@@ -121,6 +121,7 @@ type Program struct {
 	Types               map[string]Type
 	ClassLayouts        map[string]*ClassLayout
 	RuntimeRequirements map[string]bool
+	ExternLibraries     []string
 }
 
 func NewProgram(name string) *Program {
@@ -132,6 +133,18 @@ func NewProgram(name string) *Program {
 		ClassLayouts:        make(map[string]*ClassLayout),
 		RuntimeRequirements: make(map[string]bool),
 	}
+}
+
+func (p *Program) AddExternLibrary(libPath string) {
+	if libPath == "" {
+		return
+	}
+	for _, existing := range p.ExternLibraries {
+		if existing == libPath {
+			return
+		}
+	}
+	p.ExternLibraries = append(p.ExternLibraries, libPath)
 }
 
 func (p *Program) AddFunction(fn *Function) {

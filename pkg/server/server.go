@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -105,13 +104,11 @@ func Start(fileSystem http.FileSystem) {
 		}
 
 		relPath := strings.TrimPrefix(r.URL.Path, "/assets/vendor/")
-		// Security Check: simple traversal prevention
-		if strings.Contains(relPath, "..") {
+		fullPath, ok := resolveSafeSubpath("node_modules", relPath)
+		if !ok {
 			http.Error(w, "Invalid path", http.StatusForbidden)
 			return
 		}
-
-		fullPath := filepath.Join("node_modules", relPath)
 		if _, err := os.Stat(fullPath); err == nil {
 			// serve
 			http.ServeFile(w, r, fullPath)

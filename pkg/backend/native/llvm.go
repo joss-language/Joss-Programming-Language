@@ -15,6 +15,15 @@ type LLVMEmitter struct {
 	stringConstants map[string]string // texto -> @.str.N
 	nextStringID    int
 	program         *ir.Program
+	varargSyms      map[string]bool
+	symRetTypes     map[string]string
+	symArgTypes     map[string][]string
+	tempLLVMTypes   map[int]string
+	nextDPFnID      int64
+	activeDPFnID    int64
+	activeDPParam0  string
+	activeDPParam1  string
+	currentFn       *ir.Function
 }
 
 func NewLLVMEmitter() *LLVMEmitter {
@@ -33,42 +42,7 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString(fmt.Sprintf("; ModuleID = '%s'\n", prog.Name))
 	buf.WriteString("source_filename = \"" + prog.Name + ".joss\"\n\n")
 
-	// Pre-escanear constantes de string en todo el programa para declararlas como globales
-	for _, fn := range prog.Functions {
-		for _, block := range fn.Blocks {
-			for _, inst := range block.Instructions {
-				for _, op := range inst.Operands() {
-					if cs, ok := op.(*ir.ConstString); ok {
-						e.registerString(cs.Val)
-					}
-				}
-			}
-			if block.Terminator != nil {
-				for _, op := range block.Terminator.Operands() {
-					if cs, ok := op.(*ir.ConstString); ok {
-						e.registerString(cs.Val)
-					}
-				}
-			}
-		}
-	}
-
-	// Declarar constantes globales de string
-	if len(e.stringConstants) > 0 {
-		buf.WriteString("; String Constants\n")
-		// Ordenar para determinismo
-		keys := make([]string, 0, len(e.stringConstants))
-		for k := range e.stringConstants {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, str := range keys {
-			sym := e.stringConstants[str]
-			escaped, length := formatLLVMStringLiteral(str)
-			buf.WriteString(fmt.Sprintf("%s = private unnamed_addr constant [%d x i8] c\"%s\", align 1\n", sym, length, escaped))
-		}
-		buf.WriteString("\n")
-	}
+	var bodyBuf bytes.Buffer
 	if len(prog.Globals) > 0 {
 		globalNames := make([]string, 0, len(prog.Globals))
 		for name := range prog.Globals {
@@ -91,6 +65,11 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare void @joss_print_string(i8*)\n")
 	buf.WriteString("declare void @joss_print_mixed(i64)\n")
 	buf.WriteString("declare void @joss_panic(i8*)\n")
+	buf.WriteString("declare i8* @joss_try_push()\n")
+	buf.WriteString("declare void @joss_try_pop()\n")
+	buf.WriteString("declare i8* @joss_catch_msg()\n")
+	buf.WriteString("declare void @joss_throw(i8*)\n")
+	buf.WriteString("declare i32 @setjmp(i8*) returns_twice\n")
 	buf.WriteString("declare i8* @joss_str_concat(i8*, i8*)\n")
 	buf.WriteString("declare i8* @joss_obj_new(i8*)\n")
 	buf.WriteString("declare void @joss_obj_set_field_i64(i8*, i8*, i64)\n")
@@ -110,7 +89,216 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare i64 @joss_map_get_i64(i8*, i8*)\n")
 	buf.WriteString("declare void @joss_map_set_str(i8*, i8*, i8*)\n")
 	buf.WriteString("declare i8* @joss_map_get_str(i8*, i8*)\n\n")
-	buf.WriteString("declare void @joss_map_delete_i64(i8*, i8*)\n\n")
+	buf.WriteString("declare void @joss_map_delete_i64(i8*, i8*)\n")
+	buf.WriteString("declare i8* @joss_box_value(i64, i64)\n")
+	buf.WriteString("declare i64 @joss_unbox_value(i64)\n")
+	buf.WriteString("declare i8* @joss_buf_new(i64)\n")
+	buf.WriteString("declare void @joss_buf_free(i8*)\n")
+	buf.WriteString("declare i64 @joss_buf_len(i8*)\n")
+	buf.WriteString("declare i8 @joss_buf_get(i8*, i64)\n")
+	buf.WriteString("declare void @joss_buf_set(i8*, i64, i8)\n")
+	buf.WriteString("declare void @joss_buf_append_byte(i8*, i8)\n")
+	buf.WriteString("declare void @joss_buf_append_cstr(i8*, i8*)\n")
+	buf.WriteString("declare i8* @joss_buf_to_cstr(i8*)\n")
+	buf.WriteString("declare i8* @joss_sb_new()\n")
+	buf.WriteString("declare void @joss_sb_append(i8*, i8*)\n")
+	buf.WriteString("declare void @joss_sb_append_i64(i8*, i64)\n")
+	buf.WriteString("declare i8* @joss_sb_to_string(i8*)\n")
+	buf.WriteString("declare i64 @joss_intval(i64)\n")
+	buf.WriteString("declare i64 @joss_abs(i64)\n")
+	buf.WriteString("declare i64 @joss_min(i64, i64)\n")
+	buf.WriteString("declare i64 @joss_max(i64, i64)\n")
+	buf.WriteString("declare i64 @joss_strlen(i8*)\n")
+	buf.WriteString("declare i1 @joss_str_contains(i8*, i8*)\n")
+	buf.WriteString("declare i1 @joss_str_eq(i8*, i8*)\n")
+	buf.WriteString("declare i1 @joss_dp_get(i64, i64, i64, i64*)\n")
+	buf.WriteString("declare void @joss_dp_put(i64, i64, i64, i64)\n")
+	buf.WriteString("declare i64 @joss_async(i64)\n")
+	buf.WriteString("declare i64 @joss_await(i64)\n")
+	buf.WriteString("declare i64 @joss_make_chan(i64)\n")
+	buf.WriteString("declare void @joss_send(i64, i64)\n")
+	buf.WriteString("declare i64 @joss_recv(i64)\n")
+	buf.WriteString("declare void @joss_close(i64)\n")
+
+	fixedDecls := map[string]bool{
+		"joss_print_i64": true, "joss_print_f64": true, "joss_print_bool": true,
+		"joss_print_string": true, "joss_print_mixed": true, "joss_panic": true,
+		"joss_str_concat": true, "joss_obj_new": true,
+		"joss_obj_set_field_i64": true, "joss_obj_get_field_i64": true,
+		"joss_obj_set_field_str": true, "joss_obj_get_field_str": true,
+		"joss_arr_new": true, "joss_arr_push_i64": true, "joss_arr_push_str": true,
+		"joss_arr_get_i64": true, "joss_arr_get_str": true,
+		"joss_arr_set_i64": true, "joss_arr_set_str": true, "joss_arr_len": true,
+		"joss_map_new": true, "joss_map_set_i64": true, "joss_map_get_i64": true,
+		"joss_map_set_str": true, "joss_map_get_str": true, "joss_map_delete_i64": true,
+		"joss_box_value": true, "joss_unbox_value": true,
+		"joss_buf_new": true, "joss_buf_free": true, "joss_buf_len": true,
+		"joss_buf_get": true, "joss_buf_set": true,
+		"joss_buf_append_byte": true, "joss_buf_append_cstr": true, "joss_buf_to_cstr": true,
+		"joss_sb_new": true, "joss_sb_append": true, "joss_sb_append_i64": true, "joss_sb_to_string": true,
+		"joss_intval": true, "joss_abs": true, "joss_min": true, "joss_max": true,
+		"joss_strlen": true, "joss_str_contains": true, "joss_str_eq": true,
+		"joss_dp_get": true, "joss_dp_put": true,
+		"joss_async": true, "joss_await": true,
+		"joss_make_chan": true, "joss_send": true, "joss_recv": true, "joss_close": true,
+	}
+
+	e.varargSyms = make(map[string]bool)
+	e.symRetTypes = map[string]string{
+		"joss_intval": "i64", "joss_abs": "i64", "joss_min": "i64", "joss_max": "i64",
+		"joss_strlen": "i64", "joss_str_contains": "i1", "joss_str_eq": "i1",
+		"joss_print_i64": "void", "joss_print_f64": "void", "joss_print_bool": "void",
+		"joss_print_string": "void", "joss_print_mixed": "void", "joss_panic": "void",
+		"joss_str_concat": "i8*",
+		"joss_dp_get":     "i1", "joss_dp_put": "void",
+		"joss_async": "i64", "joss_await": "i64",
+		"joss_make_chan": "i64", "joss_send": "void", "joss_recv": "i64", "joss_close": "void",
+	}
+	e.symArgTypes = map[string][]string{
+		"joss_intval":       {"i64"},
+		"joss_abs":          {"i64"},
+		"joss_min":          {"i64", "i64"},
+		"joss_max":          {"i64", "i64"},
+		"joss_strlen":       {"i8*"},
+		"joss_str_contains": {"i8*", "i8*"},
+		"joss_str_eq":       {"i8*", "i8*"},
+		"joss_print_i64":    {"i64"},
+		"joss_print_f64":    {"double"},
+		"joss_print_bool":   {"i1"},
+		"joss_print_string": {"i8*"},
+		"joss_print_mixed":  {"i64"},
+		"joss_panic":        {"i8*"},
+		"joss_str_concat":   {"i8*", "i8*"},
+		"joss_async":        {"i64"},
+		"joss_await":        {"i64"},
+		"joss_make_chan":    {"i64"},
+		"joss_send":         {"i64", "i64"},
+		"joss_recv":         {"i64"},
+		"joss_close":        {"i64"},
+	}
+
+	// Pre-escanear instrucciones para declarar símbolos C externos, builtins y host services
+	externDecls := make(map[string]string)
+	registerCallDecl := func(sym string, dest *ir.TempValue, retT ir.Type, args []ir.Value, argTypes []ir.Type) {
+		if fixedDecls[sym] || prog.Functions[sym] != nil {
+			return
+		}
+		retStr := MapLLVMType(retT)
+		if dest != nil && dest.ValueType.Kind != ir.TypeKindVoid {
+			retStr = MapLLVMType(dest.ValueType)
+		}
+		argTs := make([]string, len(args))
+		for idx, a := range args {
+			if idx < len(argTypes) {
+				argTs[idx] = MapLLVMType(argTypes[idx])
+			} else {
+				argTs[idx] = MapLLVMType(a.Type())
+			}
+		}
+		sig := fmt.Sprintf("declare %s @%s(%s)\n", retStr, sym, strings.Join(argTs, ", "))
+		if prev, seen := externDecls[sym]; seen {
+			if prev != sig {
+				e.varargSyms[sym] = true
+				prevRet := e.symRetTypes[sym]
+				if prevRet == "void" && retStr != "void" {
+					e.symRetTypes[sym] = retStr
+				}
+				externDecls[sym] = fmt.Sprintf("declare %s @%s(...)\n", e.symRetTypes[sym], sym)
+			}
+			return
+		}
+		e.symRetTypes[sym] = retStr
+		e.symArgTypes[sym] = argTs
+		externDecls[sym] = sig
+	}
+	var scanDecls func([]*ir.BasicBlock)
+	scanDecls = func(blocks []*ir.BasicBlock) {
+		for _, block := range blocks {
+			for _, inst := range block.Instructions {
+				switch ci := inst.(type) {
+				case *ir.ExternCallInst:
+					registerCallDecl(ci.Symbol, ci.Dest, ci.RetType, ci.Args, ci.ArgTypes)
+				case *ir.CallInst:
+					if prog.Functions[ci.Callee] == nil {
+						retT := ir.TypeVoid
+						if ci.Dest != nil {
+							retT = ci.Dest.ValueType
+						}
+						registerCallDecl(ci.Callee, ci.Dest, retT, ci.Args, nil)
+					}
+				case *ir.CallRuntimeInst:
+					rtFunc := ci.Func
+					if !strings.HasPrefix(rtFunc, "joss_") {
+						rtFunc = "joss_" + rtFunc
+					}
+					retT := ir.TypeVoid
+					if ci.Dest != nil {
+						retT = ci.Dest.ValueType
+					}
+					registerCallDecl(rtFunc, ci.Dest, retT, ci.Args, nil)
+				case *ir.CallBuiltinInst:
+					if prog.Functions[ci.BuiltinID] != nil {
+						continue
+					}
+					rtFunc := "joss_" + ci.BuiltinID
+					retT := ir.TypeVoid
+					if ci.Dest != nil {
+						retT = ci.Dest.ValueType
+					}
+					args := ci.Args
+					if ci.BuiltinID == "substr" && len(args) == 2 {
+						args = append([]ir.Value{args[0], args[1], ir.NewConstInt(-1, ir.TypeI64)}, args[2:]...)
+					} else if ci.BuiltinID == "env" && len(args) == 1 {
+						args = []ir.Value{args[0], ir.NewConstString("")}
+					} else if (ci.BuiltinID == "request" || ci.BuiltinID == "session") && len(args) == 1 {
+						args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
+					} else if ci.BuiltinID == "totp_generate" && len(args) == 1 {
+						args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
+					} else if ci.BuiltinID == "totp_verify" && len(args) == 2 {
+						args = []ir.Value{args[0], args[1], ir.NewConstInt(0, ir.TypeI64)}
+					}
+					registerCallDecl(rtFunc, ci.Dest, retT, args, nil)
+				case *ir.CallHostServiceInst:
+					fnName := "fn_" + ci.ClassName + "_" + ci.MethodName
+					if hasJossHostServiceImplementation(prog, ci.ClassName, ci.MethodName) {
+						fnName = jossHostServiceFunctionName(prog, ci.ClassName, ci.MethodName)
+						if prog.Functions[fnName] != nil {
+							continue
+						}
+					}
+					retT := ir.TypeVoid
+					if ci.Dest != nil {
+						retT = ci.Dest.ValueType
+					}
+					registerCallDecl(fnName, ci.Dest, retT, ci.Args, nil)
+				case *ir.CallPrimitiveMethodInst:
+					rtFunc := fmt.Sprintf("joss_%s_%s", ci.TypeKind, ci.MethodName)
+					retT := ir.TypeVoid
+					if ci.Dest != nil {
+						retT = ci.Dest.ValueType
+					}
+					registerCallDecl(rtFunc, ci.Dest, retT, ci.Args, nil)
+				case *ir.TryCatchInst:
+					scanDecls(ci.TryBlocks)
+					scanDecls(ci.CatchBlocks)
+				}
+			}
+		}
+	}
+	for _, fn := range prog.Functions {
+		scanDecls(fn.Blocks)
+	}
+	if len(externDecls) > 0 {
+		extKeys := make([]string, 0, len(externDecls))
+		for k := range externDecls {
+			extKeys = append(extKeys, k)
+		}
+		sort.Strings(extKeys)
+		for _, k := range extKeys {
+			buf.WriteString(externDecls[k])
+		}
+	}
+	buf.WriteString("\n")
 
 	// Emitir funciones de usuario
 	fnNames := make([]string, 0, len(prog.Functions))
@@ -121,11 +309,27 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 
 	for _, name := range fnNames {
 		fn := prog.Functions[name]
-		if err := e.emitFunction(&buf, fn); err != nil {
+		if err := e.emitFunction(&bodyBuf, fn); err != nil {
 			return "", err
+		}
+		bodyBuf.WriteString("\n")
+	}
+
+	if len(e.stringConstants) > 0 {
+		buf.WriteString("; String Constants\n")
+		keys := make([]string, 0, len(e.stringConstants))
+		for k := range e.stringConstants {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			sym := e.stringConstants[k]
+			escaped, length := formatLLVMStringLiteral(k)
+			buf.WriteString(fmt.Sprintf("%s = private unnamed_addr constant [%d x i8] c\"%s\", align 1\n", sym, length, escaped))
 		}
 		buf.WriteString("\n")
 	}
+	buf.Write(bodyBuf.Bytes())
 
 	return buf.String(), nil
 }
@@ -140,7 +344,47 @@ func (e *LLVMEmitter) registerString(val string) string {
 	return sym
 }
 
+// isAutoDPEligible returns true when fn is a pure self-recursive function
+// taking 1 or 2 i64 parameters and returning i64, making automatic memoization
+// (Dynamic Programming) 100% semantically sound.
+func isAutoDPEligible(fn *ir.Function) bool {
+	if fn == nil || fn.Name == "main" || fn.ReturnType.Kind != ir.TypeKindI64 {
+		return false
+	}
+	if len(fn.Params) < 1 || len(fn.Params) > 2 {
+		return false
+	}
+	for _, p := range fn.Params {
+		if p.ValueType.Kind != ir.TypeKindI64 {
+			return false
+		}
+	}
+	hasSelfCall := false
+	for _, blk := range fn.Blocks {
+		for _, inst := range blk.Instructions {
+			switch i := inst.(type) {
+			case *ir.AllocaInst, *ir.LoadInst, *ir.StoreInst, *ir.MoveInst,
+				*ir.BinaryInst, *ir.UnaryInst, *ir.CompareInst, *ir.CastInst:
+				// Pure local computation
+			case *ir.CallInst:
+				if i.Callee != fn.Name {
+					return false
+				}
+				hasSelfCall = true
+			default:
+				return false
+			}
+		}
+	}
+	return hasSelfCall
+}
+
 func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {
+	e.currentFn = fn
+	e.tempLLVMTypes = make(map[int]string)
+	e.activeDPFnID = 0
+	e.activeDPParam0 = "0"
+	e.activeDPParam1 = "0"
 	retType := MapLLVMType(fn.ReturnType)
 
 	// Parámetros
@@ -149,7 +393,28 @@ func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {
 		paramStrs[i] = fmt.Sprintf("%s %s", MapLLVMType(p.ValueType), e.formatValue(p))
 	}
 
-	buf.WriteString(fmt.Sprintf("define %s @%s(%s) {\n", retType, fn.Name, strings.Join(paramStrs, ", ")))
+	linkage := ""
+	if fn.Name != "main" && !strings.HasPrefix(fn.Name, "joss_export_") {
+		linkage = "internal "
+	}
+	buf.WriteString(fmt.Sprintf("define %s%s @%s(%s) {\n", linkage, retType, fn.Name, strings.Join(paramStrs, ", ")))
+
+	if isAutoDPEligible(fn) && len(fn.Blocks) > 0 {
+		e.nextDPFnID++
+		e.activeDPFnID = e.nextDPFnID
+		e.activeDPParam0 = e.formatValue(fn.Params[0])
+		if len(fn.Params) >= 2 {
+			e.activeDPParam1 = e.formatValue(fn.Params[1])
+		}
+		buf.WriteString("dp_entry:\n")
+		buf.WriteString("    %dp_out = alloca i64, align 8\n")
+		buf.WriteString(fmt.Sprintf("    %%dp_hit = call i1 @joss_dp_get(i64 %d, i64 %s, i64 %s, i64* %%dp_out)\n",
+			e.activeDPFnID, e.activeDPParam0, e.activeDPParam1))
+		buf.WriteString(fmt.Sprintf("    br i1 %%dp_hit, label %%dp_ret, label %%%s\n", fn.Blocks[0].Label))
+		buf.WriteString("dp_ret:\n")
+		buf.WriteString("    %dp_val = load i64, i64* %dp_out, align 8\n")
+		buf.WriteString("    ret i64 %dp_val\n")
+	}
 
 	for _, block := range fn.Blocks {
 		buf.WriteString(fmt.Sprintf("%s:\n", block.Label))
@@ -183,16 +448,40 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 	switch i := inst.(type) {
 	case *ir.AllocaInst:
 		allocType := MapLLVMType(i.AllocType)
+		if i.Dest != nil {
+			e.tempLLVMTypes[i.Dest.ID] = allocType + "*"
+		}
 		return fmt.Sprintf("%s = alloca %s, align 8", e.formatValue(i.Dest), allocType), nil
 
 	case *ir.StoreInst:
-		valStr := e.formatTypedValue(i.Val)
 		ptrType := MapLLVMType(i.Ptr.Type())
+		if tv, ok := i.Ptr.(*ir.TempValue); ok {
+			if known, exists := e.tempLLVMTypes[tv.ID]; exists {
+				ptrType = known
+			}
+		}
+		if strings.HasSuffix(ptrType, "*") {
+			elemLLVM := strings.TrimSuffix(ptrType, "*")
+			pre, valExpr := e.coerceLLVM(i.Val, elemLLVM, fmt.Sprintf("st_%p", i))
+			return fmt.Sprintf("%sstore %s %s, %s %s, align 8", pre, elemLLVM, valExpr, ptrType, e.formatValue(i.Ptr)), nil
+		}
+		valStr := e.formatTypedValue(i.Val)
 		return fmt.Sprintf("store %s, %s %s, align 8", valStr, ptrType, e.formatValue(i.Ptr)), nil
 
 	case *ir.LoadInst:
 		destType := MapLLVMType(i.Dest.ValueType)
 		ptrType := MapLLVMType(i.Ptr.Type())
+		if tv, ok := i.Ptr.(*ir.TempValue); ok {
+			if known, exists := e.tempLLVMTypes[tv.ID]; exists {
+				ptrType = known
+				elem := strings.TrimSuffix(known, "*")
+				if elem != destType {
+					raw := fmt.Sprintf("%%ldraw_%p", i)
+					conv := e.emitDirectCast(elem, raw, destType, e.formatValue(i.Dest))
+					return fmt.Sprintf("%s = load %s, %s %s, align 8\n\t%s", raw, elem, ptrType, e.formatValue(i.Ptr), conv), nil
+				}
+			}
+		}
 		return fmt.Sprintf("%s = load %s, %s %s, align 8", e.formatValue(i.Dest), destType, ptrType, e.formatValue(i.Ptr)), nil
 
 	case *ir.GlobalLoadInst:
@@ -202,6 +491,12 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		}
 		name := "@joss_global_" + cleanIdent(i.GlobalName)
 		typeName := MapLLVMType(global.Type)
+		destType := MapLLVMType(i.Dest.ValueType)
+		if typeName != destType {
+			raw := fmt.Sprintf("%%gld_%p", i)
+			conv := e.emitDirectCast(typeName, raw, destType, e.formatValue(i.Dest))
+			return fmt.Sprintf("%s = load %s, %s* %s, align 8\n\t%s", raw, typeName, typeName, name, conv), nil
+		}
 		return fmt.Sprintf("%s = load %s, %s* %s, align 8", e.formatValue(i.Dest), typeName, typeName, name), nil
 
 	case *ir.GlobalStoreInst:
@@ -211,7 +506,8 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		}
 		name := "@joss_global_" + cleanIdent(i.GlobalName)
 		typeName := MapLLVMType(global.Type)
-		return fmt.Sprintf("store %s %s, %s* %s, align 8", typeName, e.formatValue(i.Val), typeName, name), nil
+		pre, valExpr := e.coerceLLVM(i.Val, typeName, fmt.Sprintf("gst_%p", i))
+		return fmt.Sprintf("%sstore %s %s, %s* %s, align 8", pre, typeName, valExpr, typeName, name), nil
 
 	case *ir.MoveInst:
 		destType := MapLLVMType(i.Dest.ValueType)
@@ -221,114 +517,139 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 	case *ir.BinaryInst:
 		llvmOp := llvmArithmeticOp(i.Op, i.Dest.ValueType)
 		tStr := MapLLVMType(i.Dest.ValueType)
-		return fmt.Sprintf("%s = %s %s %s, %s", e.formatValue(i.Dest), llvmOp, tStr, e.formatValue(i.Left), e.formatValue(i.Right)), nil
+		preL, lVal := e.coerceLLVM(i.Left, tStr, fmt.Sprintf("bl_%p", i))
+		preR, rVal := e.coerceLLVM(i.Right, tStr, fmt.Sprintf("br_%p", i))
+		return fmt.Sprintf("%s%s%s = %s %s %s, %s", preL, preR, e.formatValue(i.Dest), llvmOp, tStr, lVal, rVal), nil
 
 	case *ir.UnaryInst:
 		if i.Op == ir.OpNot {
-			return fmt.Sprintf("%s = xor i1 %s, true", e.formatValue(i.Dest), e.formatValue(i.Val)), nil
+			pre, v := e.coerceLLVM(i.Val, "i1", fmt.Sprintf("un_%p", i))
+			return fmt.Sprintf("%s%s = xor i1 %s, true", pre, e.formatValue(i.Dest), v), nil
 		}
 		if i.Op == ir.OpNeg {
 			tStr := MapLLVMType(i.Dest.ValueType)
+			pre, v := e.coerceLLVM(i.Val, tStr, fmt.Sprintf("ng_%p", i))
 			if i.Dest.ValueType.IsFloat() {
-				return fmt.Sprintf("%s = fsub %s 0.0, %s", e.formatValue(i.Dest), tStr, e.formatValue(i.Val)), nil
+				return fmt.Sprintf("%s%s = fsub %s 0.0, %s", pre, e.formatValue(i.Dest), tStr, v), nil
 			}
-			return fmt.Sprintf("%s = sub %s 0, %s", e.formatValue(i.Dest), tStr, e.formatValue(i.Val)), nil
+			return fmt.Sprintf("%s%s = sub %s 0, %s", pre, e.formatValue(i.Dest), tStr, v), nil
 		}
 
 	case *ir.CompareInst:
+		lT := MapLLVMType(i.Left.Type())
+		rT := MapLLVMType(i.Right.Type())
+		tStr := lT
+		cmpType := i.Left.Type()
+		if lT != rT {
+			if lT == "double" || rT == "double" {
+				tStr = "double"
+				cmpType = ir.TypeF64
+			} else if lT == "i64" || rT == "i64" {
+				tStr = "i64"
+				cmpType = ir.TypeI64
+			} else if lT == "i8*" || rT == "i8*" {
+				tStr = "i8*"
+				cmpType = ir.TypeString
+			}
+		}
+		preL, lVal := e.coerceLLVM(i.Left, tStr, fmt.Sprintf("cl_%p", i))
+		preR, rVal := e.coerceLLVM(i.Right, tStr, fmt.Sprintf("cr_%p", i))
 		if i.Op == ir.OpSpaceship {
 			destVal := e.formatValue(i.Dest)
 			ltTemp := destVal + "_lt"
 			gtTemp := destVal + "_gt"
 			selTemp := destVal + "_sel"
-			tStr := MapLLVMType(i.Left.Type())
-			return fmt.Sprintf("%s = icmp slt %s %s, %s\n\t%s = icmp sgt %s %s, %s\n\t%s = select i1 %s, i64 1, i64 0\n\t%s = select i1 %s, i64 -1, i64 %s",
-				ltTemp, tStr, e.formatValue(i.Left), e.formatValue(i.Right),
-				gtTemp, tStr, e.formatValue(i.Left), e.formatValue(i.Right),
+			return fmt.Sprintf("%s%s%s = icmp slt %s %s, %s\n\t%s = icmp sgt %s %s, %s\n\t%s = select i1 %s, i64 1, i64 0\n\t%s = select i1 %s, i64 -1, i64 %s",
+				preL, preR,
+				ltTemp, tStr, lVal, rVal,
+				gtTemp, tStr, lVal, rVal,
 				selTemp, gtTemp,
 				destVal, ltTemp, selTemp), nil
 		}
-		cmpOp := llvmCmpOp(i.Op, i.Left.Type())
-		tStr := MapLLVMType(i.Left.Type())
-		return fmt.Sprintf("%s = %s %s %s, %s", e.formatValue(i.Dest), cmpOp, tStr, e.formatValue(i.Left), e.formatValue(i.Right)), nil
+		if (i.Op == ir.OpCmpEq || i.Op == ir.OpCmpNe) && (i.Left.Type().Kind == ir.TypeKindString || i.Right.Type().Kind == ir.TypeKindString) {
+			_, isLNull := i.Left.(*ir.ConstNull)
+			_, isRNull := i.Right.(*ir.ConstNull)
+			if !isLNull && !isRNull {
+				preL, lVal := e.coerceLLVM(i.Left, "i8*", fmt.Sprintf("cl_%p", i))
+				preR, rVal := e.coerceLLVM(i.Right, "i8*", fmt.Sprintf("cr_%p", i))
+				if i.Op == ir.OpCmpEq {
+					return fmt.Sprintf("%s%s%s = call i1 @joss_str_eq(i8* %s, i8* %s)", preL, preR, e.formatValue(i.Dest), lVal, rVal), nil
+				}
+				rawEq := fmt.Sprintf("%%streq_%p", i)
+				return fmt.Sprintf("%s%s%s = call i1 @joss_str_eq(i8* %s, i8* %s)\n\t%s = xor i1 %s, true", preL, preR, rawEq, lVal, rVal, e.formatValue(i.Dest), rawEq), nil
+			}
+		}
+		cmpOp := llvmCmpOp(i.Op, cmpType)
+		return fmt.Sprintf("%s%s%s = %s %s %s, %s", preL, preR, e.formatValue(i.Dest), cmpOp, tStr, lVal, rVal), nil
 
 	case *ir.CallInst:
-		args := make([]string, len(i.Args))
-		for idx, a := range i.Args {
-			args[idx] = e.formatTypedValue(a)
-		}
-		argsJoined := strings.Join(args, ", ")
-		if i.Dest != nil {
-			destType := MapLLVMType(i.Dest.ValueType)
-			return fmt.Sprintf("%s = call %s @%s(%s)", e.formatValue(i.Dest), destType, i.Callee, argsJoined), nil
-		}
-		return fmt.Sprintf("call void @%s(%s)", i.Callee, argsJoined), nil
+		return e.emitDirectCall(i.Callee, i.Dest, i.Args, fmt.Sprintf("ci_%p", i)), nil
 
 	case *ir.CallIndirectInst:
 		args := make([]string, len(i.Args))
+		argTypes := make([]string, len(i.Args))
 		for idx, a := range i.Args {
 			args[idx] = e.formatTypedValue(a)
+			argTypes[idx] = MapLLVMType(a.Type())
 		}
 		argsJoined := strings.Join(args, ", ")
 		calleeVal := e.formatValue(i.CalleeVal)
-		destType := "i64"
-		if i.Dest != nil {
-			destType = MapLLVMType(i.Dest.ValueType)
-			return fmt.Sprintf("%s = call %s %s(%s)", e.formatValue(i.Dest), destType, calleeVal, argsJoined), nil
+		retType := "void"
+		if i.Dest != nil && i.Dest.ValueType.Kind != ir.TypeKindVoid {
+			retType = MapLLVMType(i.Dest.ValueType)
 		}
-		return fmt.Sprintf("call void %s(%s)", calleeVal, argsJoined), nil
+		fnPtrType := fmt.Sprintf("%s (%s)*", retType, strings.Join(argTypes, ", "))
+		fnTmp := fmt.Sprintf("%%fnptr_%p", i)
+		srcType := MapLLVMType(i.CalleeVal.Type())
+		castOp := "bitcast"
+		if srcType == "i64" {
+			castOp = "inttoptr"
+		}
+		castLine := fmt.Sprintf("%s = %s %s %s to %s\n\t", fnTmp, castOp, srcType, calleeVal, fnPtrType)
+		if i.Dest != nil && i.Dest.ValueType.Kind != ir.TypeKindVoid {
+			return fmt.Sprintf("%s%s = call %s %s(%s)", castLine, e.formatValue(i.Dest), retType, fnTmp, argsJoined), nil
+		}
+		return fmt.Sprintf("%scall void %s(%s)", castLine, fnTmp, argsJoined), nil
 
 	case *ir.CallHostServiceInst:
-		args := make([]string, len(i.Args))
-		for idx, a := range i.Args {
-			args[idx] = e.formatTypedValue(a)
-		}
-		argsJoined := strings.Join(args, ", ")
 		fnName := "fn_" + i.ClassName + "_" + i.MethodName
-		if i.Dest != nil {
-			destType := MapLLVMType(i.Dest.ValueType)
-			return fmt.Sprintf("%s = call %s @%s(%s)", e.formatValue(i.Dest), destType, fnName, argsJoined), nil
+		if hasJossHostServiceImplementation(e.program, i.ClassName, i.MethodName) {
+			fnName = jossHostServiceFunctionName(e.program, i.ClassName, i.MethodName)
 		}
-		return fmt.Sprintf("call void @%s(%s)", fnName, argsJoined), nil
+		return e.emitDirectCall(fnName, i.Dest, i.Args, fmt.Sprintf("ch_%p", i)), nil
 
 	case *ir.CallRuntimeInst:
-		rtFunc := "joss_" + i.Func
-		args := make([]string, len(i.Args))
-		for idx, a := range i.Args {
-			args[idx] = e.formatTypedValue(a)
+		rtFunc := i.Func
+		if !strings.HasPrefix(rtFunc, "joss_") {
+			rtFunc = "joss_" + rtFunc
 		}
-		argsJoined := strings.Join(args, ", ")
-		if i.Dest != nil {
-			destType := MapLLVMType(i.Dest.ValueType)
-			return fmt.Sprintf("%s = call %s @%s(%s)", e.formatValue(i.Dest), destType, rtFunc, argsJoined), nil
+		if rtFunc == "joss_buf_append_byte" && len(i.Args) == 2 {
+			bTemp := fmt.Sprintf("%%bufapp_u8_%p", i)
+			return fmt.Sprintf("%s = trunc i64 %s to i8\n\tcall void @joss_buf_append_byte(%s, i8 %s)",
+				bTemp, e.formatValue(i.Args[1]), e.formatTypedValue(i.Args[0]), bTemp), nil
 		}
-		return fmt.Sprintf("call void @%s(%s)", rtFunc, argsJoined), nil
+		return e.emitDirectCall(rtFunc, i.Dest, i.Args, fmt.Sprintf("cr_%p", i)), nil
 
 	case *ir.CallBuiltinInst:
-		rtFunc := "joss_" + i.BuiltinID
-		args := make([]string, len(i.Args))
-		for idx, a := range i.Args {
-			args[idx] = e.formatTypedValue(a)
+		if e.program.Functions[i.BuiltinID] != nil {
+			return e.emitDirectCall(i.BuiltinID, i.Dest, i.Args, fmt.Sprintf("cb_%p", i)), nil
 		}
-		argsJoined := strings.Join(args, ", ")
-		if i.Dest != nil && i.Dest.ValueType.Kind != ir.TypeKindVoid {
-			destType := MapLLVMType(i.Dest.ValueType)
-			return fmt.Sprintf("%s = call %s @%s(%s)", e.formatValue(i.Dest), destType, rtFunc, argsJoined), nil
+		args := i.Args
+		if i.BuiltinID == "substr" && len(args) == 2 {
+			args = []ir.Value{args[0], args[1], ir.NewConstInt(-1, ir.TypeI64)}
+		} else if i.BuiltinID == "env" && len(args) == 1 {
+			args = []ir.Value{args[0], ir.NewConstString("")}
+		} else if (i.BuiltinID == "request" || i.BuiltinID == "session") && len(args) == 1 {
+			args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
+		} else if i.BuiltinID == "totp_generate" && len(args) == 1 {
+			args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
+		} else if i.BuiltinID == "totp_verify" && len(args) == 2 {
+			args = []ir.Value{args[0], args[1], ir.NewConstInt(0, ir.TypeI64)}
 		}
-		return fmt.Sprintf("call void @%s(%s)", rtFunc, argsJoined), nil
+		return e.emitDirectCall("joss_"+i.BuiltinID, i.Dest, args, fmt.Sprintf("cb_%p", i)), nil
 
 	case *ir.CallPrimitiveMethodInst:
-		rtFunc := fmt.Sprintf("joss_%s_%s", i.TypeKind, i.MethodName)
-		args := make([]string, len(i.Args))
-		for idx, a := range i.Args {
-			args[idx] = e.formatTypedValue(a)
-		}
-		argsJoined := strings.Join(args, ", ")
-		if i.Dest != nil && i.Dest.ValueType.Kind != ir.TypeKindVoid {
-			destType := MapLLVMType(i.Dest.ValueType)
-			return fmt.Sprintf("%s = call %s @%s(%s)", e.formatValue(i.Dest), destType, rtFunc, argsJoined), nil
-		}
-		return fmt.Sprintf("call void @%s(%s)", rtFunc, argsJoined), nil
+		return e.emitDirectCall(fmt.Sprintf("joss_%s_%s", i.TypeKind, i.MethodName), i.Dest, i.Args, fmt.Sprintf("cp_%p", i)), nil
 
 	case *ir.NewObjectInst:
 		clsSym := e.registerString(i.ClassName)
@@ -341,84 +662,323 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		fieldSym := e.registerString(i.FieldName)
 		_, length := formatLLVMStringLiteral(i.FieldName)
 		destVal := e.formatValue(i.Dest)
-		objVal := e.formatValue(i.Obj)
+		pre, objVal := e.coerceLLVM(i.Obj, "i8*", fmt.Sprintf("lf_%p", i))
 		if i.Dest.Type().Kind == ir.TypeKindString {
-			return fmt.Sprintf("%s = call i8* @joss_obj_get_field_str(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", destVal, objVal, length, length, fieldSym), nil
+			return fmt.Sprintf("%s%s = call i8* @joss_obj_get_field_str(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", pre, destVal, objVal, length, length, fieldSym), nil
 		}
-		return fmt.Sprintf("%s = call i64 @joss_obj_get_field_i64(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", destVal, objVal, length, length, fieldSym), nil
+		destLLVM := MapLLVMType(i.Dest.Type())
+		if destLLVM != "i64" {
+			raw := fmt.Sprintf("%%lfraw_%p", i)
+			conv := e.emitDirectCast("i64", raw, destLLVM, destVal)
+			return fmt.Sprintf("%s%s = call i64 @joss_obj_get_field_i64(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))\n\t%s", pre, raw, objVal, length, length, fieldSym, conv), nil
+		}
+		return fmt.Sprintf("%s%s = call i64 @joss_obj_get_field_i64(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", pre, destVal, objVal, length, length, fieldSym), nil
 
 	case *ir.StoreFieldInst:
 		fieldSym := e.registerString(i.FieldName)
 		_, length := formatLLVMStringLiteral(i.FieldName)
-		objVal := e.formatValue(i.Obj)
-		valVal := e.formatValue(i.Val)
+		preObj, objVal := e.coerceLLVM(i.Obj, "i8*", fmt.Sprintf("sf_o_%p", i))
 		if i.Val.Type().Kind == ir.TypeKindString {
-			return fmt.Sprintf("call void @joss_obj_set_field_str(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i8* %s)", objVal, length, length, fieldSym, valVal), nil
+			preVal, valVal := e.coerceLLVM(i.Val, "i8*", fmt.Sprintf("sf_v_%p", i))
+			return fmt.Sprintf("%s%scall void @joss_obj_set_field_str(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i8* %s)", preObj, preVal, objVal, length, length, fieldSym, valVal), nil
 		}
-		return fmt.Sprintf("call void @joss_obj_set_field_i64(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i64 %s)", objVal, length, length, fieldSym, valVal), nil
+		preVal, valVal := e.coerceLLVM(i.Val, "i64", fmt.Sprintf("sf_v_%p", i))
+		return fmt.Sprintf("%s%scall void @joss_obj_set_field_i64(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i64 %s)", preObj, preVal, objVal, length, length, fieldSym, valVal), nil
 
 	case *ir.NewArrayInst:
 		lines := []string{fmt.Sprintf("%s = call i8* @joss_arr_new(i64 %d)", e.formatValue(i.Dest), len(i.Elements))}
-		for _, el := range i.Elements {
+		for idx, el := range i.Elements {
 			if el.Type().Kind == ir.TypeKindString {
-				lines = append(lines, fmt.Sprintf("call void @joss_arr_push_str(i8* %s, i8* %s)", e.formatValue(i.Dest), e.formatValue(el)))
+				pre, ev := e.coerceLLVM(el, "i8*", fmt.Sprintf("na_%p_%d", i, idx))
+				lines = append(lines, fmt.Sprintf("%scall void @joss_arr_push_str(i8* %s, i8* %s)", pre, e.formatValue(i.Dest), ev))
 			} else {
-				lines = append(lines, fmt.Sprintf("call void @joss_arr_push_i64(i8* %s, i64 %s)", e.formatValue(i.Dest), e.formatValue(el)))
+				pre, ev := e.coerceLLVM(el, "i64", fmt.Sprintf("na_%p_%d", i, idx))
+				lines = append(lines, fmt.Sprintf("%scall void @joss_arr_push_i64(i8* %s, i64 %s)", pre, e.formatValue(i.Dest), ev))
 			}
 		}
 		return strings.Join(lines, "\n\t"), nil
 
 	case *ir.ArrayGetInst:
 		destVal := e.formatValue(i.Dest)
-		arrVal := e.formatValue(i.Array)
-		idxVal := e.formatValue(i.Index)
+		preArr, arrVal := e.coerceLLVM(i.Array, "i8*", fmt.Sprintf("ag_a_%p", i))
+		preIdx, idxVal := e.coerceLLVM(i.Index, "i64", fmt.Sprintf("ag_i_%p", i))
 		if i.Dest.Type().Kind == ir.TypeKindString {
-			return fmt.Sprintf("%s = call i8* @joss_arr_get_str(i8* %s, i64 %s)", destVal, arrVal, idxVal), nil
+			return fmt.Sprintf("%s%s%s = call i8* @joss_arr_get_str(i8* %s, i64 %s)", preArr, preIdx, destVal, arrVal, idxVal), nil
 		}
-		return fmt.Sprintf("%s = call i64 @joss_arr_get_i64(i8* %s, i64 %s)", destVal, arrVal, idxVal), nil
+		destLLVM := MapLLVMType(i.Dest.Type())
+		if destLLVM != "i64" {
+			raw := fmt.Sprintf("%%agraw_%p", i)
+			conv := e.emitDirectCast("i64", raw, destLLVM, destVal)
+			return fmt.Sprintf("%s%s%s = call i64 @joss_arr_get_i64(i8* %s, i64 %s)\n\t%s", preArr, preIdx, raw, arrVal, idxVal, conv), nil
+		}
+		return fmt.Sprintf("%s%s%s = call i64 @joss_arr_get_i64(i8* %s, i64 %s)", preArr, preIdx, destVal, arrVal, idxVal), nil
 
 	case *ir.ArraySetInst:
-		arrVal := e.formatValue(i.Array)
-		idxVal := e.formatValue(i.Index)
-		valVal := e.formatValue(i.Val)
+		preArr, arrVal := e.coerceLLVM(i.Array, "i8*", fmt.Sprintf("as_a_%p", i))
+		preIdx, idxVal := e.coerceLLVM(i.Index, "i64", fmt.Sprintf("as_i_%p", i))
 		if i.Val.Type().Kind == ir.TypeKindString {
-			return fmt.Sprintf("call void @joss_arr_set_str(i8* %s, i64 %s, i8* %s)", arrVal, idxVal, valVal), nil
+			preVal, valVal := e.coerceLLVM(i.Val, "i8*", fmt.Sprintf("as_v_%p", i))
+			return fmt.Sprintf("%s%s%scall void @joss_arr_set_str(i8* %s, i64 %s, i8* %s)", preArr, preIdx, preVal, arrVal, idxVal, valVal), nil
 		}
-		return fmt.Sprintf("call void @joss_arr_set_i64(i8* %s, i64 %s, i64 %s)", arrVal, idxVal, valVal), nil
+		preVal, valVal := e.coerceLLVM(i.Val, "i64", fmt.Sprintf("as_v_%p", i))
+		return fmt.Sprintf("%s%s%scall void @joss_arr_set_i64(i8* %s, i64 %s, i64 %s)", preArr, preIdx, preVal, arrVal, idxVal, valVal), nil
 
 	case *ir.NewMapInst:
 		lines := []string{fmt.Sprintf("%s = call i8* @joss_map_new()", e.formatValue(i.Dest))}
-		for _, p := range i.Pairs {
-			keyVal := e.formatValue(p[0])
-			valVal := e.formatValue(p[1])
+		for idx, p := range i.Pairs {
+			preK, keyVal := e.coerceLLVM(p[0], "i8*", fmt.Sprintf("nm_k_%p_%d", i, idx))
 			if p[1].Type().Kind == ir.TypeKindString {
-				lines = append(lines, fmt.Sprintf("call void @joss_map_set_str(i8* %s, i8* %s, i8* %s)", e.formatValue(i.Dest), keyVal, valVal))
+				preV, valVal := e.coerceLLVM(p[1], "i8*", fmt.Sprintf("nm_v_%p_%d", i, idx))
+				lines = append(lines, fmt.Sprintf("%s%scall void @joss_map_set_str(i8* %s, i8* %s, i8* %s)", preK, preV, e.formatValue(i.Dest), keyVal, valVal))
 			} else {
-				lines = append(lines, fmt.Sprintf("call void @joss_map_set_i64(i8* %s, i8* %s, i64 %s)", e.formatValue(i.Dest), keyVal, valVal))
+				preV, valVal := e.coerceLLVM(p[1], "i64", fmt.Sprintf("nm_v_%p_%d", i, idx))
+				lines = append(lines, fmt.Sprintf("%s%scall void @joss_map_set_i64(i8* %s, i8* %s, i64 %s)", preK, preV, e.formatValue(i.Dest), keyVal, valVal))
 			}
 		}
 		return strings.Join(lines, "\n\t"), nil
 
 	case *ir.MapGetInst:
 		destVal := e.formatValue(i.Dest)
-		mapVal := e.formatValue(i.Map)
-		keyVal := e.formatValue(i.Key)
+		preM, mapVal := e.coerceLLVM(i.Map, "i8*", fmt.Sprintf("mg_m_%p", i))
+		preK, keyVal := e.coerceLLVM(i.Key, "i8*", fmt.Sprintf("mg_k_%p", i))
 		if i.Dest.Type().Kind == ir.TypeKindString {
-			return fmt.Sprintf("%s = call i8* @joss_map_get_str(i8* %s, i8* %s)", destVal, mapVal, keyVal), nil
+			return fmt.Sprintf("%s%s%s = call i8* @joss_map_get_str(i8* %s, i8* %s)", preM, preK, destVal, mapVal, keyVal), nil
 		}
-		return fmt.Sprintf("%s = call i64 @joss_map_get_i64(i8* %s, i8* %s)", destVal, mapVal, keyVal), nil
+		destLLVM := MapLLVMType(i.Dest.Type())
+		if destLLVM != "i64" {
+			raw := fmt.Sprintf("%%mgraw_%p", i)
+			conv := e.emitDirectCast("i64", raw, destLLVM, destVal)
+			return fmt.Sprintf("%s%s%s = call i64 @joss_map_get_i64(i8* %s, i8* %s)\n\t%s", preM, preK, raw, mapVal, keyVal, conv), nil
+		}
+		return fmt.Sprintf("%s%s%s = call i64 @joss_map_get_i64(i8* %s, i8* %s)", preM, preK, destVal, mapVal, keyVal), nil
 
 	case *ir.MapSetInst:
-		mapVal := e.formatValue(i.Map)
-		keyVal := e.formatValue(i.Key)
-		valVal := e.formatValue(i.Val)
+		preM, mapVal := e.coerceLLVM(i.Map, "i8*", fmt.Sprintf("ms_m_%p", i))
+		preK, keyVal := e.coerceLLVM(i.Key, "i8*", fmt.Sprintf("ms_k_%p", i))
 		if i.Val.Type().Kind == ir.TypeKindString {
-			return fmt.Sprintf("call void @joss_map_set_str(i8* %s, i8* %s, i8* %s)", mapVal, keyVal, valVal), nil
+			preV, valVal := e.coerceLLVM(i.Val, "i8*", fmt.Sprintf("ms_v_%p", i))
+			return fmt.Sprintf("%s%s%scall void @joss_map_set_str(i8* %s, i8* %s, i8* %s)", preM, preK, preV, mapVal, keyVal, valVal), nil
 		}
-		return fmt.Sprintf("call void @joss_map_set_i64(i8* %s, i8* %s, i64 %s)", mapVal, keyVal, valVal), nil
+		preV, valVal := e.coerceLLVM(i.Val, "i64", fmt.Sprintf("ms_v_%p", i))
+		return fmt.Sprintf("%s%s%scall void @joss_map_set_i64(i8* %s, i8* %s, i64 %s)", preM, preK, preV, mapVal, keyVal, valVal), nil
 
 	case *ir.MapDeleteInst:
-		return fmt.Sprintf("call void @joss_map_delete_i64(i8* %s, i8* %s)", e.formatValue(i.Map), e.formatValue(i.Key)), nil
+		preM, mapVal := e.coerceLLVM(i.Map, "i8*", fmt.Sprintf("md_m_%p", i))
+		preK, keyVal := e.coerceLLVM(i.Key, "i8*", fmt.Sprintf("md_k_%p", i))
+		return fmt.Sprintf("%s%scall void @joss_map_delete_i64(i8* %s, i8* %s)", preM, preK, mapVal, keyVal), nil
+
+	case *ir.BoxValueInst:
+		var tag int64 = 1
+		switch i.Val.Type().Kind {
+		case ir.TypeKindBool:
+			tag = 3
+		case ir.TypeKindF64, ir.TypeKindF32, ir.TypeKindDecimal:
+			tag = 2
+		case ir.TypeKindString:
+			tag = 4
+		case ir.TypeKindPtr:
+			if i.Val.Type().Elem != nil && i.Val.Type().Elem.Kind == ir.TypeKindVoid {
+				tag = 0
+			} else {
+				tag = 5
+			}
+		}
+		destVal := e.formatValue(i.Dest)
+		valStr := e.formatValue(i.Val)
+		payloadExpr := valStr
+		convLine := ""
+		switch i.Val.Type().Kind {
+		case ir.TypeKindBool:
+			payloadExpr = destVal + "_zext"
+			convLine = fmt.Sprintf("%s = zext i1 %s to i64\n\t", payloadExpr, valStr)
+		case ir.TypeKindF64, ir.TypeKindDecimal:
+			payloadExpr = destVal + "_bits"
+			convLine = fmt.Sprintf("%s = bitcast double %s to i64\n\t", payloadExpr, valStr)
+		case ir.TypeKindString, ir.TypeKindPtr, ir.TypeKindStruct, ir.TypeKindArray:
+			payloadExpr = destVal + "_p2i"
+			convLine = fmt.Sprintf("%s = ptrtoint %s %s to i64\n\t", payloadExpr, MapLLVMType(i.Val.Type()), valStr)
+		}
+		boxPtr := destVal + "_boxptr"
+		return fmt.Sprintf("%s%s = call i8* @joss_box_value(i64 %d, i64 %s)\n\t%s = ptrtoint i8* %s to i64",
+			convLine, boxPtr, tag, payloadExpr, destVal, boxPtr), nil
+
+	case *ir.UnboxValueInst:
+		pre, v := e.coerceLLVM(i.Val, "i64", fmt.Sprintf("ub_%p", i))
+		destType := MapLLVMType(i.Dest.ValueType)
+		if destType != "i64" {
+			raw := fmt.Sprintf("%%ubraw_%p", i)
+			conv := e.emitDirectCast("i64", raw, destType, e.formatValue(i.Dest))
+			return fmt.Sprintf("%s%s = call i64 @joss_unbox_value(i64 %s)\n\t%s", pre, raw, v, conv), nil
+		}
+		return fmt.Sprintf("%s%s = call i64 @joss_unbox_value(i64 %s)", pre, e.formatValue(i.Dest), v), nil
+
+	case *ir.AllocBufferInst:
+		return fmt.Sprintf("%s = call i8* @joss_buf_new(i64 %s)", e.formatValue(i.Dest), e.formatValue(i.Cap)), nil
+
+	case *ir.FreeBufferInst:
+		return fmt.Sprintf("call void @joss_buf_free(i8* %s)", e.formatValue(i.Buf)), nil
+
+	case *ir.BufferLenInst:
+		return fmt.Sprintf("%s = call i64 @joss_buf_len(i8* %s)", e.formatValue(i.Dest), e.formatValue(i.Buf)), nil
+
+	case *ir.BufferGetInst:
+		destVal := e.formatValue(i.Dest)
+		bTemp := destVal + "_u8"
+		return fmt.Sprintf("%s = call i8 @joss_buf_get(i8* %s, i64 %s)\n\t%s = zext i8 %s to i64",
+			bTemp, e.formatValue(i.Buf), e.formatValue(i.Index), destVal, bTemp), nil
+
+	case *ir.BufferSetInst:
+		bTemp := fmt.Sprintf("%%bufset_u8_%p", i)
+		return fmt.Sprintf("%s = trunc i64 %s to i8\n\tcall void @joss_buf_set(i8* %s, i64 %s, i8 %s)",
+			bTemp, e.formatValue(i.Val), e.formatValue(i.Buf), e.formatValue(i.Index), bTemp), nil
+
+	case *ir.ExternCallInst:
+		args := make([]string, len(i.Args))
+		for idx, a := range i.Args {
+			args[idx] = e.formatTypedValue(a)
+		}
+		argsJoined := strings.Join(args, ", ")
+		if i.Dest != nil && i.RetType.Kind != ir.TypeKindVoid {
+			return fmt.Sprintf("%s = call %s @%s(%s)", e.formatValue(i.Dest), MapLLVMType(i.RetType), i.Symbol, argsJoined), nil
+		}
+		return fmt.Sprintf("call void @%s(%s)", i.Symbol, argsJoined), nil
+
+	case *ir.ThrowInst:
+		if i.Val != nil && i.Val.Type().Kind == ir.TypeKindString {
+			return fmt.Sprintf("call void @joss_throw(%s)", e.formatTypedValue(i.Val)), nil
+		}
+		if i.Val != nil {
+			pre, vStr := e.coerceLLVM(i.Val, "i8*", fmt.Sprintf("thr_%p", i))
+			return fmt.Sprintf("%scall void @joss_throw(i8* %s)", pre, vStr), nil
+		}
+		msgSym := e.registerString("Joss Exception")
+		_, msgLen := formatLLVMStringLiteral("Joss Exception")
+		return fmt.Sprintf("call void @joss_throw(i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", msgLen, msgLen, msgSym), nil
+
+	case *ir.CastInst:
+		srcT := i.Val.Type()
+		dstT := i.TargetType
+		destVal := e.formatValue(i.Dest)
+		srcVal := e.formatValue(i.Val)
+		srcLLVM := MapLLVMType(srcT)
+		dstLLVM := MapLLVMType(dstT)
+		if srcLLVM == dstLLVM {
+			if dstLLVM == "i8*" {
+				return fmt.Sprintf("%s = bitcast i8* %s to i8*", destVal, srcVal), nil
+			}
+			if dstT.IsFloat() {
+				return fmt.Sprintf("%s = fadd %s 0.0, %s", destVal, dstLLVM, srcVal), nil
+			}
+			return fmt.Sprintf("%s = add %s 0, %s", destVal, dstLLVM, srcVal), nil
+		}
+		if srcT.IsInteger() && dstT.IsFloat() {
+			return fmt.Sprintf("%s = sitofp %s %s to %s", destVal, srcLLVM, srcVal, dstLLVM), nil
+		}
+		if srcT.IsFloat() && dstT.IsInteger() {
+			return fmt.Sprintf("%s = fptosi %s %s to %s", destVal, srcLLVM, srcVal, dstLLVM), nil
+		}
+		if srcLLVM == "i64" && dstLLVM == "i8*" {
+			return fmt.Sprintf("%s = inttoptr i64 %s to i8*", destVal, srcVal), nil
+		}
+		if srcLLVM == "i8*" && dstLLVM == "i64" {
+			return fmt.Sprintf("%s = ptrtoint i8* %s to i64", destVal, srcVal), nil
+		}
+		if srcLLVM == "i1" && dstLLVM == "i64" {
+			return fmt.Sprintf("%s = zext i1 %s to i64", destVal, srcVal), nil
+		}
+		if srcLLVM == "i64" && dstLLVM == "i1" {
+			return fmt.Sprintf("%s = icmp ne i64 %s, 0", destVal, srcVal), nil
+		}
+		return fmt.Sprintf("%s = bitcast %s %s to %s", destVal, srcLLVM, srcVal, dstLLVM), nil
+
+	case *ir.TryCatchInst:
+		id := fmt.Sprintf("%p", i)
+		tryLbl := "joss_try_" + id
+		catchLbl := "joss_catch_" + id
+		endLbl := "joss_try_end_" + id
+		var lines []string
+		lines = append(lines, fmt.Sprintf("%%jb_%s = call i8* @joss_try_push()", id))
+		lines = append(lines, fmt.Sprintf("%%sj_%s = call i32 @setjmp(i8* %%jb_%s) returns_twice", id, id))
+		lines = append(lines, fmt.Sprintf("%%isc_%s = icmp ne i32 %%sj_%s, 0", id, id))
+		lines = append(lines, fmt.Sprintf("br i1 %%isc_%s, label %%%s, label %%%s", id, catchLbl, tryLbl))
+		lines = append(lines, tryLbl+":")
+		lastTryHasTerm := false
+		for bi, tb := range i.TryBlocks {
+			if bi > 0 {
+				if !lastTryHasTerm {
+					lines = append(lines, "\tbr label %"+tb.Label)
+				}
+				lines = append(lines, tb.Label+":")
+			}
+			lastTryHasTerm = false
+			for _, sub := range tb.Instructions {
+				s, err := e.emitInstruction(sub)
+				if err != nil {
+					return "", err
+				}
+				if s != "" {
+					lines = append(lines, "\t"+s)
+				}
+			}
+			if tb.Terminator != nil {
+				if _, isRet := tb.Terminator.(*ir.ReturnTerminator); isRet {
+					lines = append(lines, "\tcall void @joss_try_pop()")
+				}
+				ts, err := e.emitTerminator(e.currentFn, tb.Terminator)
+				if err != nil {
+					return "", err
+				}
+				lines = append(lines, "\t"+ts)
+				lastTryHasTerm = true
+			}
+		}
+		if !lastTryHasTerm {
+			lines = append(lines, "\tcall void @joss_try_pop()")
+			lines = append(lines, "\tbr label %"+endLbl)
+		}
+		lines = append(lines, catchLbl+":")
+		if i.CatchVarPtr != nil {
+			lines = append(lines, fmt.Sprintf("\t%%cmsg_%s = call i8* @joss_catch_msg()", id))
+			ptrStr := e.formatValue(i.CatchVarPtr)
+			if i.CatchVarPtr.Type().Elem != nil && i.CatchVarPtr.Type().Elem.Kind == ir.TypeKindString {
+				lines = append(lines, fmt.Sprintf("\tstore i8* %%cmsg_%s, i8** %s, align 8", id, ptrStr))
+			} else {
+				lines = append(lines, fmt.Sprintf("\t%%cmsg_i64_%s = ptrtoint i8* %%cmsg_%s to i64", id, id))
+				lines = append(lines, fmt.Sprintf("\tstore i64 %%cmsg_i64_%s, i64* %s, align 8", id, ptrStr))
+			}
+		}
+		lastCatchHasTerm := false
+		for bi, cb := range i.CatchBlocks {
+			if bi > 0 {
+				if !lastCatchHasTerm {
+					lines = append(lines, "\tbr label %"+cb.Label)
+				}
+				lines = append(lines, cb.Label+":")
+			}
+			lastCatchHasTerm = false
+			for _, sub := range cb.Instructions {
+				s, err := e.emitInstruction(sub)
+				if err != nil {
+					return "", err
+				}
+				if s != "" {
+					lines = append(lines, "\t"+s)
+				}
+			}
+			if cb.Terminator != nil {
+				ts, err := e.emitTerminator(e.currentFn, cb.Terminator)
+				if err != nil {
+					return "", err
+				}
+				lines = append(lines, "\t"+ts)
+				lastCatchHasTerm = true
+			}
+		}
+		if !lastCatchHasTerm {
+			lines = append(lines, "\tbr label %"+endLbl)
+		}
+		lines = append(lines, endLbl+":")
+		return strings.Join(lines, "\n"), nil
 	}
 
 	return "", fmt.Errorf("llvm emitter: instrucción no soportada %s", inst)
@@ -430,13 +990,20 @@ func (e *LLVMEmitter) emitTerminator(fn *ir.Function, term ir.Terminator) (strin
 		if t.Val == nil || fn.ReturnType.Kind == ir.TypeKindVoid {
 			return "ret void", nil
 		}
-		return fmt.Sprintf("ret %s", e.formatTypedValue(t.Val)), nil
+		retLLVM := MapLLVMType(fn.ReturnType)
+		pre, valExpr := e.coerceLLVM(t.Val, retLLVM, fmt.Sprintf("ret_%p", t))
+		if e.activeDPFnID > 0 && retLLVM == "i64" {
+			return fmt.Sprintf("%scall void @joss_dp_put(i64 %d, i64 %s, i64 %s, i64 %s)\n\tret i64 %s",
+				pre, e.activeDPFnID, e.activeDPParam0, e.activeDPParam1, valExpr, valExpr), nil
+		}
+		return fmt.Sprintf("%sret %s %s", pre, retLLVM, valExpr), nil
 
 	case *ir.JumpTerminator:
 		return fmt.Sprintf("br label %%%s", t.Target.Label), nil
 
 	case *ir.BranchTerminator:
-		return fmt.Sprintf("br i1 %s, label %%%s, label %%%s", e.formatValue(t.Cond), t.TrueBlock.Label, t.FalseBlock.Label), nil
+		pre, condExpr := e.coerceLLVM(t.Cond, "i1", fmt.Sprintf("br_%p", t))
+		return fmt.Sprintf("%sbr i1 %s, label %%%s, label %%%s", pre, condExpr, t.TrueBlock.Label, t.FalseBlock.Label), nil
 
 	case *ir.UnreachableTerminator:
 		return "unreachable", nil
@@ -464,9 +1031,16 @@ func (e *LLVMEmitter) formatValue(val ir.Value) string {
 		}
 		return fmt.Sprintf("%%arg%d", v.Index)
 	case *ir.ConstInt:
+		if v.ValueType.IsFloat() {
+			return fmt.Sprintf("%d.0", v.Val)
+		}
 		return strconv.FormatInt(v.Val, 10)
 	case *ir.ConstFloat:
-		return strconv.FormatFloat(v.Val, 'g', -1, 64)
+		s := strconv.FormatFloat(v.Val, 'g', -1, 64)
+		if !strings.ContainsAny(s, ".eE") {
+			s += ".0"
+		}
+		return s
 	case *ir.ConstBool:
 		if v.Val {
 			return "true"
@@ -563,7 +1137,171 @@ func llvmCmpOp(op ir.Opcode, t ir.Type) string {
 }
 
 func cleanIdent(name string) string {
-	return strings.TrimPrefix(name, "$")
+	s := strings.TrimPrefix(name, "$")
+	s = strings.ReplaceAll(s, "::", "_")
+	s = strings.ReplaceAll(s, ":", "_")
+	s = strings.ReplaceAll(s, "$", "")
+	return s
+}
+
+func (e *LLVMEmitter) coerceLLVM(val ir.Value, targetLLVM string, tag string) (string, string) {
+	if val == nil {
+		if targetLLVM == "i8*" {
+			return "", "null"
+		}
+		if targetLLVM == "double" {
+			return "", "0.0"
+		}
+		if targetLLVM == "i1" {
+			return "", "false"
+		}
+		return "", "0"
+	}
+	if cfp, ok := val.(*ir.ConstFnPtr); ok {
+		fnSig := "i8*"
+		if fn := e.program.Functions[cfp.FnName]; fn != nil {
+			pTs := make([]string, len(fn.Params))
+			for idx, p := range fn.Params {
+				pTs[idx] = MapLLVMType(p.Type())
+			}
+			fnSig = fmt.Sprintf("%s (%s)*", MapLLVMType(fn.ReturnType), strings.Join(pTs, ", "))
+		}
+		tmp := fmt.Sprintf("%%coerce_%s", tag)
+		if targetLLVM == "i64" {
+			return fmt.Sprintf("%s = ptrtoint %s @%s to i64\n\t", tmp, fnSig, cfp.FnName), tmp
+		}
+		return fmt.Sprintf("%s = bitcast %s @%s to %s\n\t", tmp, fnSig, cfp.FnName, targetLLVM), tmp
+	}
+	if ci, ok := val.(*ir.ConstInt); ok && targetLLVM == "double" {
+		return "", fmt.Sprintf("%d.0", ci.Val)
+	}
+	srcLLVM := MapLLVMType(val.Type())
+	valStr := e.formatValue(val)
+	if srcLLVM == targetLLVM {
+		return "", valStr
+	}
+	tmp := fmt.Sprintf("%%coerce_%s", tag)
+	switch {
+	case srcLLVM == "i64" && targetLLVM == "i8*":
+		return fmt.Sprintf("%s = inttoptr i64 %s to i8*\n\t", tmp, valStr), tmp
+	case srcLLVM == "i8*" && targetLLVM == "i64":
+		return fmt.Sprintf("%s = ptrtoint i8* %s to i64\n\t", tmp, valStr), tmp
+	case srcLLVM == "i1" && targetLLVM == "i64":
+		return fmt.Sprintf("%s = zext i1 %s to i64\n\t", tmp, valStr), tmp
+	case srcLLVM == "i64" && targetLLVM == "i1":
+		return fmt.Sprintf("%s = icmp ne i64 %s, 0\n\t", tmp, valStr), tmp
+	case srcLLVM == "double" && targetLLVM == "i64":
+		return fmt.Sprintf("%s = bitcast double %s to i64\n\t", tmp, valStr), tmp
+	case srcLLVM == "i64" && targetLLVM == "double":
+		return fmt.Sprintf("%s = bitcast i64 %s to double\n\t", tmp, valStr), tmp
+	case srcLLVM == "i8*" && targetLLVM == "i1":
+		return fmt.Sprintf("%s = icmp ne i8* %s, null\n\t", tmp, valStr), tmp
+	case srcLLVM == "i1" && targetLLVM == "i8*":
+		return fmt.Sprintf("%s_z = zext i1 %s to i64\n\t%s = inttoptr i64 %s_z to i8*\n\t", tmp, valStr, tmp, tmp), tmp
+	}
+	return "", valStr
+}
+
+func (e *LLVMEmitter) emitDirectCall(sym string, dest *ir.TempValue, args []ir.Value, tag string) string {
+	var pre strings.Builder
+	userFn := e.program.Functions[sym]
+	if userFn != nil && len(args) < len(userFn.Params) {
+		if len(args)+1 == len(userFn.Params) && (userFn.Params[0].Name == "this" || userFn.Params[0].Name == "$this") {
+			args = append([]ir.Value{ir.NewConstNull(userFn.Params[0].Type())}, args...)
+		} else {
+			for len(args) < len(userFn.Params) {
+				pT := userFn.Params[len(args)].Type()
+				if pT.Kind == ir.TypeKindI64 || pT.Kind == ir.TypeKindBool {
+					args = append(args, ir.NewConstInt(0, pT))
+				} else {
+					args = append(args, ir.NewConstNull(pT))
+				}
+			}
+		}
+	} else if userFn != nil && len(args) > len(userFn.Params) {
+		args = args[:len(userFn.Params)]
+	}
+	argStrs := make([]string, len(args))
+	extArgTs := e.symArgTypes[sym]
+	isVararg := e.varargSyms != nil && e.varargSyms[sym]
+	for idx, a := range args {
+		if userFn != nil && idx < len(userFn.Params) {
+			paramLLVM := MapLLVMType(userFn.Params[idx].Type())
+			p, expr := e.coerceLLVM(a, paramLLVM, fmt.Sprintf("%s_a%d", tag, idx))
+			pre.WriteString(p)
+			argStrs[idx] = fmt.Sprintf("%s %s", paramLLVM, expr)
+		} else if !isVararg && idx < len(extArgTs) {
+			p, expr := e.coerceLLVM(a, extArgTs[idx], fmt.Sprintf("%s_a%d", tag, idx))
+			pre.WriteString(p)
+			argStrs[idx] = fmt.Sprintf("%s %s", extArgTs[idx], expr)
+		} else {
+			argStrs[idx] = e.formatTypedValue(a)
+		}
+	}
+	argsJoined := strings.Join(argStrs, ", ")
+	sigPrefix := ""
+	if e.varargSyms != nil && e.varargSyms[sym] {
+		sigPrefix = "(...) "
+	}
+	if dest != nil && dest.ValueType.Kind != ir.TypeKindVoid {
+		destLLVM := MapLLVMType(dest.ValueType)
+		callRetLLVM := destLLVM
+		if userFn != nil {
+			callRetLLVM = MapLLVMType(userFn.ReturnType)
+		} else if e.symRetTypes != nil && e.symRetTypes[sym] != "" {
+			callRetLLVM = e.symRetTypes[sym]
+		}
+		if callRetLLVM == "void" {
+			return fmt.Sprintf("%scall void %s@%s(%s)", pre.String(), sigPrefix, sym, argsJoined)
+		}
+		if callRetLLVM != destLLVM {
+			rawTmp := fmt.Sprintf("%%raw_%s", tag)
+			destName := e.formatValue(dest)
+			conv := ""
+			switch {
+			case callRetLLVM == "i64" && destLLVM == "i8*":
+				conv = fmt.Sprintf("\n\t%s = inttoptr i64 %s to i8*", destName, rawTmp)
+			case callRetLLVM == "i8*" && destLLVM == "i64":
+				conv = fmt.Sprintf("\n\t%s = ptrtoint i8* %s to i64", destName, rawTmp)
+			case callRetLLVM == "i1" && destLLVM == "i64":
+				conv = fmt.Sprintf("\n\t%s = zext i1 %s to i64", destName, rawTmp)
+			case callRetLLVM == "i64" && destLLVM == "i1":
+				conv = fmt.Sprintf("\n\t%s = icmp ne i64 %s, 0", destName, rawTmp)
+			default:
+				conv = fmt.Sprintf("\n\t%s = bitcast %s %s to %s", destName, callRetLLVM, rawTmp, destLLVM)
+			}
+			return fmt.Sprintf("%s%s = call %s %s@%s(%s)%s", pre.String(), rawTmp, callRetLLVM, sigPrefix, sym, argsJoined, conv)
+		}
+		return fmt.Sprintf("%s%s = call %s %s@%s(%s)", pre.String(), e.formatValue(dest), destLLVM, sigPrefix, sym, argsJoined)
+	}
+	retT := "void"
+	if userFn != nil && userFn.ReturnType.Kind != ir.TypeKindVoid {
+		retT = MapLLVMType(userFn.ReturnType)
+	} else if e.symRetTypes != nil && e.symRetTypes[sym] != "" {
+		retT = e.symRetTypes[sym]
+	}
+	return fmt.Sprintf("%scall %s %s@%s(%s)", pre.String(), retT, sigPrefix, sym, argsJoined)
+}
+
+func (e *LLVMEmitter) emitDirectCast(srcLLVM, srcVal, dstLLVM, dstVal string) string {
+	switch {
+	case srcLLVM == "i64" && dstLLVM == "i8*":
+		return fmt.Sprintf("%s = inttoptr i64 %s to i8*", dstVal, srcVal)
+	case srcLLVM == "i8*" && dstLLVM == "i64":
+		return fmt.Sprintf("%s = ptrtoint i8* %s to i64", dstVal, srcVal)
+	case srcLLVM == "i1" && dstLLVM == "i64":
+		return fmt.Sprintf("%s = zext i1 %s to i64", dstVal, srcVal)
+	case srcLLVM == "i64" && dstLLVM == "i1":
+		return fmt.Sprintf("%s = icmp ne i64 %s, 0", dstVal, srcVal)
+	case srcLLVM == "double" && dstLLVM == "i64":
+		return fmt.Sprintf("%s = bitcast double %s to i64", dstVal, srcVal)
+	case srcLLVM == "i64" && dstLLVM == "double":
+		return fmt.Sprintf("%s = bitcast i64 %s to double", dstVal, srcVal)
+	case srcLLVM == "i8*" && dstLLVM == "i1":
+		return fmt.Sprintf("%s = icmp ne i8* %s, null", dstVal, srcVal)
+	default:
+		return fmt.Sprintf("%s = bitcast %s %s to %s", dstVal, srcLLVM, srcVal, dstLLVM)
+	}
 }
 
 func formatLLVMStringLiteral(s string) (string, int) {

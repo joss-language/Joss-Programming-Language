@@ -32,6 +32,9 @@ func OptimizeProgram(prog *Program) {
 		PropagateCopies(fn)
 		FoldConstants(fn)
 	}
+
+	// Pase 6: Eliminación de funciones y variables globales inalcanzables (Dead Function Elimination)
+	EliminateDeadFunctions(prog)
 }
 
 type inlineCandidate struct {
@@ -218,6 +221,55 @@ func cloneInstructionWithRemap(caller *Function, inst Instruction, valMap map[Va
 			Op:   i.Op,
 			Val:  remap(i.Val),
 		}
+
+	case *BoxValueInst:
+		newDest := caller.NewTemp(i.Dest.Type(), i.Dest.Hint)
+		valMap[i.Dest] = newDest
+		return &BoxValueInst{
+			Dest: newDest,
+			Val:  remap(i.Val),
+		}
+
+	case *UnboxValueInst:
+		newDest := caller.NewTemp(i.Dest.Type(), i.Dest.Hint)
+		valMap[i.Dest] = newDest
+		return &UnboxValueInst{
+			Dest: newDest,
+			Val:  remap(i.Val),
+		}
+
+	case *AllocBufferInst:
+		newDest := caller.NewTemp(i.Dest.Type(), i.Dest.Hint)
+		valMap[i.Dest] = newDest
+		return &AllocBufferInst{Dest: newDest, Cap: remap(i.Cap)}
+
+	case *FreeBufferInst:
+		return &FreeBufferInst{Buf: remap(i.Buf)}
+
+	case *BufferLenInst:
+		newDest := caller.NewTemp(i.Dest.Type(), i.Dest.Hint)
+		valMap[i.Dest] = newDest
+		return &BufferLenInst{Dest: newDest, Buf: remap(i.Buf)}
+
+	case *BufferGetInst:
+		newDest := caller.NewTemp(i.Dest.Type(), i.Dest.Hint)
+		valMap[i.Dest] = newDest
+		return &BufferGetInst{Dest: newDest, Buf: remap(i.Buf), Index: remap(i.Index)}
+
+	case *BufferSetInst:
+		return &BufferSetInst{Buf: remap(i.Buf), Index: remap(i.Index), Val: remap(i.Val)}
+
+	case *ExternCallInst:
+		var newDest *TempValue
+		if i.Dest != nil {
+			newDest = caller.NewTemp(i.Dest.Type(), i.Dest.Hint)
+			valMap[i.Dest] = newDest
+		}
+		newArgs := make([]Value, len(i.Args))
+		for idx, a := range i.Args {
+			newArgs[idx] = remap(a)
+		}
+		return &ExternCallInst{Dest: newDest, Symbol: i.Symbol, Args: newArgs, RetType: i.RetType, ArgTypes: i.ArgTypes}
 
 	case *LoadFieldInst:
 		newDest := caller.NewTemp(i.Dest.Type(), i.Dest.Hint)
@@ -859,6 +911,27 @@ func remapInstructionValues(inst Instruction, valMap map[Value]Value) {
 		}
 	case *ThrowInst:
 		i.Val = remap(i.Val)
+	case *BoxValueInst:
+		i.Val = remap(i.Val)
+	case *UnboxValueInst:
+		i.Val = remap(i.Val)
+	case *AllocBufferInst:
+		i.Cap = remap(i.Cap)
+	case *FreeBufferInst:
+		i.Buf = remap(i.Buf)
+	case *BufferLenInst:
+		i.Buf = remap(i.Buf)
+	case *BufferGetInst:
+		i.Buf = remap(i.Buf)
+		i.Index = remap(i.Index)
+	case *BufferSetInst:
+		i.Buf = remap(i.Buf)
+		i.Index = remap(i.Index)
+		i.Val = remap(i.Val)
+	case *ExternCallInst:
+		for idx := range i.Args {
+			i.Args[idx] = remap(i.Args[idx])
+		}
 	}
 }
 
@@ -1044,4 +1117,107 @@ func FoldConstants(fn *Function) {
 		}
 	}
 	foldBlocks(fn.Blocks)
+}
+
+// EliminateDeadFunctions realiza un recorrido BFS desde los puntos de entrada (main/Main/__joss_init)
+// y elimina del módulo IR todas las funciones y variables globales inalcanzables (incluyendo métodos
+// no utilizados de la stdlib y funciones hoja completamente inlineadas).
+// Si el programa no define main ni Main (p. ej. módulos sintéticos de tests unitarios), no poda nada.
+func EliminateDeadFunctions(prog *Program) {
+	if prog == nil || len(prog.Functions) == 0 {
+		return
+	}
+	if prog.Functions["main"] == nil && prog.Functions["Main"] == nil {
+		return
+	}
+
+	reachable := make(map[string]bool)
+	queue := make([]string, 0, 16)
+	enqueue := func(name string) {
+		if name == "" || reachable[name] {
+			return
+		}
+		if prog.Functions[name] != nil {
+			reachable[name] = true
+			queue = append(queue, name)
+		}
+	}
+
+	enqueue("main")
+	enqueue("Main")
+	enqueue("__joss_init")
+	enqueue("__joss_init_static_globals")
+	enqueue("__joss_http_dispatch")
+	for name := range prog.Functions {
+		if len(name) >= 12 && name[:12] == "joss_export_" {
+			enqueue(name)
+		}
+	}
+	for _, g := range prog.Globals {
+		if g != nil {
+			if fp, ok := g.InitVal.(*ConstFnPtr); ok {
+				enqueue(fp.FnName)
+			}
+		}
+	}
+
+	liveGlobals := make(map[string]bool)
+
+	var scanBlocks func(blocks []*BasicBlock)
+	scanBlocks = func(blocks []*BasicBlock) {
+		for _, blk := range blocks {
+			for _, inst := range blk.Instructions {
+				switch i := inst.(type) {
+				case *CallInst:
+					enqueue(i.Callee)
+				case *CallBuiltinInst:
+					enqueue(i.BuiltinID)
+				case *CallHostServiceInst:
+					enqueue(i.ClassName + "_" + i.MethodName)
+					enqueue("__joss_host_" + i.ClassName + "_" + i.MethodName)
+					if i.ClassName == "View" && i.MethodName == "render" {
+						enqueue("view")
+					}
+				case *GlobalLoadInst:
+					liveGlobals[i.GlobalName] = true
+				case *GlobalStoreInst:
+					liveGlobals[i.GlobalName] = true
+				case *TryCatchInst:
+					scanBlocks(i.TryBlocks)
+					scanBlocks(i.CatchBlocks)
+				}
+				for _, op := range inst.Operands() {
+					if fp, ok := op.(*ConstFnPtr); ok {
+						enqueue(fp.FnName)
+					}
+				}
+			}
+			if blk.Terminator != nil {
+				if ret, ok := blk.Terminator.(*ReturnTerminator); ok && ret.Val != nil {
+					if fp, okFp := ret.Val.(*ConstFnPtr); okFp {
+						enqueue(fp.FnName)
+					}
+				}
+			}
+		}
+	}
+
+	for len(queue) > 0 {
+		fnName := queue[0]
+		queue = queue[1:]
+		if fn := prog.Functions[fnName]; fn != nil {
+			scanBlocks(fn.Blocks)
+		}
+	}
+
+	for name := range prog.Functions {
+		if !reachable[name] {
+			delete(prog.Functions, name)
+		}
+	}
+	for name := range prog.Globals {
+		if !liveGlobals[name] {
+			delete(prog.Globals, name)
+		}
+	}
 }

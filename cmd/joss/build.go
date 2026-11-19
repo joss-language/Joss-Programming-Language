@@ -221,7 +221,11 @@ func encryptEnvTo(destPath string) {
 	// Let's use a fixed internal secret for now to allow the runtime to decrypt it,
 	// as the runtime needs to know how to decrypt it without user input.
 
-	masterSecret := []byte("JOSSECURITY_MASTER_SECRET_2025") // Internal Engine Secret
+	masterSecret, keyErr := crypto.ResolveEnvEncryptionKey()
+	if keyErr != nil {
+		fmt.Println(i18n.Tr("buildEncryptEnvError", i18n.M{"error": keyErr.Error()}))
+		return
+	}
 	key := crypto.DeriveKey(masterSecret, salt)
 
 	encrypted, err := crypto.EncryptAES(data, key)

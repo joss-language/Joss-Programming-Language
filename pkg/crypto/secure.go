@@ -12,9 +12,21 @@ import (
 	"encoding/pem"
 	"errors"
 	"io"
+	"os"
 
 	"golang.org/x/crypto/pbkdf2"
 )
+
+// ResolveEnvEncryptionKey returns the user-supplied environment encryption key
+// from JOSS_ENV_KEY or JOSS_MASTER_KEY. It never falls back to a hardcoded secret.
+func ResolveEnvEncryptionKey() ([]byte, error) {
+	for _, envName := range []string{"JOSS_ENV_KEY", "JOSS_MASTER_KEY"} {
+		if v := os.Getenv(envName); v != "" {
+			return []byte(v), nil
+		}
+	}
+	return nil, errors.New("JOSS_ENV_KEY (or JOSS_MASTER_KEY) is not set; hardcoded master secrets are disabled")
+}
 
 // DeriveKey generates a 32-byte key from a password and salt using PBKDF2.
 func DeriveKey(password, salt []byte) []byte {

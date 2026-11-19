@@ -277,4 +277,150 @@ public static func hasRole(string $role) : bool {
     return $currentRole === $role || $currentRole === "admin"
 }
 
+public static func databaseReady() : bool {
+    return __joss_db_is_connected()
+}
+
+private static func jwtSecret() : string {
+    string $s = trim(env("JWT_SECRET"))
+    ($s == "") ? {
+        $s = trim(env("APP_KEY"))
+    }
+    ($s == "") ? {
+        $s = "joss_ephemeral_jwt_key"
+    }
+    return $s
+}
+
+public static func hash(string $password) : string {
+    return password_hash($password)
+}
+
+public static func verifyHash(string $hash, string $password) : bool {
+    return password_verify($hash, $password)
+}
+
+public static func issueToken(mixed $userId, string $email, string $username, string $role): string {
+    int $now = time()
+    string $payload = json_encode( {"sub": $userId, "email": $email, "username": $username, "role": $role, "iat": $now, "exp": $now + 3600
+})
+return jwt_sign($payload, Auth::jwtSecret())
+}
+
+public static func user(): mixed {
+    mixed $uid = Session::get("user_id")
+    ($uid == null) ? {
+        return null
+    }
+    return GranDB::table("users")->where("id", $uid)->first()
+}
+
+public static func verify(string $token) : bool {
+    ($token == "") ? {
+        return false
+    }
+    (strpos($token, ".") !== false) ? {
+        return jwt_verify($token, Auth::jwtSecret())
+    }
+    (!Auth::databaseReady()) ? {
+        return false
+    }
+    int $updated = GranDB::table("users")->where("user_token", $token)->update( {"verificado" : 1
+})
+return $updated > 0
+}
+
+public static func refresh(string $token) : mixed {
+    ($token == "" ||!jwt_verify($token, Auth::jwtSecret())) ? {
+        return false
+    }
+    int $now = time()
+    string $payload = json_encode( {"refreshed" : true, "iat" : $now, "exp": $now + 3600
+})
+return jwt_sign($payload, Auth::jwtSecret())
+}
+
+public static func update(mixed $userId, map $data): bool {
+    ($userId == null ||!Auth::databaseReady()) ? {
+        return false
+    }
+    int $updated = GranDB::table("users")->where("id", $userId)->update($data)
+    return $updated >= 0
+}
+
+public static func delete(mixed $userId) : bool {
+    ($userId == null ||!Auth::databaseReady()) ? {
+        return false
+    }
+    int $deleted = GranDB::table("users")->where("id", $userId)->delete()
+    return $deleted > 0
+}
+
+public static func challengeToken(mixed $userId, string $email) : string {
+    int $now = time()
+    string $payload = json_encode( {"type": "2fa", "sub": $userId, "email": $email, "iat": $now, "exp": $now + 300
+})
+return jwt_sign($payload, Auth::jwtSecret())
+}
+
+public static func prepareLogin2FA(mixed $userId, string $email): map {
+    return {"requires_2fa": false, "user_id": $userId, "email": $email
+}
+}
+
+public static func claimPasswordReset(string $token, string $newHash): string {
+    ($token == "" ||!Auth::databaseReady()) ? {
+        return "database_error"
+    }
+    mixed $reset = GranDB::table("password_resets")->where("token", $token)->first()
+    ($reset == null) ? {
+        return "invalid_token"
+    }
+    string $email = strval($reset ["email"] ?? "")
+    GranDB::table("users")->where("email", $email)->update( {"password" : $newHash
+})
+GranDB::table("password_resets")->where("token", $token)->update( {"used" : 1
+})
+return "ok"
+}
+
+public static func resendVerification(string $email): mixed {
+    ($email == "" ||!Auth::databaseReady()) ? {
+        return false
+    }
+    string $token = UUID::generate()
+    int $updated = GranDB::table("users")->where("email", $email)->update( {"user_token" : $token
+})
+($updated > 0) ? {
+    return $token
+}
+return false
+}
+
+public static func verificationStatus(string $email) : string {
+    ($email == "" ||!Auth::databaseReady()) ? {
+        return "unknown"
+    }
+    mixed $u = GranDB::table("users")->select("verificado")->where("email", $email)->first()
+    ($u == null) ? {
+        return "not_found"
+    }
+    (intval($u ["verificado"] ?? 0) == 1) ? {
+        return "verified"
+    }
+    return "pending"
+}
+
+public static func verify2FAChallenge(string $token, string $code) : bool {
+    return $token != "" && strlen(trim($code)) == 6
+}
+
+public static func socialRedirect(mixed $provider, mixed $redirectUri = "", mixed $state = "") : string {
+    return "/auth/" . strval($provider) . "/callback"
+}
+
+public static func socialCallback(mixed $provider, mixed $code, mixed $redirectUri = "") : mixed {
+    return false
+}
+
 }

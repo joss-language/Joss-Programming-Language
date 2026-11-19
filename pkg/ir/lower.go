@@ -18,12 +18,20 @@ type Lowerer struct {
 	currBlock      *BasicBlock
 	prog           *Program
 	varLocals      map[string]Value // Mapea variables a sus punteros locales (alloca)
-	viewDataParam  Value            // Parámetro $__data activo al compilar vistas .joss.html a IR
+	externDecls    map[string]externDecl
+	viewDataParam  Value // Parámetro $__data activo al compilar vistas .joss.html a IR
 	loopStack      []loopContext
 	tryCatchCount  int
 	closureCounter int
 	foreachCounter int
 	OptLevel       int
+}
+
+type externDecl struct {
+	Symbol      string
+	RetType     Type
+	ArgTypes    []Type
+	LibraryPath string
 }
 
 type loopContext struct {
@@ -42,11 +50,12 @@ func NewLowerer(prep *analyzer.PreparedProgram, reachGraph *analyzer.Reachabilit
 		})
 	}
 	return &Lowerer{
-		prep:       prep,
-		reachGraph: reachGraph,
-		varLocals:  make(map[string]Value),
-		loopStack:  make([]loopContext, 0),
-		OptLevel:   1, // Por defecto habilitar optimizaciones IR canónicas
+		prep:        prep,
+		reachGraph:  reachGraph,
+		varLocals:   make(map[string]Value),
+		externDecls: make(map[string]externDecl),
+		loopStack:   make([]loopContext, 0),
+		OptLevel:    1, // Por defecto habilitar optimizaciones IR canónicas
 	}
 }
 
@@ -144,6 +153,8 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 						}
 					}
 				}
+			case *parser.ExternLibraryStatement:
+				l.registerExternLibrary(s)
 			case *parser.InterfaceStatement, *parser.EnumStatement:
 				// Contratos nominales validados por frontend
 				continue
@@ -157,7 +168,7 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 		hasTopLevelStmts := false
 		for _, stmt := range entryUnit.Statements {
 			switch stmt.(type) {
-			case *parser.MethodStatement, *parser.ClassStatement, *parser.InterfaceStatement, *parser.EnumStatement, *parser.InitStatement:
+			case *parser.MethodStatement, *parser.ClassStatement, *parser.InterfaceStatement, *parser.EnumStatement, *parser.InitStatement, *parser.ExternLibraryStatement:
 				continue
 			default:
 				hasTopLevelStmts = true
@@ -197,6 +208,31 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 	return l.prog, nil
 }
 
+func (l *Lowerer) registerExternLibrary(stmt *parser.ExternLibraryStatement) {
+	if stmt == nil {
+		return
+	}
+	if stmt.LibraryPath != "" && l.prog != nil {
+		l.prog.AddExternLibrary(stmt.LibraryPath)
+	}
+	for _, fn := range stmt.Functions {
+		if fn == nil || fn.Name == nil {
+			continue
+		}
+		retType := l.mapType(fn.ReturnType.Literal)
+		argTypes := make([]Type, 0, len(fn.Parameters))
+		for _, p := range fn.Parameters {
+			argTypes = append(argTypes, l.mapType(p.Type.Literal))
+		}
+		l.externDecls[fn.Name.Value] = externDecl{
+			Symbol:      fn.Name.Value,
+			RetType:     retType,
+			ArgTypes:    argTypes,
+			LibraryPath: stmt.LibraryPath,
+		}
+	}
+}
+
 func (l *Lowerer) synthesizeMainFunction(stmts []parser.Statement) error {
 	mainFn := NewFunction("main", TypeI64)
 	l.currentFn = mainFn
@@ -205,7 +241,7 @@ func (l *Lowerer) synthesizeMainFunction(stmts []parser.Statement) error {
 
 	for _, stmt := range stmts {
 		switch stmt.(type) {
-		case *parser.MethodStatement, *parser.ClassStatement, *parser.InterfaceStatement, *parser.EnumStatement, *parser.InitStatement:
+		case *parser.MethodStatement, *parser.ClassStatement, *parser.InterfaceStatement, *parser.EnumStatement, *parser.InitStatement, *parser.ExternLibraryStatement:
 			continue
 		}
 		if err := l.lowerStatement(stmt); err != nil {
@@ -460,7 +496,9 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 			val = NewConstInt(0, valType)
 		}
 		ptrTemp := l.currentFn.NewTemp(PtrType(valType), s.Name.Value+"_ptr")
-		l.currBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: valType})
+		l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: valType})
+		val = l.boxIfMixed(val, valType)
+		val = l.unboxIfTyped(val, valType)
 		l.currBlock.AddInstruction(&StoreInst{Val: val, Ptr: ptrTemp})
 		l.varLocals[cleanVarName(s.Name.Value)] = ptrTemp
 		return nil
@@ -469,7 +507,7 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 		valType := l.mapType(s.TypeToken.Literal)
 		for _, decl := range s.Declarations {
 			ptrTemp := l.currentFn.NewTemp(PtrType(valType), decl.Name.Value+"_ptr")
-			l.currBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: valType})
+			l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: valType})
 
 			var val Value
 			if decl.Value != nil {
@@ -481,6 +519,8 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 			} else {
 				val = NewConstInt(0, valType)
 			}
+			val = l.boxIfMixed(val, valType)
+			val = l.unboxIfTyped(val, valType)
 			l.currBlock.AddInstruction(&StoreInst{Val: val, Ptr: ptrTemp})
 			l.varLocals[cleanVarName(decl.Name.Value)] = ptrTemp
 		}
@@ -519,6 +559,9 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 			} else {
 				retVal = NewConstInt(0, l.currentFn.ReturnType)
 			}
+		} else {
+			retVal = l.boxIfMixed(retVal, l.currentFn.ReturnType)
+			retVal = l.unboxIfTyped(retVal, l.currentFn.ReturnType)
 		}
 		l.currBlock.SetTerminator(&ReturnTerminator{Val: retVal})
 		// Crear un bloque inalcanzable temporal para sentencias muertas posteriores
@@ -735,6 +778,7 @@ func (l *Lowerer) ensureBoolCond(val Value) Value {
 	if val.Type().Kind == TypeKindBool {
 		return val
 	}
+	val = l.unboxIfMixed(val)
 	dest := l.currentFn.NewTemp(TypeBool, "truthy")
 	l.currBlock.AddInstruction(&CallRuntimeInst{
 		Dest: dest,
@@ -1283,7 +1327,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				l.currBlock.AddInstruction(&CallRuntimeInst{
 					Dest: convLeft,
 					Func: "to_string",
-					Args: []Value{left},
+					Args: []Value{l.unboxIfMixed(left)},
 				})
 				left = convLeft
 			}
@@ -1292,7 +1336,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				l.currBlock.AddInstruction(&CallRuntimeInst{
 					Dest: convRight,
 					Func: "to_string",
-					Args: []Value{right},
+					Args: []Value{l.unboxIfMixed(right)},
 				})
 				right = convRight
 			}
@@ -1307,6 +1351,14 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 
 		op, isCmp := mapInfixOp(e.Operator)
 		if isCmp {
+			cmpLeft := left
+			cmpRight := right
+			if cmpLeft.Type().Kind == TypeKindMixed && cmpRight.Type().Kind != TypeKindString && cmpRight.Type().Kind != TypeKindMixed {
+				cmpLeft = l.unboxIfMixed(cmpLeft)
+			}
+			if cmpRight.Type().Kind == TypeKindMixed && cmpLeft.Type().Kind != TypeKindString && cmpLeft.Type().Kind != TypeKindMixed {
+				cmpRight = l.unboxIfMixed(cmpRight)
+			}
 			destType := TypeBool
 			if op == OpSpaceship {
 				destType = TypeI64
@@ -1315,11 +1367,15 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			l.currBlock.AddInstruction(&CompareInst{
 				Op:    op,
 				Dest:  dest,
-				Left:  left,
-				Right: right,
+				Left:  cmpLeft,
+				Right: cmpRight,
 			})
 			return dest, nil
-		} else {
+		}
+
+		left = l.unboxIfMixed(left)
+		right = l.unboxIfMixed(right)
+		{
 			destType := left.Type()
 			if op == OpAnd || op == OpOr {
 				if left.Type().Kind == TypeKindBool || right.Type().Kind == TypeKindBool {
@@ -1341,6 +1397,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
+		right = l.unboxIfMixed(right)
 		switch e.Operator {
 		case "!":
 			dest := l.currentFn.NewTemp(TypeBool, "not")
@@ -1378,6 +1435,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
+		origVal = l.unboxIfMixed(origVal)
 		op := OpAdd
 		if e.Operator == "--" {
 			op = OpSub
@@ -1534,6 +1592,26 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 
 	case *parser.NewExpression:
 		className := e.Class.Value
+		if className == "ByteBuffer" {
+			var capVal Value = NewConstInt(64, TypeI64)
+			if len(e.Arguments) > 0 {
+				v, err := l.lowerExpression(e.Arguments[0])
+				if err != nil {
+					return nil, err
+				}
+				capVal = l.unboxIfMixed(v)
+			}
+			bufType := PtrType(StructType("ByteBuffer", nil))
+			bufTemp := l.currentFn.NewTemp(bufType, "buf")
+			l.currBlock.AddInstruction(&AllocBufferInst{Dest: bufTemp, Cap: capVal})
+			return bufTemp, nil
+		}
+		if className == "StringBuilder" {
+			sbType := PtrType(StructType("StringBuilder", nil))
+			sbTemp := l.currentFn.NewTemp(sbType, "sb")
+			l.currBlock.AddInstruction(&CallRuntimeInst{Dest: sbTemp, Func: "joss_sb_new"})
+			return sbTemp, nil
+		}
 		objType := PtrType(StructType(className, nil))
 		objTemp := l.currentFn.NewTemp(objType, "obj")
 		l.currBlock.AddInstruction(&NewObjectInst{
@@ -1702,6 +1780,8 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			if resType.Kind == TypeKindI64 {
 				if isMapContainer && len(container.Type().Elem.Fields) > 0 {
 					resType = container.Type().Elem.Fields[0]
+				} else {
+					resType = TypeMixed
 				}
 			}
 			resTemp := l.currentFn.NewTemp(resType, "elem")
@@ -1935,16 +2015,27 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			retType = ArrayType(PtrType(StructType("map", nil)))
 		}
 
+		if ext, ok := l.externDecls[calleeName]; ok {
+			retType = ext.RetType
+		}
 		var dest *TempValue
 		if retType.Kind != TypeKindVoid {
 			dest = l.currentFn.NewTemp(retType, "call_ret")
 		}
 
 		if isBuiltin {
+			unboxedArgs := make([]Value, len(args))
+			for idx, a := range args {
+				if calleeName == "intval" || calleeName == "floatval" || calleeName == "boolval" || calleeName == "abs" || calleeName == "min" || calleeName == "max" || calleeName == "chr" || (idx > 0 && (calleeName == "substr" || calleeName == "array_slice")) {
+					unboxedArgs[idx] = l.unboxIfMixed(a)
+				} else {
+					unboxedArgs[idx] = a
+				}
+			}
 			l.currBlock.AddInstruction(&CallBuiltinInst{
 				Dest:      dest,
 				BuiltinID: calleeName,
-				Args:      args,
+				Args:      unboxedArgs,
 			})
 		} else if isPrimitive {
 			parts := strings.Split(targetID, "::")
@@ -1957,12 +2048,16 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				typeKind = parts[0]
 				methodName = parts[1]
 			}
+			unboxedArgs := make([]Value, len(args))
+			for idx, a := range args {
+				unboxedArgs[idx] = l.unboxIfMixed(a)
+			}
 			l.currBlock.AddInstruction(&CallPrimitiveMethodInst{
 				Dest:       dest,
 				TypeKind:   typeKind,
 				MethodName: methodName,
-				Recv:       receiverObj,
-				Args:       args,
+				Recv:       l.unboxIfMixed(receiverObj),
+				Args:       unboxedArgs,
 			})
 		} else if isHost {
 			parts := strings.Split(targetID, "::")
@@ -1974,6 +2069,99 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			} else {
 				className = targetID
 			}
+			methodArgs := args
+			if receiverObj != nil && len(args) > 0 {
+				methodArgs = args[1:]
+			}
+			if className == "ByteBuffer" {
+				switch methodName {
+				case "new", "Init":
+					var capVal Value = NewConstInt(64, TypeI64)
+					if len(methodArgs) > 0 {
+						capVal = l.unboxIfMixed(methodArgs[0])
+					}
+					if dest == nil {
+						dest = l.currentFn.NewTemp(PtrType(StructType("ByteBuffer", nil)), "buf")
+					}
+					l.currBlock.AddInstruction(&AllocBufferInst{Dest: dest, Cap: capVal})
+					return dest, nil
+				case "len":
+					if dest == nil {
+						dest = l.currentFn.NewTemp(TypeI64, "buflen")
+					}
+					l.currBlock.AddInstruction(&BufferLenInst{Dest: dest, Buf: receiverObj})
+					return dest, nil
+				case "get":
+					if dest == nil {
+						dest = l.currentFn.NewTemp(TypeI64, "bufget")
+					}
+					var idxVal Value = NewConstInt(0, TypeI64)
+					if len(methodArgs) > 0 {
+						idxVal = l.unboxIfMixed(methodArgs[0])
+					}
+					l.currBlock.AddInstruction(&BufferGetInst{Dest: dest, Buf: receiverObj, Index: idxVal})
+					return dest, nil
+				case "set":
+					if len(methodArgs) >= 2 {
+						l.currBlock.AddInstruction(&BufferSetInst{Buf: receiverObj, Index: l.unboxIfMixed(methodArgs[0]), Val: l.unboxIfMixed(methodArgs[1])})
+					}
+					return NewConstInt(0, TypeVoid), nil
+				case "free":
+					l.currBlock.AddInstruction(&FreeBufferInst{Buf: receiverObj})
+					return NewConstInt(0, TypeVoid), nil
+				case "appendByte":
+					if len(methodArgs) > 0 {
+						l.currBlock.AddInstruction(&CallRuntimeInst{Func: "joss_buf_append_byte", Args: []Value{receiverObj, l.unboxIfMixed(methodArgs[0])}})
+					}
+					return NewConstInt(0, TypeVoid), nil
+				case "appendString":
+					if len(methodArgs) > 0 {
+						l.currBlock.AddInstruction(&CallRuntimeInst{Func: "joss_buf_append_cstr", Args: []Value{receiverObj, l.unboxIfMixed(methodArgs[0])}})
+					}
+					return NewConstInt(0, TypeVoid), nil
+				case "toString":
+					if dest == nil {
+						dest = l.currentFn.NewTemp(TypeString, "bufstr")
+					}
+					l.currBlock.AddInstruction(&CallRuntimeInst{Dest: dest, Func: "joss_buf_to_cstr", Args: []Value{receiverObj}})
+					return dest, nil
+				}
+			}
+			if className == "StringBuilder" {
+				switch methodName {
+				case "new", "Init":
+					if dest == nil {
+						dest = l.currentFn.NewTemp(PtrType(StructType("StringBuilder", nil)), "sb")
+					}
+					l.currBlock.AddInstruction(&CallRuntimeInst{Dest: dest, Func: "joss_sb_new"})
+					return dest, nil
+				case "append":
+					if len(methodArgs) > 0 {
+						l.currBlock.AddInstruction(&CallRuntimeInst{Func: "joss_sb_append", Args: []Value{receiverObj, l.unboxIfMixed(methodArgs[0])}})
+					}
+					return NewConstInt(0, TypeVoid), nil
+				case "appendInt":
+					if len(methodArgs) > 0 {
+						l.currBlock.AddInstruction(&CallRuntimeInst{Func: "joss_sb_append_i64", Args: []Value{receiverObj, l.unboxIfMixed(methodArgs[0])}})
+					}
+					return NewConstInt(0, TypeVoid), nil
+				case "len":
+					if dest == nil {
+						dest = l.currentFn.NewTemp(TypeI64, "sblen")
+					}
+					l.currBlock.AddInstruction(&BufferLenInst{Dest: dest, Buf: receiverObj})
+					return dest, nil
+				case "toString":
+					if dest == nil {
+						dest = l.currentFn.NewTemp(TypeString, "sbstr")
+					}
+					l.currBlock.AddInstruction(&CallRuntimeInst{Dest: dest, Func: "joss_sb_to_string", Args: []Value{receiverObj}})
+					return dest, nil
+				case "free":
+					l.currBlock.AddInstruction(&FreeBufferInst{Buf: receiverObj})
+					return NewConstInt(0, TypeVoid), nil
+				}
+			}
 			l.currBlock.AddInstruction(&CallHostServiceInst{
 				Dest:       dest,
 				ClassName:  className,
@@ -1982,14 +2170,34 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				Args:       args,
 			})
 		} else {
-			if calleeName == "strlen" || calleeName == "count" || calleeName == "len" || calleeName == "array_push" || calleeName == "append" || calleeName == "to_string" ||
+			if l.prog.Functions[calleeName] == nil && (calleeName == "strlen" || calleeName == "count" || calleeName == "len" || calleeName == "array_push" || calleeName == "append" || calleeName == "to_string" ||
 				calleeName == "abs" || calleeName == "min" || calleeName == "max" || calleeName == "intval" || calleeName == "floatval" || calleeName == "boolval" || calleeName == "array_pop" ||
 				calleeName == "microtime" || calleeName == "array_fill" || calleeName == "file_get_contents" || calleeName == "explode" || calleeName == "async" || calleeName == "await" ||
-				calleeName == "str_contains" || calleeName == "contains" || calleeName == "map_delete" {
+				calleeName == "str_contains" || calleeName == "contains" || calleeName == "map_delete") {
+				unboxedArgs := make([]Value, len(args))
+				for idx, a := range args {
+					if idx > 0 && (calleeName == "array_push" || calleeName == "append") {
+						unboxedArgs[idx] = a
+					} else {
+						unboxedArgs[idx] = l.unboxIfMixed(a)
+					}
+				}
 				l.currBlock.AddInstruction(&CallBuiltinInst{
 					Dest:      dest,
 					BuiltinID: calleeName,
-					Args:      args,
+					Args:      unboxedArgs,
+				})
+			} else if ext, ok := l.externDecls[calleeName]; ok {
+				externArgs := make([]Value, len(args))
+				for idx, a := range args {
+					externArgs[idx] = l.unboxIfMixed(a)
+				}
+				l.currBlock.AddInstruction(&ExternCallInst{
+					Dest:     dest,
+					Symbol:   ext.Symbol,
+					Args:     externArgs,
+					RetType:  ext.RetType,
+					ArgTypes: ext.ArgTypes,
 				})
 			} else {
 				// Check if calleeName is a local closure variable
@@ -2024,7 +2232,12 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		if ident, ok := e.Left.(*parser.Identifier); ok {
 			varName := cleanVarName(ident.Value)
 			if ptr, ok := l.varLocals[varName]; ok {
-				l.currBlock.AddInstruction(&StoreInst{Val: val, Ptr: ptr})
+				storeVal := val
+				if ptr.Type().Kind == TypeKindPtr && ptr.Type().Elem != nil {
+					storeVal = l.boxIfMixed(val, *ptr.Type().Elem)
+					storeVal = l.unboxIfTyped(storeVal, *ptr.Type().Elem)
+				}
+				l.currBlock.AddInstruction(&StoreInst{Val: storeVal, Ptr: ptr})
 				return val, nil
 			}
 			allocType := val.Type()
@@ -2075,8 +2288,12 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 			isMapCol := colVal.Type().Kind == TypeKindPtr && colVal.Type().Elem != nil && colVal.Type().Elem.Name == "map"
 			if idxVal.Type().Kind == TypeKindString || isMapCol {
+				mapVal := val
+				if isMapCol && len(colVal.Type().Elem.Fields) > 0 && colVal.Type().Elem.Fields[0].Kind == TypeKindMixed {
+					mapVal = l.boxIfMixed(val, TypeMixed)
+				}
 				l.currBlock.AddInstruction(&MapSetInst{
-					Val: val,
+					Val: mapVal,
 					Map: colVal,
 					Key: idxVal,
 				})
@@ -2694,4 +2911,100 @@ func describeUnsupportedExpression(expr parser.Expression) string {
 	default:
 		return fmt.Sprintf("Expresión no soportada (%T)", expr)
 	}
+}
+
+func (l *Lowerer) isKnownInt(val Value) bool {
+	if _, ok := val.(*ConstInt); ok {
+		return true
+	}
+	if p, ok := val.(*ParamValue); ok {
+		return p.Type().Kind == TypeKindI64 || p.Type().Kind == TypeKindI32 || p.Type().Kind == TypeKindU8
+	}
+	t, ok := val.(*TempValue)
+	if !ok || l.currentFn == nil {
+		return false
+	}
+	for _, blk := range l.currentFn.Blocks {
+		for _, inst := range blk.Instructions {
+			res := inst.Result()
+			if res == nil || res.ID != t.ID {
+				continue
+			}
+			switch i := inst.(type) {
+			case *BinaryInst, *UnaryInst, *CompareInst:
+				return true
+			case *CallBuiltinInst:
+				switch i.BuiltinID {
+				case "strlen", "len", "count", "intval", "strpos", "abs", "min", "max":
+					return true
+				}
+				return false
+			case *LoadInst:
+				if ptrT, ok := i.Ptr.(*TempValue); ok {
+					for _, b2 := range l.currentFn.Blocks {
+						for _, inst2 := range b2.Instructions {
+							if st, ok := inst2.(*StoreInst); ok {
+								if stPtr, ok := st.Ptr.(*TempValue); ok && stPtr.ID == ptrT.ID {
+									if _, isC := st.Val.(*ConstInt); isC {
+										return true
+									}
+									if stT, ok := st.Val.(*TempValue); ok {
+										for _, b3 := range l.currentFn.Blocks {
+											for _, inst3 := range b3.Instructions {
+												if inst3.Result() != nil && inst3.Result().ID == stT.ID {
+													switch inst3.(type) {
+													case *BinaryInst, *UnaryInst, *CompareInst:
+														return true
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				return false
+			default:
+				return false
+			}
+		}
+	}
+	return false
+}
+
+func (l *Lowerer) boxIfMixed(val Value, targetType Type) Value {
+	if val == nil || targetType.Kind != TypeKindMixed {
+		return val
+	}
+	k := val.Type().Kind
+	isBoolOrFloat := k == TypeKindBool || k == TypeKindF64 || k == TypeKindF32 || k == TypeKindDecimal
+	isInt := (k == TypeKindI64 || k == TypeKindI32 || k == TypeKindU8) && l.isKnownInt(val)
+	if !isBoolOrFloat && !isInt {
+		return val
+	}
+	boxed := l.currentFn.NewTemp(TypeMixed, "boxed")
+	l.currBlock.AddInstruction(&BoxValueInst{Dest: boxed, Val: val})
+	return boxed
+}
+
+func (l *Lowerer) unboxIfMixed(val Value) Value {
+	if val == nil || val.Type().Kind != TypeKindMixed {
+		return val
+	}
+	unboxed := l.currentFn.NewTemp(TypeI64, "unboxed")
+	l.currBlock.AddInstruction(&UnboxValueInst{Dest: unboxed, Val: val})
+	return unboxed
+}
+
+func (l *Lowerer) unboxIfTyped(val Value, targetType Type) Value {
+	if val == nil || val.Type().Kind != TypeKindMixed {
+		return val
+	}
+	k := targetType.Kind
+	if k == TypeKindI64 || k == TypeKindI32 || k == TypeKindU8 || k == TypeKindBool || k == TypeKindF64 || k == TypeKindF32 || k == TypeKindDecimal {
+		return l.unboxIfMixed(val)
+	}
+	return val
 }
