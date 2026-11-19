@@ -202,10 +202,27 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 	if selectedBackend == "" || selectedBackend == BackendAuto {
 		selectedBackend = BackendNative
 	}
+	res.BackendUsed = selectedBackend
 	if target.OS == "darwin" && (selectedBackend == BackendNative || selectedBackend == BackendStandalone) && NewNativeCompiler().HasNativeToolchain() {
+		if err := validateSharedBackendCapabilities(prog, target, false); err != nil {
+			return nil, err
+		}
+		if opts.Trace {
+			mcBuilder := SelectCodeEmitter(target, opts.GUI)
+			if len(opts.SeedTables) > 0 {
+				mcBuilder.SetSeedTables(opts.SeedTables)
+			}
+			if _, asmListing, err := mcBuilder.Compile(prog); err == nil {
+				asmFile := filepath.Join(traceDir, baseName+".asm")
+				_ = os.WriteFile(asmFile, []byte(asmListing), 0644)
+				res.ASMPath = asmFile
+				if selectedBackend == BackendStandalone {
+					res.BootstrapPath = asmFile
+				}
+			}
+		}
 		selectedBackend = BackendLLVM
 	}
-	res.BackendUsed = selectedBackend
 
 	// 5. Compilación según el backend seleccionado
 	switch selectedBackend {

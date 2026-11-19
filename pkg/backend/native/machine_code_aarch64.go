@@ -2173,8 +2173,12 @@ func (b *ARM64Builder) emitNativeFileGetContents() {
 	b.emitLoadImm64(regX2, 0)
 	b.emitLoadImm64(regX3, 0)
 	emitSyscall(sysOpenat)
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLT, ".fgc_arm64_fail")
+	if b.target.OS == "darwin" {
+		b.emitBranchCond(condCS, ".fgc_arm64_fail")
+	} else {
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condLT, ".fgc_arm64_fail")
+	}
 	b.emitMovReg(regX20, regX0) // x20 = fd
 
 	// 2. lseek(fd, 0, SEEK_END=2) -> x0 = fileSize
@@ -2182,8 +2186,12 @@ func (b *ARM64Builder) emitNativeFileGetContents() {
 	b.emitLoadImm64(regX1, 0)
 	b.emitLoadImm64(regX2, 2)
 	emitSyscall(sysLseek)
-	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condLT, ".fgc_arm64_close_fail")
+	if b.target.OS == "darwin" {
+		b.emitBranchCond(condCS, ".fgc_arm64_close_fail")
+	} else {
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condLT, ".fgc_arm64_close_fail")
+	}
 	b.emitMovReg(regX21, regX0) // x21 = fileSize
 	b.emitLoadDataAddr(regX1, dataOffLastFileSize)
 	b.emitStr(regX21, regX1, 0)

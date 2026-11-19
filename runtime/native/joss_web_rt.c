@@ -78,22 +78,59 @@ int64_t joss_strpos(const char* haystack, const char* needle) {
     if (!haystack || !needle) return 0;
     const char* found = strstr(haystack, needle);
     if (!found) return 0;
-    return (int64_t)(uintptr_t)joss_box_i64((int64_t)(found - haystack));
+    int64_t rune_idx = 0;
+    for (const char* p = haystack; p < found; p++) {
+        if (((unsigned char)*p & 0xC0) != 0x80) {
+            rune_idx++;
+        }
+    }
+    return rune_idx;
 }
 
 const char* joss_substr(const char* s, int64_t start, int64_t length) {
     if (!s) return "";
-    int64_t n = (int64_t)strlen(s);
-    if (start < 0) start = n + start;
+    int64_t total_runes = 0;
+    for (const char* p = s; *p; p++) {
+        if (((unsigned char)*p & 0xC0) != 0x80) {
+            total_runes++;
+        }
+    }
+    if (start < 0) start = total_runes + start;
     if (start < 0) start = 0;
-    if (start >= n) return "";
-    if (length < 0) length = n - start;
-    if (start + length > n) length = n - start;
-    if (length <= 0) return "";
-    char* out = (char*)malloc((size_t)length + 1);
+    if (start >= total_runes) return "";
+    int64_t end_rune;
+    if (length == INT64_MIN) {
+        end_rune = total_runes;
+    } else if (length < 0) {
+        end_rune = total_runes + length;
+    } else {
+        end_rune = start + length;
+    }
+    if (end_rune > total_runes) end_rune = total_runes;
+    if (end_rune <= start) return "";
+
+    const char* start_ptr = s;
+    int64_t cur_rune = 0;
+    while (*start_ptr && cur_rune < start) {
+        start_ptr++;
+        while (*start_ptr && ((unsigned char)*start_ptr & 0xC0) == 0x80) {
+            start_ptr++;
+        }
+        cur_rune++;
+    }
+    const char* end_ptr = start_ptr;
+    while (*end_ptr && cur_rune < end_rune) {
+        end_ptr++;
+        while (*end_ptr && ((unsigned char)*end_ptr & 0xC0) == 0x80) {
+            end_ptr++;
+        }
+        cur_rune++;
+    }
+    size_t byte_len = (size_t)(end_ptr - start_ptr);
+    char* out = (char*)malloc(byte_len + 1);
     if (!out) return "";
-    memcpy(out, s + start, (size_t)length);
-    out[length] = '\0';
+    memcpy(out, start_ptr, byte_len);
+    out[byte_len] = '\0';
     return out;
 }
 
@@ -158,10 +195,19 @@ void* joss_explode(const char* sep, const char* subj) {
     void* arr = joss_arr_new(4);
     if (!subj) return arr;
     if (!sep || !*sep) {
-        size_t n = strlen(subj);
-        for (size_t i = 0; i < n; i++) {
-            char ch[2] = {subj[i], '\0'};
-            joss_arr_push_str(arr, strdup(ch));
+        const char* p = subj;
+        while (*p) {
+            const char* start = p++;
+            while (*p && ((unsigned char)*p & 0xC0) == 0x80) {
+                p++;
+            }
+            size_t rlen = (size_t)(p - start);
+            char* ch = (char*)malloc(rlen + 1);
+            if (ch) {
+                memcpy(ch, start, rlen);
+                ch[rlen] = '\0';
+                joss_arr_push_str(arr, ch);
+            }
         }
         return arr;
     }
@@ -823,22 +869,40 @@ void fn_Socket_close(void* sock) {
  * Web Context Helpers
  * ========================================================================= */
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((weak))
+#endif
+void* joss_global___joss_request_params = NULL;
+
 const char* joss_request(const char* key, int64_t defVal) {
+    void* active_req = g_joss_active_request;
+    if (!active_req && joss_global___joss_request_params) {
+        active_req = joss_global___joss_request_params;
+    }
     if (key && strcmp(key, "__joss_request_all_fields") == 0) {
-        if (g_joss_active_request && joss_is_map_ptr((int64_t)(uintptr_t)g_joss_active_request)) {
-            return (const char*)g_joss_active_request;
+        if (active_req && joss_is_map_ptr((int64_t)(uintptr_t)active_req)) {
+            return (const char*)active_req;
         }
         if (defVal != 0 && joss_is_map_ptr(defVal)) {
             return (const char*)(uintptr_t)defVal;
         }
         return (const char*)joss_map_new();
     }
-    if (key && g_joss_active_request && joss_is_map_ptr((int64_t)(uintptr_t)g_joss_active_request)) {
-        const char* found = joss_map_get_str(g_joss_active_request, key);
-        if (found && *found) return found;
+    if (key && active_req && joss_is_map_ptr((int64_t)(uintptr_t)active_req)) {
+        if (joss_array_key_exists(key, active_req)) {
+            int64_t found = joss_map_get_i64(active_req, key);
+            if (found != 0) {
+                return (const char*)(uintptr_t)found;
+            }
+        }
     }
-    if (defVal != 0) return joss_strval(defVal);
-    return "";
+    if (defVal != 0) {
+        if (joss_is_map_ptr(defVal) || joss_is_arr_ptr(defVal)) {
+            return (const char*)(uintptr_t)defVal;
+        }
+        return joss_strval(defVal);
+    }
+    return (const char*)0;
 }
 
 const char* fn_Request_input(const char* key, int64_t defVal) {

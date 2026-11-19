@@ -48,9 +48,6 @@ func (b *StandaloneBuilder) BuildNativeExecutableWithOptions(prog *ir.Program, o
 		target = HostTarget()
 	}
 
-	// macOS (especially Apple Silicon ARM64) requires 16KB-aligned Mach-O binaries
-	// with LC_MAIN, libSystem, and an ad-hoc code signature; route through the
-	// registered LLVM/Mach-O linker whenever available.
 	if target.OS == "darwin" && NewNativeCompiler().HasNativeToolchain() {
 		opts.Target = target
 		opts.OutputPath = outputPath

@@ -53,7 +53,11 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 		buf.WriteString("; Joss module globals\n")
 		for _, name := range globalNames {
 			global := prog.Globals[name]
-			buf.WriteString(fmt.Sprintf("@joss_global_%s = internal global %s zeroinitializer, align 8\n", cleanIdent(name), MapLLVMType(global.Type)))
+			linkage := "internal"
+			if cleanIdent(name) == "__joss_request_params" {
+				linkage = "weak_odr"
+			}
+			buf.WriteString(fmt.Sprintf("@joss_global_%s = %s global %s zeroinitializer, align 8\n", cleanIdent(name), linkage, MapLLVMType(global.Type)))
 		}
 		buf.WriteString("\n")
 	}
@@ -245,6 +249,12 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 					if prog.Functions[ci.BuiltinID] != nil {
 						continue
 					}
+					if ci.BuiltinID == "intval" && len(ci.Args) == 1 && ci.Args[0].Type().IsFloat() {
+						continue
+					}
+					if (ci.BuiltinID == "floatval" || ci.BuiltinID == "decimal") && len(ci.Args) == 1 && (ci.Args[0].Type().IsInteger() || ci.Args[0].Type().IsFloat()) {
+						continue
+					}
 					rtFunc := "joss_" + ci.BuiltinID
 					retT := ir.TypeVoid
 					if ci.Dest != nil {
@@ -252,7 +262,7 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 					}
 					args := ci.Args
 					if ci.BuiltinID == "substr" && len(args) == 2 {
-						args = append([]ir.Value{args[0], args[1], ir.NewConstInt(-1, ir.TypeI64)}, args[2:]...)
+						args = append([]ir.Value{args[0], args[1], ir.NewConstInt(-9223372036854775808, ir.TypeI64)}, args[2:]...)
 					} else if ci.BuiltinID == "env" && len(args) == 1 {
 						args = []ir.Value{args[0], ir.NewConstString("")}
 					} else if (ci.BuiltinID == "request" || ci.BuiltinID == "session") && len(args) == 1 {
@@ -277,7 +287,7 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 					}
 					registerCallDecl(fnName, ci.Dest, retT, ci.Args, nil)
 				case *ir.CallPrimitiveMethodInst:
-					rtFunc := fmt.Sprintf("joss_%s_%s", ci.TypeKind, ci.MethodName)
+					rtFunc := resolveLLVMPrimitiveMethodSym(ci.TypeKind, ci.MethodName)
 					retT := ir.TypeVoid
 					if ci.Dest != nil {
 						retT = ci.Dest.ValueType
@@ -421,8 +431,13 @@ func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {
 		buf.WriteString("    ret i64 %dp_val\n")
 	}
 
-	for _, block := range fn.Blocks {
+	for bi, block := range fn.Blocks {
 		buf.WriteString(fmt.Sprintf("%s:\n", block.Label))
+		if bi == 0 && fn.Name == "main" {
+			if initFn := e.program.Functions["__joss_init_static_globals"]; initFn != nil {
+				buf.WriteString(fmt.Sprintf("    call %s @__joss_init_static_globals()\n", MapLLVMType(initFn.ReturnType)))
+			}
+		}
 
 		for _, inst := range block.Instructions {
 			line, err := e.emitInstruction(inst)
@@ -639,9 +654,23 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		if e.program.Functions[i.BuiltinID] != nil {
 			return e.emitDirectCall(i.BuiltinID, i.Dest, i.Args, fmt.Sprintf("cb_%p", i)), nil
 		}
+		if i.BuiltinID == "intval" && len(i.Args) == 1 && i.Args[0].Type().IsFloat() && i.Dest != nil {
+			pre, vStr := e.coerceLLVM(i.Args[0], "double", fmt.Sprintf("ivf_%p", i))
+			return fmt.Sprintf("%s%s = fptosi double %s to i64", pre, e.formatValue(i.Dest), vStr), nil
+		}
+		if (i.BuiltinID == "floatval" || i.BuiltinID == "decimal") && len(i.Args) == 1 && i.Dest != nil {
+			if i.Args[0].Type().IsInteger() {
+				pre, vStr := e.coerceLLVM(i.Args[0], "i64", fmt.Sprintf("fvi_%p", i))
+				return fmt.Sprintf("%s%s = sitofp i64 %s to double", pre, e.formatValue(i.Dest), vStr), nil
+			}
+			if i.Args[0].Type().IsFloat() {
+				pre, vStr := e.coerceLLVM(i.Args[0], "double", fmt.Sprintf("fvf_%p", i))
+				return fmt.Sprintf("%s%s = fadd double %s, 0.0", pre, e.formatValue(i.Dest), vStr), nil
+			}
+		}
 		args := i.Args
 		if i.BuiltinID == "substr" && len(args) == 2 {
-			args = []ir.Value{args[0], args[1], ir.NewConstInt(-1, ir.TypeI64)}
+			args = []ir.Value{args[0], args[1], ir.NewConstInt(-9223372036854775808, ir.TypeI64)}
 		} else if i.BuiltinID == "env" && len(args) == 1 {
 			args = []ir.Value{args[0], ir.NewConstString("")}
 		} else if (i.BuiltinID == "request" || i.BuiltinID == "session") && len(args) == 1 {
@@ -654,7 +683,7 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		return e.emitDirectCall("joss_"+i.BuiltinID, i.Dest, args, fmt.Sprintf("cb_%p", i)), nil
 
 	case *ir.CallPrimitiveMethodInst:
-		return e.emitDirectCall(fmt.Sprintf("joss_%s_%s", i.TypeKind, i.MethodName), i.Dest, i.Args, fmt.Sprintf("cp_%p", i)), nil
+		return e.emitDirectCall(resolveLLVMPrimitiveMethodSym(i.TypeKind, i.MethodName), i.Dest, i.Args, fmt.Sprintf("cp_%p", i)), nil
 
 	case *ir.NewObjectInst:
 		clsSym := e.registerString(i.ClassName)
@@ -1150,7 +1179,35 @@ func cleanIdent(name string) string {
 	s = strings.ReplaceAll(s, "::", "_")
 	s = strings.ReplaceAll(s, ":", "_")
 	s = strings.ReplaceAll(s, "$", "")
+	s = strings.ReplaceAll(s, "<", "_")
+	s = strings.ReplaceAll(s, ">", "_")
+	s = strings.ReplaceAll(s, ",", "_")
+	s = strings.ReplaceAll(s, " ", "")
 	return s
+}
+
+func resolveLLVMPrimitiveMethodSym(typeKind, methodName string) string {
+	tk := strings.ToLower(typeKind)
+	switch {
+	case strings.HasPrefix(tk, "array"):
+		switch methodName {
+		case "length", "count":
+			return "joss_arr_len"
+		case "push":
+			return "joss_arr_push_i64"
+		case "pop":
+			return "joss_array_pop"
+		}
+	case strings.HasPrefix(tk, "string"):
+		if methodName == "length" {
+			return "joss_strlen"
+		}
+	case strings.HasPrefix(tk, "map"):
+		if methodName == "length" || methodName == "count" {
+			return "joss_map_len"
+		}
+	}
+	return fmt.Sprintf("joss_%s_%s", cleanIdent(typeKind), cleanIdent(methodName))
 }
 
 func (e *LLVMEmitter) coerceLLVM(val ir.Value, targetLLVM string, tag string) (string, string) {

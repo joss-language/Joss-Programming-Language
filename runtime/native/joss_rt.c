@@ -452,6 +452,13 @@ int64_t joss_arr_len(void* arr) {
     return a ? a->len : 0;
 }
 
+int64_t joss_array_pop(void* arr) {
+    JossArray* a = (JossArray*)arr;
+    if (!a || a->len <= 0) return 0;
+    a->len--;
+    return a->items[a->len];
+}
+
 /* =========================================================================
  * Associative Maps & Dynamic Objects
  * ========================================================================= */

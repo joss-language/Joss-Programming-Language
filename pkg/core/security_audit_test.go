@@ -155,13 +155,14 @@ func TestSecurityAudit_VULN002_PathTraversalInStorageAndPluginPathBlocked(t *tes
 	// 2. Plugin::path fallback traversal
 	plugPath := rt.executePluginMethod(nil, "path", []interface{}{"../../evil_plugin", "../../etc/passwd"})
 	if pStr, ok := plugPath.(string); ok {
-		pluginsRoot, _ := filepath.Abs(filepath.Join(tmpDir, "plugins"))
-		if resolved, err := filepath.EvalSymlinks(pluginsRoot); err == nil {
-			pluginsRoot = resolved
+		baseTmp := tmpDir
+		if resolved, err := filepath.EvalSymlinks(baseTmp); err == nil {
+			baseTmp = resolved
 		}
+		pluginsRoot, _ := filepath.Abs(filepath.Join(baseTmp, "plugins"))
 		absRes, _ := filepath.Abs(pStr)
-		if resolved, err := filepath.EvalSymlinks(absRes); err == nil {
-			absRes = resolved
+		if resolved, err := filepath.EvalSymlinks(filepath.Dir(absRes)); err == nil {
+			absRes = filepath.Join(resolved, filepath.Base(absRes))
 		}
 		rel, relErr := filepath.Rel(pluginsRoot, absRes)
 		if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
