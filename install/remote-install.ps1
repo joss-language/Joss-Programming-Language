@@ -1,4 +1,4 @@
-# -----------------------------------------------------------
+﻿# -----------------------------------------------------------
 # JosSecurity Remote Installer, Updater, and Uninstaller (Windows PowerShell)
 # Usos:
 #   Instalación: iwr -useb <URL_DE_ESTE_SCRIPT> | iex
@@ -18,6 +18,8 @@ $LegacySdkInstallDir = "$InstallDir\sdk"
 $LogFile = "$env:TEMP\jossecurity-action.log"
 $TempDir = "$env:TEMP\jossecurity-temp-action"
 $RepoUrl = "https://api.github.com/repos/$RepoOwner/$RepoName/releases/latest"
+$RepoReleasesUrl = "https://api.github.com/repos/$RepoOwner/$RepoName/releases"
+$ReleaseChannel = if ($env:JOSS_CHANNEL -and $env:JOSS_CHANNEL.ToLowerInvariant() -eq "canary") { "canary" } else { "stable" }
 # --------------------
 
 # --- FUNCIONES DE LOGGING/UTILIDADES ---
@@ -142,17 +144,32 @@ function Install-JosSecurity {
             Write-Log "[OK] Legacy SDK removed" "SUCCESS"
         }
         
-        # El binario de Windows se llama siempre joss.exe en el ZIP.
-        $binaryPath = Get-ChildItem -Path $TempDir -Filter "joss.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        # Detectar arquitectura Windows (amd64 vs arm64)
+        $winArch = "amd64"
+        try {
+            $osArch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+            if ($osArch -eq "arm64") { $winArch = "arm64" }
+        } catch {
+            if ($env:PROCESSOR_ARCHITECTURE -match "ARM64") { $winArch = "arm64" }
+        }
+
+        $preferredBinary = if ($winArch -eq "arm64") { "joss-windows-arm64.exe" } else { "joss.exe" }
+        $binaryPath = Get-ChildItem -Path $TempDir -Filter $preferredBinary -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($null -eq $binaryPath -and $preferredBinary -ne "joss.exe") {
+            $binaryPath = Get-ChildItem -Path $TempDir -Filter "joss.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        }
         
         if ($null -eq $binaryPath) {
-            Write-Log "[X] joss.exe not found in temp directory" "ERROR"
+            Write-Log "[X] $preferredBinary not found in temp directory" "ERROR"
             return $false
         }
         
         # 4. Remove old file explicitly (helps with some lock cases/replacements)
         if (Test-Path "$InstallDir\joss.exe") {
             Remove-Item "$InstallDir\joss.exe" -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path "$InstallDir\joss.exe.old") {
+            Remove-Item "$InstallDir\joss.exe.old" -Force -ErrorAction SilentlyContinue
         }
 
         Copy-Item -Path $binaryPath.FullName -Destination "$InstallDir\joss.exe" -Force
@@ -167,6 +184,22 @@ function Install-JosSecurity {
             Remove-Item -LiteralPath $installedRunners -Recurse -Force
         }
         Copy-Item -LiteralPath $runnerRoot.FullName -Destination $installedRunners -Recurse -Force
+
+        # Instalar toolchain nativo empaquetado (solo la arquitectura del host) si existe en el paquete
+        $toolchainRoot = Get-ChildItem -Path $TempDir -Directory -Filter "toolchain" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        $installedToolchain = Join-Path $InstallDir "toolchain"
+        if ($null -ne $toolchainRoot) {
+            $targetToolchainSrc = Join-Path $toolchainRoot.FullName "windows-$winArch"
+            if (Test-Path -LiteralPath $targetToolchainSrc -PathType Container) {
+                if (Test-Path -LiteralPath $installedToolchain) {
+                    Remove-Item -LiteralPath $installedToolchain -Recurse -Force
+                }
+                $targetToolchainDst = Join-Path $installedToolchain "windows-$winArch"
+                New-Item -ItemType Directory -Path $targetToolchainDst -Force | Out-Null
+                Copy-Item -Path (Join-Path $targetToolchainSrc "*") -Destination $targetToolchainDst -Recurse -Force
+                Write-Log "[OK] Bundled native toolchain installed (windows-$winArch)" "SUCCESS"
+            }
+        }
         
         if (Test-Path "$InstallDir\joss.exe") {
             Write-Log "[OK] Binary installed" "SUCCESS"
@@ -235,9 +268,17 @@ function Uninstall-JosSecurity {
             Remove-Item "$InstallDir\joss.exe" -Force
             Write-Log "[OK] Binary removed" "SUCCESS"
         }
+        if (Test-Path "$InstallDir\joss.exe.old") {
+            Remove-Item "$InstallDir\joss.exe.old" -Force -ErrorAction SilentlyContinue
+        }
         $installedRunners = Join-Path $InstallDir "runners"
         if (Test-Path -LiteralPath $installedRunners) {
             Remove-Item -LiteralPath $installedRunners -Recurse -Force
+        }
+        $installedToolchain = Join-Path $InstallDir "toolchain"
+        if (Test-Path -LiteralPath $installedToolchain) {
+            Remove-Item -LiteralPath $installedToolchain -Recurse -Force
+            Write-Log "[OK] Bundled toolchain removed" "SUCCESS"
         }
 
         # Clean installations made by releases that still shipped the legacy SDK.
@@ -407,10 +448,26 @@ function Download-File {
 }
 
 function Get-ReleaseInfo {
-    param([string]$Version)
+    param(
+        [string]$Version,
+        [string]$Channel = $ReleaseChannel
+    )
 
     if ([string]::IsNullOrWhiteSpace($Version)) {
-        return Invoke-RestMethod -Uri $RepoUrl -UseBasicParsing
+        $releases = @(Invoke-RestMethod -Uri $RepoReleasesUrl -Headers @{ "User-Agent" = "Joss-Installer-Script" } -UseBasicParsing)
+        if ($releases.Count -eq 0) {
+            throw "No releases found in $RepoOwner/$RepoName."
+        }
+        $nonDraft = @($releases | Where-Object { -not $_.draft })
+        if ($Channel -and $Channel.ToLowerInvariant() -eq "canary") {
+            $pre = @($nonDraft | Where-Object { $_.prerelease } | Select-Object -First 1)
+            if ($pre.Count -gt 0) { return $pre[0] }
+        } else {
+            $stable = @($nonDraft | Where-Object { -not $_.prerelease } | Select-Object -First 1)
+            if ($stable.Count -gt 0) { return $stable[0] }
+        }
+        if ($nonDraft.Count -gt 0) { return $nonDraft[0] }
+        return $releases[0]
     }
 
     $normalized = $Version.Trim() -replace '^[vV]', ''
@@ -484,48 +541,60 @@ function Download-And-Extract {
 
 # Ejecutar lógica principal
 function Show-MainMenu {
-    Write-Host "=======================================" -ForegroundColor Blue
-    Write-Host "   JosSecurity Action Menu" -ForegroundColor Blue
-    Write-Host "=======================================" -ForegroundColor Blue
-    Write-Host ""
-    Write-Host "Select an action:" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "  [1] Install (Joss Runtime + VS Code Extension)" -ForegroundColor White
-    Write-Host "  [2] Update (Only When a New Version Exists)" -ForegroundColor White
-    Write-Host "  [3] Reinstall (Latest or Specific Version)" -ForegroundColor White
-    Write-Host "  [4] Uninstall (Remove Runtime + Extension)" -ForegroundColor White
-    Write-Host "  [0] Exit" -ForegroundColor White
-    Write-Host ""
+    while ($true) {
+        Write-Host "=======================================" -ForegroundColor Blue
+        Write-Host "   JosSecurity Action Menu" -ForegroundColor Blue
+        Write-Host "   Channel: $($ReleaseChannel.ToUpperInvariant())" -ForegroundColor Yellow
+        Write-Host "=======================================" -ForegroundColor Blue
+        Write-Host ""
+        Write-Host "Select an action:" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  [1] Install (Joss Runtime + VS Code Extension)" -ForegroundColor White
+        Write-Host "  [2] Update (Only When a New Version Exists)" -ForegroundColor White
+        Write-Host "  [3] Reinstall (Latest or Specific Version)" -ForegroundColor White
+        Write-Host "  [4] Uninstall (Remove Runtime + Extension)" -ForegroundColor White
+        Write-Host "  [5] Switch Channel (Current: $($ReleaseChannel.ToUpperInvariant()) -> $(if ($ReleaseChannel -eq 'canary') { 'STABLE' } else { 'CANARY' }))" -ForegroundColor Yellow
+        Write-Host "  [0] Exit" -ForegroundColor White
+        Write-Host ""
 
-    $option = Read-Host "Option"
+        $option = Read-Host "Option"
 
-    switch ($option) {
-        "1" {
-            if (Download-And-Extract) { $null = Invoke-InstallComponents }
+        if ($option -eq "5") {
+            $script:ReleaseChannel = if ($ReleaseChannel -eq "canary") { "stable" } else { "canary" }
+            Write-Log "Channel switched to: $($ReleaseChannel.ToUpperInvariant())" "INFO"
+            Write-Host ""
+            continue
         }
-        "2" {
-            $updateInfo = Test-Update
-            if ($updateInfo.Available) {
-                Write-Host "Updating to v$($updateInfo.Version)" -ForegroundColor Green
-                if (Download-And-Extract -Release $updateInfo.Release) { $null = Run-Update }
+
+        switch ($option) {
+            "1" {
+                if (Download-And-Extract) { $null = Invoke-InstallComponents }
             }
-        }
-        "3" {
-            $requestedVersion = Read-Host "Version to reinstall (leave blank for latest)"
-            try {
-                $release = Get-ReleaseInfo -Version $requestedVersion
-                Write-Host "Reinstalling $($release.tag_name)..." -ForegroundColor Green
-                if (Download-And-Extract -Release $release) { $null = Run-Update }
-            } catch {
-                Write-Log "[X] Reinstallation failed: $($_.Exception.Message)" "ERROR"
+            "2" {
+                $updateInfo = Test-Update
+                if ($updateInfo.Available) {
+                    Write-Host "Updating to v$($updateInfo.Version) ($($ReleaseChannel.ToUpperInvariant()))" -ForegroundColor Green
+                    if (Download-And-Extract -Release $updateInfo.Release) { $null = Run-Update }
+                }
             }
+            "3" {
+                $requestedVersion = Read-Host "Version to reinstall (leave blank for latest $($ReleaseChannel.ToUpperInvariant()))"
+                try {
+                    $release = Get-ReleaseInfo -Version $requestedVersion -Channel $ReleaseChannel
+                    Write-Host "Reinstalling $($release.tag_name) ($($ReleaseChannel.ToUpperInvariant()))..." -ForegroundColor Green
+                    if (Download-And-Extract -Release $release) { $null = Run-Update }
+                } catch {
+                    Write-Log "[X] Reinstallation failed: $($_.Exception.Message)" "ERROR"
+                }
+            }
+            "4" {
+                $null = Uninstall-JosSecurity
+                $null = Uninstall-Extension
+            }
+            "0" { Write-Log "Operation cancelled."; return }
+            default { Write-Log "Invalid option" "ERROR" }
         }
-        "4" {
-            $null = Uninstall-JosSecurity
-            $null = Uninstall-Extension
-        }
-        "0" { Write-Log "Operation cancelled."; return }
-        default { Write-Log "Invalid option" "ERROR" }
+        break
     }
     Write-Host ""
     Write-Log "Cleaning up temp directory..."

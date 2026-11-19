@@ -36,6 +36,13 @@ else
     TEMP_DIR="/tmp/jossecurity-temp-action"
 fi
 REPO_URL="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest"
+REPO_RELEASES_URL="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases"
+RELEASE_CHANNEL="${JOSS_CHANNEL:-stable}"
+if [ "${1:-}" = "--canary" ]; then
+    RELEASE_CHANNEL="canary"
+elif [ "${1:-}" = "--stable" ]; then
+    RELEASE_CHANNEL="stable"
+fi
 # --------------------
 
 # --- FUNCIONES DE LOGGING/UTILIDADES ---
@@ -158,6 +165,31 @@ install_jossecurity() {
     fi
     run_privileged find "$INSTALL_DIR/runners" -type f -exec chmod +x {} \;
 
+    # Instalar toolchain nativo empaquetado (solo la arquitectura del host) si existe en el paquete
+    TOOLCHAIN_SOURCE=$(find "$TEMP_DIR" -type d -name toolchain -print -quit)
+    if [ -n "$TOOLCHAIN_SOURCE" ]; then
+        HOST_OS_KEY=""
+        HOST_ARCH_KEY=""
+        case "$(uname -s)" in
+            Linux*) HOST_OS_KEY="linux" ;;
+            Darwin*) HOST_OS_KEY="darwin" ;;
+        esac
+        case "$(uname -m)" in
+            x86_64|amd64) HOST_ARCH_KEY="amd64" ;;
+            aarch64|arm64) HOST_ARCH_KEY="arm64" ;;
+        esac
+        if [ -n "$HOST_OS_KEY" ] && [ -n "$HOST_ARCH_KEY" ] && [ -d "$TOOLCHAIN_SOURCE/$HOST_OS_KEY-$HOST_ARCH_KEY" ]; then
+            TARGET_TC="$HOST_OS_KEY-$HOST_ARCH_KEY"
+            if ! run_privileged rm -rf "$INSTALL_DIR/toolchain" ||
+               ! run_privileged mkdir -p "$INSTALL_DIR/toolchain/$TARGET_TC" ||
+               ! run_privileged cp -R "$TOOLCHAIN_SOURCE/$TARGET_TC/." "$INSTALL_DIR/toolchain/$TARGET_TC/"; then
+                log ERROR "[X] Failed to install bundled toolchain in $INSTALL_DIR/toolchain/$TARGET_TC."
+                return 1
+            fi
+            log SUCCESS "[OK] Bundled native toolchain installed ($TARGET_TC)."
+        fi
+    fi
+
     log SUCCESS "[OK] Binary installed and executable."
     if ! command -v joss &> /dev/null; then
         log WARNING "$INSTALL_DIR is not currently in PATH. Restart the terminal or add it to your shell profile."
@@ -215,6 +247,13 @@ uninstall_jossecurity() {
             return 1
         fi
     fi
+    if [ -d "$INSTALL_DIR/toolchain" ]; then
+        if ! run_privileged rm -rf "$INSTALL_DIR/toolchain"; then
+            log ERROR "[X] Failed to remove $INSTALL_DIR/toolchain"
+            return 1
+        fi
+        log SUCCESS "[OK] Bundled toolchain removed from $INSTALL_DIR/toolchain"
+    fi
     # Clean installations made by releases that still shipped the legacy SDK.
     if [ -d "$LEGACY_SDK_INSTALL_DIR" ]; then
         if ! run_privileged rm -rf "$LEGACY_SDK_INSTALL_DIR"; then
@@ -250,12 +289,11 @@ check_update() {
     
     log INFO "Current version: $LOCAL_VERSION"
     
-    RELEASE_INFO=$(curl -s "$REPO_URL")
-    LATEST_TAG=$(echo "$RELEASE_INFO" | grep '"tag_name"' | head -n 1 | sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || echo "")
+    LATEST_TAG=$(resolve_release_tag "" || echo "")
     LATEST_VERSION="${LATEST_TAG#[vV]}"
     if [ -z "$LATEST_VERSION" ]; then LATEST_VERSION="0.0.0"; fi
     
-    log INFO "Latest version: $LATEST_VERSION"
+    log INFO "Latest version ($RELEASE_CHANNEL): $LATEST_VERSION"
     
     if [ "$LATEST_VERSION" != "0.0.0" ] && [ "$(printf '%s\n' "$LATEST_VERSION" "$LOCAL_VERSION" | sort -V | head -n1)" != "$LATEST_VERSION" ]; then
         log WARNING "[!] Update available: $LATEST_VERSION"
@@ -309,6 +347,26 @@ resolve_release_tag() {
     local requested="${1:-}"
     local payload=""
     if [ -z "$requested" ]; then
+        if [ "$RELEASE_CHANNEL" = "canary" ]; then
+            payload=$(curl -fsSL "$REPO_RELEASES_URL") || return 1
+            local canary_tag=""
+            if command -v python3 &> /dev/null; then
+                canary_tag=$(printf '%s' "$payload" | python3 -c '
+import json, sys
+rels = [r for r in json.load(sys.stdin) if not r.get("draft")]
+pre = [r for r in rels if r.get("prerelease")]
+chosen = pre[0] if pre else (rels[0] if rels else None)
+print(chosen["tag_name"] if chosen else "")
+' 2>/dev/null || true)
+            fi
+            if [ -n "$canary_tag" ]; then
+                echo "$canary_tag"
+                return 0
+            fi
+            # Fallback sin python3: primer tag_name del listado /releases
+            echo "$payload" | grep '"tag_name"' | head -n 1 | sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/'
+            return 0
+        fi
         payload=$(curl -fsSL "$REPO_URL") || return 1
         echo "$payload" | grep '"tag_name"' | head -n 1 | sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/'
         return 0
@@ -384,46 +442,68 @@ download_and_extract() {
 }
 
 main_menu() {
-    echo -e "${BLUE}"
-    echo "======================================="
-    echo "  JosSecurity Action Menu"
-    echo "======================================="
-    echo -e "${NC}"
-    echo ""
-    echo "  [1] Install (Joss Runtime + VS Code Extension)"
-    echo "  [2] Update (Only When a New Version Exists)"
-    echo "  [3] Reinstall (Latest or Specific Version)"
-    echo "  [4] Uninstall (Remove Runtime + Extension)"
-    echo "  [0] Exit"
-    echo ""
-    read -p "Option: " option < /dev/tty
+    while true; do
+        local channel_upper
+        channel_upper=$(echo "$RELEASE_CHANNEL" | tr '[:lower:]' '[:upper:]')
+        local next_channel="CANARY"
+        if [ "$RELEASE_CHANNEL" = "canary" ]; then
+            next_channel="STABLE"
+        fi
 
-    case $option in
-        1)
-            if download_and_extract; then run_update; fi
-            ;;
-        2)
-            if check_update; then
-                log SUCCESS "Updating to v$LATEST_VERSION"
-                if download_and_extract; then run_update; fi
+        echo -e "${BLUE}"
+        echo "======================================="
+        echo "  JosSecurity Action Menu"
+        echo "  Channel: $channel_upper"
+        echo "======================================="
+        echo -e "${NC}"
+        echo ""
+        echo "  [1] Install (Joss Runtime + VS Code Extension)"
+        echo "  [2] Update (Only When a New Version Exists)"
+        echo "  [3] Reinstall (Latest or Specific Version)"
+        echo "  [4] Uninstall (Remove Runtime + Extension)"
+        echo "  [5] Switch Channel (Current: $channel_upper -> $next_channel)"
+        echo "  [0] Exit"
+        echo ""
+        read -p "Option: " option < /dev/tty
+
+        if [ "$option" = "5" ]; then
+            if [ "$RELEASE_CHANNEL" = "canary" ]; then
+                RELEASE_CHANNEL="stable"
+            else
+                RELEASE_CHANNEL="canary"
             fi
-            ;;
-        3)
-            read -p "Version to reinstall (leave blank for latest): " requested_version < /dev/tty
-            release_tag=$(resolve_release_tag "$requested_version") || {
-                log ERROR "[X] Requested release was not found."
-                return 1
-            }
-            log INFO "Reinstalling $release_tag..."
-            if download_and_extract "$release_tag"; then run_update; fi
-            ;;
-        4)
-            uninstall_jossecurity
-            uninstall_extension
-            ;;
-        0) log INFO "Operation cancelled."; return 0;;
-        *) log ERROR "Invalid option";;
-    esac
+            log INFO "Channel switched to: $RELEASE_CHANNEL"
+            continue
+        fi
+
+        case $option in
+            1)
+                if download_and_extract; then run_update; fi
+                ;;
+            2)
+                if check_update; then
+                    log SUCCESS "Updating to v$LATEST_VERSION ($RELEASE_CHANNEL)"
+                    if download_and_extract "$LATEST_TAG"; then run_update; fi
+                fi
+                ;;
+            3)
+                read -p "Version to reinstall (leave blank for latest $channel_upper): " requested_version < /dev/tty
+                release_tag=$(resolve_release_tag "$requested_version") || {
+                    log ERROR "[X] Requested release was not found."
+                    return 1
+                }
+                log INFO "Reinstalling $release_tag ($RELEASE_CHANNEL)..."
+                if download_and_extract "$release_tag"; then run_update; fi
+                ;;
+            4)
+                uninstall_jossecurity
+                uninstall_extension
+                ;;
+            0) log INFO "Operation cancelled."; return 0;;
+            *) log ERROR "Invalid option";;
+        esac
+        break
+    done
 
     log INFO "Cleaning up temp directory..."
     rm -rf "$TEMP_DIR"
