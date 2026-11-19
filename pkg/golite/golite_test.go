@@ -68,7 +68,7 @@ func main() int64 {
 	if err != nil {
 		t.Fatalf("running golite_bin failed: %v\n%s", err, string(out))
 	}
-	got := strings.TrimSpace(string(out))
+	got := strings.TrimSpace(strings.ReplaceAll(string(out), "\r\n", "\n"))
 	want := "55\n55"
 	if got != want {
 		t.Fatalf("unexpected output:\ngot:\n%s\nwant:\n%s", got, want)

@@ -78,7 +78,7 @@ func compileAndRunLLVM(t *testing.T, source string, name string, staticLibs []st
 			exitCode = -1
 		}
 	}
-	return strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), exitCode, runErr
+	return strings.TrimSpace(strings.ReplaceAll(stdout.String(), "\r\n", "\n")), strings.TrimSpace(strings.ReplaceAll(stderr.String(), "\r\n", "\n")), exitCode, runErr
 }
 
 func TestLLVMBackend_Differential_BuffersAndMixed(t *testing.T) {
@@ -218,7 +218,7 @@ print(c_greet());
 	if err != nil {
 		t.Fatalf("executing c_interop_bin failed: %v\n%s", err, string(out))
 	}
-	got := strings.TrimSpace(string(out))
+	got := strings.TrimSpace(strings.ReplaceAll(string(out), "\r\n", "\n"))
 	want := "42\nHello from C static lib!"
 	if got != want {
 		t.Fatalf("unexpected C interop output:\ngot:\n%s\nwant:\n%s", got, want)

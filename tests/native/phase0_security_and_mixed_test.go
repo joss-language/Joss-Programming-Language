@@ -71,14 +71,15 @@ func TestPhase0_NoBuildTimeEnvSecretEmbedding(t *testing.T) {
 		t.Fatal(err)
 	}
 	outBin := filepath.Join(tmpDir, "env_test")
-	if _, err := native.BuildProgram(irProg, native.BuildOptions{
+	res, err := native.BuildProgram(irProg, native.BuildOptions{
 		Target:     native.HostTarget(),
 		Backend:    native.BackendNative,
 		OutputPath: outBin,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
-	binBytes, err := os.ReadFile(outBin)
+	binBytes, err := os.ReadFile(res.OutputPath)
 	if err != nil {
 		t.Fatal(err)
 	}

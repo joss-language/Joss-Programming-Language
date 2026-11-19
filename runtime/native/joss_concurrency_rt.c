@@ -1,3 +1,4 @@
+//go:build ignore
 #include "joss_rt.h"
 
 #include <stdlib.h>
@@ -238,6 +239,190 @@ void joss_close(int64_t ch_handle) {
     pthread_cond_broadcast(&ch->not_empty);
     pthread_cond_broadcast(&ch->not_full);
     pthread_mutex_unlock(&ch->mu);
+}
+
+#elif defined(_WIN32)
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
+typedef struct JossFuture {
+    CRITICAL_SECTION   cs;
+    CONDITION_VARIABLE cv;
+    bool               done;
+    int64_t            result;
+} JossFuture;
+
+typedef struct JossWorkItem {
+    JossTaskFn           fn;
+    JossFuture*          fut;
+    struct JossWorkItem* next;
+} JossWorkItem;
+
+static CRITICAL_SECTION   g_win_pool_cs;
+static CONDITION_VARIABLE g_win_pool_cv;
+static JossWorkItem*      g_win_q_head = NULL;
+static JossWorkItem*      g_win_q_tail = NULL;
+static LONG               g_win_pool_init_state = 0;
+
+static DWORD WINAPI joss_win_worker_loop(LPVOID arg) {
+    (void)arg;
+    for (;;) {
+        EnterCriticalSection(&g_win_pool_cs);
+        while (!g_win_q_head) {
+            SleepConditionVariableCS(&g_win_pool_cv, &g_win_pool_cs, INFINITE);
+        }
+        JossWorkItem* item = g_win_q_head;
+        g_win_q_head = item->next;
+        if (!g_win_q_head) g_win_q_tail = NULL;
+        LeaveCriticalSection(&g_win_pool_cs);
+
+        int64_t res = item->fn ? item->fn() : 0;
+
+        JossFuture* fut = item->fut;
+        EnterCriticalSection(&fut->cs);
+        fut->result = res;
+        fut->done = true;
+        WakeAllConditionVariable(&fut->cv);
+        LeaveCriticalSection(&fut->cs);
+        free(item);
+    }
+    return 0;
+}
+
+static void joss_win_pool_ensure(void) {
+    if (InterlockedCompareExchange(&g_win_pool_init_state, 1, 0) == 0) {
+        InitializeCriticalSection(&g_win_pool_cs);
+        InitializeConditionVariable(&g_win_pool_cv);
+        SYSTEM_INFO si;
+        GetSystemInfo(&si);
+        DWORD nworkers = si.dwNumberOfProcessors;
+        if (nworkers < 2) nworkers = 2;
+        if (nworkers > 16) nworkers = 16;
+        for (DWORD i = 0; i < nworkers; i++) {
+            HANDLE h = CreateThread(NULL, 0, joss_win_worker_loop, NULL, 0, NULL);
+            if (h) CloseHandle(h);
+        }
+        InterlockedExchange(&g_win_pool_init_state, 2);
+    } else {
+        while (InterlockedCompareExchange(&g_win_pool_init_state, 2, 2) != 2) {
+            Sleep(0);
+        }
+    }
+}
+
+int64_t joss_async(int64_t fn_ptr) {
+    joss_win_pool_ensure();
+    JossFuture* fut = (JossFuture*)calloc(1, sizeof(JossFuture));
+    if (!fut) joss_panic("JOSS-OOM: failed to allocate Future");
+    InitializeCriticalSection(&fut->cs);
+    InitializeConditionVariable(&fut->cv);
+
+    JossWorkItem* item = (JossWorkItem*)malloc(sizeof(JossWorkItem));
+    if (!item) joss_panic("JOSS-OOM: failed to allocate WorkItem");
+    item->fn = (JossTaskFn)(uintptr_t)fn_ptr;
+    item->fut = fut;
+    item->next = NULL;
+
+    EnterCriticalSection(&g_win_pool_cs);
+    if (g_win_q_tail) {
+        g_win_q_tail->next = item;
+        g_win_q_tail = item;
+    } else {
+        g_win_q_head = g_win_q_tail = item;
+    }
+    WakeConditionVariable(&g_win_pool_cv);
+    LeaveCriticalSection(&g_win_pool_cs);
+    return (int64_t)(uintptr_t)fut;
+}
+
+int64_t joss_await(int64_t fut_handle) {
+    uint64_t u = (uint64_t)fut_handle;
+    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return fut_handle;
+    JossFuture* fut = (JossFuture*)(uintptr_t)u;
+    EnterCriticalSection(&fut->cs);
+    while (!fut->done) {
+        SleepConditionVariableCS(&fut->cv, &fut->cs, INFINITE);
+    }
+    int64_t res = fut->result;
+    LeaveCriticalSection(&fut->cs);
+    DeleteCriticalSection(&fut->cs);
+    free(fut);
+    return res;
+}
+
+typedef struct JossWinChannel {
+    CRITICAL_SECTION   cs;
+    CONDITION_VARIABLE not_empty;
+    CONDITION_VARIABLE not_full;
+    int64_t*           buf;
+    int64_t            cap;
+    int64_t            head;
+    int64_t            tail;
+    int64_t            count;
+    bool               closed;
+} JossWinChannel;
+
+int64_t joss_make_chan(int64_t capacity) {
+    if (capacity < 0) joss_panic("JOSS-CHANNEL-002: invalid negative channel capacity");
+    if (capacity == 0) capacity = 1;
+    JossWinChannel* ch = (JossWinChannel*)calloc(1, sizeof(JossWinChannel));
+    if (!ch) joss_panic("JOSS-OOM: channel allocation failed");
+    ch->buf = (int64_t*)calloc((size_t)capacity, sizeof(int64_t));
+    ch->cap = capacity;
+    InitializeCriticalSection(&ch->cs);
+    InitializeConditionVariable(&ch->not_empty);
+    InitializeConditionVariable(&ch->not_full);
+    return (int64_t)(uintptr_t)ch;
+}
+
+void joss_send(int64_t ch_handle, int64_t val) {
+    JossWinChannel* ch = (JossWinChannel*)(uintptr_t)ch_handle;
+    if (!ch) return;
+    EnterCriticalSection(&ch->cs);
+    while (ch->count == ch->cap && !ch->closed) {
+        SleepConditionVariableCS(&ch->not_full, &ch->cs, INFINITE);
+    }
+    if (ch->closed) {
+        LeaveCriticalSection(&ch->cs);
+        joss_panic("JOSS-CHANNEL-001: send on closed channel");
+    }
+    ch->buf[ch->tail] = val;
+    ch->tail = (ch->tail + 1) % ch->cap;
+    ch->count++;
+    WakeConditionVariable(&ch->not_empty);
+    LeaveCriticalSection(&ch->cs);
+}
+
+int64_t joss_recv(int64_t ch_handle) {
+    JossWinChannel* ch = (JossWinChannel*)(uintptr_t)ch_handle;
+    if (!ch) return 0;
+    EnterCriticalSection(&ch->cs);
+    while (ch->count == 0 && !ch->closed) {
+        SleepConditionVariableCS(&ch->not_empty, &ch->cs, INFINITE);
+    }
+    if (ch->count == 0 && ch->closed) {
+        LeaveCriticalSection(&ch->cs);
+        return 0;
+    }
+    int64_t val = ch->buf[ch->head];
+    ch->head = (ch->head + 1) % ch->cap;
+    ch->count--;
+    WakeConditionVariable(&ch->not_full);
+    LeaveCriticalSection(&ch->cs);
+    return val;
+}
+
+void joss_close(int64_t ch_handle) {
+    JossWinChannel* ch = (JossWinChannel*)(uintptr_t)ch_handle;
+    if (!ch) return;
+    EnterCriticalSection(&ch->cs);
+    ch->closed = true;
+    WakeAllConditionVariable(&ch->not_empty);
+    WakeAllConditionVariable(&ch->not_full);
+    LeaveCriticalSection(&ch->cs);
 }
 
 #else

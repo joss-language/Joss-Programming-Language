@@ -1,9 +1,17 @@
+//go:build ignore
 #include "joss_rt.h"
 
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 
 #if defined(__has_include)
 #if !defined(JOSS_DB_DISABLE_SQLITE) && __has_include(<sqlite3.h>)

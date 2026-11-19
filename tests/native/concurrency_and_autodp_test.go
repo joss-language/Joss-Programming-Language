@@ -77,7 +77,7 @@ print(grid_paths(15, 15));
 	if err != nil {
 		t.Fatalf("execution failed: %v\n%s", err, string(out))
 	}
-	got := strings.TrimSpace(string(out))
+	got := strings.TrimSpace(strings.ReplaceAll(string(out), "\r\n", "\n"))
 	want := "12586269025\n155117520"
 	if got != want {
 		t.Fatalf("Auto-DP output mismatch:\ngot:\n%s\nwant:\n%s", got, want)

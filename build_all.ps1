@@ -69,6 +69,18 @@ function Copy-LegacyRunners {
     }
 }
 
+function Copy-BundledToolchain {
+    param([string]$DestinationRoot, [string[]]$Targets)
+    foreach ($t in $Targets) {
+        $src = Join-Path $root "dist/toolchain/$t"
+        if (Test-Path -LiteralPath $src -PathType Container) {
+            $dst = Join-Path $DestinationRoot "toolchain/$t"
+            New-Item -ItemType Directory -Force -Path $dst | Out-Null
+            Copy-Item -Path (Join-Path $src '*') -Destination $dst -Recurse -Force
+        }
+    }
+}
+
 function Compress-Directory {
     param([string]$Source, [string]$Destination)
     if (Test-Path -LiteralPath $Destination) {
@@ -140,6 +152,7 @@ try {
     Copy-Required (Join-Path $root 'install/remote-install.ps1') (Join-Path $windows 'remote-install.ps1')
     Copy-Required (Join-Path $root 'LICENSE') (Join-Path $windows 'LICENSE')
     Copy-LegacyRunners $windows
+    Copy-BundledToolchain $windows @('windows-amd64', 'windows-arm64')
 
     $linux = New-StagingDirectory 'linux'
     Copy-Required (Join-Path $dist 'linux-amd64/joss') (Join-Path $linux 'joss-linux-amd64')
@@ -148,6 +161,7 @@ try {
     Copy-Required (Join-Path $root 'install/remote-install.sh') (Join-Path $linux 'remote-install.sh')
     Copy-Required (Join-Path $root 'LICENSE') (Join-Path $linux 'LICENSE')
     Copy-LegacyRunners $linux
+    Copy-BundledToolchain $linux @('linux-amd64', 'linux-arm64')
 
     $macos = New-StagingDirectory 'macos'
     Copy-Required (Join-Path $dist 'darwin-amd64/joss') (Join-Path $macos 'joss-macos-amd64')
@@ -155,6 +169,7 @@ try {
     Copy-Required (Join-Path $root 'install/remote-install.sh') (Join-Path $macos 'remote-install.sh')
     Copy-Required (Join-Path $root 'LICENSE') (Join-Path $macos 'LICENSE')
     Copy-LegacyRunners $macos
+    Copy-BundledToolchain $macos @('darwin-amd64', 'darwin-arm64')
 
     $android = New-StagingDirectory 'android'
     Copy-Required (Join-Path $dist 'android-arm64/joss') (Join-Path $android 'joss-android-arm64')

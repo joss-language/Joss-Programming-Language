@@ -24,6 +24,7 @@ type LLVMEmitter struct {
 	activeDPParam0  string
 	activeDPParam1  string
 	currentFn       *ir.Function
+	TargetOS        string
 }
 
 func NewLLVMEmitter() *LLVMEmitter {
@@ -69,7 +70,11 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare void @joss_try_pop()\n")
 	buf.WriteString("declare i8* @joss_catch_msg()\n")
 	buf.WriteString("declare void @joss_throw(i8*)\n")
-	buf.WriteString("declare i32 @setjmp(i8*) returns_twice\n")
+	if e.TargetOS == "windows" {
+		buf.WriteString("declare i32 @setjmp(i8*, i8*) returns_twice\n")
+	} else {
+		buf.WriteString("declare i32 @setjmp(i8*) returns_twice\n")
+	}
 	buf.WriteString("declare i8* @joss_str_concat(i8*, i8*)\n")
 	buf.WriteString("declare i8* @joss_obj_new(i8*)\n")
 	buf.WriteString("declare void @joss_obj_set_field_i64(i8*, i8*, i64)\n")
@@ -898,7 +903,11 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		endLbl := "joss_try_end_" + id
 		var lines []string
 		lines = append(lines, fmt.Sprintf("%%jb_%s = call i8* @joss_try_push()", id))
-		lines = append(lines, fmt.Sprintf("%%sj_%s = call i32 @setjmp(i8* %%jb_%s) returns_twice", id, id))
+		if e.TargetOS == "windows" {
+			lines = append(lines, fmt.Sprintf("%%sj_%s = call i32 @setjmp(i8* %%jb_%s, i8* null) returns_twice", id, id))
+		} else {
+			lines = append(lines, fmt.Sprintf("%%sj_%s = call i32 @setjmp(i8* %%jb_%s) returns_twice", id, id))
+		}
 		lines = append(lines, fmt.Sprintf("%%isc_%s = icmp ne i32 %%sj_%s, 0", id, id))
 		lines = append(lines, fmt.Sprintf("br i1 %%isc_%s, label %%%s, label %%%s", id, catchLbl, tryLbl))
 		lines = append(lines, tryLbl+":")

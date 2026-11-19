@@ -238,6 +238,7 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 			return nil, fmt.Errorf("el backend externo 'llvm' no está habilitado sin toolchain externo (clang/gcc); usa el compilador nativo integrado de 'joss build'")
 		}
 		llvmEmitter := NewLLVMEmitter()
+		llvmEmitter.TargetOS = opts.Target.OS
 		llvmIR, err := llvmEmitter.Emit(prog)
 		if err != nil {
 			return nil, fmt.Errorf("error generando LLVM IR: %w", err)
