@@ -151,6 +151,9 @@ func main() {
 			t.Fatal(err)
 		}
 		goSrvBin := filepath.Join(tmpDir, "tutorial_web_go")
+		if runtime.GOOS == "windows" {
+			goSrvBin += ".exe"
+		}
 		buildGoCmd := exec.Command("go", "build", "-tags", "nodb noredis nowebview2 noembedlocales", "-o", goSrvBin, filepath.Join(goSrvSrcDir, "main.go"))
 		buildGoCmd.Dir = repoRoot
 		if out, err := buildGoCmd.CombinedOutput(); err != nil {
@@ -182,6 +185,9 @@ func main() {
 		}
 
 		nativeWebBin := filepath.Join(tmpDir, "tutorial_web_native")
+		if runtime.GOOS == "windows" {
+			nativeWebBin += ".exe"
+		}
 		resNat, err := backend.BuildProgram(irProg, backend.BuildOptions{
 			Target:     backend.Target{OS: runtime.GOOS, Arch: runtime.GOARCH},
 			Backend:    backend.BackendLLVM,

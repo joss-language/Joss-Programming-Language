@@ -14,6 +14,12 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#elif defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #endif
 
 /* =========================================================================
@@ -695,6 +701,33 @@ void* fn_Socket_listen(const char* host, const char* port) {
         return NULL;
     }
     return (void*)(intptr_t)(fd + 1);
+#elif defined(_WIN32)
+    static int wsa_ready = 0;
+    if (!wsa_ready) {
+        WSADATA wsa;
+        if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return NULL;
+        wsa_ready = 1;
+    }
+    int p = port ? atoi(port) : 8000;
+    if (p <= 0) p = 8000;
+    SOCKET fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (fd == INVALID_SOCKET) return NULL;
+    BOOL opt = TRUE;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons((uint16_t)p);
+    if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+        closesocket(fd);
+        return NULL;
+    }
+    if (listen(fd, 512) == SOCKET_ERROR) {
+        closesocket(fd);
+        return NULL;
+    }
+    return (void*)(uintptr_t)(fd + 1);
 #else
     (void)port;
     return NULL;
@@ -711,6 +744,15 @@ void* fn_Socket_accept(void* srv) {
     setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
     joss_req_arena_begin();
     return (void*)(intptr_t)(cfd + 1);
+#elif defined(_WIN32)
+    if (!srv) return NULL;
+    SOCKET sfd = (SOCKET)((uintptr_t)srv - 1);
+    SOCKET cfd = accept(sfd, NULL, NULL);
+    if (cfd == INVALID_SOCKET) return NULL;
+    BOOL nodelay = TRUE;
+    setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&nodelay, sizeof(nodelay));
+    joss_req_arena_begin();
+    return (void*)(uintptr_t)(cfd + 1);
 #else
     (void)srv;
     return NULL;
@@ -729,6 +771,15 @@ const char* fn_Socket_receive(void* sock, int64_t maxBytes) {
     }
     buf[n] = '\0';
     return buf;
+#elif defined(_WIN32)
+    if (!sock || maxBytes <= 0) return "";
+    SOCKET fd = (SOCKET)((uintptr_t)sock - 1);
+    char* buf = (char*)joss_req_alloc((size_t)maxBytes + 1);
+    if (!buf) return "";
+    int n = recv(fd, buf, (int)maxBytes, 0);
+    if (n <= 0) return "";
+    buf[n] = '\0';
+    return buf;
 #else
     (void)sock;
     (void)maxBytes;
@@ -741,6 +792,10 @@ int64_t fn_Socket_send(void* sock, const char* data) {
     int fd = (int)(intptr_t)sock - 1;
     if (fd < 0 || !data) return 0;
     return (int64_t)send(fd, data, strlen(data), 0);
+#elif defined(_WIN32)
+    if (!sock || !data) return 0;
+    SOCKET fd = (SOCKET)((uintptr_t)sock - 1);
+    return (int64_t)send(fd, data, (int)strlen(data), 0);
 #else
     (void)sock;
     (void)data;
@@ -752,6 +807,12 @@ void fn_Socket_close(void* sock) {
 #if defined(__unix__) || defined(__APPLE__)
     int fd = (int)(intptr_t)sock - 1;
     if (fd >= 0) close(fd);
+    joss_req_arena_reset();
+#elif defined(_WIN32)
+    if (sock) {
+        SOCKET fd = (SOCKET)((uintptr_t)sock - 1);
+        closesocket(fd);
+    }
     joss_req_arena_reset();
 #else
     (void)sock;
