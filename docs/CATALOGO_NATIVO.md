@@ -920,6 +920,7 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `is_float`
 - `is_int`
 - `is_integer`
+- `is_map`
 - `is_null`
 - `is_numeric`
 - `is_string`
@@ -986,4 +987,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 52 clases, 513 métodos y 139 built-ins.
+Total: 52 clases, 513 métodos y 140 built-ins.

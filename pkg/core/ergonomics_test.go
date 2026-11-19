@@ -452,7 +452,7 @@ func TestJSONEncodeAndDecodeArrays(t *testing.T) {
     ]
     let $json2 = json_encode($assoc)
     let $dec2 = json_decode($json2)
-    (!is_array($dec2) || $dec2["nombre"] != "Carlos" || $dec2["edad"] != 30) ? {
+    (!is_map($dec2) || $dec2["nombre"] != "Carlos" || $dec2["edad"] != 30) ? {
         return false
     } : {}
     ($dec2["detalles"]["ciudad"] != "Lima" || $dec2["detalles"]["piso"] != 4) ? {

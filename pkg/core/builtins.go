@@ -45,7 +45,7 @@ func joinBuiltinGroups(groups ...[]builtinDefinition) []builtinDefinition {
 var builtinDefinitions = joinBuiltinGroups(
 	builtinGroup(builtinCollections, typesystem.Bool,
 		"isset", "empty", "is_string", "is_numeric", "is_int", "is_integer", "is_float", "is_double", "is_decimal",
-		"is_array", "is_null", "in_array", "array_key_exists", "any", "all"),
+		"is_array", "is_map", "is_null", "in_array", "array_key_exists", "any", "all"),
 	builtinGroup(builtinCollections, typesystem.Void, "map_delete"),
 	builtinGroup(builtinCollections, typesystem.Int, "intval", "boolval", "len", "count"),
 	builtinGroup(builtinCollections, typesystem.Float, "floatval", "doubleval"),

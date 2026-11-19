@@ -222,11 +222,18 @@ func (r *Runtime) callBuiltinArray(name string, args []interface{}) (interface{}
 			if _, ok := args[0].([]interface{}); ok {
 				return true, true
 			}
+			val := reflect.ValueOf(args[0])
+			return val.Kind() == reflect.Slice || val.Kind() == reflect.Array, true
+		}
+		return false, true
+
+	case "is_map":
+		if len(args) == 1 {
 			if _, ok := args[0].(map[string]interface{}); ok {
 				return true, true
 			}
 			val := reflect.ValueOf(args[0])
-			return val.Kind() == reflect.Slice || val.Kind() == reflect.Array || val.Kind() == reflect.Map, true
+			return val.Kind() == reflect.Map, true
 		}
 		return false, true
 

@@ -140,6 +140,7 @@
     "is_float",
     "is_int",
     "is_integer",
+    "is_map",
     "is_null",
     "is_numeric",
     "is_string",

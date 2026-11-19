@@ -102,7 +102,7 @@ foreach ($queryPairs as $queryPair) {
 string $contentType = strtolower($headers ["content-type"] ?? "")
 (str_contains($contentType, "application/json")) ? {
     var $jsonPayload = json_decode($body)
-    (is_array($jsonPayload)) ? {
+    (is_array($jsonPayload) || is_map($jsonPayload)) ? {
         foreach ($jsonPayload as $key => $value) {
             $request [strval($key)] = $value
         }
