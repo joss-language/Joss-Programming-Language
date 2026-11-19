@@ -12,42 +12,21 @@ import (
 )
 
 func init() {
-	clangPath, _ := exec.LookPath("clang")
-	if clangPath == "" {
-		return
-	}
-	lldPath, _ := exec.LookPath("ld.lld")
-	if lldPath == "" {
-		lldPath, _ = exec.LookPath("lld")
-	}
-	native.RegisterExternalLLVMCompiler(func(llvmIR string, outputPath string, opts native.BuildOptions) error {
-		return compileLLVMWithOptions(clangPath, lldPath, llvmIR, outputPath, opts)
-	})
+	RegisterAvailableToolchain()
 }
 
-func findJossRuntimeC(hint string) (string, error) {
-	if hint != "" {
-		if _, err := os.Stat(hint); err == nil {
-			return hint, nil
-		}
+// RegisterAvailableToolchain registra el compilador LLVM/C si hay un toolchain
+// bundled, gestionado por Joss (~/.joss/toolchain) o instalado en el sistema.
+func RegisterAvailableToolchain() {
+	if ResolveToolchain().Available() {
+		native.RegisterExternalLLVMCompiler(func(llvmIR string, outputPath string, opts native.BuildOptions) error {
+			tc, err := EnsureToolchain()
+			if err != nil {
+				return err
+			}
+			return compileLLVMWithToolchain(tc, llvmIR, outputPath, opts)
+		})
 	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	dir := cwd
-	for i := 0; i < 6; i++ {
-		candidate := filepath.Join(dir, "runtime", "native", "joss_rt.c")
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	return "", fmt.Errorf("no se encontró runtime/native/joss_rt.c desde %s", cwd)
 }
 
 func llvmTargetTriple(t native.Target) string {
@@ -73,8 +52,31 @@ func llvmTargetTriple(t native.Target) string {
 	return ""
 }
 
-func compileLLVMWithOptions(clangPath, lldPath, llvmIR, outputPath string, opts native.BuildOptions) error {
-	rtCPath, err := findJossRuntimeC(opts.RuntimeSource)
+func zigTargetTriple(t native.Target) string {
+	switch t.OS {
+	case "linux":
+		if t.Arch == "arm64" {
+			return "aarch64-linux-gnu"
+		}
+		return "x86_64-linux-gnu"
+	case "darwin":
+		if t.Arch == "arm64" {
+			return "aarch64-macos"
+		}
+		return "x86_64-macos"
+	case "windows":
+		if t.Arch == "arm64" {
+			return "aarch64-windows-gnu"
+		}
+		return "x86_64-windows-gnu"
+	case "android":
+		return "aarch64-linux-android"
+	}
+	return ""
+}
+
+func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts native.BuildOptions) error {
+	rtCPath, err := EnsureRuntimeC(opts.RuntimeSource)
 	if err != nil {
 		return err
 	}
@@ -99,15 +101,32 @@ func compileLLVMWithOptions(clangPath, lldPath, llvmIR, outputPath string, opts 
 		optLevel = "-O0"
 	}
 	triple := llvmTargetTriple(opts.Target)
+	zigTriple := zigTargetTriple(opts.Target)
 
-	runClang := func(args ...string) error {
+	runCC := func(args ...string) error {
 		var stderr bytes.Buffer
-		cmd := exec.Command(clangPath, args...)
+		var cmd *exec.Cmd
+		if tc.UseZigCC {
+			zigArgs := append([]string{"cc"}, args...)
+			cmd = exec.Command(tc.CompilerPath, zigArgs...)
+		} else {
+			cmd = exec.Command(tc.CompilerPath, args...)
+		}
 		cmd.Stderr = &stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("clang %v failed: %w\n%s", args, err, stderr.String())
+			return fmt.Errorf("%s %v failed: %w\n%s", tc.Kind, args, err, stderr.String())
 		}
 		return nil
+	}
+
+	var bundledInc, bundledLib string
+	if tc.RootDir != "" {
+		if fi, statErr := os.Stat(filepath.Join(tc.RootDir, "include")); statErr == nil && fi.IsDir() {
+			bundledInc = filepath.Join(tc.RootDir, "include")
+		}
+		if fi, statErr := os.Stat(filepath.Join(tc.RootDir, "lib")); statErr == nil && fi.IsDir() {
+			bundledLib = filepath.Join(tc.RootDir, "lib")
+		}
 	}
 
 	compileArgs := func(src, obj string, extra ...string) []string {
@@ -115,7 +134,14 @@ func compileLLVMWithOptions(clangPath, lldPath, llvmIR, outputPath string, opts 
 		if !opts.Debug && strings.HasSuffix(src, ".c") {
 			args = append(args, "-fvisibility=hidden", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables")
 		}
-		if triple != "" {
+		if bundledInc != "" && strings.HasSuffix(src, ".c") {
+			args = append(args, "-I"+bundledInc)
+		}
+		if tc.UseZigCC {
+			if zigTriple != "" {
+				args = append(args, "-target", zigTriple)
+			}
+		} else if triple != "" {
 			args = append(args, "--target="+triple)
 		}
 		args = append(args, extra...)
@@ -123,14 +149,19 @@ func compileLLVMWithOptions(clangPath, lldPath, llvmIR, outputPath string, opts 
 		return args
 	}
 
-	if err := runClang(compileArgs(llPath, progObjPath)...); err != nil {
+	if err := runCC(compileArgs(llPath, progObjPath)...); err != nil {
 		return err
 	}
-	if err := runClang(compileArgs(rtCPath, rtObjPath)...); err != nil {
+	if err := runCC(compileArgs(rtCPath, rtObjPath)...); err != nil {
 		return err
 	}
 
 	linkArgs := []string{"-o", outputPath, progObjPath, rtObjPath}
+	if bundledLib != "" {
+		linkArgs = append(linkArgs, "-L"+bundledLib)
+	}
+	lldPath := tc.LLDPath
+	runClang := runCC
 
 	rtDir := filepath.Dir(rtCPath)
 	needsDB := strings.Contains(llvmIR, "joss___joss_db_")
@@ -187,48 +218,52 @@ func compileLLVMWithOptions(clangPath, lldPath, llvmIR, outputPath string, opts 
 	if opts.Target.OS == "linux" || opts.Target.OS == "android" || opts.Target.OS == "" {
 		linkArgs = append(linkArgs, "-Wl,--as-needed")
 	}
-	if needsDB {
-		if dbDrivers.sqlite {
-			if _, err := os.Stat("/usr/include/sqlite3.h"); err == nil {
-				linkArgs = append(linkArgs, "-lsqlite3")
+	hasHeader := func(rel string) bool {
+		if bundledInc != "" {
+			if _, err := os.Stat(filepath.Join(bundledInc, rel)); err == nil {
+				return true
 			}
 		}
-		if dbDrivers.postgres {
-			if _, err := os.Stat("/usr/include/postgresql/libpq-fe.h"); err == nil {
-				linkArgs = append(linkArgs, "-lpq")
-			} else if _, err := os.Stat("/usr/include/libpq-fe.h"); err == nil {
-				linkArgs = append(linkArgs, "-lpq")
-			}
+		if _, err := os.Stat(filepath.Join("/usr/include", rel)); err == nil {
+			return true
+		}
+		return false
+	}
+	if needsDB {
+		if dbDrivers.sqlite && hasHeader("sqlite3.h") {
+			linkArgs = append(linkArgs, "-lsqlite3")
+		}
+		if dbDrivers.postgres && (hasHeader("postgresql/libpq-fe.h") || hasHeader("libpq-fe.h")) {
+			linkArgs = append(linkArgs, "-lpq")
 		}
 		if dbDrivers.mysql {
-			if _, err := os.Stat("/usr/include/mariadb/mysql.h"); err == nil {
+			if hasHeader("mariadb/mysql.h") {
 				linkArgs = append(linkArgs, "-lmariadb")
-			} else if _, err := os.Stat("/usr/include/mysql/mysql.h"); err == nil {
+			} else if hasHeader("mysql/mysql.h") {
 				linkArgs = append(linkArgs, "-lmysqlclient")
 			}
 		}
-		if dbDrivers.odbc {
-			if _, err := os.Stat("/usr/include/sql.h"); err == nil {
-				linkArgs = append(linkArgs, "-lodbc")
-			}
+		if dbDrivers.odbc && hasHeader("sql.h") {
+			linkArgs = append(linkArgs, "-lodbc")
 		}
 	}
-	if needsCrypto {
-		if _, err := os.Stat("/usr/include/openssl/evp.h"); err == nil {
-			linkArgs = append(linkArgs, "-lcrypto")
-		}
+	if needsCrypto && hasHeader("openssl/evp.h") {
+		linkArgs = append(linkArgs, "-lcrypto")
+	}
+	if needsWeb && opts.Target.OS == "windows" {
+		linkArgs = append(linkArgs, "-lws2_32")
 	}
 	if needsThreads && (opts.Target.OS == "linux" || opts.Target.OS == "") {
 		linkArgs = append(linkArgs, "-pthread")
 	}
-	if lldPath != "" {
+	if !tc.UseZigCC && lldPath != "" {
 		linkArgs = append(linkArgs, "-fuse-ld=lld")
 	}
 	if opts.Target.OS == "linux" || opts.Target.OS == "android" || opts.Target.OS == "" {
 		linkArgs = append(linkArgs, "-Wl,--gc-sections")
 		if !opts.Debug {
 			linkArgs = append(linkArgs, "-Wl,--strip-all")
-			if lldPath != "" {
+			if lldPath != "" || tc.UseZigCC {
 				linkArgs = append(linkArgs, "-Wl,--icf=safe")
 			}
 		}
@@ -238,7 +273,11 @@ func compileLLVMWithOptions(clangPath, lldPath, llvmIR, outputPath string, opts 
 			linkArgs = append(linkArgs, "-Wl,-x")
 		}
 	}
-	if triple != "" {
+	if tc.UseZigCC {
+		if zigTriple != "" {
+			linkArgs = append(linkArgs, "-target", zigTriple)
+		}
+	} else if triple != "" {
 		linkArgs = append(linkArgs, "--target="+triple)
 	}
 	return runClang(linkArgs...)

@@ -300,6 +300,8 @@ func main() {
 		handleUserStorage(os.Args[2])
 	case "doctor":
 		os.Exit(handleDoctor(os.Args[2:]))
+	case "toolchain":
+		os.Exit(handleToolchainCommand(os.Args[2:]))
 	case "version":
 		fmt.Printf("%s v%s (%s)\n", version.Name, version.Version, version.NameVersion)
 	case "pub":
@@ -637,8 +639,11 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		bKind = native.BackendAuto
 	}
 
+	if bKind == native.BackendLLVM {
+		ensureNativeToolchainReady()
+	}
 	if err := native.ValidateAOTCapabilitiesForBackend(irProg, target, bKind); err != nil {
-		if bKind == native.BackendAuto && native.NewNativeCompiler().HasNativeToolchain() {
+		if bKind == native.BackendAuto && ensureNativeToolchainReady() {
 			if llvmErr := native.ValidateAOTCapabilitiesForBackend(irProg, target, native.BackendLLVM); llvmErr == nil {
 				bKind = native.BackendLLVM
 				err = nil
