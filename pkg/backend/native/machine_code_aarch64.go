@@ -474,6 +474,9 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLoadImm64(regX1, 0x400000)
 	b.emitCmp(regX0, regX1)
 	b.emitBranchCond(condLT, ".truthy_true")
+	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".truthy_true")
 	b.emitLdrb(regX2, regX0, 0)
 	b.emitCmp(regX2, regXZR)
 	b.emitBranchCond(condEQ, ".truthy_false")
@@ -523,10 +526,14 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("fn_to_string")
 	b.defineLabel("fn_strval")
 	b.defineLabel("joss_f64_to_string")
-	// If x0 >= 0x400000, it is already a string pointer in rodata or heap, return it
+	// If x0 >= 0x400000 and (x0 >> 47) == 0, it is already a string pointer in rodata or heap, return it
 	b.emitLoadImm64(regX1, 0x400000)
 	b.emitCmp(regX0, regX1)
-	b.emitBranchCond(condGE, ".tostr_ret_fast")
+	b.emitBranchCond(condLT, ".tostr_convert_int")
+	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condEQ, ".tostr_ret_fast")
+	b.defineLabel(".tostr_convert_int")
 
 	b.emitProlog(64)
 	b.emitStr(regX0, regSP, 16) // [sp, 16] = val
@@ -696,8 +703,14 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLoadImm64(regX4, 0x10000)
 	b.emitCmp(regX3, regX4)
 	b.emitBranchCond(condLT, ".obj_get_next")
+	b.emitInst(0xD36FFC70) // lsr x16, x3, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".obj_get_next")
 	b.emitCmp(regX1, regX4)
 	b.emitBranchCond(condLT, ".obj_get_next")
+	b.emitInst(0xD36FFC30) // lsr x16, x1, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".obj_get_next")
 	b.emitMovReg(regX0, regX3)
 	b.emitCall("__joss_rt_strcmp")
 	b.emitCmp(regX0, regXZR)
@@ -744,8 +757,14 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLoadImm64(regX4, 0x10000)
 	b.emitCmp(regX3, regX4)
 	b.emitBranchCond(condLT, ".obj_set_next")
+	b.emitInst(0xD36FFC70) // lsr x16, x3, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".obj_set_next")
 	b.emitCmp(regX1, regX4)
 	b.emitBranchCond(condLT, ".obj_set_next")
+	b.emitInst(0xD36FFC30) // lsr x16, x1, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".obj_set_next")
 	b.emitMovReg(regX0, regX3)
 	b.emitCall("__joss_rt_strcmp")
 	b.emitCmp(regX0, regXZR)
@@ -862,7 +881,11 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("joss_arr_get_str")
 	b.emitLoadImm64(regX2, 0x10000)
 	b.emitCmp(regX1, regX2)
-	b.emitBranchCond(condGE, "joss_map_get_i64")
+	b.emitBranchCond(condLT, ".arr_get_by_idx")
+	b.emitInst(0xD36FFC30) // lsr x16, x1, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condEQ, "joss_map_get_i64")
+	b.defineLabel(".arr_get_by_idx")
 	b.emitCmp(regX0, regXZR)
 	b.emitBranchCond(condEQ, ".arr_get_zero")
 	b.emitLoadImm64(regX3, 8)
@@ -880,7 +903,11 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("joss_arr_set_str")
 	b.emitLoadImm64(regX3, 0x10000)
 	b.emitCmp(regX1, regX3)
-	b.emitBranchCond(condGE, "joss_map_set_i64")
+	b.emitBranchCond(condLT, ".arr_set_by_idx")
+	b.emitInst(0xD36FFC30) // lsr x16, x1, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condEQ, "joss_map_set_i64")
+	b.defineLabel(".arr_set_by_idx")
 	b.emitCmp(regX0, regXZR)
 	b.emitBranchCond(condEQ, ".arr_set_ret")
 	b.emitLoadImm64(regX3, 8)
@@ -922,8 +949,14 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLoadImm64(regX4, 0x10000)
 	b.emitCmp(regX3, regX4)
 	b.emitBranchCond(condLT, ".map_delete_next")
+	b.emitInst(0xD36FFC70) // lsr x16, x3, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".map_delete_next")
 	b.emitCmp(regX1, regX4)
 	b.emitBranchCond(condLT, ".map_delete_next")
+	b.emitInst(0xD36FFC30) // lsr x16, x1, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".map_delete_next")
 	b.emitMovReg(regX0, regX3)
 	b.emitCall("__joss_rt_strcmp")
 	b.emitCmp(regX0, regXZR)
@@ -1014,8 +1047,14 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLoadImm64(regX4, 0x10000)
 	b.emitCmp(regX3, regX4)
 	b.emitBranchCond(condLT, ".ake_arm_next")
+	b.emitInst(0xD36FFC70) // lsr x16, x3, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".ake_arm_next")
 	b.emitCmp(regX1, regX4)
 	b.emitBranchCond(condLT, ".ake_arm_next")
+	b.emitInst(0xD36FFC30) // lsr x16, x1, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".ake_arm_next")
 	b.emitMovReg(regX0, regX3)
 	b.emitCall("__joss_rt_strcmp")
 	b.emitCmp(regX0, regXZR)

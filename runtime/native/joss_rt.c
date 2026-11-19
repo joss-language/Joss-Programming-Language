@@ -317,7 +317,7 @@ void joss_sb_free(JossStringBuilder* sb) {
  * Core Printing & Strings
  * ========================================================================= */
 void joss_print_i64(int64_t v) {
-    printf("%" PRId64 "\n", v);
+    printf("%" PRId64 "\n", joss_unbox_value(v));
     fflush(stdout);
 }
 
@@ -452,11 +452,18 @@ int64_t joss_arr_len(void* arr) {
     return a ? a->len : 0;
 }
 
+void* joss_arr_push_ret(void* arr, int64_t val) {
+    if (!arr) {
+        arr = joss_arr_new(4);
+    }
+    joss_arr_push_i64(arr, val);
+    return arr;
+}
+
 int64_t joss_array_pop(void* arr) {
     JossArray* a = (JossArray*)arr;
     if (!a || a->len <= 0) return 0;
-    a->len--;
-    return a->items[a->len];
+    return a->items[a->len - 1];
 }
 
 /* =========================================================================
@@ -608,7 +615,14 @@ int64_t joss_max(int64_t a, int64_t b) {
 }
 
 int64_t joss_strlen(const char* s) {
-    return s ? (int64_t)strlen(s) : 0;
+    if (!s) return 0;
+    int64_t runes = 0;
+    for (const char* p = s; *p; p++) {
+        if (((unsigned char)*p & 0xC0) != 0x80) {
+            runes++;
+        }
+    }
+    return runes;
 }
 
 int joss_str_contains(const char* s, const char* sub) {

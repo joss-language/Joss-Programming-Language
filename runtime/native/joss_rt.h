@@ -119,6 +119,7 @@ const char* joss_arr_get_str(void* arr, int64_t idx);
 void        joss_arr_set_i64(void* arr, int64_t idx, int64_t val);
 void        joss_arr_set_str(void* arr, int64_t idx, const char* val);
 int64_t     joss_arr_len(void* arr);
+void*       joss_arr_push_ret(void* arr, int64_t val);
 int64_t     joss_array_pop(void* arr);
 
 void*       joss_map_new(void);

@@ -2935,7 +2935,7 @@ func (l *Lowerer) isKnownInt(val Value) bool {
 				return true
 			case *CallBuiltinInst:
 				switch i.BuiltinID {
-				case "strlen", "len", "count", "intval", "strpos", "abs", "min", "max":
+				case "strlen", "len", "count", "intval", "abs", "min", "max":
 					return true
 				}
 				return false

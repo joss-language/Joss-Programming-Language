@@ -292,7 +292,7 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 					if ci.Dest != nil {
 						retT = ci.Dest.ValueType
 					}
-					registerCallDecl(rtFunc, ci.Dest, retT, ci.Args, nil)
+					registerCallDecl(rtFunc, ci.Dest, retT, normalizePrimitiveMethodArgs(ci.MethodName, ci.Args), nil)
 				case *ir.TryCatchInst:
 					scanDecls(ci.TryBlocks)
 					scanDecls(ci.CatchBlocks)
@@ -1194,7 +1194,7 @@ func resolveLLVMPrimitiveMethodSym(typeKind, methodName string) string {
 		case "length", "count":
 			return "joss_arr_len"
 		case "push":
-			return "joss_arr_push_i64"
+			return "joss_arr_push_ret"
 		case "pop":
 			return "joss_array_pop"
 		}
@@ -1208,6 +1208,20 @@ func resolveLLVMPrimitiveMethodSym(typeKind, methodName string) string {
 		}
 	}
 	return fmt.Sprintf("joss_%s_%s", cleanIdent(typeKind), cleanIdent(methodName))
+}
+
+func normalizePrimitiveMethodArgs(methodName string, args []ir.Value) []ir.Value {
+	switch methodName {
+	case "length", "count", "pop":
+		if len(args) > 1 {
+			return args[:1]
+		}
+	case "push":
+		if len(args) > 2 {
+			return []ir.Value{args[0], args[len(args)-1]}
+		}
+	}
+	return args
 }
 
 func (e *LLVMEmitter) coerceLLVM(val ir.Value, targetLLVM string, tag string) (string, string) {

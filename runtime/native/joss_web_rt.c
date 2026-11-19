@@ -84,7 +84,7 @@ int64_t joss_strpos(const char* haystack, const char* needle) {
             rune_idx++;
         }
     }
-    return rune_idx;
+    return (int64_t)(uintptr_t)joss_box_i64(rune_idx);
 }
 
 const char* joss_substr(const char* s, int64_t start, int64_t length) {
