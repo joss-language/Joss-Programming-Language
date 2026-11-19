@@ -212,6 +212,17 @@ func (r *Runtime) evaluateMember(me *parser.MemberExpression) interface{} {
 			}
 			if meta != nil {
 				if methodInfo, ok := meta.Methods[me.Property.Value]; ok && methodInfo.Method.IsStatic && methodInfo.Method.Body != nil {
+					// When JOSS_HTTP_BACKEND is configured to use Go (the default for server/run unless --native is specified),
+					// Server::start must execute the concurrent Go HTTP runtime handler rather than being intercepted by
+					// the Pure Joss single-loop TCP fallback defined in std/http/server.joss.
+					if className == "Server" && me.Property.Value == "start" && r.Env["JOSS_HTTP_BACKEND"] == "go" {
+						if _, native := r.NativeHandlers[className]; native {
+							return &BoundMethod{
+								Method:      &parser.MethodStatement{Name: &parser.Identifier{Value: me.Property.Value}},
+								StaticClass: className,
+							}
+						}
+					}
 					r.requireMemberAccess(methodInfo.Method.Visibility, className, methodInfo.Method.Name.Value, methodInfo.Method.Name.Token.Line)
 					return &BoundMethod{Method: methodInfo.Method, Instance: r.newInitializedInstance(classStmt, nil)}
 				}
