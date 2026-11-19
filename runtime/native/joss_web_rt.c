@@ -824,6 +824,15 @@ void fn_Socket_close(void* sock) {
  * ========================================================================= */
 
 const char* joss_request(const char* key, int64_t defVal) {
+    if (key && strcmp(key, "__joss_request_all_fields") == 0) {
+        if (g_joss_active_request && joss_is_map_ptr((int64_t)(uintptr_t)g_joss_active_request)) {
+            return (const char*)g_joss_active_request;
+        }
+        if (defVal != 0 && joss_is_map_ptr(defVal)) {
+            return (const char*)(uintptr_t)defVal;
+        }
+        return (const char*)joss_map_new();
+    }
     if (key && g_joss_active_request && joss_is_map_ptr((int64_t)(uintptr_t)g_joss_active_request)) {
         const char* found = joss_map_get_str(g_joss_active_request, key);
         if (found && *found) return found;

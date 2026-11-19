@@ -68,31 +68,55 @@ func (b *ARM64Builder) emitBranchCond(cond uint32, label string) {
 	b.asmListing.WriteString(fmt.Sprintf("    b.%s %s\n", cName, label))
 }
 
-// STP x29, x30, [sp, #-frameSize]!
+// STP x29, x30, [sp, #-frameSize]! (or SUB sp + STP [sp, #0] for frames > 504 bytes)
 func (b *ARM64Builder) emitProlog(frameSize int32) {
 	if frameSize < 16 {
 		frameSize = 16
 	}
 	frameSize = (frameSize + 15) & ^15
-	imm7 := ((-frameSize) / 8) & 0x7F
-	inst := uint32(0xA9800000) | uint32(0x00200000) | (uint32(imm7) << 15) | (regX30 << 10) | (regSP << 5) | regX29
-	b.emitInst(inst)
+	if frameSize <= 504 {
+		imm7 := ((-frameSize) / 8) & 0x7F
+		inst := uint32(0xA9800000) | (uint32(imm7) << 15) | (regX30 << 10) | (regSP << 5) | regX29
+		b.emitInst(inst)
+		b.asmListing.WriteString(fmt.Sprintf("    stp x29, x30, [sp, #-%d]!\n", frameSize))
+	} else {
+		if frameSize <= 4095 {
+			b.emitInst(uint32(0xD1000000) | (uint32(frameSize) << 10) | (regSP << 5) | regSP)
+		} else {
+			b.emitLoadImm64(regX9, uint64(frameSize))
+			b.emitInst(uint32(0xCB206000) | (regX9 << 16) | (regSP << 5) | regSP)
+		}
+		b.emitInst(uint32(0xA9000000) | (regX30 << 10) | (regSP << 5) | regX29)
+		b.asmListing.WriteString(fmt.Sprintf("    sub sp, sp, #%d\n    stp x29, x30, [sp, #0]\n", frameSize))
+	}
 	// mov x29, sp -> add x29, sp, #0
 	b.emitInst(0x91000000 | (regSP << 5) | regX29)
-	b.asmListing.WriteString(fmt.Sprintf("    stp x29, x30, [sp, #-%d]!\n    mov x29, sp\n", frameSize))
+	b.asmListing.WriteString("    mov x29, sp\n")
 }
 
-// LDP x29, x30, [sp], #frameSize; ret
+// LDP x29, x30, [sp], #frameSize; ret (or LDP [sp, #0] + ADD sp for frames > 504 bytes)
 func (b *ARM64Builder) emitEpilog(frameSize int32) {
 	if frameSize < 16 {
 		frameSize = 16
 	}
 	frameSize = (frameSize + 15) & ^15
-	imm7 := (frameSize / 8) & 0x7F
-	inst := uint32(0xA8800000) | uint32(0x00400000) | (uint32(imm7) << 15) | (regX30 << 10) | (regSP << 5) | regX29
-	b.emitInst(inst)
+	if frameSize <= 504 {
+		imm7 := (frameSize / 8) & 0x7F
+		inst := uint32(0xA8C00000) | (uint32(imm7) << 15) | (regX30 << 10) | (regSP << 5) | regX29
+		b.emitInst(inst)
+		b.asmListing.WriteString(fmt.Sprintf("    ldp x29, x30, [sp], #%d\n", frameSize))
+	} else {
+		b.emitInst(uint32(0xA9400000) | (regX30 << 10) | (regSP << 5) | regX29)
+		if frameSize <= 4095 {
+			b.emitInst(uint32(0x91000000) | (uint32(frameSize) << 10) | (regSP << 5) | regSP)
+		} else {
+			b.emitLoadImm64(regX9, uint64(frameSize))
+			b.emitInst(uint32(0x8B206000) | (regX9 << 16) | (regSP << 5) | regSP)
+		}
+		b.asmListing.WriteString(fmt.Sprintf("    ldp x29, x30, [sp, #0]\n    add sp, sp, #%d\n", frameSize))
+	}
 	b.emitRet(regX30)
-	b.asmListing.WriteString(fmt.Sprintf("    ldp x29, x30, [sp], #%d\n    ret\n", frameSize))
+	b.asmListing.WriteString("    ret\n")
 }
 
 // MOV xd, xm (ORR xd, xzr, xm)

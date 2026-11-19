@@ -416,8 +416,8 @@ func TestJITRejectsBridgeCallsWhenPlatformHasNoCallbackABI(t *testing.T) {
 	main.EntryBlock.AddInstruction(&ir.CallHostServiceInst{ClassName: "UnixBridgeProbe", MethodName: "call"})
 	main.EntryBlock.SetTerminator(&ir.ReturnTerminator{Val: ir.NewConstInt(0, ir.TypeI64)})
 	program.AddFunction(main)
-	builder = NewMachineCodeBuilder(HostTarget(), false)
-	if _, err := builder.CompileInMemory(program); err == nil || !strings.Contains(err.Error(), "UnixBridgeProbe::call") {
+	emitter := SelectCodeEmitter(HostTarget(), false)
+	if _, err := emitter.CompileInMemory(program); err == nil || !strings.Contains(err.Error(), "UnixBridgeProbe::call") {
 		t.Fatalf("JIT should reject a bridge call before allocating code, got %v", err)
 	}
 }

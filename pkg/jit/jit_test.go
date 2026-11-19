@@ -1,6 +1,7 @@
 package jit_test
 
 import (
+	"os"
 	"runtime"
 	"testing"
 
@@ -8,12 +9,13 @@ import (
 )
 
 func TestJITImageKeepsWritableDataAfterFinalizingText(t *testing.T) {
-	image, err := jit.AllocateJITImage(8192)
+	imageSize := os.Getpagesize() * 2
+	image, err := jit.AllocateJITImage(imageSize)
 	if err != nil {
 		t.Fatalf("AllocateJITImage() error = %v", err)
 	}
 	defer image.Free()
-	if err := image.Write(make([]byte, 8192)); err != nil {
+	if err := image.Write(make([]byte, imageSize)); err != nil {
 		t.Fatalf("Write() before finalization error = %v", err)
 	}
 	if err := image.FinalizeCode(16); err != nil {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/jossecurity/joss/pkg/backend/native"
@@ -76,6 +77,12 @@ func zigTargetTriple(t native.Target) string {
 }
 
 func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts native.BuildOptions) error {
+	if opts.Target.OS == "" {
+		opts.Target.OS = runtime.GOOS
+	}
+	if opts.Target.Arch == "" {
+		opts.Target.Arch = runtime.GOARCH
+	}
 	rtCPath, err := EnsureRuntimeC(opts.RuntimeSource)
 	if err != nil {
 		return err

@@ -156,7 +156,13 @@ func TestSecurityAudit_VULN002_PathTraversalInStorageAndPluginPathBlocked(t *tes
 	plugPath := rt.executePluginMethod(nil, "path", []interface{}{"../../evil_plugin", "../../etc/passwd"})
 	if pStr, ok := plugPath.(string); ok {
 		pluginsRoot, _ := filepath.Abs(filepath.Join(tmpDir, "plugins"))
+		if resolved, err := filepath.EvalSymlinks(pluginsRoot); err == nil {
+			pluginsRoot = resolved
+		}
 		absRes, _ := filepath.Abs(pStr)
+		if resolved, err := filepath.EvalSymlinks(absRes); err == nil {
+			absRes = resolved
+		}
 		rel, relErr := filepath.Rel(pluginsRoot, absRes)
 		if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			t.Fatalf("VULN-002: Plugin::path allowed escaping plugins directory: resolved to %s (outside %s)", absRes, pluginsRoot)
