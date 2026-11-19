@@ -71,7 +71,7 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare i8* @joss_catch_msg()\n")
 	buf.WriteString("declare void @joss_throw(i8*)\n")
 	if e.TargetOS == "windows" {
-		buf.WriteString("declare i32 @_setjmp(i8*, i8*) returns_twice\n")
+		buf.WriteString("declare i32 @setjmp(i8*, i8*) returns_twice\n")
 	} else {
 		buf.WriteString("declare i32 @setjmp(i8*) returns_twice\n")
 	}
@@ -904,7 +904,7 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		var lines []string
 		lines = append(lines, fmt.Sprintf("%%jb_%s = call i8* @joss_try_push()", id))
 		if e.TargetOS == "windows" {
-			lines = append(lines, fmt.Sprintf("%%sj_%s = call i32 @_setjmp(i8* %%jb_%s, i8* null) returns_twice", id, id))
+			lines = append(lines, fmt.Sprintf("%%sj_%s = call i32 @setjmp(i8* %%jb_%s, i8* null) returns_twice", id, id))
 		} else {
 			lines = append(lines, fmt.Sprintf("%%sj_%s = call i32 @setjmp(i8* %%jb_%s) returns_twice", id, id))
 		}
