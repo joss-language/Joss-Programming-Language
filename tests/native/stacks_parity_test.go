@@ -212,3 +212,32 @@ func TestNative_EjemploTestNativoSuite(t *testing.T) {
 	}
 	t.Logf("ejemplos/test-nativo-suite/main.joss native execution PASSED:\n%s", out)
 }
+
+func TestNative_CrossFunctionTryCatchThrow(t *testing.T) {
+	source := `
+public func risky_divide(int $a, int $b): int {
+	($b == 0) ? {
+		throw "div_by_zero";
+	}
+	return intval($a / $b);
+}
+
+try {
+	print(risky_divide(10, 2));
+	print(risky_divide(10, 0));
+	print("unreachable");
+} catch ($e) {
+	print("caught_exception");
+}
+print("after_try_catch");
+`
+	goOut := runGoInterpreter(t, source)
+	nativeOut := runNativeLLVM(t, "cross_fn_try_catch", source, nil)
+	if goOut != nativeOut {
+		t.Fatalf("try/catch parity mismatch:\nGo:\n%s\nNative:\n%s", goOut, nativeOut)
+	}
+	expected := "5\ncaught_exception\nafter_try_catch"
+	if nativeOut != expected {
+		t.Fatalf("unexpected try/catch output:\ngot:\n%s\nwant:\n%s", nativeOut, expected)
+	}
+}

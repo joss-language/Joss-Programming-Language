@@ -229,8 +229,29 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		}
 		return false
 	}
+	bundledSQLiteC := ""
+	if needsDB && dbDrivers.sqlite {
+		for _, cand := range []string{
+			filepath.Join(rtDir, "sqlite3.c"),
+			filepath.Join(bundledInc, "sqlite3.c"),
+		} {
+			if cand != "sqlite3.c" {
+				if fi, statErr := os.Stat(cand); statErr == nil && !fi.IsDir() {
+					bundledSQLiteC = cand
+					break
+				}
+			}
+		}
+		if bundledSQLiteC != "" {
+			sqliteObj := filepath.Join(tmpDir, "sqlite3.o")
+			if err := runCC(compileArgs(bundledSQLiteC, sqliteObj, "-DSQLITE_THREADSAFE=1", "-DSQLITE_OMIT_LOAD_EXTENSION")...); err != nil {
+				return err
+			}
+			linkArgs = append(linkArgs, sqliteObj)
+		}
+	}
 	if needsDB {
-		if dbDrivers.sqlite && hasHeader("sqlite3.h") {
+		if dbDrivers.sqlite && bundledSQLiteC == "" && hasHeader("sqlite3.h") {
 			linkArgs = append(linkArgs, "-lsqlite3")
 		}
 		if dbDrivers.postgres && (hasHeader("postgresql/libpq-fe.h") || hasHeader("libpq-fe.h")) {
