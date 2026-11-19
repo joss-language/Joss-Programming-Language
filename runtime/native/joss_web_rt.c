@@ -1,3 +1,4 @@
+//go:build ignore
 #include "joss_rt.h"
 
 #include <ctype.h>

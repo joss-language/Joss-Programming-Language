@@ -1,3 +1,4 @@
+//go:build ignore
 #include "joss_rt.h"
 
 #include <ctype.h>
@@ -6,7 +7,7 @@
 #include <string.h>
 #include <time.h>
 
-#if defined(__has_include)
+#if defined(__has_include) && !defined(JOSS_FORCE_BUILTIN_CRYPTO)
 #if __has_include(<openssl/evp.h>) && __has_include(<openssl/rand.h>) && __has_include(<openssl/hmac.h>)
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
@@ -312,57 +313,362 @@ int64_t joss_totp_verify(const char* base32_secret, const char* code, int64_t un
 
 #else
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <bcrypt.h>
+#endif
+
+static int joss_ct_memcmp(const void* a, const void* b, size_t n) {
+    const uint8_t* x = (const uint8_t*)a;
+    const uint8_t* y = (const uint8_t*)b;
+    uint8_t diff = 0;
+    for (size_t i = 0; i < n; i++) diff |= (uint8_t)(x[i] ^ y[i]);
+    return diff;
+}
+
+static bool joss_os_random_bytes(uint8_t* buf, size_t len) {
+#if defined(_WIN32)
+    return BCryptGenRandom(NULL, buf, (ULONG)len, BCRYPT_USE_SYSTEM_PREFERRED_RNG) == 0;
+#else
+    FILE* f = fopen("/dev/urandom", "rb");
+    if (!f) return false;
+    size_t n = fread(buf, 1, len, f);
+    fclose(f);
+    return n == len;
+#endif
+}
+
+/* --- Built-in FIPS 180-4 SHA-256 --- */
+static uint32_t rotr32(uint32_t x, uint32_t n) { return (x >> n) | (x << (32 - n)); }
+
+static void sha256_transform(uint32_t state[8], const uint8_t block[64]) {
+    static const uint32_t K[64] = {
+        0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+        0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+        0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+        0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+        0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+        0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+        0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+        0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+    };
+    uint32_t w[64];
+    for (int i = 0; i < 16; i++) {
+        w[i] = ((uint32_t)block[i*4] << 24) | ((uint32_t)block[i*4+1] << 16) |
+               ((uint32_t)block[i*4+2] << 8) | (uint32_t)block[i*4+3];
+    }
+    for (int i = 16; i < 64; i++) {
+        uint32_t s0 = rotr32(w[i-15], 7) ^ rotr32(w[i-15], 18) ^ (w[i-15] >> 3);
+        uint32_t s1 = rotr32(w[i-2], 17) ^ rotr32(w[i-2], 19) ^ (w[i-2] >> 10);
+        w[i] = w[i-16] + s0 + w[i-7] + s1;
+    }
+    uint32_t a=state[0], b=state[1], c=state[2], d=state[3], e=state[4], f=state[5], g=state[6], h=state[7];
+    for (int i = 0; i < 64; i++) {
+        uint32_t S1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25);
+        uint32_t ch = (e & f) ^ ((~e) & g);
+        uint32_t temp1 = h + S1 + ch + K[i] + w[i];
+        uint32_t S0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22);
+        uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
+        uint32_t temp2 = S0 + maj;
+        h = g; g = f; f = e; e = d + temp1; d = c; c = b; b = a; a = temp1 + temp2;
+    }
+    state[0]+=a; state[1]+=b; state[2]+=c; state[3]+=d;
+    state[4]+=e; state[5]+=f; state[6]+=g; state[7]+=h;
+}
+
+static void sha256_raw(const uint8_t* data, size_t len, uint8_t out[32]) {
+    uint32_t state[8] = {
+        0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,
+        0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19
+    };
+    size_t i = 0;
+    while (i + 64 <= len) { sha256_transform(state, data + i); i += 64; }
+    uint8_t tail[128];
+    memset(tail, 0, sizeof(tail));
+    size_t rem = len - i;
+    if (rem > 0) memcpy(tail, data + i, rem);
+    tail[rem] = 0x80;
+    size_t total_blocks = (rem < 56) ? 1 : 2;
+    uint64_t bit_len = (uint64_t)len * 8ULL;
+    for (int j = 0; j < 8; j++) {
+        tail[total_blocks * 64 - 1 - j] = (uint8_t)(bit_len >> (j * 8));
+    }
+    sha256_transform(state, tail);
+    if (total_blocks == 2) sha256_transform(state, tail + 64);
+    for (int j = 0; j < 8; j++) {
+        out[j*4]   = (uint8_t)(state[j] >> 24);
+        out[j*4+1] = (uint8_t)(state[j] >> 16);
+        out[j*4+2] = (uint8_t)(state[j] >> 8);
+        out[j*4+3] = (uint8_t)(state[j]);
+    }
+}
+
+static void hmac_sha256_raw(const uint8_t* key, size_t key_len, const uint8_t* msg, size_t msg_len, uint8_t out[32]) {
+    uint8_t k_pad[64];
+    memset(k_pad, 0, sizeof(k_pad));
+    if (key_len > 64) {
+        sha256_raw(key, key_len, k_pad);
+    } else if (key_len > 0) {
+        memcpy(k_pad, key, key_len);
+    }
+    uint8_t* inner = (uint8_t*)malloc(64 + msg_len);
+    if (!inner) { memset(out, 0, 32); return; }
+    for (int i = 0; i < 64; i++) inner[i] = k_pad[i] ^ 0x36;
+    if (msg_len > 0) memcpy(inner + 64, msg, msg_len);
+    uint8_t ih[32];
+    sha256_raw(inner, 64 + msg_len, ih);
+    free(inner);
+
+    uint8_t outer[64 + 32];
+    for (int i = 0; i < 64; i++) outer[i] = k_pad[i] ^ 0x5C;
+    memcpy(outer + 64, ih, 32);
+    sha256_raw(outer, sizeof(outer), out);
+}
+
+static void pbkdf2_hmac_sha256_raw(const char* password, const uint8_t* salt, size_t salt_len, int iterations, uint8_t out[32]) {
+    size_t pw_len = strlen(password);
+    uint8_t* salt_blk = (uint8_t*)malloc(salt_len + 4);
+    if (!salt_blk) { memset(out, 0, 32); return; }
+    memcpy(salt_blk, salt, salt_len);
+    salt_blk[salt_len] = 0; salt_blk[salt_len+1] = 0; salt_blk[salt_len+2] = 0; salt_blk[salt_len+3] = 1;
+    uint8_t u[32];
+    hmac_sha256_raw((const uint8_t*)password, pw_len, salt_blk, salt_len + 4, u);
+    free(salt_blk);
+    memcpy(out, u, 32);
+    for (int i = 1; i < iterations; i++) {
+        hmac_sha256_raw((const uint8_t*)password, pw_len, u, 32, u);
+        for (int j = 0; j < 32; j++) out[j] ^= u[j];
+    }
+}
+
+/* --- Built-in RFC 3174 SHA-1 + HMAC-SHA1 (for TOTP RFC 6238) --- */
+static uint32_t rotl32(uint32_t x, uint32_t n) { return (x << n) | (x >> (32 - n)); }
+
+static void sha1_transform(uint32_t state[5], const uint8_t block[64]) {
+    uint32_t w[80];
+    for (int i = 0; i < 16; i++) {
+        w[i] = ((uint32_t)block[i*4] << 24) | ((uint32_t)block[i*4+1] << 16) |
+               ((uint32_t)block[i*4+2] << 8) | (uint32_t)block[i*4+3];
+    }
+    for (int i = 16; i < 80; i++) w[i] = rotl32(w[i-3] ^ w[i-8] ^ w[i-14] ^ w[i-16], 1);
+    uint32_t a=state[0], b=state[1], c=state[2], d=state[3], e=state[4];
+    for (int i = 0; i < 80; i++) {
+        uint32_t f, k;
+        if (i < 20)      { f = (b & c) | ((~b) & d); k = 0x5A827999; }
+        else if (i < 40) { f = b ^ c ^ d;            k = 0x6ED9EBA1; }
+        else if (i < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
+        else             { f = b ^ c ^ d;            k = 0xCA62C1D6; }
+        uint32_t tmp = rotl32(a, 5) + f + e + k + w[i];
+        e = d; d = c; c = rotl32(b, 30); b = a; a = tmp;
+    }
+    state[0]+=a; state[1]+=b; state[2]+=c; state[3]+=d; state[4]+=e;
+}
+
+static void sha1_raw(const uint8_t* data, size_t len, uint8_t out[20]) {
+    uint32_t state[5] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0};
+    size_t i = 0;
+    while (i + 64 <= len) { sha1_transform(state, data + i); i += 64; }
+    uint8_t tail[128];
+    memset(tail, 0, sizeof(tail));
+    size_t rem = len - i;
+    if (rem > 0) memcpy(tail, data + i, rem);
+    tail[rem] = 0x80;
+    size_t total_blocks = (rem < 56) ? 1 : 2;
+    uint64_t bit_len = (uint64_t)len * 8ULL;
+    for (int j = 0; j < 8; j++) {
+        tail[total_blocks * 64 - 1 - j] = (uint8_t)(bit_len >> (j * 8));
+    }
+    sha1_transform(state, tail);
+    if (total_blocks == 2) sha1_transform(state, tail + 64);
+    for (int j = 0; j < 5; j++) {
+        out[j*4]   = (uint8_t)(state[j] >> 24);
+        out[j*4+1] = (uint8_t)(state[j] >> 16);
+        out[j*4+2] = (uint8_t)(state[j] >> 8);
+        out[j*4+3] = (uint8_t)(state[j]);
+    }
+}
+
+static void hmac_sha1_raw(const uint8_t* key, size_t key_len, const uint8_t* msg, size_t msg_len, uint8_t out[20]) {
+    uint8_t k_pad[64];
+    memset(k_pad, 0, sizeof(k_pad));
+    if (key_len > 64) sha1_raw(key, key_len, k_pad);
+    else if (key_len > 0) memcpy(k_pad, key, key_len);
+    uint8_t* inner = (uint8_t*)malloc(64 + msg_len);
+    if (!inner) { memset(out, 0, 20); return; }
+    for (int i = 0; i < 64; i++) inner[i] = k_pad[i] ^ 0x36;
+    if (msg_len > 0) memcpy(inner + 64, msg, msg_len);
+    uint8_t ih[20];
+    sha1_raw(inner, 64 + msg_len, ih);
+    free(inner);
+
+    uint8_t outer[64 + 20];
+    for (int i = 0; i < 64; i++) outer[i] = k_pad[i] ^ 0x5C;
+    memcpy(outer + 64, ih, 20);
+    sha1_raw(outer, sizeof(outer), out);
+}
+
+static void totp_for_step_builtin(const uint8_t* key, size_t key_len, uint64_t step, char out[7]) {
+    uint8_t msg[8];
+    for (int i = 7; i >= 0; i--) { msg[i] = (uint8_t)(step & 0xFF); step >>= 8; }
+    uint8_t digest[20];
+    hmac_sha1_raw(key, key_len, msg, sizeof(msg), digest);
+    int offset = digest[19] & 0x0F;
+    uint32_t bin_code = (((uint32_t)(digest[offset] & 0x7F)) << 24) |
+                        (((uint32_t)digest[offset + 1]) << 16) |
+                        (((uint32_t)digest[offset + 2]) << 8) |
+                        ((uint32_t)digest[offset + 3]);
+    snprintf(out, 7, "%06u", bin_code % 1000000U);
+}
+
 const char* joss_sha256(const char* s) {
-    (void)s;
-    joss_panic("JOSS-CRYPTO-003: OpenSSL libcrypto required for joss_sha256");
-    return "";
+    if (!s) s = "";
+    uint8_t digest[32];
+    sha256_raw((const uint8_t*)s, strlen(s), digest);
+    char* out = (char*)joss_req_alloc(65);
+    if (!out) return "";
+    bytes_to_hex(digest, 32, out);
+    return out;
 }
 
 const char* joss_random_hex(int64_t num_bytes) {
-    (void)num_bytes;
-    joss_panic("JOSS-CRYPTO-003: OpenSSL libcrypto required for joss_random_hex");
-    return "";
+    if (num_bytes <= 0) num_bytes = 16;
+    if (num_bytes > 256) num_bytes = 256;
+    uint8_t buf[256];
+    if (!joss_os_random_bytes(buf, (size_t)num_bytes)) {
+        joss_panic("JOSS-CRYPTO-001: OS CSPRNG failed");
+    }
+    char* out = (char*)joss_req_alloc((size_t)num_bytes * 2 + 1);
+    if (!out) return "";
+    bytes_to_hex(buf, (size_t)num_bytes, out);
+    return out;
 }
 
 const char* joss_password_hash(const char* password) {
-    (void)password;
-    joss_panic("JOSS-CRYPTO-003: OpenSSL libcrypto required for joss_password_hash");
-    return "";
+    if (!password) password = "";
+    const int iterations = 100000;
+    uint8_t salt[16];
+    uint8_t dk[32];
+    if (!joss_os_random_bytes(salt, sizeof(salt))) {
+        joss_panic("JOSS-CRYPTO-001: OS CSPRNG salt generation failed");
+    }
+    pbkdf2_hmac_sha256_raw(password, salt, sizeof(salt), iterations, dk);
+    char salt_hex[33], dk_hex[65];
+    bytes_to_hex(salt, sizeof(salt), salt_hex);
+    bytes_to_hex(dk, sizeof(dk), dk_hex);
+    char* out = (char*)joss_req_alloc(140);
+    if (!out) return "";
+    snprintf(out, 140, "$pbkdf2-sha256$%d$%s$%s", iterations, salt_hex, dk_hex);
+    return out;
 }
 
 int64_t joss_password_verify(const char* hash, const char* password) {
-    (void)hash;
-    (void)password;
-    joss_panic("JOSS-CRYPTO-003: OpenSSL libcrypto required for joss_password_verify");
-    return 0;
+    if (!hash || !password) return 0;
+    const char* prefix = "$pbkdf2-sha256$";
+    size_t plen = strlen(prefix);
+    if (strncmp(hash, prefix, plen) != 0) return 0;
+    const char* p = hash + plen;
+    const char* d1 = strchr(p, '$');
+    if (!d1) return 0;
+    int iterations = atoi(p);
+    if (iterations < 1000 || iterations > 5000000) return 0;
+    const char* salt_start = d1 + 1;
+    const char* d2 = strchr(salt_start, '$');
+    if (!d2 || (size_t)(d2 - salt_start) != 32) return 0;
+    char salt_hex[33];
+    memcpy(salt_hex, salt_start, 32);
+    salt_hex[32] = '\0';
+    uint8_t salt[16], expected_dk[32], actual_dk[32];
+    if (!hex_to_bytes(salt_hex, salt, 16)) return 0;
+    if (!hex_to_bytes(d2 + 1, expected_dk, 32)) return 0;
+    pbkdf2_hmac_sha256_raw(password, salt, sizeof(salt), iterations, actual_dk);
+    return joss_ct_memcmp(actual_dk, expected_dk, 32) == 0 ? 1 : 0;
 }
 
 const char* joss_jwt_sign(const char* payload_json, const char* secret) {
-    (void)payload_json;
-    (void)secret;
-    joss_panic("JOSS-CRYPTO-003: OpenSSL libcrypto required for joss_jwt_sign");
-    return "";
+    if (!payload_json) payload_json = "{}";
+    if (!secret) secret = "";
+    const char* header_json = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
+    char* h_b64 = b64url_encode((const uint8_t*)header_json, strlen(header_json));
+    char* p_b64 = b64url_encode((const uint8_t*)payload_json, strlen(payload_json));
+    if (!h_b64 || !p_b64) return "";
+    size_t h_len = strlen(h_b64), p_len = strlen(p_b64), msg_len = h_len + 1 + p_len;
+    char* msg = (char*)joss_req_alloc(msg_len + 1);
+    if (!msg) return "";
+    memcpy(msg, h_b64, h_len); msg[h_len] = '.'; memcpy(msg + h_len + 1, p_b64, p_len); msg[msg_len] = '\0';
+    uint8_t mac[32];
+    hmac_sha256_raw((const uint8_t*)secret, strlen(secret), (const uint8_t*)msg, msg_len, mac);
+    char* s_b64 = b64url_encode(mac, 32);
+    if (!s_b64) return "";
+    size_t s_len = strlen(s_b64);
+    char* token = (char*)joss_req_alloc(msg_len + 1 + s_len + 1);
+    if (!token) return "";
+    memcpy(token, msg, msg_len); token[msg_len] = '.'; memcpy(token + msg_len + 1, s_b64, s_len); token[msg_len + 1 + s_len] = '\0';
+    return token;
 }
 
 int64_t joss_jwt_verify(const char* token, const char* secret) {
-    (void)token;
-    (void)secret;
-    joss_panic("JOSS-CRYPTO-003: OpenSSL libcrypto required for joss_jwt_verify");
-    return 0;
+    if (!token || !secret) return 0;
+    const char* dot1 = strchr(token, '.');
+    if (!dot1) return 0;
+    const char* dot2 = strchr(dot1 + 1, '.');
+    if (!dot2 || strchr(dot2 + 1, '.') != NULL) return 0;
+    size_t msg_len = (size_t)(dot2 - token);
+    const char* given_sig = dot2 + 1;
+    size_t given_len = strlen(given_sig);
+    if (given_len == 0) return 0;
+    uint8_t mac[32];
+    hmac_sha256_raw((const uint8_t*)secret, strlen(secret), (const uint8_t*)token, msg_len, mac);
+    char* expected_sig = b64url_encode(mac, 32);
+    if (!expected_sig || strlen(expected_sig) != given_len) return 0;
+    return joss_ct_memcmp(expected_sig, given_sig, given_len) == 0 ? 1 : 0;
 }
 
 const char* joss_totp_generate(const char* base32_secret, int64_t unix_time) {
-    (void)base32_secret;
-    (void)unix_time;
-    joss_panic("JOSS-CRYPTO-003: OpenSSL libcrypto required for joss_totp_generate");
-    return "";
+    if (!base32_secret || !*base32_secret) return "000000";
+    if (unix_time <= 0) unix_time = (int64_t)time(NULL);
+    uint8_t key[128];
+    size_t key_len = base32_decode(base32_secret, key, sizeof(key));
+    if (key_len == 0) {
+        key_len = strlen(base32_secret);
+        if (key_len > sizeof(key)) key_len = sizeof(key);
+        memcpy(key, base32_secret, key_len);
+    }
+    char* out = (char*)joss_req_alloc(7);
+    if (!out) return "000000";
+    totp_for_step_builtin(key, key_len, (uint64_t)(unix_time / 30), out);
+    return out;
 }
 
 int64_t joss_totp_verify(const char* base32_secret, const char* code, int64_t unix_time) {
-    (void)base32_secret;
-    (void)code;
-    (void)unix_time;
-    joss_panic("JOSS-CRYPTO-003: OpenSSL libcrypto required for joss_totp_verify");
+    if (!base32_secret || !*base32_secret || !code) return 0;
+    while (*code == ' ' || *code == '\t') code++;
+    char clean[7];
+    size_t clen = 0;
+    while (code[clen] != '\0' && code[clen] != ' ' && code[clen] != '\t' && clen < 6) {
+        if (code[clen] < '0' || code[clen] > '9') return 0;
+        clean[clen] = code[clen];
+        clen++;
+    }
+    if (clen != 6 || (code[clen] != '\0' && code[clen] != ' ' && code[clen] != '\t')) return 0;
+    clean[6] = '\0';
+    if (unix_time <= 0) unix_time = (int64_t)time(NULL);
+    uint8_t key[128];
+    size_t key_len = base32_decode(base32_secret, key, sizeof(key));
+    if (key_len == 0) {
+        key_len = strlen(base32_secret);
+        if (key_len > sizeof(key)) key_len = sizeof(key);
+        memcpy(key, base32_secret, key_len);
+    }
+    int64_t base_step = unix_time / 30;
+    for (int64_t delta = -1; delta <= 1; delta++) {
+        if (base_step + delta < 0) continue;
+        char expected[7];
+        totp_for_step_builtin(key, key_len, (uint64_t)(base_step + delta), expected);
+        if (joss_ct_memcmp(expected, clean, 6) == 0) return 1;
+    }
     return 0;
 }
 

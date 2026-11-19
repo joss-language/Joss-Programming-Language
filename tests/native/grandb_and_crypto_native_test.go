@@ -22,6 +22,9 @@ func TestNative_GranDB_RealSQLiteCRUD(t *testing.T) {
 	if !nc.HasNativeToolchain() {
 		t.Skip("clang not available on PATH")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("SQLite3 C development library not preinstalled on Windows CI runner")
+	}
 
 	tmpDir := t.TempDir()
 	dbFile := filepath.Join(tmpDir, "app.sqlite")

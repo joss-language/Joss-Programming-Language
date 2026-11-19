@@ -78,7 +78,7 @@ func runNativeLLVM(t *testing.T, name, source string, env []string) string {
 	if err != nil {
 		t.Fatalf("native exec failed: %v\n%s", err, string(out))
 	}
-	return strings.TrimSpace(string(out))
+	return strings.TrimSpace(strings.ReplaceAll(string(out), "\r\n", "\n"))
 }
 
 func TestParity_GoVsNative_JWTAndRFC6238TOTP(t *testing.T) {
@@ -126,6 +126,9 @@ print(Auth::verify($tok . "tampered"));
 }
 
 func TestNative_GranDB_ExtendedQueryBuilderAndRollback(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("real SQLite3 C driver and POSIX setjmp test runs on Linux/macOS")
+	}
 	tmpDir := t.TempDir()
 	dbFile := filepath.Join(tmpDir, "grandb_ext.sqlite")
 
@@ -189,6 +192,9 @@ print(GranDB::table("products")->count());
 }
 
 func TestNative_EjemploTestNativoSuite(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("real SQLite3 C driver and POSIX setjmp suite runs on Linux/macOS")
+	}
 	suitePath := filepath.Join("..", "..", "ejemplos", "test-nativo-suite", "main.joss")
 	data, err := os.ReadFile(suitePath)
 	if err != nil {

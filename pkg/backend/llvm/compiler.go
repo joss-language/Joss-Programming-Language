@@ -243,12 +243,20 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 				linkArgs = append(linkArgs, "-lmysqlclient")
 			}
 		}
-		if dbDrivers.odbc && hasHeader("sql.h") {
-			linkArgs = append(linkArgs, "-lodbc")
+		if dbDrivers.odbc {
+			if opts.Target.OS == "windows" {
+				linkArgs = append(linkArgs, "-lodbc32")
+			} else if hasHeader("sql.h") {
+				linkArgs = append(linkArgs, "-lodbc")
+			}
 		}
 	}
-	if needsCrypto && hasHeader("openssl/evp.h") {
-		linkArgs = append(linkArgs, "-lcrypto")
+	if needsCrypto {
+		if hasHeader("openssl/evp.h") {
+			linkArgs = append(linkArgs, "-lcrypto")
+		} else if opts.Target.OS == "windows" {
+			linkArgs = append(linkArgs, "-lbcrypt")
+		}
 	}
 	if needsWeb && opts.Target.OS == "windows" {
 		linkArgs = append(linkArgs, "-lws2_32")
