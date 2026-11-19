@@ -72,11 +72,17 @@ function Copy-LegacyRunners {
 function Copy-BundledToolchain {
     param([string]$DestinationRoot, [string[]]$Targets)
     foreach ($t in $Targets) {
-        $src = Join-Path $root "dist/toolchain/$t"
-        if (Test-Path -LiteralPath $src -PathType Container) {
-            $dst = Join-Path $DestinationRoot "toolchain/$t"
-            New-Item -ItemType Directory -Force -Path $dst | Out-Null
-            Copy-Item -Path (Join-Path $src '*') -Destination $dst -Recurse -Force
+        $candidates = @(
+            (Join-Path $root "toolchain-bundle/$t"),
+            (Join-Path $root "dist/toolchain/$t")
+        )
+        foreach ($src in $candidates) {
+            if (Test-Path -LiteralPath $src -PathType Container) {
+                $dst = Join-Path $DestinationRoot "toolchain/$t"
+                New-Item -ItemType Directory -Force -Path $dst | Out-Null
+                Copy-Item -Path (Join-Path $src '*') -Destination $dst -Recurse -Force
+                break
+            }
         }
     }
 }

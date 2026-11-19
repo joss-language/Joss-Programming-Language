@@ -18,7 +18,7 @@ on:
           - prerelease
           - published
       release_tag:
-        description: "Etiqueta de versión (ej. v3.6.8). Si se omite, se lee de pkg/version/version.go"
+        description: "Etiqueta de versión (ej. v3.6.8.3). Si se omite, se lee de pkg/version/version.go"
         required: false
         type: string
       skip_tests:
