@@ -48,17 +48,20 @@ No asuma que un comentario, un archivo histórico o una tesis describe el compor
 - `pkg/analyzer`: Unidades fuente (`SourceUnit`), scopes léxicos, tablas de símbolos, firmas, comprobación de tipos y generación inmutable de `PreparedProgram`. **Nunca** debe importar `pkg/core`.
 - `pkg/diagnostics`: Modelo de errores y advertencias (`Diagnostic`) con código estable, severidad, rango, explicación y sugerencia.
 - `pkg/core`: Evaluador de AST, runtime Go, frames léxicos, slots, built-ins globales y clases nativas integradas; consume directamente `PreparedProgram`.
-- `pkg/ir`: Representación intermedia canónica (*Joss Native IR*), lowering de `PreparedProgram`, instrucciones SSA/3AC y verificador de tipos de bajo nivel (`ir.Verifier`).
-- `pkg/backend/native`: Generadores de código nativo para compilación AOT standalone y emisión LLVM; el perfil nativo puro genera ejecutables independientes sin AST serializado ni runtime Go.
-- `pkg/server`: Runtime HTTP multinivel, multiplexor, WebSockets y controladores MVC basados en el mismo modelo semántico.
+- `pkg/ir`: Representación intermedia canónica (*Joss Native IR*), lowering de `PreparedProgram`, instrucciones SSA/3AC y verificador de tipos de bajo nivel (`ir.Verifier` con verificación de dominancia SSA).
+- `pkg/backend/native`: Generadores de código nativo (`x86_64` y `AArch64`) y emisor de LLVM IR (`llvm.go`, incluyendo `Auto-DP`). **Nunca** debe importar `os/exec` (protegido por `TestAuditZeroExternalProcessesAndZeroGoRuntime` y `TestCleanEnvironment003`).
+- `pkg/backend/llvm`: Integración externa con `clang` + `lld` registrada mediante `native.RegisterExternalLLVMCompiler`; compila y enlaza condicionalmente los módulos de `runtime/native/` y librerías C del sistema (`-lsqlite3`, `-lpq`, `-lmariadb`/`-lmysqlclient`, `-lodbc`, `-lcrypto`, `-pthread`).
+- `runtime/native`: Runtime modular en C11 sin runtime Go ni DLLs propias de Joss (`joss_rt.{h,c}`, `joss_web_rt.c`, `joss_concurrency_rt.c`, `joss_db_rt.c`, `joss_crypto_rt.c`).
+- `pkg/golite`: Prototipo de compilación/reutilización controlada de algoritmos Go compatibles hacia el pipeline nativo.
+- `pkg/server`: Runtime HTTP multinivel, multiplexor, WebSockets, validación anti-path-traversal (`path_security.go`) y controladores MVC basados en el mismo modelo semántico.
 - `pkg/bytecode`: Serialización comprimida del AST (`JOSSBC2Z`) para plugins `.jp`, no para ejecutables nativos AOT.
 - `pkg/pluginruntime`, `pkg/pluginpkg`, `pkg/plugincompiler`: Runtime, paquetes y JPBC de plugins.
 - `cmd/joss`: CLI y orquestación unificada del proyecto (`run`, `server`, `program`, `build`, `analyze`, `emit-ir`, `repl`).
 - `vscode-joss`: Servidor de lenguaje (LSP) y extensión de editor.
 
 La dirección estricta de dependencias es:
-`parser / typesystem / diagnostics → analyzer → ir → backend/native`
-`analyzer → core / server`. `pkg/analyzer` **nunca** debe importar `pkg/core`.
+`parser / typesystem / diagnostics → analyzer → ir → backend/native ← backend/llvm (registro por hook)`
+`analyzer → core / server`. `pkg/analyzer` **nunca** debe importar `pkg/core`, y `pkg/backend/native` **nunca** debe importar `os/exec`.
 
 ---
 
@@ -209,6 +212,17 @@ go test ./pkg/core -run TestDocumentation -v
 # Verificación y sincronización de documentación internacionalizada (i18n)
 go run ./tools/docsi18n --check
 
+# Validación estricta del runtime nativo C11 (0 warnings obligatorio)
+clang -Wall -Wextra -Werror -O2 \
+  runtime/native/joss_rt.c runtime/native/joss_web_rt.c \
+  runtime/native/joss_concurrency_rt.c runtime/native/joss_db_rt.c \
+  runtime/native/joss_crypto_rt.c runtime/native/joss_rt_test.c \
+  -lsqlite3 -lcrypto -pthread -o /tmp/joss_rt_test && /tmp/joss_rt_test
+
+# Nota: En entornos sin acceso a red / caché parcial de módulos Go, usar:
+# go vet -tags "nodb noredis nowebview2" ./pkg/backend/native ./pkg/backend/llvm ./tests/native
+# go test -tags "nodb noredis nowebview2" ./pkg/backend/native ./pkg/backend/llvm ./std ./tests/architecture ./tests/native
+
 # Validación de la extensión VS Code
 cd vscode-joss
 npm ci
@@ -313,3 +327,50 @@ Siempre que se agregue un nuevo driver o integración externa (ejemplo: **MongoD
 ### 11.4 Implementación Canónica en Lenguaje Joss Puro (`Pure Joss Standard Library` en `std/`)
 * **Regla de Única Fuente de Verdad (Full Joss)**: Siempre que una funcionalidad, subsistema, query builder o estructura de datos pueda implementarse lógicamente en código fuente Joss (ejemplo canónico: **GranDB** en `std/database/grandb.joss`), **es obligatorio escribirla en código puro Joss**. Esto garantiza que `joss run`, `joss server`, `joss program` y `joss build` compartan una **única fuente de verdad** canónica.
 * **Prohibición de bifurcación de código**: Queda terminantemente prohibido mantener dos implementaciones de una misma característica (ej. escribir implementaciones ad-hoc en ensamblador para un motor específico y otra en Go). Si se da soporte a múltiples motores (MySQL, PostgreSQL, SQL Server, SQLite), debe hacerse de forma consistente y unificada a través de la arquitectura canónica de Joss.
+
+---
+
+## 12. Arquitectura Nativa de Nueva Generación (Cómo desarrollar ahora)
+
+La arquitectura de compilación nativa ha evolucionado a un modelo modular (**Pure Joss + LLVM/C ABI + Runtime C11 mínimo**, sin runtime Go ni DLLs propias de Joss). Para contexto completo de diseño, decisiones y métricas, consultar `docs/compiler/` (`FINAL_IMPLEMENTATION_REPORT.md`, `MEMORY_MODEL.md`, `IR_AND_BACKEND_STRATEGY.md`, `IMPLEMENTATION_PROGRESS.md`).
+
+### 12.1 Separación estricta `pkg/backend/native` vs `pkg/backend/llvm`
+- `pkg/backend/native`: Contiene los emisores de código máquina (`machine_code_x86_64.go`, `machine_code_aarch64.go`), la emisión de LLVM IR (`llvm.go`) y validación de capacidades (`capability_gaps.go`). **Prohibido importar `os/exec`** dentro de `pkg/backend/native`.
+- `pkg/backend/llvm/compiler.go`: Registra el compilador LLVM externo vía `native.RegisterExternalLLVMCompiler`, invoca `clang`/`lld`, compila únicamente los módulos de `runtime/native/` que el programa necesita y enlaza las librerías C disponibles en el sistema.
+- Todo binario o test que requiera `BackendLLVM` debe importar el hook con `_ "github.com/jossecurity/joss/pkg/backend/llvm"`.
+
+### 12.2 Runtime C11 Modular (`runtime/native/`)
+Cada responsabilidad del runtime nativo vive en su propio módulo; **no mezclar dominios ni duplicar implementaciones**:
+1. **`runtime/native/joss_rt.{h,c}` (Core + Memoria)**:
+   - Tipos base, strings, arrays (`JOSS_ARR_MAGIC`), maps (`JOSS_MAP_MAGIC`), `ByteBuffer`, `StringBuilder`.
+   - En 64-bit, `JOSS_MIN_PTR_ADDR` es `0x100000000ULL` (no reducirlo: evita dereferenciar enteros grandes como punteros).
+   - **Request-Scoped Arena Allocator (`_Thread_local`)**: `joss_req_arena_begin`, `joss_req_arena_reset`, `joss_req_alloc` y `joss_req_strdup` permiten asignación rápida y liberación en bloque `O(1)` al finalizar cada petición HTTP, evitando fugas de memoria sin GC.
+2. **`runtime/native/joss_web_rt.c` (HTTP, Sockets, JSON, Sesiones)**:
+   - Contexto de request/sesión `_Thread_local`, sockets con `TCP_NODELAY`, guarda anti-path-traversal (`..`), serializador JSON (`joss_json`, `joss_json_encode`), redirects/cookies, SHA-1+Base64 (RFC 3174) y fechas (`joss_date`, `joss_strtotime`).
+   - Conecta el Arena al ciclo de vida de cada conexión en `fn_Socket_accept`, `fn_Socket_receive` y `fn_Socket_close`.
+3. **`runtime/native/joss_concurrency_rt.c` (Gorutinas Nativas + Auto-DP)**:
+   - Pool de hilos multi-core sobre `pthread` para `async { ... }` / `await` (`joss_async`, `joss_await`) y canales acotados (`joss_make_chan`, `joss_send`, `joss_recv`, `joss_close`).
+   - Caché `_Thread_local` sin bloqueos para **Programación Dinámica Automática (`Auto-DP`)** (`joss_dp_get`, `joss_dp_put`, 8192 slots con reserva perezosa).
+4. **`runtime/native/joss_db_rt.c` (GranDB Nativo Multi-Motor)**:
+   - Drivers C nativos parametrizados para **SQLite3** (`sqlite3.h`), **PostgreSQL** (`libpq-fe.h`, reescritura `?` → `$1..$N`, `PQexecParams`), **MySQL/MariaDB** (`mysql.h`, `MYSQL_STMT`) y **SQL Server / ODBC** (`sql.h`/`sqlext.h`, `SQLPrepare`/`SQLBindParameter`), además de tablas *in-memory* de respaldo.
+   - Nunca duplicar lógica SQL en `joss_web_rt.c`; toda consulta nueva de BD pasa por `joss_db_rt.c`.
+5. **`runtime/native/joss_crypto_rt.c` (Criptografía Real OpenSSL EVP)**:
+   - `joss_sha256` (EVP SHA-256), `joss_random_hex` (CSPRNG `RAND_bytes`), `joss_password_hash` (`PBKDF2-HMAC-SHA256`, 100,000 iteraciones + salt aleatorio) y `joss_password_verify` (comparación en tiempo constante con `CRYPTO_memcmp`).
+   - Prohibido introducir hashes débiles, RNG no criptográfico para secretos o claves hardcodeadas.
+
+**Regla de calidad C**: Todo cambio en `runtime/native/*.c` debe compilar con `clang -Wall -Wextra -Werror -O2` (**0 warnings**) y pasar `runtime/native/joss_rt_test.c`.
+
+### 12.3 Programación Dinámica Automática (`Auto-DP`)
+- En `pkg/backend/native/llvm.go`, `isAutoDPEligible(fn)` identifica funciones puras recursivas con 1 o 2 parámetros enteros e inyecta automáticamente memoización (`dp_entry`/`dp_ret` + `joss_dp_put`).
+- **Invariante obligatorio**: Nunca activar `Auto-DP` sobre funciones con efectos secundarios, E/S, mutación global o llamadas impuras.
+
+### 12.4 Reglas de Seguridad y Cero Stubs Silenciosos
+- **Cero stubs silenciosos**: Si una instrucción IR o capacidad nativa no está soportada, el compilador o runtime debe fallar explícitamente con un error claro; nunca devolver `0`, `null` o `""` silenciosamente fingiendo éxito.
+- **Secretos y rutas**: Nunca incrustar variables de `.env` en ejecutables compilados (`pkg/core/env_loader.go` / `pkg/backend/native/native_env.go`). Toda resolución de rutas estáticas HTTP debe validar contra *path traversal* (`pkg/server/path_security.go` y `runtime/native/joss_web_rt.c`).
+- **Suites nativas de regresión obligatorias** (en `tests/native/`):
+  - `phase0_security_and_mixed_test.go` (seguridad y valores dinámicos).
+  - `tutorial_web_probe_test.go` (app web MVC real compilada a ELF y servida en vivo).
+  - `concurrency_and_autodp_test.go` (`async`/`await` paralelo, canales y `Auto-DP`).
+  - `grandb_and_crypto_native_test.go` (CRUD real SQLite3 en disco y OpenSSL PBKDF2/SHA-256).
+  - `native_vs_go_benchmark_test.go` (paridad y rendimiento Nativo vs Go).
+

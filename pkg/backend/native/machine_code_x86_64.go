@@ -1402,13 +1402,63 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitCallLabel("joss_print_string")
 	b.emitBytes(0x48, 0x89, 0xEC, 0x5D, 0xC3)
 
-	// joss_print_mixed(rcx = val) -> dynamically prints val as int if rcx < 0x10000, or as string if >= 0x10000
+	// joss_box_value(rcx = tag, rdx = payload) -> rax = JossBoxedValue* [magic|tag, payload]
+	b.defineLabel("joss_box_value")
+	b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x53, 0x41, 0x54, 0x48, 0x83, 0xEC, 0x20)
+	b.emitBytes(0x48, 0x89, 0xCB)             // mov rbx, rcx (tag)
+	b.emitBytes(0x49, 0x89, 0xD4)             // mov r12, rdx (payload)
+	b.emitBytes(0xB9, 0x10, 0x00, 0x00, 0x00) // mov ecx, 16
+	b.emitCallLabel("__joss_os_alloc")
+	b.emitBytes(0x48, 0xB9, 0x00, 0x00, 0x00, 0x00, 0xB4, 0xA3, 0x92, 0x81) // mov rcx, 0x8192A3B400000000
+	b.emitBytes(0x48, 0x09, 0xD9)                                           // or rcx, rbx
+	b.emitBytes(0x48, 0x89, 0x08)                                           // mov [rax], rcx
+	b.emitBytes(0x4C, 0x89, 0x60, 0x08)                                     // mov [rax+8], r12
+	b.emitBytes(0x48, 0x83, 0xC4, 0x20, 0x41, 0x5C, 0x5B, 0x5D, 0xC3)
+
+	// joss_unbox_value(rcx = val) -> rax = payload if boxed, else val
+	b.defineLabel("joss_unbox_value")
+	b.emitBytes(0x48, 0x89, 0xC8)                         // mov rax, rcx
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".unbox_done")
+	b.emitBytes(0x49, 0x89, 0xCB)                         // mov r11, rcx
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F)                   // shr r11, 47
+	b.emitJneLabel(".unbox_done")                         // non-user-space pointer
+	b.emitBytes(0x4C, 0x8B, 0x11)                         // mov r10, [rcx]
+	b.emitBytes(0x4D, 0x89, 0xD3)                         // mov r11, r10
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x20)                   // shr r11, 32
+	b.emitBytes(0x41, 0x81, 0xFB, 0xB4, 0xA3, 0x92, 0x81) // cmp r11d, 0x8192A3B4
+	b.emitJneLabel(".unbox_done")
+	b.emitBytes(0x48, 0x8B, 0x41, 0x08) // mov rax, [rcx + 8]
+	b.defineLabel(".unbox_done")
+	b.emitBytes(0xC3)
+
+	// joss_print_mixed(rcx = val) -> checks JossBoxedValue magic header before falling back to string/int
 	b.defineLabel("joss_print_mixed")
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-	b.emitJeLabel("joss_print_i64")
+	b.emitJeLabel(".print_mixed_null")
 	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
 	b.emitJlLabel("joss_print_i64")
-	b.emitJmpLabel("joss_print_string")
+	b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+	b.emitJneLabel("joss_print_i64")
+	b.emitBytes(0x4C, 0x8B, 0x11)                         // mov r10, [rcx]
+	b.emitBytes(0x4D, 0x89, 0xD3)                         // mov r11, r10
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x20)                   // shr r11, 32
+	b.emitBytes(0x41, 0x81, 0xFB, 0xB4, 0xA3, 0x92, 0x81) // cmp r11d, 0x8192A3B4
+	b.emitJneLabel("joss_print_string")
+	b.emitBytes(0x44, 0x89, 0xD0)       // mov eax, r10d (tag)
+	b.emitBytes(0x48, 0x8B, 0x49, 0x08) // mov rcx, [rcx + 8] (payload)
+	b.emitBytes(0x83, 0xF8, 0x01)       // cmp eax, 1 (INT)
+	b.emitJeLabel("joss_print_i64")
+	b.emitBytes(0x83, 0xF8, 0x03) // cmp eax, 3 (BOOL)
+	b.emitJeLabel("joss_print_bool")
+	b.emitBytes(0x83, 0xF8, 0x04) // cmp eax, 4 (STRING)
+	b.emitJeLabel("joss_print_string")
+	b.emitBytes(0x83, 0xF8, 0x00) // cmp eax, 0 (NULL)
+	b.emitJeLabel(".print_mixed_null")
+	b.emitJmpLabel("joss_print_i64")
+	b.defineLabel(".print_mixed_null")
+	b.emitBytes(0xC3)
 
 	// joss_panic(rcx = msg)
 	b.defineLabel("joss_panic")
@@ -2121,6 +2171,9 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x48, 0x89, 0xC8)                         // mov rax, rcx
 	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
 	b.emitJlLabel(".intval_done")
+	b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+	b.emitJneLabel(".intval_done")
 	b.emitBytes(0x31, 0xC0)                         // xor eax, eax (acc = 0)
 	b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00) // mov r8d, 1 (sign = 1)
 	b.defineLabel(".intval_skip_ws")
@@ -3246,6 +3299,35 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 
 	case *ir.MoveInst:
 		b.emitLoadValToRAX(layout, i.Src)
+		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+
+	case *ir.BoxValueInst:
+		var tag uint32 = 1 // INT
+		switch i.Val.Type().Kind {
+		case ir.TypeKindBool:
+			tag = 3
+		case ir.TypeKindF64, ir.TypeKindF32, ir.TypeKindDecimal:
+			tag = 2
+		case ir.TypeKindString:
+			tag = 4
+		case ir.TypeKindPtr:
+			if i.Val.Type().Elem != nil && i.Val.Type().Elem.Kind == ir.TypeKindVoid {
+				tag = 0
+			} else {
+				tag = 5
+			}
+		}
+		b.emitLoadValToRAX(layout, i.Val)
+		b.emitBytes(0x48, 0x89, 0xC2) // mov rdx, rax
+		b.emitBytes(0xB9)             // mov ecx, tag
+		b.emitU32(tag)
+		b.emitCallLabel("joss_box_value")
+		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+
+	case *ir.UnboxValueInst:
+		b.emitLoadValToRAX(layout, i.Val)
+		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
+		b.emitCallLabel("joss_unbox_value")
 		b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 
 	case *ir.BinaryInst:

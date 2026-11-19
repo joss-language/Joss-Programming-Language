@@ -75,8 +75,8 @@ func TestLLVM_ArithmeticAndFunctionCall(t *testing.T) {
 		t.Fatalf("failed to emit LLVM IR: %v", err)
 	}
 
-	if !strings.Contains(ll, "define i64 @add(i64 %a, i64 %b)") {
-		t.Errorf("expected @add definition, got:\n%s", ll)
+	if !strings.Contains(ll, "define internal i64 @add(i64 %a, i64 %b)") {
+		t.Errorf("expected internal @add definition, got:\n%s", ll)
 	}
 	if !strings.Contains(ll, "add i64 %a, %b") {
 		t.Errorf("expected add instruction, got:\n%s", ll)

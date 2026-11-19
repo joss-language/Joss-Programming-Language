@@ -334,9 +334,12 @@ func encryptProjectEnvironment(files map[string][]byte, enableGUI bool) {
 		override := "\nDB_PATH=\"Storage/" + sqliteDbFile + "\""
 		data = append(data, []byte(override)...)
 	}
+	masterSecret, keyErr := crypto.ResolveEnvEncryptionKey()
+	if keyErr != nil {
+		return
+	}
 	salt := make([]byte, 16)
 	rand.Read(salt)
-	masterSecret := []byte("JOSSECURITY_MASTER_SECRET_2025")
 	key := crypto.DeriveKey(masterSecret, salt)
 	encrypted, err := crypto.EncryptAES(data, key)
 	if err == nil {

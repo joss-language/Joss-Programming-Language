@@ -362,17 +362,79 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	b.emitEpilog(64)
 
+	// joss_box_value(x0 = tag, x1 = payload) -> x0 = JossBoxedValue*
+	b.defineLabel("joss_box_value")
+	b.emitProlog(32)
+	b.emitStr(regX0, regX29, 16)
+	b.emitStr(regX1, regX29, 24)
+	b.emitLoadImm64(regX0, 16)
+	b.emitCall("__joss_os_alloc")
+	b.emitLdr(regX1, regX29, 16)
+	b.emitLdr(regX2, regX29, 24)
+	b.emitLoadImm64(regX3, 0x8192A3B400000000)
+	b.emitInst(0xAA030021) // orr x1, x1, x3
+	b.emitStr(regX1, regX0, 0)
+	b.emitStr(regX2, regX0, 8)
+	b.emitEpilog(32)
+
+	// joss_unbox_value(x0 = val) -> x0 = payload if boxed, else val
+	b.defineLabel("joss_unbox_value")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_unbox_done")
+	b.emitLoadImm64(regX1, 0x10000)
+	b.emitCmp(regX0, regX1)
+	b.emitBranchCond(condLT, ".arm64_unbox_done")
+	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".arm64_unbox_done")
+	b.emitLdr(regX2, regX0, 0)
+	b.emitInst(0xD360FC43) // lsr x3, x2, #32
+	b.emitLoadImm64(regX4, 0x8192A3B4)
+	b.emitCmp(regX3, regX4)
+	b.emitBranchCond(condNE, ".arm64_unbox_done")
+	b.emitLdr(regX0, regX0, 8)
+	b.defineLabel(".arm64_unbox_done")
+	b.emitRet(regX30)
+
 	// joss_print_f64 / joss_print_mixed
 	b.defineLabel("joss_print_f64")
 	b.defineLabel("joss_print_mixed")
 	b.emitProlog(16)
-	b.emitLoadImm64(regX1, 0x400000)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".print_mixed_done")
+	b.emitLoadImm64(regX1, 0x10000)
 	b.emitCmp(regX0, regX1)
-	b.emitBranchCond(condGE, ".print_mixed_str")
+	b.emitBranchCond(condLT, ".print_mixed_int")
+	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".print_mixed_int")
+	b.emitLdr(regX2, regX0, 0)
+	b.emitInst(0xD360FC43) // lsr x3, x2, #32
+	b.emitLoadImm64(regX4, 0x8192A3B4)
+	b.emitCmp(regX3, regX4)
+	b.emitBranchCond(condNE, ".print_mixed_str")
+	b.emitInst(0x92407C42) // and x2, x2, #0xFFFFFFFF (tag)
+	b.emitLdr(regX0, regX0, 8)
+	b.emitLoadImm64(regX4, 1)
+	b.emitCmp(regX2, regX4)
+	b.emitBranchCond(condEQ, ".print_mixed_int")
+	b.emitLoadImm64(regX4, 3)
+	b.emitCmp(regX2, regX4)
+	b.emitBranchCond(condEQ, ".print_mixed_bool")
+	b.emitLoadImm64(regX4, 4)
+	b.emitCmp(regX2, regX4)
+	b.emitBranchCond(condEQ, ".print_mixed_str")
+	b.emitCmp(regX2, regXZR)
+	b.emitBranchCond(condEQ, ".print_mixed_done")
+	b.defineLabel(".print_mixed_int")
 	b.emitCall("joss_print_i64")
+	b.emitEpilog(16)
+	b.defineLabel(".print_mixed_bool")
+	b.emitCall("joss_print_bool")
 	b.emitEpilog(16)
 	b.defineLabel(".print_mixed_str")
 	b.emitCall("joss_print_string")
+	b.defineLabel(".print_mixed_done")
 	b.emitEpilog(16)
 
 	// __joss_rt_strcmp(x0 = s1, x1 = s2) -> x0 = 0 if equal, non-zero otherwise
@@ -1103,6 +1165,9 @@ func (b *ARM64Builder) emitNativeIntval() {
 	b.emitLoadImm64(regX1, 0x10000)
 	b.emitCmp(regX0, regX1)
 	b.emitBranchCond(condLT, ".intval_return_input")
+	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".intval_return_input")
 	b.emitProlog(48)
 	b.emitStr(regX19, regSP, 16)
 	b.emitStr(regX20, regSP, 24)
@@ -1473,6 +1538,32 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		b.emitLoadValToReg(layout, regX0, i.Src)
 		disp := layout.tempOffsets[i.Dest.ID]
 		b.emitStr(regX0, regX29, uint32(disp))
+
+	case *ir.BoxValueInst:
+		var tag uint64 = 1 // INT
+		switch i.Val.Type().Kind {
+		case ir.TypeKindBool:
+			tag = 3
+		case ir.TypeKindF64, ir.TypeKindF32, ir.TypeKindDecimal:
+			tag = 2
+		case ir.TypeKindString:
+			tag = 4
+		case ir.TypeKindPtr:
+			if i.Val.Type().Elem != nil && i.Val.Type().Elem.Kind == ir.TypeKindVoid {
+				tag = 0
+			} else {
+				tag = 5
+			}
+		}
+		b.emitLoadValToReg(layout, regX1, i.Val)
+		b.emitLoadImm64(regX0, tag)
+		b.emitCall("joss_box_value")
+		b.emitStr(regX0, regX29, uint32(layout.tempOffsets[i.Dest.ID]))
+
+	case *ir.UnboxValueInst:
+		b.emitLoadValToReg(layout, regX0, i.Val)
+		b.emitCall("joss_unbox_value")
+		b.emitStr(regX0, regX29, uint32(layout.tempOffsets[i.Dest.ID]))
 
 	case *ir.BinaryInst:
 		isFloat := (i.Dest != nil && (i.Dest.Type().Kind == ir.TypeKindF64 || i.Dest.Type().Kind == ir.TypeKindDecimal)) ||
@@ -2475,43 +2566,25 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.emitLoadImm64(regX0, 1)
 	b.emitRet(regX30)
 
-	for _, authFn := range []string{"Auth_check", "Auth_id", "Auth_user", "Auth_logout"} {
-		if !hasProgramFunction(b.prog, authFn) {
-			b.defineLabel("fn_" + authFn)
-			b.emitLoadImm64(regX0, 0)
-			b.emitRet(regX30)
+	// Unimplemented intrinsics on ARM64 are rejected by validateSharedBackendCapabilities.
+	// Never emit silent true/false/empty placeholders.
+	for _, unimpl := range []string{
+		"fn_Auth_check", "fn_Auth_id", "fn_Auth_user", "fn_Auth_logout",
+		"fn_response", "fn_redirect", "fn_json", "fn_Turnstile_siteKey",
+		"fn_Markdown_toHtml", "Markdown_toHtml", "fn_file_exists",
+		"__joss_rt_route_matches", "fn___joss_rt_route_matches",
+		"__joss_rt_route_param", "fn___joss_rt_route_param",
+	} {
+		clean := strings.TrimPrefix(unimpl, "fn_")
+		if !hasProgramFunction(b.prog, clean) && b.hasRelocTarget(unimpl) {
+			b.defineLabel(unimpl)
+			b.emitLoadStringAddr(regX0, "unimplemented native intrinsic on ARM64: "+clean)
+			b.emitBranch("joss_panic")
 		}
 	}
 
-	b.defineLabel("fn_response")
-	b.emitRet(regX30)
-
-	b.defineLabel("fn_redirect")
-	b.defineLabel("fn_json")
-	if !hasProgramFunction(b.prog, "Turnstile_siteKey") {
-		b.defineLabel("fn_Turnstile_siteKey")
-	}
-	b.defineLabel("fn_Markdown_toHtml")
-	b.defineLabel("Markdown_toHtml")
-	b.emitLoadStringAddr(regX0, "")
-	b.emitRet(regX30)
-
 	b.defineLabel("fn_Markdown_readFile")
 	b.emitBranch("fn_file_get_contents")
-
-	b.defineLabel("fn_file_exists")
-	b.emitLoadImm64(regX0, 1)
-	b.emitRet(regX30)
-
-	b.defineLabel("__joss_rt_route_matches")
-	b.defineLabel("fn___joss_rt_route_matches")
-	b.emitLoadImm64(regX0, 1)
-	b.emitRet(regX30)
-
-	b.defineLabel("__joss_rt_route_param")
-	b.defineLabel("fn___joss_rt_route_param")
-	b.emitLoadStringAddr(regX0, "")
-	b.emitRet(regX30)
 
 	if b.hasRelocTarget("__joss_grandb_get_tables", "fn___joss_db_get_table", "fn___joss_db_set_table") {
 		// GranDB QueryBuilder in AArch64 machine code

@@ -149,6 +149,8 @@
     "json_decode",
     "json_encode",
     "json_verify",
+    "jwt_sign",
+    "jwt_verify",
     "keys",
     "lcfirst",
     "len",
@@ -163,6 +165,8 @@
     "min",
     "mkdir",
     "ord",
+    "password_hash",
+    "password_verify",
     "print",
     "printf",
     "rand",
@@ -197,6 +201,8 @@
     "toon_decode",
     "toon_encode",
     "toon_verify",
+    "totp_generate",
+    "totp_verify",
     "trim",
     "ucfirst",
     "ucwords",
@@ -289,6 +295,17 @@
       "unsigned",
       "unsignedBigInteger",
       "unsignedInteger"
+    ],
+    "ByteBuffer": [
+      "Init",
+      "appendByte",
+      "appendString",
+      "free",
+      "get",
+      "len",
+      "new",
+      "set",
+      "toString"
     ],
     "Cache": [
       "forget",
@@ -762,6 +779,15 @@
       "open",
       "write",
       "writeLine"
+    ],
+    "StringBuilder": [
+      "Init",
+      "append",
+      "appendInt",
+      "free",
+      "len",
+      "new",
+      "toString"
     ],
     "System": [
       "Run",

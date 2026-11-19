@@ -732,26 +732,19 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 	b.defineLabel("fn_empty")
 	b.emitJmpLabel("joss_is_empty")
 
-	// Auth & Turnstile runtime intrinsics for unauthenticated HTTP requests
-	if !hasProgramFunction(b.prog, "Auth_guest") {
-		b.defineLabel("fn_Auth_guest")
-		b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // Legacy placeholder; capability validation rejects its use.
-	}
-	for _, name := range []string{"Auth_check", "Auth_user", "Auth_id", "Auth_logout"} {
-		if !hasProgramFunction(b.prog, name) {
-			b.defineLabel("fn_" + name)
-			b.emitBytes(0x31, 0xC0, 0xC3) // Legacy placeholder; capability validation rejects its use.
+	// Auth & Turnstile must be implemented in Joss; never emit silent fake-success/fake-key stubs.
+	for _, name := range []string{"Auth_guest", "Auth_check", "Auth_user", "Auth_id", "Auth_logout", "Turnstile_siteKey"} {
+		lbl := "fn_" + name
+		if !hasProgramFunction(b.prog, name) && b.hasRelocTarget(lbl) {
+			b.defineLabel(lbl)
+			b.emitLeaRCXString("unimplemented native product service: " + name)
+			b.emitJmpLabel("joss_panic")
 		}
 	}
-	if !hasProgramFunction(b.prog, "Auth_enabledSocialProviders") {
+	if !hasProgramFunction(b.prog, "Auth_enabledSocialProviders") && b.hasRelocTarget("fn_Auth_enabledSocialProviders") {
 		b.defineLabel("fn_Auth_enabledSocialProviders")
-		b.emitBytes(0xB9, 0x08, 0x00, 0x00, 0x00)
-		b.emitJmpLabel("joss_arr_new")
-	}
-	if !hasProgramFunction(b.prog, "Turnstile_siteKey") {
-		b.defineLabel("fn_Turnstile_siteKey")
-		b.emitLeaRAXString("1x00000000000000000000AA")
-		b.emitBytes(0xC3) // Legacy placeholder; capability validation rejects its use.
+		b.emitLeaRCXString("unimplemented native product service: Auth_enabledSocialProviders")
+		b.emitJmpLabel("joss_panic")
 	}
 
 	// Map iteration helpers for foreach ($map as $k => $v) on 32768-bucket FNV-1a hash table

@@ -1,0 +1,8 @@
+// Pure Joss MFA RFC 6238 TOTP helpers shared across interpreter, JIT, and AOT.
+public func __joss_host_MFA_generateTOTP(string $secret): string {
+    return totp_generate($secret, 0)
+}
+
+public func __joss_host_MFA_verifyTOTP(string $secret, string $code): bool {
+    return totp_verify($secret, $code, 0)
+}

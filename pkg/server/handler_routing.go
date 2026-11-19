@@ -74,9 +74,8 @@ func handleFavicon(w http.ResponseWriter, r *http.Request) {
 
 func handleVendorAssets(w http.ResponseWriter, r *http.Request) {
 	relPath := strings.TrimPrefix(r.URL.Path, "/assets/vendor/")
-	fullPath := "node_modules/" + relPath
-
-	if strings.Contains(relPath, "..") {
+	fullPath, ok := resolveSafeSubpath("node_modules", relPath)
+	if !ok {
 		http.Error(w, "Invalid path", http.StatusForbidden)
 		return
 	}

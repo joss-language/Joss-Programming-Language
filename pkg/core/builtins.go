@@ -86,11 +86,13 @@ var builtinDefinitions = joinBuiltinGroups(
 	builtinGroup(builtinString, typesystem.Int, "strlen", "rand", "ord", "__joss_string_byte_at"),
 	[]builtinDefinition{{name: "strpos", domain: builtinString, returnType: typesystem.Parse("int|bool")}},
 	builtinGroup(builtinString, typesystem.Float, "round", "floor", "ceil", "abs"),
+	builtinGroup(builtinString, typesystem.Bool, "password_verify", "jwt_verify", "totp_verify"),
 	builtinGroup(builtinString, typesystem.String,
 		"__joss_byte_string",
 		"html_escape", "__", "csrf_field", "strtolower", "strtoupper",
 		"trim", "ltrim", "rtrim", "substr", "md5", "sha1", "sha256", "base64_encode",
 		"base64_decode", "ucfirst", "lcfirst", "ucwords", "str_pad", "rsa_sign_sha256", "sha256_base64", "sha1_base64",
+		"password_hash", "jwt_sign", "totp_generate",
 		"chr", "urlencode", "urldecode", "rawurlencode", "rawurldecode"),
 	builtinGroup(builtinString, typesystem.Mixed, "print", "echo", "cout", "cerr", "printf", "min", "max"),
 )

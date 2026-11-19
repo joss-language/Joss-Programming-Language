@@ -178,7 +178,10 @@ func servePublicFile(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	// 2. Disk Mode
-	diskPath := filepath.Join("public", cleanPath)
+	diskPath, ok := resolveSafeSubpath("public", cleanPath)
+	if !ok {
+		return false
+	}
 	stat, err := os.Stat(diskPath)
 	if err == nil && !stat.IsDir() {
 		http.ServeFile(w, r, diskPath)

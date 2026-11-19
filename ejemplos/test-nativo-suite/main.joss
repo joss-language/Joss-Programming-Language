@@ -1,0 +1,58 @@
+// Suite integral de pruebas para modo Go (`joss run main.joss`) y modo Nativo (`joss build main.joss --native`).
+
+public func fib(int $n): int {
+	($n <= 1) ? {
+		return $n;
+	}
+	return fib($n - 1) + fib($n - 2);
+}
+
+public func work_sum(int $limit): int {
+	int $acc = 0;
+	int $i = 1;
+	while ($i <= $limit) {
+		$acc = $acc + $i;
+		$i = $i + 1;
+	}
+	return $acc;
+}
+
+print("=== 1. Auto-DP ===");
+print(fib(35));
+
+print("=== 2. Gorutinas Paralelas (async/await) ===");
+var $f1 = async { return work_sum(1000); };
+var $f2 = async { return work_sum(2000); };
+print(await $f1);
+print(await $f2);
+
+print("=== 3. Auth PBKDF2-HMAC-SHA256 + JWT HS256 ===");
+string $hash = Auth::hash("JossNative#2026");
+print(Auth::verifyHash($hash, "JossNative#2026"));
+print(Auth::verifyHash($hash, "wrong"));
+
+string $jwt = jwt_sign("{\"sub\":1,\"role\":\"admin\"}", "suite-secret");
+print(jwt_verify($jwt, "suite-secret"));
+print(jwt_verify($jwt, "bad-secret"));
+
+print("=== 4. MFA TOTP RFC 6238 ===");
+string $totp = totp_generate("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", 59);
+print($totp);
+print(totp_verify("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "287082", 59));
+
+print("=== 5. GranDB SQLite + Transaction ROLLBACK ===");
+__joss_db_execute("CREATE TABLE IF NOT EXISTS suite_items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, qty INTEGER)", []);
+GranDB::table("suite_items")->deleteAll();
+GranDB::table("suite_items")->insert({"name": "Compiler", "qty": 10});
+print(GranDB::table("suite_items")->where("name", "Compiler")->value("qty"));
+
+try {
+	GranDB::transaction(func(mixed $db): mixed {
+		GranDB::table("suite_items")->insert({"name": "RollbackItem", "qty": 99});
+		throw "force_rollback";
+	});
+} catch ($e) {
+	print("rollback_ok");
+}
+print(GranDB::table("suite_items")->where("name", "RollbackItem")->exists());
+print("=== SUITE COMPLETADA ===");

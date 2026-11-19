@@ -119,11 +119,12 @@ func main() {
 		if len(envEnc) > 16 {
 			salt := envEnc[:16]
 			ciphertext := envEnc[16:]
-			masterSecret := []byte("JOSSECURITY_MASTER_SECRET_2025")
-			key := crypto.DeriveKey(masterSecret, salt)
-			decrypted, err := crypto.DecryptAES(ciphertext, key)
-			if err == nil {
-				envData = decrypted
+			if masterSecret, keyErr := crypto.ResolveEnvEncryptionKey(); keyErr == nil {
+				key := crypto.DeriveKey(masterSecret, salt)
+				decrypted, err := crypto.DecryptAES(ciphertext, key)
+				if err == nil {
+					envData = decrypted
+				}
 			}
 		}
 	} else if data, ok := files["env.joss"]; ok {

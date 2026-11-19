@@ -105,6 +105,20 @@ Implementación: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L41).
 | `unsignedBigInteger` | `Blueprint` |
 | `unsignedInteger` | `Blueprint` |
 
+## ByteBuffer
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `Init` | `ByteBuffer` |
+| `appendByte` | `void` |
+| `appendString` | `void` |
+| `free` | `void` |
+| `get` | `int` |
+| `len` | `int` |
+| `new` | `ByteBuffer` |
+| `set` | `void` |
+| `toString` | `string` |
+
 ## Cache
 
 Implementación: [executeCacheMethod](../pkg/core/native_cache.go#L18).
@@ -172,7 +186,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L394).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L400).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -738,6 +752,18 @@ Implementación: [executeStreamMethod](../pkg/core/native_stream.go#L311).
 | `write` | `int` |
 | `writeLine` | `int` |
 
+## StringBuilder
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `Init` | `StringBuilder` |
+| `append` | `void` |
+| `appendInt` | `void` |
+| `free` | `void` |
+| `len` | `int` |
+| `new` | `StringBuilder` |
+| `toString` | `string` |
+
 ## System
 
 Implementación: [executeSystemMethod](../pkg/core/system.go#L14).
@@ -929,6 +955,8 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `json_decode`
 - `json_encode`
 - `json_verify`
+- `jwt_sign`
+- `jwt_verify`
 - `keys`
 - `lcfirst`
 - `len`
@@ -943,6 +971,8 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `min`
 - `mkdir`
 - `ord`
+- `password_hash`
+- `password_verify`
 - `print`
 - `printf`
 - `rand`
@@ -977,6 +1007,8 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `toon_decode`
 - `toon_encode`
 - `toon_verify`
+- `totp_generate`
+- `totp_verify`
 - `trim`
 - `ucfirst`
 - `ucwords`
@@ -987,4 +1019,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 52 clases, 513 métodos y 140 built-ins.
+Total: 54 clases, 529 métodos y 146 built-ins.

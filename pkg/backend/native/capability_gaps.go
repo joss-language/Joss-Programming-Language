@@ -21,6 +21,15 @@ func ValidateAOTCapabilities(program *ir.Program, target Target) error {
 	return validateSharedBackendCapabilities(program, target, false)
 }
 
+// ValidateAOTCapabilitiesForBackend validates AOT capabilities for a specific
+// backend kind. BackendLLVM links joss_web_rt.c with native SQLite3 support.
+func ValidateAOTCapabilitiesForBackend(program *ir.Program, target Target, backend BackendKind) error {
+	if target.OS == "" {
+		target = HostTarget()
+	}
+	return validateSharedBackendCapabilitiesForBackend(program, target, false, backend)
+}
+
 func isDatabaseHostBridgeRuntime(name string) bool {
 	switch name {
 	case "__joss_db_is_connected", "__joss_db_query", "__joss_db_execute":
@@ -30,10 +39,14 @@ func isDatabaseHostBridgeRuntime(name string) bool {
 	}
 }
 
-// validateSharedBackendCapabilities reports runtime capabilities that do not
+func validateSharedBackendCapabilities(program *ir.Program, target Target, jitMode bool) error {
+	return validateSharedBackendCapabilitiesForBackend(program, target, jitMode, BackendNative)
+}
+
+// validateSharedBackendCapabilitiesForBackend reports runtime capabilities that do not
 // have a native implementation for this execution sink. It is shared by both
 // ISA emitters so an unsupported feature fails before relocation or loading.
-func validateSharedBackendCapabilities(program *ir.Program, target Target, jitMode bool) error {
+func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Target, jitMode bool, backend BackendKind) error {
 	if program == nil {
 		return fmt.Errorf("backend nativo: programa IR nulo")
 	}
@@ -47,6 +60,9 @@ func validateSharedBackendCapabilities(program *ir.Program, target Target, jitMo
 	}
 	checkDatabaseCall := func(name string) {
 		if !isDatabaseHostBridgeRuntime(name) {
+			return
+		}
+		if backend == BackendLLVM {
 			return
 		}
 		if jitMode && jit.SupportsInProcessHostBridge() && jit.HasHostBridgeHandler(name) {
@@ -75,6 +91,19 @@ func validateSharedBackendCapabilities(program *ir.Program, target Target, jitMo
 			report("product service " + strings.TrimPrefix(name, "fn_") + " (missing Joss implementation; placeholder emission is disabled)")
 		}
 	}
+	checkARM64Stub := func(name string) {
+		if target.Arch != "arm64" {
+			return
+		}
+		clean := strings.TrimPrefix(name, "fn_")
+		if hasProgramFunction(program, clean) {
+			return
+		}
+		switch clean {
+		case "file_exists", "Markdown_toHtml", "redirect", "json", "response", "__joss_rt_route_matches", "__joss_rt_route_param":
+			report("arm64 intrinsic " + clean + " (not yet implemented for ARM64; silent stub disabled)")
+		}
+	}
 	var scanBlocks func([]*ir.BasicBlock)
 	scanBlocks = func(blocks []*ir.BasicBlock) {
 		for _, block := range blocks {
@@ -82,6 +111,7 @@ func validateSharedBackendCapabilities(program *ir.Program, target Target, jitMo
 				switch call := instruction.(type) {
 				case *ir.CallBuiltinInst:
 					checkProductShim(call.BuiltinID)
+					checkARM64Stub(call.BuiltinID)
 					if call.BuiltinID == "json_decode" {
 						if !jitMode || !jit.SupportsInProcessHostBridge() || !jit.HasHostBridgeHandler("json_decode") {
 							report("builtin json_decode (native implementation unavailable; JIT host callback unavailable)")
@@ -91,9 +121,11 @@ func validateSharedBackendCapabilities(program *ir.Program, target Target, jitMo
 				case *ir.CallRuntimeInst:
 					checkDatabaseCall(call.Func)
 					checkProductShim(call.Func)
+					checkARM64Stub(call.Func)
 				case *ir.CallInst:
 					checkDatabaseCall(call.Callee)
 					checkProductShim(call.Callee)
+					checkARM64Stub(call.Callee)
 					if program.Functions[call.Callee] == nil && isUnimplementedFrameworkTarget("fn_"+call.Callee) {
 						report("framework method " + call.Callee + " (missing Joss implementation; placeholder emission is disabled)")
 					}

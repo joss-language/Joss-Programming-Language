@@ -1,0 +1,6 @@
+name: test-nativo-suite
+version: 3.6.8.3
+description: Proyecto de verificación integral del compilador nativo de Joss (Auto-DP, concurrencia paralela, Auth PBKDF2/JWT, MFA TOTP RFC 6238 y GranDB SQLite con ROLLBACK).
+build:
+  mode: release
+  profile: cli

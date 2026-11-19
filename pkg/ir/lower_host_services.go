@@ -53,6 +53,14 @@ func (l *Lowerer) lowerJossHostServiceCalls() {
 						})
 						continue
 					}
+					classMethod := call.ClassName + "_" + call.MethodName
+					if fn := l.prog.Functions[classMethod]; hostServiceOwnerMatches(fn, ownerCall) {
+						args, _ := hostServiceOwnerArguments(fn, ownerCall)
+						instructions = append(instructions, &CallInst{
+							Dest: call.Dest, Callee: classMethod, Args: args,
+						})
+						continue
+					}
 				}
 				if nested, ok := instruction.(*TryCatchInst); ok {
 					rewrite(fn, nested.TryBlocks)
