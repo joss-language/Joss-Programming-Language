@@ -1,4 +1,4 @@
-﻿# -----------------------------------------------------------
+# -----------------------------------------------------------
 # JosSecurity Remote Installer, Updater, and Uninstaller (Windows PowerShell)
 # Usos:
 #   Instalación: iwr -useb <URL_DE_ESTE_SCRIPT> | iex
