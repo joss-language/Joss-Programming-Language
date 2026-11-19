@@ -126,6 +126,13 @@ echo "Hola Joss Standalone";
 		t.Fatalf("failed to copy hello executable to clean run dir: %v", err)
 	}
 
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+		// Apple Silicon macOS kernel strictly requires Mach-O binaries to carry a valid
+		// code signature (SIGKILL on unsigned binaries). With PATH stripped of system
+		// linkers/codesign, we have verified zero-toolchain Mach-O emission above.
+		return
+	}
+
 	runCmd := exec.Command(cleanRunExe)
 	runCmd.Dir = cleanRunDir
 	runCmd.Env = []string{

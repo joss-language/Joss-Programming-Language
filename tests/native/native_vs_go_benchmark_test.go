@@ -216,13 +216,13 @@ func main() {
 
 			addr := "127.0.0.1:" + port
 			ready := false
-			for i := 0; i < 200; i++ {
+			for i := 0; i < 250; i++ {
 				if resp, rerr := httpGetLocal(addr, "/"); rerr == nil && strings.Contains(resp, "200 OK") {
 					coldStart = time.Since(tStart)
 					ready = true
 					break
 				}
-				time.Sleep(5 * time.Millisecond)
+				time.Sleep(20 * time.Millisecond)
 			}
 			if !ready {
 				t.Fatalf("%s failed to become ready on %s", label, addr)

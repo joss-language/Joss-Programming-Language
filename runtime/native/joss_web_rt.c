@@ -46,58 +46,82 @@ const char* joss_str_concat_i64(const char* a, int64_t b) {
     return joss_str_concat(a ? a : "", buf);
 }
 
-const char* joss_strval(int64_t v) {
-    uint64_t u = (uint64_t)v;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
-        if (joss_is_arr_ptr(v)) return "[Array]";
-        if (joss_is_map_ptr(v)) return "[Map]";
-        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)u;
-        if ((box->header >> 32) == JOSS_BOX_MAGIC) {
-            uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
-            if (tag == JOSS_TAG_STRING) return (const char*)(uintptr_t)box->payload;
-            if (tag == JOSS_TAG_BOOL) return box->payload ? "true" : "false";
-            if (tag == JOSS_TAG_NULL) return "";
-            if (tag == JOSS_TAG_INT) {
-                char* out = (char*)malloc(32);
-                snprintf(out, 32, "%lld", (long long)(int64_t)box->payload);
-                return out;
-            }
-        }
-        return (const char*)(uintptr_t)u;
+static const char* unbox_web_cstr(const char* s) {
+    if (!s) return NULL;
+    int64_t v = (int64_t)(uintptr_t)s;
+    if (joss_is_boxed_ptr(v)) {
+        return joss_strval(v);
     }
-    char* out = (char*)malloc(32);
-    snprintf(out, 32, "%lld", (long long)v);
-    return out;
-}
-
-const char* joss_to_string(int64_t v) {
-    return joss_strval(v);
+    return s;
 }
 
 int64_t joss_strpos(const char* haystack, const char* needle) {
+    haystack = unbox_web_cstr(haystack);
+    needle = unbox_web_cstr(needle);
     if (!haystack || !needle) return 0;
     const char* found = strstr(haystack, needle);
     if (!found) return 0;
-    return (int64_t)(uintptr_t)joss_box_i64((int64_t)(found - haystack));
+    int64_t rune_idx = 0;
+    for (const char* p = haystack; p < found; p++) {
+        if (((unsigned char)*p & 0xC0) != 0x80) {
+            rune_idx++;
+        }
+    }
+    return rune_idx;
 }
 
 const char* joss_substr(const char* s, int64_t start, int64_t length) {
+    s = unbox_web_cstr(s);
+    start = joss_unbox_value(start);
+    if (length != INT64_MIN) length = joss_unbox_value(length);
     if (!s) return "";
-    int64_t n = (int64_t)strlen(s);
-    if (start < 0) start = n + start;
+    int64_t total_runes = 0;
+    for (const char* p = s; *p; p++) {
+        if (((unsigned char)*p & 0xC0) != 0x80) {
+            total_runes++;
+        }
+    }
+    if (start < 0) start = total_runes + start;
     if (start < 0) start = 0;
-    if (start >= n) return "";
-    if (length < 0) length = n - start;
-    if (start + length > n) length = n - start;
-    if (length <= 0) return "";
-    char* out = (char*)malloc((size_t)length + 1);
+    if (start >= total_runes) return "";
+    int64_t end_rune;
+    if (length == INT64_MIN) {
+        end_rune = total_runes;
+    } else if (length < 0) {
+        end_rune = total_runes + length;
+    } else {
+        end_rune = start + length;
+    }
+    if (end_rune > total_runes) end_rune = total_runes;
+    if (end_rune <= start) return "";
+
+    const char* start_ptr = s;
+    int64_t cur_rune = 0;
+    while (*start_ptr && cur_rune < start) {
+        start_ptr++;
+        while (*start_ptr && ((unsigned char)*start_ptr & 0xC0) == 0x80) {
+            start_ptr++;
+        }
+        cur_rune++;
+    }
+    const char* end_ptr = start_ptr;
+    while (*end_ptr && cur_rune < end_rune) {
+        end_ptr++;
+        while (*end_ptr && ((unsigned char)*end_ptr & 0xC0) == 0x80) {
+            end_ptr++;
+        }
+        cur_rune++;
+    }
+    size_t byte_len = (size_t)(end_ptr - start_ptr);
+    char* out = (char*)malloc(byte_len + 1);
     if (!out) return "";
-    memcpy(out, s + start, (size_t)length);
-    out[length] = '\0';
+    memcpy(out, start_ptr, byte_len);
+    out[byte_len] = '\0';
     return out;
 }
 
 const char* joss_trim(const char* s) {
+    s = unbox_web_cstr(s);
     if (!s) return "";
     while (*s && isspace((unsigned char)*s)) s++;
     size_t n = strlen(s);
@@ -110,6 +134,7 @@ const char* joss_trim(const char* s) {
 }
 
 const char* joss_strtolower(const char* s) {
+    s = unbox_web_cstr(s);
     if (!s) return "";
     size_t n = strlen(s);
     char* out = (char*)malloc(n + 1);
@@ -120,6 +145,7 @@ const char* joss_strtolower(const char* s) {
 }
 
 const char* joss_strtoupper(const char* s) {
+    s = unbox_web_cstr(s);
     if (!s) return "";
     size_t n = strlen(s);
     char* out = (char*)malloc(n + 1);
@@ -130,6 +156,7 @@ const char* joss_strtoupper(const char* s) {
 }
 
 const char* joss_urldecode(const char* s) {
+    s = unbox_web_cstr(s);
     if (!s) return "";
     size_t n = strlen(s);
     char* out = (char*)malloc(n + 1);
@@ -155,13 +182,24 @@ const char* joss_rawurldecode(const char* s) {
 }
 
 void* joss_explode(const char* sep, const char* subj) {
+    sep = unbox_web_cstr(sep);
+    subj = unbox_web_cstr(subj);
     void* arr = joss_arr_new(4);
     if (!subj) return arr;
     if (!sep || !*sep) {
-        size_t n = strlen(subj);
-        for (size_t i = 0; i < n; i++) {
-            char ch[2] = {subj[i], '\0'};
-            joss_arr_push_str(arr, strdup(ch));
+        const char* p = subj;
+        while (*p) {
+            const char* start = p++;
+            while (*p && ((unsigned char)*p & 0xC0) == 0x80) {
+                p++;
+            }
+            size_t rlen = (size_t)(p - start);
+            char* ch = (char*)malloc(rlen + 1);
+            if (ch) {
+                memcpy(ch, start, rlen);
+                ch[rlen] = '\0';
+                joss_arr_push_str(arr, ch);
+            }
         }
         return arr;
     }
@@ -188,41 +226,42 @@ void* joss_explode(const char* sep, const char* subj) {
  * ========================================================================= */
 int64_t joss_count(void* container) {
     if (!container) return 0;
-    int64_t v = (int64_t)(uintptr_t)container;
-    if (joss_is_map_ptr(v)) return joss_map_len(container);
-    if (joss_is_arr_ptr(v)) return joss_arr_len(container);
+    int64_t v = joss_unbox_value((int64_t)(uintptr_t)container);
+    if (joss_is_map_ptr(v)) return joss_map_len((void*)(uintptr_t)v);
+    if (joss_is_arr_ptr(v)) return joss_arr_len((void*)(uintptr_t)v);
     return 0;
 }
 
 int64_t len(void* container) {
     if (!container) return 0;
-    int64_t v = (int64_t)(uintptr_t)container;
-    if (joss_is_map_ptr(v)) return joss_map_len(container);
-    if (joss_is_arr_ptr(v)) return joss_arr_len(container);
+    int64_t v = joss_unbox_value((int64_t)(uintptr_t)container);
+    if (joss_is_map_ptr(v)) return joss_map_len((void*)(uintptr_t)v);
+    if (joss_is_arr_ptr(v)) return joss_arr_len((void*)(uintptr_t)v);
     uint64_t u = (uint64_t)v;
     if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
-        return (int64_t)strlen((const char*)container);
+        return joss_strlen((const char*)(uintptr_t)u);
     }
     return 0;
 }
 
 int64_t joss_is_truthy(int64_t v) {
     if (v == 0) return 0;
+    if (joss_is_boxed_ptr(v)) {
+        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)v;
+        uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
+        if (tag == JOSS_TAG_NULL) return 0;
+        if (tag == JOSS_TAG_BOOL || tag == JOSS_TAG_INT) return box->payload != 0 ? 1 : 0;
+        if (tag == JOSS_TAG_STRING) {
+            const char* s = (const char*)(uintptr_t)box->payload;
+            return (s && s[0] != '\0') ? 1 : 0;
+        }
+        v = (int64_t)box->payload;
+    }
+    if (v == 0) return 0;
     if (joss_is_arr_ptr(v)) return joss_arr_len((void*)(uintptr_t)v) > 0 ? 1 : 0;
     if (joss_is_map_ptr(v)) return joss_map_len((void*)(uintptr_t)v) > 0 ? 1 : 0;
     uint64_t u = (uint64_t)v;
     if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
-        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)u;
-        if ((box->header >> 32) == JOSS_BOX_MAGIC) {
-            uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
-            if (tag == JOSS_TAG_NULL) return 0;
-            if (tag == JOSS_TAG_BOOL || tag == JOSS_TAG_INT) return box->payload != 0 ? 1 : 0;
-            if (tag == JOSS_TAG_STRING) {
-                const char* s = (const char*)(uintptr_t)box->payload;
-                return (s && s[0] != '\0') ? 1 : 0;
-            }
-            return 1;
-        }
         const char* s = (const char*)(uintptr_t)u;
         return s[0] != '\0' ? 1 : 0;
     }
@@ -230,21 +269,23 @@ int64_t joss_is_truthy(int64_t v) {
 }
 
 int64_t joss_is_array(int64_t v) {
+    v = joss_unbox_value(v);
     return joss_is_arr_ptr(v) ? 1 : 0;
 }
 
 int64_t joss_is_map(int64_t v) {
+    v = joss_unbox_value(v);
     return joss_is_map_ptr(v) ? 1 : 0;
 }
 
 int64_t joss_is_string(int64_t v) {
     if (joss_is_arr_ptr(v) || joss_is_map_ptr(v)) return 0;
-    uint64_t u = (uint64_t)v;
-    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return 0;
-    const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)u;
-    if ((box->header >> 32) == JOSS_BOX_MAGIC) {
+    if (joss_is_boxed_ptr(v)) {
+        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)v;
         return (uint32_t)(box->header & 0xFFFFFFFFULL) == JOSS_TAG_STRING ? 1 : 0;
     }
+    uint64_t u = (uint64_t)v;
+    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return 0;
     return 1;
 }
 
@@ -418,10 +459,83 @@ int64_t joss_strtotime(const char* s) {
     return (int64_t)time(NULL);
 }
 
+static void* g_joss_env_map = NULL;
+
+static void joss_load_env_file_if_needed(void) {
+    if (g_joss_env_map != NULL) return;
+    g_joss_env_map = joss_map_new();
+    const char* candidates[] = {"env.joss", ".env", "../env.joss", "../.env"};
+    for (int i = 0; i < 4; i++) {
+        FILE* f = fopen(candidates[i], "rb");
+        if (!f) continue;
+        fseek(f, 0, SEEK_END);
+        long sz = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        if (sz <= 0) {
+            fclose(f);
+            continue;
+        }
+        char* buf = (char*)malloc((size_t)sz + 1);
+        if (!buf) {
+            fclose(f);
+            continue;
+        }
+        size_t rd = fread(buf, 1, (size_t)sz, f);
+        buf[rd] = '\0';
+        fclose(f);
+        char* p = buf;
+        while (*p) {
+            while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+            if (!*p) break;
+            if (*p == '#') {
+                while (*p && *p != '\n') p++;
+                continue;
+            }
+            char* key_start = p;
+            while (*p && *p != '=' && *p != '\n' && *p != '\r') p++;
+            if (*p != '=') {
+                while (*p && *p != '\n') p++;
+                continue;
+            }
+            char* key_end = p;
+            while (key_end > key_start && (key_end[-1] == ' ' || key_end[-1] == '\t')) key_end--;
+            *key_end = '\0';
+            p++;
+            while (*p == ' ' || *p == '\t') p++;
+            char* val_start = p;
+            if (*p == '"' || *p == '\'') {
+                char q = *p++;
+                val_start = p;
+                while (*p && *p != q) p++;
+                if (*p == q) *p++ = '\0';
+                while (*p && *p != '\n') p++;
+            } else {
+                while (*p && *p != '\r' && *p != '\n' && *p != '#') p++;
+                char* val_end = p;
+                while (val_end > val_start && (val_end[-1] == ' ' || val_end[-1] == '\t')) val_end--;
+                if (*p == '#') {
+                    while (*p && *p != '\n') p++;
+                }
+                if (*p) p++;
+                *val_end = '\0';
+            }
+            joss_map_set_str(g_joss_env_map, key_start, val_start);
+        }
+        break;
+    }
+}
+
 const char* joss_env(const char* key, const char* defVal) {
     if (!key) return defVal ? defVal : "";
-    const char* v = getenv(key);
-    if (v) return v;
+    joss_load_env_file_if_needed();
+    if (g_joss_env_map != NULL && joss_array_key_exists(key, g_joss_env_map)) {
+        const char* mv = joss_map_get_str(g_joss_env_map, key);
+        if (mv) return mv;
+    }
+    if (strcmp(key, "PREFIX") != 0) {
+        const char* v = getenv(key);
+        if (v) return v;
+    }
     return defVal ? defVal : "";
 }
 
@@ -517,16 +631,18 @@ static void json_encode_value(JossStringBuilder* sb, int64_t val) {
         joss_buf_append_byte(sb, ']');
         return;
     }
+    if (joss_is_boxed_ptr(val)) {
+        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)val;
+        uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
+        if (tag == JOSS_TAG_NULL) { joss_sb_append(sb, "null"); return; }
+        if (tag == JOSS_TAG_BOOL) { joss_sb_append(sb, box->payload ? "true" : "false"); return; }
+        if (tag == JOSS_TAG_INT)  { joss_sb_append_i64(sb, (int64_t)box->payload); return; }
+        if (tag == JOSS_TAG_STRING) { json_escape_append(sb, (const char*)(uintptr_t)box->payload); return; }
+        json_encode_value(sb, (int64_t)box->payload);
+        return;
+    }
     uint64_t u = (uint64_t)val;
     if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
-        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)u;
-        if ((box->header >> 32) == JOSS_BOX_MAGIC) {
-            uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
-            if (tag == JOSS_TAG_NULL) { joss_sb_append(sb, "null"); return; }
-            if (tag == JOSS_TAG_BOOL) { joss_sb_append(sb, box->payload ? "true" : "false"); return; }
-            if (tag == JOSS_TAG_INT)  { joss_sb_append_i64(sb, (int64_t)box->payload); return; }
-            if (tag == JOSS_TAG_STRING) { json_escape_append(sb, (const char*)(uintptr_t)box->payload); return; }
-        }
         json_escape_append(sb, (const char*)(uintptr_t)u);
         return;
     }
@@ -823,13 +939,39 @@ void fn_Socket_close(void* sock) {
  * Web Context Helpers
  * ========================================================================= */
 
-const char* joss_request(const char* key, int64_t defVal) {
-    if (key && g_joss_active_request && joss_is_map_ptr((int64_t)(uintptr_t)g_joss_active_request)) {
-        const char* found = joss_map_get_str(g_joss_active_request, key);
-        if (found && *found) return found;
+void joss_set_active_request(void* req) {
+    if (req) {
+        req = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)req);
     }
-    if (defVal != 0) return joss_strval(defVal);
-    return "";
+    g_joss_active_request = req;
+}
+
+const char* joss_request(const char* key, int64_t defVal) {
+    void* active_req = g_joss_active_request;
+    if (key && strcmp(key, "__joss_request_all_fields") == 0) {
+        if (active_req && joss_is_map_ptr((int64_t)(uintptr_t)active_req)) {
+            return (const char*)active_req;
+        }
+        if (defVal != 0 && joss_is_map_ptr(defVal)) {
+            return (const char*)(uintptr_t)defVal;
+        }
+        return (const char*)joss_map_new();
+    }
+    if (key && active_req && joss_is_map_ptr((int64_t)(uintptr_t)active_req)) {
+        if (joss_array_key_exists(key, active_req)) {
+            int64_t found = joss_map_get_i64(active_req, key);
+            if (found != 0) {
+                return (const char*)(uintptr_t)found;
+            }
+        }
+    }
+    if (defVal != 0) {
+        if (joss_is_map_ptr(defVal) || joss_is_arr_ptr(defVal)) {
+            return (const char*)(uintptr_t)defVal;
+        }
+        return joss_strval(defVal);
+    }
+    return (const char*)0;
 }
 
 const char* fn_Request_input(const char* key, int64_t defVal) {

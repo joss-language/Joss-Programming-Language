@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jossecurity/joss/pkg/analyzer"
+	_ "github.com/jossecurity/joss/pkg/backend/llvm"
 	backend "github.com/jossecurity/joss/pkg/backend/native"
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/ir"

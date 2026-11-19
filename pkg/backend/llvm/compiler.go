@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/jossecurity/joss/pkg/backend/native"
@@ -76,6 +77,12 @@ func zigTargetTriple(t native.Target) string {
 }
 
 func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts native.BuildOptions) error {
+	if opts.Target.OS == "" {
+		opts.Target.OS = runtime.GOOS
+	}
+	if opts.Target.Arch == "" {
+		opts.Target.Arch = runtime.GOARCH
+	}
 	rtCPath, err := EnsureRuntimeC(opts.RuntimeSource)
 	if err != nil {
 		return err
@@ -166,7 +173,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	rtDir := filepath.Dir(rtCPath)
 	needsDB := strings.Contains(llvmIR, "joss___joss_db_")
 	needsCrypto := strings.Contains(llvmIR, "joss_sha256") || strings.Contains(llvmIR, "joss_password_") || strings.Contains(llvmIR, "joss_random_hex") || strings.Contains(llvmIR, "joss_jwt_") || strings.Contains(llvmIR, "joss_totp_")
-	needsWeb := needsDB || llvmNeedsWebRuntime(llvmIR)
+	needsWeb := needsDB || llvmNeedsWebRuntime(llvmIR) || strings.Contains(llvmIR, "@joss_set_active_request")
 	needsThreads := strings.Contains(llvmIR, "@joss_async") || strings.Contains(llvmIR, "@joss_make_chan")
 	needsConcurrency := needsThreads || strings.Contains(llvmIR, "@joss_dp_get") || strings.Contains(llvmIR, "@joss_dp_put")
 
@@ -251,7 +258,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		}
 	}
 	if needsDB {
-		if dbDrivers.sqlite && bundledSQLiteC == "" && hasHeader("sqlite3.h") {
+		if dbDrivers.sqlite && bundledSQLiteC == "" && (opts.Target.OS == "darwin" || hasHeader("sqlite3.h")) {
 			linkArgs = append(linkArgs, "-lsqlite3")
 		}
 		if dbDrivers.postgres && (hasHeader("postgresql/libpq-fe.h") || hasHeader("libpq-fe.h")) {
@@ -285,7 +292,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	if needsThreads && (opts.Target.OS == "linux" || opts.Target.OS == "") {
 		linkArgs = append(linkArgs, "-pthread")
 	}
-	if !tc.UseZigCC && lldPath != "" {
+	if !tc.UseZigCC && lldPath != "" && opts.Target.OS != "darwin" {
 		linkArgs = append(linkArgs, "-fuse-ld=lld")
 	}
 	if opts.Target.OS == "linux" || opts.Target.OS == "android" || opts.Target.OS == "" {

@@ -48,6 +48,14 @@ func (b *StandaloneBuilder) BuildNativeExecutableWithOptions(prog *ir.Program, o
 		target = HostTarget()
 	}
 
+	if target.OS == "darwin" && NewNativeCompiler().HasNativeToolchain() {
+		opts.Target = target
+		opts.OutputPath = outputPath
+		opts.Backend = BackendLLVM
+		_, err := BuildProgram(prog, opts)
+		return err
+	}
+
 	// Native output is a single standalone executable. Runtime calls must be
 	// lowered to emitted code or rejected by the selected backend; no bridge DLL
 	// is linked or inferred here.

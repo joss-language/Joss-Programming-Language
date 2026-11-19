@@ -38,6 +38,7 @@ typedef struct {
 
 JossBoxedValue* joss_box_value(uint64_t tag, uint64_t payload);
 int64_t         joss_unbox_value(int64_t val);
+bool            joss_is_boxed_ptr(int64_t val);
 JossBoxedValue* joss_box_i64(int64_t v);
 JossBoxedValue* joss_box_f64(double v);
 JossBoxedValue* joss_box_bool(bool v);
@@ -110,6 +111,8 @@ void        joss_print_bool(bool v);
 void        joss_print_string(const char* s);
 void        joss_print_mixed(int64_t val);
 char*       joss_str_concat(const char* a, const char* b);
+const char* joss_strval(int64_t v);
+int64_t     joss_strlen(const char* s);
 
 void*       joss_arr_new(int64_t initial_cap);
 void        joss_arr_push_i64(void* arr, int64_t val);
@@ -119,6 +122,8 @@ const char* joss_arr_get_str(void* arr, int64_t idx);
 void        joss_arr_set_i64(void* arr, int64_t idx, int64_t val);
 void        joss_arr_set_str(void* arr, int64_t idx, const char* val);
 int64_t     joss_arr_len(void* arr);
+void*       joss_arr_push_ret(void* arr, int64_t val);
+int64_t     joss_array_pop(void* arr);
 
 void*       joss_map_new(void);
 void        joss_map_set_i64(void* m, const char* key, int64_t val);
