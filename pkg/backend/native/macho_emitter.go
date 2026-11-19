@@ -38,14 +38,16 @@ func EmitMachO64Executable(layout *MachOImageLayout, textBytes []byte, rodataByt
 	var out bytes.Buffer
 
 	cpuType := machoCpuAmd64
+	cpuSubType := machoCpuSubAll
 	if arch == "arm64" {
 		cpuType = machoCpuArm64
+		cpuSubType = 0x00000000 // CPU_SUBTYPE_ARM64_ALL
 	}
 
 	// 1. Mach-O 64 Header (32 bytes)
 	_ = binary.Write(&out, binary.LittleEndian, macho64Magic)
 	_ = binary.Write(&out, binary.LittleEndian, cpuType)
-	_ = binary.Write(&out, binary.LittleEndian, machoCpuSubAll)
+	_ = binary.Write(&out, binary.LittleEndian, cpuSubType)
 	_ = binary.Write(&out, binary.LittleEndian, machoFileType)
 	_ = binary.Write(&out, binary.LittleEndian, uint32(2))          // ncmds: 2 (LC_SEGMENT_64 __PAGEZERO, LC_SEGMENT_64 __TEXT)
 	_ = binary.Write(&out, binary.LittleEndian, uint32(72+152))     // sizeofcmds

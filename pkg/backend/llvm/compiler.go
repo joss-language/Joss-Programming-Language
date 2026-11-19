@@ -251,7 +251,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		}
 	}
 	if needsDB {
-		if dbDrivers.sqlite && bundledSQLiteC == "" && hasHeader("sqlite3.h") {
+		if dbDrivers.sqlite && bundledSQLiteC == "" && (opts.Target.OS == "darwin" || hasHeader("sqlite3.h")) {
 			linkArgs = append(linkArgs, "-lsqlite3")
 		}
 		if dbDrivers.postgres && (hasHeader("postgresql/libpq-fe.h") || hasHeader("libpq-fe.h")) {
@@ -285,7 +285,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	if needsThreads && (opts.Target.OS == "linux" || opts.Target.OS == "") {
 		linkArgs = append(linkArgs, "-pthread")
 	}
-	if !tc.UseZigCC && lldPath != "" {
+	if !tc.UseZigCC && lldPath != "" && opts.Target.OS != "darwin" {
 		linkArgs = append(linkArgs, "-fuse-ld=lld")
 	}
 	if opts.Target.OS == "linux" || opts.Target.OS == "android" || opts.Target.OS == "" {

@@ -202,6 +202,9 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 	if selectedBackend == "" || selectedBackend == BackendAuto {
 		selectedBackend = BackendNative
 	}
+	if target.OS == "darwin" && (selectedBackend == BackendNative || selectedBackend == BackendStandalone) && NewNativeCompiler().HasNativeToolchain() {
+		selectedBackend = BackendLLVM
+	}
 	res.BackendUsed = selectedBackend
 
 	// 5. Compilación según el backend seleccionado
