@@ -3,6 +3,8 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -100,6 +102,19 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 		return bytes, true
 
 	case "__joss_get_embedded_asset":
+		if GlobalFileSystem != nil && len(args) == 1 {
+			urlPath, _ := args[0].(string)
+			name := strings.TrimPrefix(urlPath, "/")
+			if strings.HasPrefix(name, "public/") && fs.ValidPath(name) && !strings.ContainsAny(name, "\\:") {
+				f, err := GlobalFileSystem.Open(name)
+				if err == nil {
+					defer f.Close()
+					if data, err := io.ReadAll(f); err == nil {
+						return string(data), true
+					}
+				}
+			}
+		}
 		return "", true
 
 	case "json":
