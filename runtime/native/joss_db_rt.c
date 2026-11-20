@@ -50,8 +50,13 @@ typedef enum {
     JOSS_DB_SQLSRV   = 4
 } JossDBEngine;
 
+extern const char* joss_env(const char* key, const char* defVal);
+
 static JossDBEngine detect_db_engine(void) {
-    const char* drv = getenv("DB_CONNECTION");
+    const char* drv = joss_env("DB_MOTOR", "");
+    if (!drv || !*drv) drv = joss_env("DB_CONNECTION", "");
+    if (!drv || !*drv) drv = joss_env("DB_DRIVER", "");
+    if (!drv || !*drv) drv = getenv("DB_CONNECTION");
     if (!drv || !*drv) drv = getenv("DB_DRIVER");
     if (drv && *drv) {
         if (strcasecmp(drv, "sqlite") == 0 || strcasecmp(drv, "sqlite3") == 0) return JOSS_DB_SQLITE;
@@ -59,7 +64,14 @@ static JossDBEngine detect_db_engine(void) {
         if (strcasecmp(drv, "mysql") == 0 || strcasecmp(drv, "mariadb") == 0) return JOSS_DB_MYSQL;
         if (strcasecmp(drv, "sqlsrv") == 0 || strcasecmp(drv, "mssql") == 0 || strcasecmp(drv, "odbc") == 0) return JOSS_DB_SQLSRV;
     }
-    const char* db_path = getenv("DB_DATABASE");
+    const char* db_host = joss_env("DB_HOST", "");
+    if (!db_host || !*db_host) db_host = getenv("DB_HOST");
+    if (db_host && *db_host) {
+        return JOSS_DB_MYSQL;
+    }
+    const char* db_path = joss_env("DB_DATABASE", "");
+    if (!db_path || !*db_path) db_path = joss_env("DB_PATH", "");
+    if (!db_path || !*db_path) db_path = getenv("DB_DATABASE");
     if ((db_path && *db_path) || joss_file_exists("database.sqlite")) {
         return JOSS_DB_SQLITE;
     }
@@ -469,6 +481,8 @@ static int64_t odbc_execute(const char* sql, void* bindings) {
 }
 #endif
 
+#include "joss_db_wire.inc"
+
 /* =========================================================================
  * Unified GranDB Native Dispatch (SQLite, PostgreSQL, MySQL, SQL Server)
  * ========================================================================= */
@@ -479,9 +493,13 @@ int64_t joss___joss_db_is_connected(void) {
 #endif
 #if defined(JOSS_HAS_LIBPQ)
         case JOSS_DB_POSTGRES: return joss_get_pg() != NULL ? 1 : 0;
+#else
+        case JOSS_DB_POSTGRES: return joss_wire_get_pg() != JOSS_WIRE_INVALID_SOCK ? 1 : 0;
 #endif
 #if defined(JOSS_HAS_MYSQL)
         case JOSS_DB_MYSQL:    return joss_get_mysql() != NULL ? 1 : 0;
+#else
+        case JOSS_DB_MYSQL:    return joss_wire_get_mysql() != JOSS_WIRE_INVALID_SOCK ? 1 : 0;
 #endif
 #if defined(JOSS_HAS_ODBC)
         case JOSS_DB_SQLSRV:   return joss_get_odbc() != SQL_NULL_HDBC ? 1 : 0;
@@ -497,9 +515,13 @@ void* joss___joss_db_query(const char* sql, void* bindings) {
 #endif
 #if defined(JOSS_HAS_LIBPQ)
         case JOSS_DB_POSTGRES: return pg_query(sql, bindings);
+#else
+        case JOSS_DB_POSTGRES: return pg_wire_query(sql, bindings);
 #endif
 #if defined(JOSS_HAS_MYSQL)
         case JOSS_DB_MYSQL:    return mysql_query_native(sql, bindings);
+#else
+        case JOSS_DB_MYSQL:    return mysql_wire_query(sql, bindings);
 #endif
 #if defined(JOSS_HAS_ODBC)
         case JOSS_DB_SQLSRV:   return odbc_query(sql, bindings);
@@ -515,9 +537,13 @@ int64_t joss___joss_db_execute(const char* sql, void* bindings) {
 #endif
 #if defined(JOSS_HAS_LIBPQ)
         case JOSS_DB_POSTGRES: return pg_execute(sql, bindings);
+#else
+        case JOSS_DB_POSTGRES: return pg_wire_execute(sql, bindings);
 #endif
 #if defined(JOSS_HAS_MYSQL)
         case JOSS_DB_MYSQL:    return mysql_execute_native(sql, bindings);
+#else
+        case JOSS_DB_MYSQL:    return mysql_wire_execute(sql, bindings);
 #endif
 #if defined(JOSS_HAS_ODBC)
         case JOSS_DB_SQLSRV:   return odbc_execute(sql, bindings);
