@@ -463,13 +463,108 @@ int64_t joss_strtotime(const char* s) {
     return (int64_t)time(NULL);
 }
 
+typedef const char* (*joss_embedded_asset_fn)(const char* path);
+static joss_embedded_asset_fn g_joss_embedded_asset_resolver = NULL;
+
+void joss_register_embedded_asset_resolver(void* fn_ptr) {
+    g_joss_embedded_asset_resolver = (joss_embedded_asset_fn)fn_ptr;
+}
+
+static int joss_hex_nibble(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+static char* joss_decrypt_embedded_env(const char* enc) {
+    if (!enc || strncmp(enc, "JOSSENV1:", 9) != 0) return NULL;
+    const char* key_hex = enc + 9;
+    if (strlen(key_hex) < 66 || key_hex[64] != ':') return NULL;
+    uint8_t key[32];
+    for (int i = 0; i < 32; i++) {
+        int hi = joss_hex_nibble(key_hex[i * 2]);
+        int lo = joss_hex_nibble(key_hex[i * 2 + 1]);
+        if (hi < 0 || lo < 0) return NULL;
+        key[i] = (uint8_t)((hi << 4) | lo);
+    }
+    const char* cipher_hex = key_hex + 65;
+    size_t clen_hex = strlen(cipher_hex);
+    if ((clen_hex & 1) != 0 || clen_hex == 0) return NULL;
+    size_t n = clen_hex / 2;
+    char* plain = (char*)malloc(n + 1);
+    if (!plain) return NULL;
+    uint64_t state = 0x9e3779b97f4a7c15ULL;
+    for (int i = 0; i < 32; i++) {
+        state ^= ((uint64_t)key[i]) << ((unsigned)(i % 8) * 8U);
+        state *= 0xbf58476d1ce4e5b9ULL;
+    }
+    for (size_t i = 0; i < n; i++) {
+        int hi = joss_hex_nibble(cipher_hex[i * 2]);
+        int lo = joss_hex_nibble(cipher_hex[i * 2 + 1]);
+        if (hi < 0 || lo < 0) {
+            free(plain);
+            return NULL;
+        }
+        uint8_t cb = (uint8_t)((hi << 4) | lo);
+        state ^= state >> 12;
+        state ^= state << 25;
+        state ^= state >> 27;
+        uint8_t ks = (uint8_t)((state * 0x2545f4914f6cdd1dULL) >> 56) ^ key[i % 32];
+        plain[i] = (char)(cb ^ ks);
+    }
+    plain[n] = '\0';
+    return plain;
+}
+
 static void* g_joss_env_map = NULL;
+
+static void joss_parse_env_buffer(char* buf) {
+    char* p = buf;
+    while (*p) {
+        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+        if (!*p) break;
+        if (*p == '#') {
+            while (*p && *p != '\n') p++;
+            continue;
+        }
+        char* key_start = p;
+        while (*p && *p != '=' && *p != '\n' && *p != '\r') p++;
+        if (*p != '=') {
+            while (*p && *p != '\n') p++;
+            continue;
+        }
+        char* key_end = p;
+        while (key_end > key_start && (key_end[-1] == ' ' || key_end[-1] == '\t')) key_end--;
+        *key_end = '\0';
+        p++;
+        while (*p == ' ' || *p == '\t') p++;
+        char* val_start = p;
+        if (*p == '"' || *p == '\'') {
+            char q = *p++;
+            val_start = p;
+            while (*p && *p != q) p++;
+            if (*p == q) *p++ = '\0';
+            while (*p && *p != '\n') p++;
+        } else {
+            while (*p && *p != '\r' && *p != '\n' && *p != '#') p++;
+            char* val_end = p;
+            while (val_end > val_start && (val_end[-1] == ' ' || val_end[-1] == '\t')) val_end--;
+            if (*p == '#') {
+                while (*p && *p != '\n') p++;
+            }
+            if (*p) p++;
+            *val_end = '\0';
+        }
+        joss_map_set_str(g_joss_env_map, key_start, val_start);
+    }
+}
 
 static void joss_load_env_file_if_needed(void) {
     if (g_joss_env_map != NULL) return;
     g_joss_env_map = joss_map_new();
-    const char* candidates[] = {"env.joss", ".env", "../env.joss", "../.env"};
-    for (int i = 0; i < 4; i++) {
+    const char* candidates[] = {"env.joss", ".env"};
+    for (int i = 0; i < 2; i++) {
         FILE* f = fopen(candidates[i], "rb");
         if (!f) continue;
         fseek(f, 0, SEEK_END);
@@ -487,45 +582,18 @@ static void joss_load_env_file_if_needed(void) {
         size_t rd = fread(buf, 1, (size_t)sz, f);
         buf[rd] = '\0';
         fclose(f);
-        char* p = buf;
-        while (*p) {
-            while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
-            if (!*p) break;
-            if (*p == '#') {
-                while (*p && *p != '\n') p++;
-                continue;
+        joss_parse_env_buffer(buf);
+        return;
+    }
+    if (g_joss_embedded_asset_resolver != NULL) {
+        const char* enc = g_joss_embedded_asset_resolver("__joss_embedded_env_enc");
+        if (enc && enc[0]) {
+            char* plain = joss_decrypt_embedded_env(enc);
+            if (plain) {
+                joss_parse_env_buffer(plain);
+                return;
             }
-            char* key_start = p;
-            while (*p && *p != '=' && *p != '\n' && *p != '\r') p++;
-            if (*p != '=') {
-                while (*p && *p != '\n') p++;
-                continue;
-            }
-            char* key_end = p;
-            while (key_end > key_start && (key_end[-1] == ' ' || key_end[-1] == '\t')) key_end--;
-            *key_end = '\0';
-            p++;
-            while (*p == ' ' || *p == '\t') p++;
-            char* val_start = p;
-            if (*p == '"' || *p == '\'') {
-                char q = *p++;
-                val_start = p;
-                while (*p && *p != q) p++;
-                if (*p == q) *p++ = '\0';
-                while (*p && *p != '\n') p++;
-            } else {
-                while (*p && *p != '\r' && *p != '\n' && *p != '#') p++;
-                char* val_end = p;
-                while (val_end > val_start && (val_end[-1] == ' ' || val_end[-1] == '\t')) val_end--;
-                if (*p == '#') {
-                    while (*p && *p != '\n') p++;
-                }
-                if (*p) p++;
-                *val_end = '\0';
-            }
-            joss_map_set_str(g_joss_env_map, key_start, val_start);
         }
-        break;
     }
 }
 
@@ -1160,13 +1228,6 @@ int64_t fn_Cache_forget(const char* key) {
     joss_map_delete_i64(g_joss_cache_values, key);
     joss_map_delete_i64(g_joss_cache_expiry, key);
     return 1;
-}
-
-typedef const char* (*joss_embedded_asset_fn)(const char* path);
-static joss_embedded_asset_fn g_joss_embedded_asset_resolver = NULL;
-
-void joss_register_embedded_asset_resolver(void* fn_ptr) {
-    g_joss_embedded_asset_resolver = (joss_embedded_asset_fn)fn_ptr;
 }
 
 const char* fn_Markdown_toHtml(const char* md);

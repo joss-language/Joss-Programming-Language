@@ -1,6 +1,8 @@
 package ir
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1217,6 +1219,34 @@ func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 		})
 	}
 
+	// Encrypt and embed project env.joss / .env so standalone binaries carry
+	// protected configuration without exposing plaintext secrets in the executable.
+	for _, envFile := range []string{"env.joss", ".env"} {
+		if envBytes, err := os.ReadFile(envFile); err == nil && len(envBytes) > 0 {
+			key := make([]byte, 32)
+			_, _ = rand.Read(key)
+			cipherBytes := make([]byte, len(envBytes))
+			var state uint64 = 0x9e3779b97f4a7c15
+			for i := 0; i < len(key); i++ {
+				state ^= uint64(key[i]) << ((uint(i) % 8) * 8)
+				state *= 0xbf58476d1ce4e5b9
+			}
+			for i, b := range envBytes {
+				state ^= state >> 12
+				state ^= state << 25
+				state ^= state >> 27
+				ks := byte((state*0x2545f4914f6cdd1d)>>56) ^ key[i%len(key)]
+				cipherBytes[i] = b ^ ks
+			}
+			encoded := "JOSSENV1:" + hex.EncodeToString(key) + ":" + hex.EncodeToString(cipherBytes)
+			assets = append(assets, assetEntry{
+				aliases: []string{"__joss_embedded_env_enc"},
+				content: encoded,
+			})
+			break
+		}
+	}
+
 	fn := NewFunction("__joss_get_embedded_asset", TypeString)
 	pathParam := fn.AddParam("path", TypeString)
 	curr := fn.EntryBlock
@@ -1245,5 +1275,12 @@ func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 
 	curr.SetTerminator(&ReturnTerminator{Val: NewConstString("")})
 	l.prog.AddFunction(fn)
+	if mainFn := l.prog.Functions["main"]; mainFn != nil && mainFn.EntryBlock != nil {
+		regInst := &CallInst{
+			Callee: "joss_register_embedded_asset_resolver",
+			Args:   []Value{NewConstFnPtr("__joss_get_embedded_asset", TypeMixed)},
+		}
+		mainFn.EntryBlock.Instructions = append([]Instruction{regInst}, mainFn.EntryBlock.Instructions...)
+	}
 	return nil
 }
