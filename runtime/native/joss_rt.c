@@ -177,7 +177,10 @@ void* joss_req_alloc(size_t size) {
     return malloc(size ? size : 1);
 }
 
+static const char* unbox_cstr_rt(const char* s);
+
 char* joss_req_strdup(const char* s) {
+    s = unbox_cstr_rt(s);
     if (!s) s = "";
     size_t n = strlen(s);
     char* out = (char*)joss_req_alloc(n + 1);
@@ -272,7 +275,10 @@ void joss_buf_append_bytes(JossByteBuffer* buf, const uint8_t* data, int64_t len
     buf->len += len;
 }
 
+static const char* unbox_cstr_rt(const char* s);
+
 void joss_buf_append_cstr(JossByteBuffer* buf, const char* s) {
+    s = unbox_cstr_rt(s);
     if (!s) return;
     joss_buf_append_bytes(buf, (const uint8_t*)s, (int64_t)strlen(s));
 }
@@ -302,6 +308,7 @@ JossStringBuilder* joss_sb_new(void) {
 }
 
 void joss_sb_append(JossStringBuilder* sb, const char* s) {
+    s = unbox_cstr_rt(s);
     if (!s) {
         return;
     }
@@ -348,7 +355,11 @@ const char* joss_strval(int64_t v) {
     if (joss_is_boxed_ptr(v)) {
         const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)v;
         uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
-        if (tag == JOSS_TAG_STRING) return (const char*)(uintptr_t)box->payload;
+        if (tag == JOSS_TAG_STRING) {
+            uint64_t p = box->payload;
+            if (p < 0x10000ULL || (int64_t)p < 0) return "";
+            return (const char*)(uintptr_t)p;
+        }
         if (tag == JOSS_TAG_BOOL) return box->payload ? "true" : "false";
         if (tag == JOSS_TAG_NULL) return "";
         if (tag == JOSS_TAG_INT) {
@@ -372,8 +383,12 @@ const char* joss_to_string(int64_t v) {
 
 static const char* unbox_cstr_rt(const char* s) {
     if (!s) return NULL;
-    int64_t v = (int64_t)(uintptr_t)s;
+    uintptr_t u = (uintptr_t)s;
+    int64_t v = (int64_t)u;
     if (joss_is_boxed_ptr(v)) {
+        return joss_strval(v);
+    }
+    if (u < 0x10000ULL || v < 0) {
         return joss_strval(v);
     }
     return s;
@@ -483,8 +498,12 @@ static void* unbox_ptr(void* p) {
 
 static const char* unbox_cstr(const char* s) {
     if (!s) return NULL;
-    int64_t v = (int64_t)(uintptr_t)s;
+    uintptr_t u = (uintptr_t)s;
+    int64_t v = (int64_t)u;
     if (joss_is_boxed_ptr(v)) {
+        return joss_strval(v);
+    }
+    if (u < 0x10000ULL || v < 0) {
         return joss_strval(v);
     }
     return s;

@@ -48,8 +48,12 @@ const char* joss_str_concat_i64(const char* a, int64_t b) {
 
 static const char* unbox_web_cstr(const char* s) {
     if (!s) return NULL;
-    int64_t v = (int64_t)(uintptr_t)s;
+    uintptr_t u = (uintptr_t)s;
+    int64_t v = (int64_t)u;
     if (joss_is_boxed_ptr(v)) {
+        return joss_strval(v);
+    }
+    if (u < 0x10000ULL || v < 0) {
         return joss_strval(v);
     }
     return s;
@@ -1038,6 +1042,7 @@ void* response(void* recv) {
 }
 
 const char* html_escape(const char* s) {
+    s = unbox_web_cstr(s);
     if (!s) return "";
     size_t n = strlen(s);
     char* out = (char*)malloc(n * 6 + 1);
