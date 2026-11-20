@@ -28,6 +28,9 @@ func (l *Lowerer) lowerProjectViewsAndRoutes() error {
 	if l.reachGraph != nil && !l.reachGraph.HasCapability(analyzer.CapServer) && !l.reachGraph.HasCapability(analyzer.CapHTTP) {
 		return nil
 	}
+	if err := l.synthesizeEmbeddedAssetsFunction(); err != nil {
+		return err
+	}
 	if err := l.synthesizeHTTPDispatchFunction(); err != nil {
 		return err
 	}
@@ -36,9 +39,6 @@ func (l *Lowerer) lowerProjectViewsAndRoutes() error {
 		return err
 	}
 	if err := l.synthesizeViewDispatcherFunction(views); err != nil {
-		return err
-	}
-	if err := l.synthesizeEmbeddedAssetsFunction(); err != nil {
 		return err
 	}
 	return nil
@@ -943,6 +943,12 @@ func (l *Lowerer) synthesizeHTTPDispatchFunction() error {
 	fn.AddParam("cookieHeader", TypeString)
 	requestGlobal := l.prog.AddGlobal("__joss_request_params", requestParam.Type(), nil, false)
 	fn.EntryBlock.AddInstruction(&GlobalStoreInst{GlobalName: requestGlobal.Name, Val: requestParam})
+	if l.prog.Functions["__joss_get_embedded_asset"] != nil {
+		fn.EntryBlock.AddInstruction(&CallInst{
+			Callee: "joss_register_embedded_asset_resolver",
+			Args:   []Value{NewConstFnPtr("__joss_get_embedded_asset", TypeMixed)},
+		})
+	}
 
 	curr := fn.EntryBlock
 	dispatched := 0
@@ -1169,6 +1175,7 @@ func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 		".css": true, ".js": true, ".json": true, ".svg": true, ".png": true,
 		".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".ico": true,
 		".woff": true, ".woff2": true, ".ttf": true, ".txt": true, ".xml": true,
+		".md": true, ".html": true,
 	}
 
 	searchRoots := []string{"public", "assets"}

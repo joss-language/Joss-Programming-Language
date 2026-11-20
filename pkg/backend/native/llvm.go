@@ -1385,7 +1385,11 @@ func (e *LLVMEmitter) emitDirectCall(sym string, dest *ir.TempValue, args []ir.V
 			}
 		}
 	} else if userFn != nil && len(args) > len(userFn.Params) {
-		args = args[:len(userFn.Params)]
+		if len(args) == len(userFn.Params)+1 && (len(userFn.Params) == 0 || (userFn.Params[0].Name != "this" && userFn.Params[0].Name != "$this")) {
+			args = args[1:]
+		} else {
+			args = args[:len(userFn.Params)]
+		}
 	}
 	extArgTs := e.symArgTypes[sym]
 	isVararg := e.varargSyms != nil && e.varargSyms[sym]

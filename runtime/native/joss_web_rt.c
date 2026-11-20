@@ -1150,9 +1150,25 @@ int64_t fn_Cache_forget(const char* key) {
     return 1;
 }
 
+typedef const char* (*joss_embedded_asset_fn)(const char* path);
+static joss_embedded_asset_fn g_joss_embedded_asset_resolver = NULL;
+
+void joss_register_embedded_asset_resolver(void* fn_ptr) {
+    g_joss_embedded_asset_resolver = (joss_embedded_asset_fn)fn_ptr;
+}
+
 const char* fn_Markdown_readFile(const char* path) {
     path = unbox_web_cstr(path);
-    return joss_file_get_contents(path);
+    if (!path || !path[0]) return "";
+    if (g_joss_embedded_asset_resolver) {
+        const char* emb = g_joss_embedded_asset_resolver(path);
+        if (emb && emb[0]) return emb;
+    }
+    const char* disk = joss_file_get_contents(path);
+    if (disk && disk[0]) return disk;
+    char parent_path[1024];
+    snprintf(parent_path, sizeof(parent_path), "../%s", path);
+    return joss_file_get_contents(parent_path);
 }
 
 static void md_append_inline(JossStringBuilder* sb, const char* s, size_t len) {
