@@ -1369,16 +1369,38 @@ const char* fn_Response_json(int64_t data, int64_t status) {
 
 const char* fn_Response_raw(const char* body, int64_t status, const char* content_type) {
     body = unbox_web_cstr(body);
-    content_type = unbox_web_cstr(content_type);
     if (!body) body = "";
-    if (!content_type || !*content_type) content_type = "text/plain; charset=utf-8";
     if (status <= 0) status = 200;
     JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "HTTP/1.1 ");
     joss_sb_append_i64(sb, status);
-    joss_sb_append(sb, " OK\r\nContent-Type: ");
-    joss_sb_append(sb, content_type);
-    joss_sb_append(sb, "\r\nConnection: close\r\n\r\n");
+    joss_sb_append(sb, " OK\r\n");
+    int has_ct = 0;
+    int64_t hv = (int64_t)(uintptr_t)content_type;
+    if (joss_is_map_ptr(hv)) {
+        /* Headers map: emit every header (parity with Response::raw in pkg/core). */
+        int64_t n = joss_map_len((void*)content_type);
+        for (int64_t i = 0; i < n; i++) {
+            const char* k = unbox_web_cstr(joss_map_key_at((void*)content_type, i));
+            const char* v = unbox_web_cstr((const char*)(uintptr_t)joss_map_val_at((void*)content_type, i));
+            if (!k || !*k || !v) continue;
+            if (strcasecmp(k, "Content-Type") == 0) has_ct = 1;
+            joss_sb_append(sb, k);
+            joss_sb_append(sb, ": ");
+            joss_sb_append(sb, v);
+            joss_sb_append(sb, "\r\n");
+        }
+    } else {
+        content_type = unbox_web_cstr(content_type);
+        if (content_type && *content_type) {
+            joss_sb_append(sb, "Content-Type: ");
+            joss_sb_append(sb, content_type);
+            joss_sb_append(sb, "\r\n");
+            has_ct = 1;
+        }
+    }
+    if (!has_ct) joss_sb_append(sb, "Content-Type: text/plain; charset=utf-8\r\n");
+    joss_sb_append(sb, "Connection: close\r\n\r\n");
     joss_sb_append(sb, body);
     char* out = joss_sb_to_string(sb);
     joss_sb_free(sb);

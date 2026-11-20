@@ -247,7 +247,7 @@ public class GranDB {
     }
 
     public func where(mixed $colOrClosure, mixed $opOrVal = null, mixed $val = null): GranDB {
-        ($opOrVal === null && $val === null) ? {
+        (!is_string($colOrClosure)) ? {
             var $nested = new GranDB()
             $colOrClosure($nested)
             var $nestedCount = count($nested->wheres)
@@ -275,7 +275,7 @@ public class GranDB {
     }
 
     public func orWhere(mixed $colOrClosure, mixed $opOrVal = null, mixed $val = null) : GranDB {
-        ($opOrVal === null && $val === null) ? {
+        (!is_string($colOrClosure)) ? {
             var $nested = new GranDB()
             $colOrClosure($nested)
             var $nestedCount = count($nested->wheres)
