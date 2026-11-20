@@ -21,6 +21,7 @@ import (
 	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/mobile"
 	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/pkg/pluginpkg"
 	_ "github.com/jossecurity/joss/pkg/server"
 	"github.com/jossecurity/joss/pkg/template"
 	"github.com/jossecurity/joss/pkg/version"
@@ -611,6 +612,9 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		report := core.AnalysisReportFromDiagnostics(parseDiagnostics)
 		report.PrintReport()
 		return "", fmt.Errorf("falló análisis sintáctico")
+	}
+	if pluginUnits := pluginpkg.ExtractPluginSourceUnits("."); len(pluginUnits) > 0 {
+		units = append(units, pluginUnits...)
 	}
 
 	report := core.AnalyzeSourceUnits(units)
