@@ -174,7 +174,8 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	needsDB := strings.Contains(llvmIR, "joss___joss_db_")
 	needsCrypto := strings.Contains(llvmIR, "joss_sha256") || strings.Contains(llvmIR, "joss_password_") || strings.Contains(llvmIR, "joss_random_hex") || strings.Contains(llvmIR, "joss_jwt_") || strings.Contains(llvmIR, "joss_totp_")
 	needsWeb := needsDB || llvmNeedsWebRuntime(llvmIR) || strings.Contains(llvmIR, "@joss_set_active_request")
-	needsThreads := strings.Contains(llvmIR, "@joss_async") || strings.Contains(llvmIR, "@joss_make_chan")
+	needsThreads := strings.Contains(llvmIR, "@joss_async") || strings.Contains(llvmIR, "@joss_make_chan") ||
+		strings.Contains(llvmIR, "@fn_Mutex_") || strings.Contains(llvmIR, "@fn_RWMutex_") || strings.Contains(llvmIR, "@fn_WaitGroup_")
 	needsConcurrency := needsThreads || strings.Contains(llvmIR, "@joss_dp_get") || strings.Contains(llvmIR, "@joss_dp_put")
 
 	dbDrivers := detectNeededDBDrivers(llvmIR, needsDB)
@@ -370,6 +371,10 @@ func llvmNeedsWebRuntime(llvmIR string) bool {
 		"@fn_Socket_", "@fn_Request_", "@fn_Cache_", "@fn_Markdown_",
 		"@fn_Response_", "@fn_WebResponse_", "@fn_System_", "@fn_Http_",
 		"@fn_WebSocket_", "@fn_AI_", "@fn_Notify_", "@fn_Plugin_",
+		"@fn_Console_", "@fn_FileStream_", "@fn_DateTime_", "@fn_Lang_",
+		"@joss_microtime", "@joss_sleep", "@joss_usleep", "@joss_is_dir", "@joss_is_file",
+		"@joss_rand", "@joss_ord", "@joss_round", "@joss_floor", "@joss_ceil",
+		"@joss_config", "@joss_toon_",
 		"@joss_strval", "@joss_to_string", "@joss_str_concat_i64",
 		"@joss_strpos", "@joss_substr", "@joss_trim", "@joss_strtolower", "@joss_strtoupper",
 		"@joss_urldecode", "@joss_rawurldecode", "@joss_explode", "@joss_count",

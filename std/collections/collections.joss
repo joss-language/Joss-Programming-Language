@@ -1,0 +1,61 @@
+public class Stack {
+    private array $items = []
+
+    public func push(mixed $item): void {
+        array_push($this->items, $item)
+    }
+
+    public func pop(): mixed {
+        return(count($this->items) == 0) ? null : array_pop($this->items)
+    }
+
+    public func peek(): mixed {
+        var $n = count($this->items)
+        return($n == 0) ? null : $this->items [$n - 1]
+    }
+
+    public func size(): int {
+        return count($this->items)
+    }
+
+    public func isEmpty(): bool {
+        return count($this->items) == 0
+    }
+}
+
+public class Queue {
+    private array $items = []
+
+    public func enqueue(mixed $item): void {
+        array_push($this->items, $item)
+    }
+
+    public func dequeue(): mixed {
+        var $n = count($this->items)
+        ($n == 0) ? {
+            return null
+        } : {
+        }
+        var $first = $this->items [0]
+        array $next = []
+        var $i = 1
+        while ($i < $n) {
+            array_push($next, $this->items [$i])
+            $i = $i + 1
+        }
+        $this->items = $next
+        return $first
+    }
+
+    public func peek(): mixed {
+        return(count($this->items) == 0) ? null : $this->items [0]
+    }
+
+    public func size(): int {
+        return count($this->items)
+    }
+
+    public func isEmpty(): bool {
+        return count($this->items) == 0
+    }
+}

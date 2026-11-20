@@ -241,6 +241,93 @@ void joss_close(int64_t ch_handle) {
     pthread_mutex_unlock(&ch->mu);
 }
 
+/* =========================================================================
+ * 4. Native Mutex, RWMutex, and WaitGroup (POSIX)
+ * ========================================================================= */
+int64_t fn_Mutex_new(void) {
+    pthread_mutex_t* m = (pthread_mutex_t*)calloc(1, sizeof(pthread_mutex_t));
+    if (!m) joss_panic("JOSS-OOM: Mutex allocation failed");
+    pthread_mutex_init(m, NULL);
+    return (int64_t)(uintptr_t)m;
+}
+
+void fn_Mutex_lock(int64_t handle) {
+    pthread_mutex_t* m = (pthread_mutex_t*)(uintptr_t)handle;
+    if (m) pthread_mutex_lock(m);
+}
+
+void fn_Mutex_unlock(int64_t handle) {
+    pthread_mutex_t* m = (pthread_mutex_t*)(uintptr_t)handle;
+    if (m) pthread_mutex_unlock(m);
+}
+
+int64_t fn_RWMutex_new(void) {
+    pthread_rwlock_t* rw = (pthread_rwlock_t*)calloc(1, sizeof(pthread_rwlock_t));
+    if (!rw) joss_panic("JOSS-OOM: RWMutex allocation failed");
+    pthread_rwlock_init(rw, NULL);
+    return (int64_t)(uintptr_t)rw;
+}
+
+void fn_RWMutex_lock(int64_t handle) {
+    pthread_rwlock_t* rw = (pthread_rwlock_t*)(uintptr_t)handle;
+    if (rw) pthread_rwlock_wrlock(rw);
+}
+
+void fn_RWMutex_unlock(int64_t handle) {
+    pthread_rwlock_t* rw = (pthread_rwlock_t*)(uintptr_t)handle;
+    if (rw) pthread_rwlock_unlock(rw);
+}
+
+void fn_RWMutex_rLock(int64_t handle) {
+    pthread_rwlock_t* rw = (pthread_rwlock_t*)(uintptr_t)handle;
+    if (rw) pthread_rwlock_rdlock(rw);
+}
+
+void fn_RWMutex_rUnlock(int64_t handle) {
+    pthread_rwlock_t* rw = (pthread_rwlock_t*)(uintptr_t)handle;
+    if (rw) pthread_rwlock_unlock(rw);
+}
+
+typedef struct {
+    pthread_mutex_t mu;
+    pthread_cond_t  cv;
+    int64_t         count;
+} JossWaitGroup;
+
+int64_t fn_WaitGroup_new(void) {
+    JossWaitGroup* wg = (JossWaitGroup*)calloc(1, sizeof(JossWaitGroup));
+    if (!wg) joss_panic("JOSS-OOM: WaitGroup allocation failed");
+    pthread_mutex_init(&wg->mu, NULL);
+    pthread_cond_init(&wg->cv, NULL);
+    return (int64_t)(uintptr_t)wg;
+}
+
+void fn_WaitGroup_add(int64_t handle, int64_t delta) {
+    JossWaitGroup* wg = (JossWaitGroup*)(uintptr_t)handle;
+    if (!wg) return;
+    pthread_mutex_lock(&wg->mu);
+    wg->count += delta;
+    if (wg->count <= 0) {
+        wg->count = 0;
+        pthread_cond_broadcast(&wg->cv);
+    }
+    pthread_mutex_unlock(&wg->mu);
+}
+
+void fn_WaitGroup_done(int64_t handle) {
+    fn_WaitGroup_add(handle, -1);
+}
+
+void fn_WaitGroup_wait(int64_t handle) {
+    JossWaitGroup* wg = (JossWaitGroup*)(uintptr_t)handle;
+    if (!wg) return;
+    pthread_mutex_lock(&wg->mu);
+    while (wg->count > 0) {
+        pthread_cond_wait(&wg->cv, &wg->mu);
+    }
+    pthread_mutex_unlock(&wg->mu);
+}
+
 #elif defined(_WIN32)
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -425,6 +512,79 @@ void joss_close(int64_t ch_handle) {
     LeaveCriticalSection(&ch->cs);
 }
 
+int64_t fn_Mutex_new(void) {
+    CRITICAL_SECTION* cs = (CRITICAL_SECTION*)calloc(1, sizeof(CRITICAL_SECTION));
+    if (!cs) joss_panic("JOSS-OOM: Mutex allocation failed");
+    InitializeCriticalSection(cs);
+    return (int64_t)(uintptr_t)cs;
+}
+void fn_Mutex_lock(int64_t handle) {
+    CRITICAL_SECTION* cs = (CRITICAL_SECTION*)(uintptr_t)handle;
+    if (cs) EnterCriticalSection(cs);
+}
+void fn_Mutex_unlock(int64_t handle) {
+    CRITICAL_SECTION* cs = (CRITICAL_SECTION*)(uintptr_t)handle;
+    if (cs) LeaveCriticalSection(cs);
+}
+
+int64_t fn_RWMutex_new(void) {
+    SRWLOCK* rw = (SRWLOCK*)calloc(1, sizeof(SRWLOCK));
+    if (!rw) joss_panic("JOSS-OOM: RWMutex allocation failed");
+    InitializeSRWLock(rw);
+    return (int64_t)(uintptr_t)rw;
+}
+void fn_RWMutex_lock(int64_t handle) {
+    SRWLOCK* rw = (SRWLOCK*)(uintptr_t)handle;
+    if (rw) AcquireSRWLockExclusive(rw);
+}
+void fn_RWMutex_unlock(int64_t handle) {
+    SRWLOCK* rw = (SRWLOCK*)(uintptr_t)handle;
+    if (rw) ReleaseSRWLockExclusive(rw);
+}
+void fn_RWMutex_rLock(int64_t handle) {
+    SRWLOCK* rw = (SRWLOCK*)(uintptr_t)handle;
+    if (rw) AcquireSRWLockShared(rw);
+}
+void fn_RWMutex_rUnlock(int64_t handle) {
+    SRWLOCK* rw = (SRWLOCK*)(uintptr_t)handle;
+    if (rw) ReleaseSRWLockShared(rw);
+}
+
+typedef struct {
+    CRITICAL_SECTION   cs;
+    CONDITION_VARIABLE cv;
+    int64_t            count;
+} JossWinWaitGroup;
+
+int64_t fn_WaitGroup_new(void) {
+    JossWinWaitGroup* wg = (JossWinWaitGroup*)calloc(1, sizeof(JossWinWaitGroup));
+    if (!wg) joss_panic("JOSS-OOM: WaitGroup allocation failed");
+    InitializeCriticalSection(&wg->cs);
+    InitializeConditionVariable(&wg->cv);
+    return (int64_t)(uintptr_t)wg;
+}
+void fn_WaitGroup_add(int64_t handle, int64_t delta) {
+    JossWinWaitGroup* wg = (JossWinWaitGroup*)(uintptr_t)handle;
+    if (!wg) return;
+    EnterCriticalSection(&wg->cs);
+    wg->count += delta;
+    if (wg->count <= 0) {
+        wg->count = 0;
+        WakeAllConditionVariable(&wg->cv);
+    }
+    LeaveCriticalSection(&wg->cs);
+}
+void fn_WaitGroup_done(int64_t handle) { fn_WaitGroup_add(handle, -1); }
+void fn_WaitGroup_wait(int64_t handle) {
+    JossWinWaitGroup* wg = (JossWinWaitGroup*)(uintptr_t)handle;
+    if (!wg) return;
+    EnterCriticalSection(&wg->cs);
+    while (wg->count > 0) {
+        SleepConditionVariableCS(&wg->cv, &wg->cs, INFINITE);
+    }
+    LeaveCriticalSection(&wg->cs);
+}
+
 #else
 
 int64_t joss_async(int64_t fn_ptr) {
@@ -436,5 +596,17 @@ int64_t joss_make_chan(int64_t capacity) { (void)capacity; return 0; }
 void    joss_send(int64_t ch, int64_t val) { (void)ch; (void)val; }
 int64_t joss_recv(int64_t ch) { (void)ch; return 0; }
 void    joss_close(int64_t ch) { (void)ch; }
+int64_t fn_Mutex_new(void) { return 0; }
+void    fn_Mutex_lock(int64_t h) { (void)h; }
+void    fn_Mutex_unlock(int64_t h) { (void)h; }
+int64_t fn_RWMutex_new(void) { return 0; }
+void    fn_RWMutex_lock(int64_t h) { (void)h; }
+void    fn_RWMutex_unlock(int64_t h) { (void)h; }
+void    fn_RWMutex_rLock(int64_t h) { (void)h; }
+void    fn_RWMutex_rUnlock(int64_t h) { (void)h; }
+int64_t fn_WaitGroup_new(void) { return 0; }
+void    fn_WaitGroup_add(int64_t h, int64_t d) { (void)h; (void)d; }
+void    fn_WaitGroup_done(int64_t h) { (void)h; }
+void    fn_WaitGroup_wait(int64_t h) { (void)h; }
 
 #endif

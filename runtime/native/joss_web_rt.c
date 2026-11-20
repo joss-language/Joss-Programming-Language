@@ -1434,3 +1434,272 @@ int64_t fn_Plugin_call(const char* plugin_name, const char* func_name, void* arg
     (void)args;
     return 0;
 }
+
+/* =========================================================================
+ * Phase 1: Native Global Builtins & Base Host Classes
+ * ========================================================================= */
+
+#if !defined(_WIN32)
+#include <sys/stat.h>
+#include <sys/time.h>
+#endif
+
+static char* joss_web_strdup(const char* s) {
+    if (!s) s = "";
+    size_t n = strlen(s);
+    char* out = (char*)malloc(n + 1);
+    if (!out) return "";
+    memcpy(out, s, n + 1);
+    return out;
+}
+
+static double joss_i64_to_double_bits(int64_t bits) {
+    double d = 0.0;
+    memcpy(&d, &bits, sizeof(double));
+    return d;
+}
+
+static int64_t joss_double_to_i64_bits(double d) {
+    int64_t bits = 0;
+    memcpy(&bits, &d, sizeof(double));
+    return bits;
+}
+
+int64_t joss_microtime(void) {
+#if defined(_WIN32)
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    ULARGE_INTEGER uli;
+    uli.LowPart = ft.dwLowDateTime;
+    uli.HighPart = ft.dwHighDateTime;
+    double sec = (double)(uli.QuadPart - 116444736000000000ULL) / 10000000.0;
+    return joss_double_to_i64_bits(sec);
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    double sec = (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+    return joss_double_to_i64_bits(sec);
+#endif
+}
+
+int64_t joss_sleep(int64_t seconds) {
+    if (seconds <= 0) return 0;
+#if defined(_WIN32)
+    Sleep((DWORD)(seconds * 1000));
+#else
+    sleep((unsigned int)seconds);
+#endif
+    return 0;
+}
+
+int64_t joss_usleep(int64_t usec) {
+    if (usec <= 0) return 0;
+#if defined(_WIN32)
+    Sleep((DWORD)((usec + 999) / 1000));
+#else
+    usleep((useconds_t)usec);
+#endif
+    return 0;
+}
+
+int64_t joss_is_dir(const char* path) {
+    path = unbox_web_cstr(path);
+    if (!path || !path[0]) return 0;
+#if defined(_WIN32)
+    DWORD attr = GetFileAttributesA(path);
+    return (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY)) ? 1 : 0;
+#else
+    struct stat st;
+    if (stat(path, &st) != 0) return 0;
+    return S_ISDIR(st.st_mode) ? 1 : 0;
+#endif
+}
+
+int64_t joss_is_file(const char* path) {
+    path = unbox_web_cstr(path);
+    if (!path || !path[0]) return 0;
+#if defined(_WIN32)
+    DWORD attr = GetFileAttributesA(path);
+    return (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY)) ? 1 : 0;
+#else
+    struct stat st;
+    if (stat(path, &st) != 0) return 0;
+    return S_ISREG(st.st_mode) ? 1 : 0;
+#endif
+}
+
+static uint64_t g_joss_rand_state = 0;
+
+int64_t joss_rand(int64_t min_val, int64_t max_val) {
+    if (g_joss_rand_state == 0) {
+        g_joss_rand_state = (uint64_t)time(NULL) ^ 0x9E3779B97F4A7C15ULL;
+    }
+    /* xorshift64* */
+    uint64_t x = g_joss_rand_state;
+    x ^= x >> 12;
+    x ^= x << 25;
+    x ^= x >> 27;
+    g_joss_rand_state = x;
+    uint64_t r = x * 0x2545F4914F6CDD1DULL;
+    if (max_val <= min_val) return min_val;
+    uint64_t span = (uint64_t)(max_val - min_val) + 1ULL;
+    return min_val + (int64_t)(r % span);
+}
+
+int64_t joss_ord(const char* s) {
+    s = unbox_web_cstr(s);
+    if (!s || !s[0]) return 0;
+    return (int64_t)(unsigned char)s[0];
+}
+
+int64_t joss_floor(int64_t val_bits) {
+    double d = joss_i64_to_double_bits(val_bits);
+    int64_t i = (int64_t)d;
+    if (d < (double)i) i--;
+    return joss_double_to_i64_bits((double)i);
+}
+
+int64_t joss_ceil(int64_t val_bits) {
+    double d = joss_i64_to_double_bits(val_bits);
+    int64_t i = (int64_t)d;
+    if (d > (double)i) i++;
+    return joss_double_to_i64_bits((double)i);
+}
+
+int64_t joss_round(int64_t val_bits) {
+    double d = joss_i64_to_double_bits(val_bits);
+    double r = (d >= 0.0) ? (double)((int64_t)(d + 0.5)) : (double)((int64_t)(d - 0.5));
+    return joss_double_to_i64_bits(r);
+}
+
+const char* joss_config(const char* key, const char* def) {
+    key = unbox_web_cstr(key);
+    def = unbox_web_cstr(def);
+    if (!key) return def ? def : "";
+    const char* v = joss_env(key, def ? def : "");
+    return v ? v : (def ? def : "");
+}
+
+const char* joss_toon_encode(const char* data) {
+    data = unbox_web_cstr(data);
+    if (!data) return "";
+    return joss_str_concat("TOON:", data);
+}
+
+int64_t joss_toon_verify(const char* token) {
+    token = unbox_web_cstr(token);
+    if (!token) return 0;
+    return (strncmp(token, "TOON:", 5) == 0) ? 1 : 0;
+}
+
+/* --- Console Host Class --- */
+void fn_Console_log(const char* msg) {
+    msg = unbox_web_cstr(msg);
+    printf("%s\n", msg ? msg : "");
+    fflush(stdout);
+}
+
+void fn_Console_error(const char* msg) {
+    msg = unbox_web_cstr(msg);
+    fprintf(stderr, "%s\n", msg ? msg : "");
+    fflush(stderr);
+}
+
+const char* fn_Console_readLine(void) {
+    char buf[4096];
+    if (!fgets(buf, sizeof(buf), stdin)) return "";
+    size_t n = strlen(buf);
+    while (n > 0 && (buf[n - 1] == '\n' || buf[n - 1] == '\r')) buf[--n] = '\0';
+    return joss_web_strdup(buf);
+}
+
+/* --- FileStream Host Class --- */
+void* fn_FileStream_open(const char* path, const char* mode) {
+    path = unbox_web_cstr(path);
+    mode = unbox_web_cstr(mode);
+    if (!path || !path[0]) return NULL;
+    const char* m = (mode && mode[0]) ? mode : "r";
+    return (void*)fopen(path, m);
+}
+
+const char* fn_FileStream_read(void* handle, int64_t max_bytes) {
+    FILE* f = (FILE*)handle;
+    if (!f) return "";
+    if (max_bytes <= 0) max_bytes = 65536;
+    if (max_bytes > 16 * 1024 * 1024) max_bytes = 16 * 1024 * 1024;
+    char* buf = (char*)malloc((size_t)max_bytes + 1);
+    if (!buf) return "";
+    size_t n = fread(buf, 1, (size_t)max_bytes, f);
+    buf[n] = '\0';
+    return buf;
+}
+
+int64_t fn_FileStream_write(void* handle, const char* data) {
+    FILE* f = (FILE*)handle;
+    data = unbox_web_cstr(data);
+    if (!f || !data) return 0;
+    size_t n = strlen(data);
+    size_t w = fwrite(data, 1, n, f);
+    fflush(f);
+    return (int64_t)w;
+}
+
+int64_t fn_FileStream_close(void* handle) {
+    FILE* f = (FILE*)handle;
+    if (!f) return 0;
+    return (fclose(f) == 0) ? 1 : 0;
+}
+
+/* --- DateTime Host Class --- */
+int64_t fn_DateTime_now(void) {
+    return (int64_t)time(NULL);
+}
+
+int64_t fn_DateTime_timestamp(void) {
+    return (int64_t)time(NULL);
+}
+
+const char* fn_DateTime_format(const char* fmt, int64_t ts) {
+    fmt = unbox_web_cstr(fmt);
+    time_t t = (ts > 0) ? (time_t)ts : time(NULL);
+    struct tm tm_val;
+#if defined(_WIN32)
+    localtime_s(&tm_val, &t);
+#else
+    localtime_r(&t, &tm_val);
+#endif
+    char buf[128];
+    if (!fmt || !fmt[0] || strcmp(fmt, "Y-m-d H:i:s") == 0) {
+        snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
+            tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday,
+            tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec);
+        return joss_web_strdup(buf);
+    }
+    if (strcmp(fmt, "Y-m-d") == 0) {
+        snprintf(buf, sizeof(buf), "%04d-%02d-%02d",
+            tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday);
+        return joss_web_strdup(buf);
+    }
+    strftime(buf, sizeof(buf), fmt, &tm_val);
+    return joss_web_strdup(buf);
+}
+
+/* --- Lang Host Class --- */
+static char g_joss_locale[32] = "es";
+
+const char* fn_Lang_locale(void) {
+    return g_joss_locale;
+}
+
+int64_t fn_Lang_setLocale(const char* loc) {
+    loc = unbox_web_cstr(loc);
+    if (!loc || !loc[0]) return 0;
+    snprintf(g_joss_locale, sizeof(g_joss_locale), "%s", loc);
+    return 1;
+}
+
+const char* fn_Lang_get(const char* key) {
+    key = unbox_web_cstr(key);
+    return key ? key : "";
+}
+

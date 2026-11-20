@@ -116,6 +116,41 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 			}
 		case "Plugin":
 			return methodName == "call"
+		case "Console":
+			switch methodName {
+			case "log", "error", "readLine":
+				return true
+			}
+		case "FileStream":
+			switch methodName {
+			case "open", "read", "write", "close":
+				return true
+			}
+		case "DateTime":
+			switch methodName {
+			case "now", "timestamp", "format":
+				return true
+			}
+		case "Lang":
+			switch methodName {
+			case "locale", "setLocale", "get":
+				return true
+			}
+		case "Mutex":
+			switch methodName {
+			case "new", "lock", "unlock":
+				return true
+			}
+		case "RWMutex":
+			switch methodName {
+			case "new", "lock", "unlock", "rLock", "rUnlock":
+				return true
+			}
+		case "WaitGroup":
+			switch methodName {
+			case "new", "add", "done", "wait":
+				return true
+			}
 		}
 		return false
 	}

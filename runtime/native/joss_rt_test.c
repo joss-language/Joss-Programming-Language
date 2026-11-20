@@ -64,6 +64,63 @@ int main(void) {
     joss_map_delete_i64(mp, "k");
     assert(joss_map_get_i64(mp, "k") == 0);
 
+    /* 6. Test Phase 1 Builtins & Concurrency Primitives */
+    extern int64_t joss_ord(const char* s);
+    extern int64_t joss_rand(int64_t min_val, int64_t max_val);
+    extern int64_t joss_floor(int64_t val_bits);
+    extern int64_t joss_ceil(int64_t val_bits);
+    extern int64_t joss_round(int64_t val_bits);
+    extern const char* joss_toon_encode(const char* data);
+    extern int64_t joss_toon_verify(const char* token);
+    extern const char* fn_Lang_locale(void);
+    extern int64_t fn_Lang_setLocale(const char* loc);
+    extern int64_t fn_Mutex_new(void);
+    extern void fn_Mutex_lock(int64_t h);
+    extern void fn_Mutex_unlock(int64_t h);
+    extern int64_t fn_RWMutex_new(void);
+    extern void fn_RWMutex_rLock(int64_t h);
+    extern void fn_RWMutex_rUnlock(int64_t h);
+    extern int64_t fn_WaitGroup_new(void);
+    extern void fn_WaitGroup_add(int64_t h, int64_t delta);
+    extern void fn_WaitGroup_done(int64_t h);
+    extern void fn_WaitGroup_wait(int64_t h);
+
+    assert(joss_ord("A") == 65);
+    int64_t rv = joss_rand(10, 20);
+    assert(rv >= 10 && rv <= 20);
+    double d_in = 3.7, d_out = 0.0;
+    int64_t bits_in = 0, bits_out = 0;
+    memcpy(&bits_in, &d_in, sizeof(double));
+    bits_out = joss_floor(bits_in);
+    memcpy(&d_out, &bits_out, sizeof(double));
+    assert(d_out == 3.0);
+    bits_out = joss_ceil(bits_in);
+    memcpy(&d_out, &bits_out, sizeof(double));
+    assert(d_out == 4.0);
+    bits_out = joss_round(bits_in);
+    memcpy(&d_out, &bits_out, sizeof(double));
+    assert(d_out == 4.0);
+
+    const char* tok = joss_toon_encode("payload");
+    assert(joss_toon_verify(tok) == 1);
+    assert(joss_toon_verify("invalid") == 0);
+
+    assert(fn_Lang_setLocale("en") == 1);
+    assert(strcmp(fn_Lang_locale(), "en") == 0);
+
+    int64_t mu = fn_Mutex_new();
+    fn_Mutex_lock(mu);
+    fn_Mutex_unlock(mu);
+
+    int64_t rw = fn_RWMutex_new();
+    fn_RWMutex_rLock(rw);
+    fn_RWMutex_rUnlock(rw);
+
+    int64_t wg = fn_WaitGroup_new();
+    fn_WaitGroup_add(wg, 1);
+    fn_WaitGroup_done(wg);
+    fn_WaitGroup_wait(wg);
+
     printf("joss_rt_test: ALL PASSED\n");
     return 0;
 }
