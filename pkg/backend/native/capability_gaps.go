@@ -70,8 +70,57 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 		}
 		report("database runtime " + name + " (no native implementation or available JIT callback)")
 	}
+	isSupportedLLVMHostService := func(className, methodName string) bool {
+		if backend != BackendLLVM {
+			return false
+		}
+		switch className {
+		case "Cache":
+			switch methodName {
+			case "get", "put", "has", "forget":
+				return true
+			}
+		case "Markdown":
+			switch methodName {
+			case "readFile", "toHtml":
+				return true
+			}
+		case "Response":
+			switch methodName {
+			case "json", "raw", "error", "download", "stream":
+				return true
+			}
+		case "WebResponse":
+			return methodName == "withCookie"
+		case "System":
+			return methodName == "Run"
+		case "Http":
+			switch methodName {
+			case "get", "post", "request":
+				return true
+			}
+		case "WebSocket":
+			switch methodName {
+			case "publish", "subscriberCount":
+				return true
+			}
+		case "AI":
+			switch methodName {
+			case "client", "chat":
+				return true
+			}
+		case "Notify":
+			switch methodName {
+			case "app", "registerDevice", "unregisterDevice", "pendingMessages", "acknowledge":
+				return true
+			}
+		case "Plugin":
+			return methodName == "call"
+		}
+		return false
+	}
 	checkHostService := func(className, methodName string) {
-		if hasJossHostServiceImplementation(program, className, methodName) || isSupportedHostService(target, className, methodName) {
+		if hasJossHostServiceImplementation(program, className, methodName) || isSupportedHostService(target, className, methodName) || isSupportedLLVMHostService(className, methodName) {
 			return
 		}
 		service := className + "::" + methodName

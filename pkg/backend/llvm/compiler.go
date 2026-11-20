@@ -367,7 +367,9 @@ func detectNeededDBDrivers(llvmIR string, needsDB bool) dbDriverSelection {
 
 func llvmNeedsWebRuntime(llvmIR string) bool {
 	markers := []string{
-		"@fn_Socket_", "@fn_Request_",
+		"@fn_Socket_", "@fn_Request_", "@fn_Cache_", "@fn_Markdown_",
+		"@fn_Response_", "@fn_WebResponse_", "@fn_System_", "@fn_Http_",
+		"@fn_WebSocket_", "@fn_AI_", "@fn_Notify_", "@fn_Plugin_",
 		"@joss_strval", "@joss_to_string", "@joss_str_concat_i64",
 		"@joss_strpos", "@joss_substr", "@joss_trim", "@joss_strtolower", "@joss_strtoupper",
 		"@joss_urldecode", "@joss_rawurldecode", "@joss_explode", "@joss_count",

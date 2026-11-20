@@ -1097,3 +1097,340 @@ int64_t joss_json_verify(const char* s) {
 double joss_decimal(int64_t v) {
     return joss_floatval(v);
 }
+
+/* =========================================================================
+ * Native C11 Host Services: Cache, Markdown, Response, System::Run,
+ * Http, WebSocket, AI, Notify & Plugin
+ * ========================================================================= */
+
+static void* g_joss_cache_values = NULL;
+static void* g_joss_cache_expiry = NULL;
+
+static void joss_cache_init(void) {
+    if (!g_joss_cache_values) g_joss_cache_values = joss_map_new();
+    if (!g_joss_cache_expiry) g_joss_cache_expiry = joss_map_new();
+}
+
+int64_t fn_Cache_put(const char* key, int64_t val, int64_t ttl_seconds) {
+    key = unbox_web_cstr(key);
+    if (!key) return 0;
+    joss_cache_init();
+    joss_map_set_i64(g_joss_cache_values, key, val);
+    int64_t exp = (ttl_seconds > 0) ? ((int64_t)time(NULL) + ttl_seconds) : 0;
+    joss_map_set_i64(g_joss_cache_expiry, key, exp);
+    return 1;
+}
+
+int64_t fn_Cache_has(const char* key) {
+    key = unbox_web_cstr(key);
+    if (!key) return 0;
+    joss_cache_init();
+    if (!joss_array_key_exists(key, g_joss_cache_values)) return 0;
+    int64_t exp = joss_map_get_i64(g_joss_cache_expiry, key);
+    if (exp > 0 && (int64_t)time(NULL) > exp) {
+        joss_map_delete_i64(g_joss_cache_values, key);
+        joss_map_delete_i64(g_joss_cache_expiry, key);
+        return 0;
+    }
+    return 1;
+}
+
+int64_t fn_Cache_get(const char* key, int64_t defVal) {
+    key = unbox_web_cstr(key);
+    if (!key || !fn_Cache_has(key)) return defVal;
+    return joss_map_get_i64(g_joss_cache_values, key);
+}
+
+int64_t fn_Cache_forget(const char* key) {
+    key = unbox_web_cstr(key);
+    if (!key) return 0;
+    joss_cache_init();
+    joss_map_delete_i64(g_joss_cache_values, key);
+    joss_map_delete_i64(g_joss_cache_expiry, key);
+    return 1;
+}
+
+const char* fn_Markdown_readFile(const char* path) {
+    path = unbox_web_cstr(path);
+    return joss_file_get_contents(path);
+}
+
+static void md_append_inline(JossStringBuilder* sb, const char* s, size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        if (s[i] == '`') {
+            size_t j = i + 1;
+            while (j < len && s[j] != '`') j++;
+            if (j < len) {
+                joss_sb_append(sb, "<code>");
+                for (size_t k = i + 1; k < j; k++) {
+                    if (s[k] == '<') joss_sb_append(sb, "&lt;");
+                    else if (s[k] == '>') joss_sb_append(sb, "&gt;");
+                    else if (s[k] == '&') joss_sb_append(sb, "&amp;");
+                    else joss_buf_append_byte(sb, (uint8_t)s[k]);
+                }
+                joss_sb_append(sb, "</code>");
+                i = j;
+                continue;
+            }
+        }
+        if (i + 1 < len && s[i] == '*' && s[i + 1] == '*') {
+            size_t j = i + 2;
+            while (j + 1 < len && !(s[j] == '*' && s[j + 1] == '*')) j++;
+            if (j + 1 < len) {
+                joss_sb_append(sb, "<strong>");
+                md_append_inline(sb, s + i + 2, j - (i + 2));
+                joss_sb_append(sb, "</strong>");
+                i = j + 1;
+                continue;
+            }
+        }
+        if (s[i] == '<') joss_sb_append(sb, "&lt;");
+        else if (s[i] == '>') joss_sb_append(sb, "&gt;");
+        else if (s[i] == '&') joss_sb_append(sb, "&amp;");
+        else joss_buf_append_byte(sb, (uint8_t)s[i]);
+    }
+}
+
+const char* fn_Markdown_toHtml(const char* md) {
+    md = unbox_web_cstr(md);
+    if (!md) return "";
+    JossStringBuilder* sb = joss_sb_new();
+    const char* p = md;
+    bool in_code = false;
+    while (*p) {
+        const char* line_end = strchr(p, '\n');
+        size_t len = line_end ? (size_t)(line_end - p) : strlen(p);
+        if (len > 0 && p[len - 1] == '\r') len--;
+        if (len >= 3 && p[0] == '`' && p[1] == '`' && p[2] == '`') {
+            if (!in_code) {
+                joss_sb_append(sb, "<pre><code>");
+                in_code = true;
+            } else {
+                joss_sb_append(sb, "</code></pre>\n");
+                in_code = false;
+            }
+        } else if (in_code) {
+            for (size_t i = 0; i < len; i++) {
+                if (p[i] == '<') joss_sb_append(sb, "&lt;");
+                else if (p[i] == '>') joss_sb_append(sb, "&gt;");
+                else if (p[i] == '&') joss_sb_append(sb, "&amp;");
+                else joss_buf_append_byte(sb, (uint8_t)p[i]);
+            }
+            joss_buf_append_byte(sb, '\n');
+        } else if (len > 0 && p[0] == '#') {
+            size_t lvl = 0;
+            while (lvl < len && lvl < 6 && p[lvl] == '#') lvl++;
+            size_t start = lvl;
+            while (start < len && p[start] == ' ') start++;
+            char tag_open[8], tag_close[8];
+            snprintf(tag_open, sizeof(tag_open), "<h%zu>", lvl);
+            snprintf(tag_close, sizeof(tag_close), "</h%zu>\n", lvl);
+            joss_sb_append(sb, tag_open);
+            md_append_inline(sb, p + start, len - start);
+            joss_sb_append(sb, tag_close);
+        } else if (len >= 2 && (p[0] == '-' || p[0] == '*') && p[1] == ' ') {
+            joss_sb_append(sb, "<li>");
+            md_append_inline(sb, p + 2, len - 2);
+            joss_sb_append(sb, "</li>\n");
+        } else if (len > 0) {
+            joss_sb_append(sb, "<p>");
+            md_append_inline(sb, p, len);
+            joss_sb_append(sb, "</p>\n");
+        }
+        p = line_end ? (line_end + 1) : (p + strlen(p));
+    }
+    if (in_code) joss_sb_append(sb, "</code></pre>\n");
+    char* out = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    return out;
+}
+
+const char* fn_Response_json(int64_t data, int64_t status) {
+    return joss_json(data, status);
+}
+
+const char* fn_Response_raw(const char* body, int64_t status, const char* content_type) {
+    body = unbox_web_cstr(body);
+    content_type = unbox_web_cstr(content_type);
+    if (!body) body = "";
+    if (!content_type || !*content_type) content_type = "text/plain; charset=utf-8";
+    if (status <= 0) status = 200;
+    JossStringBuilder* sb = joss_sb_new();
+    joss_sb_append(sb, "HTTP/1.1 ");
+    joss_sb_append_i64(sb, status);
+    joss_sb_append(sb, " OK\r\nContent-Type: ");
+    joss_sb_append(sb, content_type);
+    joss_sb_append(sb, "\r\nConnection: close\r\n\r\n");
+    joss_sb_append(sb, body);
+    char* out = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    return out;
+}
+
+const char* fn_Response_error(const char* msg, int64_t status) {
+    msg = unbox_web_cstr(msg);
+    if (status <= 0) status = 500;
+    return fn_Response_raw(msg ? msg : "Internal Server Error", status, "text/plain; charset=utf-8");
+}
+
+const char* fn_Response_download(const char* path, const char* filename) {
+    path = unbox_web_cstr(path);
+    filename = unbox_web_cstr(filename);
+    const char* content = joss_file_get_contents(path);
+    if (!filename || !*filename) filename = "download.bin";
+    JossStringBuilder* sb = joss_sb_new();
+    joss_sb_append(sb, "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=\"");
+    joss_sb_append(sb, filename);
+    joss_sb_append(sb, "\"\r\nConnection: close\r\n\r\n");
+    joss_sb_append(sb, content ? content : "");
+    char* out = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    return out;
+}
+
+const char* fn_Response_stream(const char* body, const char* content_type) {
+    return fn_Response_raw(body, 200, content_type);
+}
+
+void* fn_WebResponse_withCookie(void* resp, const char* name, const char* value) {
+    return withCookie(resp, unbox_web_cstr(name), unbox_web_cstr(value));
+}
+
+const char* fn_System_Run(const char* cmd) {
+    cmd = unbox_web_cstr(cmd);
+    if (!cmd || !*cmd) return "";
+#if defined(_WIN32)
+    FILE* pipe = _popen(cmd, "r");
+#else
+    FILE* pipe = popen(cmd, "r");
+#endif
+    if (!pipe) return "";
+    JossStringBuilder* sb = joss_sb_new();
+    char buf[1024];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), pipe)) > 0) {
+        joss_buf_append_bytes(sb, (const uint8_t*)buf, (int64_t)n);
+    }
+#if defined(_WIN32)
+    _pclose(pipe);
+#else
+    pclose(pipe);
+#endif
+    char* out = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    return out;
+}
+
+const char* fn_Http_request(const char* method, const char* url, const char* body, void* headers) {
+    method = unbox_web_cstr(method);
+    url = unbox_web_cstr(url);
+    body = unbox_web_cstr(body);
+    (void)headers;
+    if (!url || !*url) return "";
+    if (!method || !*method) method = "GET";
+    JossStringBuilder* cmd = joss_sb_new();
+    joss_sb_append(cmd, "curl -sS -X ");
+    joss_sb_append(cmd, method);
+    if (body && *body) {
+        joss_sb_append(cmd, " -H \"Content-Type: application/json\" -d \"");
+        for (const char* p = body; *p; p++) {
+            if (*p == '"' || *p == '\\') joss_buf_append_byte(cmd, '\\');
+            joss_buf_append_byte(cmd, (uint8_t)*p);
+        }
+        joss_buf_append_byte(cmd, '"');
+    }
+    joss_sb_append(cmd, " \"");
+    joss_sb_append(cmd, url);
+    joss_buf_append_byte(cmd, '"');
+    char* cmd_str = joss_sb_to_string(cmd);
+    joss_sb_free(cmd);
+    const char* res = fn_System_Run(cmd_str);
+    free(cmd_str);
+    return res;
+}
+
+const char* fn_Http_get(const char* url, void* headers) {
+    return fn_Http_request("GET", url, "", headers);
+}
+
+const char* fn_Http_post(const char* url, const char* body, void* headers) {
+    return fn_Http_request("POST", url, body, headers);
+}
+
+static void* g_joss_ws_channels = NULL;
+
+int64_t fn_WebSocket_publish(const char* channel, const char* message) {
+    channel = unbox_web_cstr(channel);
+    message = unbox_web_cstr(message);
+    if (!channel) return 0;
+    if (!g_joss_ws_channels) g_joss_ws_channels = joss_map_new();
+    joss_map_set_str(g_joss_ws_channels, channel, message ? message : "");
+    return 1;
+}
+
+int64_t fn_WebSocket_subscriberCount(const char* channel) {
+    channel = unbox_web_cstr(channel);
+    if (!channel || !g_joss_ws_channels) return 0;
+    return joss_array_key_exists(channel, g_joss_ws_channels) ? 1 : 0;
+}
+
+void* fn_AI_client(const char* provider, const char* api_key) {
+    void* m = joss_map_new();
+    joss_map_set_str(m, "provider", unbox_web_cstr(provider) ? unbox_web_cstr(provider) : "openai");
+    joss_map_set_str(m, "api_key", unbox_web_cstr(api_key) ? unbox_web_cstr(api_key) : "");
+    return m;
+}
+
+const char* fn_AI_chat(const char* prompt, void* opts) {
+    prompt = unbox_web_cstr(prompt);
+    (void)opts;
+    return prompt ? prompt : "";
+}
+
+static void* g_joss_notify_devices = NULL;
+static void* g_joss_notify_pending = NULL;
+
+void* fn_Notify_app(const char* app_id) {
+    void* m = joss_map_new();
+    joss_map_set_str(m, "app_id", unbox_web_cstr(app_id) ? unbox_web_cstr(app_id) : "default");
+    return m;
+}
+
+int64_t fn_Notify_registerDevice(const char* user_id, const char* token) {
+    user_id = unbox_web_cstr(user_id);
+    token = unbox_web_cstr(token);
+    if (!user_id || !token) return 0;
+    if (!g_joss_notify_devices) g_joss_notify_devices = joss_map_new();
+    joss_map_set_str(g_joss_notify_devices, user_id, token);
+    return 1;
+}
+
+int64_t fn_Notify_unregisterDevice(const char* user_id) {
+    user_id = unbox_web_cstr(user_id);
+    if (!user_id || !g_joss_notify_devices) return 0;
+    joss_map_delete_i64(g_joss_notify_devices, user_id);
+    return 1;
+}
+
+void* fn_Notify_pendingMessages(const char* user_id) {
+    user_id = unbox_web_cstr(user_id);
+    if (!user_id || !g_joss_notify_pending) return joss_arr_new(0);
+    int64_t v = joss_map_get_i64(g_joss_notify_pending, user_id);
+    if (joss_is_arr_ptr(v)) return (void*)(uintptr_t)v;
+    return joss_arr_new(0);
+}
+
+int64_t fn_Notify_acknowledge(const char* user_id, const char* msg_id) {
+    (void)msg_id;
+    user_id = unbox_web_cstr(user_id);
+    if (!user_id || !g_joss_notify_pending) return 1;
+    joss_map_delete_i64(g_joss_notify_pending, user_id);
+    return 1;
+}
+
+int64_t fn_Plugin_call(const char* plugin_name, const char* func_name, void* args) {
+    (void)plugin_name;
+    (void)func_name;
+    (void)args;
+    return 0;
+}

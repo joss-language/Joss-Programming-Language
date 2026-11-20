@@ -423,4 +423,12 @@ public static func socialCallback(mixed $provider, mixed $code, mixed $redirectU
     return false
 }
 
+public static func validateToken(string $token): bool {
+    return Auth::verify($token)
+}
+
+}
+
+public func __joss_host_Auth_validateToken(string $token): bool {
+    return Auth::verify($token)
 }

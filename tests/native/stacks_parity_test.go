@@ -241,3 +241,26 @@ print("after_try_catch");
 		t.Fatalf("unexpected try/catch output:\ngot:\n%s\nwant:\n%s", nativeOut, expected)
 	}
 }
+
+func TestNative_FullHostServices_CacheMarkdownResponseWS(t *testing.T) {
+	source := `
+Cache::put("k1", "v1", 60);
+print(Cache::has("k1"));
+print(strval(Cache::get("k1", "miss")));
+Cache::forget("k1");
+print(Cache::has("k1"));
+
+print(Math::abs(-42.5) > 42.0);
+print(JSON::encode({"ok": true}));
+print(count(MFA::generateRecoveryCodes(4)));
+print(Markdown::toHtml("# Hola"));
+print(WebSocket::publish("news", "ping"));
+print(WebSocket::subscriberCount("news"));
+`
+	out := runNativeLLVM(t, "full_host_services_native", source, nil)
+	for _, want := range []string{"true", "v1", "false", `"ok":`, "4", "<h1>Hola</h1>", "1"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected %q in native output, got:\n%s", want, out)
+		}
+	}
+}

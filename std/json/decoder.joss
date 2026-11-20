@@ -486,3 +486,11 @@ public func __joss_host_JSON_parse(string $source) : mixed {
 public func __joss_host_JSON_decode(string $source) : mixed {
     return JSONDecoder::decode($source)
 }
+
+public func __joss_host_JSON_encode(mixed $value) : string {
+    return json_encode($value)
+}
+
+public func __joss_host_JSON_stringify(mixed $value) : string {
+    return json_encode($value)
+}

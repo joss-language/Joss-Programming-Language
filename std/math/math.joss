@@ -58,3 +58,7 @@ public func __joss_host_Math_ceil(float $value): float {
     float $truncatedFloat = floatval($truncated)
     return($value > $truncatedFloat) ? floatval($truncated + 1) : $truncatedFloat
 }
+
+public func __joss_host_Math_abs(float $value): float {
+    return($value < 0.0) ? (0.0 - $value) : $value
+}

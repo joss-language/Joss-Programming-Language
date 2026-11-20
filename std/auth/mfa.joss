@@ -6,3 +6,15 @@ public func __joss_host_MFA_generateTOTP(string $secret): string {
 public func __joss_host_MFA_verifyTOTP(string $secret, string $code): bool {
     return totp_verify($secret, $code, 0)
 }
+
+public func __joss_host_MFA_generateRecoveryCodes(int $count = 8): array<string> {
+    int $total = ($count > 0) ? $count : 8
+    array<string> $codes = []
+    int $i = 0
+    while ($i < $total) {
+        string $raw = strtoupper(str_random(8))
+        $codes [] = substr($raw, 0, 4) . "-" . substr($raw, 4, 4)
+        $i++
+    }
+    return $codes
+}
