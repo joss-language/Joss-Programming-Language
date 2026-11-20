@@ -641,7 +641,7 @@ static void json_encode_value(JossStringBuilder* sb, int64_t val) {
         if (tag == JOSS_TAG_NULL) { joss_sb_append(sb, "null"); return; }
         if (tag == JOSS_TAG_BOOL) { joss_sb_append(sb, box->payload ? "true" : "false"); return; }
         if (tag == JOSS_TAG_INT)  { joss_sb_append_i64(sb, (int64_t)box->payload); return; }
-        if (tag == JOSS_TAG_STRING) { json_escape_append(sb, (const char*)(uintptr_t)box->payload); return; }
+        if (tag == JOSS_TAG_STRING) { json_escape_append(sb, unbox_web_cstr((const char*)(uintptr_t)box->payload)); return; }
         json_encode_value(sb, (int64_t)box->payload);
         return;
     }
@@ -752,15 +752,19 @@ int64_t joss___joss_rt_route_matches(const char* pattern, const char* path) {
 }
 
 const char* joss___joss_rt_route_param(const char* pattern, const char* path, const char* name) {
-    if (!pattern || !path || !name) return "";
+    if (!pattern || !path) return "";
     if (!strchr(pattern, '{') && strchr(path, '{')) {
         const char* tmp = pattern;
         pattern = path;
         path = tmp;
     }
-    size_t name_len = strlen(name);
+    uintptr_t u_name = (uintptr_t)name;
+    int by_index = (u_name < 0x10000ULL);
+    int64_t target_idx = (int64_t)u_name;
+    size_t name_len = by_index ? 0 : strlen(name);
     const char* p = pattern;
     const char* s = path;
+    int64_t cur_idx = 0;
     while (*p && *s) {
         if (*p == '{') {
             p++;
@@ -770,7 +774,10 @@ const char* joss___joss_rt_route_param(const char* pattern, const char* path, co
             if (*p == '}') p++;
             const char* s_start = s;
             while (*s && *s != '/') s++;
-            if (plen == name_len && strncmp(pname, name, name_len) == 0) {
+            int matched = by_index ? (cur_idx == target_idx)
+                                   : (plen == name_len && strncmp(pname, name, name_len) == 0);
+            cur_idx++;
+            if (matched) {
                 size_t vlen = (size_t)(s - s_start);
                 char* out = (char*)malloc(vlen + 1);
                 if (!out) return "";
@@ -1162,18 +1169,27 @@ void joss_register_embedded_asset_resolver(void* fn_ptr) {
     g_joss_embedded_asset_resolver = (joss_embedded_asset_fn)fn_ptr;
 }
 
+const char* fn_Markdown_toHtml(const char* md);
+
 const char* fn_Markdown_readFile(const char* path) {
     path = unbox_web_cstr(path);
     if (!path || !path[0]) return "";
+    const char* raw = NULL;
     if (g_joss_embedded_asset_resolver) {
         const char* emb = g_joss_embedded_asset_resolver(path);
-        if (emb && emb[0]) return emb;
+        if (emb && emb[0]) raw = emb;
     }
-    const char* disk = joss_file_get_contents(path);
-    if (disk && disk[0]) return disk;
-    char parent_path[1024];
-    snprintf(parent_path, sizeof(parent_path), "../%s", path);
-    return joss_file_get_contents(parent_path);
+    if (!raw || !raw[0]) {
+        const char* disk = joss_file_get_contents(path);
+        if (disk && disk[0]) raw = disk;
+    }
+    if (!raw || !raw[0]) {
+        char parent_path[1024];
+        snprintf(parent_path, sizeof(parent_path), "../%s", path);
+        raw = joss_file_get_contents(parent_path);
+    }
+    if (!raw || !raw[0]) return "";
+    return fn_Markdown_toHtml(raw);
 }
 
 static void md_append_inline(JossStringBuilder* sb, const char* s, size_t len) {
