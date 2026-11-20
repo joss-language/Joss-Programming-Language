@@ -361,7 +361,7 @@ func (a *Analyzer) inferAssignment(assignment *parser.AssignExpression, current 
 			}
 			return existing.Type
 		}
-		if a.suppressUndefined == 0 {
+		if a.suppressUndefined == 0 && !strings.HasPrefix(a.file, "<plugin:") {
 			a.add("JOSS-SYM-001", diagnostics.SeverityError, a.file, identifier.Token,
 				fmt.Sprintf("Variable `$%s` is not declared.", name),
 				"Variables must be declared with `var`, an explicit type, `mixed` or `const` before assignment.",

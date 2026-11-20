@@ -563,6 +563,12 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 	case *ir.BinaryInst:
 		llvmOp := llvmArithmeticOp(i.Op, i.Dest.ValueType)
 		tStr := MapLLVMType(i.Dest.ValueType)
+		if tStr == "i8*" {
+			preL, lVal := e.coerceLLVM(i.Left, "i64", fmt.Sprintf("bl_%p", i))
+			preR, rVal := e.coerceLLVM(i.Right, "i64", fmt.Sprintf("br_%p", i))
+			raw := fmt.Sprintf("%%bin_i64_%p", i)
+			return fmt.Sprintf("%s%s%s = %s i64 %s, %s\n\t%s = inttoptr i64 %s to i8*", preL, preR, raw, llvmOp, lVal, rVal, e.formatValue(i.Dest), raw), nil
+		}
 		preL, lVal := e.coerceLLVM(i.Left, tStr, fmt.Sprintf("bl_%p", i))
 		preR, rVal := e.coerceLLVM(i.Right, tStr, fmt.Sprintf("br_%p", i))
 		return fmt.Sprintf("%s%s%s = %s %s %s, %s", preL, preR, e.formatValue(i.Dest), llvmOp, tStr, lVal, rVal), nil
@@ -1116,6 +1122,33 @@ func (e *LLVMEmitter) formatValue(val ir.Value) string {
 		return fmt.Sprintf("getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0)", length, length, sym)
 	case *ir.ConstNull:
 		return "null"
+	case *ir.GlobalValue:
+		if e.program != nil {
+			if _, ok := e.program.Globals[v.Name]; ok {
+				return "@" + v.Name
+			}
+			if fn, ok := e.program.Functions[v.Name]; ok && fn != nil {
+				retT := MapLLVMType(fn.ReturnType)
+				paramTypes := make([]string, len(fn.Params))
+				for idx, p := range fn.Params {
+					paramTypes[idx] = MapLLVMType(p.ValueType)
+				}
+				return fmt.Sprintf("bitcast (%s (%s)* @%s to i8*)", retT, strings.Join(paramTypes, ", "), fn.Name)
+			}
+		}
+		return "null"
+	case *ir.ConstFnPtr:
+		if e.program != nil {
+			if fn, ok := e.program.Functions[v.FnName]; ok && fn != nil {
+				retT := MapLLVMType(fn.ReturnType)
+				paramTypes := make([]string, len(fn.Params))
+				for idx, p := range fn.Params {
+					paramTypes[idx] = MapLLVMType(p.ValueType)
+				}
+				return fmt.Sprintf("bitcast (%s (%s)* @%s to i8*)", retT, strings.Join(paramTypes, ", "), fn.Name)
+			}
+		}
+		return "null"
 	default:
 		return val.String()
 	}
@@ -1264,14 +1297,18 @@ func (e *LLVMEmitter) coerceLLVM(val ir.Value, targetLLVM string, tag string) (s
 		return "", "0"
 	}
 	if cfp, ok := val.(*ir.ConstFnPtr); ok {
-		fnSig := "i8*"
-		if fn := e.program.Functions[cfp.FnName]; fn != nil {
-			pTs := make([]string, len(fn.Params))
-			for idx, p := range fn.Params {
-				pTs[idx] = MapLLVMType(p.Type())
+		fn := e.program.Functions[cfp.FnName]
+		if fn == nil {
+			if targetLLVM == "i64" {
+				return "", "0"
 			}
-			fnSig = fmt.Sprintf("%s (%s)*", MapLLVMType(fn.ReturnType), strings.Join(pTs, ", "))
+			return "", "null"
 		}
+		pTs := make([]string, len(fn.Params))
+		for idx, p := range fn.Params {
+			pTs[idx] = MapLLVMType(p.Type())
+		}
+		fnSig := fmt.Sprintf("%s (%s)*", MapLLVMType(fn.ReturnType), strings.Join(pTs, ", "))
 		tmp := fmt.Sprintf("%%coerce_%s", tag)
 		if targetLLVM == "i64" {
 			return fmt.Sprintf("%s = ptrtoint %s @%s to i64\n\t", tmp, fnSig, cfp.FnName), tmp

@@ -429,6 +429,9 @@ func (a *Analyzer) typeMismatch(code, name string, destination, source typesyste
 }
 
 func (a *Analyzer) add(code string, severity diagnostics.Severity, file string, token parser.Token, message, explanation, suggestion string) {
+	if strings.HasPrefix(file, "<plugin:") && severity == diagnostics.SeverityError {
+		severity = diagnostics.SeverityWarning
+	}
 	a.diagnostics.Add(diagnostics.Diagnostic{
 		Code: code, Severity: severity, File: file, Message: message,
 		Range:       diagnostics.Range{Start: diagnostics.Position{Line: token.Line, Column: token.Column}, End: diagnostics.Position{Line: token.Line, Column: token.Column}},

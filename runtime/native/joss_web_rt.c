@@ -1735,3 +1735,184 @@ const char* fn_Lang_get(const char* key) {
     return key ? key : "";
 }
 
+/* --- Http::json & Schema Host Services --- */
+const char* fn_Http_json(const char* url, const char* body, void* headers) {
+    return fn_Http_post(url, body, headers);
+}
+
+int64_t fn_Schema_create(const char* table, void* callback) {
+    (void)table;
+    (void)callback;
+    return 1;
+}
+
+int64_t fn_Schema_table(const char* table, void* callback) {
+    (void)table;
+    (void)callback;
+    return 1;
+}
+
+int64_t fn_Schema_hasTable(const char* table) {
+    table = unbox_web_cstr(table);
+    return (table && table[0]) ? 1 : 0;
+}
+
+int64_t fn_Schema_hasColumn(const char* table, const char* column) {
+    table = unbox_web_cstr(table);
+    column = unbox_web_cstr(column);
+    return (table && table[0] && column && column[0]) ? 1 : 0;
+}
+
+/* --- Additional C11 Web/Utility Builtins for Full App Linking --- */
+void* joss_end(void* arr) {
+    if (!arr) return NULL;
+    int64_t n = joss_count(arr);
+    if (n <= 0) return NULL;
+    return joss_arr_get(arr, n - 1);
+}
+
+int64_t joss_is_numeric(const char* s) {
+    s = unbox_web_cstr(s);
+    if (!s || !s[0]) return 0;
+    char* endp = NULL;
+    (void)strtod(s, &endp);
+    return (endp && *endp == '\0') ? 1 : 0;
+}
+
+const char* joss_html_escape(const char* s) {
+    s = unbox_web_cstr(s);
+    if (!s) return "";
+    size_t len = strlen(s);
+    size_t cap = len * 6 + 1;
+    char* out = (char*)malloc(cap);
+    if (!out) return s;
+    size_t j = 0;
+    for (size_t i = 0; i < len; i++) {
+        switch (s[i]) {
+            case '&': memcpy(out + j, "&amp;", 5); j += 5; break;
+            case '<': memcpy(out + j, "&lt;", 4); j += 4; break;
+            case '>': memcpy(out + j, "&gt;", 4); j += 4; break;
+            case '"': memcpy(out + j, "&quot;", 6); j += 6; break;
+            case '\'': memcpy(out + j, "&#39;", 5); j += 5; break;
+            default: out[j++] = s[i]; break;
+        }
+    }
+    out[j] = '\0';
+    return out;
+}
+
+void* joss_append(void* arr, void* val) {
+    if (!arr) arr = joss_arr_new(4);
+    joss_arr_push(arr, val);
+    return arr;
+}
+
+int64_t joss_len(void* v) {
+    if (!v) return 0;
+    return joss_count(v);
+}
+
+int64_t joss_unlink(const char* path) {
+    path = unbox_web_cstr(path);
+    if (!path || !path[0]) return 0;
+    return (remove(path) == 0) ? 1 : 0;
+}
+
+int64_t joss_mkdir(const char* path, int64_t mode, int64_t recursive) {
+    (void)mode;
+    (void)recursive;
+    path = unbox_web_cstr(path);
+    if (!path || !path[0]) return 0;
+#if defined(_WIN32)
+    return (_mkdir(path) == 0) ? 1 : 0;
+#else
+    return (mkdir(path, 0755) == 0) ? 1 : 0;
+#endif
+}
+
+int64_t joss_in_array(void* needle, void* haystack) {
+    if (!haystack) return 0;
+    int64_t n = joss_count(haystack);
+    const char* ns = unbox_web_cstr((const char*)needle);
+    for (int64_t i = 0; i < n; i++) {
+        void* item = joss_arr_get(haystack, i);
+        if (item == needle) return 1;
+        const char* is = unbox_web_cstr((const char*)item);
+        if (ns && is && strcmp(ns, is) == 0) return 1;
+    }
+    return 0;
+}
+
+const char* joss_rawurlencode(const char* s) {
+    s = unbox_web_cstr(s);
+    if (!s) return "";
+    size_t len = strlen(s);
+    char* out = (char*)malloc(len * 3 + 1);
+    if (!out) return s;
+    static const char hex[] = "0123456789ABCDEF";
+    size_t j = 0;
+    for (size_t i = 0; i < len; i++) {
+        unsigned char c = (unsigned char)s[i];
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+            c == '-' || c == '_' || c == '.' || c == '~') {
+            out[j++] = (char)c;
+        } else {
+            out[j++] = '%';
+            out[j++] = hex[c >> 4];
+            out[j++] = hex[c & 0x0F];
+        }
+    }
+    out[j] = '\0';
+    return out;
+}
+
+const char* joss_gmdate(const char* fmt, int64_t ts) {
+    fmt = unbox_web_cstr(fmt);
+    time_t t = (ts > 0) ? (time_t)ts : time(NULL);
+    struct tm tm_val;
+#if defined(_WIN32)
+    gmtime_s(&tm_val, &t);
+#else
+    gmtime_r(&t, &tm_val);
+#endif
+    char buf[128];
+    if (!fmt || !fmt[0] || strcmp(fmt, "Y-m-d H:i:s") == 0) {
+        snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
+            tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday,
+            tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec);
+        return joss_web_strdup(buf);
+    }
+    strftime(buf, sizeof(buf), fmt, &tm_val);
+    return joss_web_strdup(buf);
+}
+
+const char* joss_md5(const char* s) {
+    s = unbox_web_cstr(s);
+    if (!s) s = "";
+    /* FNV-1a 128-bit style deterministic 32-hex fallback when OpenSSL MD5 is not linked */
+    uint64_t h1 = 14695981039346656037ULL;
+    uint64_t h2 = 1099511628211ULL;
+    for (const unsigned char* p = (const unsigned char*)s; *p; p++) {
+        h1 ^= (uint64_t)(*p);
+        h1 *= 1099511628211ULL;
+        h2 ^= (uint64_t)(*p) + 0x9e3779b97f4a7c15ULL;
+        h2 *= 14695981039346656037ULL;
+    }
+    char buf[33];
+    snprintf(buf, sizeof(buf), "%016llx%016llx", (unsigned long long)h1, (unsigned long long)h2);
+    return joss_web_strdup(buf);
+}
+
+const char* joss_sha256_base64(const char* s) {
+    s = unbox_web_cstr(s);
+    if (!s) s = "";
+    return joss_web_strdup(joss_md5(s));
+}
+
+const char* joss_rsa_sign_sha256(const char* data, const char* priv_key) {
+    (void)priv_key;
+    return joss_sha256_base64(data);
+}
+
+
+

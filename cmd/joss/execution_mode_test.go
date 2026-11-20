@@ -148,7 +148,7 @@ func TestBuildRejectsMissingAOTCapabilityBeforePreparingProjectAssets(t *testing
 	t.Chdir(project)
 
 	if err := os.WriteFile("main.joss", []byte(`public func main(): int {
-    JSON::stringify("probe")
+    Cache::get("probe")
     return 0
 }`), 0600); err != nil {
 		t.Fatal(err)
@@ -161,7 +161,7 @@ func TestBuildRejectsMissingAOTCapabilityBeforePreparingProjectAssets(t *testing
 	}
 
 	_, err := buildNativeProgram("main.joss", "", "windows-amd64", false, false, false, false, "native")
-	if err == nil || !strings.Contains(err.Error(), "JSON::stringify") {
+	if err == nil || !strings.Contains(err.Error(), "Cache::get") {
 		t.Fatalf("build should reject the missing AOT service capability, got %v", err)
 	}
 	if _, err := os.Stat(filepath.Join("public", "css", "probe.css")); !os.IsNotExist(err) {
@@ -173,7 +173,7 @@ func TestAutomaticBuildUsesCompatibilityRunnerOnlyForNativeCapabilityGap(t *test
 	project := t.TempDir()
 	t.Chdir(project)
 	if err := os.WriteFile("custom.joss", []byte(`public func main(): int {
-    JSON::stringify("probe")
+    Cache::get("probe")
     return 0
 }`), 0600); err != nil {
 		t.Fatal(err)

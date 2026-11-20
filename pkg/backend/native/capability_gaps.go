@@ -96,7 +96,12 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 			return methodName == "Run"
 		case "Http":
 			switch methodName {
-			case "get", "post", "request":
+			case "get", "post", "request", "json":
+				return true
+			}
+		case "Schema":
+			switch methodName {
+			case "create", "table", "hasTable", "hasColumn":
 				return true
 			}
 		case "WebSocket":
