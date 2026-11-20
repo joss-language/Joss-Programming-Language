@@ -1359,6 +1359,38 @@ const char* fn_Http_post(const char* url, const char* body, void* headers) {
 
 static void* g_joss_ws_channels = NULL;
 
+/* RFC 6455 Section 4.2.2: Sec-WebSocket-Accept = Base64(SHA1(key + GUID)) */
+const char* joss_ws_accept_key(const char* client_key) {
+    client_key = unbox_web_cstr(client_key);
+    if (!client_key) client_key = "";
+    char* combined = joss_str_concat(client_key, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+    const char* accept = joss_sha1_base64(combined);
+    return accept ? accept : "";
+}
+
+/* RFC 6455 Section 5.2: Encode an unmasked server->client text frame (opcode 0x81) */
+size_t joss_ws_encode_text_frame(const char* payload, uint8_t* out_buf, size_t out_cap) {
+    if (!payload) payload = "";
+    size_t len = strlen(payload);
+    size_t hdr_len = (len < 126) ? 2 : (len <= 65535 ? 4 : 10);
+    if (!out_buf || out_cap < hdr_len + len) return 0;
+    out_buf[0] = 0x81; /* FIN=1, opcode=text */
+    if (len < 126) {
+        out_buf[1] = (uint8_t)len;
+    } else if (len <= 65535) {
+        out_buf[1] = 126;
+        out_buf[2] = (uint8_t)((len >> 8) & 0xFF);
+        out_buf[3] = (uint8_t)(len & 0xFF);
+    } else {
+        out_buf[1] = 127;
+        for (int i = 0; i < 8; i++) {
+            out_buf[2 + i] = (uint8_t)(((uint64_t)len >> (56 - 8 * i)) & 0xFF);
+        }
+    }
+    memcpy(out_buf + hdr_len, payload, len);
+    return hdr_len + len;
+}
+
 int64_t fn_WebSocket_publish(const char* channel, const char* message) {
     channel = unbox_web_cstr(channel);
     message = unbox_web_cstr(message);

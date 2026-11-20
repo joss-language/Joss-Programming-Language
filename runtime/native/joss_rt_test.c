@@ -121,6 +121,15 @@ int main(void) {
     fn_WaitGroup_done(wg);
     fn_WaitGroup_wait(wg);
 
+    /* 7. Test Phase 3 RFC 6455 WebSocket Handshake & Text Frame */
+    extern const char* joss_ws_accept_key(const char* client_key);
+    extern size_t joss_ws_encode_text_frame(const char* payload, uint8_t* out_buf, size_t out_cap);
+    const char* ws_accept = joss_ws_accept_key("dGhlIHNhbXBsZSBub25jZQ==");
+    assert(strcmp(ws_accept, "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=") == 0);
+    uint8_t ws_frame[64];
+    size_t ws_len = joss_ws_encode_text_frame("hi", ws_frame, sizeof(ws_frame));
+    assert(ws_len == 4 && ws_frame[0] == 0x81 && ws_frame[1] == 2 && ws_frame[2] == 'h' && ws_frame[3] == 'i');
+
     printf("joss_rt_test: ALL PASSED\n");
     return 0;
 }
