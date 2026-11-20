@@ -279,8 +279,35 @@ static joss_wire_sock_t joss_wire_get_mysql(void) {
         return JOSS_WIRE_INVALID_SOCK;
     }
     size_t alen = 0;
-    uint8_t* auth_resp = mysql_wire_read_pkt(fd, &alen, NULL);
+    uint8_t aseq = 0;
+    uint8_t* auth_resp = mysql_wire_read_pkt(fd, &alen, &aseq);
+    if (auth_resp && alen > 1 && auth_resp[0] == 0xFE) {
+        /* AuthSwitchRequest: plugin_name\0 + scramble */
+        size_t p_off = 1;
+        while (p_off < alen && auth_resp[p_off] != 0) p_off++;
+        p_off++;
+        uint8_t sw_scramble[20];
+        memset(sw_scramble, 0, sizeof(sw_scramble));
+        if (p_off + 20 <= alen) memcpy(sw_scramble, auth_resp + p_off, 20);
+        else if (p_off < alen) memcpy(sw_scramble, auth_resp + p_off, alen - p_off);
+        free(auth_resp);
+        uint8_t sw_out[20];
+        size_t sw_len = 0;
+        if (pass && *pass) {
+            uint8_t s1[20], s2[20], buf40[40], s3[20];
+            joss_wire_sha1((const uint8_t*)pass, strlen(pass), s1);
+            joss_wire_sha1(s1, 20, s2);
+            memcpy(buf40, sw_scramble, 20);
+            memcpy(buf40 + 20, s2, 20);
+            joss_wire_sha1(buf40, 40, s3);
+            for (int i = 0; i < 20; i++) sw_out[i] = s1[i] ^ s3[i];
+            sw_len = 20;
+        }
+        (void)mysql_wire_write_pkt(fd, (uint8_t)(aseq + 1), sw_out, sw_len);
+        auth_resp = mysql_wire_read_pkt(fd, &alen, &aseq);
+    }
     if (!auth_resp || alen == 0 || auth_resp[0] != 0x00) {
+        fprintf(stderr, "[MySQL Wire] auth failed (host=%s, code=0x%02x)\n", host, (auth_resp && alen > 0) ? auth_resp[0] : 0xFF);
         free(auth_resp);
         joss_wire_close(fd);
         return JOSS_WIRE_INVALID_SOCK;

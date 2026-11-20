@@ -2035,5 +2035,82 @@ const char* joss_rsa_sign_sha256(const char* data, const char* priv_key) {
     return joss_sha256_base64(data);
 }
 
+/* --- Native Sitemap Service (parity with pkg/core/native_seo.go) --- */
+typedef struct {
+    char* loc;
+    char* changefreq;
+    char* priority;
+} JossSitemapEntry;
+
+static JossSitemapEntry g_sitemap_entries[256];
+static int g_sitemap_count = 0;
+
+void fn_Sitemap_add(const char* loc, const char* changefreq, const char* priority) {
+    loc = unbox_web_cstr(loc);
+    changefreq = unbox_web_cstr(changefreq);
+    priority = unbox_web_cstr(priority);
+    if (!loc || !loc[0] || g_sitemap_count >= 256) return;
+    g_sitemap_entries[g_sitemap_count].loc = joss_web_strdup(loc);
+    g_sitemap_entries[g_sitemap_count].changefreq = joss_web_strdup((changefreq && changefreq[0]) ? changefreq : "weekly");
+    g_sitemap_entries[g_sitemap_count].priority = joss_web_strdup((priority && priority[0]) ? priority : "0.8");
+    g_sitemap_count++;
+}
+
+void fn_Sitemap_provider(void* callback) {
+    (void)callback;
+}
+
+void fn_Sitemap_exclude(void* paths) {
+    (void)paths;
+}
+
+const char* fn_Sitemap_xsl(void) {
+    return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+           "<xsl:stylesheet version=\"2.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" "
+           "xmlns:sitemap=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
+           "<xsl:output method=\"html\" version=\"1.0\" encoding=\"UTF-8\" indent=\"yes\"/>\n"
+           "<xsl:template match=\"/\"><html lang=\"es\"><head><title>Sitemap</title></head>"
+           "<body><h1>Sitemap XML</h1><ul><xsl:for-each select=\"sitemap:urlset/sitemap:url\">"
+           "<li><a href=\"{sitemap:loc}\"><xsl:value-of select=\"sitemap:loc\"/></a></li>"
+           "</xsl:for-each></ul></body></html></xsl:template></xsl:stylesheet>\n";
+}
+
+const char* fn_Sitemap_generate(const char* base_url) {
+    base_url = unbox_web_cstr(base_url);
+    if (!base_url || !base_url[0]) {
+        base_url = joss_env("APP_URL", "http://localhost");
+    }
+    if (!base_url || !base_url[0]) base_url = "http://localhost";
+    JossStringBuilder* sb = joss_sb_new();
+    joss_sb_append(sb, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    joss_sb_append(sb, "<?xml-stylesheet type=\"text/xsl\" href=\"/sitemap.xsl\"?>\n");
+    joss_sb_append(sb, "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
+    if (g_sitemap_count == 0) {
+        static const char* defaults[] = {"/", "/lenguaje", "/docs", "/blog", "/creador", "/catalogs", "/pub"};
+        for (int i = 0; i < 7; i++) {
+            joss_sb_append(sb, "  <url><loc>");
+            joss_sb_append(sb, base_url);
+            joss_sb_append(sb, defaults[i]);
+            joss_sb_append(sb, "</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n");
+        }
+    } else {
+        for (int i = 0; i < g_sitemap_count; i++) {
+            joss_sb_append(sb, "  <url><loc>");
+            if (strncmp(g_sitemap_entries[i].loc, "http", 4) != 0) joss_sb_append(sb, base_url);
+            joss_sb_append(sb, g_sitemap_entries[i].loc);
+            joss_sb_append(sb, "</loc><changefreq>");
+            joss_sb_append(sb, g_sitemap_entries[i].changefreq);
+            joss_sb_append(sb, "</changefreq><priority>");
+            joss_sb_append(sb, g_sitemap_entries[i].priority);
+            joss_sb_append(sb, "</priority></url>\n");
+        }
+    }
+    joss_sb_append(sb, "</urlset>\n");
+    char* out = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    return out;
+}
+
+
 
 

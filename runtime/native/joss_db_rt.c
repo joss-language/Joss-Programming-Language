@@ -53,7 +53,8 @@ typedef enum {
 extern const char* joss_env(const char* key, const char* defVal);
 
 static JossDBEngine detect_db_engine(void) {
-    const char* drv = joss_env("DB_MOTOR", "");
+    const char* drv = joss_env("DB", "");
+    if (!drv || !*drv) drv = joss_env("DB_MOTOR", "");
     if (!drv || !*drv) drv = joss_env("DB_CONNECTION", "");
     if (!drv || !*drv) drv = joss_env("DB_DRIVER", "");
     if (!drv || !*drv) drv = getenv("DB_CONNECTION");
