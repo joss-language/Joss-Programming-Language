@@ -138,6 +138,65 @@ static void joss_wire_sha1(const uint8_t* data, size_t len, uint8_t out[20]) {
     }
 }
 
+/* --- Minimal SHA-256 (FIPS 180-4) for MySQL 8 caching_sha2_password --- */
+static uint32_t joss_sha256_ror(uint32_t v, unsigned bits) {
+    return (v >> bits) | (v << (32U - bits));
+}
+
+static void joss_wire_sha256(const uint8_t* data, size_t len, uint8_t out[32]) {
+    static const uint32_t k[64] = {
+        0x428a2f98U,0x71374491U,0xb5c0fbcfU,0xe9b5dba5U,0x3956c25bU,0x59f111f1U,0x923f82a4U,0xab1c5ed5U,
+        0xd807aa98U,0x12835b01U,0x243185beU,0x550c7dc3U,0x72be5d74U,0x80deb1feU,0x9bdc06a7U,0xc19bf174U,
+        0xe49b69c1U,0xefbe4786U,0x0fc19dc6U,0x240ca1ccU,0x2de92c6fU,0x4a7484aaU,0x5cb0a9dcU,0x76f988daU,
+        0x983e5152U,0xa831c66dU,0xb00327c8U,0xbf597fc7U,0xc6e00bf3U,0xd5a79147U,0x06ca6351U,0x14292967U,
+        0x27b70a85U,0x2e1b2138U,0x4d2c6dfcU,0x53380d13U,0x650a7354U,0x766a0abbU,0x81c2c92eU,0x92722c85U,
+        0xa2bfe8a1U,0xa81a664bU,0xc24b8b70U,0xc76c51a3U,0xd192e819U,0xd6990624U,0xf40e3585U,0x106aa070U,
+        0x19a4c116U,0x1e376c08U,0x2748774cU,0x34b0bcb5U,0x391c0cb3U,0x4ed8aa4aU,0x5b9cca4fU,0x682e6ff3U,
+        0x748f82eeU,0x78a5636fU,0x84c87814U,0x8cc70208U,0x90befffaU,0xa4506cebU,0xbef9a3f7U,0xc67178f2U
+    };
+    uint32_t h[8] = {
+        0x6a09e667U,0xbb67ae85U,0x3c6ef372U,0xa54ff53aU,
+        0x510e527fU,0x9b05688cU,0x1f83d9abU,0x5be0cd19U
+    };
+    uint64_t bit_len = (uint64_t)len * 8ULL;
+    size_t padded_len = ((len + 9 + 63) / 64) * 64;
+    uint8_t* msg = (uint8_t*)calloc(1, padded_len);
+    if (!msg) { memset(out, 0, 32); return; }
+    if (len > 0) memcpy(msg, data, len);
+    msg[len] = 0x80;
+    for (int i = 0; i < 8; i++) msg[padded_len - 1 - i] = (uint8_t)(bit_len >> (i * 8));
+    for (size_t off = 0; off < padded_len; off += 64) {
+        uint32_t w[64];
+        for (int i = 0; i < 16; i++) {
+            w[i] = ((uint32_t)msg[off + i*4] << 24) | ((uint32_t)msg[off + i*4 + 1] << 16) |
+                   ((uint32_t)msg[off + i*4 + 2] << 8) | (uint32_t)msg[off + i*4 + 3];
+        }
+        for (int i = 16; i < 64; i++) {
+            uint32_t s0 = joss_sha256_ror(w[i-15], 7) ^ joss_sha256_ror(w[i-15], 18) ^ (w[i-15] >> 3);
+            uint32_t s1 = joss_sha256_ror(w[i-2], 17) ^ joss_sha256_ror(w[i-2], 19) ^ (w[i-2] >> 10);
+            w[i] = w[i-16] + s0 + w[i-7] + s1;
+        }
+        uint32_t a=h[0], b=h[1], c=h[2], d=h[3], e=h[4], f=h[5], g=h[6], hh=h[7];
+        for (int i = 0; i < 64; i++) {
+            uint32_t S1 = joss_sha256_ror(e, 6) ^ joss_sha256_ror(e, 11) ^ joss_sha256_ror(e, 25);
+            uint32_t ch = (e & f) ^ ((~e) & g);
+            uint32_t t1 = hh + S1 + ch + k[i] + w[i];
+            uint32_t S0 = joss_sha256_ror(a, 2) ^ joss_sha256_ror(a, 13) ^ joss_sha256_ror(a, 22);
+            uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
+            uint32_t t2 = S0 + maj;
+            hh = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+        }
+        h[0]+=a; h[1]+=b; h[2]+=c; h[3]+=d; h[4]+=e; h[5]+=f; h[6]+=g; h[7]+=hh;
+    }
+    free(msg);
+    for (int i = 0; i < 8; i++) {
+        out[i*4]   = (uint8_t)(h[i] >> 24);
+        out[i*4+1] = (uint8_t)(h[i] >> 16);
+        out[i*4+2] = (uint8_t)(h[i] >> 8);
+        out[i*4+3] = (uint8_t)(h[i]);
+    }
+}
+
 /* --- SQL Binding Substitution with Safe Escaping --- */
 static char* joss_wire_bind_sql(const char* sql, void* bindings) {
     if (!sql) return NULL;
@@ -301,6 +360,8 @@ static joss_wire_sock_t joss_wire_get_mysql(void) {
     uint8_t* auth_resp = mysql_wire_read_pkt(fd, &alen, &aseq);
     if (auth_resp && alen > 1 && auth_resp[0] == 0xFE) {
         /* AuthSwitchRequest: plugin_name\0 + scramble */
+        const char* sw_plugin = (const char*)(auth_resp + 1);
+        int is_sha2 = (strcmp(sw_plugin, "caching_sha2_password") == 0);
         size_t p_off = 1;
         while (p_off < alen && auth_resp[p_off] != 0) p_off++;
         p_off++;
@@ -309,20 +370,36 @@ static joss_wire_sock_t joss_wire_get_mysql(void) {
         if (p_off + 20 <= alen) memcpy(sw_scramble, auth_resp + p_off, 20);
         else if (p_off < alen) memcpy(sw_scramble, auth_resp + p_off, alen - p_off);
         free(auth_resp);
-        uint8_t sw_out[20];
+        uint8_t sw_out[32];
         size_t sw_len = 0;
         if (pass && *pass) {
-            uint8_t s1[20], s2[20], buf40[40], s3[20];
-            joss_wire_sha1((const uint8_t*)pass, strlen(pass), s1);
-            joss_wire_sha1(s1, 20, s2);
-            memcpy(buf40, sw_scramble, 20);
-            memcpy(buf40 + 20, s2, 20);
-            joss_wire_sha1(buf40, 40, s3);
-            for (int i = 0; i < 20; i++) sw_out[i] = s1[i] ^ s3[i];
-            sw_len = 20;
+            if (is_sha2) {
+                uint8_t s1[32], s2[32], buf52[52], s3[32];
+                joss_wire_sha256((const uint8_t*)pass, strlen(pass), s1);
+                joss_wire_sha256(s1, 32, s2);
+                memcpy(buf52, s2, 32);
+                memcpy(buf52 + 32, sw_scramble, 20);
+                joss_wire_sha256(buf52, 52, s3);
+                for (int i = 0; i < 32; i++) sw_out[i] = s1[i] ^ s3[i];
+                sw_len = 32;
+            } else {
+                uint8_t s1[20], s2[20], buf40[40], s3[20];
+                joss_wire_sha1((const uint8_t*)pass, strlen(pass), s1);
+                joss_wire_sha1(s1, 20, s2);
+                memcpy(buf40, sw_scramble, 20);
+                memcpy(buf40 + 20, s2, 20);
+                joss_wire_sha1(buf40, 40, s3);
+                for (int i = 0; i < 20; i++) sw_out[i] = s1[i] ^ s3[i];
+                sw_len = 20;
+            }
         }
         (void)mysql_wire_write_pkt(fd, (uint8_t)(aseq + 1), sw_out, sw_len);
         auth_resp = mysql_wire_read_pkt(fd, &alen, &aseq);
+        if (auth_resp && alen >= 2 && auth_resp[0] == 0x01 && auth_resp[1] == 0x03) {
+            /* caching_sha2_password fast auth success -> read final OK packet */
+            free(auth_resp);
+            auth_resp = mysql_wire_read_pkt(fd, &alen, &aseq);
+        }
     }
     if (!auth_resp || alen == 0 || auth_resp[0] != 0x00) {
         const char* errmsg = (auth_resp && alen > 9 && auth_resp[0] == 0xFF) ? (const char*)(auth_resp + 9) : "";

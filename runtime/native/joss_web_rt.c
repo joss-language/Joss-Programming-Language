@@ -547,12 +547,9 @@ static void joss_parse_env_buffer(char* buf) {
             if (*p == q) *p++ = '\0';
             while (*p && *p != '\n') p++;
         } else {
-            while (*p && *p != '\r' && *p != '\n' && *p != '#') p++;
+            while (*p && *p != '\r' && *p != '\n') p++;
             char* val_end = p;
             while (val_end > val_start && (val_end[-1] == ' ' || val_end[-1] == '\t')) val_end--;
-            if (*p == '#') {
-                while (*p && *p != '\n') p++;
-            }
             if (*p) p++;
             *val_end = '\0';
         }
