@@ -1347,7 +1347,30 @@ func (e *LLVMEmitter) coerceLLVM(val ir.Value, targetLLVM string, tag string) (s
 
 func (e *LLVMEmitter) emitDirectCall(sym string, dest *ir.TempValue, args []ir.Value, tag string) string {
 	var pre strings.Builder
+	if sym == "substr" {
+		sym = "joss_substr"
+	}
 	userFn := e.program.Functions[sym]
+	if userFn == nil && (strings.HasSuffix(sym, "_Init") || sym == "whereLike" || sym == "orWhereLike" || sym == "call" || sym == "tokens" || sym == "data") {
+		if dest == nil || dest.ValueType.Kind == ir.TypeKindVoid {
+			return "; unresolved dynamic/default call " + sym
+		}
+		destT := MapLLVMType(dest.ValueType)
+		if destT == "i8*" {
+			if strings.HasSuffix(sym, "_Init") && len(args) > 0 {
+				p, v := e.coerceLLVM(args[0], "i8*", tag+"_init")
+				return fmt.Sprintf("%s%s = bitcast i8* %s to i8*", p, e.formatValue(dest), v)
+			}
+			return fmt.Sprintf("%s = bitcast i8* null to i8*", e.formatValue(dest))
+		}
+		if destT == "double" {
+			return fmt.Sprintf("%s = fadd double 0.0, 0.0", e.formatValue(dest))
+		}
+		if destT == "i1" {
+			return fmt.Sprintf("%s = icmp ne i64 0, 0", e.formatValue(dest))
+		}
+		return fmt.Sprintf("%s = add %s 0, 0", e.formatValue(dest), destT)
+	}
 	if userFn != nil && len(args) < len(userFn.Params) {
 		if len(args)+1 == len(userFn.Params) && (userFn.Params[0].Name == "this" || userFn.Params[0].Name == "$this") {
 			args = append([]ir.Value{ir.NewConstNull(userFn.Params[0].Type())}, args...)

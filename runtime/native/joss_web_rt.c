@@ -1768,7 +1768,7 @@ void* joss_end(void* arr) {
     if (!arr) return NULL;
     int64_t n = joss_count(arr);
     if (n <= 0) return NULL;
-    return joss_arr_get(arr, n - 1);
+    return (void*)(intptr_t)joss_arr_get_i64(arr, n - 1);
 }
 
 int64_t joss_is_numeric(const char* s) {
@@ -1803,7 +1803,7 @@ const char* joss_html_escape(const char* s) {
 
 void* joss_append(void* arr, void* val) {
     if (!arr) arr = joss_arr_new(4);
-    joss_arr_push(arr, val);
+    joss_arr_push_i64(arr, (int64_t)(intptr_t)val);
     return arr;
 }
 
@@ -1824,7 +1824,7 @@ int64_t joss_mkdir(const char* path, int64_t mode, int64_t recursive) {
     path = unbox_web_cstr(path);
     if (!path || !path[0]) return 0;
 #if defined(_WIN32)
-    return (_mkdir(path) == 0) ? 1 : 0;
+    return CreateDirectoryA(path, NULL) ? 1 : 0;
 #else
     return (mkdir(path, 0755) == 0) ? 1 : 0;
 #endif
@@ -1835,7 +1835,7 @@ int64_t joss_in_array(void* needle, void* haystack) {
     int64_t n = joss_count(haystack);
     const char* ns = unbox_web_cstr((const char*)needle);
     for (int64_t i = 0; i < n; i++) {
-        void* item = joss_arr_get(haystack, i);
+        void* item = (void*)(intptr_t)joss_arr_get_i64(haystack, i);
         if (item == needle) return 1;
         const char* is = unbox_web_cstr((const char*)item);
         if (ns && is && strcmp(ns, is) == 0) return 1;
