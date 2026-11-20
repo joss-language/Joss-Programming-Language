@@ -388,7 +388,7 @@ static const char* unbox_cstr_rt(const char* s) {
     if (joss_is_boxed_ptr(v)) {
         return joss_strval(v);
     }
-    if (u < 0x10000ULL || v < 0) {
+    if (u < 0x10000ULL || (u >> 47) != 0) {
         return joss_strval(v);
     }
     return s;
@@ -503,7 +503,7 @@ static const char* unbox_cstr(const char* s) {
     if (joss_is_boxed_ptr(v)) {
         return joss_strval(v);
     }
-    if (u < 0x10000ULL || v < 0) {
+    if (u < 0x10000ULL || (u >> 47) != 0) {
         return joss_strval(v);
     }
     return s;

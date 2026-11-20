@@ -42,6 +42,21 @@ static void joss_wire_net_init(void) {}
 
 static joss_wire_sock_t joss_wire_connect(const char* host, const char* port) {
     joss_wire_net_init();
+    char host_buf[256];
+    char port_buf[32];
+    if (host && strchr(host, ':') != NULL) {
+        const char* colon = strrchr(host, ':');
+        size_t hlen = (size_t)(colon - host);
+        if (hlen > 0 && hlen < sizeof(host_buf)) {
+            memcpy(host_buf, host, hlen);
+            host_buf[hlen] = '\0';
+            host = host_buf;
+            if (colon[1] != '\0') {
+                snprintf(port_buf, sizeof(port_buf), "%s", colon + 1);
+                port = port_buf;
+            }
+        }
+    }
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -216,7 +231,10 @@ static joss_wire_sock_t joss_wire_get_mysql(void) {
     if (!db || !*db) db = joss_env("DB_NAME", "");
 
     joss_wire_sock_t fd = joss_wire_connect(host, port);
-    if (fd == JOSS_WIRE_INVALID_SOCK) return JOSS_WIRE_INVALID_SOCK;
+    if (fd == JOSS_WIRE_INVALID_SOCK) {
+        fprintf(stderr, "[MySQL Wire] connect failed (host=%s, port=%s)\n", host, port);
+        return JOSS_WIRE_INVALID_SOCK;
+    }
 
     size_t hlen = 0;
     uint8_t seq = 0;
@@ -307,7 +325,8 @@ static joss_wire_sock_t joss_wire_get_mysql(void) {
         auth_resp = mysql_wire_read_pkt(fd, &alen, &aseq);
     }
     if (!auth_resp || alen == 0 || auth_resp[0] != 0x00) {
-        fprintf(stderr, "[MySQL Wire] auth failed (host=%s, code=0x%02x)\n", host, (auth_resp && alen > 0) ? auth_resp[0] : 0xFF);
+        const char* errmsg = (auth_resp && alen > 9 && auth_resp[0] == 0xFF) ? (const char*)(auth_resp + 9) : "";
+        fprintf(stderr, "[MySQL Wire] auth failed (host=%s, code=0x%02x, msg=%s)\n", host, (auth_resp && alen > 0) ? auth_resp[0] : 0xFF, errmsg);
         free(auth_resp);
         joss_wire_close(fd);
         return JOSS_WIRE_INVALID_SOCK;
@@ -464,7 +483,10 @@ static joss_wire_sock_t joss_wire_get_pg(void) {
     if (!db || !*db) db = joss_env("DB_NAME", "postgres");
 
     joss_wire_sock_t fd = joss_wire_connect(host, port);
-    if (fd == JOSS_WIRE_INVALID_SOCK) return JOSS_WIRE_INVALID_SOCK;
+    if (fd == JOSS_WIRE_INVALID_SOCK) {
+        fprintf(stderr, "[MySQL Wire] connect failed (host=%s, port=%s)\n", host, port);
+        return JOSS_WIRE_INVALID_SOCK;
+    }
 
     uint8_t msg[512];
     size_t pos = 8;
