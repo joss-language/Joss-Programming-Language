@@ -1282,6 +1282,27 @@ static void md_append_inline(JossStringBuilder* sb, const char* s, size_t len) {
                 continue;
             }
         }
+        if (s[i] == '[') {
+            size_t close_b = i + 1;
+            while (close_b < len && s[close_b] != ']') close_b++;
+            if (close_b + 1 < len && s[close_b] == ']' && s[close_b + 1] == '(') {
+                size_t close_p = close_b + 2;
+                while (close_p < len && s[close_p] != ')') close_p++;
+                if (close_p < len) {
+                    joss_sb_append(sb, "<a href=\"");
+                    for (size_t k = close_b + 2; k < close_p; k++) {
+                        if (s[k] == '"') joss_sb_append(sb, "&quot;");
+                        else if (s[k] == '&') joss_sb_append(sb, "&amp;");
+                        else joss_buf_append_byte(sb, (uint8_t)s[k]);
+                    }
+                    joss_sb_append(sb, "\">");
+                    md_append_inline(sb, s + i + 1, close_b - (i + 1));
+                    joss_sb_append(sb, "</a>");
+                    i = close_p;
+                    continue;
+                }
+            }
+        }
         if (s[i] == '<') joss_sb_append(sb, "&lt;");
         else if (s[i] == '>') joss_sb_append(sb, "&gt;");
         else if (s[i] == '&') joss_sb_append(sb, "&amp;");
@@ -1326,6 +1347,8 @@ const char* fn_Markdown_toHtml(const char* md) {
             joss_sb_append(sb, tag_open);
             md_append_inline(sb, p + start, len - start);
             joss_sb_append(sb, tag_close);
+        } else if (len >= 3 && p[0] == '-' && p[1] == '-' && p[2] == '-') {
+            joss_sb_append(sb, "<hr>\n");
         } else if (len >= 2 && (p[0] == '-' || p[0] == '*') && p[1] == ' ') {
             joss_sb_append(sb, "<li>");
             md_append_inline(sb, p + 2, len - 2);
