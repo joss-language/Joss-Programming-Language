@@ -528,6 +528,7 @@ int64_t joss_arr_get_i64(void* arr, int64_t idx) {
         const char* k = unbox_cstr((const char*)(uintptr_t)idx);
         return joss_map_get_i64(arr, k);
     }
+    if (!joss_is_arr_ptr((int64_t)(uintptr_t)arr)) return 0;
     idx = joss_unbox_value(idx);
     JossArray* a = (JossArray*)arr;
     if (idx < 0 || idx >= a->len) return 0;
@@ -535,7 +536,11 @@ int64_t joss_arr_get_i64(void* arr, int64_t idx) {
 }
 
 const char* joss_arr_get_str(void* arr, int64_t idx) {
-    return (const char*)(uintptr_t)joss_arr_get_i64(arr, idx);
+    int64_t v = joss_arr_get_i64(arr, idx);
+    if (v == 0) return "";
+    int64_t u = joss_unbox_value(v);
+    if (joss_is_arr_ptr(u) || joss_is_map_ptr(u)) return (const char*)(uintptr_t)u;
+    return joss_strval(v);
 }
 
 void joss_arr_set_i64(void* arr, int64_t idx, int64_t val) {
@@ -546,6 +551,7 @@ void joss_arr_set_i64(void* arr, int64_t idx, int64_t val) {
         joss_map_set_i64(arr, k, val);
         return;
     }
+    if (!joss_is_arr_ptr((int64_t)(uintptr_t)arr)) return;
     idx = joss_unbox_value(idx);
     JossArray* a = (JossArray*)arr;
     if (idx < 0) return;
@@ -564,6 +570,7 @@ int64_t joss_arr_len(void* arr) {
     if (joss_is_map_ptr((int64_t)(uintptr_t)arr)) {
         return joss_map_len(arr);
     }
+    if (!joss_is_arr_ptr((int64_t)(uintptr_t)arr)) return 0;
     JossArray* a = (JossArray*)arr;
     return a->len;
 }
@@ -625,8 +632,8 @@ void* joss_map_new(void) {
 void joss_map_set_i64(void* mp, const char* key, int64_t val) {
     mp = unbox_ptr(mp);
     key = unbox_cstr(key);
+    if (!mp || !key || !joss_is_map_ptr((int64_t)(uintptr_t)mp)) return;
     JossMap* m = (JossMap*)mp;
-    if (!m || !key) return;
     uint32_t b = fnv1a_hash(key) % JOSS_MAP_BUCKETS;
     JossMapEntry* e = m->buckets[b];
     while (e) {
@@ -647,9 +654,14 @@ void joss_map_set_i64(void* mp, const char* key, int64_t val) {
 
 int64_t joss_map_get_i64(void* mp, const char* key) {
     mp = unbox_ptr(mp);
+    if (!mp) return 0;
+    if (joss_is_arr_ptr((int64_t)(uintptr_t)mp)) {
+        return joss_arr_get_i64(mp, joss_intval((int64_t)(uintptr_t)key));
+    }
+    if (!joss_is_map_ptr((int64_t)(uintptr_t)mp)) return 0;
     key = unbox_cstr(key);
+    if (!key) return 0;
     JossMap* m = (JossMap*)mp;
-    if (!m || !key) return 0;
     uint32_t b = fnv1a_hash(key) % JOSS_MAP_BUCKETS;
     JossMapEntry* e = m->buckets[b];
     while (e) {
@@ -666,14 +678,18 @@ void joss_map_set_str(void* mp, const char* key, const char* val) {
 }
 
 const char* joss_map_get_str(void* mp, const char* key) {
-    return (const char*)(uintptr_t)joss_map_get_i64(mp, key);
+    int64_t v = joss_map_get_i64(mp, key);
+    if (v == 0) return "";
+    int64_t u = joss_unbox_value(v);
+    if (joss_is_arr_ptr(u) || joss_is_map_ptr(u)) return (const char*)(uintptr_t)u;
+    return joss_strval(v);
 }
 
 void joss_map_delete_i64(void* mp, const char* key) {
     mp = unbox_ptr(mp);
     key = unbox_cstr(key);
+    if (!mp || !key || !joss_is_map_ptr((int64_t)(uintptr_t)mp)) return;
     JossMap* m = (JossMap*)mp;
-    if (!m || !key) return;
     uint32_t b = fnv1a_hash(key) % JOSS_MAP_BUCKETS;
     JossMapEntry** pp = &m->buckets[b];
     while (*pp) {
@@ -767,13 +783,14 @@ int64_t joss_map_len(void* m) {
     if (joss_is_arr_ptr((int64_t)(uintptr_t)m)) {
         return ((JossArray*)m)->len;
     }
+    if (!joss_is_map_ptr((int64_t)(uintptr_t)m)) return 0;
     JossMap* jm = (JossMap*)m;
     return jm->count;
 }
 
 const char* joss_map_key_at(void* m, int64_t idx) {
     m = unbox_ptr(m);
-    if (!m || idx < 0) return "";
+    if (!m || idx < 0 || !joss_is_map_ptr((int64_t)(uintptr_t)m)) return "";
     JossMap* jm = (JossMap*)m;
     int64_t i = 0;
     for (int b = 0; b < JOSS_MAP_BUCKETS; b++) {
@@ -790,6 +807,10 @@ const char* joss_map_key_at(void* m, int64_t idx) {
 int64_t joss_map_val_at(void* m, int64_t idx) {
     m = unbox_ptr(m);
     if (!m || idx < 0) return 0;
+    if (joss_is_arr_ptr((int64_t)(uintptr_t)m)) {
+        return joss_arr_get_i64(m, idx);
+    }
+    if (!joss_is_map_ptr((int64_t)(uintptr_t)m)) return 0;
     JossMap* jm = (JossMap*)m;
     int64_t i = 0;
     for (int b = 0; b < JOSS_MAP_BUCKETS; b++) {
@@ -806,7 +827,7 @@ int64_t joss_map_val_at(void* m, int64_t idx) {
 int64_t joss_array_key_exists(const char* key, void* m) {
     m = unbox_ptr(m);
     key = unbox_cstr(key);
-    if (!key || !m) return 0;
+    if (!key || !m || !joss_is_map_ptr((int64_t)(uintptr_t)m)) return 0;
     JossMap* jm = (JossMap*)m;
     uint32_t b = fnv1a_hash(key) % JOSS_MAP_BUCKETS;
     JossMapEntry* cur = jm->buckets[b];

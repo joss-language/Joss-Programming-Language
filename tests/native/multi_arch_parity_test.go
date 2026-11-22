@@ -88,7 +88,8 @@ try {
 		t.Fatalf("analyzer errors: %v", prep.Diagnostics)
 	}
 
-	lowerer := ir.NewLowerer(prep, nil)
+	reach := analyzer.BuildReachabilityGraph(prep, analyzer.ReachabilityOptions{Entrypoint: "http_parser_parity.joss"})
+	lowerer := ir.NewLowerer(prep, reach)
 	irProg, err := lowerer.LowerProgram("parity")
 	if err != nil {
 		t.Fatalf("lowering failed: %v", err)
@@ -194,7 +195,8 @@ public class HttpServer {
 		t.Fatalf("analyzer errors: %v", prep.Diagnostics)
 	}
 
-	lowerer := ir.NewLowerer(prep, nil)
+	reach := analyzer.BuildReachabilityGraph(prep, analyzer.ReachabilityOptions{Entrypoint: "http_parser_parity.joss"})
+	lowerer := ir.NewLowerer(prep, reach)
 	irProg, err := lowerer.LowerProgram("server_app")
 	if err != nil {
 		t.Fatalf("lowering failed: %v", err)
@@ -259,7 +261,8 @@ echo $request["email"];
 	if prep.HasErrors() {
 		t.Fatalf("analyzer errors: %v", prep.Diagnostics)
 	}
-	lowerer := ir.NewLowerer(prep, nil)
+	reach := analyzer.BuildReachabilityGraph(prep, analyzer.ReachabilityOptions{Entrypoint: "http_parser_parity.joss"})
+	lowerer := ir.NewLowerer(prep, reach)
 	irProg, err := lowerer.LowerProgram("http_parser_parity")
 	if err != nil {
 		t.Fatalf("lowering failed: %v", err)

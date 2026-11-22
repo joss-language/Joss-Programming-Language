@@ -423,6 +423,7 @@ func isHostBridgeBuiltin(id string) bool {
 func isExtendedStdlibCallee(name string) bool {
 	switch name {
 	case "env", "request", "csrf_field", "html_escape", "view", "__joss_http_dispatch", "__joss_get_embedded_asset",
+		"joss_register_embedded_asset_resolver",
 		"__joss_file_get_bytes",
 		"joss_map_key_at", "joss_map_val_at", "fn_joss_map_key_at", "fn_joss_map_val_at",
 		"__joss_db_query", "__joss_db_execute", "__joss_db_is_connected":
@@ -536,7 +537,7 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 func isNativeBuiltin(id string) bool {
 	switch id {
 	case "strlen", "len", "count", "array_push", "append", "to_string", "strval",
-		"abs", "min", "max", "intval", "floatval", "boolval", "array_pop", "array_key_exists", "time", "microtime", "array_fill",
+		"abs", "min", "max", "intval", "floatval", "boolval", "is_string", "array_pop", "array_key_exists", "time", "microtime", "array_fill",
 		"__joss_local_utc_offset", "__joss_timezone_data", "__joss_string_byte_at", "__joss_byte_string",
 		"file_get_contents", "__joss_file_get_bytes", "async", "await",
 		"env", "request", "csrf_field", "html_escape", "view",
@@ -2218,6 +2219,18 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x0F, 0x95, 0xC0) // setne al
 	b.emitBytes(0xC3)
 
+	// fn_is_string(rcx = val) -> rax = 1 if pointer (>= 0x400000 and upper bits == 0), 0 otherwise
+	b.defineLabel("fn_is_string")
+	b.emitBytes(0x31, 0xC0)                               // xor eax, eax
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x40, 0x00) // cmp rcx, 0x400000
+	b.emitJlLabel(".is_str_done")
+	b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+	b.emitJneLabel(".is_str_done")
+	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1
+	b.defineLabel(".is_str_done")
+	b.emitBytes(0xC3)
+
 	// fn_floatval(rcx = intVal) -> rax = float64 bits
 	b.defineLabel("fn_floatval")
 	b.emitBytes(0xF2, 0x48, 0x0F, 0x2A, 0xC1) // cvtsi2sd xmm0, rcx
@@ -3683,6 +3696,9 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		return fmt.Errorf("%s", analyzer.FormatCapabilityError("host service "+i.ClassName+"::"+i.MethodName))
 
 	case *ir.CallInst:
+		if i.Callee == "joss_register_embedded_asset_resolver" {
+			return nil
+		}
 		if (i.Callee == "print" || i.Callee == "println" || i.Callee == "echo") && len(i.Args) == 1 {
 			arg := i.Args[0]
 			rtFn := "joss_print_mixed"

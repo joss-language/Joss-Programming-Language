@@ -286,7 +286,7 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 						args = append([]ir.Value{args[0], args[1], ir.NewConstInt(-9223372036854775808, ir.TypeI64)}, args[2:]...)
 					} else if ci.BuiltinID == "env" && len(args) == 1 {
 						args = []ir.Value{args[0], ir.NewConstString("")}
-					} else if (ci.BuiltinID == "request" || ci.BuiltinID == "session") && len(args) == 1 {
+					} else if (ci.BuiltinID == "request" || ci.BuiltinID == "session" || ci.BuiltinID == "gmdate" || ci.BuiltinID == "date") && len(args) == 1 {
 						args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
 					} else if ci.BuiltinID == "totp_generate" && len(args) == 1 {
 						args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
@@ -705,7 +705,7 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 			args = []ir.Value{args[0], args[1], ir.NewConstInt(-9223372036854775808, ir.TypeI64)}
 		} else if i.BuiltinID == "env" && len(args) == 1 {
 			args = []ir.Value{args[0], ir.NewConstString("")}
-		} else if (i.BuiltinID == "request" || i.BuiltinID == "session") && len(args) == 1 {
+		} else if (i.BuiltinID == "request" || i.BuiltinID == "session" || i.BuiltinID == "gmdate" || i.BuiltinID == "date") && len(args) == 1 {
 			args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
 		} else if i.BuiltinID == "totp_generate" && len(args) == 1 {
 			args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}

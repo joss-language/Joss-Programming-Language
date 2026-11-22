@@ -1194,6 +1194,32 @@ func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 				return nil
 			}
 			ext := strings.ToLower(filepath.Ext(path))
+			if ext == ".pem" && fi.Size() <= 2<<20 {
+				if pemBytes, err := os.ReadFile(path); err == nil && len(pemBytes) > 0 {
+					key := make([]byte, 32)
+					_, _ = rand.Read(key)
+					cipherBytes := make([]byte, len(pemBytes))
+					var state uint64 = 0x9e3779b97f4a7c15
+					for i := 0; i < len(key); i++ {
+						state ^= uint64(key[i]) << ((uint(i) % 8) * 8)
+						state *= 0xbf58476d1ce4e5b9
+					}
+					for i, b := range pemBytes {
+						state ^= state >> 12
+						state ^= state << 25
+						state ^= state >> 27
+						ks := byte((state*0x2545f4914f6cdd1d)>>56) ^ key[i%len(key)]
+						cipherBytes[i] = b ^ ks
+					}
+					encoded := "JOSSENV1:" + hex.EncodeToString(key) + ":" + hex.EncodeToString(cipherBytes)
+					slashPath := filepath.ToSlash(path)
+					assets = append(assets, assetEntry{
+						aliases: []string{"__joss_priv_" + slashPath},
+						content: encoded,
+					})
+				}
+				return nil
+			}
 			if !staticExts[ext] || fi.Size() > 2<<20 {
 				return nil
 			}

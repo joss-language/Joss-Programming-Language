@@ -142,7 +142,7 @@ public class HttpServer {
             return "HTTP/1.1 200 OK\r\nContent-Type: application/javascript; charset=utf-8\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . HotReload::liveJs()
         }
 
-        print("[Server REQ] \n" . $path . "\n\n[Server ROUTE] Dispatching: \n" . $path . "\n")
+        print("[Server] " . $_method . " " . $path)
 
         // 1. Static assets embedded directly in the standalone executable binary (.rodata)
         var $embedded = __joss_get_embedded_asset($path)

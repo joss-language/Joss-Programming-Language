@@ -205,10 +205,17 @@ static char* joss_wire_bind_sql(const char* sql, void* bindings) {
     int64_t bidx = 0;
     for (const char* p = sql; *p; p++) {
         if (*p == '?' && bidx < nbind) {
-            const char* val = joss_arr_get_str(bindings, bidx++);
-            if (!val) {
+            int64_t raw_v = joss_arr_get_i64(bindings, bidx++);
+            bool is_sql_null = false;
+            if (joss_is_boxed_ptr(raw_v)) {
+                const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)raw_v;
+                if ((uint32_t)(box->header & 0xFFFFFFFFULL) == JOSS_TAG_NULL) is_sql_null = true;
+            }
+            if (is_sql_null) {
                 joss_sb_append(sb, "NULL");
             } else {
+                const char* val = joss_strval(raw_v);
+                if (!val) val = "";
                 joss_buf_append_byte(sb, '\'');
                 for (const char* q = val; *q; q++) {
                     if (*q == '\'') joss_sb_append(sb, "''");

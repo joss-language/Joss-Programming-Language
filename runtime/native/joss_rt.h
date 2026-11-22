@@ -14,7 +14,7 @@ extern "C" {
  * ========================================================================= */
 #define JOSS_BOX_MAGIC 0x8192A3B4ULL
 #if UINTPTR_MAX > 0xFFFFFFFFULL
-#define JOSS_MIN_PTR_ADDR 0x100000000ULL
+#define JOSS_MIN_PTR_ADDR 0x100000ULL
 #else
 #define JOSS_MIN_PTR_ADDR 0x10000ULL
 #endif
@@ -143,6 +143,8 @@ void        joss_obj_set_field_i64(void* obj, const char* field, int64_t val);
 int64_t     joss_obj_get_field_i64(void* obj, const char* field);
 void        joss_obj_set_field_str(void* obj, const char* field, const char* val);
 const char* joss_obj_get_field_str(void* obj, const char* field);
+int64_t     joss_intval(int64_t v);
+const char* joss_strval(int64_t v);
 
 #ifdef __cplusplus
 }

@@ -1941,11 +1941,17 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		if calleeName == "View_render" {
 			calleeName = "view"
 		}
-		if (calleeName == "env" || calleeName == "request" || calleeName == "Request_input" || calleeName == "Session_get") && len(args) == 1 {
+		if (calleeName == "env" || calleeName == "request" || calleeName == "Request_input" || calleeName == "Session_get" || calleeName == "gmdate" || calleeName == "date") && len(args) == 1 {
 			if calleeName == "Session_get" {
 				args = append(args, NewConstNull(PtrType(TypeVoid)))
 			} else {
 				args = append(args, NewConstInt(0, TypeI64))
+			}
+		} else if calleeName == "response" {
+			if len(args) == 1 {
+				args = append(args, NewConstInt(200, TypeI64), NewConstString(""))
+			} else if len(args) == 2 {
+				args = append(args, NewConstString(""))
 			}
 		}
 

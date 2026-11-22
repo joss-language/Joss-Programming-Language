@@ -507,6 +507,20 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLoadImm64(regX0, 1)
 	b.emitEpilog(16)
 
+	// fn_is_string(x0 = val) -> x0 = 1 if pointer (>= 0x400000 and upper bits == 0), 0 otherwise
+	b.defineLabel("fn_is_string")
+	b.emitLoadImm64(regX1, 0x400000)
+	b.emitCmp(regX0, regX1)
+	b.emitBranchCond(condLT, ".is_str_false")
+	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".is_str_false")
+	b.emitLoadImm64(regX0, 1)
+	b.emitRet(regX30)
+	b.defineLabel(".is_str_false")
+	b.emitLoadImm64(regX0, 0)
+	b.emitRet(regX30)
+
 	// __joss_os_alloc(x0 = size) -> x0 = ptr (via mmap on Linux/Darwin)
 	b.defineLabel("__joss_os_alloc")
 	b.emitProlog(16)
@@ -1936,6 +1950,9 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		return fmt.Errorf("%s", analyzer.FormatCapabilityError("host service "+i.ClassName+"::"+i.MethodName))
 
 	case *ir.CallInst:
+		if i.Callee == "joss_register_embedded_asset_resolver" {
+			return nil
+		}
 		if i.Callee == "floatval" && len(i.Args) > 0 {
 			arg := i.Args[0]
 			b.emitLoadValToReg(layout, regX0, arg)
