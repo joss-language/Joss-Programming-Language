@@ -44,6 +44,9 @@ const (
 	dataOffRecv             uint32 = 0x06F8
 	dataOffSend             uint32 = 0x0700
 	dataOffClosesocket      uint32 = 0x0708
+	dataOffClosureEnvs      uint32 = 0x0710
+	dataOffActiveSession    uint32 = 0x0718
+	dataOffActiveRequest    uint32 = 0x0720
 	dataFixedSize           uint32 = 0x1000 // 4096 bytes reserved for runtime + globals
 )
 
@@ -536,7 +539,7 @@ func (b *MachineCodeBuilder) validateProgramCalls(prog *ir.Program) error {
 // isNativeBuiltin reports builtins the backend emits as real machine code.
 func isNativeBuiltin(id string) bool {
 	switch id {
-	case "strlen", "len", "count", "array_push", "append", "to_string", "strval",
+	case "strlen", "len", "count", "array_push", "append", "to_string", "strval", "is_not_null",
 		"abs", "min", "max", "intval", "floatval", "boolval", "is_string", "array_pop", "array_key_exists", "time", "microtime", "array_fill",
 		"__joss_local_utc_offset", "__joss_timezone_data", "__joss_string_byte_at", "__joss_byte_string",
 		"file_get_contents", "__joss_file_get_bytes", "async", "await",
@@ -1226,12 +1229,6 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	// joss_str_concat_i64(rcx = strA, rdx = intB) -> rax = newStr
 	b.defineLabel("joss_str_concat_i64")
-	// If rdx >= 0x400000 (a user-space string pointer from a mixed map/object), delegate to joss_str_concat
-	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x40, 0x00) // cmp rdx, 0x400000
-	b.emitJgeLabel("joss_str_concat")
-	// If rdx == 0 (null/nil from dynamic map/object access), delegate to joss_str_concat to treat as empty string
-	b.emitBytes(0x48, 0x85, 0xD2) // test rdx, rdx
-	b.emitJeLabel("joss_str_concat")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
 	b.emitBytes(0x53, 0x56, 0x57)       // push rbx; push rsi; push rdi
 	b.emitBytes(0x41, 0x54, 0x41, 0x55) // push r12; push r13
@@ -1305,6 +1302,25 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitJeLabel(".truthy_false")
 	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x40, 0x00) // cmp rcx, 0x400000
 	b.emitJlLabel(".truthy_true")
+	b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+	b.emitJneLabel(".truthy_true")
+	b.emitBytes(0x4C, 0x8B, 0x11)                         // mov r10, [rcx]
+	b.emitBytes(0x4D, 0x89, 0xD3)                         // mov r11, r10
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x20)                   // shr r11, 32
+	b.emitBytes(0x41, 0x81, 0xFB, 0xB4, 0xA3, 0x92, 0x81) // cmp r11d, 0x8192A3B4
+	b.emitJneLabel(".truthy_cstr")
+	b.emitBytes(0x45, 0x85, 0xD2) // test r10d, r10d (tag == 0 -> JOSS_TAG_NULL)
+	b.emitJeLabel(".truthy_false")
+	b.emitBytes(0x48, 0x8B, 0x49, 0x08) // mov rcx, [rcx + 8] (unbox payload)
+	b.emitBytes(0x48, 0x85, 0xC9)       // test rcx, rcx
+	b.emitJeLabel(".truthy_false")
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x40, 0x00) // cmp rcx, 0x400000
+	b.emitJlLabel(".truthy_true")
+	b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+	b.emitJneLabel(".truthy_true")
+	b.defineLabel(".truthy_cstr")
 	b.emitBytes(0x80, 0x39, 0x00) // cmp byte ptr [rcx], 0
 	b.emitJeLabel(".truthy_false")
 	b.defineLabel(".truthy_true")
@@ -1315,16 +1331,33 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// joss_is_empty(rcx = val) -> rax = 1 (empty/zero/null) or 0 (not empty)
 	b.defineLabel("joss_is_empty")
 	b.defineLabel("fn_is_empty")
-	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-	b.emitJeLabel(".empty_true")
-	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x40, 0x00) // cmp rcx, 0x400000
-	b.emitJlLabel(".empty_false")
-	b.emitBytes(0x80, 0x39, 0x00) // cmp byte ptr [rcx], 0
-	b.emitJeLabel(".empty_true")
-	b.defineLabel(".empty_false")
-	b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
-	b.defineLabel(".empty_true")
-	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // mov eax, 1; ret
+	b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+	b.emitCallLabel("joss_is_truthy")
+	b.emitBytes(0x83, 0xF0, 0x01)       // xor eax, 1
+	b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
+	b.emitBytes(0xC3)                   // ret
+
+	if b.hasRelocTarget("joss_is_not_null", "fn_is_not_null") {
+		// joss_is_not_null(rcx = val) -> rax = 0 (null) or 1 (not null)
+		b.defineLabel("joss_is_not_null")
+		b.defineLabel("fn_is_not_null")
+		b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+		b.emitJeLabel(".not_null_false")
+		b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+		b.emitJlLabel(".not_null_true")
+		b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
+		b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+		b.emitJneLabel(".not_null_true")
+		b.emitBytes(0x4C, 0x8B, 0x11) // mov r10, [rcx]
+		b.emitBytes(0x49, 0xBB)       // movabs r11, 0x8192A3B400000000
+		b.emitU64(0x8192A3B400000000)
+		b.emitBytes(0x4D, 0x39, 0xDA) // cmp r10, r11
+		b.emitJeLabel(".not_null_false")
+		b.defineLabel(".not_null_true")
+		b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3) // mov eax, 1; ret
+		b.defineLabel(".not_null_false")
+		b.emitBytes(0x31, 0xC0, 0xC3) // xor eax, eax; ret
+	}
 
 	// =========================================================================
 	// 4. Console I/O (joss_print_string, joss_print_i64, joss_print_bool, joss_panic)
@@ -1655,6 +1688,164 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x5D)
 	b.defineLabel(".map_delete_ret")
 	b.emitBytes(0xC3)
+
+	if b.hasRelocTarget("joss_closure_alloc", "joss_closure_prepare_call") {
+		// joss_closure_alloc(rcx = fn_ptr, rdx = env_map) -> rax = closureBox*
+		b.defineLabel("joss_closure_alloc")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
+		b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55) // push rbx; push r12; push r13
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28)       // sub rsp, 40 (keeps 16-byte stack alignment + shadow space)
+		b.emitBytes(0x49, 0x89, 0xD4)             // mov r12, rdx (raw env_map)
+		b.emitCallLabel("joss_unbox_value")       // rcx = fn_ptr -> rax = unboxed fn_ptr
+		b.emitBytes(0x48, 0x89, 0xC3)             // mov rbx, rax
+		b.emitBytes(0x4C, 0x89, 0xE1)             // mov rcx, r12
+		b.emitCallLabel("joss_unbox_value")       // rax = unboxed env_map
+		b.emitBytes(0x49, 0x89, 0xC4)             // mov r12, rax
+		b.emitBytes(0xB9, 0x18, 0x00, 0x00, 0x00) // mov ecx, 24
+		b.emitCallLabel("__joss_os_alloc")
+		b.emitBytes(0x49, 0x89, 0xC5) // mov r13, rax
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJeLabel(".closure_alloc_done")
+		b.emitBytes(0x48, 0xB9) // mov rcx, 0x8192A3B400000009 (JOSS_TAG_CLOSURE = 9)
+		b.emitU64(0x8192A3B400000009)
+		b.emitBytes(0x48, 0x89, 0x08)       // mov [rax], rcx
+		b.emitBytes(0x48, 0x89, 0x58, 0x08) // mov [rax + 8], rbx
+		b.emitBytes(0x4C, 0x89, 0x60, 0x10) // mov [rax + 16], r12
+		b.emitBytes(0x48, 0x89, 0xD9)       // mov rcx, rbx
+		b.emitBytes(0x4C, 0x89, 0xE2)       // mov rdx, r12
+		b.emitCallLabel("joss_closure_env_set")
+		b.emitBytes(0x4C, 0x89, 0xE8) // mov rax, r13
+		b.defineLabel(".closure_alloc_done")
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28)
+		b.emitBytes(0x41, 0x5D, 0x41, 0x5C, 0x5B, 0x5D, 0xC3)
+
+		// joss_closure_prepare_call(rcx = callee) -> rax = ready fn_ptr
+		b.defineLabel("joss_closure_prepare_call")
+		b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+		b.emitJlLabel("joss_unbox_value")
+		b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
+		b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+		b.emitJneLabel("joss_unbox_value")
+		b.emitBytes(0x4C, 0x8B, 0x11) // mov r10, [rcx]
+		b.emitBytes(0x49, 0xBB)       // movabs r11, 0x8192A3B400000009
+		b.emitU64(0x8192A3B400000009)
+		b.emitBytes(0x4D, 0x39, 0xDA) // cmp r10, r11
+		b.emitJneLabel("joss_unbox_value")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5) // push rbp; mov rbp, rsp
+		b.emitBytes(0x53)                   // push rbx
+		b.emitBytes(0x48, 0x83, 0xEC, 0x28) // sub rsp, 40
+		b.emitBytes(0x48, 0x8B, 0x59, 0x08) // mov rbx, [rcx + 8]
+		b.emitBytes(0x48, 0x8B, 0x51, 0x10) // mov rdx, [rcx + 16]
+		b.emitBytes(0x48, 0x89, 0xD9)       // mov rcx, rbx
+		b.emitCallLabel("joss_closure_env_set")
+		b.emitBytes(0x48, 0x89, 0xD8)       // mov rax, rbx
+		b.emitBytes(0x48, 0x83, 0xC4, 0x28) // add rsp, 40
+		b.emitBytes(0x5B, 0x5D, 0xC3)       // pop rbx; pop rbp; ret
+	}
+
+	if b.hasRelocTarget("joss_closure_env_set", "joss_closure_env_get", "joss_closure_alloc", "joss_closure_prepare_call") {
+		// joss_closure_env_set(rcx = fn_ptr, rdx = env_map)
+		b.defineLabel("joss_closure_env_set")
+		b.emitBytes(0x55)                   // push rbp
+		b.emitBytes(0x48, 0x89, 0xE5)       // mov rbp, rsp
+		b.emitBytes(0x53)                   // push rbx
+		b.emitBytes(0x41, 0x54)             // push r12
+		b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
+		b.emitBytes(0x49, 0x89, 0xD4)       // mov r12, rdx (env_map)
+		b.emitCallLabel("joss_unbox_value") // rax = unboxed fn_ptr
+		b.emitBytes(0x48, 0x89, 0xC3)       // mov rbx, rax
+		b.emitBytes(0x48, 0x85, 0xDB)       // test rbx, rbx
+		b.emitJeLabel(".closure_set_done")
+		b.emitMovRAXData(dataOffClosureEnvs)
+		b.defineLabel(".closure_set_loop")
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJeLabel(".closure_set_alloc")
+		b.emitBytes(0x48, 0x39, 0x18)       // cmp [rax], rbx
+		b.emitJneLabel(".closure_set_next") //
+		b.emitBytes(0x4C, 0x89, 0x60, 0x08) // mov [rax + 8], r12
+		b.emitJmpLabel(".closure_set_done")
+		b.defineLabel(".closure_set_next")
+		b.emitBytes(0x48, 0x8B, 0x40, 0x10) // mov rax, [rax + 16]
+		b.emitJmpLabel(".closure_set_loop")
+		b.defineLabel(".closure_set_alloc")
+		b.emitBytes(0xB9, 0x18, 0x00, 0x00, 0x00) // mov ecx, 24
+		b.emitCallLabel("__joss_os_alloc")
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJeLabel(".closure_set_done")
+		b.emitBytes(0x48, 0x89, 0x18)       // mov [rax], rbx
+		b.emitBytes(0x4C, 0x89, 0x60, 0x08) // mov [rax + 8], r12
+		b.emitMovRCXData(dataOffClosureEnvs)
+		b.emitBytes(0x48, 0x89, 0x48, 0x10) // mov [rax + 16], rcx
+		b.emitMovDataRAX(dataOffClosureEnvs)
+		b.defineLabel(".closure_set_done")
+		b.emitBytes(0x48, 0x83, 0xC4, 0x20) // add rsp, 32
+		b.emitBytes(0x41, 0x5C)             // pop r12
+		b.emitBytes(0x5B)                   // pop rbx
+		b.emitBytes(0x5D)                   // pop rbp
+		b.emitBytes(0xC3)                   // ret
+
+		// joss_closure_env_get(rcx = fn_ptr) -> rax = env_map
+		b.defineLabel("joss_closure_env_get")
+		b.emitBytes(0x55)                   // push rbp
+		b.emitBytes(0x48, 0x89, 0xE5)       // mov rbp, rsp
+		b.emitBytes(0x48, 0x83, 0xEC, 0x20) // sub rsp, 32
+		b.emitCallLabel("joss_unbox_value") // rax = unboxed fn_ptr
+		b.emitBytes(0x48, 0x85, 0xC0)       // test rax, rax
+		b.emitJeLabel(".closure_get_empty")
+		b.emitBytes(0x48, 0x89, 0xC1) // mov rcx, rax
+		b.emitMovRAXData(dataOffClosureEnvs)
+		b.defineLabel(".closure_get_loop")
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJeLabel(".closure_get_empty")
+		b.emitBytes(0x48, 0x39, 0x08)       // cmp [rax], rcx
+		b.emitJneLabel(".closure_get_next") //
+		b.emitBytes(0x48, 0x8B, 0x50, 0x08) // mov rdx, [rax + 8]
+		b.emitBytes(0x48, 0x85, 0xD2)       // test rdx, rdx
+		b.emitJeLabel(".closure_get_next")
+		b.emitBytes(0x48, 0x89, 0xD0) // mov rax, rdx
+		b.emitJmpLabel(".closure_get_done")
+		b.defineLabel(".closure_get_next")
+		b.emitBytes(0x48, 0x8B, 0x40, 0x10) // mov rax, [rax + 16]
+		b.emitJmpLabel(".closure_get_loop")
+		b.defineLabel(".closure_get_empty")
+		b.emitCallLabel("joss_map_new")
+		b.defineLabel(".closure_get_done")
+		b.emitBytes(0x48, 0x83, 0xC4, 0x20) // add rsp, 32
+		b.emitBytes(0x5D)                   // pop rbp
+		b.emitBytes(0xC3)                   // ret
+	}
+
+	if b.hasRelocTarget("joss_set_active_session", "joss_get_active_session") {
+		b.defineLabel("joss_set_active_session")
+		b.emitMovDataRCX(dataOffActiveSession)
+		b.emitBytes(0xC3)
+
+		b.defineLabel("joss_get_active_session")
+		b.emitMovRAXData(dataOffActiveSession)
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJneLabel(".active_sess_done")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x48, 0x83, 0xEC, 0x20)
+		b.emitCallLabel("joss_map_new")
+		b.emitBytes(0x48, 0x83, 0xC4, 0x20, 0x5D)
+		b.defineLabel(".active_sess_done")
+		b.emitBytes(0xC3)
+	}
+
+	if b.hasRelocTarget("joss_set_active_request", "joss_get_active_request") {
+		b.defineLabel("joss_set_active_request")
+		b.emitMovDataRCX(dataOffActiveRequest)
+		b.emitBytes(0xC3)
+
+		b.defineLabel("joss_get_active_request")
+		b.emitMovRAXData(dataOffActiveRequest)
+		b.emitBytes(0x48, 0x85, 0xC0) // test rax, rax
+		b.emitJneLabel(".active_req_done")
+		b.emitBytes(0x55, 0x48, 0x89, 0xE5, 0x48, 0x83, 0xEC, 0x20)
+		b.emitCallLabel("joss_map_new")
+		b.emitBytes(0x48, 0x83, 0xC4, 0x20, 0x5D)
+		b.defineLabel(".active_req_done")
+		b.emitBytes(0xC3)
+	}
 
 	// joss_map_get_i64 (rcx = mapPtr, rdx = keyStr) -> rax = val64 (0 if missing)
 	b.defineLabel("joss_map_get_i64")
@@ -2109,6 +2300,8 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 
 	// joss_arr_len(rcx = arrPtr) -> rax = len
 	b.defineLabel("joss_arr_len")
+	b.defineLabel("joss_map_len")
+	b.defineLabel("fn_joss_map_len")
 	b.defineLabel("fn_len")
 	b.defineLabel("fn_count")
 	b.emitBytes(0x31, 0xC0)       // xor eax, eax
@@ -2167,7 +2360,7 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x48, 0x0F, 0x4C, 0xC2) // cmovl rax, rdx
 	b.emitBytes(0xC3)
 
-	// fn_intval(rcx = val) -> rax = integer value (parses ASCII if rcx is a string pointer >= 0x10000)
+	// fn_intval(rcx = val) -> rax = integer value (unboxes JossBoxedValue or parses ASCII if string pointer >= 0x10000)
 	b.defineLabel("fn_intval")
 	b.emitBytes(0x48, 0x89, 0xC8)                         // mov rax, rcx
 	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
@@ -2175,6 +2368,30 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
 	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
 	b.emitJneLabel(".intval_done")
+	b.emitBytes(0x4C, 0x8B, 0x11)                         // mov r10, [rcx]
+	b.emitBytes(0x4D, 0x89, 0xD3)                         // mov r11, r10
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x20)                   // shr r11, 32
+	b.emitBytes(0x41, 0x81, 0xFB, 0xB4, 0xA3, 0x92, 0x81) // cmp r11d, 0x8192A3B4
+	b.emitJneLabel(".intval_not_boxed")
+	b.emitBytes(0x44, 0x89, 0xD0)       // mov eax, r10d (tag)
+	b.emitBytes(0x48, 0x8B, 0x49, 0x08) // mov rcx, [rcx + 8] (payload)
+	b.emitBytes(0x83, 0xF8, 0x04)       // cmp eax, 4 (JOSS_TAG_STRING)
+	b.emitJeLabel(".intval_boxed_str")
+	b.emitBytes(0x83, 0xF8, 0x00) // cmp eax, 0 (JOSS_TAG_NULL)
+	b.emitJeLabel(".intval_boxed_null")
+	b.emitBytes(0x48, 0x89, 0xC8) // mov rax, rcx (INT / BOOL payload)
+	b.emitJmpLabel(".intval_done")
+	b.defineLabel(".intval_boxed_null")
+	b.emitBytes(0x31, 0xC0) // xor eax, eax
+	b.emitJmpLabel(".intval_done")
+	b.defineLabel(".intval_boxed_str")
+	b.emitBytes(0x48, 0x89, 0xC8)                         // mov rax, rcx
+	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
+	b.emitJlLabel(".intval_done")
+	b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+	b.emitJneLabel(".intval_done")
+	b.defineLabel(".intval_not_boxed")
 	b.emitBytes(0x31, 0xC0)                         // xor eax, eax (acc = 0)
 	b.emitBytes(0x41, 0xB8, 0x01, 0x00, 0x00, 0x00) // mov r8d, 1 (sign = 1)
 	b.defineLabel(".intval_skip_ws")
@@ -2219,7 +2436,62 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x0F, 0x95, 0xC0) // setne al
 	b.emitBytes(0xC3)
 
-	// fn_is_string(rcx = val) -> rax = 1 if pointer (>= 0x400000 and upper bits == 0), 0 otherwise
+	// joss_is_map / fn_is_map(rcx = val) -> rax = 1 if JossMap header magic matches, 0 otherwise
+	b.defineLabel("joss_is_map")
+	b.defineLabel("fn_is_map")
+	b.emitCallLabel("joss_unbox_value")                   // rax = unboxed val
+	b.emitBytes(0x45, 0x31, 0xD2)                         // xor r10d, r10d
+	b.emitBytes(0x48, 0x81, 0xF8, 0x00, 0x00, 0x40, 0x00) // cmp rax, 0x400000
+	b.emitJlLabel(".is_map_ret")
+	b.emitBytes(0x49, 0x89, 0xC3)       // mov r11, rax
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+	b.emitJneLabel(".is_map_ret")
+	b.emitBytes(0x49, 0xBB, 0x21, 0x50, 0x41, 0x4D, 0x53, 0x53, 0x4F, 0x4A) // mov r11, 0x4A4F53534D415021
+	b.emitBytes(0x4C, 0x39, 0x18)                                           // cmp [rax], r11
+	b.emitJneLabel(".is_map_ret")
+	b.emitBytes(0x41, 0xBA, 0x01, 0x00, 0x00, 0x00) // mov r10d, 1
+	b.defineLabel(".is_map_ret")
+	b.emitBytes(0x4C, 0x89, 0xD0) // mov rax, r10
+	b.emitBytes(0xC3)
+
+	// joss_is_array / fn_is_array(rcx = val) -> rax = 1 if valid non-map JossArray header, 0 otherwise
+	b.defineLabel("joss_is_array")
+	b.defineLabel("fn_is_array")
+	b.emitCallLabel("joss_unbox_value")                   // rax = unboxed val
+	b.emitBytes(0x45, 0x31, 0xD2)                         // xor r10d, r10d
+	b.emitBytes(0x48, 0x81, 0xF8, 0x00, 0x00, 0x40, 0x00) // cmp rax, 0x400000
+	b.emitJlLabel(".is_arr_ret")
+	b.emitBytes(0x49, 0x89, 0xC3)       // mov r11, rax
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+	b.emitJneLabel(".is_arr_ret")
+	b.emitBytes(0x49, 0xBB, 0x21, 0x50, 0x41, 0x4D, 0x53, 0x53, 0x4F, 0x4A) // mov r11, 0x4A4F53534D415021
+	b.emitBytes(0x4C, 0x39, 0x18)                                           // cmp [rax], r11
+	b.emitJeLabel(".is_arr_ret")
+	b.emitBytes(0x4C, 0x8B, 0x18)                         // mov r11, [rax]
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x20)                   // shr r11, 32
+	b.emitBytes(0x41, 0x81, 0xFB, 0xB4, 0xA3, 0x92, 0x81) // cmp r11d, 0x8192A3B4
+	b.emitJeLabel(".is_arr_ret")
+	b.emitBytes(0x48, 0x8B, 0x08)       // mov rcx, [rax + 0] (len)
+	b.emitBytes(0x48, 0x8B, 0x50, 0x08) // mov rdx, [rax + 8] (cap)
+	b.emitBytes(0x48, 0x83, 0xFA, 0x01) // cmp rdx, 1
+	b.emitJlLabel(".is_arr_ret")
+	b.emitBytes(0x48, 0x81, 0xFA, 0x00, 0x00, 0x10, 0x00) // cmp rdx, 0x100000
+	b.emitJgeLabel(".is_arr_ret")
+	b.emitBytes(0x48, 0x83, 0xF9, 0x00) // cmp rcx, 0
+	b.emitJlLabel(".is_arr_ret")
+	b.emitBytes(0x48, 0x39, 0xCA) // cmp rdx, rcx (reject if cap < len)
+	b.emitJlLabel(".is_arr_ret")
+	b.emitBytes(0x4C, 0x8B, 0x58, 0x10)                   // mov r11, [rax + 16] (dataPtr)
+	b.emitBytes(0x49, 0x81, 0xFB, 0x00, 0x00, 0x40, 0x00) // cmp r11, 0x400000
+	b.emitJlLabel(".is_arr_ret")
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+	b.emitJneLabel(".is_arr_ret")
+	b.emitBytes(0x41, 0xBA, 0x01, 0x00, 0x00, 0x00) // mov r10d, 1
+	b.defineLabel(".is_arr_ret")
+	b.emitBytes(0x4C, 0x89, 0xD0) // mov rax, r10
+	b.emitBytes(0xC3)
+
+	// fn_is_string(rcx = val) -> rax = 1 if string/boxed-string pointer, 0 otherwise
 	b.defineLabel("fn_is_string")
 	b.emitBytes(0x31, 0xC0)                               // xor eax, eax
 	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x40, 0x00) // cmp rcx, 0x400000
@@ -2227,6 +2499,19 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
 	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
 	b.emitJneLabel(".is_str_done")
+	b.emitBytes(0x4C, 0x8B, 0x11)                                           // mov r10, [rcx]
+	b.emitBytes(0x49, 0xBB, 0x21, 0x50, 0x41, 0x4D, 0x53, 0x53, 0x4F, 0x4A) // mov r11, 0x4A4F53534D415021
+	b.emitBytes(0x4D, 0x39, 0xDA)                                           // cmp r10, r11
+	b.emitJeLabel(".is_str_done")
+	b.emitBytes(0x4D, 0x89, 0xD3)                         // mov r11, r10
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x20)                   // shr r11, 32
+	b.emitBytes(0x41, 0x81, 0xFB, 0xB4, 0xA3, 0x92, 0x81) // cmp r11d, 0x8192A3B4
+	b.emitJneLabel(".is_str_plain")
+	b.emitBytes(0x41, 0x83, 0xFA, 0x04) // cmp r10d, 4 (JOSS_TAG_STRING)
+	b.emitJeLabel(".is_str_plain")
+	b.emitBytes(0x41, 0x83, 0xFA, 0x08) // cmp r10d, 8 (JOSS_TAG_BYTES)
+	b.emitJneLabel(".is_str_done")
+	b.defineLabel(".is_str_plain")
 	b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1
 	b.defineLabel(".is_str_done")
 	b.emitBytes(0xC3)
@@ -2933,15 +3218,39 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 	// excepto si la instrucción inmediatamente siguiente escribe en el mismo puntero
 	// o si el resultado del Load es uno de los operandos de una llamada que después escribe en el mismo puntero.
 	ptrWriteCount := make(map[int]int)
-	for _, blk := range fn.Blocks {
-		for _, inst := range blk.Instructions {
-			if store, ok := inst.(*ir.StoreInst); ok {
-				if ptrTemp, isTemp := store.Ptr.(*ir.TempValue); isTemp {
-					ptrWriteCount[ptrTemp.ID]++
+	tempUseCount := make(map[int]int, fn.NextTempID)
+	var countBlockWritesAndUses func(blocks []*ir.BasicBlock)
+	countBlockWritesAndUses = func(blocks []*ir.BasicBlock) {
+		for _, blk := range blocks {
+			for _, inst := range blk.Instructions {
+				if store, ok := inst.(*ir.StoreInst); ok {
+					if ptrTemp, isTemp := store.Ptr.(*ir.TempValue); isTemp {
+						ptrWriteCount[ptrTemp.ID]++
+					}
+				}
+				for _, op := range inst.Operands() {
+					if t, ok := op.(*ir.TempValue); ok {
+						tempUseCount[t.ID]++
+					}
+				}
+				if tc, ok := inst.(*ir.TryCatchInst); ok {
+					if ptrTemp, isTemp := tc.CatchVarPtr.(*ir.TempValue); isTemp {
+						ptrWriteCount[ptrTemp.ID]++
+					}
+					countBlockWritesAndUses(tc.TryBlocks)
+					countBlockWritesAndUses(tc.CatchBlocks)
+				}
+			}
+			if blk.Terminator != nil {
+				for _, op := range blk.Terminator.Operands() {
+					if t, ok := op.(*ir.TempValue); ok {
+						tempUseCount[t.ID]++
+					}
 				}
 			}
 		}
 	}
+	countBlockWritesAndUses(fn.Blocks)
 
 	for _, blk := range fn.Blocks {
 		for _, inst := range blk.Instructions {
@@ -2962,23 +3271,6 @@ func (b *MachineCodeBuilder) emitIRFunction(fn *ir.Function) error {
 	// Si un TempValue es usado ÚNICAMENTE por una StoreInst inmediatamente siguiente en el mismo bloque,
 	// alias su stack offset directamente al puntero destino para escribir el resultado directamente,
 	// siempre que ninguno de los operandos de la instrucción esté ya aliasado al mismo puntero destino.
-	tempUseCount := make(map[int]int, fn.NextTempID)
-	for _, blk := range fn.Blocks {
-		for _, inst := range blk.Instructions {
-			for _, op := range inst.Operands() {
-				if t, ok := op.(*ir.TempValue); ok {
-					tempUseCount[t.ID]++
-				}
-			}
-		}
-		if blk.Terminator != nil {
-			for _, op := range blk.Terminator.Operands() {
-				if t, ok := op.(*ir.TempValue); ok {
-					tempUseCount[t.ID]++
-				}
-			}
-		}
-	}
 
 	for _, blk := range fn.Blocks {
 		for idx, inst := range blk.Instructions {
@@ -3597,12 +3889,24 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 
 	case *ir.CallBuiltinInst:
 		fnLabel := "fn_" + i.BuiltinID
-		if i.BuiltinID == "to_string" || i.BuiltinID == "strval" {
-			if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+		if i.BuiltinID == "is_not_null" || i.BuiltinID == "joss_is_not_null" {
+			fnLabel = "joss_is_not_null"
+		} else if i.BuiltinID == "to_string" || i.BuiltinID == "strval" {
+			if len(i.Args) == 1 && i.Args[0].Type().Kind == ir.TypeKindBool {
+				fnLabel = "joss_bool_to_str"
+			} else if len(i.Args) == 1 && i.Args[0].Type().IsInteger() {
+				fnLabel = "joss_i64_to_str"
+			} else if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
 				fnLabel = "joss_f64_to_string"
 			} else {
 				fnLabel = "joss_to_string"
 			}
+		} else if i.BuiltinID == "intval" && len(i.Args) > 0 && (i.Args[0].Type().IsInteger() || i.Args[0].Type().Kind == ir.TypeKindBool) {
+			b.emitLoadValToRAX(layout, i.Args[0])
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
+			return nil
 		} else if i.BuiltinID == "intval" && len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
 			b.emitLoadValToXMM0(layout, i.Args[0])
 			b.emitBytes(0xF2, 0x48, 0x0F, 0x2C, 0xC0) // cvttsd2si rax, xmm0 (truncate toward zero)
@@ -3720,12 +4024,24 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		if strings.HasPrefix(i.Callee, "__joss_rt_") || strings.HasPrefix(i.Callee, "joss_") {
 			fnLabel = i.Callee
 		}
-		if i.Callee == "to_string" || i.Callee == "strval" {
-			if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+		if i.Callee == "is_not_null" || i.Callee == "joss_is_not_null" {
+			fnLabel = "joss_is_not_null"
+		} else if i.Callee == "to_string" || i.Callee == "strval" {
+			if len(i.Args) == 1 && i.Args[0].Type().Kind == ir.TypeKindBool {
+				fnLabel = "joss_bool_to_str"
+			} else if len(i.Args) == 1 && i.Args[0].Type().IsInteger() {
+				fnLabel = "joss_i64_to_str"
+			} else if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
 				fnLabel = "joss_f64_to_string"
 			} else {
 				fnLabel = "joss_to_string"
 			}
+		} else if i.Callee == "intval" && len(i.Args) > 0 && (i.Args[0].Type().IsInteger() || i.Args[0].Type().Kind == ir.TypeKindBool) {
+			b.emitLoadValToRAX(layout, i.Args[0])
+			if i.Dest != nil {
+				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
+			}
+			return nil
 		} else if i.Callee == "intval" && len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
 			b.emitLoadValToXMM0(layout, i.Args[0])
 			b.emitBytes(0xF2, 0x48, 0x0F, 0x2C, 0xC0) // cvttsd2si rax, xmm0 (truncate toward zero)
@@ -3757,21 +4073,28 @@ func (b *MachineCodeBuilder) emitInstruction(fn *ir.Function, layout *fnFrameLay
 		}
 
 	case *ir.CallRuntimeInst:
-		if isNativeBuiltinHelper(i.Func) || isSupportedRuntimeCallee(i.Func) {
+		if i.Func == "is_not_null" || i.Func == "joss_is_not_null" {
+			b.emitCallWithArgs(layout, "joss_is_not_null", i.Args)
+		} else if i.Func == "to_string" || i.Func == "strval" {
+			if len(i.Args) == 1 && i.Args[0].Type().Kind == ir.TypeKindBool {
+				b.emitCallWithArgs(layout, "joss_bool_to_str", i.Args)
+			} else if len(i.Args) == 1 && i.Args[0].Type().IsInteger() {
+				b.emitCallWithArgs(layout, "joss_i64_to_str", i.Args)
+			} else if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+				b.emitCallWithArgs(layout, "joss_f64_to_string", i.Args)
+			} else {
+				b.emitCallWithArgs(layout, "joss_to_string", i.Args)
+			}
+		} else if isNativeBuiltinHelper(i.Func) || isSupportedRuntimeCallee(i.Func) {
 			b.emitCallWithArgs(layout, "fn_"+i.Func, i.Args)
 			if i.Dest != nil {
 				b.emitStoreRAXToRBP(layout.tempOffsets[i.Dest.ID])
 			}
 			return nil
-		}
-		if i.Func == "to_string" || i.Func == "strval" {
-			if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
-				b.emitCallWithArgs(layout, "joss_f64_to_string", i.Args)
-			} else {
-				b.emitCallWithArgs(layout, "joss_to_string", i.Args)
-			}
 		} else if i.Func == "str_concat" {
 			b.emitCallWithArgs(layout, "joss_str_concat", i.Args)
+		} else if strings.HasPrefix(i.Func, "joss_") {
+			b.emitCallWithArgs(layout, i.Func, i.Args)
 		} else {
 			b.emitCallWithArgs(layout, "joss_"+i.Func, i.Args)
 		}
@@ -4021,6 +4344,12 @@ func (b *MachineCodeBuilder) emitCallWithArgs(layout *fnFrameLayout, targetLabel
 }
 
 func (b *MachineCodeBuilder) emitCallIndirectWithArgs(layout *fnFrameLayout, calleeVal ir.Value, args []ir.Value) {
+	// Resolve closure box / restore captured env before clobbering outgoing arg registers.
+	// Save ready code pointer in r11 (preserved across emitLoadValTo* calls).
+	b.emitLoadValToRCX(layout, calleeVal)
+	b.emitCallLabel("joss_closure_prepare_call")
+	b.emitBytes(0x49, 0x89, 0xC3) // mov r11, rax
+	b.invalidateRegCache()
 	// Place arguments 4+ onto the outgoing stack area [rsp + 32 + (idx-4)*8]
 	for idx := len(args) - 1; idx >= 4; idx-- {
 		b.emitLoadValToRAX(layout, args[idx])
@@ -4032,20 +4361,29 @@ func (b *MachineCodeBuilder) emitCallIndirectWithArgs(layout *fnFrameLayout, cal
 	if len(args) >= 4 {
 		b.emitLoadValToRAX(layout, args[3])
 		b.emitBytes(0x49, 0x89, 0xC1) // mov r9, rax
+	} else {
+		b.emitBytes(0x45, 0x31, 0xC9) // xor r9d, r9d
 	}
 	if len(args) >= 3 {
 		b.emitLoadValToR8(layout, args[2])
+	} else {
+		b.emitBytes(0x45, 0x31, 0xC0) // xor r8d, r8d
 	}
 	if len(args) >= 2 {
 		b.emitLoadValToRDX(layout, args[1])
+	} else {
+		b.emitBytes(0x31, 0xD2) // xor edx, edx
 	}
 	if len(args) >= 1 {
 		b.emitLoadValToRCX(layout, args[0])
+	} else {
+		b.emitBytes(0x31, 0xC9) // xor ecx, ecx
 	}
-	// Load callee pointer into rax and call rax
-	b.emitLoadValToRAX(layout, calleeVal)
-	b.asmListing.WriteString("    call rax\n")
-	b.emitBytes(0xFF, 0xD0) // call rax
+	b.emitBytes(0x41, 0xBA) // mov r10d, argument count
+	b.emitU32(uint32(len(args)))
+	b.asmListing.WriteString("    call r11\n")
+	b.emitBytes(0x41, 0xFF, 0xD3) // call r11
+	b.invalidateRegCache()
 }
 
 func (b *MachineCodeBuilder) isSafeCacheVal(layout *fnFrameLayout, val ir.Value) bool {
@@ -4490,10 +4828,51 @@ func (b *MachineCodeBuilder) emitToStringStub() {
 	b.defineLabel("joss_to_string")
 	b.defineLabel("fn_to_string")
 	b.defineLabel("fn_strval")
-	// If rcx >= 0x400000 (a user-space string pointer in .rodata or heap), return it directly
+	// Unbox or return string pointer only if 0x400000 <= rcx < (1 << 47)
 	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x40, 0x00) // cmp rcx, 0x400000
 	b.emitJlLabel(".tostr_not_ptr")
+	b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x2F) // shr r11, 47
+	b.emitJneLabel(".tostr_not_ptr")    // negative / non-canonical / float-bit value -> int conversion fallback
+	// Check JossBoxedValue magic header (0x8192A3B4 << 32)
+	b.emitBytes(0x4C, 0x8B, 0x11)                         // mov r10, [rcx]
+	b.emitBytes(0x4D, 0x89, 0xD3)                         // mov r11, r10
+	b.emitBytes(0x49, 0xC1, 0xEB, 0x20)                   // shr r11, 32
+	b.emitBytes(0x41, 0x81, 0xFB, 0xB4, 0xA3, 0x92, 0x81) // cmp r11d, 0x8192A3B4
+	b.emitJneLabel(".tostr_ret_str_ptr")
+	// Unbox based on tag in r10d, payload in [rcx + 8]
+	b.emitBytes(0x44, 0x89, 0xD0)       // mov eax, r10d
+	b.emitBytes(0x48, 0x8B, 0x49, 0x08) // mov rcx, [rcx + 8]
+	b.emitBytes(0x83, 0xF8, 0x00)       // cmp eax, 0 (JOSS_TAG_NULL)
+	b.emitJeLabel(".tostr_boxed_null")
+	b.emitBytes(0x83, 0xF8, 0x01) // cmp eax, 1 (JOSS_TAG_INT)
+	b.emitJeLabel(".tostr_not_ptr")
+	b.emitBytes(0x83, 0xF8, 0x02) // cmp eax, 2 (JOSS_TAG_FLOAT)
+	b.emitJeLabel("joss_f64_to_string")
+	b.emitBytes(0x83, 0xF8, 0x03) // cmp eax, 3 (JOSS_TAG_BOOL)
+	b.emitJeLabel(".tostr_boxed_bool")
+	b.emitBytes(0x83, 0xF8, 0x04) // cmp eax, 4 (JOSS_TAG_STRING)
+	b.emitJeLabel(".tostr_boxed_str")
+	b.emitJmpLabel(".tostr_not_ptr")
+	b.defineLabel(".tostr_boxed_null")
+	b.emitLeaRAXString("")
+	b.emitBytes(0xC3) // ret
+	b.defineLabel(".tostr_boxed_bool")
+	b.defineLabel("joss_bool_to_str")
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".tostr_bool_false")
+	b.emitLeaRAXString("true")
+	b.emitBytes(0xC3) // ret
+	b.defineLabel(".tostr_bool_false")
+	b.emitLeaRAXString("false")
+	b.emitBytes(0xC3) // ret
+	b.defineLabel(".tostr_boxed_str")
+	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
+	b.emitJeLabel(".tostr_boxed_null")
+	b.defineLabel(".tostr_ret_str_ptr")
 	b.emitBytes(0x48, 0x89, 0xC8, 0xC3) // mov rax, rcx; ret
+	b.defineLabel("joss_i64_to_str")
+	b.defineLabel("fn_joss_i64_to_str")
 	b.defineLabel(".tostr_not_ptr")
 	b.emitBytes(0x55, 0x48, 0x89, 0xE5)       // push rbp; mov rbp, rsp
 	b.emitBytes(0x53, 0x57, 0x56)             // push rbx; push rdi; push rsi
@@ -4518,7 +4897,8 @@ func (b *MachineCodeBuilder) emitToStringStub() {
 	b.emitBytes(0x48, 0xFF, 0xC7) // inc rdi
 	b.emitBytes(0x48, 0xF7, 0xDB) // neg rbx
 	b.defineLabel(".tostr_pos")
-	b.emitBytes(0x4C, 0x8D, 0x4D, 0xF8) // lea r9, [rbp - 8]
+	// Write reversed digits below saved [rbp-8..-24] (rbx/rdi/rsi) and above rsp=[rbp-80]
+	b.emitBytes(0x4C, 0x8D, 0x4D, 0xE0) // lea r9, [rbp - 32]
 	b.emitBytes(0x48, 0x89, 0xD8)       // mov rax, rbx
 	b.defineLabel(".tostr_digits")
 	b.emitBytes(0x31, 0xD2)                               // xor edx, edx
@@ -4530,7 +4910,7 @@ func (b *MachineCodeBuilder) emitToStringStub() {
 	b.emitBytes(0x48, 0x85, 0xC0)                         // test rax, rax
 	b.emitJneLabel(".tostr_digits")
 	// Copy digits from r9 to rdi
-	b.emitBytes(0x4C, 0x8D, 0x45, 0xF8) // lea r8, [rbp - 8]
+	b.emitBytes(0x4C, 0x8D, 0x45, 0xE0) // lea r8, [rbp - 32]
 	b.defineLabel(".tostr_copy")
 	b.emitBytes(0x4D, 0x39, 0xC1) // cmp r9, r8
 	b.emitJgeLabel(".tostr_copy_done")
@@ -4557,7 +4937,7 @@ func (b *MachineCodeBuilder) emitF64ToStringStub() {
 	b.emitBytes(0x66, 0x48, 0x0F, 0x6E, 0xC1) // movq xmm0, rcx (val)
 	b.emitBytes(0xF2, 0x48, 0x0F, 0x2C, 0xD8) // cvttsd2si rbx, xmm0 (int part)
 	b.emitBytes(0x48, 0x89, 0xD9)             // mov rcx, rbx
-	b.emitCallLabel("joss_to_string")         // rax = buffer with int part
+	b.emitCallLabel("joss_i64_to_str")        // rax = buffer with int part
 	b.emitBytes(0x48, 0x89, 0xC6)             // mov rsi, rax (origBuf)
 	b.emitBytes(0x48, 0x89, 0xC7)             // mov rdi, rax
 

@@ -10,7 +10,7 @@ de contratos y el handler enlazado. `mixed` no certifica aislamiento ni ausencia
 
 ## Auth
 
-Implementación: [executeAuthMethod](../pkg/core/auth.go#L16).
+Implementación: [executeAuthMethod](../pkg/core/auth.go#L17).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -105,6 +105,20 @@ Implementación: [executeBlueprintMethod](../pkg/core/schema_blueprint.go#L41).
 | `unsignedBigInteger` | `Blueprint` |
 | `unsignedInteger` | `Blueprint` |
 
+## ByteBuffer
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `Init` | `ByteBuffer` |
+| `appendByte` | `void` |
+| `appendString` | `void` |
+| `free` | `void` |
+| `get` | `int` |
+| `len` | `int` |
+| `new` | `ByteBuffer` |
+| `set` | `void` |
+| `toString` | `string` |
+
 ## Cache
 
 Implementación: [executeCacheMethod](../pkg/core/native_cache.go#L18).
@@ -134,10 +148,11 @@ Implementación: [executeCacheMethod](../pkg/core/native_cache.go#L18).
 
 ## Cron
 
-Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
+Implementación: [executeCronMethod](../pkg/core/cron.go#L17).
 
 | Método | Retorno publicado al analizador |
 |---|---|
+| `runDue` | `int` |
 | `schedule` | `mixed` |
 
 ## DateInterval
@@ -172,7 +187,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L385).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L400).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -239,7 +254,7 @@ Implementación: [executeIndexNowMethod](../pkg/core/native_indexnow.go#L158).
 
 ## MFA
 
-Implementación: [executeMFAMethod](../pkg/core/auth_fluent.go#L78).
+Implementación: [executeMFAMethod](../pkg/core/auth_fluent.go#L81).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -541,7 +556,7 @@ Implementación: [executeRedisMethod](../pkg/core/redis_stub.go#L16).
 
 ## Request
 
-Implementación: [executeRequestMethod](../pkg/core/request.go#L9).
+Implementación: [executeRequestMethod](../pkg/core/request.go#L45).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -631,18 +646,18 @@ Implementación: [executeSQLiteMethod](../pkg/core/native_sqlite.go#L15).
 
 ## Schema
 
-Implementación: [executeSchemaMethod](../pkg/core/schema.go#L125).
+Implementación: [executeSchemaMethod](../pkg/core/schema.go#L126).
 
 | Método | Retorno publicado al analizador |
 |---|---|
-| `create` | `mixed` |
-| `drop` | `mixed` |
-| `dropIfExists` | `mixed` |
+| `create` | `bool` |
+| `drop` | `bool` |
+| `dropIfExists` | `bool` |
 | `hasColumn` | `bool` |
 | `hasForeign` | `bool` |
 | `hasTable` | `bool` |
-| `rename` | `mixed` |
-| `table` | `mixed` |
+| `rename` | `bool` |
+| `table` | `bool` |
 
 ## Server
 
@@ -655,7 +670,7 @@ Implementación: [executeServerControlMethod](../pkg/core/native_server_control.
 
 ## Session
 
-Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L78).
+Implementación: [executeSessionMethod](../pkg/core/native_extensions.go#L77).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -675,7 +690,7 @@ Implementación: [executeSitemapMethod](../pkg/core/native_seo.go#L129).
 | `exclude` | `Sitemap` |
 | `generate` | `string` |
 | `provider` | `Sitemap` |
-| `xsl` | `Sitemap` |
+| `xsl` | `string` |
 
 ## SmtpClient
 
@@ -738,6 +753,18 @@ Implementación: [executeStreamMethod](../pkg/core/native_stream.go#L311).
 | `write` | `int` |
 | `writeLine` | `int` |
 
+## StringBuilder
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `Init` | `StringBuilder` |
+| `append` | `void` |
+| `appendInt` | `void` |
+| `free` | `void` |
+| `len` | `int` |
+| `new` | `StringBuilder` |
+| `toString` | `string` |
+
 ## System
 
 Implementación: [executeSystemMethod](../pkg/core/system.go#L14).
@@ -762,7 +789,7 @@ Implementación: [executeTaskMethod](../pkg/core/task.go#L10).
 
 ## TwoFactor
 
-Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L147).
+Implementación: [executeTwoFactorMethod](../pkg/core/auth_fluent.go#L150).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -855,8 +882,20 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `__joss_db_set_table`
 - `__joss_file_get_bytes`
 - `__joss_get_embedded_asset`
+- `__joss_http_check_middleware`
 - `__joss_http_dispatch`
+- `__joss_http_inject_header`
+- `__joss_http_parse_multipart`
+- `__joss_http_read_request`
+- `__joss_http_serve_concurrent`
+- `__joss_jwt_parse_verified`
 - `__joss_local_utc_offset`
+- `__joss_rate_limit_check`
+- `__joss_session_destroy`
+- `__joss_session_last_error`
+- `__joss_session_load`
+- `__joss_session_save`
+- `__joss_socket_peer_ip`
 - `__joss_storage_delete`
 - `__joss_storage_get`
 - `__joss_storage_put`
@@ -929,6 +968,8 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `json_decode`
 - `json_encode`
 - `json_verify`
+- `jwt_sign`
+- `jwt_verify`
 - `keys`
 - `lcfirst`
 - `len`
@@ -943,6 +984,8 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `min`
 - `mkdir`
 - `ord`
+- `password_hash`
+- `password_verify`
 - `print`
 - `printf`
 - `rand`
@@ -977,6 +1020,8 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `toon_decode`
 - `toon_encode`
 - `toon_verify`
+- `totp_generate`
+- `totp_verify`
 - `trim`
 - `ucfirst`
 - `ucwords`
@@ -987,4 +1032,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 52 clases, 513 métodos y 140 built-ins.
+Total: 54 clases, 530 métodos y 158 built-ins.

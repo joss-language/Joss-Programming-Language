@@ -123,12 +123,12 @@ func TestDifferential_PureJossAuthUnauthenticatedPolicies(t *testing.T) {
 	source := `echo Auth::check(); echo Auth::guest(); echo Auth::hasRole("admin");`
 	var authUnit []analyzer.SourceUnit
 	for _, unit := range std.GetStdlibUnits() {
-		if unit.Path == "<std/auth/auth.joss>" || unit.Path == "<std/http/session_host.joss>" || strings.HasPrefix(unit.Path, "<std/date/") {
+		if unit.Path == "<std/auth/auth.joss>" || unit.Path == "<std/http/session_host.joss>" || unit.Path == "<std/strings/strings.joss>" || strings.HasPrefix(unit.Path, "<std/date/") {
 			authUnit = append(authUnit, unit)
 		}
 	}
-	if len(authUnit) != 5 {
-		t.Fatalf("Auth, session, and date Standard Library modules embedded = %d, want 5", len(authUnit))
+	if len(authUnit) != 6 {
+		t.Fatalf("Auth, session, strings, and date Standard Library modules embedded = %d, want 6", len(authUnit))
 	}
 	interpOut, interpSuccess, interpErr := runInterpreter(t, source)
 	if !interpSuccess {

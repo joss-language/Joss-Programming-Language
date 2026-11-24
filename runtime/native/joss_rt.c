@@ -1,16 +1,84 @@
 //go:build ignore
+#if defined(__APPLE__) && !defined(_DARWIN_C_SOURCE)
+#define _DARWIN_C_SOURCE
+#elif defined(__unix__)
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+#endif
+
 #include "joss_rt.h"
 
 #include <inttypes.h>
 #include <setjmp.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#elif defined(__unix__) || defined(__APPLE__)
+#include <pthread.h>
+#endif
+
+static inline void joss_atomic_update_bounds(_Atomic(uintptr_t)* min_p, _Atomic(uintptr_t)* max_p, uintptr_t addr) {
+    uintptr_t cur_min = atomic_load_explicit(min_p, memory_order_relaxed);
+    while (addr < cur_min &&
+           !atomic_compare_exchange_weak_explicit(min_p, &cur_min, addr, memory_order_release, memory_order_relaxed)) {
+    }
+    uintptr_t cur_max = atomic_load_explicit(max_p, memory_order_relaxed);
+    while (addr > cur_max &&
+           !atomic_compare_exchange_weak_explicit(max_p, &cur_max, addr, memory_order_release, memory_order_relaxed)) {
+    }
+}
+
+#if defined(_WIN32)
+static SRWLOCK g_joss_global_locks[JOSS_LOCK_COUNT] = { {0} };
+void joss_global_lock(uint32_t slot) {
+    if (slot < JOSS_LOCK_COUNT) {
+        AcquireSRWLockExclusive(&g_joss_global_locks[slot]);
+    }
+}
+void joss_global_unlock(uint32_t slot) {
+    if (slot < JOSS_LOCK_COUNT) {
+        ReleaseSRWLockExclusive(&g_joss_global_locks[slot]);
+    }
+}
+#elif defined(__unix__) || defined(__APPLE__)
+static pthread_mutex_t g_joss_global_locks[JOSS_LOCK_COUNT] = {
+    PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
+    PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
+    PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER
+};
+void joss_global_lock(uint32_t slot) {
+    if (slot < JOSS_LOCK_COUNT) {
+        pthread_mutex_lock(&g_joss_global_locks[slot]);
+    }
+}
+void joss_global_unlock(uint32_t slot) {
+    if (slot < JOSS_LOCK_COUNT) {
+        pthread_mutex_unlock(&g_joss_global_locks[slot]);
+    }
+}
+#else
+void joss_global_lock(uint32_t slot) { (void)slot; }
+void joss_global_unlock(uint32_t slot) { (void)slot; }
+#endif
+
 /* =========================================================================
  * Panic & Error Handling
  * ========================================================================= */
+static void joss_unwind_if_trying(const char* msg);
+
 void joss_panic(const char* msg) {
+    joss_unwind_if_trying(msg);
     fprintf(stderr, "Panic: %s\n", msg ? msg : "(null)");
     exit(1);
 }
@@ -18,12 +86,14 @@ void joss_panic(const char* msg) {
 /* =========================================================================
  * Tagged Dynamic Values (JossBoxedValue)
  * ========================================================================= */
-static uintptr_t g_joss_box_min = UINTPTR_MAX;
-static uintptr_t g_joss_box_max = 0;
+static _Atomic(uintptr_t) g_joss_box_min = UINTPTR_MAX;
+static _Atomic(uintptr_t) g_joss_box_max = 0;
 
 bool joss_is_boxed_ptr(int64_t val) {
     uintptr_t u = (uintptr_t)(uint64_t)val;
-    if (u == 0 || (u & 7U) != 0 || u < g_joss_box_min || u > g_joss_box_max) {
+    uintptr_t mn = atomic_load_explicit(&g_joss_box_min, memory_order_acquire);
+    uintptr_t mx = atomic_load_explicit(&g_joss_box_max, memory_order_acquire);
+    if (u == 0 || (u & 7U) != 0 || u < mn || u > mx) {
         return false;
     }
     const JossBoxedValue* b = (const JossBoxedValue*)u;
@@ -37,9 +107,7 @@ JossBoxedValue* joss_box_value(uint64_t tag, uint64_t payload) {
     }
     box->header = (JOSS_BOX_MAGIC << 32) | (tag & 0xFFFFFFFFULL);
     box->payload = payload;
-    uintptr_t addr = (uintptr_t)box;
-    if (addr < g_joss_box_min) g_joss_box_min = addr;
-    if (addr > g_joss_box_max) g_joss_box_max = addr;
+    joss_atomic_update_bounds(&g_joss_box_min, &g_joss_box_max, (uintptr_t)box);
     return box;
 }
 
@@ -52,6 +120,9 @@ int64_t joss_unbox_value(int64_t val) {
 }
 
 JossBoxedValue* joss_box_i64(int64_t v) {
+    if (joss_is_boxed_ptr(v)) {
+        return (JossBoxedValue*)(uintptr_t)(uint64_t)v;
+    }
     return joss_box_value(JOSS_TAG_INT, (uint64_t)v);
 }
 
@@ -67,6 +138,100 @@ JossBoxedValue* joss_box_bool(bool v) {
 
 JossBoxedValue* joss_box_str(const char* s) {
     return joss_box_value(JOSS_TAG_STRING, (uint64_t)(uintptr_t)(s ? s : ""));
+}
+
+void* joss_bytes_new(const void* data, size_t len) {
+    JossBytesBuf* buf = (JossBytesBuf*)malloc(sizeof(JossBytesBuf) + len + 1);
+    if (!buf) return NULL;
+    buf->len = (uint64_t)len;
+    if (data && len > 0) memcpy(buf->data, data, len);
+    buf->data[len] = '\0';
+    return (void*)(uintptr_t)joss_box_value(JOSS_TAG_BYTES, (uint64_t)(uintptr_t)buf);
+}
+
+const uint8_t* joss_bytes_unwrap(const void* val, size_t* out_len) {
+    if (!val) return NULL;
+    int64_t v = (int64_t)(uintptr_t)val;
+    if (!joss_is_boxed_ptr(v)) return NULL;
+    const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)v;
+    if ((uint32_t)(box->header & 0xFFFFFFFFULL) != JOSS_TAG_BYTES) return NULL;
+    const JossBytesBuf* buf = (const JossBytesBuf*)(uintptr_t)box->payload;
+    if (!buf) return NULL;
+    if (out_len) *out_len = (size_t)buf->len;
+    return buf->data;
+}
+
+void* joss_closure_alloc(void* fn_ptr, void* env_map) {
+    fn_ptr = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)fn_ptr);
+    env_map = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)env_map);
+    JossClosureBox* box = (JossClosureBox*)calloc(1, sizeof(JossClosureBox));
+    if (!box) {
+        joss_panic("out of memory allocating closure box");
+    }
+    box->header = (JOSS_BOX_MAGIC << 32) | (uint64_t)JOSS_TAG_CLOSURE;
+    box->fn_ptr = fn_ptr;
+    box->env_map = env_map;
+    joss_atomic_update_bounds(&g_joss_box_min, &g_joss_box_max, (uintptr_t)box);
+    if (fn_ptr && env_map) {
+        joss_closure_env_set(fn_ptr, env_map);
+    }
+    return box;
+}
+
+void* joss_closure_prepare_call(void* callee) {
+    uintptr_t u = (uintptr_t)callee;
+    if ((uint64_t)u >= JOSS_MIN_PTR_ADDR && ((uint64_t)u >> 47) == 0 && (u & 7U) == 0) {
+        uint64_t header = 0;
+        memcpy(&header, (const void*)u, sizeof(header));
+        if ((header >> 32) == JOSS_BOX_MAGIC) {
+            uint32_t tag = (uint32_t)(header & 0xFFFFFFFFULL);
+            if (tag == JOSS_TAG_CLOSURE) {
+                const JossClosureBox* box = (const JossClosureBox*)u;
+                if (box->fn_ptr && box->env_map) {
+                    joss_closure_env_set(box->fn_ptr, box->env_map);
+                }
+                return box->fn_ptr;
+            }
+            void* inner = (void*)(uintptr_t)joss_unbox_value((int64_t)u);
+            if (inner && inner != callee) {
+                return joss_closure_prepare_call(inner);
+            }
+            return inner;
+        }
+    }
+    return (void*)(uintptr_t)joss_unbox_value((int64_t)u);
+}
+
+bool joss_is_not_null(int64_t v) {
+    if (v == 0) {
+        return false;
+    }
+    if (joss_is_boxed_ptr(v)) {
+        const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)v;
+        uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
+        if (tag == JOSS_TAG_NULL) {
+            return false;
+        }
+    }
+    return true;
+}
+
+const char* joss_i64_to_str(int64_t v) {
+    char* out = (char*)malloc(32);
+    if (!out) return "0";
+    snprintf(out, 32, "%" PRId64, v);
+    return out;
+}
+
+const char* joss_f64_to_string(double d) {
+    char* out = (char*)malloc(64);
+    if (!out) return "0";
+    snprintf(out, 64, "%.15g", d);
+    if (strcmp(out, "-0") == 0) {
+        out[0] = '0';
+        out[1] = '\0';
+    }
+    return out;
 }
 
 /* =========================================================================
@@ -308,6 +473,12 @@ JossStringBuilder* joss_sb_new(void) {
 }
 
 void joss_sb_append(JossStringBuilder* sb, const char* s) {
+    size_t blen = 0;
+    const uint8_t* bdata = joss_bytes_unwrap(s, &blen);
+    if (bdata) {
+        if (blen > 0) joss_buf_append_bytes(sb, bdata, (int64_t)blen);
+        return;
+    }
     s = unbox_cstr_rt(s);
     if (!s) {
         return;
@@ -355,6 +526,9 @@ const char* joss_strval(int64_t v) {
     if (joss_is_boxed_ptr(v)) {
         const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)v;
         uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
+        if (tag == JOSS_TAG_BYTES) {
+            return (const char*)(uintptr_t)v;
+        }
         if (tag == JOSS_TAG_STRING) {
             uint64_t p = box->payload;
             if (p < 0x10000ULL || (int64_t)p < 0) return "";
@@ -363,18 +537,22 @@ const char* joss_strval(int64_t v) {
         if (tag == JOSS_TAG_BOOL) return box->payload ? "true" : "false";
         if (tag == JOSS_TAG_NULL) return "";
         if (tag == JOSS_TAG_INT) {
-            char* out = (char*)malloc(32);
-            snprintf(out, 32, "%lld", (long long)(int64_t)box->payload);
-            return out;
+            return joss_i64_to_str((int64_t)box->payload);
+        }
+        if (tag == JOSS_TAG_FLOAT) {
+            double d = 0.0;
+            memcpy(&d, &box->payload, sizeof(d));
+            return joss_f64_to_string(d);
+        }
+        if (tag == JOSS_TAG_CLOSURE) {
+            return "[Closure]";
         }
     }
     uint64_t u = (uint64_t)v;
     if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
         return (const char*)(uintptr_t)u;
     }
-    char* out = (char*)malloc(32);
-    snprintf(out, 32, "%lld", (long long)v);
-    return out;
+    return joss_i64_to_str(v);
 }
 
 const char* joss_to_string(int64_t v) {
@@ -383,6 +561,9 @@ const char* joss_to_string(int64_t v) {
 
 static const char* unbox_cstr_rt(const char* s) {
     if (!s) return NULL;
+    size_t blen = 0;
+    const uint8_t* bdata = joss_bytes_unwrap(s, &blen);
+    if (bdata) return (const char*)bdata;
     uintptr_t u = (uintptr_t)s;
     int64_t v = (int64_t)u;
     if (joss_is_boxed_ptr(v)) {
@@ -394,7 +575,32 @@ static const char* unbox_cstr_rt(const char* s) {
     return s;
 }
 
+static void joss_ensure_utf8_console(void) {
+#if defined(_WIN32)
+    static volatile LONG g_utf8_inited = 0;
+    if (InterlockedCompareExchange(&g_utf8_inited, 1, 0) == 0) {
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+        HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (hOut != INVALID_HANDLE_VALUE && hOut != NULL) {
+            DWORD mode = 0;
+            if (GetConsoleMode(hOut, &mode)) {
+                SetConsoleMode(hOut, mode | 0x0004);
+            }
+        }
+    }
+#endif
+}
+
+#if defined(_WIN32) && (defined(__GNUC__) || defined(__clang__))
+__attribute__((constructor))
+static void joss_win32_utf8_ctor(void) {
+    joss_ensure_utf8_console();
+}
+#endif
+
 void joss_print_string(const char* s) {
+    joss_ensure_utf8_console();
     s = unbox_cstr_rt(s);
     if (!s) return;
     printf("%s\n", s);
@@ -423,6 +629,9 @@ void joss_print_mixed(int64_t val) {
             case JOSS_TAG_STRING:
                 joss_print_string((const char*)(uintptr_t)box->payload);
                 return;
+            case JOSS_TAG_BYTES:
+                joss_print_string((const char*)(uintptr_t)val);
+                return;
             default:
                 joss_print_i64((int64_t)box->payload);
                 return;
@@ -437,6 +646,29 @@ void joss_print_mixed(int64_t val) {
 }
 
 char* joss_str_concat(const char* a, const char* b) {
+    size_t bla = 0, blb = 0;
+    const uint8_t* bda = joss_bytes_unwrap(a, &bla);
+    const uint8_t* bdb = joss_bytes_unwrap(b, &blb);
+    if (bda || bdb) {
+        if (!bda) {
+            a = unbox_cstr_rt(a);
+            bda = (const uint8_t*)a;
+            bla = a ? strlen(a) : 0;
+        }
+        if (!bdb) {
+            b = unbox_cstr_rt(b);
+            bdb = (const uint8_t*)b;
+            blb = b ? strlen(b) : 0;
+        }
+        char* tmp = (char*)malloc(bla + blb + 1);
+        if (!tmp) joss_panic("out of memory in binary string concat");
+        if (bla > 0 && bda) memcpy(tmp, bda, bla);
+        if (blb > 0 && bdb) memcpy(tmp + bla, bdb, blb);
+        tmp[bla + blb] = '\0';
+        void* boxed = joss_bytes_new(tmp, bla + blb);
+        free(tmp);
+        return (char*)boxed;
+    }
     a = unbox_cstr_rt(a);
     b = unbox_cstr_rt(b);
     size_t la = a ? strlen(a) : 0;
@@ -457,10 +689,10 @@ char* joss_str_concat(const char* a, const char* b) {
 #define JOSS_ARR_MAGIC 0xA11A4001A11A4001ULL
 #define JOSS_MAP_MAGIC 0x4A0550024A055002ULL
 
-static uintptr_t g_joss_arr_min = UINTPTR_MAX;
-static uintptr_t g_joss_arr_max = 0;
-static uintptr_t g_joss_map_min = UINTPTR_MAX;
-static uintptr_t g_joss_map_max = 0;
+static _Atomic(uintptr_t) g_joss_arr_min = UINTPTR_MAX;
+static _Atomic(uintptr_t) g_joss_arr_max = 0;
+static _Atomic(uintptr_t) g_joss_map_min = UINTPTR_MAX;
+static _Atomic(uintptr_t) g_joss_map_max = 0;
 
 typedef struct {
     uint64_t magic;
@@ -477,9 +709,7 @@ void* joss_arr_new(int64_t initial_cap) {
     a->cap = initial_cap;
     a->items = (int64_t*)calloc((size_t)initial_cap, sizeof(int64_t));
     if (!a->items) joss_panic("out of memory allocating array items");
-    uintptr_t addr = (uintptr_t)a;
-    if (addr < g_joss_arr_min) g_joss_arr_min = addr;
-    if (addr > g_joss_arr_max) g_joss_arr_max = addr;
+    joss_atomic_update_bounds(&g_joss_arr_min, &g_joss_arr_max, (uintptr_t)a);
     return a;
 }
 
@@ -497,16 +727,7 @@ static void* unbox_ptr(void* p) {
 }
 
 static const char* unbox_cstr(const char* s) {
-    if (!s) return NULL;
-    uintptr_t u = (uintptr_t)s;
-    int64_t v = (int64_t)u;
-    if (joss_is_boxed_ptr(v)) {
-        return joss_strval(v);
-    }
-    if (u < 0x10000ULL || (u >> 47) != 0) {
-        return joss_strval(v);
-    }
-    return s;
+    return unbox_cstr_rt(s);
 }
 
 void joss_arr_push_i64(void* arr, int64_t val) {
@@ -623,9 +844,7 @@ void* joss_map_new(void) {
     JossMap* m = (JossMap*)calloc(1, sizeof(JossMap));
     if (!m) joss_panic("out of memory allocating map");
     m->magic = JOSS_MAP_MAGIC;
-    uintptr_t addr = (uintptr_t)m;
-    if (addr < g_joss_map_min) g_joss_map_min = addr;
-    if (addr > g_joss_map_max) g_joss_map_max = addr;
+    joss_atomic_update_bounds(&g_joss_map_min, &g_joss_map_max, (uintptr_t)m);
     return m;
 }
 
@@ -758,6 +977,10 @@ int64_t joss_max(int64_t a, int64_t b) {
 }
 
 int64_t joss_strlen(const char* s) {
+    size_t blen = 0;
+    if (joss_bytes_unwrap(s, &blen)) {
+        return (int64_t)blen;
+    }
     s = unbox_cstr(s);
     if (!s) return 0;
     int64_t runes = 0;
@@ -839,6 +1062,24 @@ int64_t joss_array_key_exists(const char* key, void* m) {
 }
 
 bool joss_str_eq(const char* a, const char* b) {
+    size_t bla = 0, blb = 0;
+    const uint8_t* bda = joss_bytes_unwrap(a, &bla);
+    const uint8_t* bdb = joss_bytes_unwrap(b, &blb);
+    if (bda || bdb) {
+        if (!bda) {
+            a = unbox_cstr(a);
+            bda = (const uint8_t*)a;
+            bla = a ? strlen(a) : 0;
+        }
+        if (!bdb) {
+            b = unbox_cstr(b);
+            bdb = (const uint8_t*)b;
+            blb = b ? strlen(b) : 0;
+        }
+        if (bla != blb) return false;
+        if (bla == 0) return true;
+        return memcmp(bda, bdb, bla) == 0;
+    }
     a = unbox_cstr(a);
     b = unbox_cstr(b);
     if (a == b) return true;
@@ -848,13 +1089,17 @@ bool joss_str_eq(const char* a, const char* b) {
 
 bool joss_is_arr_ptr(int64_t v) {
     uintptr_t u = (uintptr_t)(uint64_t)v;
-    if (u == 0 || (u & 7U) != 0 || u < g_joss_arr_min || u > g_joss_arr_max) return false;
+    uintptr_t mn = atomic_load_explicit(&g_joss_arr_min, memory_order_acquire);
+    uintptr_t mx = atomic_load_explicit(&g_joss_arr_max, memory_order_acquire);
+    if (u == 0 || (u & 7U) != 0 || u < mn || u > mx) return false;
     return ((const JossArray*)u)->magic == JOSS_ARR_MAGIC;
 }
 
 bool joss_is_map_ptr(int64_t v) {
     uintptr_t u = (uintptr_t)(uint64_t)v;
-    if (u == 0 || (u & 7U) != 0 || u < g_joss_map_min || u > g_joss_map_max) return false;
+    uintptr_t mn = atomic_load_explicit(&g_joss_map_min, memory_order_acquire);
+    uintptr_t mx = atomic_load_explicit(&g_joss_map_max, memory_order_acquire);
+    if (u == 0 || (u & 7U) != 0 || u < mn || u > mx) return false;
     return ((const JossMap*)u)->magic == JOSS_MAP_MAGIC;
 }
 
@@ -862,6 +1107,11 @@ bool joss_is_map_ptr(int64_t v) {
 static _Thread_local jmp_buf     g_joss_try_stack[JOSS_MAX_TRY_DEPTH];
 static _Thread_local int         g_joss_try_depth = 0;
 static _Thread_local const char* g_joss_last_exc  = NULL;
+
+void joss_try_reset(void) {
+    g_joss_try_depth = 0;
+    g_joss_last_exc = NULL;
+}
 
 void* joss_try_push(void) {
     if (g_joss_try_depth >= JOSS_MAX_TRY_DEPTH) {
@@ -880,12 +1130,114 @@ const char* joss_catch_msg(void) {
     return g_joss_last_exc ? g_joss_last_exc : "";
 }
 
-void joss_throw(const char* msg) {
+static void joss_unwind_if_trying(const char* msg) {
     if (g_joss_try_depth > 0) {
-        g_joss_last_exc = msg ? msg : "Joss Exception";
+        g_joss_last_exc = msg ? msg : "Joss Runtime Panic";
         g_joss_try_depth--;
         longjmp(g_joss_try_stack[g_joss_try_depth], 1);
     }
+}
+
+void joss_throw(const char* msg) {
+    joss_unwind_if_trying(msg ? msg : "Joss Exception");
     joss_panic(msg ? msg : "Joss Exception");
+}
+
+/* =========================================================================
+ * Lexical Closure Environment Table (TLS + Global Cross-Thread Fallback)
+ * ========================================================================= */
+#define JOSS_TLS_CLOSURE_SLOTS    64
+#define JOSS_GLOBAL_CLOSURE_SLOTS 256
+
+typedef struct {
+    void* fn_ptr;
+    void* env_map;
+} JossClosureEnvSlot;
+
+static _Thread_local JossClosureEnvSlot g_tls_closure_envs[JOSS_TLS_CLOSURE_SLOTS];
+static _Thread_local int                g_tls_closure_env_count = 0;
+
+static JossClosureEnvSlot g_global_closure_envs[JOSS_GLOBAL_CLOSURE_SLOTS];
+static int                g_global_closure_env_count = 0;
+
+void joss_closure_env_set(void* fn_ptr, void* env_map) {
+    fn_ptr = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)fn_ptr);
+    env_map = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)env_map);
+    if (!fn_ptr || !env_map) return;
+
+    int found_tls = -1;
+    for (int i = g_tls_closure_env_count - 1; i >= 0; i--) {
+        if (g_tls_closure_envs[i].fn_ptr == fn_ptr) {
+            found_tls = i;
+            break;
+        }
+    }
+    if (found_tls >= 0) {
+        g_tls_closure_envs[found_tls].env_map = env_map;
+    } else if (g_tls_closure_env_count < JOSS_TLS_CLOSURE_SLOTS) {
+        g_tls_closure_envs[g_tls_closure_env_count].fn_ptr = fn_ptr;
+        g_tls_closure_envs[g_tls_closure_env_count].env_map = env_map;
+        g_tls_closure_env_count++;
+    } else {
+        g_tls_closure_envs[JOSS_TLS_CLOSURE_SLOTS - 1].fn_ptr = fn_ptr;
+        g_tls_closure_envs[JOSS_TLS_CLOSURE_SLOTS - 1].env_map = env_map;
+    }
+
+    joss_global_lock(JOSS_LOCK_GENERAL);
+    int found_glob = -1;
+    for (int i = g_global_closure_env_count - 1; i >= 0; i--) {
+        if (g_global_closure_envs[i].fn_ptr == fn_ptr) {
+            found_glob = i;
+            break;
+        }
+    }
+    if (found_glob >= 0) {
+        g_global_closure_envs[found_glob].env_map = env_map;
+    } else if (g_global_closure_env_count < JOSS_GLOBAL_CLOSURE_SLOTS) {
+        g_global_closure_envs[g_global_closure_env_count].fn_ptr = fn_ptr;
+        g_global_closure_envs[g_global_closure_env_count].env_map = env_map;
+        g_global_closure_env_count++;
+    } else {
+        g_global_closure_envs[JOSS_GLOBAL_CLOSURE_SLOTS - 1].fn_ptr = fn_ptr;
+        g_global_closure_envs[JOSS_GLOBAL_CLOSURE_SLOTS - 1].env_map = env_map;
+    }
+    joss_global_unlock(JOSS_LOCK_GENERAL);
+}
+
+void* joss_closure_env_get(void* fn_ptr) {
+    fn_ptr = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)fn_ptr);
+    if (fn_ptr) {
+        for (int i = g_tls_closure_env_count - 1; i >= 0; i--) {
+            if (g_tls_closure_envs[i].fn_ptr == fn_ptr && g_tls_closure_envs[i].env_map) {
+                return g_tls_closure_envs[i].env_map;
+            }
+        }
+        joss_global_lock(JOSS_LOCK_GENERAL);
+        void* found = NULL;
+        for (int i = g_global_closure_env_count - 1; i >= 0; i--) {
+            if (g_global_closure_envs[i].fn_ptr == fn_ptr && g_global_closure_envs[i].env_map) {
+                found = g_global_closure_envs[i].env_map;
+                break;
+            }
+        }
+        joss_global_unlock(JOSS_LOCK_GENERAL);
+        if (found) return found;
+    }
+    return joss_map_new();
+}
+
+void joss_closure_env_tls_reset(void) {
+    g_tls_closure_env_count = 0;
+}
+
+/* =========================================================================
+ * Schema DB Bridge Hooks (shared between joss_db_rt.c and joss_web_rt.c)
+ * ========================================================================= */
+JossSchemaDbQueryFn g_joss_schema_db_query = NULL;
+JossSchemaDbExecFn  g_joss_schema_db_exec  = NULL;
+
+void joss_register_schema_db(JossSchemaDbQueryFn q, JossSchemaDbExecFn e) {
+    g_joss_schema_db_query = q;
+    g_joss_schema_db_exec  = e;
 }
 

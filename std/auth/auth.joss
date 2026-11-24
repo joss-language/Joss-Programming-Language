@@ -180,9 +180,16 @@ public static func login(mixed $emailInput, mixed $passwordInput) : AuthLoginRes
     ($result->success) ? {
         $result->jwt = $jwt
         $result->user_id = Auth::id()
-        mixed $mfa = Auth::prepareLogin2FA($result->user_id, $email)
-        (is_array($mfa) && ($mfa ["requires_2fa"] ?? false)) ? {
+        map $mfa = Auth::prepareLogin2FA($result->user_id, $email)
+        bool $req2fa = ($mfa != null && ($mfa ["requires_2fa"] ?? false))
+        print("[AuthTrace] 2FA check; userId=" . strval($result->user_id) . ", requires_2fa=" . $req2fa)
+        ($req2fa) ? {
             $result->requires_2fa = true
+            Session::forget("user_id")
+            Session::forget("user_token")
+            Session::forget("user_name")
+            Session::forget("user_email")
+            Session::forget("user_role")
         }
     }
     return $result
@@ -302,7 +309,7 @@ public static func verifyHash(string $hash, string $password) : bool {
 
 public static func issueToken(mixed $userId, string $email, string $username, string $role): string {
     int $now = time()
-    string $payload = json_encode( {"sub": $userId, "email": $email, "username": $username, "role": $role, "iat": $now, "exp": $now + 3600
+    string $payload = json_encode( {"user_id": $userId, "sub": $userId, "email": $email, "username": $username, "role": $role, "iat": $now, "exp": $now + 3600
 })
 return jwt_sign($payload, Auth::jwtSecret())
 }
@@ -358,17 +365,50 @@ public static func delete(mixed $userId) : bool {
 
 public static func challengeToken(mixed $userId, string $email) : string {
     int $now = time()
-    string $payload = json_encode( {"type": "2fa", "sub": $userId, "email": $email, "iat": $now, "exp": $now + 300
+    string $jti = UUID::generate()
+    string $payload = json_encode( {"token_type": "mfa_challenge", "user_id": $userId, "sub": $userId, "email": $email, "jti": $jti, "iat": $now, "exp": $now + 300
 })
 return jwt_sign($payload, Auth::jwtSecret())
 }
 
 public static func prepareLogin2FA(mixed $userId, string $email): map {
-    return {"requires_2fa": false, "user_id": $userId, "email": $email
+    ($userId != null && Auth::databaseReady()) ? {
+        mixed $mfa = GranDB::table("user_mfa_methods")
+            ->select("method_type")
+            ->where("user_id", $userId)
+            ->where("is_active", 1)
+            ->first()
+        ($mfa !== null) ? {
+            return {"requires_2fa" : true, "method" : strval($mfa ["method_type"] ?? "totp"), "user_id": $userId, "email": $email
+        }
+    }
+}
+return {"requires_2fa": false, "user_id": $userId, "email": $email
 }
 }
 
-public static func claimPasswordReset(string $token, string $newHash): string {
+public static func complete2FA(mixed $userId): mixed {
+    ($userId == null ||!Auth::databaseReady()) ? {
+        return false
+    }
+    mixed $user = GranDB::table("users")
+        ->select("id, user_token, username, email, role_id")
+        ->where("id", $userId)
+        ->first()
+    ($user === null) ? {
+        return false
+    }
+    mixed $role = GranDB::table("roles")->select("name")->where("id", $user ["role_id"] ?? 0)->first()
+    string $roleName = strval($role ["name"] ?? "")
+    Session::put("user_id", $user ["id"])
+    Session::put("user_token", $user ["user_token"] ?? "")
+    Session::put("user_name", $user ["username"] ?? "")
+    Session::put("user_email", $user ["email"] ?? "")
+    Session::put("user_role", $roleName)
+    return Auth::issueToken($user ["id"], strval($user ["email"] ?? ""), strval($user ["username"] ?? ""), $roleName)
+}
+
+public static func claimPasswordReset(string $token, string $newHash) : string {
     ($token == "" ||!Auth::databaseReady()) ? {
         return "database_error"
     }
@@ -384,7 +424,7 @@ GranDB::table("password_resets")->where("token", $token)->update( {"used" : 1
 return "ok"
 }
 
-public static func resendVerification(string $email): mixed {
+public static func resendVerification(string $email) : mixed {
     ($email == "" ||!Auth::databaseReady()) ? {
         return false
     }
@@ -408,27 +448,280 @@ public static func verificationStatus(string $email) : string {
     (intval($u ["verificado"] ?? 0) == 1) ? {
         return "verified"
     }
-    return "pending"
+    return "unverified"
 }
 
-public static func verify2FAChallenge(string $token, string $code) : bool {
-    return $token != "" && strlen(trim($code)) == 6
+public static func verify2FAChallenge(string $token, string $code) : mixed {
+    string $tok = trim($token)
+    (str_starts_with($tok, "Bearer ")) ? {
+        $tok = trim(substr($tok, 7))
+    }
+    string $cleanCode = trim($code)
+    ($tok == "" || $cleanCode == "") ? {
+        return false
+    }
+    map $claims = __joss_jwt_parse_verified($tok, Auth::jwtSecret())
+    ($claims == null) ? {
+        return false
+    }
+    (strval($claims ["token_type"] ?? "") != "mfa_challenge") ? {
+        return false
+    }
+    int $userId = intval($claims ["user_id"] ?? ($claims ["sub"] ?? 0))
+    ($userId <= 0) ? {
+        return false
+    }
+    string $jti = trim(strval($claims ["jti"] ?? ""))
+    ($jti == "" || Cache::has("mfa_jti:" . $jti)) ? {
+        return false
+    }
+    (!TwoFactor::verify($userId, $cleanCode)) ? {
+        return false
+    }
+    Cache::put("mfa_jti:" . $jti, "1", 600)
+    return Auth::complete2FA($userId)
 }
 
 public static func socialRedirect(mixed $provider, mixed $redirectUri = "", mixed $state = "") : string {
-    return "/auth/" . strval($provider) . "/callback"
+    string $norm = strtolower(trim(strval($provider)))
+    string $idKey = strtoupper($norm) . "_CLIENT_ID"
+    string $clientId = trim(env($idKey, ""))
+    ($norm == "x" || $norm == "twitter") ? {
+        $norm = "x"
+        $clientId = trim(env("X_CLIENT_ID", env("TWITTER_CLIENT_ID", "")))
+    }
+    ($clientId == "") ? {
+        return ""
+    }
+    string $st = trim(strval($state))
+    ($st == "") ? {
+        $st = UUID::generate()
+    }
+    string $redir = strval($redirectUri)
+    string $authBase = ""
+    string $scope = ""
+    string $extra = ""
+    ($norm == "google") ? {
+        $authBase = "https://accounts.google.com/o/oauth2/v2/auth"
+        $scope = "openid email profile"
+        $extra = "&access_type=offline&prompt=select_account"
+    }
+    ($norm == "github") ? {
+        $authBase = "https://github.com/login/oauth/authorize"
+        $scope = "read:user user:email"
+    }
+    ($norm == "microsoft") ? {
+        $authBase = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+        $scope = "openid email profile User.Read"
+        $extra = "&response_mode=query"
+    }
+    ($norm == "facebook") ? {
+        $authBase = "https://www.facebook.com/v19.0/dialog/oauth"
+        $scope = "email,public_profile"
+    }
+    ($norm == "apple") ? {
+        $authBase = "https://appleid.apple.com/auth/authorize"
+        $scope = "name email"
+        $extra = "&response_mode=form_post"
+    }
+    ($norm == "x") ? {
+        $authBase = "https://twitter.com/i/oauth2/authorize"
+        $scope = "tweet.read users.read"
+        $extra = "&code_challenge=challenge&code_challenge_method=plain"
+    }
+    ($norm == "twitch") ? {
+        $authBase = "https://id.twitch.tv/oauth2/authorize"
+        $scope = "user:read:email"
+    }
+    ($norm == "yahoo") ? {
+        $authBase = "https://api.login.yahoo.com/oauth2/request_auth"
+        $scope = "openid profile email"
+    }
+    ($authBase == "") ? {
+        return ""
+    }
+    return $authBase . "?client_id=" . urlencode($clientId) . "&redirect_uri=" . urlencode($redir) . "&response_type=code&scope=" . urlencode($scope) . "&state=" . urlencode($st) . $extra
 }
 
-public static func socialCallback(mixed $provider, mixed $code, mixed $redirectUri = "") : mixed {
-    return false
+public static func socialCallback(mixed $provider, mixed $code, mixed $redirectUri = "") : AuthLoginResult {
+    var $res = new AuthLoginResult()
+    $res->success = false
+    $res->requires_2fa = false
+    string $norm = strtolower(trim(strval($provider)))
+    ($norm == "twitter") ? {
+        $norm = "x"
+    }
+    string $clientId = trim(env(strtoupper($norm) . "_CLIENT_ID", ""))
+    string $clientSecret = trim(env(strtoupper($norm) . "_CLIENT_SECRET", ""))
+    ($norm == "x" && $clientId == "") ? {
+        $clientId = trim(env("TWITTER_CLIENT_ID", ""))
+        $clientSecret = trim(env("TWITTER_CLIENT_SECRET", ""))
+    }
+    ($clientId == "" || $clientSecret == "" || trim(strval($code)) == "") ? {
+        $res->error = "Credenciales OAuth no configuradas para " . $norm
+        return $res
+    }
+    string $tokenUrl = ""
+    string $userUrl = ""
+    ($norm == "google") ? {
+        $tokenUrl = trim(env("OAUTH_GOOGLE_TOKEN_URL", "https://oauth2.googleapis.com/token"))
+        $userUrl = trim(env("OAUTH_GOOGLE_USERINFO_URL", "https://www.googleapis.com/oauth2/v3/userinfo"))
+    }
+    ($norm == "github") ? {
+        $tokenUrl = trim(env("OAUTH_GITHUB_TOKEN_URL", "https://github.com/login/oauth/access_token"))
+        $userUrl = trim(env("OAUTH_GITHUB_USERINFO_URL", "https://api.github.com/user"))
+    }
+    ($norm == "microsoft") ? {
+        $tokenUrl = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+        $userUrl = "https://graph.microsoft.com/v1.0/me"
+    }
+    ($norm == "facebook") ? {
+        $tokenUrl = "https://graph.facebook.com/v19.0/oauth/access_token"
+        $userUrl = "https://graph.facebook.com/me?fields=id,name,first_name,last_name,email"
+    }
+    ($tokenUrl == "" || $userUrl == "") ? {
+        $res->error = "Proveedor OAuth no soportado: " . $norm
+        return $res
+    }
+    string $formBody = "code=" . urlencode(strval($code))
+        . "&client_id=" . urlencode($clientId)
+        . "&client_secret=" . urlencode($clientSecret)
+        . "&redirect_uri=" . urlencode(strval($redirectUri))
+        . "&grant_type=authorization_code"
+    mixed $tokResp = Http::request("POST", $tokenUrl, $formBody, {
+        "Accept" : "application/json",
+        "Content-Type" : "application/x-www-form-urlencoded",
+        "User-Agent" : "Joss-Language-Auth"
+    })
+    mixed $tokJson = json_decode(strval($tokResp ["body"] ?? ""))
+    string $accessToken = ($tokJson != null) ? strval($tokJson ["access_token"] ?? "") : ""
+    ($accessToken == "") ? {
+        $res->error = "No se pudo obtener access_token de " . $norm
+        return $res
+    }
+    mixed $uResp = Http::request("GET", $userUrl, "", {
+        "Authorization" : "Bearer " . $accessToken,
+        "User-Agent" : "Joss-Language-Auth",
+        "Accept" : "application/json"
+    })
+    mixed $uData = json_decode(strval($uResp ["body"] ?? ""))
+    string $provUid = ($uData != null) ? trim(strval($uData ["sub"] ?? ($uData ["id"] ?? ""))) : ""
+    (str_ends_with($provUid, ".0000")) ? {
+        $provUid = substr($provUid, 0, strlen($provUid) - 5)
+    }
+    ($provUid == "") ? {
+        $res->error = "No se pudo obtener ID de usuario de " . $norm
+        return $res
+    }
+    string $uEmail = strtolower(trim(strval($uData ["email"] ?? ($uData ["mail"] ?? ""))))
+    ($uEmail == "" && $norm == "github") ? {
+        mixed $emResp = Http::request("GET", "https://api.github.com/user/emails", "", {
+            "Authorization" : "Bearer " . $accessToken,
+            "User-Agent" : "Joss-Language-Auth",
+            "Accept" : "application/json"
+        })
+        mixed $emList = json_decode(strval($emResp ["body"] ?? ""))
+        (is_array($emList)) ? {
+            foreach ($emList as $emItem) {
+                string $cand = strtolower(trim(strval($emItem ["email"] ?? "")))
+                bool $isPrim = ($emItem ["primary"] ?? false) == true
+                ($cand != "" && ($isPrim || $uEmail == "")) ? {
+                    $uEmail = $cand
+                }
+            }
+        }
+    }
+    ($uEmail == "") ? {
+        $uEmail = $norm . "_" . $provUid . "@social.joss.local"
+    }
+    string $uName = trim(strval($uData ["name"] ?? ($uData ["login"] ?? ("user_" . $provUid))))
+    (!Auth::databaseReady()) ? {
+        $res->error = "Base de datos no disponible"
+        return $res
+    }
+    bool $alreadyLoggedIn = Auth::check()
+    int $currentSessionUid = ($alreadyLoggedIn) ? intval(Auth::id()) : 0
+    mixed $existingSocial = GranDB::table("user_social_accounts")
+        ->select("user_id")
+        ->where("provider", $norm)
+        ->where("provider_user_id", $provUid)
+        ->first()
+    int $targetUserId = 0
+    ($existingSocial !== null) ? {
+        $targetUserId = intval($existingSocial ["user_id"] ?? 0)
+        ($alreadyLoggedIn && $currentSessionUid > 0 && $targetUserId != $currentSessionUid) ? {
+            $res->error = "Esta cuenta de " . $norm . " ya está vinculada a otro usuario."
+            return $res
+        }
+        print("[SocialTrace] Existing social link found; provider=" . $norm . ", provUid=" . $provUid . ", user_id=" . strval($targetUserId))
+    } : {
+        ($alreadyLoggedIn && $currentSessionUid > 0) ? {
+            $targetUserId = $currentSessionUid
+            print("[SocialTrace] Linking social account to active session; provider=" . $norm . ", provUid=" . $provUid . ", user_id=" . strval($targetUserId))
+        } : {
+            mixed $byEmail = GranDB::table("users")->select("id")->where("email", $uEmail)->first()
+            ($byEmail !== null) ? {
+                $targetUserId = intval($byEmail ["id"] ?? 0)
+                print("[SocialTrace] Matched existing user by email; provider=" . $norm . ", email=" . $uEmail . ", user_id=" . strval($targetUserId))
+            } : {
+                string $uTok = UUID::generate()
+                string $uname = strtolower(str_replace(" ", "", $uName)) . "_" . strval(rand(100, 999))
+                GranDB::table("users")->insert( {
+                    "user_token" : $uTok,
+                    "username" : $uname,
+                    "first_name" : $uName,
+                    "last_name" : "",
+                    "email" : $uEmail,
+                    "password" : Auth::hash(UUID::generate()),
+                    "role_id" : 2,
+                    "verificado" : 1
+                })
+                mixed $created = GranDB::table("users")->select("id")->where("email", $uEmail)->first()
+                ($created !== null) ? {
+                    $targetUserId = intval($created ["id"] ?? 0)
+                }
+                print("[SocialTrace] Created new social user; provider=" . $norm . ", email=" . $uEmail . ", user_id=" . strval($targetUserId))
+            }
+        }
+        ($targetUserId > 0) ? {
+            int $linked = GranDB::table("user_social_accounts")->insert( {
+                "user_id" : $targetUserId,
+                "provider" : $norm,
+                "provider_user_id" : $provUid,
+                "avatar" : strval($uData ["avatar_url"] ?? ($uData ["picture"] ?? ""))
+            })
+            print("[SocialTrace] Saved social link row; provider=" . $norm . ", provUid=" . $provUid . ", user_id=" . strval($targetUserId) . ", inserted=" . strval($linked))
+        }
+    }
+    ($targetUserId <= 0) ? {
+        $res->error = "No se pudo provisionar usuario social"
+        return $res
+    }
+    mixed $jwt = Auth::complete2FA($targetUserId)
+    $res->user_id = $targetUserId
+    $res->email = $uEmail
+    $res->jwt = $jwt
+    $res->success = is_string($jwt) && $jwt != ""
+    (!$alreadyLoggedIn) ? {
+        map $mfa = Auth::prepareLogin2FA($targetUserId, $uEmail)
+        ($mfa != null && ($mfa ["requires_2fa"] ?? false)) ? {
+            $res->requires_2fa = true
+            Session::forget("user_id")
+            Session::forget("user_token")
+            Session::forget("user_name")
+            Session::forget("user_email")
+            Session::forget("user_role")
+        }
+    }
+    return $res
 }
 
-public static func validateToken(mixed $token): bool {
+public static func validateToken(mixed $token) : bool {
     return Auth::verify(strval($token))
 }
 
 }
 
-public func __joss_host_Auth_validateToken(mixed $token): bool {
+public func __joss_host_Auth_validateToken(mixed $token) : bool {
     return Auth::verify(strval($token))
 }

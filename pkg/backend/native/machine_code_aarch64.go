@@ -483,6 +483,21 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
 	b.emitCmp(regX16, regXZR)
 	b.emitBranchCond(condNE, ".truthy_true")
+	b.emitLdr(regX2, regX0, 0)
+	b.emitInst(0xD360FC43) // lsr x3, x2, #32
+	b.emitLoadImm64(regX4, 0x8192A3B4)
+	b.emitCmp(regX3, regX4)
+	b.emitBranchCond(condNE, ".truthy_check_cstr")
+	b.emitLdr(regX0, regX0, 8)
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".truthy_false")
+	b.emitLoadImm64(regX1, 0x400000)
+	b.emitCmp(regX0, regX1)
+	b.emitBranchCond(condLT, ".truthy_true")
+	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".truthy_true")
+	b.defineLabel(".truthy_check_cstr")
 	b.emitLdrb(regX2, regX0, 0)
 	b.emitCmp(regX2, regXZR)
 	b.emitBranchCond(condEQ, ".truthy_false")
@@ -506,6 +521,30 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel(".empty_true")
 	b.emitLoadImm64(regX0, 1)
 	b.emitEpilog(16)
+
+	if b.hasRelocTarget("joss_is_not_null", "fn_is_not_null") {
+		// joss_is_not_null(x0 = val) -> x0 = 0 (null) or 1 (not null)
+		b.defineLabel("joss_is_not_null")
+		b.defineLabel("fn_is_not_null")
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_not_null_false")
+		b.emitLoadImm64(regX1, 0x10000)
+		b.emitCmp(regX0, regX1)
+		b.emitBranchCond(condLT, ".arm64_not_null_true")
+		b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+		b.emitCmp(regX16, regXZR)
+		b.emitBranchCond(condNE, ".arm64_not_null_true")
+		b.emitLdr(regX2, regX0, 0)
+		b.emitLoadImm64(regX3, 0x8192A3B400000000)
+		b.emitCmp(regX2, regX3)
+		b.emitBranchCond(condEQ, ".arm64_not_null_false")
+		b.defineLabel(".arm64_not_null_true")
+		b.emitLoadImm64(regX0, 1)
+		b.emitRet(regX30)
+		b.defineLabel(".arm64_not_null_false")
+		b.emitLoadImm64(regX0, 0)
+		b.emitRet(regX30)
+	}
 
 	// fn_is_string(x0 = val) -> x0 = 1 if pointer (>= 0x400000 and upper bits == 0), 0 otherwise
 	b.defineLabel("fn_is_string")
@@ -541,12 +580,11 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitSyscall()
 	b.emitEpilog(16)
 
-	// joss_str_concat / joss_str_concat_i64 / joss_to_string / joss_f64_to_string
+	// joss_to_string / fn_to_string / fn_strval (x0 = val)
 	b.defineLabel("joss_to_string")
 	b.defineLabel("fn_to_string")
 	b.defineLabel("fn_strval")
-	b.defineLabel("joss_f64_to_string")
-	// Unbox if boxed
+	// Unbox if 0x10000 <= x0 < (1 << 47)
 	b.emitCmp(regX0, regXZR)
 	b.emitBranchCond(condEQ, ".tostr_convert_int")
 	b.emitLoadImm64(regX1, 0x10000)
@@ -560,7 +598,36 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLoadImm64(regX4, 0x8192A3B4)
 	b.emitCmp(regX3, regX4)
 	b.emitBranchCond(condNE, ".tostr_check_ptr")
+	b.emitInst(0x92407C42) // and x2, x2, #0xFFFFFFFF (tag)
 	b.emitLdr(regX0, regX0, 8)
+	b.emitCmp(regX2, regXZR) // tag == 0 (JOSS_TAG_NULL)
+	b.emitBranchCond(condEQ, ".tostr_boxed_null")
+	b.emitLoadImm64(regX4, 1) // tag == 1 (JOSS_TAG_INT)
+	b.emitCmp(regX2, regX4)
+	b.emitBranchCond(condEQ, ".tostr_convert_int")
+	b.emitLoadImm64(regX4, 2) // tag == 2 (JOSS_TAG_FLOAT)
+	b.emitBranchCond(condEQ, "joss_f64_to_string")
+	b.emitLoadImm64(regX4, 3) // tag == 3 (JOSS_TAG_BOOL)
+	b.emitBranchCond(condEQ, ".tostr_boxed_bool")
+	b.emitLoadImm64(regX4, 4) // tag == 4 (JOSS_TAG_STRING)
+	b.emitBranchCond(condEQ, ".tostr_boxed_str")
+	b.emitBranch(".tostr_convert_int")
+	b.defineLabel(".tostr_boxed_null")
+	b.emitLoadStringAddr(regX0, "")
+	b.emitRet(regX30)
+	b.defineLabel(".tostr_boxed_bool")
+	b.defineLabel("joss_bool_to_str")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".tostr_bool_false")
+	b.emitLoadStringAddr(regX0, "true")
+	b.emitRet(regX30)
+	b.defineLabel(".tostr_bool_false")
+	b.emitLoadStringAddr(regX0, "false")
+	b.emitRet(regX30)
+	b.defineLabel(".tostr_boxed_str")
+	b.emitCmp(regX0, regXZR)
+	b.emitBranchCond(condEQ, ".tostr_boxed_null")
+	b.emitRet(regX30)
 	b.defineLabel(".tostr_check_ptr")
 	// If x0 >= 0x400000 and (x0 >> 47) == 0, it is already a string pointer in rodata or heap, return it
 	b.emitLoadImm64(regX1, 0x400000)
@@ -569,6 +636,8 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
 	b.emitCmp(regX16, regXZR)
 	b.emitBranchCond(condEQ, ".tostr_ret_fast")
+	b.defineLabel("joss_i64_to_str")
+	b.defineLabel("fn_joss_i64_to_str")
 	b.defineLabel(".tostr_convert_int")
 
 	b.emitProlog(64)
@@ -642,9 +711,83 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel(".tostr_ret_fast")
 	b.emitRet(regX30)
 
+	// joss_f64_to_string(x0 = float64_bits) -> x0 = heap-allocated string buffer
+	b.defineLabel("joss_f64_to_string")
+	b.emitProlog(64)
+	b.emitStr(regX19, regX29, 16)
+	b.emitStr(regX20, regX29, 24)
+	b.emitStr(regX21, regX29, 32)
+	b.emitStr(regX22, regX29, 40)
+
+	b.emitMovReg(regX19, regX0)  // x19 = float bits
+	b.emitFmovFromGen(0, regX19) // d0 = val
+	b.emitFcvtzs(regX20, 0)      // x20 = int(val)
+	b.emitMovReg(regX0, regX20)
+	b.emitCall("joss_i64_to_str") // x0 = 32-byte buffer with int part
+	b.emitMovReg(regX21, regX0)   // x21 = origBuf
+	b.emitMovReg(regX22, regX0)   // x22 = cursor
+
+	b.defineLabel(".arm64_f64_find_null")
+	b.emitLdrb(regX1, regX22, 0)
+	b.emitCmp(regX1, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_f64_found_null")
+	b.emitAddImm(regX22, regX22, 1)
+	b.emitBranch(".arm64_f64_find_null")
+	b.defineLabel(".arm64_f64_found_null")
+
+	b.emitLoadImm64(regX1, 0x2E) // '.'
+	b.emitStrb(regX1, regX22, 0)
+	b.emitAddImm(regX22, regX22, 1)
+
+	b.emitFmovFromGen(0, regX19) // d0 = val
+	b.emitScvtf(1, regX20)       // d1 = float(intPart)
+	b.emitFsub(0, 0, 1)          // d0 = frac
+	b.emitLoadImm64(regX1, 0)
+	b.emitFmovFromGen(2, regX1) // d2 = 0.0
+	b.emitFcmp(0, 2)
+	b.emitBranchCond(condGE, ".arm64_f64_frac_pos")
+	b.emitFneg(0, 0)
+	b.defineLabel(".arm64_f64_frac_pos")
+	b.emitLoadImm64(regX1, 0x40C3880000000000) // 10000.0
+	b.emitFmovFromGen(1, regX1)
+	b.emitFmul(0, 0, 1)    // d0 = abs(frac) * 10000.0
+	b.emitFcvtzs(regX1, 0) // x1 = 4-digit int
+
+	b.emitStrb(regXZR, regX22, 4) // null terminator
+	b.emitLoadImm64(regX2, 3)     // write index 3..0
+	b.emitLoadImm64(regX3, 10)
+	b.defineLabel(".arm64_f64_frac_loop")
+	b.emitUDiv(regX4, regX1, regX3)
+	b.emitMul(regX5, regX4, regX3)
+	b.emitSub(regX6, regX1, regX5)
+	b.emitAddImm(regX6, regX6, 0x30) // '0'
+	b.emitAdd(regX7, regX22, regX2)
+	b.emitStrb(regX6, regX7, 0)
+	b.emitMovReg(regX1, regX4)
+	b.emitLoadImm64(regX7, 1)
+	b.emitSub(regX2, regX2, regX7)
+	b.emitCmp(regX2, regXZR)
+	b.emitBranchCond(condGE, ".arm64_f64_frac_loop")
+
+	b.emitMovReg(regX0, regX21)
+	b.emitLdr(regX19, regX29, 16)
+	b.emitLdr(regX20, regX29, 24)
+	b.emitLdr(regX21, regX29, 32)
+	b.emitLdr(regX22, regX29, 40)
+	b.emitEpilog(64)
+
+	b.defineLabel("joss_str_concat_i64")
+	b.emitProlog(32)
+	b.emitStr(regX0, regSP, 16)
+	b.emitMovReg(regX0, regX1)
+	b.emitCall("joss_i64_to_str")
+	b.emitMovReg(regX1, regX0)
+	b.emitLdr(regX0, regSP, 16)
+	b.emitCall("joss_str_concat")
+	b.emitEpilog(32)
+
 	b.defineLabel("joss_str_concat")
 	b.defineLabel("fn_str_concat")
-	b.defineLabel("joss_str_concat_i64")
 	b.defineLabel("joss_i64_str_concat")
 	b.defineLabel("joss_str_concat_f64")
 	b.defineLabel("joss_f64_str_concat")
@@ -1054,6 +1197,168 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitEpilog(48)
 	b.defineLabel(".map_delete_null")
 	b.emitRet(regX30)
+
+	if b.hasRelocTarget("joss_closure_alloc", "joss_closure_prepare_call") {
+		// joss_closure_alloc(x0 = fn_ptr, x1 = env_map) -> x0 = closureBox*
+		b.defineLabel("joss_closure_alloc")
+		b.emitProlog(48)
+		b.emitStr(regX19, regX29, 16)
+		b.emitStr(regX20, regX29, 24)
+		b.emitStr(regX21, regX29, 32)
+		b.emitMovReg(regX19, regX1) // raw env_map
+		b.emitCall("joss_unbox_value")
+		b.emitMovReg(regX20, regX0) // unboxed fn_ptr
+		b.emitMovReg(regX0, regX19)
+		b.emitCall("joss_unbox_value")
+		b.emitMovReg(regX19, regX0) // unboxed env_map
+		b.emitLoadImm64(regX0, 24)
+		b.emitCall("__joss_os_alloc")
+		b.emitMovReg(regX21, regX0) // box*
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_closure_alloc_done")
+		b.emitLoadImm64(regX1, 0x8192A3B400000009) // JOSS_TAG_CLOSURE = 9
+		b.emitStr(regX1, regX0, 0)
+		b.emitStr(regX20, regX0, 8)
+		b.emitStr(regX19, regX0, 16)
+		b.emitMovReg(regX0, regX20)
+		b.emitMovReg(regX1, regX19)
+		b.emitCall("joss_closure_env_set")
+		b.emitMovReg(regX0, regX21)
+		b.defineLabel(".arm64_closure_alloc_done")
+		b.emitLdr(regX19, regX29, 16)
+		b.emitLdr(regX20, regX29, 24)
+		b.emitLdr(regX21, regX29, 32)
+		b.emitEpilog(48)
+
+		// joss_closure_prepare_call(x0 = callee) -> x0 = ready fn_ptr
+		b.defineLabel("joss_closure_prepare_call")
+		b.emitLoadImm64(regX1, 0x10000)
+		b.emitCmp(regX0, regX1)
+		b.emitBranchCond(condLT, "joss_unbox_value")
+		b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+		b.emitCmp(regX16, regXZR)
+		b.emitBranchCond(condNE, "joss_unbox_value")
+		b.emitLdr(regX2, regX0, 0)
+		b.emitLoadImm64(regX3, 0x8192A3B400000009)
+		b.emitCmp(regX2, regX3)
+		b.emitBranchCond(condNE, "joss_unbox_value")
+		b.emitProlog(32)
+		b.emitStr(regX19, regX29, 16)
+		b.emitLdr(regX19, regX0, 8) // fn_ptr
+		b.emitLdr(regX1, regX0, 16) // env_map
+		b.emitMovReg(regX0, regX19)
+		b.emitCall("joss_closure_env_set")
+		b.emitMovReg(regX0, regX19)
+		b.emitLdr(regX19, regX29, 16)
+		b.emitEpilog(32)
+	}
+
+	if b.hasRelocTarget("joss_closure_env_set", "joss_closure_env_get", "joss_closure_alloc", "joss_closure_prepare_call") {
+		// joss_closure_env_set(x0 = fn_ptr, x1 = env_map)
+		b.defineLabel("joss_closure_env_set")
+		b.emitProlog(48)
+		b.emitStr(regX1, regSP, 24) // [sp+24] = env_map
+		b.emitCall("joss_unbox_value")
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_closure_set_done")
+		b.emitStr(regX0, regSP, 16) // [sp+16] = fn_ptr
+		b.emitLoadDataAddr(regX1, dataOffClosureEnvs)
+		b.emitLdr(regX2, regX1, 0) // current node
+		b.defineLabel(".arm64_closure_set_loop")
+		b.emitCmp(regX2, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_closure_set_alloc")
+		b.emitLdr(regX3, regX2, 0) // node.fn_ptr
+		b.emitLdr(regX4, regSP, 16)
+		b.emitCmp(regX3, regX4)
+		b.emitBranchCond(condNE, ".arm64_closure_set_next")
+		b.emitLdr(regX4, regSP, 24)
+		b.emitStr(regX4, regX2, 8) // node.env_map = env_map
+		b.emitBranch(".arm64_closure_set_done")
+		b.defineLabel(".arm64_closure_set_next")
+		b.emitLdr(regX2, regX2, 16)
+		b.emitBranch(".arm64_closure_set_loop")
+		b.defineLabel(".arm64_closure_set_alloc")
+		b.emitLoadImm64(regX0, 24)
+		b.emitCall("__joss_os_alloc")
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_closure_set_done")
+		b.emitLdr(regX3, regSP, 16)
+		b.emitStr(regX3, regX0, 0) // node.fn_ptr = fn_ptr
+		b.emitLdr(regX4, regSP, 24)
+		b.emitStr(regX4, regX0, 8) // node.env_map = env_map
+		b.emitLoadDataAddr(regX1, dataOffClosureEnvs)
+		b.emitLdr(regX5, regX1, 0)  // old head
+		b.emitStr(regX5, regX0, 16) // node.next = old head
+		b.emitStr(regX0, regX1, 0)  // head = node
+		b.defineLabel(".arm64_closure_set_done")
+		b.emitEpilog(48)
+
+		// joss_closure_env_get(x0 = fn_ptr) -> x0 = env_map
+		b.defineLabel("joss_closure_env_get")
+		b.emitProlog(32)
+		b.emitCall("joss_unbox_value")
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_closure_get_empty")
+		b.emitLoadDataAddr(regX1, dataOffClosureEnvs)
+		b.emitLdr(regX2, regX1, 0) // current node
+		b.defineLabel(".arm64_closure_get_loop")
+		b.emitCmp(regX2, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_closure_get_empty")
+		b.emitLdr(regX3, regX2, 0) // node.fn_ptr
+		b.emitCmp(regX3, regX0)
+		b.emitBranchCond(condNE, ".arm64_closure_get_next")
+		b.emitLdr(regX4, regX2, 8) // node.env_map
+		b.emitCmp(regX4, regXZR)
+		b.emitBranchCond(condEQ, ".arm64_closure_get_next")
+		b.emitMovReg(regX0, regX4)
+		b.emitBranch(".arm64_closure_get_done")
+		b.defineLabel(".arm64_closure_get_next")
+		b.emitLdr(regX2, regX2, 16)
+		b.emitBranch(".arm64_closure_get_loop")
+		b.defineLabel(".arm64_closure_get_empty")
+		b.emitLoadImm64(regX0, 0)
+		b.emitCall("joss_map_new")
+		b.defineLabel(".arm64_closure_get_done")
+		b.emitEpilog(32)
+	}
+
+	if b.hasRelocTarget("joss_set_active_session", "joss_get_active_session") {
+		b.defineLabel("joss_set_active_session")
+		b.emitLoadDataAddr(regX1, dataOffActiveSession)
+		b.emitStr(regX0, regX1, 0)
+		b.emitRet(regX30)
+
+		b.defineLabel("joss_get_active_session")
+		b.emitLoadDataAddr(regX1, dataOffActiveSession)
+		b.emitLdr(regX0, regX1, 0)
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condNE, ".arm64_active_sess_done")
+		b.emitProlog(16)
+		b.emitLoadImm64(regX0, 0)
+		b.emitCall("joss_map_new")
+		b.emitEpilog(16)
+		b.defineLabel(".arm64_active_sess_done")
+		b.emitRet(regX30)
+	}
+
+	if b.hasRelocTarget("joss_set_active_request", "joss_get_active_request") {
+		b.defineLabel("joss_set_active_request")
+		b.emitLoadDataAddr(regX1, dataOffActiveRequest)
+		b.emitStr(regX0, regX1, 0)
+		b.emitRet(regX30)
+
+		b.defineLabel("joss_get_active_request")
+		b.emitLoadDataAddr(regX1, dataOffActiveRequest)
+		b.emitLdr(regX0, regX1, 0)
+		b.emitCmp(regX0, regXZR)
+		b.emitBranchCond(condNE, ".arm64_active_req_done")
+		b.emitProlog(16)
+		b.emitLoadImm64(regX0, 0)
+		b.emitCall("joss_map_new")
+		b.emitEpilog(16)
+		b.defineLabel(".arm64_active_req_done")
+		b.emitRet(regX30)
+	}
 
 	b.defineLabel("fn_joss_map_key_at")
 	b.defineLabel("joss_map_key_at")
@@ -1867,6 +2172,13 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 			return nil
 		}
 	callBuiltinNormally:
+		if i.BuiltinID == "intval" && len(i.Args) > 0 && (i.Args[0].Type().IsInteger() || i.Args[0].Type().Kind == ir.TypeKindBool) {
+			b.emitLoadValToReg(layout, regX0, i.Args[0])
+			if i.Dest != nil {
+				b.emitStr(regX0, regX29, uint32(layout.tempOffsets[i.Dest.ID]))
+			}
+			return nil
+		}
 		if i.BuiltinID == "intval" && len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
 			b.emitLoadValToReg(layout, regX0, i.Args[0])
 			b.emitFmovFromGen(0, regX0)
@@ -1890,8 +2202,18 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 			}
 		}
 		fnLabel := "fn_" + i.BuiltinID
-		if i.BuiltinID == "to_string" || i.BuiltinID == "strval" {
-			fnLabel = "joss_to_string"
+		if i.BuiltinID == "is_not_null" || i.BuiltinID == "joss_is_not_null" {
+			fnLabel = "joss_is_not_null"
+		} else if i.BuiltinID == "to_string" || i.BuiltinID == "strval" {
+			if len(i.Args) == 1 && i.Args[0].Type().Kind == ir.TypeKindBool {
+				fnLabel = "joss_bool_to_str"
+			} else if len(i.Args) == 1 && i.Args[0].Type().IsInteger() {
+				fnLabel = "joss_i64_to_str"
+			} else if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+				fnLabel = "joss_f64_to_string"
+			} else {
+				fnLabel = "joss_to_string"
+			}
 		}
 		b.emitCall(fnLabel)
 		if i.Dest != nil {
@@ -1970,6 +2292,13 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 			return nil
 		}
 	callNormally:
+		if i.Callee == "intval" && len(i.Args) > 0 && (i.Args[0].Type().IsInteger() || i.Args[0].Type().Kind == ir.TypeKindBool) {
+			b.emitLoadValToReg(layout, regX0, i.Args[0])
+			if i.Dest != nil {
+				b.emitStr(regX0, regX29, uint32(layout.tempOffsets[i.Dest.ID]))
+			}
+			return nil
+		}
 		if i.Callee == "intval" && len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
 			b.emitLoadValToReg(layout, regX0, i.Args[0])
 			b.emitFmovFromGen(0, regX0)
@@ -2012,8 +2341,18 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		}
 
 		targetLabel := "fn_" + i.Callee
-		if i.Callee == "to_string" || i.Callee == "strval" {
-			targetLabel = "joss_to_string"
+		if i.Callee == "is_not_null" || i.Callee == "joss_is_not_null" {
+			targetLabel = "joss_is_not_null"
+		} else if i.Callee == "to_string" || i.Callee == "strval" {
+			if len(i.Args) == 1 && i.Args[0].Type().Kind == ir.TypeKindBool {
+				targetLabel = "joss_bool_to_str"
+			} else if len(i.Args) == 1 && i.Args[0].Type().IsInteger() {
+				targetLabel = "joss_i64_to_str"
+			} else if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+				targetLabel = "joss_f64_to_string"
+			} else {
+				targetLabel = "joss_to_string"
+			}
 		}
 		b.emitCall(targetLabel)
 
@@ -2023,6 +2362,9 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 		}
 
 	case *ir.CallIndirectInst:
+		b.emitLoadValToReg(layout, regX0, i.CalleeVal)
+		b.emitCall("joss_closure_prepare_call")
+		b.emitMovReg(regX9, regX0)
 		for idx := 0; idx < 8; idx++ {
 			if idx < len(i.Args) {
 				b.emitLoadValToReg(layout, uint32(idx), i.Args[idx])
@@ -2030,7 +2372,6 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 				b.emitLoadImm64(uint32(idx), 0)
 			}
 		}
-		b.emitLoadValToReg(layout, regX9, i.CalleeVal)
 		b.emitBlr(regX9)
 		if i.Dest != nil {
 			disp := layout.tempOffsets[i.Dest.ID]
@@ -2049,12 +2390,24 @@ func (b *ARM64Builder) emitInstruction(fn *ir.Function, layout *arm64FrameLayout
 			}
 		}
 		targetLabel := "joss_" + i.Func
-		if isNativeBuiltinHelper(i.Func) || isSupportedRuntimeCallee(i.Func) {
-			targetLabel = "fn_" + i.Func
+		if i.Func == "is_not_null" || i.Func == "joss_is_not_null" {
+			targetLabel = "joss_is_not_null"
 		} else if i.Func == "to_string" || i.Func == "strval" {
-			targetLabel = "joss_to_string"
+			if len(i.Args) == 1 && i.Args[0].Type().Kind == ir.TypeKindBool {
+				targetLabel = "joss_bool_to_str"
+			} else if len(i.Args) == 1 && i.Args[0].Type().IsInteger() {
+				targetLabel = "joss_i64_to_str"
+			} else if len(i.Args) > 0 && (i.Args[0].Type().Kind == ir.TypeKindF64 || i.Args[0].Type().Kind == ir.TypeKindDecimal) {
+				targetLabel = "joss_f64_to_string"
+			} else {
+				targetLabel = "joss_to_string"
+			}
+		} else if isNativeBuiltinHelper(i.Func) || isSupportedRuntimeCallee(i.Func) {
+			targetLabel = "fn_" + i.Func
 		} else if i.Func == "str_concat" {
 			targetLabel = "joss_str_concat"
+		} else if strings.HasPrefix(i.Func, "joss_") {
+			targetLabel = i.Func
 		}
 		b.emitCall(targetLabel)
 		if i.Dest != nil {
@@ -2220,6 +2573,18 @@ func (b *ARM64Builder) hasRelocTarget(labels ...string) bool {
 					}
 				case *ir.CallBuiltinInst:
 					if match(call.BuiltinID) {
+						return true
+					}
+				case *ir.CallRuntimeInst:
+					if match(call.Func) {
+						return true
+					}
+				case *ir.CallHostServiceInst:
+					if match(call.ClassName + "_" + call.MethodName) {
+						return true
+					}
+				case *ir.CallIndirectInst:
+					if match("joss_closure_prepare_call") {
 						return true
 					}
 				case *ir.TryCatchInst:
@@ -2816,6 +3181,61 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 		b.emitRet(regX30)
 	}
 
+	b.defineLabel("fn_math_unused_end")
+	// Real implementations of joss_is_map / joss_is_array separated from string passthrough
+	b.defineLabel("joss_is_map")
+	b.defineLabel("fn_is_map")
+	b.emitProlog(16)
+	b.emitCall("joss_unbox_value")
+	b.emitLoadImm64(regX1, 0x400000)
+	b.emitCmp(regX0, regX1)
+	b.emitBranchCond(condLT, ".arm64_is_map_false")
+	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".arm64_is_map_false")
+	b.emitLdr(regX2, regX0, 0)
+	b.emitLoadImm64(regX3, 0x100000)
+	b.emitCmp(regX2, regX3)
+	b.emitBranchCond(condCS, ".arm64_is_map_false")
+	b.emitLdr(regX4, regX0, 8)
+	b.emitCmp(regX4, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_is_map_true")
+	b.emitCmp(regX4, regX1)
+	b.emitBranchCond(condCS, ".arm64_is_map_true")
+	b.defineLabel(".arm64_is_map_false")
+	b.emitLoadImm64(regX0, 0)
+	b.emitEpilog(16)
+	b.defineLabel(".arm64_is_map_true")
+	b.emitLoadImm64(regX0, 1)
+	b.emitEpilog(16)
+
+	b.defineLabel("joss_is_array")
+	b.defineLabel("fn_is_array")
+	b.emitProlog(16)
+	b.emitCall("joss_unbox_value")
+	b.emitLoadImm64(regX1, 0x400000)
+	b.emitCmp(regX0, regX1)
+	b.emitBranchCond(condLT, ".arm64_is_arr_false")
+	b.emitInst(0xD36FFC10) // lsr x16, x0, #47
+	b.emitCmp(regX16, regXZR)
+	b.emitBranchCond(condNE, ".arm64_is_arr_false")
+	b.emitLdr(regX4, regX0, 8) // cap
+	b.emitCmp(regX4, regXZR)
+	b.emitBranchCond(condLE, ".arm64_is_arr_false")
+	b.emitLoadImm64(regX3, 0x100000)
+	b.emitCmp(regX4, regX3)
+	b.emitBranchCond(condCS, ".arm64_is_arr_false")
+	b.emitLdr(regX2, regX0, 0) // len
+	b.emitCmp(regX2, regXZR)
+	b.emitBranchCond(condLT, ".arm64_is_arr_false")
+	b.emitCmp(regX2, regX4)
+	b.emitBranchCond(condGT, ".arm64_is_arr_false")
+	b.emitLoadImm64(regX0, 1)
+	b.emitEpilog(16)
+	b.defineLabel(".arm64_is_arr_false")
+	b.emitLoadImm64(regX0, 0)
+	b.emitEpilog(16)
+
 	// String and Math helper passthroughs
 	b.defineLabel("fn_trim")
 	b.defineLabel("fn_ltrim")
@@ -2823,6 +3243,7 @@ func (b *ARM64Builder) emitGranDBAndStdlibARM64() {
 	b.defineLabel("fn_Math_ceil")
 	b.defineLabel("fn_rsa_sign_sha256")
 	b.defineLabel("fn_rawurlencode")
+	b.defineLabel("fn_urldecode")
 	b.defineLabel("fn_rawurldecode")
 	b.defineLabel("fn_gmdate")
 	b.defineLabel("fn_date")

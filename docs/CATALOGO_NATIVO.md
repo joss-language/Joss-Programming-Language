@@ -148,10 +148,11 @@ Implementación: [executeCacheMethod](../pkg/core/native_cache.go#L18).
 
 ## Cron
 
-Implementación: [executeCronMethod](../pkg/core/cron.go#L11).
+Implementación: [executeCronMethod](../pkg/core/cron.go#L17).
 
 | Método | Retorno publicado al analizador |
 |---|---|
+| `runDue` | `int` |
 | `schedule` | `mixed` |
 
 ## DateInterval
@@ -649,14 +650,14 @@ Implementación: [executeSchemaMethod](../pkg/core/schema.go#L126).
 
 | Método | Retorno publicado al analizador |
 |---|---|
-| `create` | `mixed` |
-| `drop` | `mixed` |
-| `dropIfExists` | `mixed` |
+| `create` | `bool` |
+| `drop` | `bool` |
+| `dropIfExists` | `bool` |
 | `hasColumn` | `bool` |
 | `hasForeign` | `bool` |
 | `hasTable` | `bool` |
-| `rename` | `mixed` |
-| `table` | `mixed` |
+| `rename` | `bool` |
+| `table` | `bool` |
 
 ## Server
 
@@ -689,7 +690,7 @@ Implementación: [executeSitemapMethod](../pkg/core/native_seo.go#L129).
 | `exclude` | `Sitemap` |
 | `generate` | `string` |
 | `provider` | `Sitemap` |
-| `xsl` | `Sitemap` |
+| `xsl` | `string` |
 
 ## SmtpClient
 
@@ -881,8 +882,20 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `__joss_db_set_table`
 - `__joss_file_get_bytes`
 - `__joss_get_embedded_asset`
+- `__joss_http_check_middleware`
 - `__joss_http_dispatch`
+- `__joss_http_inject_header`
+- `__joss_http_parse_multipart`
+- `__joss_http_read_request`
+- `__joss_http_serve_concurrent`
+- `__joss_jwt_parse_verified`
 - `__joss_local_utc_offset`
+- `__joss_rate_limit_check`
+- `__joss_session_destroy`
+- `__joss_session_last_error`
+- `__joss_session_load`
+- `__joss_session_save`
+- `__joss_socket_peer_ip`
 - `__joss_storage_delete`
 - `__joss_storage_get`
 - `__joss_storage_put`
@@ -1019,4 +1032,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 54 clases, 529 métodos y 146 built-ins.
+Total: 54 clases, 530 métodos y 158 built-ins.

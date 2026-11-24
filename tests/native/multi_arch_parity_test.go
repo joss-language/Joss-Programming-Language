@@ -79,7 +79,7 @@ try {
 
 	units := []analyzer.SourceUnit{{Path: "parity.joss", Program: prog}}
 	for _, unit := range std.GetStdlibUnits() {
-		if unit.Path == "<std/auth/auth.joss>" || unit.Path == "<std/http/session_host.joss>" || strings.HasPrefix(unit.Path, "<std/date/") {
+		if unit.Path == "<std/auth/auth.joss>" || unit.Path == "<std/http/session_host.joss>" || unit.Path == "<std/strings/strings.joss>" || strings.HasPrefix(unit.Path, "<std/date/") {
 			units = append(units, unit)
 		}
 	}

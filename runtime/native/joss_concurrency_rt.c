@@ -1,4 +1,15 @@
 //go:build ignore
+#if defined(__APPLE__) && !defined(_DARWIN_C_SOURCE)
+#define _DARWIN_C_SOURCE
+#elif defined(__unix__)
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+#endif
+
 #include "joss_rt.h"
 
 #include <stdlib.h>
@@ -104,7 +115,11 @@ static void* joss_worker_loop(void* arg) {
 
         int64_t res = 0;
         if (task->fn) {
-            res = task->fn();
+            JossTaskFn real_fn = (JossTaskFn)(uintptr_t)joss_closure_prepare_call((void*)(uintptr_t)task->fn);
+            if (real_fn) {
+                res = real_fn();
+            }
+            joss_closure_env_tls_reset();
         }
 
         pthread_mutex_lock(&task->mu);
@@ -151,6 +166,7 @@ int64_t joss_async(int64_t fn_ptr) {
 }
 
 int64_t joss_await(int64_t fut_handle) {
+    fut_handle = joss_unbox_value(fut_handle);
     uint64_t u = (uint64_t)fut_handle;
     if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return fut_handle;
     JossFuture* fut = (JossFuture*)(uintptr_t)u;
@@ -366,7 +382,14 @@ static DWORD WINAPI joss_win_worker_loop(LPVOID arg) {
         if (!g_win_q_head) g_win_q_tail = NULL;
         LeaveCriticalSection(&g_win_pool_cs);
 
-        int64_t res = item->fn ? item->fn() : 0;
+        int64_t res = 0;
+        if (item->fn) {
+            JossTaskFn real_fn = (JossTaskFn)(uintptr_t)joss_closure_prepare_call((void*)(uintptr_t)item->fn);
+            if (real_fn) {
+                res = real_fn();
+            }
+            joss_closure_env_tls_reset();
+        }
 
         JossFuture* fut = item->fut;
         EnterCriticalSection(&fut->cs);
@@ -426,6 +449,7 @@ int64_t joss_async(int64_t fn_ptr) {
 }
 
 int64_t joss_await(int64_t fut_handle) {
+    fut_handle = joss_unbox_value(fut_handle);
     uint64_t u = (uint64_t)fut_handle;
     if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return fut_handle;
     JossFuture* fut = (JossFuture*)(uintptr_t)u;
@@ -588,8 +612,10 @@ void fn_WaitGroup_wait(int64_t handle) {
 #else
 
 int64_t joss_async(int64_t fn_ptr) {
-    JossTaskFn fn = (JossTaskFn)(uintptr_t)fn_ptr;
-    return fn ? fn() : 0;
+    JossTaskFn fn = (JossTaskFn)(uintptr_t)joss_closure_prepare_call((void*)(uintptr_t)fn_ptr);
+    int64_t res = fn ? fn() : 0;
+    joss_closure_env_tls_reset();
+    return res;
 }
 int64_t joss_await(int64_t val) { return val; }
 int64_t joss_make_chan(int64_t capacity) { (void)capacity; return 0; }

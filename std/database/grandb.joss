@@ -89,19 +89,37 @@ public class GranDB {
 
     private func assertSelectItem(string $item) : string {
         string $normalized = $this->trimSQLWhitespace($item)
-        ($normalized == "*") ? {
-            return "*"
+        string $expr = $normalized
+        string $alias = ""
+        mixed $asPos = strpos(strtolower($normalized), " as ")
+        ($asPos !== false) ? {
+            int $pos = intval($asPos)
+            $expr = $this->trimSQLWhitespace(substr($normalized, 0, $pos))
+            $alias = $this->assertIdentifier(substr($normalized, $pos + 4), false)
         }
-        var $functions = ["COUNT(", "SUM(", "AVG(", "MIN(", "MAX("]
-        foreach ($functions as $allowedFunction) {
-            int $prefixLength = strlen($allowedFunction)
-            (strtolower(substr($normalized, 0, $prefixLength)) == strtolower($allowedFunction) && substr($normalized, - 1) == ")") ? {
-                string $argument = substr($normalized, $prefixLength, strlen($normalized) - $prefixLength - 1)
-                $this->assertIdentifier($argument, true)
-                return $normalized
+        string $safeExpr = ""
+        ($expr == "*") ? {
+            $safeExpr = "*"
+        } : {
+            bool $matchedFunc = false
+            var $functions = ["COUNT(", "SUM(", "AVG(", "MIN(", "MAX("]
+            foreach ($functions as $allowedFunction) {
+                int $prefixLength = strlen($allowedFunction)
+                (strtolower(substr($expr, 0, $prefixLength)) == strtolower($allowedFunction) && substr($expr, - 1) == ")") ? {
+                    string $argument = substr($expr, $prefixLength, strlen($expr) - $prefixLength - 1)
+                    $this->assertIdentifier($argument, true)
+                    $safeExpr = $expr
+                    $matchedFunc = true
+                }
+            }
+            (!$matchedFunc) ? {
+                $safeExpr = $this->assertIdentifier($expr, true)
             }
         }
-        return $this->assertIdentifier($normalized)
+        ($alias != "") ? {
+            return $safeExpr . " AS " . $alias
+        }
+        return $safeExpr
     }
 
     private func assertSelectList(string $columns) : string {
@@ -164,6 +182,21 @@ public class GranDB {
             $index++
         }
         return $sql
+    }
+
+    public func setTable(string $name) : GranDB {
+        $this->tableName = $this->assertIdentifier($name)
+        $this->selectCols = "*"
+        $this->wheres = []
+        $this->bindings = []
+        $this->orders = []
+        $this->joins = []
+        $this->groups = []
+        $this->havings = []
+        $this->limitVal = - 1
+        $this->offsetVal = - 1
+        $this->distinctVal = false
+        return $this
     }
 
     public static func table(string $name) : GranDB {
@@ -246,7 +279,7 @@ public class GranDB {
         return $this
     }
 
-    public func where(mixed $colOrClosure, mixed $opOrVal = null, mixed $val = null): GranDB {
+    public func where(mixed $colOrClosure, mixed $opOrVal = null, mixed $val = null) : GranDB {
         (!is_string($colOrClosure)) ? {
             var $nested = new GranDB()
             $colOrClosure($nested)

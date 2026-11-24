@@ -376,8 +376,8 @@ func cloneInstructionWithRemap(caller *Function, inst Instruction, valMap map[Va
 // ForwardLocalLoads rastrea los valores disponibles (almacenados o cargados) en punteros locales
 // de tipo AllocaInst dentro del mismo bloque básico, reemplazando cargas redundantes consecutivas
 // por un MoveInst o reuso del valor existente.
-func ForwardLocalLoads(fn *Function) {
-	for _, blk := range fn.Blocks {
+func forwardBlocksLocalLoads(blocks []*BasicBlock) {
+	for _, blk := range blocks {
 		availMap := make(map[int]Value) // allocaTempID -> latest Value available in this basic block
 
 		newInsts := make([]Instruction, 0, len(blk.Instructions))
@@ -391,7 +391,7 @@ func ForwardLocalLoads(fn *Function) {
 
 			case *LoadInst:
 				if ptrTemp, ok := i.Ptr.(*TempValue); ok {
-					if existingVal, exists := availMap[ptrTemp.ID]; exists {
+					if existingVal, exists := availMap[ptrTemp.ID]; exists && i.Dest != nil && existingVal != nil && i.Dest.Type().Kind == existingVal.Type().Kind {
 						// Transformar en MoveInst directo: %dest = move %existingVal
 						newInsts = append(newInsts, &MoveInst{
 							Dest: i.Dest,
@@ -404,7 +404,19 @@ func ForwardLocalLoads(fn *Function) {
 				}
 				newInsts = append(newInsts, inst)
 
-			case *CallInst, *CallIndirectInst, *CallPrimitiveMethodInst, *CallHostServiceInst:
+			case *TryCatchInst:
+				forwardBlocksLocalLoads(i.TryBlocks)
+				forwardBlocksLocalLoads(i.CatchBlocks)
+				// Un bloque try/catch puede reasignar locales antes de lanzar o dentro del try/catch
+				availMap = make(map[int]Value)
+				newInsts = append(newInsts, inst)
+
+			case *CallInst, *CallIndirectInst, *CallPrimitiveMethodInst, *CallHostServiceInst, *CallBuiltinInst, *CallRuntimeInst:
+				for _, op := range inst.Operands() {
+					if opTemp, ok := op.(*TempValue); ok {
+						delete(availMap, opTemp.ID)
+					}
+				}
 				newInsts = append(newInsts, inst)
 
 			default:
@@ -413,6 +425,10 @@ func ForwardLocalLoads(fn *Function) {
 		}
 		blk.Instructions = newInsts
 	}
+}
+
+func ForwardLocalLoads(fn *Function) {
+	forwardBlocksLocalLoads(fn.Blocks)
 }
 
 // canReachWithout returns true if 'from' can reach 'to' without passing through 'avoid'.
@@ -506,16 +522,26 @@ func HoistLoopInvariantLoads(fn *Function) {
 			}
 		}
 
-		// Identificar todos los punteros destino modificados por StoreInst en el bucle
+		// Identificar todos los punteros destino modificados por StoreInst en el bucle (incluyendo try/catch)
 		storedPtrs := make(map[int]bool)
-		for blk := range loopBlocksMap {
-			for _, inst := range blk.Instructions {
-				if store, ok := inst.(*StoreInst); ok {
-					if ptrTemp, isTemp := store.Ptr.(*TempValue); isTemp {
-						storedPtrs[ptrTemp.ID] = true
+		var collectStoredPtrs func(blocks []*BasicBlock)
+		collectStoredPtrs = func(blocks []*BasicBlock) {
+			for _, blk := range blocks {
+				for _, inst := range blk.Instructions {
+					switch s := inst.(type) {
+					case *StoreInst:
+						if ptrTemp, isTemp := s.Ptr.(*TempValue); isTemp {
+							storedPtrs[ptrTemp.ID] = true
+						}
+					case *TryCatchInst:
+						collectStoredPtrs(s.TryBlocks)
+						collectStoredPtrs(s.CatchBlocks)
 					}
 				}
 			}
+		}
+		for blk := range loopBlocksMap {
+			collectStoredPtrs([]*BasicBlock{blk})
 		}
 
 		// Elevar cargas invariantes al preheader
@@ -526,7 +552,7 @@ func HoistLoopInvariantLoads(fn *Function) {
 				if load, ok := inst.(*LoadInst); ok {
 					if ptrTemp, isTemp := load.Ptr.(*TempValue); isTemp {
 						if !storedPtrs[ptrTemp.ID] {
-							if alreadyHoistedVal, exists := hoistedMap[ptrTemp.ID]; exists {
+							if alreadyHoistedVal, exists := hoistedMap[ptrTemp.ID]; exists && load.Dest != nil && alreadyHoistedVal != nil && load.Dest.Type().Kind == alreadyHoistedVal.Type().Kind {
 								// Ya fue elevado para este mismo puntero: reemplazar por un Move directo
 								remainingInsts = append(remainingInsts, &MoveInst{
 									Dest: load.Dest,
@@ -609,7 +635,7 @@ func EliminateRedundantArrayGets(fn *Function) {
 						arrVal: cArr.String(),
 						idxVal: cIdx.String(),
 					}
-					if existingVal, exists := availMap[key]; exists {
+					if existingVal, exists := availMap[key]; exists && i.Dest != nil && existingVal != nil && i.Dest.Type().Kind == existingVal.Type().Kind {
 						newInsts = append(newInsts, &MoveInst{
 							Dest: i.Dest,
 							Src:  existingVal,
@@ -764,19 +790,21 @@ func PropagateCopies(fn *Function) {
 						}
 						break
 					}
-					// Solo eliminar MoveInst si Dest tiene una única definición en toda la función
-					// y Src también es inmutable (constante o temp de única definición).
+					// Solo eliminar MoveInst si Dest tiene una única definición en toda la función,
+					// Src también es inmutable (constante o temp de única definición), y los tipos coinciden.
 					srcSingleDef := true
 					if _, isTemp := src.(*TempValue); isTemp && defCount[src] > 1 {
 						srcSingleDef = false
 					}
-					if defCount[mv.Dest] == 1 && srcSingleDef {
+					if defCount[mv.Dest] == 1 && srcSingleDef && mv.Dest.Type().Kind == src.Type().Kind {
 						globalMap[mv.Dest] = src
 						combinedMap[mv.Dest] = src
 						continue
 					}
-					localMap[mv.Dest] = src
-					combinedMap[mv.Dest] = src
+					if mv.Dest.Type().Kind == src.Type().Kind {
+						localMap[mv.Dest] = src
+						combinedMap[mv.Dest] = src
+					}
 				}
 				newInsts = append(newInsts, inst)
 			}
@@ -948,7 +976,10 @@ func remapTerminatorValues(term Terminator, valMap map[Value]Value) {
 			t.Val = remap(t.Val)
 		}
 	case *BranchTerminator:
-		t.Cond = remap(t.Cond)
+		mapped := remap(t.Cond)
+		if mapped != nil && mapped.Type().Kind == TypeKindBool {
+			t.Cond = mapped
+		}
 	}
 }
 

@@ -68,6 +68,10 @@ func (b *MachineCodeBuilder) hasRelocTarget(labels ...string) bool {
 					if matchName(v.ClassName + "_" + v.MethodName) {
 						return true
 					}
+				case *ir.CallIndirectInst:
+					if matchName("joss_closure_prepare_call") {
+						return true
+					}
 				case *ir.TryCatchInst:
 					if scanBlocks(v.TryBlocks) || scanBlocks(v.CatchBlocks) {
 						return true
@@ -1529,9 +1533,12 @@ func (b *MachineCodeBuilder) emitNativeIntrinsics() {
 func (b *MachineCodeBuilder) emitNativeStrpos() {
 	b.defineLabel("fn_strpos")
 	b.emitBytes(0x53, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57) // save rbx, r12-r15
+	b.emitBytes(0x48, 0x83, 0xEC, 0x20)                               // shadow space (keeps 16-byte stack alignment)
 	b.emitBytes(0x49, 0x89, 0xCC, 0x49, 0x89, 0xD5)                   // r12=haystack, r13=needle
 	b.emitBytes(0x45, 0x31, 0xF6)                                     // r14d=byte offset
-	b.emitBytes(0x4D, 0x85, 0xED)                                     // test r13,r13
+	b.emitBytes(0x4D, 0x85, 0xE4)                                     // test r12,r12
+	b.emitJeLabel(".strpos_missing")
+	b.emitBytes(0x4D, 0x85, 0xED) // test r13,r13
 	b.emitJeLabel(".strpos_found")
 	b.emitBytes(0x41, 0x80, 0x7D, 0x00, 0x00) // empty needle => 0
 	b.emitJeLabel(".strpos_found")
@@ -1553,16 +1560,22 @@ func (b *MachineCodeBuilder) emitNativeStrpos() {
 	b.emitBytes(0x31, 0xC0, 0x48, 0x31, 0xDB) // eax=0; rbx=0 (character count/index)
 	b.defineLabel(".strpos_count")
 	b.emitBytes(0x4C, 0x39, 0xF3) // cmp rbx,r14
-	b.emitJgeLabel(".strpos_done")
+	b.emitJgeLabel(".strpos_box")
 	b.emitBytes(0x41, 0x8A, 0x14, 0x1C, 0x80, 0xE2, 0xC0, 0x80, 0xFA, 0x80)
 	b.emitJeLabel(".strpos_continuation")
 	b.emitBytes(0x48, 0xFF, 0xC0) // count one UTF-8 leading byte
 	b.defineLabel(".strpos_continuation")
 	b.emitBytes(0x48, 0xFF, 0xC3) // advance byte index
 	b.emitJmpLabel(".strpos_count")
+	b.defineLabel(".strpos_box")
+	b.emitBytes(0x48, 0x89, 0xC2)             // mov rdx, rax
+	b.emitBytes(0xB9, 0x01, 0x00, 0x00, 0x00) // mov ecx, 1 (JOSS_TAG_INT)
+	b.emitCallLabel("joss_box_value")
+	b.emitJmpLabel(".strpos_done")
 	b.defineLabel(".strpos_missing")
 	b.emitBytes(0x31, 0xC0) // false => 0
 	b.defineLabel(".strpos_done")
+	b.emitBytes(0x48, 0x83, 0xC4, 0x20)
 	b.emitBytes(0x41, 0x5F, 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5B, 0xC3)
 }
 

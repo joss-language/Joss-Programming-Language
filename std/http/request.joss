@@ -64,6 +64,9 @@ while ($lineIndex < count($lines)) {
         ($name == "host") ? {
             $request ["_host"] = $value
         }
+        ($name == "x-forwarded-proto") ? {
+            $request ["_scheme"] = strtolower($value)
+        }
         ($name == "referer") ? {
             $request ["_referer"] = $value
         }

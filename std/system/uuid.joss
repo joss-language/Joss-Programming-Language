@@ -3,7 +3,7 @@ private func __joss_uuid_hex(int $n): string {
     var $digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
     string $out = ""
     int $i = 0
-    int $seed = ((time() % 1000000) * 1103) + 12345 + ($n * 7919)
+    int $seed = rand(1, 2147483646) + ($n * 7919)
     while ($i < $n) {
         $seed = ((($seed % 65536) * 11035) + 12345) % 2147483647
         ($seed < 0) ? {

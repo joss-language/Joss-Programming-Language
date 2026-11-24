@@ -40,14 +40,50 @@ func compileStyles() {
 		// 2. Replace complete variable tokens
 		content = replaceSCSSVariables(content, vars)
 
+		// 3. Strip standalone SCSS single-line comments (// ...) without touching URLs
+		content = stripSCSSLineComments(content)
+		content = optimizeCSS(content)
+
 		// Change extension to .css
 		outFile := filepath.Join("public", "css", strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))+".css")
 		_ = os.MkdirAll(filepath.Dir(outFile), 0755)
-		_ = os.WriteFile(outFile, []byte(content), 0644)
+		newBytes := []byte(content)
+		if existing, readErr := os.ReadFile(outFile); readErr == nil && string(existing) == content {
+			continue
+		}
+		_ = os.WriteFile(outFile, newBytes, 0644)
+	}
+
+	// Also copy plain .css files from assets/css into public/css
+	cssFiles, _ := filepath.Glob("assets/css/*.css")
+	for _, file := range cssFiles {
+		if strings.HasPrefix(filepath.Base(file), "_") {
+			continue
+		}
+		content, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+		outFile := filepath.Join("public", "css", filepath.Base(file))
+		_ = os.MkdirAll(filepath.Dir(outFile), 0755)
+		_ = os.WriteFile(outFile, content, 0644)
 	}
 }
 
 var scssVariableReference = regexp.MustCompile(`\$[a-zA-Z0-9_-]+`)
+var scssStandaloneLineComment = regexp.MustCompile(`(?m)^[ \t]*//[^\r\n]*\r?\n?`)
+var cssBlockComment = regexp.MustCompile(`/\*[\s\S]*?\*/`)
+var cssMultiWhitespace = regexp.MustCompile(`[ \t\r\n]+`)
+
+func optimizeCSS(content string) string {
+	cleaned := cssBlockComment.ReplaceAllString(content, "")
+	cleaned = cssMultiWhitespace.ReplaceAllString(cleaned, " ")
+	return strings.TrimSpace(cleaned)
+}
+
+func stripSCSSLineComments(content string) string {
+	return scssStandaloneLineComment.ReplaceAllString(content, "")
+}
 
 func replaceSCSSVariables(content string, variables map[string]string) string {
 	return scssVariableReference.ReplaceAllStringFunc(content, func(name string) string {

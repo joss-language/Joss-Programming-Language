@@ -27,18 +27,17 @@ func executionModeName(mode executionMode) string {
 	}
 }
 
-// HTTP uses the Go server by default because its net/http workers handle
-// concurrent requests and long-lived WebSocket connections. --native keeps
-// the current single-loop Joss server available for native backend work.
+// Native HTTP server is now the default for auto and native modes;
+// --anterior / --go keeps the Go net/http compatibility server available.
 func serverBackendForMode(mode executionMode) string {
-	if mode == executionModeNative {
-		return "native"
+	if mode == executionModePrevious {
+		return "go"
 	}
-	return "go"
+	return "native"
 }
 
 func shouldUseGoHTTPRuntime(mode executionMode, backend string) bool {
-	return mode != executionModeNative && strings.EqualFold(backend, "go")
+	return mode == executionModePrevious && strings.EqualFold(backend, "go")
 }
 
 func preparedProgramUsesHTTPServer(prepared *semanticanalyzer.PreparedProgram) bool {
@@ -119,15 +118,19 @@ func isHTTPServerStartTarget(target string) bool {
 		strings.HasSuffix(target, ":Server::start") || strings.HasSuffix(target, ":HttpServer::start") || strings.HasSuffix(target, ":HttpServer::run")
 }
 
-// takeExecutionMode removes the shared --native selector from command args.
-// Normal commands auto-select native execution when the backend supports the
-// program and otherwise use the compatibility runtime with a visible notice.
+// takeExecutionMode removes the shared --native / --anterior / --go selectors
+// from command args. Normal commands auto-select native execution when the backend
+// supports the program and otherwise use the compatibility runtime with a visible notice.
 func takeExecutionMode(args []string) (executionMode, []string) {
 	mode := executionModeAuto
 	filtered := make([]string, 0, len(args))
 	for _, arg := range args {
 		if strings.EqualFold(arg, "--native") {
 			mode = executionModeNative
+			continue
+		}
+		if strings.EqualFold(arg, "--anterior") || strings.EqualFold(arg, "--go") {
+			mode = executionModePrevious
 			continue
 		}
 		filtered = append(filtered, arg)

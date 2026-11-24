@@ -442,7 +442,7 @@ func TestNativeJSONDecodeUsesPureJossOwner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AOT JSON owner executable failed: %v, output=%q", err, output)
 	}
-	if got, want := strings.ReplaceAll(string(output), "\r\n", "\n"), "<nil>\nliteral\nplain\nJoss!\n2\ntrue\ntrue\ntrue\ntrue\n2\n1\n"; got != want {
+	if got, want := strings.ReplaceAll(string(output), "\r\n", "\n"), "<nil>\nliteral\nplain\nJoss!\n2\ntrue\ntrue\ntrue\ntrue\n2\ntrue\n"; got != want {
 		t.Fatalf("AOT JSON owner output=%q, want %q", got, want)
 	}
 }

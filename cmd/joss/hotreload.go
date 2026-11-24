@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -9,12 +11,129 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/i18n"
+	"github.com/mattn/go-isatty"
 )
+
+func isInteractiveTerminal() bool {
+	if os.Getenv("CI") != "" || os.Getenv("JOSS_NO_WATCH") == "1" || os.Getenv("JOSS_WATCH_CHILD") == "1" || os.Getenv("JOSS_SERVER_MODE") == "1" {
+		return false
+	}
+	inTTY := isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
+	outTTY := isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
+	return inTTY && outTTY
+}
+
+// hotReloadHub broadcasts SSE hot-reload events ("css" or "morph") to connected
+// browsers while the supervised native server restarts or compiles styles.
+type hotReloadHub struct {
+	mu      sync.Mutex
+	clients map[chan string]struct{}
+	url     string
+	srv     *http.Server
+}
+
+func startHotReloadHub() (*hotReloadHub, error) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
+	}
+	hub := &hotReloadHub{
+		clients: make(map[chan string]struct{}),
+		url:     fmt.Sprintf("http://%s/__hot_reload_events", ln.Addr().String()),
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/__hot_reload_events", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+			return
+		}
+		ch := make(chan string, 8)
+		hub.mu.Lock()
+		hub.clients[ch] = struct{}{}
+		hub.mu.Unlock()
+		defer func() {
+			hub.mu.Lock()
+			delete(hub.clients, ch)
+			hub.mu.Unlock()
+		}()
+		_, _ = fmt.Fprintf(w, ": connected\n\n")
+		flusher.Flush()
+		ctx := r.Context()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-ch:
+				_, _ = fmt.Fprintf(w, "data: %s\n\n", msg)
+				flusher.Flush()
+			}
+		}
+	})
+	hub.srv = &http.Server{Handler: mux}
+	go func() { _ = hub.srv.Serve(ln) }()
+	return hub, nil
+}
+
+func (h *hotReloadHub) Broadcast(eventType string) {
+	if h == nil {
+		return
+	}
+	payload := fmt.Sprintf(`{"type":%q}`, eventType)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for ch := range h.clients {
+		select {
+		case ch <- payload:
+		default:
+		}
+	}
+}
+
+func (h *hotReloadHub) Close() {
+	if h == nil || h.srv == nil {
+		return
+	}
+	_ = h.srv.Close()
+}
+
+func resolveProjectPort() string {
+	if p := strings.TrimSpace(os.Getenv("PORT")); p != "" {
+		return p
+	}
+	envRes := core.DetectAndLoadEnv(nil)
+	if p := strings.TrimSpace(envRes.EnvMap["PORT"]); p != "" {
+		return p
+	}
+	if p := strings.TrimSpace(envRes.EnvMap["JOSS_PORT"]); p != "" {
+		return p
+	}
+	return "8000"
+}
+
+func waitForTCPPort(port string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	addr := net.JoinHostPort("127.0.0.1", port)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 150*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
+}
 
 var ignoredWatchDirs = map[string]bool{
 	".git":         true,
@@ -196,6 +315,11 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 		return
 	}
 
+	hrHub, hrErr := startHotReloadHub()
+	if hrErr == nil {
+		defer hrHub.Close()
+	}
+
 	var currentChild *managedServerChild
 
 	stopCurrent := func() {
@@ -212,7 +336,11 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
-		cmd.Env = serverChildEnv(enableGUI, mode)
+		env := serverChildEnv(enableGUI, mode)
+		if hrHub != nil {
+			env = append(env, "JOSS_HOT_RELOAD_URL="+hrHub.url)
+		}
+		cmd.Env = env
 		child, err := startManagedServerChild(cmd)
 		if err != nil {
 			return err
@@ -233,12 +361,14 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 	}
 
 	fmt.Println("\n========================================================")
-	fmt.Printf("⚡ Joss Server Supervisor (Hot-Reload %s)\n", strings.ToUpper(executionModeName(mode)))
-	fmt.Println("📂 Vigilando cambios en .joss, vistas (.html) y entorno")
+	fmt.Printf("⚡ Joss Server Supervisor (Hot-Reload DOM/CSS %s)\n", strings.ToUpper(executionModeName(mode)))
+	fmt.Println("📂 Vigilando cambios en .joss, vistas (.html), estilos (.scss/.css) y entorno")
+	fmt.Println("✨ Actualización quirúrgica automática sin F5")
 	fmt.Println("💡 Presiona Ctrl+C para detener")
 	fmt.Println("========================================================")
 	fmt.Println()
 
+	appPort := resolveProjectPort()
 	snapshot := takeWatchSnapshot(".")
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
@@ -279,20 +409,91 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 			if relErr != nil {
 				relPath = changedFile
 			}
-			fmt.Printf("\n🔄 [Hot-Reload] Cambio detectado en: %s\n", relPath)
+			lowerPath := strings.ToLower(changedFile)
 
-			if strings.HasSuffix(changedFile, ".scss") {
-				core.CompileStyles()
+			// Fast-path: SCSS / CSS updates compile in milliseconds and hot-swap
+			// stylesheets in the browser without restarting or recompiling the binary.
+			if strings.HasSuffix(lowerPath, ".scss") || strings.HasSuffix(lowerPath, ".css") {
+				fmt.Printf("\n🎨 [Hot-Reload CSS] Cambio detectado en: %s\n", relPath)
+				if strings.HasSuffix(lowerPath, ".scss") {
+					core.CompileStyles()
+				}
+				hrHub.Broadcast("css")
+				fmt.Println("✨ [Hot-Reload CSS] Estilos actualizados en vivo sin reiniciar el servidor.")
+				continue
 			}
 
+			fmt.Printf("\n🔄 [Hot-Reload] Cambio detectado en: %s\n", relPath)
 			stopCurrent()
 
 			if err := startChild(); err != nil {
 				fmt.Printf("❌ [Hot-Reload] Error reiniciando servidor JIT: %v\n", err)
 				return
 			}
-			fmt.Println("✨ [Hot-Reload] Servidor JIT reiniciado con éxito.")
+			if waitForTCPPort(appPort, 30*time.Second) {
+				hrHub.Broadcast("morph")
+				fmt.Println("✨ [Hot-Reload] Vista/lógica aplicada en vivo (DOM morphing sin F5).")
+			} else {
+				fmt.Println("⚠️  [Hot-Reload] El servidor tardó en responder; recarga cuando esté listo.")
+			}
 			fmt.Println()
+		}
+	}
+}
+
+// runScriptWithWatch runs a console/pure Joss script in live-watch mode,
+// automatically re-executing and updating terminal output in-place on file save.
+func runScriptWithWatch(filename string, mode executionMode) {
+	selfExe, err := os.Executable()
+	if err != nil || selfExe == "" {
+		selfExe = "joss"
+	}
+
+	watchRoot := filepath.Dir(filename)
+	if watchRoot == "" {
+		watchRoot = "."
+	}
+
+	runOnce := func(clearScreen bool) {
+		if clearScreen {
+			fmt.Print("\x1b[2J\x1b[H")
+		}
+		args := []string{"run", filename}
+		if mode == executionModeNative {
+			args = append(args, "--native")
+		} else if mode == executionModePrevious {
+			args = append(args, "--anterior")
+		}
+		cmd := exec.Command(selfExe, args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		cmd.Env = append(os.Environ(), "JOSS_WATCH_CHILD=1")
+		_ = cmd.Run()
+	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
+
+	runOnce(false)
+	snapshot := takeWatchSnapshot(watchRoot)
+	ticker := time.NewTicker(150 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-sigChan:
+			fmt.Println("\n[Joss Watch] Detenido.")
+			return
+		case <-ticker.C:
+			_, _, changed := detectWatchChange(watchRoot, snapshot)
+			if !changed {
+				continue
+			}
+			time.Sleep(60 * time.Millisecond)
+			snapshot = takeWatchSnapshot(watchRoot)
+			runOnce(true)
 		}
 	}
 }

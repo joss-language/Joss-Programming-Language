@@ -192,7 +192,7 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.Variables["Plugin"] = &Instance{Class: r.Classes["Plugin"], Fields: make(map[string]interface{})}
 
 	// Cron
-	r.registerNative("Cron", []string{"schedule"}, (*Runtime).executeCronMethod)
+	r.registerNative("Cron", []string{"schedule", "runDue"}, (*Runtime).executeCronMethod)
 	r.Variables["Cron"] = &Instance{Class: r.Classes["Cron"], Fields: make(map[string]interface{})}
 
 	// Task

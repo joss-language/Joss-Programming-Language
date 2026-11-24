@@ -1,17 +1,34 @@
 public class Stack {
-    private array $items = []
+    private array<mixed> $items = []
 
     public func push(mixed $item): void {
-        array_push($this->items, $item)
+        $this->items = array_push($this->items, $item)
     }
 
     public func pop(): mixed {
-        return(count($this->items) == 0) ? null : array_pop($this->items)
+        var $n = count($this->items)
+        ($n == 0) ? {
+            return null
+        } : {
+        }
+        var $last = $this->items [$n - 1]
+        array<mixed> $next = []
+        var $i = 0
+        while ($i < ($n - 1)) {
+            $next = array_push($next, $this->items [$i])
+            $i = $i + 1
+        }
+        $this->items = $next
+        return $last
     }
 
     public func peek(): mixed {
         var $n = count($this->items)
-        return($n == 0) ? null : $this->items [$n - 1]
+        ($n == 0) ? {
+            return null
+        } : {
+        }
+        return $this->items [$n - 1]
     }
 
     public func size(): int {
@@ -24,10 +41,10 @@ public class Stack {
 }
 
 public class Queue {
-    private array $items = []
+    private array<mixed> $items = []
 
     public func enqueue(mixed $item): void {
-        array_push($this->items, $item)
+        $this->items = array_push($this->items, $item)
     }
 
     public func dequeue(): mixed {
@@ -37,10 +54,10 @@ public class Queue {
         } : {
         }
         var $first = $this->items [0]
-        array $next = []
+        array<mixed> $next = []
         var $i = 1
         while ($i < $n) {
-            array_push($next, $this->items [$i])
+            $next = array_push($next, $this->items [$i])
             $i = $i + 1
         }
         $this->items = $next
@@ -48,7 +65,12 @@ public class Queue {
     }
 
     public func peek(): mixed {
-        return(count($this->items) == 0) ? null : $this->items [0]
+        var $n = count($this->items)
+        ($n == 0) ? {
+            return null
+        } : {
+        }
+        return $this->items [0]
     }
 
     public func size(): int {

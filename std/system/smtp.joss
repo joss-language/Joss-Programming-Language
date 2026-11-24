@@ -1,8 +1,1 @@
-// Pure Joss SmtpClient::send implementation (explicitly returns false when SMTP_HOST is not configured).
-public func __joss_host_SmtpClient_send(string $to, string $subject, string $body): bool {
-    string $host = trim(env("SMTP_HOST"))
-    ($host == "") ? {
-        return false
-    }
-    return false
-}
+// SmtpClient::send se resuelve directamente al motor SMTP C11 nativo (fn_SmtpClient_send).

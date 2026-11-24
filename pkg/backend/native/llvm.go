@@ -100,6 +100,13 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare void @joss_map_delete_i64(i8*, i8*)\n")
 	buf.WriteString("declare i8* @joss_box_value(i64, i64)\n")
 	buf.WriteString("declare i64 @joss_unbox_value(i64)\n")
+	buf.WriteString("declare void @joss_closure_env_set(i8*, i8*)\n")
+	buf.WriteString("declare i8* @joss_closure_env_get(i8*)\n")
+	buf.WriteString("declare i8* @joss_closure_alloc(i8*, i8*)\n")
+	buf.WriteString("declare i8* @joss_closure_prepare_call(i8*)\n")
+	buf.WriteString("declare i1 @joss_is_not_null(i64)\n")
+	buf.WriteString("declare i8* @joss_i64_to_str(i64)\n")
+	buf.WriteString("declare i8* @joss_f64_to_string(double)\n")
 	buf.WriteString("declare i8* @joss_buf_new(i64)\n")
 	buf.WriteString("declare void @joss_buf_free(i8*)\n")
 	buf.WriteString("declare i64 @joss_buf_len(i8*)\n")
@@ -140,6 +147,9 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 		"joss_map_new": true, "joss_map_set_i64": true, "joss_map_get_i64": true,
 		"joss_map_set_str": true, "joss_map_get_str": true, "joss_map_delete_i64": true,
 		"joss_box_value": true, "joss_unbox_value": true,
+		"joss_closure_env_set": true, "joss_closure_env_get": true,
+		"joss_closure_alloc": true, "joss_closure_prepare_call": true,
+		"joss_is_not_null": true, "joss_i64_to_str": true, "joss_f64_to_string": true,
 		"joss_buf_new": true, "joss_buf_free": true, "joss_buf_len": true,
 		"joss_buf_get": true, "joss_buf_set": true,
 		"joss_buf_append_byte": true, "joss_buf_append_cstr": true, "joss_buf_to_cstr": true,
@@ -157,38 +167,163 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 		"joss_strlen": "i64", "joss_str_contains": "i1", "joss_str_eq": "i1",
 		"joss_print_i64": "void", "joss_print_f64": "void", "joss_print_bool": "void",
 		"joss_print_string": "void", "joss_print_mixed": "void", "joss_panic": "void",
-		"joss_str_concat": "i8*",
-		"joss_dp_get":     "i1", "joss_dp_put": "void",
+		"joss_str_concat":      "i8*",
+		"joss_closure_env_set": "void", "joss_closure_env_get": "i8*",
+		"joss_closure_alloc": "i8*", "joss_closure_prepare_call": "i8*",
+		"joss_is_not_null": "i1", "joss_i64_to_str": "i8*", "joss_f64_to_string": "i8*",
+		"joss_dp_get": "i1", "joss_dp_put": "void",
 		"joss_async": "i64", "joss_await": "i64",
 		"joss_make_chan": "i64", "joss_send": "void", "joss_recv": "i64", "joss_close": "void",
 	}
 	e.symArgTypes = map[string][]string{
-		"joss_intval":       {"i64"},
-		"joss_abs":          {"i64"},
-		"joss_min":          {"i64", "i64"},
-		"joss_max":          {"i64", "i64"},
-		"joss_strlen":       {"i8*"},
-		"joss_str_contains": {"i8*", "i8*"},
-		"joss_str_eq":       {"i8*", "i8*"},
-		"joss_print_i64":    {"i64"},
-		"joss_print_f64":    {"double"},
-		"joss_print_bool":   {"i1"},
-		"joss_print_string": {"i8*"},
-		"joss_print_mixed":  {"i64"},
-		"joss_panic":        {"i8*"},
-		"joss_str_concat":   {"i8*", "i8*"},
-		"joss_async":        {"i64"},
-		"joss_await":        {"i64"},
-		"joss_make_chan":    {"i64"},
-		"joss_send":         {"i64", "i64"},
-		"joss_recv":         {"i64"},
-		"joss_close":        {"i64"},
+		"joss_intval":               {"i64"},
+		"joss_abs":                  {"i64"},
+		"joss_min":                  {"i64", "i64"},
+		"joss_max":                  {"i64", "i64"},
+		"joss_strlen":               {"i8*"},
+		"joss_str_contains":         {"i8*", "i8*"},
+		"joss_str_eq":               {"i8*", "i8*"},
+		"joss_print_i64":            {"i64"},
+		"joss_print_f64":            {"double"},
+		"joss_print_bool":           {"i1"},
+		"joss_print_string":         {"i8*"},
+		"joss_print_mixed":          {"i64"},
+		"joss_panic":                {"i8*"},
+		"joss_str_concat":           {"i8*", "i8*"},
+		"joss_closure_env_set":      {"i8*", "i8*"},
+		"joss_closure_env_get":      {"i8*"},
+		"joss_closure_alloc":        {"i8*", "i8*"},
+		"joss_closure_prepare_call": {"i8*"},
+		"joss_is_not_null":          {"i64"},
+		"joss_i64_to_str":           {"i64"},
+		"joss_f64_to_string":        {"double"},
+		"joss_async":                {"i64"},
+		"joss_await":                {"i64"},
+		"joss_make_chan":            {"i64"},
+		"joss_send":                 {"i64", "i64"},
+		"joss_recv":                 {"i64"},
+		"joss_close":                {"i64"},
+	}
+
+	knownExternalSigs := map[string]struct {
+		ret  string
+		args []string
+	}{
+		"joss_set_active_session":             {ret: "void", args: []string{"i8*"}},
+		"joss_get_active_session":             {ret: "i8*", args: nil},
+		"joss_get_active_request":             {ret: "i8*", args: nil},
+		"joss_register_plugin_dispatcher":     {ret: "void", args: []string{"i8*"}},
+		"joss___joss_http_dispatch":           {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
+		"joss_router_register_middleware":     {ret: "i64", args: []string{"i8*", "i64"}},
+		"joss_router_list_custom_middlewares": {ret: "i8*", args: nil},
+		"fn_Schema_create":                    {ret: "i64", args: []string{"i8*", "i8*"}},
+		"fn_Schema_table":                     {ret: "i64", args: []string{"i8*", "i8*"}},
+		"fn_Schema_drop":                      {ret: "i64", args: []string{"i8*"}},
+		"fn_Schema_dropIfExists":              {ret: "i64", args: []string{"i8*"}},
+		"fn_Schema_rename":                    {ret: "i64", args: []string{"i8*", "i8*"}},
+		"fn_Schema_hasTable":                  {ret: "i64", args: []string{"i8*"}},
+		"fn_Schema_hasColumn":                 {ret: "i64", args: []string{"i8*", "i8*"}},
+		"fn_Plugin_call":                      {ret: "i64", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_Plugin_path":                      {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Plugin_platform":                  {ret: "i8*", args: nil},
+		"fn_Plugin_stream":                    {ret: "i64", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_System_sleep":                     {ret: "i64", args: []string{"i64"}},
+		"fn_System_env":                       {ret: "i8*", args: []string{"i8*", "i64"}},
+		"fn_System_log":                       {ret: "void", args: []string{"i64"}},
+		"fn_System_now":                       {ret: "i8*", args: []string{"i64"}},
+		"fn_Process_constructor":              {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_Process_start":                    {ret: "i64", args: []string{"i8*"}},
+		"fn_Process_wait":                     {ret: "i64", args: []string{"i8*"}},
+		"fn_Process_kill":                     {ret: "i64", args: []string{"i8*"}},
+		"fn_Process_pid":                      {ret: "i64", args: []string{"i8*"}},
+		"fn_Cron_schedule":                    {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Cron_runDue":                      {ret: "i64", args: nil},
+		"fn_WebSocket_publish":                {ret: "i64", args: []string{"i8*", "i8*"}},
+		"fn_WebSocket_subscriberCount":        {ret: "i64", args: []string{"i8*"}},
+		"fn_Cache_put":                        {ret: "i64", args: []string{"i8*", "i64", "i64"}},
+		"fn_Cache_has":                        {ret: "i64", args: []string{"i8*"}},
+		"fn_Cache_get":                        {ret: "i64", args: []string{"i8*", "i64"}},
+		"fn_Cache_forget":                     {ret: "i64", args: []string{"i8*"}},
+		"fn_Markdown_readFile":                {ret: "i8*", args: []string{"i8*"}},
+		"fn_Markdown_toHtml":                  {ret: "i8*", args: []string{"i8*"}},
+		"fn_Response_json":                    {ret: "i8*", args: []string{"i64", "i64"}},
+		"fn_Response_raw":                     {ret: "i8*", args: []string{"i8*", "i64", "i8*"}},
+		"fn_Response_error":                   {ret: "i8*", args: []string{"i8*", "i64"}},
+		"fn_Response_download":                {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Response_stream":                  {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Response_redirect":                {ret: "i8*", args: []string{"i8*", "i64"}},
+		"fn_Response_back":                    {ret: "i8*", args: nil},
+		"fn_WebResponse_with":                 {ret: "i8*", args: []string{"i8*", "i8*", "i64"}},
+		"fn_WebResponse_withCookie":           {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
+		"with":                                {ret: "i8*", args: []string{"i8*", "i8*", "i64"}},
+		"withCookie":                          {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_Http_request":                     {ret: "i8*", args: []string{"i8*", "i8*", "i8*", "i8*"}},
+		"fn_Http_get":                         {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Http_post":                        {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_Http_json":                        {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_Sitemap_add":                      {ret: "void", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_Sitemap_provider":                 {ret: "i8*", args: []string{"i8*"}},
+		"fn_Sitemap_exclude":                  {ret: "void", args: []string{"i8*"}},
+		"fn_Sitemap_xsl":                      {ret: "i8*", args: nil},
+		"fn_Sitemap_generate":                 {ret: "i8*", args: []string{"i8*"}},
+		"fn_IndexNow_key":                     {ret: "i8*", args: nil},
+		"fn_IndexNow_submit":                  {ret: "i64", args: []string{"i8*"}},
+		"fn_SmtpClient_send":                  {ret: "i64", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_Mail_send":                        {ret: "i64", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_Blueprint_id":                     {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_increments":             {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_integer":                {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_tinyInteger":            {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_smallInteger":           {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_mediumInteger":          {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_bigInteger":             {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_unsignedInteger":        {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_unsignedBigInteger":     {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_float":                  {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_double":                 {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_decimal":                {ret: "i8*", args: []string{"i8*", "i8*", "i64", "i64"}},
+		"fn_Blueprint_char":                   {ret: "i8*", args: []string{"i8*", "i8*", "i64"}},
+		"fn_Blueprint_string":                 {ret: "i8*", args: []string{"i8*", "i8*", "i64"}},
+		"fn_Blueprint_text":                   {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_mediumText":             {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_longText":               {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_date":                   {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_dateTime":               {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_time":                   {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_timestamp":              {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_timestamps":             {ret: "i8*", args: []string{"i8*"}},
+		"fn_Blueprint_softDeletes":            {ret: "i8*", args: []string{"i8*"}},
+		"fn_Blueprint_boolean":                {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_json":                   {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_enum":                   {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_Blueprint_nullable":               {ret: "i8*", args: []string{"i8*"}},
+		"fn_Blueprint_unsigned":               {ret: "i8*", args: []string{"i8*"}},
+		"fn_Blueprint_unique":                 {ret: "i8*", args: []string{"i8*", "i64"}},
+		"fn_Blueprint_default":                {ret: "i8*", args: []string{"i8*", "i64"}},
+		"fn_Blueprint_comment":                {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_dropColumn":             {ret: "i8*", args: []string{"i8*", "i64"}},
+		"fn_Blueprint_renameColumn":           {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_Blueprint_index":                  {ret: "i8*", args: []string{"i8*", "i64", "i8*"}},
+		"fn_Blueprint_uniqueIndex":            {ret: "i8*", args: []string{"i8*", "i64", "i8*"}},
+		"fn_Blueprint_dropIndex":              {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_foreign":                {ret: "i8*", args: []string{"i8*", "i64", "i8*"}},
+		"fn_Blueprint_references":             {ret: "i8*", args: []string{"i8*", "i64"}},
+		"fn_Blueprint_on":                     {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_onDelete":               {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_onUpdate":               {ret: "i8*", args: []string{"i8*", "i8*"}},
+		"fn_Blueprint_dropForeign":            {ret: "i8*", args: []string{"i8*", "i8*"}},
 	}
 
 	// Pre-escanear instrucciones para declarar símbolos C externos, builtins y host services
 	externDecls := make(map[string]string)
 	registerCallDecl := func(sym string, dest *ir.TempValue, retT ir.Type, args []ir.Value, argTypes []ir.Type) {
 		if fixedDecls[sym] || prog.Functions[sym] != nil {
+			return
+		}
+		if known, ok := knownExternalSigs[sym]; ok {
+			e.symRetTypes[sym] = known.ret
+			e.symArgTypes[sym] = append([]string(nil), known.args...)
+			externDecls[sym] = fmt.Sprintf("declare %s @%s(%s)\n", known.ret, sym, strings.Join(known.args, ", "))
 			return
 		}
 		retStr := MapLLVMType(retT)
@@ -261,6 +396,10 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 					if !strings.HasPrefix(rtFunc, "joss_") {
 						rtFunc = "joss_" + rtFunc
 					}
+					if (rtFunc == "joss_to_string" || rtFunc == "joss_strval") && len(ci.Args) == 1 &&
+						(ci.Args[0].Type().Kind == ir.TypeKindBool || ci.Args[0].Type().IsFloat() || ci.Args[0].Type().IsInteger()) {
+						continue
+					}
 					retT := ir.TypeVoid
 					if ci.Dest != nil {
 						retT = ci.Dest.ValueType
@@ -270,10 +409,14 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 					if prog.Functions[ci.BuiltinID] != nil {
 						continue
 					}
-					if ci.BuiltinID == "intval" && len(ci.Args) == 1 && ci.Args[0].Type().IsFloat() {
+					if ci.BuiltinID == "intval" && len(ci.Args) == 1 && (ci.Args[0].Type().IsFloat() || ci.Args[0].Type().IsInteger() || ci.Args[0].Type().Kind == ir.TypeKindBool) {
 						continue
 					}
 					if (ci.BuiltinID == "floatval" || ci.BuiltinID == "decimal") && len(ci.Args) == 1 && (ci.Args[0].Type().IsInteger() || ci.Args[0].Type().IsFloat()) {
+						continue
+					}
+					if (ci.BuiltinID == "strval" || ci.BuiltinID == "to_string") && len(ci.Args) == 1 &&
+						(ci.Args[0].Type().Kind == ir.TypeKindBool || ci.Args[0].Type().IsFloat() || ci.Args[0].Type().IsInteger()) {
 						continue
 					}
 					rtFunc := "joss_" + ci.BuiltinID
@@ -281,32 +424,24 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 					if ci.Dest != nil {
 						retT = ci.Dest.ValueType
 					}
-					args := ci.Args
-					if ci.BuiltinID == "substr" && len(args) == 2 {
-						args = append([]ir.Value{args[0], args[1], ir.NewConstInt(-9223372036854775808, ir.TypeI64)}, args[2:]...)
-					} else if ci.BuiltinID == "env" && len(args) == 1 {
-						args = []ir.Value{args[0], ir.NewConstString("")}
-					} else if (ci.BuiltinID == "request" || ci.BuiltinID == "session" || ci.BuiltinID == "gmdate" || ci.BuiltinID == "date") && len(args) == 1 {
-						args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
-					} else if ci.BuiltinID == "totp_generate" && len(args) == 1 {
-						args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
-					} else if ci.BuiltinID == "totp_verify" && len(args) == 2 {
-						args = []ir.Value{args[0], args[1], ir.NewConstInt(0, ir.TypeI64)}
-					}
+					args := normalizeLLVMBuiltinArgs(ci.BuiltinID, ci.Args)
 					registerCallDecl(rtFunc, ci.Dest, retT, args, nil)
 				case *ir.CallHostServiceInst:
 					fnName := "fn_" + ci.ClassName + "_" + ci.MethodName
+					args := ci.Args
 					if hasJossHostServiceImplementation(prog, ci.ClassName, ci.MethodName) {
 						fnName = jossHostServiceFunctionName(prog, ci.ClassName, ci.MethodName)
 						if prog.Functions[fnName] != nil {
 							continue
 						}
+					} else {
+						args = normalizeLLVMHostServiceArgs(ci.ClassName, ci.MethodName, args)
 					}
 					retT := ir.TypeVoid
 					if ci.Dest != nil {
 						retT = ci.Dest.ValueType
 					}
-					registerCallDecl(fnName, ci.Dest, retT, ci.Args, nil)
+					registerCallDecl(fnName, ci.Dest, retT, args, nil)
 				case *ir.CallPrimitiveMethodInst:
 					rtFunc := resolveLLVMPrimitiveMethodSym(ci.TypeKind, ci.MethodName)
 					retT := ir.TypeVoid
@@ -545,15 +680,14 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		if global == nil {
 			return "", fmt.Errorf("llvm emitter: global no registrada %q", i.GlobalName)
 		}
+		if cleanIdent(i.GlobalName) == "__joss_request_params" {
+			preReq, reqPtr := e.coerceLLVM(i.Val, "i8*", fmt.Sprintf("gst_req_%p", i))
+			return fmt.Sprintf("%scall void @joss_set_active_request(i8* %s)", preReq, reqPtr), nil
+		}
 		name := "@joss_global_" + cleanIdent(i.GlobalName)
 		typeName := MapLLVMType(global.Type)
 		pre, valExpr := e.coerceLLVM(i.Val, typeName, fmt.Sprintf("gst_%p", i))
-		storeLine := fmt.Sprintf("%sstore %s %s, %s* %s, align 8", pre, typeName, valExpr, typeName, name)
-		if cleanIdent(i.GlobalName) == "__joss_request_params" {
-			preReq, reqPtr := e.coerceLLVM(i.Val, "i8*", fmt.Sprintf("gst_req_%p", i))
-			storeLine += fmt.Sprintf("\n\t%scall void @joss_set_active_request(i8* %s)", preReq, reqPtr)
-		}
-		return storeLine, nil
+		return fmt.Sprintf("%sstore %s %s, %s* %s, align 8", pre, typeName, valExpr, typeName, name), nil
 
 	case *ir.MoveInst:
 		destType := MapLLVMType(i.Dest.ValueType)
@@ -645,35 +779,51 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 			argTypes[idx] = MapLLVMType(a.Type())
 		}
 		argsJoined := strings.Join(args, ", ")
-		calleeVal := e.formatValue(i.CalleeVal)
+		preCallee, rawCallee := e.coerceLLVM(i.CalleeVal, "i8*", fmt.Sprintf("callee_%p", i))
+		fnReady := fmt.Sprintf("%%fn_ready_%p", i)
+		prepareLine := fmt.Sprintf("%s = call i8* @joss_closure_prepare_call(i8* %s)\n\t", fnReady, rawCallee)
 		retType := "void"
 		if i.Dest != nil && i.Dest.ValueType.Kind != ir.TypeKindVoid {
 			retType = MapLLVMType(i.Dest.ValueType)
 		}
 		fnPtrType := fmt.Sprintf("%s (%s)*", retType, strings.Join(argTypes, ", "))
 		fnTmp := fmt.Sprintf("%%fnptr_%p", i)
-		srcType := MapLLVMType(i.CalleeVal.Type())
-		castOp := "bitcast"
-		if srcType == "i64" {
-			castOp = "inttoptr"
-		}
-		castLine := fmt.Sprintf("%s = %s %s %s to %s\n\t", fnTmp, castOp, srcType, calleeVal, fnPtrType)
+		castLine := fmt.Sprintf("%s = bitcast i8* %s to %s\n\t", fnTmp, fnReady, fnPtrType)
 		if i.Dest != nil && i.Dest.ValueType.Kind != ir.TypeKindVoid {
-			return fmt.Sprintf("%s%s = call %s %s(%s)", castLine, e.formatValue(i.Dest), retType, fnTmp, argsJoined), nil
+			return fmt.Sprintf("%s%s%s%s = call %s %s(%s)", preCallee, prepareLine, castLine, e.formatValue(i.Dest), retType, fnTmp, argsJoined), nil
 		}
-		return fmt.Sprintf("%scall void %s(%s)", castLine, fnTmp, argsJoined), nil
+		return fmt.Sprintf("%s%s%scall void %s(%s)", preCallee, prepareLine, castLine, fnTmp, argsJoined), nil
 
 	case *ir.CallHostServiceInst:
 		fnName := "fn_" + i.ClassName + "_" + i.MethodName
+		args := i.Args
 		if hasJossHostServiceImplementation(e.program, i.ClassName, i.MethodName) {
 			fnName = jossHostServiceFunctionName(e.program, i.ClassName, i.MethodName)
+		} else {
+			args = normalizeLLVMHostServiceArgs(i.ClassName, i.MethodName, args)
 		}
-		return e.emitDirectCall(fnName, i.Dest, i.Args, fmt.Sprintf("ch_%p", i)), nil
+		return e.emitDirectCall(fnName, i.Dest, args, fmt.Sprintf("ch_%p", i)), nil
 
 	case *ir.CallRuntimeInst:
 		rtFunc := i.Func
 		if !strings.HasPrefix(rtFunc, "joss_") {
 			rtFunc = "joss_" + rtFunc
+		}
+		if (rtFunc == "joss_to_string" || rtFunc == "joss_strval") && len(i.Args) == 1 {
+			if i.Args[0].Type().Kind == ir.TypeKindBool && i.Dest != nil {
+				pre, bStr := e.coerceLLVM(i.Args[0], "i1", fmt.Sprintf("tsb_%p", i))
+				tSym := e.registerString("true")
+				fSym := e.registerString("false")
+				tPtr := fmt.Sprintf("getelementptr inbounds ([5 x i8], [5 x i8]* %s, i64 0, i64 0)", tSym)
+				fPtr := fmt.Sprintf("getelementptr inbounds ([6 x i8], [6 x i8]* %s, i64 0, i64 0)", fSym)
+				return fmt.Sprintf("%s%s = select i1 %s, i8* %s, i8* %s", pre, e.formatValue(i.Dest), bStr, tPtr, fPtr), nil
+			}
+			if i.Args[0].Type().IsFloat() {
+				return e.emitDirectCall("joss_f64_to_string", i.Dest, i.Args, fmt.Sprintf("tsf_%p", i)), nil
+			}
+			if i.Args[0].Type().IsInteger() {
+				return e.emitDirectCall("joss_i64_to_str", i.Dest, i.Args, fmt.Sprintf("tsi_%p", i)), nil
+			}
 		}
 		if rtFunc == "joss_buf_append_byte" && len(i.Args) == 2 {
 			bTemp := fmt.Sprintf("%%bufapp_u8_%p", i)
@@ -686,9 +836,15 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		if e.program.Functions[i.BuiltinID] != nil {
 			return e.emitDirectCall(i.BuiltinID, i.Dest, i.Args, fmt.Sprintf("cb_%p", i)), nil
 		}
-		if i.BuiltinID == "intval" && len(i.Args) == 1 && i.Args[0].Type().IsFloat() && i.Dest != nil {
-			pre, vStr := e.coerceLLVM(i.Args[0], "double", fmt.Sprintf("ivf_%p", i))
-			return fmt.Sprintf("%s%s = fptosi double %s to i64", pre, e.formatValue(i.Dest), vStr), nil
+		if i.BuiltinID == "intval" && len(i.Args) == 1 && i.Dest != nil {
+			if i.Args[0].Type().IsFloat() {
+				pre, vStr := e.coerceLLVM(i.Args[0], "double", fmt.Sprintf("ivf_%p", i))
+				return fmt.Sprintf("%s%s = fptosi double %s to i64", pre, e.formatValue(i.Dest), vStr), nil
+			}
+			if i.Args[0].Type().IsInteger() || i.Args[0].Type().Kind == ir.TypeKindBool {
+				pre, vStr := e.coerceLLVM(i.Args[0], "i64", fmt.Sprintf("ivi_%p", i))
+				return fmt.Sprintf("%s%s = add i64 %s, 0", pre, e.formatValue(i.Dest), vStr), nil
+			}
 		}
 		if (i.BuiltinID == "floatval" || i.BuiltinID == "decimal") && len(i.Args) == 1 && i.Dest != nil {
 			if i.Args[0].Type().IsInteger() {
@@ -700,18 +856,23 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 				return fmt.Sprintf("%s%s = fadd double %s, 0.0", pre, e.formatValue(i.Dest), vStr), nil
 			}
 		}
-		args := i.Args
-		if i.BuiltinID == "substr" && len(args) == 2 {
-			args = []ir.Value{args[0], args[1], ir.NewConstInt(-9223372036854775808, ir.TypeI64)}
-		} else if i.BuiltinID == "env" && len(args) == 1 {
-			args = []ir.Value{args[0], ir.NewConstString("")}
-		} else if (i.BuiltinID == "request" || i.BuiltinID == "session" || i.BuiltinID == "gmdate" || i.BuiltinID == "date") && len(args) == 1 {
-			args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
-		} else if i.BuiltinID == "totp_generate" && len(args) == 1 {
-			args = []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
-		} else if i.BuiltinID == "totp_verify" && len(args) == 2 {
-			args = []ir.Value{args[0], args[1], ir.NewConstInt(0, ir.TypeI64)}
+		if (i.BuiltinID == "strval" || i.BuiltinID == "to_string") && len(i.Args) == 1 {
+			if i.Args[0].Type().Kind == ir.TypeKindBool && i.Dest != nil {
+				pre, bStr := e.coerceLLVM(i.Args[0], "i1", fmt.Sprintf("svb_%p", i))
+				tSym := e.registerString("true")
+				fSym := e.registerString("false")
+				tPtr := fmt.Sprintf("getelementptr inbounds ([5 x i8], [5 x i8]* %s, i64 0, i64 0)", tSym)
+				fPtr := fmt.Sprintf("getelementptr inbounds ([6 x i8], [6 x i8]* %s, i64 0, i64 0)", fSym)
+				return fmt.Sprintf("%s%s = select i1 %s, i8* %s, i8* %s", pre, e.formatValue(i.Dest), bStr, tPtr, fPtr), nil
+			}
+			if i.Args[0].Type().IsFloat() {
+				return e.emitDirectCall("joss_f64_to_string", i.Dest, i.Args, fmt.Sprintf("svf_%p", i)), nil
+			}
+			if i.Args[0].Type().IsInteger() {
+				return e.emitDirectCall("joss_i64_to_str", i.Dest, i.Args, fmt.Sprintf("svi_%p", i)), nil
+			}
 		}
+		args := normalizeLLVMBuiltinArgs(i.BuiltinID, i.Args)
 		return e.emitDirectCall("joss_"+i.BuiltinID, i.Dest, args, fmt.Sprintf("cb_%p", i)), nil
 
 	case *ir.CallPrimitiveMethodInst:
@@ -810,11 +971,19 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		if i.Dest.Type().Kind == ir.TypeKindString {
 			return fmt.Sprintf("%s%s%s = call i8* @joss_map_get_str(i8* %s, i8* %s)", preM, preK, destVal, mapVal, keyVal), nil
 		}
+		if i.Dest.Type().Kind == ir.TypeKindBool {
+			raw := fmt.Sprintf("%%mgraw_%p", i)
+			return fmt.Sprintf("%s%s%s = call i64 @joss_map_get_i64(i8* %s, i8* %s)\n\t%s = call i1 @joss_is_truthy(i64 %s)", preM, preK, raw, mapVal, keyVal, destVal, raw), nil
+		}
 		destLLVM := MapLLVMType(i.Dest.Type())
 		if destLLVM != "i64" {
 			raw := fmt.Sprintf("%%mgraw_%p", i)
 			conv := e.emitDirectCast("i64", raw, destLLVM, destVal)
 			return fmt.Sprintf("%s%s%s = call i64 @joss_map_get_i64(i8* %s, i8* %s)\n\t%s", preM, preK, raw, mapVal, keyVal, conv), nil
+		}
+		if i.Dest.Type().Kind == ir.TypeKindI64 {
+			raw := fmt.Sprintf("%%mgraw_%p", i)
+			return fmt.Sprintf("%s%s%s = call i64 @joss_map_get_i64(i8* %s, i8* %s)\n\t%s = call i64 @joss_unbox_value(i64 %s)", preM, preK, raw, mapVal, keyVal, destVal, raw), nil
 		}
 		return fmt.Sprintf("%s%s%s = call i64 @joss_map_get_i64(i8* %s, i8* %s)", preM, preK, destVal, mapVal, keyVal), nil
 
@@ -962,6 +1131,29 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		tryLbl := "joss_try_" + id
 		catchLbl := "joss_catch_" + id
 		endLbl := "joss_try_end_" + id
+		var collectTargets func([]*ir.BasicBlock, map[string]bool)
+		collectTargets = func(blocks []*ir.BasicBlock, out map[string]bool) {
+			for _, b := range blocks {
+				for _, sub := range b.Instructions {
+					if nested, ok := sub.(*ir.TryCatchInst); ok {
+						collectTargets(nested.TryBlocks, out)
+						collectTargets(nested.CatchBlocks, out)
+					}
+				}
+				if b.Terminator != nil {
+					for _, succ := range b.Terminator.Successors() {
+						if succ != nil {
+							out[succ.Label] = true
+						}
+					}
+				}
+			}
+		}
+		tryTargets := make(map[string]bool)
+		collectTargets(i.TryBlocks, tryTargets)
+		catchTargets := make(map[string]bool)
+		collectTargets(i.CatchBlocks, catchTargets)
+
 		var lines []string
 		lines = append(lines, fmt.Sprintf("%%jb_%s = call i8* @joss_try_push()", id))
 		if e.TargetOS == "windows" {
@@ -972,12 +1164,20 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		lines = append(lines, fmt.Sprintf("%%isc_%s = icmp ne i32 %%sj_%s, 0", id, id))
 		lines = append(lines, fmt.Sprintf("br i1 %%isc_%s, label %%%s, label %%%s", id, catchLbl, tryLbl))
 		lines = append(lines, tryLbl+":")
+		if len(i.TryBlocks) > 0 && tryTargets[i.TryBlocks[0].Label] {
+			lines = append(lines, "\tbr label %"+i.TryBlocks[0].Label)
+		}
 		lastTryHasTerm := false
 		for bi, tb := range i.TryBlocks {
 			if bi > 0 {
+				if lastTryHasTerm && !tryTargets[tb.Label] {
+					continue
+				}
 				if !lastTryHasTerm {
 					lines = append(lines, "\tbr label %"+tb.Label)
 				}
+				lines = append(lines, tb.Label+":")
+			} else if tryTargets[tb.Label] {
 				lines = append(lines, tb.Label+":")
 			}
 			lastTryHasTerm = false
@@ -1017,12 +1217,20 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 				lines = append(lines, fmt.Sprintf("\tstore i64 %%cmsg_i64_%s, i64* %s, align 8", id, ptrStr))
 			}
 		}
+		if len(i.CatchBlocks) > 0 && catchTargets[i.CatchBlocks[0].Label] {
+			lines = append(lines, "\tbr label %"+i.CatchBlocks[0].Label)
+		}
 		lastCatchHasTerm := false
 		for bi, cb := range i.CatchBlocks {
 			if bi > 0 {
+				if lastCatchHasTerm && !catchTargets[cb.Label] {
+					continue
+				}
 				if !lastCatchHasTerm {
 					lines = append(lines, "\tbr label %"+cb.Label)
 				}
+				lines = append(lines, cb.Label+":")
+			} else if catchTargets[cb.Label] {
 				lines = append(lines, cb.Label+":")
 			}
 			lastCatchHasTerm = false
@@ -1121,7 +1329,16 @@ func (e *LLVMEmitter) formatValue(val ir.Value) string {
 		_, length := formatLLVMStringLiteral(v.Val)
 		return fmt.Sprintf("getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0)", length, length, sym)
 	case *ir.ConstNull:
-		return "null"
+		switch MapLLVMType(v.ValueType) {
+		case "i8*":
+			return "null"
+		case "double":
+			return "0.0"
+		case "i1":
+			return "false"
+		default:
+			return "0"
+		}
 	case *ir.GlobalValue:
 		if e.program != nil {
 			if _, ok := e.program.Globals[v.Name]; ok {
@@ -1283,6 +1500,150 @@ func normalizePrimitiveMethodArgs(methodName string, args []ir.Value) []ir.Value
 	return args
 }
 
+func normalizeLLVMBuiltinArgs(builtinID string, args []ir.Value) []ir.Value {
+	switch builtinID {
+	case "rand":
+		if len(args) == 0 {
+			return []ir.Value{ir.NewConstInt(0, ir.TypeI64), ir.NewConstInt(2147483647, ir.TypeI64)}
+		}
+		if len(args) == 1 {
+			return []ir.Value{ir.NewConstInt(0, ir.TypeI64), args[0]}
+		}
+	case "substr":
+		if len(args) == 2 {
+			return append([]ir.Value{args[0], args[1], ir.NewConstInt(-9223372036854775808, ir.TypeI64)}, args[2:]...)
+		}
+	case "env":
+		if len(args) == 1 {
+			return []ir.Value{args[0], ir.NewConstString("")}
+		}
+	case "request", "session", "gmdate", "date", "totp_generate":
+		if len(args) == 1 {
+			return []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
+		}
+	case "totp_verify":
+		if len(args) == 2 {
+			return []ir.Value{args[0], args[1], ir.NewConstInt(0, ir.TypeI64)}
+		}
+	case "json":
+		if len(args) == 1 {
+			return []ir.Value{args[0], ir.NewConstInt(200, ir.TypeI64)}
+		}
+	case "redirect":
+		if len(args) == 1 {
+			return []ir.Value{args[0], ir.NewConstInt(302, ir.TypeI64)}
+		}
+	case "view":
+		if len(args) == 1 {
+			return []ir.Value{args[0], ir.NewConstNull(ir.PtrType(ir.TypeVoid))}
+		}
+	case "response":
+		if len(args) == 1 {
+			return []ir.Value{args[0], ir.NewConstInt(200, ir.TypeI64), ir.NewConstString("text/html; charset=utf-8")}
+		}
+		if len(args) == 2 {
+			return []ir.Value{args[0], args[1], ir.NewConstString("text/html; charset=utf-8")}
+		}
+	}
+	return args
+}
+
+func normalizeLLVMHostServiceArgs(className, methodName string, args []ir.Value) []ir.Value {
+	switch className {
+	case "Response":
+		switch methodName {
+		case "json":
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstInt(200, ir.TypeI64)}
+			}
+		case "raw":
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstInt(200, ir.TypeI64), ir.NewConstString("text/html; charset=utf-8")}
+			}
+			if len(args) == 2 {
+				return []ir.Value{args[0], args[1], ir.NewConstString("text/html; charset=utf-8")}
+			}
+		case "error":
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstInt(500, ir.TypeI64)}
+			}
+		case "download":
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstString("")}
+			}
+		case "stream":
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstString("application/octet-stream")}
+			}
+		case "redirect":
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstInt(302, ir.TypeI64)}
+			}
+		}
+	case "Plugin":
+		switch methodName {
+		case "call", "stream":
+			if len(args) == 2 {
+				return []ir.Value{args[0], args[1], ir.NewConstNull(ir.PtrType(ir.TypeVoid))}
+			}
+		case "path":
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstString("")}
+			}
+		}
+	case "System":
+		switch methodName {
+		case "env":
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
+			}
+		case "now":
+			if len(args) == 0 {
+				return []ir.Value{ir.NewConstInt(0, ir.TypeI64)}
+			}
+		}
+	case "Process":
+		if methodName == "constructor" && len(args) == 2 {
+			return []ir.Value{args[0], args[1], ir.NewConstNull(ir.PtrType(ir.TypeVoid))}
+		}
+	case "Sitemap":
+		if methodName == "add" {
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstNull(ir.TypeString), ir.NewConstNull(ir.TypeString)}
+			}
+			if len(args) == 2 {
+				return []ir.Value{args[0], args[1], ir.NewConstNull(ir.TypeString)}
+			}
+		}
+	case "Http":
+		switch methodName {
+		case "get":
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstNull(ir.PtrType(ir.TypeVoid))}
+			}
+		case "post", "json":
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstString(""), ir.NewConstNull(ir.PtrType(ir.TypeVoid))}
+			}
+			if len(args) == 2 {
+				return []ir.Value{args[0], args[1], ir.NewConstNull(ir.PtrType(ir.TypeVoid))}
+			}
+		case "request":
+			if len(args) == 2 {
+				return []ir.Value{args[0], args[1], ir.NewConstString(""), ir.NewConstNull(ir.PtrType(ir.TypeVoid))}
+			}
+			if len(args) == 3 {
+				return []ir.Value{args[0], args[1], args[2], ir.NewConstNull(ir.PtrType(ir.TypeVoid))}
+			}
+		}
+	case "Cache":
+		if methodName == "get" && len(args) == 1 {
+			return []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
+		}
+	}
+	return args
+}
+
 func (e *LLVMEmitter) coerceLLVM(val ir.Value, targetLLVM string, tag string) (string, string) {
 	if val == nil {
 		if targetLLVM == "i8*" {
@@ -1295,6 +1656,18 @@ func (e *LLVMEmitter) coerceLLVM(val ir.Value, targetLLVM string, tag string) (s
 			return "", "false"
 		}
 		return "", "0"
+	}
+	if _, ok := val.(*ir.ConstNull); ok {
+		switch targetLLVM {
+		case "i8*":
+			return "", "null"
+		case "double":
+			return "", "0.0"
+		case "i1":
+			return "", "false"
+		default:
+			return "", "0"
+		}
 	}
 	if cfp, ok := val.(*ir.ConstFnPtr); ok {
 		fn := e.program.Functions[cfp.FnName]
@@ -1341,6 +1714,14 @@ func (e *LLVMEmitter) coerceLLVM(val ir.Value, targetLLVM string, tag string) (s
 		return fmt.Sprintf("%s = icmp ne i8* %s, null\n\t", tmp, valStr), tmp
 	case srcLLVM == "i1" && targetLLVM == "i8*":
 		return fmt.Sprintf("%s_z = zext i1 %s to i64\n\t%s = inttoptr i64 %s_z to i8*\n\t", tmp, valStr, tmp, tmp), tmp
+	case srcLLVM == "float" && targetLLVM == "double":
+		return fmt.Sprintf("%s = fpext float %s to double\n\t", tmp, valStr), tmp
+	case (srcLLVM == "i8" || srcLLVM == "i16" || srcLLVM == "i32") && targetLLVM == "i64":
+		extOp := "sext"
+		if val.Type().Kind == ir.TypeKindU8 || val.Type().Kind == ir.TypeKindU16 || val.Type().Kind == ir.TypeKindU32 {
+			extOp = "zext"
+		}
+		return fmt.Sprintf("%s = %s %s %s to i64\n\t", tmp, extOp, srcLLVM, valStr), tmp
 	}
 	return "", valStr
 }
@@ -1440,7 +1821,19 @@ func (e *LLVMEmitter) emitDirectCall(sym string, dest *ir.TempValue, args []ir.V
 			callRetLLVM = e.symRetTypes[sym]
 		}
 		if callRetLLVM == "void" {
-			return fmt.Sprintf("%scall void %s@%s(%s)", pre.String(), sigPrefix, sym, argsJoined)
+			destName := e.formatValue(dest)
+			zeroAssign := ""
+			switch destLLVM {
+			case "i8*":
+				zeroAssign = fmt.Sprintf("\n\t%s = bitcast i8* null to i8*", destName)
+			case "double":
+				zeroAssign = fmt.Sprintf("\n\t%s = fadd double 0.0, 0.0", destName)
+			case "i1":
+				zeroAssign = fmt.Sprintf("\n\t%s = icmp ne i64 0, 0", destName)
+			default:
+				zeroAssign = fmt.Sprintf("\n\t%s = add %s 0, 0", destName, destLLVM)
+			}
+			return fmt.Sprintf("%scall void %s@%s(%s)%s", pre.String(), sigPrefix, sym, argsJoined, zeroAssign)
 		}
 		if callRetLLVM != destLLVM {
 			rawTmp := fmt.Sprintf("%%raw_%s", tag)

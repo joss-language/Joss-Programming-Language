@@ -41,6 +41,8 @@ func compileStyles() {
 		// 2. Replace complete variable tokens. Replacing map keys one by one
 		// corrupts names that share a prefix, such as $text and $text-dim.
 		content = replaceSCSSVariables(content, vars)
+		// 3. Strip standalone SCSS single-line comments (// ...) without touching URLs
+		content = stripSCSSLineComments(content)
 		// Optimize CSS (Purge Unused)
 		// content = optimizeCSS(content) // DISABLED: Moving to Dynamic Runtime Delivery
 
@@ -52,6 +54,11 @@ func compileStyles() {
 }
 
 var scssVariableReference = regexp.MustCompile(`\$[a-zA-Z0-9_-]+`)
+var scssStandaloneLineComment = regexp.MustCompile(`(?m)^[ \t]*//[^\r\n]*\r?\n?`)
+
+func stripSCSSLineComments(content string) string {
+	return scssStandaloneLineComment.ReplaceAllString(content, "")
+}
 
 func replaceSCSSVariables(content string, variables map[string]string) string {
 	return scssVariableReference.ReplaceAllStringFunc(content, func(name string) string {

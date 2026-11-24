@@ -37,12 +37,27 @@ func writeExecutionResult(w http.ResponseWriter, request *http.Request, runtime 
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		}
 		_, _ = w.Write([]byte(text))
-		if strings.Contains(w.Header().Get("Content-Type"), "text/html") {
+		if strings.Contains(w.Header().Get("Content-Type"), "text/html") && isHotReloadEnabled(runtime) {
 			_, _ = fmt.Fprint(w, getHotReloadScript())
 		}
 		return true
 	}
 	return false
+}
+
+func isHotReloadEnabled(runtime *core.Runtime) bool {
+	if GlobalFileSystem != nil {
+		return false
+	}
+	if strings.EqualFold(os.Getenv("APP_ENV"), "production") || os.Getenv("DISABLE_WATCHDOG") == "true" {
+		return false
+	}
+	if runtime != nil && runtime.Env != nil {
+		if strings.EqualFold(runtime.Env["APP_ENV"], "production") || runtime.Env["DISABLE_WATCHDOG"] == "true" {
+			return false
+		}
+	}
+	return true
 }
 
 func writeResponseFields(w http.ResponseWriter, request *http.Request, runtime *core.Runtime, fields map[string]interface{}, session responseSession, instance bool) bool {

@@ -1,15 +1,34 @@
 package core
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
+	"mime"
+	"mime/multipart"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
+)
+
+type coreRateBucket struct {
+	windowStart time.Time
+	count       int64
+}
+
+var (
+	coreRateMu      sync.Mutex
+	coreRateBuckets = make(map[string]coreRateBucket)
+	coreSessMu      sync.Mutex
+	coreSessStore   = make(map[string]map[string]interface{})
 )
 
 // appendNativeHTTPHeader inserts a transport header without interpreting the
@@ -116,6 +135,289 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 			}
 		}
 		return "", true
+
+	case "__joss_socket_peer_ip":
+		if len(args) >= 1 {
+			if inst, ok := args[0].(*Instance); ok && inst != nil {
+				if conn, okC := inst.Fields["_conn"].(net.Conn); okC && conn != nil && conn.RemoteAddr() != nil {
+					host, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+					if err == nil && host != "" {
+						return host, true
+					}
+					return conn.RemoteAddr().String(), true
+				}
+			}
+		}
+		return "127.0.0.1", true
+
+	case "__joss_http_read_request":
+		if len(args) >= 1 {
+			if inst, ok := args[0].(*Instance); ok && inst != nil {
+				var chunks bytes.Buffer
+				for i := 0; i < 64; i++ {
+					part, _ := r.executeSocketMethod(inst, "receive", []interface{}{int64(65536)}).(string)
+					if part == "" {
+						break
+					}
+					chunks.WriteString(part)
+					rawStr := chunks.String()
+					if idx := strings.Index(rawStr, "\r\n\r\n"); idx >= 0 {
+						cl := 0
+						for _, line := range strings.Split(rawStr[:idx], "\r\n") {
+							if strings.HasPrefix(strings.ToLower(line), "content-length:") {
+								cl, _ = strconv.Atoi(strings.TrimSpace(line[len("content-length:"):]))
+							}
+						}
+						if len(rawStr) >= idx+4+cl {
+							break
+						}
+					}
+				}
+				return chunks.String(), true
+			}
+		}
+		return "", true
+
+	case "__joss_http_serve_concurrent":
+		if len(args) >= 2 {
+			if srvInst, ok := args[0].(*Instance); ok && srvInst != nil {
+				handlerFn := args[1]
+				for {
+					client := r.executeSocketMethod(srvInst, "accept", nil)
+					if client == nil {
+						break
+					}
+					go func(c interface{}) {
+						fork := r.Fork()
+						defer fork.Free()
+						fork.applyFunction(handlerFn, []interface{}{c})
+					}(client)
+				}
+			}
+		}
+		return nil, true
+
+	case "__joss_http_parse_multipart":
+		if len(args) >= 2 {
+			rawStr, _ := args[0].(string)
+			reqMap, ok := args[1].(map[string]interface{})
+			if ok && rawStr != "" {
+				if idx := strings.Index(rawStr, "\r\n\r\n"); idx >= 0 {
+					ct := ""
+					for _, line := range strings.Split(rawStr[:idx], "\r\n") {
+						if strings.HasPrefix(strings.ToLower(line), "content-type:") {
+							ct = strings.TrimSpace(line[len("content-type:"):])
+						}
+					}
+					if _, params, err := mime.ParseMediaType(ct); err == nil && params["boundary"] != "" {
+						mr := multipart.NewReader(strings.NewReader(rawStr[idx+4:]), params["boundary"])
+						files := map[string]interface{}{}
+						for {
+							p, pErr := mr.NextPart()
+							if pErr != nil {
+								break
+							}
+							b, _ := io.ReadAll(io.LimitReader(p, 32<<20))
+							_ = p.Close()
+							if p.FileName() != "" {
+								tmpF, tErr := os.CreateTemp("", "joss_up_*")
+								tmpPath := ""
+								if tErr == nil {
+									_, _ = tmpF.Write(b)
+									tmpPath = tmpF.Name()
+									_ = tmpF.Close()
+								}
+								files[p.FormName()] = map[string]interface{}{
+									"name":     p.FileName(),
+									"path":     tmpPath,
+									"tmp_name": tmpPath,
+									"type":     p.Header.Get("Content-Type"),
+									"size":     int64(len(b)),
+									"content":  string(b),
+									"error":    int64(0),
+								}
+							} else if p.FormName() != "" {
+								reqMap[p.FormName()] = string(b)
+							}
+						}
+						reqMap["_files"] = files
+					}
+				}
+			}
+		}
+		return nil, true
+
+	case "__joss_rate_limit_check":
+		if len(args) < 3 {
+			return int64(0), true
+		}
+		ip := fmt.Sprintf("%v", args[0])
+		maxReq := toInt64(args[1])
+		winSec := toInt64(args[2])
+		if maxReq <= 0 {
+			maxReq = 60
+		}
+		if winSec <= 0 {
+			winSec = 60
+		}
+		now := time.Now()
+		coreRateMu.Lock()
+		b, exists := coreRateBuckets[ip]
+		if !exists || now.Sub(b.windowStart) > time.Duration(winSec)*time.Second {
+			b = coreRateBucket{windowStart: now, count: 0}
+		}
+		b.count++
+		coreRateBuckets[ip] = b
+		coreRateMu.Unlock()
+		if b.count > maxReq {
+			return -winSec, true
+		}
+		return maxReq - b.count, true
+
+	case "__joss_http_check_middleware":
+		if len(args) < 3 {
+			return "", true
+		}
+		mwSpec := fmt.Sprintf("%v", args[0])
+		reqData, _ := args[1].(map[string]interface{})
+		sessData, _ := args[2].(map[string]interface{})
+		for _, rawMW := range strings.Split(mwSpec, "\n") {
+			mw := strings.TrimSpace(rawMW)
+			switch {
+			case strings.HasPrefix(mw, "throttle:"):
+				spec := strings.TrimPrefix(mw, "throttle:")
+				parts := strings.Split(spec, ",")
+				maxReq := int64(60)
+				winSec := int64(60)
+				if len(parts) >= 1 {
+					if v, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64); err == nil && v > 0 {
+						maxReq = v
+					}
+				}
+				if len(parts) >= 2 {
+					if v, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64); err == nil && v > 0 {
+						winSec = v
+					}
+				}
+				ip := fmt.Sprintf("%v", reqData["_ip"])
+				if ip == "" || ip == "<nil>" {
+					ip = "127.0.0.1"
+				}
+				rem, _ := r.callBuiltinIO("__joss_rate_limit_check", []interface{}{ip, maxReq, winSec})
+				if toInt64(rem) < 0 {
+					return fmt.Sprintf("HTTP/1.1 429 Too Many Requests\r\nContent-Type: text/html; charset=utf-8\r\nRetry-After: %d\r\nConnection: close\r\n\r\n<h1>429 Too Many Requests</h1>", winSec), true
+				}
+			case mw == "auth":
+				if toInt64(sessData["user_id"]) <= 0 {
+					return "HTTP/1.1 302 Found\r\nLocation: /login\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", true
+				}
+			case mw == "guest":
+				if toInt64(sessData["user_id"]) > 0 {
+					return "HTTP/1.1 302 Found\r\nLocation: /dashboard\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", true
+				}
+			case mw == "admin":
+				if fmt.Sprintf("%v", sessData["user_role"]) != "admin" {
+					return "HTTP/1.1 302 Found\r\nLocation: /\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", true
+				}
+			case mw == "auth_api":
+				tok := ""
+				if hdrs, ok := reqData["_headers"].(map[string]interface{}); ok {
+					for k, v := range hdrs {
+						if strings.EqualFold(k, "authorization") {
+							tok = strings.TrimPrefix(fmt.Sprintf("%v", v), "Bearer ")
+						}
+					}
+				}
+				if tok == "" {
+					if cks, ok := reqData["_cookies"].(map[string]interface{}); ok {
+						if v, okC := cks["joss_token"].(string); okC {
+							tok = v
+						}
+					}
+				}
+				if tok == "" {
+					if ut, okU := sessData["user_token"].(string); okU {
+						tok = ut
+					}
+				}
+				if tok == "" {
+					return "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json; charset=utf-8\r\nConnection: close\r\n\r\n{\"error\":\"Unauthorized: Missing Token\"}", true
+				}
+				claims, valid := r.ValidateJWT(tok)
+				if !valid {
+					return "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json; charset=utf-8\r\nConnection: close\r\n\r\n{\"error\":\"Unauthorized: Invalid Token\"}", true
+				}
+				sessData["user_id"] = claimUserID(claims["user_id"])
+				sessData["user_email"] = claims["email"]
+				sessData["user_name"] = claims["name"]
+				sessData["user_role"] = claims["role"]
+			}
+		}
+		return "", true
+
+	case "__joss_session_load":
+		if len(args) < 1 {
+			return map[string]interface{}{}, true
+		}
+		sid := fmt.Sprintf("%v", args[0])
+		coreSessMu.Lock()
+		src := coreSessStore[sid]
+		out := make(map[string]interface{}, len(src))
+		for k, v := range src {
+			out[k] = v
+		}
+		coreSessMu.Unlock()
+		return out, true
+
+	case "__joss_session_save":
+		if len(args) < 2 {
+			return int64(0), true
+		}
+		sid := fmt.Sprintf("%v", args[0])
+		data, _ := args[1].(map[string]interface{})
+		cp := make(map[string]interface{}, len(data))
+		for k, v := range data {
+			cp[k] = v
+		}
+		coreSessMu.Lock()
+		coreSessStore[sid] = cp
+		coreSessMu.Unlock()
+		return int64(1), true
+
+	case "__joss_session_destroy":
+		if len(args) >= 1 {
+			sid := fmt.Sprintf("%v", args[0])
+			coreSessMu.Lock()
+			delete(coreSessStore, sid)
+			coreSessMu.Unlock()
+		}
+		return int64(1), true
+
+	case "__joss_session_last_error":
+		return "", true
+
+	case "__joss_http_inject_header":
+		if len(args) >= 2 {
+			respStr := fmt.Sprintf("%v", args[0])
+			hdr := fmt.Sprintf("%v", args[1])
+			if hdr != "" && strings.HasPrefix(respStr, "HTTP/") && !strings.Contains(respStr, "joss_session=") {
+				return appendNativeHTTPHeader(respStr, hdr), true
+			}
+			return args[0], true
+		}
+		if len(args) == 1 {
+			return args[0], true
+		}
+		return "", true
+
+	case "__joss_jwt_parse_verified":
+		if len(args) >= 1 {
+			claims, valid := r.parseJWT(fmt.Sprintf("%v", args[0]))
+			if valid && claims != nil {
+				return claims, true
+			}
+		}
+		return map[string]interface{}{}, true
 
 	case "json":
 		return r.executeResponseMethod(nil, "json", args), true

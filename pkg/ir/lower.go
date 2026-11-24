@@ -2,6 +2,7 @@ package ir
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/jossecurity/joss/pkg/analyzer"
@@ -11,20 +12,29 @@ import (
 )
 
 // Lowerer es el compilador que transforma un PreparedProgram del analizador semántico en Joss Native IR.
+type pendingVirtualMethod struct {
+	className string
+	method    *parser.MethodStatement
+}
+
 type Lowerer struct {
-	prep           *analyzer.PreparedProgram
-	reachGraph     *analyzer.ReachabilityGraph
-	currentFn      *Function
-	currBlock      *BasicBlock
-	prog           *Program
-	varLocals      map[string]Value // Mapea variables a sus punteros locales (alloca)
-	externDecls    map[string]externDecl
-	viewDataParam  Value // Parámetro $__data activo al compilar vistas .joss.html a IR
-	loopStack      []loopContext
-	tryCatchCount  int
-	closureCounter int
-	foreachCounter int
-	OptLevel       int
+	prep                  *analyzer.PreparedProgram
+	reachGraph            *analyzer.ReachabilityGraph
+	currentFn             *Function
+	currBlock             *BasicBlock
+	prog                  *Program
+	varLocals             map[string]Value // Mapea variables a sus punteros locales (alloca)
+	externDecls           map[string]externDecl
+	viewDataParam         Value // Parámetro $__data activo al compilar vistas .joss.html a IR
+	loopStack             []loopContext
+	tryCatchCount         int
+	closureCounter        int
+	foreachCounter        int
+	OptLevel              int
+	activeClosureCaptured map[string]bool
+	activeClosureEnvMap   Value
+	pendingVirtualMethods []pendingVirtualMethod
+	currentFnStmts        []parser.Statement
 }
 
 type externDecl struct {
@@ -188,6 +198,9 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 	if err := l.lowerProjectViewsAndRoutes(); err != nil {
 		return nil, err
 	}
+	if err := l.flushPendingVirtualMethods(); err != nil {
+		return nil, err
+	}
 	l.lowerGenericCollectionBuiltins()
 	l.lowerRequestSessionContext()
 	l.lowerRequestSEOContext()
@@ -238,6 +251,9 @@ func (l *Lowerer) synthesizeMainFunction(stmts []parser.Statement) error {
 	l.currentFn = mainFn
 	l.currBlock = mainFn.EntryBlock
 	l.varLocals = make(map[string]Value)
+	savedStmts := l.currentFnStmts
+	l.currentFnStmts = stmts
+	defer func() { l.currentFnStmts = savedStmts }()
 
 	for _, stmt := range stmts {
 		switch stmt.(type) {
@@ -260,11 +276,18 @@ func (l *Lowerer) synthesizeMainFunction(stmts []parser.Statement) error {
 }
 
 func (l *Lowerer) lowerMethod(stmt *parser.MethodStatement) error {
-	retType := l.mapType(stmt.ReturnType.Literal)
+	retType := l.inferMethodReturnType(stmt)
 	fn := NewFunction(stmt.Name.Value, retType)
 	l.currentFn = fn
 	l.currBlock = fn.EntryBlock
 	l.varLocals = make(map[string]Value)
+	savedStmts := l.currentFnStmts
+	if stmt.Body != nil {
+		l.currentFnStmts = stmt.Body.Statements
+	} else {
+		l.currentFnStmts = nil
+	}
+	defer func() { l.currentFnStmts = savedStmts }()
 
 	// Parámetros formales
 	for _, param := range stmt.Parameters {
@@ -306,11 +329,18 @@ func (l *Lowerer) lowerMethod(stmt *parser.MethodStatement) error {
 
 func (l *Lowerer) lowerClassMethod(className string, stmt *parser.MethodStatement) error {
 	mName := className + "_" + stmt.Name.Value
-	retType := l.mapType(stmt.ReturnType.Literal)
+	retType := l.inferMethodReturnType(stmt)
 	fn := NewFunction(mName, retType)
 	l.currentFn = fn
 	l.currBlock = fn.EntryBlock
 	l.varLocals = make(map[string]Value)
+	savedStmts := l.currentFnStmts
+	if stmt.Body != nil {
+		l.currentFnStmts = stmt.Body.Statements
+	} else {
+		l.currentFnStmts = nil
+	}
+	defer func() { l.currentFnStmts = savedStmts }()
 
 	if !stmt.IsStatic {
 		thisType := PtrType(StructType(className, nil))
@@ -492,6 +522,12 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 				valType = TypeI64
 			}
 		}
+		declTok := strings.TrimSpace(s.Token.Literal)
+		if (declTok == "var" || declTok == "let" || declTok == "") && valType.Kind != TypeKindMixed && s.Name != nil {
+			if l.isVarReassignedIncompatible(cleanVarName(s.Name.Value), valType, l.currentFnStmts) {
+				valType = TypeMixed
+			}
+		}
 		if val == nil {
 			val = NewConstInt(0, valType)
 		}
@@ -629,7 +665,11 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 		l.loopStack = l.loopStack[:len(l.loopStack)-1]
 
 		if l.currBlock.Terminator == nil {
-			l.currBlock.SetTerminator(&JumpTerminator{Target: condBlock})
+			if strings.HasPrefix(l.currBlock.Label, "dead") {
+				l.currBlock.SetTerminator(&UnreachableTerminator{})
+			} else {
+				l.currBlock.SetTerminator(&JumpTerminator{Target: condBlock})
+			}
 		}
 
 		l.currBlock = afterBlock
@@ -650,7 +690,11 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 		l.loopStack = l.loopStack[:len(l.loopStack)-1]
 
 		if l.currBlock.Terminator == nil {
-			l.currBlock.SetTerminator(&JumpTerminator{Target: condBlock})
+			if strings.HasPrefix(l.currBlock.Label, "dead") {
+				l.currBlock.SetTerminator(&UnreachableTerminator{})
+			} else {
+				l.currBlock.SetTerminator(&JumpTerminator{Target: condBlock})
+			}
 		}
 
 		// Evaluar condición
@@ -778,7 +822,6 @@ func (l *Lowerer) ensureBoolCond(val Value) Value {
 	if val.Type().Kind == TypeKindBool {
 		return val
 	}
-	val = l.unboxIfMixed(val)
 	dest := l.currentFn.NewTemp(TypeBool, "truthy")
 	l.currBlock.AddInstruction(&CallRuntimeInst{
 		Dest: dest,
@@ -798,27 +841,84 @@ func (l *Lowerer) lowerForeach(s *parser.ForeachStatement) error {
 	l.foreachCounter++
 
 	isMap := iterVal.Type().Kind == TypeKindPtr && iterVal.Type().Elem != nil && iterVal.Type().Elem.Name == "map"
+	isDynamic := !isMap && iterVal.Type().Kind != TypeKindArray
 
 	idxPtr := l.currentFn.NewTemp(PtrType(TypeI64), fmt.Sprintf("fe_idx_%d_ptr", feID))
 	l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: idxPtr, AllocType: TypeI64})
 	l.currBlock.AddInstruction(&StoreInst{Val: NewConstInt(0, TypeI64), Ptr: idxPtr})
 
-	lenTemp := l.currentFn.NewTemp(TypeI64, fmt.Sprintf("fe_len_%d", feID))
-	lenCallee := "len"
-	if isMap {
-		lenCallee = "joss_map_len"
-	}
-	l.currBlock.AddInstruction(&CallInst{
-		Dest:   lenTemp,
-		Callee: lenCallee,
-		Args:   []Value{iterVal},
-	})
+	var lenTemp Value
+	var isMapRt Value
+	if isDynamic {
+		isMapRtTemp := l.currentFn.NewTemp(TypeBool, fmt.Sprintf("fe_ismap_%d", feID))
+		isMapRt = isMapRtTemp
+		l.currBlock.AddInstruction(&CallRuntimeInst{
+			Dest: isMapRtTemp,
+			Func: "is_map",
+			Args: []Value{iterVal},
+		})
+		lenPtr := l.currentFn.NewTemp(PtrType(TypeI64), fmt.Sprintf("fe_len_%d_ptr", feID))
+		l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: lenPtr, AllocType: TypeI64})
 
-	elemType := TypeI64
+		lenMapBlock := l.currentFn.NewBlock(fmt.Sprintf("foreach_len_map_%d_", feID))
+		lenArrBlock := l.newDetachedBlock(fmt.Sprintf("foreach_len_arr_%d_", feID))
+		lenMergeBlock := l.newDetachedBlock(fmt.Sprintf("foreach_len_merge_%d_", feID))
+
+		l.currBlock.SetTerminator(&BranchTerminator{
+			Cond:       isMapRt,
+			TrueBlock:  lenMapBlock,
+			FalseBlock: lenArrBlock,
+		})
+
+		l.currBlock = lenMapBlock
+		mLen := l.currentFn.NewTemp(TypeI64, fmt.Sprintf("fe_mlen_%d", feID))
+		l.currBlock.AddInstruction(&CallInst{
+			Dest:   mLen,
+			Callee: "joss_map_len",
+			Args:   []Value{iterVal},
+		})
+		l.currBlock.AddInstruction(&StoreInst{Val: mLen, Ptr: lenPtr})
+		l.currBlock.SetTerminator(&JumpTerminator{Target: lenMergeBlock})
+
+		l.currentFn.Blocks = append(l.currentFn.Blocks, lenArrBlock)
+		l.currBlock = lenArrBlock
+		aLen := l.currentFn.NewTemp(TypeI64, fmt.Sprintf("fe_alen_%d", feID))
+		l.currBlock.AddInstruction(&CallInst{
+			Dest:   aLen,
+			Callee: "len",
+			Args:   []Value{iterVal},
+		})
+		l.currBlock.AddInstruction(&StoreInst{Val: aLen, Ptr: lenPtr})
+		l.currBlock.SetTerminator(&JumpTerminator{Target: lenMergeBlock})
+
+		l.currentFn.Blocks = append(l.currentFn.Blocks, lenMergeBlock)
+		l.currBlock = lenMergeBlock
+		lt := l.currentFn.NewTemp(TypeI64, fmt.Sprintf("fe_len_%d", feID))
+		l.currBlock.AddInstruction(&LoadInst{Dest: lt, Ptr: lenPtr})
+		lenTemp = lt
+	} else {
+		lt := l.currentFn.NewTemp(TypeI64, fmt.Sprintf("fe_len_%d", feID))
+		lenCallee := "len"
+		if isMap {
+			lenCallee = "joss_map_len"
+		}
+		l.currBlock.AddInstruction(&CallInst{
+			Dest:   lt,
+			Callee: lenCallee,
+			Args:   []Value{iterVal},
+		})
+		lenTemp = lt
+	}
+
+	elemType := TypeMixed
 	if iterVal.Type().Kind == TypeKindArray && iterVal.Type().Elem != nil {
 		elemType = *iterVal.Type().Elem
-	} else if isMap {
-		elemType = PtrType(StructType("map", nil))
+	} else if isMap && iterVal.Type().Elem != nil && len(iterVal.Type().Elem.Fields) > 0 {
+		elemType = iterVal.Type().Elem.Fields[0]
+	} else if l.prep != nil && l.prep.Facts != nil {
+		if t, ok := l.prep.Facts.InferredTypes[s.Iterable]; ok && t.Element != nil && t.Element.Kind != typesystem.Unknown {
+			elemType = l.mapTypeSystemType(*t.Element)
+		}
 	}
 
 	valName := cleanVarName(s.Value)
@@ -829,11 +929,14 @@ func (l *Lowerer) lowerForeach(s *parser.ForeachStatement) error {
 		l.varLocals[valName] = newValPtr
 		valPtr = newValPtr
 	}
+	targetElemType := valPtr.Type().ElemType()
 
 	var keyPtr Value
 	keyType := TypeI64
 	if isMap {
 		keyType = TypeString
+	} else if isDynamic {
+		keyType = TypeMixed
 	}
 	if s.Key != "" {
 		keyName := cleanVarName(s.Key)
@@ -847,10 +950,10 @@ func (l *Lowerer) lowerForeach(s *parser.ForeachStatement) error {
 		keyPtr = kp
 	}
 
-	condBlock := l.currentFn.NewBlock(fmt.Sprintf("foreach_cond_%d", feID))
-	bodyBlock := l.currentFn.NewBlock(fmt.Sprintf("foreach_body_%d", feID))
-	stepBlock := l.currentFn.NewBlock(fmt.Sprintf("foreach_step_%d", feID))
-	afterBlock := l.currentFn.NewBlock(fmt.Sprintf("foreach_exit_%d", feID))
+	condBlock := l.currentFn.NewBlock(fmt.Sprintf("foreach_cond_%d_", feID))
+	bodyBlock := l.currentFn.NewBlock(fmt.Sprintf("foreach_body_%d_", feID))
+	stepBlock := l.newDetachedBlock(fmt.Sprintf("foreach_step_%d_", feID))
+	afterBlock := l.newDetachedBlock(fmt.Sprintf("foreach_exit_%d_", feID))
 
 	l.currBlock.SetTerminator(&JumpTerminator{Target: condBlock})
 
@@ -875,34 +978,100 @@ func (l *Lowerer) lowerForeach(s *parser.ForeachStatement) error {
 	l.currBlock = bodyBlock
 	bodyIdx := l.currentFn.NewTemp(TypeI64, fmt.Sprintf("fe_bidx_%d", feID))
 	l.currBlock.AddInstruction(&LoadInst{Dest: bodyIdx, Ptr: idxPtr})
-	if keyPtr != nil {
-		if isMap {
+
+	if isDynamic {
+		bodyMapBlock := l.currentFn.NewBlock(fmt.Sprintf("foreach_bmap_%d_", feID))
+		bodyArrBlock := l.newDetachedBlock(fmt.Sprintf("foreach_barr_%d_", feID))
+		bodyContBlock := l.newDetachedBlock(fmt.Sprintf("foreach_bcont_%d_", feID))
+
+		l.currBlock.SetTerminator(&BranchTerminator{
+			Cond:       isMapRt,
+			TrueBlock:  bodyMapBlock,
+			FalseBlock: bodyArrBlock,
+		})
+
+		l.currBlock = bodyMapBlock
+		if keyPtr != nil {
 			kVal := l.currentFn.NewTemp(TypeString, fmt.Sprintf("fe_mkey_%d", feID))
 			l.currBlock.AddInstruction(&CallInst{
 				Dest:   kVal,
 				Callee: "joss_map_key_at",
 				Args:   []Value{iterVal, bodyIdx},
 			})
-			l.currBlock.AddInstruction(&StoreInst{Val: kVal, Ptr: keyPtr})
-		} else {
-			l.currBlock.AddInstruction(&StoreInst{Val: bodyIdx, Ptr: keyPtr})
+			targetKeyType := keyPtr.Type().ElemType()
+			storeKey := Value(kVal)
+			if isScalarBoxedKind(targetKeyType.Kind) {
+				storeKey = l.unboxIfTyped(l.boxIfMixed(kVal, TypeMixed), targetKeyType)
+			}
+			l.currBlock.AddInstruction(&StoreInst{Val: storeKey, Ptr: keyPtr})
 		}
-	}
-	elemVal := l.currentFn.NewTemp(elemType, fmt.Sprintf("fe_elem_%d", feID))
-	if isMap {
+		mVal := l.currentFn.NewTemp(TypeMixed, fmt.Sprintf("fe_mval_%d", feID))
 		l.currBlock.AddInstruction(&CallInst{
-			Dest:   elemVal,
+			Dest:   mVal,
 			Callee: "joss_map_val_at",
 			Args:   []Value{iterVal, bodyIdx},
 		})
-	} else {
+		storeMVal := l.boxIfMixed(mVal, targetElemType)
+		storeMVal = l.unboxIfTyped(storeMVal, targetElemType)
+		l.currBlock.AddInstruction(&StoreInst{Val: storeMVal, Ptr: valPtr})
+		l.currBlock.SetTerminator(&JumpTerminator{Target: bodyContBlock})
+
+		l.currentFn.Blocks = append(l.currentFn.Blocks, bodyArrBlock)
+		l.currBlock = bodyArrBlock
+		if keyPtr != nil {
+			targetKeyType := keyPtr.Type().ElemType()
+			storeKey := l.boxIfMixed(bodyIdx, targetKeyType)
+			storeKey = l.unboxIfTyped(storeKey, targetKeyType)
+			l.currBlock.AddInstruction(&StoreInst{Val: storeKey, Ptr: keyPtr})
+		}
+		aVal := l.currentFn.NewTemp(TypeMixed, fmt.Sprintf("fe_aval_%d", feID))
 		l.currBlock.AddInstruction(&ArrayGetInst{
-			Dest:  elemVal,
+			Dest:  aVal,
 			Array: iterVal,
 			Index: bodyIdx,
 		})
+		storeAVal := l.boxIfMixed(aVal, targetElemType)
+		storeAVal = l.unboxIfTyped(storeAVal, targetElemType)
+		l.currBlock.AddInstruction(&StoreInst{Val: storeAVal, Ptr: valPtr})
+		l.currBlock.SetTerminator(&JumpTerminator{Target: bodyContBlock})
+
+		l.currentFn.Blocks = append(l.currentFn.Blocks, bodyContBlock)
+		l.currBlock = bodyContBlock
+	} else {
+		if keyPtr != nil {
+			if isMap {
+				kVal := l.currentFn.NewTemp(TypeString, fmt.Sprintf("fe_mkey_%d", feID))
+				l.currBlock.AddInstruction(&CallInst{
+					Dest:   kVal,
+					Callee: "joss_map_key_at",
+					Args:   []Value{iterVal, bodyIdx},
+				})
+				l.currBlock.AddInstruction(&StoreInst{Val: kVal, Ptr: keyPtr})
+			} else {
+				targetKeyType := keyPtr.Type().ElemType()
+				storeKey := l.boxIfMixed(bodyIdx, targetKeyType)
+				storeKey = l.unboxIfTyped(storeKey, targetKeyType)
+				l.currBlock.AddInstruction(&StoreInst{Val: storeKey, Ptr: keyPtr})
+			}
+		}
+		elemVal := l.currentFn.NewTemp(elemType, fmt.Sprintf("fe_elem_%d", feID))
+		if isMap {
+			l.currBlock.AddInstruction(&CallInst{
+				Dest:   elemVal,
+				Callee: "joss_map_val_at",
+				Args:   []Value{iterVal, bodyIdx},
+			})
+		} else {
+			l.currBlock.AddInstruction(&ArrayGetInst{
+				Dest:  elemVal,
+				Array: iterVal,
+				Index: bodyIdx,
+			})
+		}
+		storeVal := l.boxIfMixed(elemVal, targetElemType)
+		storeVal = l.unboxIfTyped(storeVal, targetElemType)
+		l.currBlock.AddInstruction(&StoreInst{Val: storeVal, Ptr: valPtr})
 	}
-	l.currBlock.AddInstruction(&StoreInst{Val: elemVal, Ptr: valPtr})
 
 	l.loopStack = append(l.loopStack, loopContext{continueBlock: stepBlock, breakBlock: afterBlock})
 	if err := l.lowerBlock(s.Body); err != nil {
@@ -911,10 +1080,15 @@ func (l *Lowerer) lowerForeach(s *parser.ForeachStatement) error {
 	l.loopStack = l.loopStack[:len(l.loopStack)-1]
 
 	if l.currBlock.Terminator == nil {
-		l.currBlock.SetTerminator(&JumpTerminator{Target: stepBlock})
+		if strings.HasPrefix(l.currBlock.Label, "dead") {
+			l.currBlock.SetTerminator(&UnreachableTerminator{})
+		} else {
+			l.currBlock.SetTerminator(&JumpTerminator{Target: stepBlock})
+		}
 	}
 
 	// Step: idx = idx + 1
+	l.currentFn.Blocks = append(l.currentFn.Blocks, stepBlock)
 	l.currBlock = stepBlock
 	stepIdx := l.currentFn.NewTemp(TypeI64, fmt.Sprintf("fe_sidx_%d", feID))
 	l.currBlock.AddInstruction(&LoadInst{Dest: stepIdx, Ptr: idxPtr})
@@ -928,6 +1102,7 @@ func (l *Lowerer) lowerForeach(s *parser.ForeachStatement) error {
 	l.currBlock.AddInstruction(&StoreInst{Val: nextIdx, Ptr: idxPtr})
 	l.currBlock.SetTerminator(&JumpTerminator{Target: condBlock})
 
+	l.currentFn.Blocks = append(l.currentFn.Blocks, afterBlock)
 	l.currBlock = afterBlock
 	return nil
 }
@@ -950,7 +1125,7 @@ func (l *Lowerer) lowerTryCatch(s *parser.TryCatchStatement) error {
 			}
 		}
 	}
-	tryBlocks := append([]*BasicBlock(nil), l.currentFn.Blocks[startTryIdx:]...)
+	tryBlocks := cleanTryCatchBlocks(append([]*BasicBlock(nil), l.currentFn.Blocks[startTryIdx:]...))
 	l.currentFn.Blocks = l.currentFn.Blocks[:startTryIdx]
 
 	// 2. Setup catch variable
@@ -975,7 +1150,7 @@ func (l *Lowerer) lowerTryCatch(s *parser.TryCatchStatement) error {
 			}
 		}
 	}
-	catchBlocks := append([]*BasicBlock(nil), l.currentFn.Blocks[startCatchIdx:]...)
+	catchBlocks := cleanTryCatchBlocks(append([]*BasicBlock(nil), l.currentFn.Blocks[startCatchIdx:]...))
 	l.currentFn.Blocks = l.currentFn.Blocks[:startCatchIdx]
 
 	// 4. Restore current block and add TryCatchInst
@@ -1031,7 +1206,7 @@ func (l *Lowerer) lowerTernaryStatement(e *parser.TernaryExpression) error {
 	condVal = l.ensureBoolCond(condVal)
 
 	trueBlock := l.currentFn.NewBlock("ternary_true")
-	mergeBlock := l.currentFn.NewBlock("ternary_merge")
+	mergeBlock := l.newDetachedBlock("ternary_merge")
 
 	isNullFalse := false
 	if e.False == nil {
@@ -1054,19 +1229,25 @@ func (l *Lowerer) lowerTernaryStatement(e *parser.TernaryExpression) error {
 			}
 		}
 		if l.currBlock.Terminator == nil {
-			l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+			if strings.HasPrefix(l.currBlock.Label, "dead") {
+				l.currBlock.SetTerminator(&UnreachableTerminator{})
+			} else {
+				l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+			}
 		}
+		l.currentFn.Blocks = append(l.currentFn.Blocks, mergeBlock)
 		l.currBlock = mergeBlock
 		return nil
 	}
 
-	falseBlock := l.currentFn.NewBlock("ternary_false")
+	falseBlock := l.newDetachedBlock("ternary_false")
 	l.currBlock.SetTerminator(&BranchTerminator{
 		Cond:       condVal,
 		TrueBlock:  trueBlock,
 		FalseBlock: falseBlock,
 	})
 
+	mergeReachable := false
 	l.currBlock = trueBlock
 	if e.True != nil {
 		if _, err := l.lowerExpression(e.True); err != nil {
@@ -1074,9 +1255,15 @@ func (l *Lowerer) lowerTernaryStatement(e *parser.TernaryExpression) error {
 		}
 	}
 	if l.currBlock.Terminator == nil {
-		l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+		if strings.HasPrefix(l.currBlock.Label, "dead") {
+			l.currBlock.SetTerminator(&UnreachableTerminator{})
+		} else {
+			l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+			mergeReachable = true
+		}
 	}
 
+	l.currentFn.Blocks = append(l.currentFn.Blocks, falseBlock)
 	l.currBlock = falseBlock
 	if e.False != nil {
 		if _, err := l.lowerExpression(e.False); err != nil {
@@ -1084,9 +1271,19 @@ func (l *Lowerer) lowerTernaryStatement(e *parser.TernaryExpression) error {
 		}
 	}
 	if l.currBlock.Terminator == nil {
-		l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+		if strings.HasPrefix(l.currBlock.Label, "dead") {
+			l.currBlock.SetTerminator(&UnreachableTerminator{})
+		} else {
+			l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+			mergeReachable = true
+		}
 	}
 
+	if !mergeReachable {
+		l.currBlock = l.currentFn.NewBlock("dead")
+		return nil
+	}
+	l.currentFn.Blocks = append(l.currentFn.Blocks, mergeBlock)
 	l.currBlock = mergeBlock
 	return nil
 }
@@ -1196,10 +1393,18 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			cond := l.ensureBoolCond(left)
+			if isScalarBoxedKind(left.Type().Kind) {
+				return left, nil
+			}
+			cond := l.currentFn.NewTemp(TypeBool, "not_null")
+			l.currBlock.AddInstruction(&CallRuntimeInst{
+				Dest: cond,
+				Func: "joss_is_not_null",
+				Args: []Value{left},
+			})
 			trueBlock := l.currentFn.NewBlock("coal_keep")
-			falseBlock := l.currentFn.NewBlock("coal_fallback")
-			mergeBlock := l.currentFn.NewBlock("coal_merge")
+			falseBlock := l.newDetachedBlock("coal_fallback")
+			mergeBlock := l.newDetachedBlock("coal_merge")
 
 			l.currBlock.SetTerminator(&BranchTerminator{
 				Cond:       cond,
@@ -1207,23 +1412,61 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				FalseBlock: falseBlock,
 			})
 
-			l.currBlock = trueBlock
-			resType := left.Type()
-			resPtr := l.currentFn.NewTemp(PtrType(resType), "coal_ptr")
-			l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: resPtr, AllocType: resType})
-			l.currBlock.AddInstruction(&StoreInst{Val: left, Ptr: resPtr})
-			l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
-
+			l.currentFn.Blocks = append(l.currentFn.Blocks, falseBlock)
 			l.currBlock = falseBlock
 			right, err := l.lowerExpression(e.Right)
 			if err != nil {
 				return nil, err
 			}
-			if l.currBlock.Terminator == nil {
-				l.currBlock.AddInstruction(&StoreInst{Val: right, Ptr: resPtr})
-				l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+			falseEndBlock := l.currBlock
+
+			resType := left.Type()
+			if resType.Kind == TypeKindPtr && resType.Elem != nil && resType.Elem.Kind == TypeKindVoid {
+				if l.prep != nil && l.prep.Facts != nil {
+					if inferred, ok := l.prep.Facts.InferredTypes[e]; ok && inferred.Kind != typesystem.Unknown && inferred.Kind != typesystem.Union {
+						mapped := l.mapTypeSystemType(inferred)
+						if mapped.Kind != TypeKindUnknown && mapped.Kind != TypeKindVoid {
+							resType = mapped
+						}
+					}
+				}
+				if resType.Kind == TypeKindPtr && resType.Elem != nil && resType.Elem.Kind == TypeKindVoid {
+					resType = right.Type()
+				}
+			}
+			if resType.Kind == TypeKindUnknown || resType.Kind == TypeKindUnion {
+				resType = right.Type()
 			}
 
+			resPtr := l.currentFn.NewTemp(PtrType(resType), "coal_ptr")
+			l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: resPtr, AllocType: resType})
+
+			keepVal := l.boxIfMixed(left, resType)
+			if _, isConstNull := left.(*ConstNull); isConstNull && !(resType.Kind == TypeKindPtr && resType.Elem != nil && resType.Elem.Kind == TypeKindVoid) {
+				if resType.Kind == TypeKindString {
+					keepVal = NewConstString("")
+				} else if isScalarBoxedKind(resType.Kind) {
+					keepVal = NewConstInt(0, resType)
+				} else {
+					keepVal = NewConstNull(resType)
+				}
+			}
+			trueBlock.AddInstruction(&StoreInst{Val: keepVal, Ptr: resPtr})
+			trueBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+
+			if falseEndBlock.Terminator == nil {
+				if strings.HasPrefix(falseEndBlock.Label, "dead") {
+					falseEndBlock.SetTerminator(&UnreachableTerminator{})
+				} else {
+					l.currBlock = falseEndBlock
+					storeRight := l.boxIfMixed(right, resType)
+					storeRight = l.unboxIfTyped(storeRight, resType)
+					falseEndBlock.AddInstruction(&StoreInst{Val: storeRight, Ptr: resPtr})
+					falseEndBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+				}
+			}
+
+			l.currentFn.Blocks = append(l.currentFn.Blocks, mergeBlock)
 			l.currBlock = mergeBlock
 			resTemp := l.currentFn.NewTemp(resType, "coal_res")
 			l.currBlock.AddInstruction(&LoadInst{Dest: resTemp, Ptr: resPtr})
@@ -1237,7 +1480,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 			cond := l.ensureBoolCond(left)
 			rightBlock := l.currentFn.NewBlock("and_right")
-			mergeBlock := l.currentFn.NewBlock("and_merge")
+			mergeBlock := l.newDetachedBlock("and_merge")
 
 			resPtr := l.currentFn.NewTemp(PtrType(TypeBool), "and_ptr")
 			l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: resPtr, AllocType: TypeBool})
@@ -1256,10 +1499,15 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 			rCond := l.ensureBoolCond(right)
 			if l.currBlock.Terminator == nil {
-				l.currBlock.AddInstruction(&StoreInst{Val: rCond, Ptr: resPtr})
-				l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+				if strings.HasPrefix(l.currBlock.Label, "dead") {
+					l.currBlock.SetTerminator(&UnreachableTerminator{})
+				} else {
+					l.currBlock.AddInstruction(&StoreInst{Val: rCond, Ptr: resPtr})
+					l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+				}
 			}
 
+			l.currentFn.Blocks = append(l.currentFn.Blocks, mergeBlock)
 			l.currBlock = mergeBlock
 			resTemp := l.currentFn.NewTemp(TypeBool, "and_res")
 			l.currBlock.AddInstruction(&LoadInst{Dest: resTemp, Ptr: resPtr})
@@ -1273,7 +1521,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 			cond := l.ensureBoolCond(left)
 			rightBlock := l.currentFn.NewBlock("or_right")
-			mergeBlock := l.currentFn.NewBlock("or_merge")
+			mergeBlock := l.newDetachedBlock("or_merge")
 
 			resPtr := l.currentFn.NewTemp(PtrType(TypeBool), "or_ptr")
 			l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: resPtr, AllocType: TypeBool})
@@ -1292,10 +1540,15 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 			rCond := l.ensureBoolCond(right)
 			if l.currBlock.Terminator == nil {
-				l.currBlock.AddInstruction(&StoreInst{Val: rCond, Ptr: resPtr})
-				l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+				if strings.HasPrefix(l.currBlock.Label, "dead") {
+					l.currBlock.SetTerminator(&UnreachableTerminator{})
+				} else {
+					l.currBlock.AddInstruction(&StoreInst{Val: rCond, Ptr: resPtr})
+					l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+				}
 			}
 
+			l.currentFn.Blocks = append(l.currentFn.Blocks, mergeBlock)
 			l.currBlock = mergeBlock
 			resTemp := l.currentFn.NewTemp(TypeBool, "or_res")
 			l.currBlock.AddInstruction(&LoadInst{Dest: resTemp, Ptr: resPtr})
@@ -1327,7 +1580,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				l.currBlock.AddInstruction(&CallRuntimeInst{
 					Dest: convLeft,
 					Func: "to_string",
-					Args: []Value{l.unboxIfMixed(left)},
+					Args: []Value{left},
 				})
 				left = convLeft
 			}
@@ -1336,7 +1589,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				l.currBlock.AddInstruction(&CallRuntimeInst{
 					Dest: convRight,
 					Func: "to_string",
-					Args: []Value{l.unboxIfMixed(right)},
+					Args: []Value{right},
 				})
 				right = convRight
 			}
@@ -1353,11 +1606,16 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		if isCmp {
 			cmpLeft := left
 			cmpRight := right
-			if cmpLeft.Type().Kind == TypeKindMixed && cmpRight.Type().Kind != TypeKindString && cmpRight.Type().Kind != TypeKindMixed {
-				cmpLeft = l.unboxIfMixed(cmpLeft)
-			}
-			if cmpRight.Type().Kind == TypeKindMixed && cmpLeft.Type().Kind != TypeKindString && cmpLeft.Type().Kind != TypeKindMixed {
-				cmpRight = l.unboxIfMixed(cmpRight)
+			isStrictBoolMixed := (e.Operator == "===" || e.Operator == "!==") &&
+				((cmpLeft.Type().Kind == TypeKindMixed && cmpRight.Type().Kind == TypeKindBool) ||
+					(cmpRight.Type().Kind == TypeKindMixed && cmpLeft.Type().Kind == TypeKindBool))
+			if !isStrictBoolMixed {
+				if cmpLeft.Type().Kind == TypeKindMixed && cmpRight.Type().Kind != TypeKindString && cmpRight.Type().Kind != TypeKindMixed {
+					cmpLeft = l.unboxIfMixed(cmpLeft)
+				}
+				if cmpRight.Type().Kind == TypeKindMixed && cmpLeft.Type().Kind != TypeKindString && cmpLeft.Type().Kind != TypeKindMixed {
+					cmpRight = l.unboxIfMixed(cmpRight)
+				}
 			}
 			destType := TypeBool
 			if op == OpSpaceship {
@@ -1421,8 +1679,16 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			dest := l.currentFn.NewTemp(TypeI64, "preinc")
 			l.currBlock.AddInstruction(&BinaryInst{Op: op, Dest: dest, Left: right, Right: NewConstInt(1, TypeI64)})
 			if ident, ok := e.Right.(*parser.Identifier); ok {
-				if ptr, exists := l.varLocals[cleanVarName(ident.Value)]; exists {
+				varName := cleanVarName(ident.Value)
+				if ptr, exists := l.varLocals[varName]; exists {
 					l.currBlock.AddInstruction(&StoreInst{Val: dest, Ptr: ptr})
+					if l.activeClosureEnvMap != nil && l.activeClosureCaptured[varName] {
+						l.currBlock.AddInstruction(&MapSetInst{
+							Map: l.activeClosureEnvMap,
+							Key: NewConstString(varName),
+							Val: l.boxIfMixed(dest, TypeMixed),
+						})
+					}
 				}
 			}
 			return dest, nil
@@ -1451,6 +1717,13 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			varName := cleanVarName(ident.Value)
 			if ptr, exists := l.varLocals[varName]; exists {
 				l.currBlock.AddInstruction(&StoreInst{Val: newVal, Ptr: ptr})
+				if l.activeClosureEnvMap != nil && l.activeClosureCaptured[varName] {
+					l.currBlock.AddInstruction(&MapSetInst{
+						Map: l.activeClosureEnvMap,
+						Key: NewConstString(varName),
+						Val: l.boxIfMixed(newVal, TypeMixed),
+					})
+				}
 			}
 		} else if member, ok := e.Left.(*parser.MemberExpression); ok {
 			if objVal, err := l.lowerExpression(member.Left); err == nil {
@@ -1538,8 +1811,8 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		condVal = l.ensureBoolCond(condVal)
 
 		trueBlock := l.currentFn.NewBlock("ternary_true")
-		falseBlock := l.currentFn.NewBlock("ternary_false")
-		mergeBlock := l.currentFn.NewBlock("ternary_merge")
+		falseBlock := l.newDetachedBlock("ternary_false")
+		mergeBlock := l.newDetachedBlock("ternary_merge")
 
 		l.currBlock.SetTerminator(&BranchTerminator{
 			Cond:       condVal,
@@ -1557,22 +1830,13 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 			trueVal = tv
 		}
-		resType := trueVal.Type()
-		resTemp := l.currentFn.NewTemp(resType, "ternary_res")
-		resPtr := l.currentFn.NewTemp(PtrType(resType), "ternary_ptr")
-		allocaInst := &AllocaInst{Dest: resPtr, AllocType: resType}
-		l.currentFn.EntryBlock.AddInstruction(allocaInst)
-		if l.currBlock.Terminator == nil {
-			l.currBlock.AddInstruction(&StoreInst{Val: trueVal, Ptr: resPtr})
-			l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
-		}
+		trueEndBlock := l.currBlock
+		trueDead := strings.HasPrefix(trueEndBlock.Label, "dead")
 
 		// Rama falsa
+		l.currentFn.Blocks = append(l.currentFn.Blocks, falseBlock)
 		l.currBlock = falseBlock
-		var falseVal Value = NewConstInt(0, resType)
-		if resType.Kind == TypeKindString {
-			falseVal = NewConstString("")
-		}
+		var falseVal Value
 		if e.False != nil {
 			fv, err := l.lowerExpression(e.False)
 			if err != nil {
@@ -1580,13 +1844,62 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 			falseVal = fv
 		}
-		if l.currBlock.Terminator == nil {
-			l.currBlock.AddInstruction(&StoreInst{Val: falseVal, Ptr: resPtr})
-			l.currBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+		falseEndBlock := l.currBlock
+		falseDead := strings.HasPrefix(falseEndBlock.Label, "dead")
+
+		resType := trueVal.Type()
+		if trueDead && !falseDead && falseVal != nil {
+			resType = falseVal.Type()
+		}
+		if falseVal == nil {
+			if resType.Kind == TypeKindString {
+				falseVal = NewConstString("")
+			} else if resType.Kind == TypeKindPtr || resType.Kind == TypeKindStruct || resType.Kind == TypeKindArray {
+				falseVal = NewConstNull(resType)
+			} else {
+				falseVal = NewConstInt(0, resType)
+			}
 		}
 
-		// Merge
+		resPtr := l.currentFn.NewTemp(PtrType(resType), "ternary_ptr")
+		l.currentFn.EntryBlock.AddInstruction(&AllocaInst{Dest: resPtr, AllocType: resType})
+
+		mergeReachable := false
+		if trueEndBlock.Terminator == nil {
+			if trueDead {
+				trueEndBlock.SetTerminator(&UnreachableTerminator{})
+			} else {
+				l.currBlock = trueEndBlock
+				storeT := l.boxIfMixed(trueVal, resType)
+				storeT = l.unboxIfTyped(storeT, resType)
+				trueEndBlock.AddInstruction(&StoreInst{Val: storeT, Ptr: resPtr})
+				trueEndBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+				mergeReachable = true
+			}
+		}
+
+		if falseEndBlock.Terminator == nil {
+			if falseDead {
+				falseEndBlock.SetTerminator(&UnreachableTerminator{})
+			} else {
+				l.currBlock = falseEndBlock
+				storeF := l.boxIfMixed(falseVal, resType)
+				storeF = l.unboxIfTyped(storeF, resType)
+				falseEndBlock.AddInstruction(&StoreInst{Val: storeF, Ptr: resPtr})
+				falseEndBlock.SetTerminator(&JumpTerminator{Target: mergeBlock})
+				mergeReachable = true
+			}
+		}
+
+		if !mergeReachable {
+			l.currBlock = l.currentFn.NewBlock("dead")
+			return NewConstInt(0, resType), nil
+		}
+
+		// Merge (después de bajar trueBlock y falseBlock)
+		l.currentFn.Blocks = append(l.currentFn.Blocks, mergeBlock)
 		l.currBlock = mergeBlock
+		resTemp := l.currentFn.NewTemp(resType, "ternary_res")
 		l.currBlock.AddInstruction(&LoadInst{Dest: resTemp, Ptr: resPtr})
 		return resTemp, nil
 
@@ -1619,7 +1932,34 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			ClassName: className,
 		})
 
-		// Inicializar propiedades por defecto de la clase y detectar constructor
+		if className == "Process" {
+			ctorArgs := []Value{objTemp}
+			for _, arg := range e.Arguments {
+				v, err := l.lowerExpression(arg)
+				if err != nil {
+					return nil, err
+				}
+				ctorArgs = append(ctorArgs, v)
+			}
+			l.currBlock.AddInstruction(&CallHostServiceInst{
+				ClassName:  "Process",
+				MethodName: "constructor",
+				Recv:       objTemp,
+				Args:       ctorArgs,
+			})
+			return objTemp, nil
+		}
+
+		// Inicializar propiedades por defecto de la jerarquía y detectar constructor propio
+		hierarchy := l.collectClassHierarchy(className)
+		if len(hierarchy) > 1 || l.classHasSubclasses(className) {
+			l.currBlock.AddInstruction(&StoreFieldInst{
+				Val:       NewConstString(className),
+				Obj:       objTemp,
+				FieldName: "__joss_cls",
+			})
+		}
+
 		hasCtor := false
 		ctorName := ""
 		if l.prog.Functions[className+"_Init"] != nil {
@@ -1633,38 +1973,94 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			ctorName = "Exception_constructor"
 		}
 
-		if l.prep != nil {
-			for _, unit := range l.prep.Units {
-				if unit.Program == nil {
-					continue
-				}
-				for _, stmt := range unit.Program.Statements {
-					if cs, ok := stmt.(*parser.ClassStatement); ok && cs.Name.Value == className && cs.Body != nil {
-						for _, member := range cs.Body.Statements {
-							if letStmt, ok := member.(*parser.LetStatement); ok && letStmt.Name != nil {
-								fName := cleanVarName(letStmt.Name.Value)
-								if letStmt.Value != nil {
-									val, err := l.lowerExpression(letStmt.Value)
-									if err == nil && !isZeroInitConstant(val) {
-										l.currBlock.AddInstruction(&StoreFieldInst{
-											Val:       val,
-											Obj:       objTemp,
-											FieldName: fName,
-										})
-									}
-								}
-							} else if _, isInit := member.(*parser.InitStatement); isInit && !hasCtor {
-								hasCtor = true
-								ctorName = className + "_Init"
-							} else if mStmt, isM := member.(*parser.MethodStatement); isM && !hasCtor {
-								if mStmt.Name.Value == "Init" || mStmt.Name.Value == "constructor" {
-									hasCtor = true
-									ctorName = className + "_" + mStmt.Name.Value
-								}
-							}
+		inheritsGranDB := false
+		explicitTableName := ""
+		for _, cs := range hierarchy {
+			if cs == nil || cs.Name == nil {
+				continue
+			}
+			if cs.Name.Value == "GranDB" || cs.Name.Value == "Model" {
+				inheritsGranDB = true
+			}
+			if cs.Body == nil {
+				continue
+			}
+			isOwnClass := cs.Name.Value == className
+			for _, member := range cs.Body.Statements {
+				switch m := member.(type) {
+				case *parser.LetStatement:
+					if m.IsStatic || m.Name == nil {
+						continue
+					}
+					fName := cleanVarName(m.Name.Value)
+					if isOwnClass && (fName == "tabla" || fName == "tableName") {
+						if sl, ok := m.Value.(*parser.StringLiteral); ok && sl.Value != "" {
+							explicitTableName = sl.Value
 						}
 					}
+					if m.Value != nil {
+						val, err := l.lowerExpression(m.Value)
+						if err == nil && !isZeroInitConstant(val) {
+							if m.Token.Literal != "" {
+								fType := l.mapType(m.Token.Literal)
+								val = l.boxIfMixed(val, fType)
+								val = l.unboxIfTyped(val, fType)
+							}
+							l.currBlock.AddInstruction(&StoreFieldInst{
+								Val:       val,
+								Obj:       objTemp,
+								FieldName: fName,
+							})
+						}
+					}
+				case *parser.MultiLetStatement:
+					if m.IsStatic {
+						continue
+					}
+					for _, d := range m.Declarations {
+						if d.Name == nil || d.Value == nil {
+							continue
+						}
+						fName := cleanVarName(d.Name.Value)
+						val, err := l.lowerExpression(d.Value)
+						if err == nil && !isZeroInitConstant(val) {
+							if m.TypeToken.Literal != "" {
+								fType := l.mapType(m.TypeToken.Literal)
+								val = l.boxIfMixed(val, fType)
+								val = l.unboxIfTyped(val, fType)
+							}
+							l.currBlock.AddInstruction(&StoreFieldInst{
+								Val:       val,
+								Obj:       objTemp,
+								FieldName: fName,
+							})
+						}
+					}
+				case *parser.InitStatement:
+					if isOwnClass && !hasCtor {
+						hasCtor = true
+						ctorName = className + "_Init"
+					}
+				case *parser.MethodStatement:
+					if isOwnClass && !hasCtor && (m.Name.Value == "Init" || m.Name.Value == "constructor") {
+						hasCtor = true
+						ctorName = className + "_" + m.Name.Value
+					}
 				}
+			}
+		}
+
+		if inheritsGranDB && className != "GranDB" && className != "Model" {
+			inferredTable := explicitTableName
+			if inferredTable == "" {
+				inferredTable = strings.ToLower(pluralizeIRClassName(className))
+			}
+			if inferredTable != "" {
+				l.currBlock.AddInstruction(&StoreFieldInst{
+					Val:       NewConstString(inferredTable),
+					Obj:       objTemp,
+					FieldName: "tableName",
+				})
 			}
 		}
 
@@ -1705,9 +2101,22 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		}
 		propName := e.Property.Value
 		fieldType := l.inferNodeType(e)
-		if (fieldType.Kind == TypeKindI64 || fieldType.Kind == TypeKindUnion || fieldType.Kind == TypeKindUnknown) && objVal.Type().Kind == TypeKindPtr && objVal.Type().Elem != nil {
+		resolvedClassProp := false
+		if (fieldType.Kind == TypeKindI64 || fieldType.Kind == TypeKindUnion || fieldType.Kind == TypeKindUnknown) && objVal.Type().Kind == TypeKindPtr && objVal.Type().Elem != nil && objVal.Type().Elem.Name != "map" {
 			if resolvedPropType, ok := l.lookupClassPropertyType(objVal.Type().Elem.Name, propName); ok {
 				fieldType = resolvedPropType
+				resolvedClassProp = true
+			}
+		}
+		if fieldType.Kind == TypeKindI64 && !resolvedClassProp {
+			isExplicitInt := false
+			if l.prep != nil && l.prep.Facts != nil {
+				if t, ok := l.prep.Facts.InferredTypes[e]; ok && t.Kind == typesystem.Int {
+					isExplicitInt = true
+				}
+			}
+			if !isExplicitInt {
+				fieldType = TypeMixed
 			}
 		}
 		resTemp := l.currentFn.NewTemp(fieldType, "prop")
@@ -1720,6 +2129,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 
 	case *parser.ArrayLiteral:
 		elemType := TypeI64
+		mixedElems := false
 		elements := make([]Value, len(e.Elements))
 		for idx, el := range e.Elements {
 			v, err := l.lowerExpression(el)
@@ -1727,8 +2137,19 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				return nil, err
 			}
 			elements[idx] = v
-			if idx == 0 || v.Type().Kind != TypeKindI64 {
+			if idx == 0 {
 				elemType = v.Type()
+			} else if !mixedElems && v.Type().Kind != elemType.Kind {
+				if (elemType.IsInteger() && v.Type().IsInteger()) || (elemType.IsFloat() && v.Type().IsFloat()) {
+					continue
+				}
+				mixedElems = true
+				elemType = TypeMixed
+			}
+		}
+		if elemType.Kind == TypeKindMixed {
+			for idx := range elements {
+				elements[idx] = l.boxIfMixed(elements[idx], TypeMixed)
 			}
 		}
 		arrTemp := l.currentFn.NewTemp(ArrayType(elemType), "arr")
@@ -1758,6 +2179,12 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			}
 			pairs = append(pairs, [2]Value{kVal, vVal})
 		}
+		for idx := range pairs {
+			if isScalarBoxedKind(pairs[idx][1].Type().Kind) {
+				pairs[idx][1] = l.boxIfMixed(pairs[idx][1], TypeMixed)
+				valType = TypeMixed
+			}
+		}
 		mapTemp := l.currentFn.NewTemp(PtrType(StructType("map", []Type{valType})), "map")
 		l.currBlock.AddInstruction(&NewMapInst{
 			Dest:  mapTemp,
@@ -1778,11 +2205,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		isMapContainer := container.Type().Kind == TypeKindPtr && container.Type().Elem != nil && container.Type().Elem.Name == "map"
 		if idxVal.Type().Kind == TypeKindString || isMapContainer {
 			if resType.Kind == TypeKindI64 {
-				if isMapContainer && len(container.Type().Elem.Fields) > 0 {
-					resType = container.Type().Elem.Fields[0]
-				} else {
-					resType = TypeMixed
-				}
+				resType = TypeMixed
 			}
 			resTemp := l.currentFn.NewTemp(resType, "elem")
 			l.currBlock.AddInstruction(&MapGetInst{
@@ -1792,8 +2215,12 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			})
 			return resTemp, nil
 		}
-		if resType.Kind == TypeKindI64 && container.Type().Kind == TypeKindArray && container.Type().Elem != nil {
-			resType = *container.Type().Elem
+		if resType.Kind == TypeKindI64 {
+			if container.Type().Kind == TypeKindArray && container.Type().Elem != nil {
+				resType = *container.Type().Elem
+			} else if container.Type().Kind == TypeKindMixed {
+				resType = TypeMixed
+			}
 		}
 		resTemp := l.currentFn.NewTemp(resType, "elem")
 		l.currBlock.AddInstruction(&ArrayGetInst{
@@ -1807,6 +2234,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		calleeName := ""
 		var receiverObj Value
 		var resolvedMethodStmt *parser.MethodStatement
+		var indirectCallee Value
 
 		if member, ok := e.Function.(*parser.MemberExpression); ok {
 			if identLeft, ok := member.Left.(*parser.Identifier); ok && member.Property != nil {
@@ -1854,10 +2282,55 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			} else if cs, ok := fnVal.(*ConstString); ok {
 				calleeName = cs.Val
 			} else {
-				calleeName = "__closure_0"
+				indirectCallee = fnVal
 			}
 		} else {
-			calleeName = e.Function.String()
+			fnVal, err := l.lowerExpression(e.Function)
+			if err != nil {
+				return nil, err
+			}
+			indirectCallee = fnVal
+		}
+
+		if indirectCallee != nil {
+			var args []Value
+			for _, a := range e.Arguments {
+				v, err := l.lowerExpression(a)
+				if err != nil {
+					return nil, err
+				}
+				args = append(args, v)
+			}
+			retType := TypeMixed
+			resolvedIndirectRet := false
+			if l.prep != nil && l.prep.Facts != nil {
+				if resolved, ok := l.prep.Facts.ResolvedCalls[e]; ok && resolved.ReturnType.Kind != typesystem.Unknown {
+					retType = l.mapTypeSystemType(resolved.ReturnType)
+					resolvedIndirectRet = true
+				}
+				if !resolvedIndirectRet {
+					if inferred, ok := l.prep.Facts.InferredTypes[e]; ok && inferred.Kind != typesystem.Unknown {
+						retType = l.mapTypeSystemType(inferred)
+						resolvedIndirectRet = true
+					}
+				}
+			}
+			if !resolvedIndirectRet && indirectCallee.Type().Kind == TypeKindFunc && indirectCallee.Type().Return != nil && indirectCallee.Type().Return.Kind != TypeKindUnknown {
+				retType = *indirectCallee.Type().Return
+			}
+			var dest *TempValue
+			if retType.Kind != TypeKindVoid {
+				dest = l.currentFn.NewTemp(retType, "call_ret")
+			}
+			l.currBlock.AddInstruction(&CallIndirectInst{
+				Dest:      dest,
+				CalleeVal: indirectCallee,
+				Args:      args,
+			})
+			if dest != nil {
+				return dest, nil
+			}
+			return NewConstInt(0, TypeVoid), nil
 		}
 
 		if l.prep != nil && l.prep.Facts != nil {
@@ -1875,6 +2348,13 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 						}
 					}
 				}
+			}
+		}
+
+		if receiverObj != nil && calleeName == "GranDB_table" {
+			if targetFn, _, mStmt, found := l.resolveClassMethod("GranDB", "setTable"); found {
+				calleeName = targetFn
+				resolvedMethodStmt = mStmt
 			}
 		}
 
@@ -1973,6 +2453,42 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				}
 			}
 		}
+		if !isBuiltin && !isHost && !isPrimitive && (retType.Kind == TypeKindI64 || retType.Kind == TypeKindMixed) {
+			if ident, ok := e.Function.(*parser.Identifier); ok {
+				if ptr, ok := l.varLocals[cleanVarName(ident.Value)]; ok {
+					elemT := ptr.Type().ElemType()
+					if elemT.Kind == TypeKindFunc && elemT.Return != nil && elemT.Return.Kind != TypeKindUnknown {
+						retType = *elemT.Return
+					} else if l.prep != nil && l.prep.Facts != nil {
+						if inferred, ok := l.prep.Facts.InferredTypes[e]; ok && inferred.Kind != typesystem.Unknown {
+							retType = l.mapTypeSystemType(inferred)
+						} else if elemT.Kind == TypeKindMixed {
+							retType = TypeMixed
+						}
+					} else if elemT.Kind == TypeKindMixed {
+						retType = TypeMixed
+					}
+				}
+			}
+		}
+		if !isBuiltin && !isHost && !isPrimitive && retType.Kind == TypeKindI64 {
+			if resolvedMethodStmt != nil && strings.TrimSpace(resolvedMethodStmt.ReturnType.Literal) == "" {
+				retType = l.inferMethodReturnType(resolvedMethodStmt)
+			} else if receiverObj == nil {
+				if fnStmt, foundFn := l.resolveFunction(calleeName); foundFn && fnStmt != nil && strings.TrimSpace(fnStmt.ReturnType.Literal) == "" {
+					retType = l.inferMethodReturnType(fnStmt)
+				}
+			}
+		}
+		if receiverObj == nil {
+			switch calleeName {
+			case "Session_get", "Session_put", "Session_has", "Session_forget":
+				isHost = true
+				isBuiltin = false
+				isPrimitive = false
+				targetID = "Session::" + strings.TrimPrefix(calleeName, "Session_")
+			}
+		}
 		if retType.Kind == TypeKindI64 && receiverObj != nil && receiverObj.Type().Kind == TypeKindPtr && receiverObj.Type().Elem != nil {
 			if member, ok := e.Function.(*parser.MemberExpression); ok && member.Property != nil {
 				if _, mRet, _, found := l.resolveClassMethod(receiverObj.Type().Elem.Name, member.Property.Value); found {
@@ -1980,45 +2496,125 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				}
 			}
 		}
-		switch calleeName {
-		case "view", "SEO_render", "html_escape", "csrf_field", "Markdown_readFile", "Markdown_toHtml", "Str_trim", "file_get_contents", "__joss_byte_string", "toSql", "GranDB_toSql", "json", "response", "redirect":
-			retType = TypeString
-		case "explode":
-			retType = ArrayType(TypeString)
-		case "__joss_file_get_bytes", "__joss_timezone_data":
-			retType = ArrayType(TypeI64)
-		case "floatval", "microtime":
-			retType = TypeF64
-		case "async":
-			retType = TypeI64
-		case "await":
-			retType = TypeI64
-		case "array_push", "append":
-			if len(args) > 0 {
-				retType = args[0].Type()
+
+		isBlueprintCall := false
+		if member, ok := e.Function.(*parser.MemberExpression); ok && member.Property != nil && receiverObj != nil {
+			mName := member.Property.Value
+			if isBlueprintMethod(mName) {
+				recvT := receiverObj.Type()
+				isBPStatic := recvT.Kind == TypeKindPtr && recvT.Elem != nil && recvT.Elem.Name == "Blueprint"
+				isDynamicBP := (recvT.Kind == TypeKindMixed || recvT.Kind == TypeKindI64 ||
+					(recvT.Kind == TypeKindPtr && recvT.Elem != nil && recvT.Elem.Kind == TypeKindVoid)) &&
+					calleeName == mName && l.prog.Functions[calleeName] == nil
+				if isBPStatic || isDynamicBP {
+					isBlueprintCall = true
+					isHost = true
+					isBuiltin = false
+					isPrimitive = false
+					targetID = "Blueprint::" + mName
+					calleeName = "Blueprint_" + mName
+					retType = PtrType(StructType("Blueprint", nil))
+					switch mName {
+					case "id":
+						if len(args) == 1 {
+							args = append(args, NewConstString("id"))
+						}
+					case "string", "char":
+						if len(args) == 2 {
+							args = append(args, NewConstInt(255, TypeI64))
+						}
+					case "decimal":
+						if len(args) == 2 {
+							args = append(args, NewConstInt(10, TypeI64), NewConstInt(2, TypeI64))
+						} else if len(args) == 3 {
+							args = append(args, NewConstInt(2, TypeI64))
+						}
+					case "index", "uniqueIndex", "foreign":
+						if len(args) == 1 {
+							args = append(args, NewConstInt(0, TypeI64), NewConstString(""))
+						} else if len(args) == 2 {
+							args = append(args, NewConstString(""))
+						}
+					case "dropIndex", "dropForeign":
+						if len(args) == 1 {
+							args = append(args, NewConstString(""))
+						}
+					case "unique":
+						if len(args) == 1 {
+							args = append(args, NewConstInt(0, TypeI64))
+						}
+					case "default":
+						if len(args) >= 2 {
+							args[1] = l.boxIfMixed(args[1], TypeMixed)
+						}
+					}
+				}
 			}
-		case "abs", "intval", "strlen", "len", "count":
-			retType = TypeI64
-		case "boolval", "str_contains", "contains":
-			retType = TypeBool
-		case "min", "max":
-			if len(args) > 0 {
-				retType = args[0].Type()
-			} else {
+		}
+
+		if calleeName == "Router_registerMiddleware" && len(args) >= 2 {
+			regTemp := l.currentFn.NewTemp(TypeI64, "mw_reg")
+			l.currBlock.AddInstruction(&CallRuntimeInst{
+				Dest: regTemp,
+				Func: "joss_router_register_middleware",
+				Args: []Value{args[0], args[1]},
+			})
+			return regTemp, nil
+		}
+
+		if !isBlueprintCall {
+			if calleeName == "html_escape" && len(args) > 0 &&
+				(args[0].Type().IsInteger() || args[0].Type().IsFloat() || args[0].Type().Kind == TypeKindBool) {
+				convArg := l.currentFn.NewTemp(TypeString, "hesc_str")
+				l.currBlock.AddInstruction(&CallRuntimeInst{
+					Dest: convArg,
+					Func: "to_string",
+					Args: []Value{args[0]},
+				})
+				args[0] = convArg
+			}
+			switch calleeName {
+			case "view", "SEO_render", "html_escape", "csrf_field", "Markdown_readFile", "Markdown_toHtml", "Str_trim", "file_get_contents", "__joss_byte_string", "toSql", "GranDB_toSql", "json", "response", "redirect", "with", "withCookie", "WebResponse_with", "WebResponse_withCookie", "Response_redirect", "Response_back", "substr", "str_replace", "strtolower", "strtoupper", "trim", "ltrim", "rtrim", "implode", "sprintf", "date", "now", "ucfirst", "ucwords", "urlencode", "urldecode", "base64_encode", "base64_decode", "strval", "to_string":
+				retType = TypeString
+			case "explode":
+				retType = ArrayType(TypeString)
+			case "__joss_file_get_bytes", "__joss_timezone_data":
+				retType = ArrayType(TypeI64)
+			case "floatval", "microtime":
+				retType = TypeF64
+			case "async":
 				retType = TypeI64
-			}
-		case "array_pop":
-			if len(args) > 0 && args[0].Type().Kind == TypeKindArray && args[0].Type().Elem != nil {
-				retType = *args[0].Type().Elem
-			} else {
+			case "await":
 				retType = TypeI64
+			case "strpos":
+				retType = TypeMixed
+			case "array_push", "append":
+				if len(args) > 0 {
+					retType = args[0].Type()
+				}
+			case "abs", "intval", "strlen", "len", "count":
+				retType = TypeI64
+			case "boolval", "str_contains", "contains":
+				retType = TypeBool
+			case "min", "max":
+				if len(args) > 0 {
+					retType = args[0].Type()
+				} else {
+					retType = TypeI64
+				}
+			case "array_pop":
+				if len(args) > 0 && args[0].Type().Kind == TypeKindArray && args[0].Type().Elem != nil {
+					retType = *args[0].Type().Elem
+				} else {
+					retType = TypeI64
+				}
+			case "GranDB_table", "GranDB_setTable", "GranDB_where", "GranDB_orWhere", "GranDB_whereIn", "GranDB_orderBy", "GranDB_orderByDesc", "orderByDesc", "GranDB_whereLike", "whereLike", "GranDB_orWhereLike", "orWhereLike", "GranDB_limit", "GranDB_offset", "GranDB_select", "GranDB_selectString", "GranDB_selectArray", "GranDB_join", "GranDB_leftJoin":
+				retType = PtrType(StructType("GranDB", nil))
+			case "GranDB_first", "GranDB_find", "GranDB_paginate", "paginate":
+				retType = PtrType(StructType("map", nil))
+			case "GranDB_get":
+				retType = ArrayType(PtrType(StructType("map", nil)))
 			}
-		case "GranDB_table", "GranDB_where", "GranDB_orWhere", "GranDB_whereIn", "GranDB_orderBy", "GranDB_orderByDesc", "orderByDesc", "GranDB_whereLike", "whereLike", "GranDB_orWhereLike", "orWhereLike", "GranDB_limit", "GranDB_offset", "GranDB_select", "GranDB_selectString", "GranDB_selectArray", "GranDB_join", "GranDB_leftJoin":
-			retType = PtrType(StructType("GranDB", nil))
-		case "GranDB_first", "GranDB_find", "GranDB_paginate", "paginate":
-			retType = PtrType(StructType("map", nil))
-		case "GranDB_get":
-			retType = ArrayType(PtrType(StructType("map", nil)))
 		}
 
 		if ext, ok := l.externDecls[calleeName]; ok {
@@ -2032,11 +2628,18 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		if isBuiltin {
 			unboxedArgs := make([]Value, len(args))
 			for idx, a := range args {
-				if calleeName == "intval" || calleeName == "floatval" || calleeName == "boolval" || calleeName == "abs" || calleeName == "min" || calleeName == "max" || calleeName == "chr" || (idx > 0 && (calleeName == "substr" || calleeName == "array_slice")) {
+				if calleeName == "floatval" || calleeName == "boolval" || calleeName == "abs" || calleeName == "min" || calleeName == "max" || calleeName == "chr" || (idx > 0 && (calleeName == "substr" || calleeName == "array_slice")) {
 					unboxedArgs[idx] = l.unboxIfMixed(a)
+				} else if idx == 0 && (calleeName == "is_string" || calleeName == "is_array" || calleeName == "is_map") {
+					unboxedArgs[idx] = l.boxIfMixed(a, TypeMixed)
 				} else {
 					unboxedArgs[idx] = a
 				}
+			}
+			if (calleeName == "array_push" || calleeName == "append") && len(unboxedArgs) >= 2 &&
+				unboxedArgs[0].Type().Kind == TypeKindArray && unboxedArgs[0].Type().Elem != nil &&
+				unboxedArgs[0].Type().Elem.Kind == TypeKindMixed {
+				unboxedArgs[1] = l.boxIfMixed(unboxedArgs[1], TypeMixed)
 			}
 			l.currBlock.AddInstruction(&CallBuiltinInst{
 				Dest:      dest,
@@ -2168,12 +2771,36 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 					return NewConstInt(0, TypeVoid), nil
 				}
 			}
+			hostArgs := args
+			hostRecv := receiverObj
+			if receiverObj != nil && len(hostArgs) > 0 && hostArgs[0] == receiverObj {
+				switch className {
+				case "Request", "Session", "SEO", "Cache", "Config", "Log", "Cookie", "Hash", "JWT", "Auth", "Schema":
+					hostArgs = hostArgs[1:]
+					hostRecv = nil
+				}
+			}
+			if hostFn := l.prog.Functions["__joss_host_"+className+"_"+methodName]; hostFn != nil && len(hostFn.Params) > 0 {
+				paramOffset := 0
+				if className == "Session" && len(hostFn.Params) > len(hostArgs) {
+					paramOffset = 1
+				}
+				boxedArgs := make([]Value, len(hostArgs))
+				for idx, a := range hostArgs {
+					if idx+paramOffset < len(hostFn.Params) {
+						boxedArgs[idx] = l.boxIfMixed(a, hostFn.Params[idx+paramOffset].Type())
+					} else {
+						boxedArgs[idx] = a
+					}
+				}
+				hostArgs = boxedArgs
+			}
 			l.currBlock.AddInstruction(&CallHostServiceInst{
 				Dest:       dest,
 				ClassName:  className,
 				MethodName: methodName,
-				Recv:       receiverObj,
-				Args:       args,
+				Recv:       hostRecv,
+				Args:       hostArgs,
 			})
 		} else {
 			if l.prog.Functions[calleeName] == nil && (calleeName == "strlen" || calleeName == "count" || calleeName == "len" || calleeName == "array_push" || calleeName == "append" || calleeName == "to_string" ||
@@ -2216,10 +2843,70 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 						Args:      args,
 					})
 				} else {
+					if receiverObj != nil && (resolvedMethodStmt == nil || !resolvedMethodStmt.IsStatic) {
+						if member, ok := e.Function.(*parser.MemberExpression); ok && member.Property != nil &&
+							receiverObj.Type().Kind == TypeKindPtr && receiverObj.Type().Elem != nil &&
+							receiverObj.Type().Elem.Name != "" && receiverObj.Type().Elem.Name != "map" {
+							staticCls := receiverObj.Type().Elem.Name
+							mName := member.Property.Value
+							if overrides := l.collectVirtualOverrides(staticCls, mName, calleeName); len(overrides) > 0 {
+								paramTypes := make([]Type, 0, len(args))
+								if resolvedMethodStmt != nil {
+									for _, p := range resolvedMethodStmt.Parameters {
+										if p != nil {
+											paramTypes = append(paramTypes, l.mapType(p.Type.Literal))
+										}
+									}
+								}
+								for idx := 1 + len(paramTypes); idx < len(args); idx++ {
+									paramTypes = append(paramTypes, args[idx].Type())
+								}
+								calleeName = l.ensureVirtualDispatchHelper(staticCls, mName, retType, paramTypes, overrides)
+							}
+						}
+					}
+					callArgs := args
+					if targetFn := l.prog.Functions[calleeName]; targetFn != nil && len(targetFn.Params) > 0 {
+						callArgs = make([]Value, len(args))
+						for idx, a := range args {
+							if idx < len(targetFn.Params) {
+								callArgs[idx] = l.boxIfMixed(a, targetFn.Params[idx].Type())
+							} else {
+								callArgs[idx] = a
+							}
+						}
+					} else {
+						var expectedParams []*parser.Parameter
+						paramOffset := 0
+						if resolvedMethodStmt != nil {
+							expectedParams = resolvedMethodStmt.Parameters
+							if receiverObj != nil && !resolvedMethodStmt.IsStatic {
+								paramOffset = 1
+							}
+						} else if receiverObj == nil {
+							if fnStmt, ok := l.resolveFunction(calleeName); ok && fnStmt != nil {
+								expectedParams = fnStmt.Parameters
+							}
+						}
+						if len(expectedParams) > 0 {
+							callArgs = make([]Value, len(args))
+							for idx, a := range args {
+								pIdx := idx - paramOffset
+								if pIdx >= 0 && pIdx < len(expectedParams) && expectedParams[pIdx] != nil && expectedParams[pIdx].Type.Literal != "" {
+									callArgs[idx] = l.boxIfMixed(a, l.mapType(expectedParams[pIdx].Type.Literal))
+								} else {
+									callArgs[idx] = a
+								}
+							}
+						} else if (calleeName == "with" || calleeName == "WebResponse_with") && len(args) >= 3 {
+							callArgs = append([]Value(nil), args...)
+							callArgs[2] = l.boxIfMixed(callArgs[2], TypeMixed)
+						}
+					}
 					l.currBlock.AddInstruction(&CallInst{
 						Dest:   dest,
 						Callee: calleeName,
-						Args:   args,
+						Args:   callArgs,
 					})
 				}
 			}
@@ -2244,6 +2931,13 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 					storeVal = l.unboxIfTyped(storeVal, *ptr.Type().Elem)
 				}
 				l.currBlock.AddInstruction(&StoreInst{Val: storeVal, Ptr: ptr})
+				if l.activeClosureEnvMap != nil && l.activeClosureCaptured[varName] {
+					l.currBlock.AddInstruction(&MapSetInst{
+						Map: l.activeClosureEnvMap,
+						Key: NewConstString(varName),
+						Val: l.boxIfMixed(storeVal, TypeMixed),
+					})
+				}
 				return val, nil
 			}
 			allocType := val.Type()
@@ -2281,10 +2975,14 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				return nil, err
 			}
 			if idxExpr.Index == nil {
+				pushVal := val
+				if colVal.Type().Kind == TypeKindArray && colVal.Type().Elem != nil && colVal.Type().Elem.Kind == TypeKindMixed {
+					pushVal = l.boxIfMixed(val, TypeMixed)
+				}
 				l.currBlock.AddInstruction(&CallInst{
 					Dest:   nil,
 					Callee: "array_push",
-					Args:   []Value{colVal, val},
+					Args:   []Value{colVal, pushVal},
 				})
 				return val, nil
 			}
@@ -2304,8 +3002,12 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 					Key: idxVal,
 				})
 			} else {
+				arrVal := val
+				if colVal.Type().Kind == TypeKindArray && colVal.Type().Elem != nil && colVal.Type().Elem.Kind == TypeKindMixed {
+					arrVal = l.boxIfMixed(val, TypeMixed)
+				}
 				l.currBlock.AddInstruction(&ArraySetInst{
-					Val:   val,
+					Val:   arrVal,
 					Array: colVal,
 					Index: idxVal,
 				})
@@ -2329,32 +3031,93 @@ func (l *Lowerer) lowerFunctionLiteral(e *parser.FunctionLiteral) (Value, error)
 	retType := l.mapType(e.ReturnType.Literal)
 	if e.ReturnType.Literal == "" {
 		retType = TypeI64
+		if l.prep != nil && l.prep.Facts != nil {
+			if inferred, ok := l.prep.Facts.InferredTypes[e]; ok && inferred.Kind == typesystem.Callable && inferred.Element != nil && inferred.Element.Kind != typesystem.Unknown {
+				retType = l.mapTypeSystemType(*inferred.Element)
+			}
+		}
 	}
 
 	savedFn := l.currentFn
 	savedBlock := l.currBlock
 	savedLocals := l.varLocals
 	savedLoops := l.loopStack
+	savedFnStmts := l.currentFnStmts
+	savedClosureCaptured := l.activeClosureCaptured
+	savedClosureEnvMap := l.activeClosureEnvMap
+
+	// Collect outer local variable names referenced inside the closure body.
+	paramSet := make(map[string]bool, len(e.Parameters))
+	for _, p := range e.Parameters {
+		if p != nil && p.Name != nil {
+			paramSet[cleanVarName(p.Name.Value)] = true
+		}
+	}
+	capturedSet := make(map[string]bool)
+	if e.Body != nil {
+		walkASTNode(e.Body, false, func(n parser.Node) {
+			if v, ok := n.(*parser.Identifier); ok {
+				name := cleanVarName(v.Value)
+				if !paramSet[name] && savedLocals[name] != nil {
+					capturedSet[name] = true
+				}
+			}
+		})
+	}
+	capturedKeys := make([]string, 0, len(capturedSet))
+	for k := range capturedSet {
+		capturedKeys = append(capturedKeys, k)
+	}
+	sort.Strings(capturedKeys)
 
 	fn := NewFunction(closureName, retType)
 	l.currentFn = fn
 	l.currBlock = fn.EntryBlock
 	l.varLocals = make(map[string]Value)
 	l.loopStack = nil
+	if e.Body != nil {
+		l.currentFnStmts = e.Body.Statements
+	} else {
+		l.currentFnStmts = nil
+	}
+	l.activeClosureCaptured = nil
+	l.activeClosureEnvMap = nil
 
-	// Copiar declaraciones del entorno léxico exterior como slots locales para capturas
-	for k, outerPtr := range savedLocals {
-		elemT := outerPtr.Type().ElemType()
-		ptrTemp := fn.NewTemp(PtrType(elemT), k+"_cap_ptr")
-		l.currBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: elemT})
-		var initVal Value = NewConstInt(0, elemT)
-		if elemT.Kind == TypeKindString {
-			initVal = NewConstString("")
-		} else if elemT.Kind == TypeKindPtr || elemT.Kind == TypeKindStruct || elemT.Kind == TypeKindArray {
-			initVal = NewConstNull(elemT)
+	if len(capturedKeys) > 0 {
+		envMap := fn.NewTemp(PtrType(StructType("map", nil)), "closure_env")
+		l.currBlock.AddInstruction(&CallRuntimeInst{
+			Dest: envMap,
+			Func: "joss_closure_env_get",
+			Args: []Value{NewConstFnPtr(closureName, PtrType(TypeVoid))},
+		})
+		l.activeClosureCaptured = capturedSet
+		l.activeClosureEnvMap = envMap
+		for _, k := range capturedKeys {
+			outerPtr := savedLocals[k]
+			elemT := outerPtr.Type().ElemType()
+			ptrTemp := fn.NewTemp(PtrType(elemT), k+"_cap_ptr")
+			l.currBlock.AddInstruction(&AllocaInst{Dest: ptrTemp, AllocType: elemT})
+			var capVal Value
+			if isScalarBoxedKind(elemT.Kind) {
+				capRaw := fn.NewTemp(TypeMixed, k+"_cap_raw")
+				l.currBlock.AddInstruction(&MapGetInst{
+					Dest: capRaw,
+					Map:  envMap,
+					Key:  NewConstString(k),
+				})
+				capVal = l.unboxIfTyped(capRaw, elemT)
+			} else {
+				capTmp := fn.NewTemp(elemT, k+"_cap_val")
+				l.currBlock.AddInstruction(&MapGetInst{
+					Dest: capTmp,
+					Map:  envMap,
+					Key:  NewConstString(k),
+				})
+				capVal = capTmp
+			}
+			l.currBlock.AddInstruction(&StoreInst{Val: capVal, Ptr: ptrTemp})
+			l.varLocals[k] = ptrTemp
 		}
-		l.currBlock.AddInstruction(&StoreInst{Val: initVal, Ptr: ptrTemp})
-		l.varLocals[k] = ptrTemp
 	}
 
 	for _, param := range e.Parameters {
@@ -2376,6 +3139,9 @@ func (l *Lowerer) lowerFunctionLiteral(e *parser.FunctionLiteral) (Value, error)
 				l.currBlock = savedBlock
 				l.varLocals = savedLocals
 				l.loopStack = savedLoops
+				l.currentFnStmts = savedFnStmts
+				l.activeClosureCaptured = savedClosureCaptured
+				l.activeClosureEnvMap = savedClosureEnvMap
 				return nil, err
 			}
 		}
@@ -2399,8 +3165,31 @@ func (l *Lowerer) lowerFunctionLiteral(e *parser.FunctionLiteral) (Value, error)
 	l.currBlock = savedBlock
 	l.varLocals = savedLocals
 	l.loopStack = savedLoops
+	l.currentFnStmts = savedFnStmts
+	l.activeClosureCaptured = savedClosureCaptured
+	l.activeClosureEnvMap = savedClosureEnvMap
 
-	return NewConstFnPtr(closureName, PtrType(TypeVoid)), nil
+	fnPtr := NewConstFnPtr(closureName, PtrType(TypeVoid))
+	if len(capturedKeys) > 0 {
+		pairs := make([][2]Value, 0, len(capturedKeys))
+		for _, k := range capturedKeys {
+			outerPtr := savedLocals[k]
+			elemT := outerPtr.Type().ElemType()
+			loaded := l.currentFn.NewTemp(elemT, k+"_cap_out")
+			l.currBlock.AddInstruction(&LoadInst{Dest: loaded, Ptr: outerPtr})
+			pairs = append(pairs, [2]Value{NewConstString(k), l.boxIfMixed(loaded, TypeMixed)})
+		}
+		envMap := l.currentFn.NewTemp(PtrType(StructType("map", nil)), "closure_env_out")
+		l.currBlock.AddInstruction(&NewMapInst{Dest: envMap, Pairs: pairs})
+		closureBox := l.currentFn.NewTemp(PtrType(TypeVoid), "closure_box")
+		l.currBlock.AddInstruction(&CallRuntimeInst{
+			Dest: closureBox,
+			Func: "joss_closure_alloc",
+			Args: []Value{fnPtr, envMap},
+		})
+		return closureBox, nil
+	}
+	return fnPtr, nil
 }
 
 func (l *Lowerer) lowerMatchExpression(e *parser.MatchExpression) (Value, error) {
@@ -2487,6 +3276,326 @@ func (l *Lowerer) lowerMatchExpression(e *parser.MatchExpression) (Value, error)
 	resTemp := l.currentFn.NewTemp(resType, "match_res")
 	l.currBlock.AddInstruction(&LoadInst{Dest: resTemp, Ptr: resPtr})
 	return resTemp, nil
+}
+
+func walkASTNode(node parser.Node, skipClosures bool, visit func(parser.Node)) {
+	if node == nil {
+		return
+	}
+	visit(node)
+	switch v := node.(type) {
+	case *parser.BlockStatement:
+		for _, s := range v.Statements {
+			walkASTNode(s, skipClosures, visit)
+		}
+	case *parser.ExpressionStatement:
+		walkASTNode(v.Expression, skipClosures, visit)
+	case *parser.ReturnStatement:
+		walkASTNode(v.ReturnValue, skipClosures, visit)
+	case *parser.LetStatement:
+		walkASTNode(v.Value, skipClosures, visit)
+	case *parser.MultiLetStatement:
+		for _, d := range v.Declarations {
+			walkASTNode(d.Value, skipClosures, visit)
+		}
+	case *parser.EchoStatement:
+		walkASTNode(v.Value, skipClosures, visit)
+	case *parser.ThrowStatement:
+		walkASTNode(v.Value, skipClosures, visit)
+	case *parser.GuardStatement:
+		walkASTNode(v.Condition, skipClosures, visit)
+		walkASTNode(v.Body, skipClosures, visit)
+	case *parser.AssignExpression:
+		walkASTNode(v.Left, skipClosures, visit)
+		walkASTNode(v.Value, skipClosures, visit)
+	case *parser.InfixExpression:
+		walkASTNode(v.Left, skipClosures, visit)
+		walkASTNode(v.Right, skipClosures, visit)
+	case *parser.PrefixExpression:
+		walkASTNode(v.Right, skipClosures, visit)
+	case *parser.PostfixExpression:
+		walkASTNode(v.Left, skipClosures, visit)
+	case *parser.BlockExpression:
+		walkASTNode(v.Block, skipClosures, visit)
+	case *parser.TernaryExpression:
+		walkASTNode(v.Condition, skipClosures, visit)
+		walkASTNode(v.True, skipClosures, visit)
+		walkASTNode(v.False, skipClosures, visit)
+	case *parser.CallExpression:
+		walkASTNode(v.Function, skipClosures, visit)
+		for _, a := range v.Arguments {
+			walkASTNode(a, skipClosures, visit)
+		}
+	case *parser.NewExpression:
+		for _, a := range v.Arguments {
+			walkASTNode(a, skipClosures, visit)
+		}
+	case *parser.IssetExpression:
+		for _, a := range v.Arguments {
+			walkASTNode(a, skipClosures, visit)
+		}
+	case *parser.EmptyExpression:
+		walkASTNode(v.Argument, skipClosures, visit)
+	case *parser.IsExpression:
+		walkASTNode(v.Left, skipClosures, visit)
+	case *parser.MatchExpression:
+		walkASTNode(v.Subject, skipClosures, visit)
+		for _, arm := range v.Arms {
+			for _, k := range arm.Keys {
+				walkASTNode(k, skipClosures, visit)
+			}
+			walkASTNode(arm.Value, skipClosures, visit)
+		}
+	case *parser.MemberExpression:
+		walkASTNode(v.Left, skipClosures, visit)
+	case *parser.IndexExpression:
+		walkASTNode(v.Left, skipClosures, visit)
+		walkASTNode(v.Index, skipClosures, visit)
+	case *parser.SpreadExpression:
+		walkASTNode(v.Expression, skipClosures, visit)
+	case *parser.NamedArgument:
+		walkASTNode(v.Value, skipClosures, visit)
+	case *parser.ReferenceExpression:
+		walkASTNode(v.Target, skipClosures, visit)
+	case *parser.ArrayLiteral:
+		for _, el := range v.Elements {
+			walkASTNode(el, skipClosures, visit)
+		}
+	case *parser.MapLiteral:
+		for k, val := range v.Pairs {
+			walkASTNode(k, skipClosures, visit)
+			walkASTNode(val, skipClosures, visit)
+		}
+	case *parser.WhileStatement:
+		walkASTNode(v.Condition, skipClosures, visit)
+		walkASTNode(v.Body, skipClosures, visit)
+	case *parser.DoWhileStatement:
+		walkASTNode(v.Body, skipClosures, visit)
+		walkASTNode(v.Condition, skipClosures, visit)
+	case *parser.ForeachStatement:
+		walkASTNode(v.Iterable, skipClosures, visit)
+		walkASTNode(v.Body, skipClosures, visit)
+	case *parser.TryCatchStatement:
+		walkASTNode(v.TryBlock, skipClosures, visit)
+		walkASTNode(v.CatchBlock, skipClosures, visit)
+	case *parser.FunctionLiteral:
+		if !skipClosures && v.Body != nil {
+			walkASTNode(v.Body, skipClosures, visit)
+		}
+	}
+}
+
+func (l *Lowerer) inferMethodReturnType(stmt *parser.MethodStatement) Type {
+	return l.inferMethodReturnTypeVisited(stmt, make(map[*parser.MethodStatement]bool))
+}
+
+func (l *Lowerer) inferMethodReturnTypeVisited(stmt *parser.MethodStatement, visited map[*parser.MethodStatement]bool) Type {
+	if stmt == nil {
+		return TypeI64
+	}
+	if lit := strings.TrimSpace(stmt.ReturnType.Literal); lit != "" {
+		return l.mapType(lit)
+	}
+	if stmt.Body == nil || visited[stmt] {
+		return TypeI64
+	}
+	visited[stmt] = true
+
+	var inferred []Type
+	hasConcrete := false
+	walkASTNode(stmt.Body, true, func(n parser.Node) {
+		ret, ok := n.(*parser.ReturnStatement)
+		if !ok || ret.ReturnValue == nil {
+			return
+		}
+		if t, known := l.inferExprConcreteType(ret.ReturnValue, visited); known {
+			inferred = append(inferred, t)
+			hasConcrete = true
+		}
+	})
+	if !hasConcrete || len(inferred) == 0 {
+		return TypeI64
+	}
+	first := inferred[0]
+	for _, t := range inferred[1:] {
+		if t.Kind == TypeKindMixed || first.Kind == TypeKindMixed || t.Kind != first.Kind {
+			return TypeMixed
+		}
+	}
+	if first.Kind == TypeKindUnknown {
+		return TypeMixed
+	}
+	return first
+}
+
+func (l *Lowerer) inferExprConcreteType(expr parser.Expression, visited map[*parser.MethodStatement]bool) (Type, bool) {
+	if expr == nil {
+		return TypeUnknown, false
+	}
+	if l.prep != nil && l.prep.Facts != nil {
+		if t, ok := l.prep.Facts.InferredTypes[expr]; ok && t.Kind != typesystem.Unknown {
+			return l.mapTypeSystemType(t), true
+		}
+		if call, ok := expr.(*parser.CallExpression); ok {
+			if resolved, ok := l.prep.Facts.ResolvedCalls[call]; ok && resolved.ReturnType.Kind != typesystem.Unknown {
+				return l.mapTypeSystemType(resolved.ReturnType), true
+			}
+		}
+	}
+	switch e := expr.(type) {
+	case *parser.IntegerLiteral:
+		return TypeI64, true
+	case *parser.FloatLiteral:
+		return TypeF64, true
+	case *parser.DecimalLiteral:
+		return TypeDecimal, true
+	case *parser.StringLiteral:
+		return TypeString, true
+	case *parser.Boolean:
+		return TypeBool, true
+	case *parser.MapLiteral:
+		return PtrType(StructType("map", nil)), true
+	case *parser.ArrayLiteral:
+		return ArrayType(TypeMixed), true
+	case *parser.NewExpression:
+		if e.Class != nil {
+			return l.mapType(e.Class.Value), true
+		}
+	case *parser.IndexExpression:
+		return TypeMixed, true
+	case *parser.InfixExpression:
+		switch e.Operator {
+		case ".":
+			return TypeString, true
+		case "==", "!=", "<", "<=", ">", ">=", "&&", "||":
+			return TypeBool, true
+		case "+", "-", "*", "/", "%":
+			lt, lOk := l.inferExprConcreteType(e.Left, visited)
+			rt, rOk := l.inferExprConcreteType(e.Right, visited)
+			if (lOk && lt.Kind == TypeKindF64) || (rOk && rt.Kind == TypeKindF64) {
+				return TypeF64, true
+			}
+			if (lOk && lt.Kind == TypeKindI64) || (rOk && rt.Kind == TypeKindI64) {
+				return TypeI64, true
+			}
+		}
+	case *parser.TernaryExpression:
+		lt, lOk := l.inferExprConcreteType(e.True, visited)
+		rt, rOk := l.inferExprConcreteType(e.False, visited)
+		if lOk && rOk {
+			if lt.Kind == rt.Kind && lt.Kind != TypeKindMixed {
+				return lt, true
+			}
+			return TypeMixed, true
+		}
+		if lOk {
+			return lt, true
+		}
+		if rOk {
+			return rt, true
+		}
+	case *parser.CallExpression:
+		name := ""
+		className := ""
+		switch fn := e.Function.(type) {
+		case *parser.Identifier:
+			name = fn.Value
+		case *parser.MemberExpression:
+			if fn.Property != nil {
+				name = fn.Property.Value
+			}
+			if id, ok := fn.Left.(*parser.Identifier); ok {
+				className = id.Value
+			}
+		}
+		switch name {
+		case "view", "json", "response", "redirect", "back", "with", "withCookie",
+			"render", "html_escape", "csrf_field", "readFile", "toHtml", "trim",
+			"file_get_contents", "__joss_byte_string", "toSql", "strval", "to_string",
+			"strtolower", "strtoupper", "substr", "implode", "sprintf", "format",
+			"base64_encode", "hash", "env", "str_replace":
+			return TypeString, true
+		case "intval", "strlen", "len", "count", "time":
+			return TypeI64, true
+		case "floatval", "microtime":
+			return TypeF64, true
+		case "boolval", "str_contains", "contains", "str_starts_with", "str_ends_with",
+			"is_string", "is_array", "is_map", "empty", "isset":
+			return TypeBool, true
+		}
+		if visited != nil {
+			if className == "" {
+				if fnStmt, ok := l.resolveFunction(name); ok && fnStmt != nil && !visited[fnStmt] {
+					return l.inferMethodReturnTypeVisited(fnStmt, visited), true
+				}
+			} else if _, mRet, mStmt, ok := l.resolveClassMethod(className, name); ok && mStmt != nil && !visited[mStmt] {
+				return mRet, true
+			}
+		}
+	}
+	return TypeUnknown, false
+}
+
+func (l *Lowerer) isVarReassignedIncompatible(varName string, initType Type, stmts []parser.Statement) bool {
+	if len(stmts) == 0 || varName == "" {
+		return false
+	}
+	incompatible := false
+	for _, st := range stmts {
+		walkASTNode(st, true, func(n parser.Node) {
+			if incompatible {
+				return
+			}
+			assign, ok := n.(*parser.AssignExpression)
+			if !ok {
+				return
+			}
+			ident, ok := assign.Left.(*parser.Identifier)
+			if !ok || cleanVarName(ident.Value) != varName {
+				return
+			}
+			rhsType, known := l.inferExprConcreteType(assign.Value, nil)
+			if !known || rhsType.Kind == TypeKindMixed || rhsType.Kind == TypeKindUnknown || rhsType.Kind != initType.Kind {
+				incompatible = true
+			}
+		})
+		if incompatible {
+			return true
+		}
+	}
+	return false
+}
+
+func pluralizeIRClassName(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	lower := strings.ToLower(s)
+	switch lower {
+	case "person":
+		return "people"
+	case "man":
+		return "men"
+	case "child":
+		return "children"
+	case "foot":
+		return "feet"
+	case "tooth":
+		return "teeth"
+	case "mouse":
+		return "mice"
+	}
+	if strings.HasSuffix(lower, "y") && len(lower) > 1 {
+		secondLast := lower[len(lower)-2]
+		if secondLast != 'a' && secondLast != 'e' && secondLast != 'i' && secondLast != 'o' && secondLast != 'u' {
+			return s[:len(s)-1] + "ies"
+		}
+	}
+	if strings.HasSuffix(lower, "s") || strings.HasSuffix(lower, "x") || strings.HasSuffix(lower, "z") || strings.HasSuffix(lower, "ch") || strings.HasSuffix(lower, "sh") {
+		return s + "es"
+	}
+	return s + "s"
 }
 
 func (l *Lowerer) inferNodeType(expr parser.Node) Type {
@@ -2596,13 +3705,21 @@ func (l *Lowerer) buildAllClassLayouts() {
 		return
 	}
 	classMap := make(map[string]*parser.ClassStatement)
+	interfaceNames := make(map[string]bool)
 	for _, unit := range l.prep.Units {
 		if unit.Program == nil {
 			continue
 		}
 		for _, stmt := range unit.Program.Statements {
-			if cs, ok := stmt.(*parser.ClassStatement); ok && cs.Name != nil {
-				classMap[cs.Name.Value] = cs
+			switch s := stmt.(type) {
+			case *parser.ClassStatement:
+				if s.Name != nil {
+					classMap[s.Name.Value] = s
+				}
+			case *parser.InterfaceStatement:
+				if s.Name != nil {
+					interfaceNames[s.Name.Value] = true
+				}
 			}
 		}
 	}
@@ -2619,7 +3736,7 @@ func (l *Lowerer) buildAllClassLayouts() {
 
 		layout := &ClassLayout{
 			Name:         name,
-			FieldOffsets: make(map[string]int32),
+			FieldOffsets: map[string]int32{"__joss_cls": 0},
 		}
 
 		var currentOffset int32 = 8 // [0..7] reservado para puntero de clase/RTTI
@@ -2672,6 +3789,15 @@ func (l *Lowerer) buildAllClassLayouts() {
 	for className := range classMap {
 		getOrBuildLayout(className)
 	}
+	for ifaceName := range interfaceNames {
+		if _, exists := l.prog.ClassLayouts[ifaceName]; !exists {
+			l.prog.ClassLayouts[ifaceName] = &ClassLayout{
+				Name:         ifaceName,
+				FieldOffsets: map[string]int32{"__joss_cls": 0},
+				AllocSize:    16,
+			}
+		}
+	}
 }
 
 func (l *Lowerer) resolveClassMethod(className, methodName string) (string, Type, *parser.MethodStatement, bool) {
@@ -2696,7 +3822,7 @@ func (l *Lowerer) resolveClassMethod(className, methodName string) (string, Type
 				if cls.Body != nil {
 					for _, member := range cls.Body.Statements {
 						if m, ok := member.(*parser.MethodStatement); ok && m.Name != nil && m.Name.Value == methodName {
-							return curr + "_" + methodName, l.mapType(m.ReturnType.Literal), m, true
+							return curr + "_" + methodName, l.inferMethodReturnType(m), m, true
 						}
 					}
 				}
@@ -2920,74 +4046,142 @@ func describeUnsupportedExpression(expr parser.Expression) string {
 }
 
 func (l *Lowerer) isKnownInt(val Value) bool {
-	if _, ok := val.(*ConstInt); ok {
-		return true
+	return l.isKnownIntVisited(val, make(map[int]bool))
+}
+
+func (l *Lowerer) isKnownIntVisited(val Value, visited map[int]bool) bool {
+	if c, ok := val.(*ConstInt); ok {
+		k := c.Type().Kind
+		return k == TypeKindI64 || k == TypeKindI32 || k == TypeKindU8
 	}
 	if p, ok := val.(*ParamValue); ok {
-		return p.Type().Kind == TypeKindI64 || p.Type().Kind == TypeKindI32 || p.Type().Kind == TypeKindU8
+		k := p.Type().Kind
+		return k == TypeKindI64 || k == TypeKindI32 || k == TypeKindU8
 	}
 	t, ok := val.(*TempValue)
 	if !ok || l.currentFn == nil {
 		return false
 	}
-	for _, blk := range l.currentFn.Blocks {
-		for _, inst := range blk.Instructions {
-			res := inst.Result()
-			if res == nil || res.ID != t.ID {
-				continue
-			}
-			switch i := inst.(type) {
-			case *BinaryInst, *UnaryInst, *CompareInst:
-				return true
-			case *CallBuiltinInst:
-				switch i.BuiltinID {
-				case "strlen", "len", "count", "intval", "strpos", "abs", "min", "max":
-					return true
-				}
-				return false
-			case *LoadInst:
-				if ptrT, ok := i.Ptr.(*TempValue); ok {
-					for _, b2 := range l.currentFn.Blocks {
-						for _, inst2 := range b2.Instructions {
-							if st, ok := inst2.(*StoreInst); ok {
-								if stPtr, ok := st.Ptr.(*TempValue); ok && stPtr.ID == ptrT.ID {
-									if _, isC := st.Val.(*ConstInt); isC {
-										return true
-									}
-									if stT, ok := st.Val.(*TempValue); ok {
-										for _, b3 := range l.currentFn.Blocks {
-											for _, inst3 := range b3.Instructions {
-												if inst3.Result() != nil && inst3.Result().ID == stT.ID {
-													switch inst3.(type) {
-													case *BinaryInst, *UnaryInst, *CompareInst:
-														return true
-													}
-												}
-											}
-										}
-									}
-								}
-							}
+	if visited[t.ID] {
+		return true
+	}
+	visited[t.ID] = true
+
+	walkFnBlocks := func(fn func(inst Instruction) bool) {
+		var walk func(blocks []*BasicBlock) bool
+		walk = func(blocks []*BasicBlock) bool {
+			for _, blk := range blocks {
+				for _, inst := range blk.Instructions {
+					if tc, ok := inst.(*TryCatchInst); ok {
+						if !walk(tc.TryBlocks) || !walk(tc.CatchBlocks) {
+							return false
 						}
 					}
+					if !fn(inst) {
+						return false
+					}
 				}
-				return false
-			default:
+			}
+			return true
+		}
+		walk(l.currentFn.Blocks)
+	}
+
+	var def Instruction
+	walkFnBlocks(func(inst Instruction) bool {
+		res := inst.Result()
+		if res != nil && res.ID == t.ID {
+			def = inst
+			return false
+		}
+		return true
+	})
+	if def == nil {
+		return false
+	}
+
+	switch i := def.(type) {
+	case *BinaryInst:
+		switch i.Op {
+		case OpAdd, OpSub, OpMul, OpDiv, OpMod, OpAnd, OpOr, OpXor, OpShl, OpShr:
+			k := i.Dest.Type().Kind
+			return k == TypeKindI64 || k == TypeKindI32 || k == TypeKindU8
+		default:
+			return false
+		}
+	case *UnaryInst, *CompareInst:
+		return true
+	case *CallBuiltinInst:
+		switch i.BuiltinID {
+		case "strlen", "len", "count", "intval", "abs", "min", "max":
+			return true
+		}
+		return false
+	case *LoadInst:
+		ptrT, ok := i.Ptr.(*TempValue)
+		if !ok {
+			return false
+		}
+		var alloc *AllocaInst
+		walkFnBlocks(func(inst Instruction) bool {
+			if a, isAlloca := inst.(*AllocaInst); isAlloca && a.Dest != nil && a.Dest.ID == ptrT.ID {
+				alloc = a
 				return false
 			}
+			return true
+		})
+		if alloc == nil {
+			return false
 		}
+		ak := alloc.AllocType.Kind
+		if ak != TypeKindI64 && ak != TypeKindI32 && ak != TypeKindU8 {
+			return false
+		}
+
+		storeCount := 0
+		okAll := true
+		walkFnBlocks(func(inst Instruction) bool {
+			switch ins := inst.(type) {
+			case *StoreInst:
+				if valT, okV := ins.Val.(*TempValue); okV && valT.ID == ptrT.ID {
+					okAll = false
+					return false
+				}
+				if stPtr, okP := ins.Ptr.(*TempValue); okP && stPtr.ID == ptrT.ID {
+					storeCount++
+					if !l.isKnownIntVisited(ins.Val, visited) {
+						okAll = false
+						return false
+					}
+				}
+			case *LoadInst, *TryCatchInst:
+				// Allowed read or container
+			default:
+				for _, op := range inst.Operands() {
+					if opT, okOp := op.(*TempValue); okOp && opT.ID == ptrT.ID {
+						okAll = false
+						return false
+					}
+				}
+			}
+			return true
+		})
+		return okAll && storeCount > 0
+	default:
+		return false
 	}
-	return false
+}
+
+func isScalarBoxedKind(k TypeKind) bool {
+	return k == TypeKindI64 || k == TypeKindI32 || k == TypeKindU8 ||
+		k == TypeKindBool || k == TypeKindF64 || k == TypeKindF32 || k == TypeKindDecimal
 }
 
 func (l *Lowerer) boxIfMixed(val Value, targetType Type) Value {
 	if val == nil || targetType.Kind != TypeKindMixed {
 		return val
 	}
-	k := val.Type().Kind
-	isBoolOrFloat := k == TypeKindBool || k == TypeKindF64 || k == TypeKindF32 || k == TypeKindDecimal
-	isInt := (k == TypeKindI64 || k == TypeKindI32 || k == TypeKindU8) && l.isKnownInt(val)
-	if !isBoolOrFloat && !isInt {
+	if !isScalarBoxedKind(val.Type().Kind) {
 		return val
 	}
 	boxed := l.currentFn.NewTemp(TypeMixed, "boxed")
@@ -3008,9 +4202,378 @@ func (l *Lowerer) unboxIfTyped(val Value, targetType Type) Value {
 	if val == nil || val.Type().Kind != TypeKindMixed {
 		return val
 	}
-	k := targetType.Kind
-	if k == TypeKindI64 || k == TypeKindI32 || k == TypeKindU8 || k == TypeKindBool || k == TypeKindF64 || k == TypeKindF32 || k == TypeKindDecimal {
+	if isScalarBoxedKind(targetType.Kind) {
 		return l.unboxIfMixed(val)
 	}
 	return val
+}
+
+func (l *Lowerer) newDetachedBlock(prefix string) *BasicBlock {
+	id := l.currentFn.NextBlockID
+	l.currentFn.NextBlockID++
+	return NewBasicBlock(id, fmt.Sprintf("%s%d", prefix, id))
+}
+
+func cleanTryCatchBlocks(blocks []*BasicBlock) []*BasicBlock {
+	if len(blocks) == 0 {
+		return blocks
+	}
+	inRegion := make(map[*BasicBlock]bool, len(blocks))
+	for _, b := range blocks {
+		inRegion[b] = true
+	}
+	reachable := make(map[*BasicBlock]bool, len(blocks))
+	queue := []*BasicBlock{blocks[0]}
+	reachable[blocks[0]] = true
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+		for _, succ := range curr.Successors() {
+			if succ != nil && inRegion[succ] && !reachable[succ] {
+				reachable[succ] = true
+				queue = append(queue, succ)
+			}
+		}
+	}
+	cleaned := make([]*BasicBlock, 0, len(blocks))
+	for _, b := range blocks {
+		if reachable[b] {
+			cleaned = append(cleaned, b)
+		}
+	}
+	if len(cleaned) == 0 {
+		return blocks[:1]
+	}
+	return cleaned
+}
+
+func (l *Lowerer) collectClassHierarchy(className string) []*parser.ClassStatement {
+	if l.prep == nil || className == "" {
+		return nil
+	}
+	classMap := make(map[string]*parser.ClassStatement)
+	for _, unit := range l.prep.Units {
+		if unit.Program == nil {
+			continue
+		}
+		for _, stmt := range unit.Program.Statements {
+			if cs, ok := stmt.(*parser.ClassStatement); ok && cs.Name != nil {
+				classMap[cs.Name.Value] = cs
+			}
+		}
+	}
+	var revChain []*parser.ClassStatement
+	visited := make(map[string]bool)
+	curr := className
+	for curr != "" && !visited[curr] {
+		visited[curr] = true
+		cs := classMap[curr]
+		if cs == nil {
+			break
+		}
+		revChain = append(revChain, cs)
+		if cs.SuperClass != nil {
+			curr = cs.SuperClass.Value
+		} else {
+			curr = ""
+		}
+	}
+	chain := make([]*parser.ClassStatement, len(revChain))
+	for i, cs := range revChain {
+		chain[len(revChain)-1-i] = cs
+	}
+	return chain
+}
+
+func (l *Lowerer) classHasSubclasses(className string) bool {
+	if l.prep == nil || className == "" {
+		return false
+	}
+	for _, unit := range l.prep.Units {
+		if unit.Program == nil {
+			continue
+		}
+		for _, stmt := range unit.Program.Statements {
+			cs, ok := stmt.(*parser.ClassStatement)
+			if !ok {
+				continue
+			}
+			if cs.SuperClass != nil && cs.SuperClass.Value == className {
+				return true
+			}
+			for _, iface := range cs.Interfaces {
+				if iface != nil && iface.Value == className {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+type virtualOverride struct {
+	subClass  string
+	implFn    string
+	implOwner string
+	implRet   Type
+	implStmt  *parser.MethodStatement
+}
+
+func (l *Lowerer) collectVirtualOverrides(staticCls, methodName, staticImplFn string) []virtualOverride {
+	if l.prep == nil || staticCls == "" || methodName == "" {
+		return nil
+	}
+	childrenMap := make(map[string][]*parser.ClassStatement)
+	for _, unit := range l.prep.Units {
+		if unit.Program == nil {
+			continue
+		}
+		for _, stmt := range unit.Program.Statements {
+			cs, ok := stmt.(*parser.ClassStatement)
+			if !ok || cs.Name == nil {
+				continue
+			}
+			if cs.SuperClass != nil && cs.SuperClass.Value != "" {
+				childrenMap[cs.SuperClass.Value] = append(childrenMap[cs.SuperClass.Value], cs)
+			}
+			for _, iface := range cs.Interfaces {
+				if iface != nil && iface.Value != "" {
+					childrenMap[iface.Value] = append(childrenMap[iface.Value], cs)
+				}
+			}
+		}
+	}
+
+	var overrides []virtualOverride
+	visited := map[string]bool{staticCls: true}
+	queue := append([]*parser.ClassStatement(nil), childrenMap[staticCls]...)
+	for len(queue) > 0 {
+		subCS := queue[0]
+		queue = queue[1:]
+		if subCS == nil || subCS.Name == nil {
+			continue
+		}
+		subName := subCS.Name.Value
+		if visited[subName] {
+			continue
+		}
+		visited[subName] = true
+		queue = append(queue, childrenMap[subName]...)
+		if subCS.IsAbstract {
+			continue
+		}
+		implFn, implRet, implStmt, found := l.resolveClassMethod(subName, methodName)
+		if !found || implStmt == nil || implStmt.IsStatic || implStmt.IsAbstract || implStmt.Body == nil {
+			continue
+		}
+		if implFn == staticImplFn {
+			continue
+		}
+		implOwner := strings.TrimSuffix(implFn, "_"+methodName)
+		overrides = append(overrides, virtualOverride{
+			subClass:  subName,
+			implFn:    implFn,
+			implOwner: implOwner,
+			implRet:   implRet,
+			implStmt:  implStmt,
+		})
+	}
+	sort.Slice(overrides, func(i, j int) bool {
+		return overrides[i].subClass < overrides[j].subClass
+	})
+	return overrides
+}
+
+func (l *Lowerer) ensureVirtualDispatchHelper(staticCls, methodName string, retType Type, paramTypes []Type, overrides []virtualOverride) string {
+	vcallName := "__joss_vcall_" + staticCls + "_" + methodName
+	if l.prog.Functions[vcallName] != nil {
+		return vcallName
+	}
+
+	savedFn := l.currentFn
+	savedBlock := l.currBlock
+	savedLocals := l.varLocals
+	savedLoops := l.loopStack
+	savedCap := l.activeClosureCaptured
+	savedEnv := l.activeClosureEnvMap
+	defer func() {
+		l.currentFn = savedFn
+		l.currBlock = savedBlock
+		l.varLocals = savedLocals
+		l.loopStack = savedLoops
+		l.activeClosureCaptured = savedCap
+		l.activeClosureEnvMap = savedEnv
+	}()
+
+	fn := NewFunction(vcallName, retType)
+	l.currentFn = fn
+	l.varLocals = nil
+	l.loopStack = nil
+	l.activeClosureCaptured = nil
+	l.activeClosureEnvMap = nil
+
+	thisVal := fn.AddParam("this", PtrType(StructType(staticCls, nil)))
+	fn.DefaultArgs = append(fn.DefaultArgs, nil)
+	params := make([]Value, 1, 1+len(paramTypes))
+	params[0] = thisVal
+	for idx, pt := range paramTypes {
+		pv := fn.AddParam(fmt.Sprintf("arg%d", idx), pt)
+		fn.DefaultArgs = append(fn.DefaultArgs, nil)
+		params = append(params, pv)
+	}
+
+	curBlk := fn.EntryBlock
+	clsName := fn.NewTemp(TypeString, "vcall_cls")
+	curBlk.AddInstruction(&LoadFieldInst{
+		Dest:      clsName,
+		Obj:       thisVal,
+		FieldName: "__joss_cls",
+	})
+
+	emitCallAndReturn := func(blk *BasicBlock, callee string, mStmt *parser.MethodStatement, targetRet Type) {
+		l.currBlock = blk
+		callArgs := make([]Value, len(params))
+		copy(callArgs, params)
+		if mStmt != nil {
+			for pIdx, p := range mStmt.Parameters {
+				argIdx := pIdx + 1
+				if argIdx < len(callArgs) && p != nil && p.Type.Literal != "" {
+					pType := l.mapType(p.Type.Literal)
+					v := l.boxIfMixed(callArgs[argIdx], pType)
+					v = l.unboxIfTyped(v, pType)
+					callArgs[argIdx] = v
+				}
+			}
+		}
+		var callDest *TempValue
+		if targetRet.Kind != TypeKindVoid {
+			callDest = fn.NewTemp(targetRet, "vcall_ret")
+		}
+		blk.AddInstruction(&CallInst{
+			Dest:   callDest,
+			Callee: callee,
+			Args:   callArgs,
+		})
+		if retType.Kind == TypeKindVoid {
+			blk.SetTerminator(&ReturnTerminator{})
+			return
+		}
+		if callDest == nil {
+			if retType.Kind == TypeKindString {
+				blk.SetTerminator(&ReturnTerminator{Val: NewConstString("")})
+			} else if retType.Kind == TypeKindPtr || retType.Kind == TypeKindStruct || retType.Kind == TypeKindArray {
+				blk.SetTerminator(&ReturnTerminator{Val: NewConstNull(retType)})
+			} else {
+				blk.SetTerminator(&ReturnTerminator{Val: NewConstInt(0, retType)})
+			}
+			return
+		}
+		var retVal Value = callDest
+		retVal = l.boxIfMixed(retVal, retType)
+		retVal = l.unboxIfTyped(retVal, retType)
+		blk.SetTerminator(&ReturnTerminator{Val: retVal})
+	}
+
+	for _, ov := range overrides {
+		l.pendingVirtualMethods = append(l.pendingVirtualMethods, pendingVirtualMethod{
+			className: ov.implOwner,
+			method:    ov.implStmt,
+		})
+		cmp := fn.NewTemp(TypeBool, "is_sub")
+		curBlk.AddInstruction(&CompareInst{
+			Op:    OpCmpEq,
+			Dest:  cmp,
+			Left:  clsName,
+			Right: NewConstString(ov.subClass),
+		})
+		hitBlk := fn.NewBlock("vcall_hit")
+		nextBlk := fn.NewBlock("vcall_next")
+		curBlk.SetTerminator(&BranchTerminator{
+			Cond:       cmp,
+			TrueBlock:  hitBlk,
+			FalseBlock: nextBlk,
+		})
+		emitCallAndReturn(hitBlk, ov.implFn, ov.implStmt, ov.implRet)
+		curBlk = nextBlk
+	}
+
+	baseFnName, baseRet, baseStmt, baseFound := l.resolveClassMethod(staticCls, methodName)
+	if baseFound && baseStmt != nil && !baseStmt.IsStatic && !baseStmt.IsAbstract && baseStmt.Body != nil {
+		baseOwner := strings.TrimSuffix(baseFnName, "_"+methodName)
+		l.pendingVirtualMethods = append(l.pendingVirtualMethods, pendingVirtualMethod{
+			className: baseOwner,
+			method:    baseStmt,
+		})
+		emitCallAndReturn(curBlk, baseFnName, baseStmt, baseRet)
+	} else {
+		if retType.Kind == TypeKindVoid {
+			curBlk.SetTerminator(&ReturnTerminator{})
+		} else if retType.Kind == TypeKindString {
+			curBlk.SetTerminator(&ReturnTerminator{Val: NewConstString("")})
+		} else if retType.Kind == TypeKindPtr || retType.Kind == TypeKindStruct || retType.Kind == TypeKindArray {
+			curBlk.SetTerminator(&ReturnTerminator{Val: NewConstNull(retType)})
+		} else {
+			curBlk.SetTerminator(&ReturnTerminator{Val: NewConstInt(0, retType)})
+		}
+	}
+
+	l.prog.AddFunction(fn)
+	return vcallName
+}
+
+func (l *Lowerer) flushPendingVirtualMethods() error {
+	if len(l.pendingVirtualMethods) == 0 {
+		return nil
+	}
+	savedFn := l.currentFn
+	savedBlock := l.currBlock
+	savedLocals := l.varLocals
+	savedLoops := l.loopStack
+	savedCap := l.activeClosureCaptured
+	savedEnv := l.activeClosureEnvMap
+	defer func() {
+		l.currentFn = savedFn
+		l.currBlock = savedBlock
+		l.varLocals = savedLocals
+		l.loopStack = savedLoops
+		l.activeClosureCaptured = savedCap
+		l.activeClosureEnvMap = savedEnv
+	}()
+
+	seen := make(map[string]bool)
+	for len(l.pendingVirtualMethods) > 0 {
+		batch := l.pendingVirtualMethods
+		l.pendingVirtualMethods = nil
+		for _, item := range batch {
+			if item.method == nil || item.method.Name == nil || item.className == "" {
+				continue
+			}
+			fnName := item.className + "_" + item.method.Name.Value
+			if seen[fnName] || l.prog.Functions[fnName] != nil {
+				continue
+			}
+			seen[fnName] = true
+			l.loopStack = nil
+			l.activeClosureCaptured = nil
+			l.activeClosureEnvMap = nil
+			if err := l.lowerClassMethod(item.className, item.method); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func isBlueprintMethod(name string) bool {
+	switch name {
+	case "id", "increments", "integer", "tinyInteger", "smallInteger", "mediumInteger",
+		"bigInteger", "unsignedInteger", "unsignedBigInteger", "float", "double", "decimal",
+		"char", "string", "text", "mediumText", "longText", "date", "dateTime", "time",
+		"timestamp", "timestamps", "softDeletes", "boolean", "json", "enum", "nullable",
+		"unsigned", "unique", "default", "comment", "dropColumn", "renameColumn", "index",
+		"uniqueIndex", "dropIndex", "foreign", "references", "on", "onDelete", "onUpdate",
+		"dropForeign":
+		return true
+	}
+	return false
 }

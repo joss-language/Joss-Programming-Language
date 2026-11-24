@@ -1,5 +1,17 @@
 //go:build ignore
+#if defined(__APPLE__) && !defined(_DARWIN_C_SOURCE)
+#define _DARWIN_C_SOURCE
+#elif defined(__unix__)
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+#endif
+
 #include "joss_rt.h"
+#include "joss_crypto_primitives.inc"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -9,10 +21,19 @@
 
 #if defined(__unix__) || defined(__APPLE__)
 #include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stdatomic.h>
+#include <strings.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #elif defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -20,6 +41,10 @@
 #endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <windows.h>
+#include <direct.h>
+#include <process.h>
+#include <stdatomic.h>
 #endif
 
 /* =========================================================================
@@ -27,47 +52,70 @@
  * ========================================================================= */
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 static _Thread_local void* g_joss_active_request = NULL;
+static _Thread_local void* g_joss_active_session = NULL;
 static _Thread_local void* g_joss_session_flash = NULL;
+static _Thread_local void* g_joss_new_flash = NULL;
+static _Thread_local void* g_joss_consumed_flash = NULL;
+static _Thread_local char  g_joss_session_last_err[256] = {0};
+static _Thread_local char* g_tls_temp_uploads[64];
+static _Thread_local int   g_tls_temp_upload_count = 0;
 #else
 static __thread void* g_joss_active_request = NULL;
+static __thread void* g_joss_active_session = NULL;
 static __thread void* g_joss_session_flash = NULL;
+static __thread void* g_joss_new_flash = NULL;
+static __thread void* g_joss_consumed_flash = NULL;
+static __thread char  g_joss_session_last_err[256] = {0};
+static __thread char* g_tls_temp_uploads[64];
+static __thread int   g_tls_temp_upload_count = 0;
 #endif
+
+void joss_req_tempfiles_cleanup(void) {
+    for (int i = 0; i < g_tls_temp_upload_count; i++) {
+        if (g_tls_temp_uploads[i]) {
+            remove(g_tls_temp_uploads[i]);
+            free(g_tls_temp_uploads[i]);
+            g_tls_temp_uploads[i] = NULL;
+        }
+    }
+    g_tls_temp_upload_count = 0;
+}
+
+void joss_req_state_reset(void) {
+    joss_req_tempfiles_cleanup();
+    joss_closure_env_tls_reset();
+    g_joss_active_request = NULL;
+    g_joss_active_session = NULL;
+    g_joss_session_flash = NULL;
+    g_joss_new_flash = NULL;
+    g_joss_consumed_flash = NULL;
+    g_joss_session_last_err[0] = '\0';
+}
 
 void joss___joss_rt_set_request_context(void* req) {
     g_joss_active_request = req;
+}
+
+void* joss_get_active_request(void) {
+    return g_joss_active_request;
+}
+
+void joss_set_active_session(void* sess) {
+    if (sess) {
+        sess = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)sess);
+    }
+    g_joss_active_session = sess;
+}
+
+void* joss_get_active_session(void) {
+    return g_joss_active_session;
 }
 
 /* =========================================================================
  * String & Conversion Helpers
  * ========================================================================= */
 const char* joss_str_concat_i64(const char* a, int64_t b) {
-    return joss_str_concat(a ? a : "", joss_strval(b));
-}
-
-typedef struct {
-    uint64_t len;
-    uint8_t data[];
-} JossBytesBuf;
-
-static void* joss_bytes_new(const void* data, size_t len) {
-    JossBytesBuf* buf = (JossBytesBuf*)malloc(sizeof(JossBytesBuf) + len + 1);
-    if (!buf) return NULL;
-    buf->len = (uint64_t)len;
-    if (data && len > 0) memcpy(buf->data, data, len);
-    buf->data[len] = '\0';
-    return (void*)(uintptr_t)joss_box_value(JOSS_TAG_BYTES, (uint64_t)(uintptr_t)buf);
-}
-
-static const uint8_t* joss_bytes_unwrap(const void* val, size_t* out_len) {
-    if (!val) return NULL;
-    int64_t v = (int64_t)(uintptr_t)val;
-    if (!joss_is_boxed_ptr(v)) return NULL;
-    const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)v;
-    if ((uint32_t)(box->header & 0xFFFFFFFFULL) != JOSS_TAG_BYTES) return NULL;
-    const JossBytesBuf* buf = (const JossBytesBuf*)(uintptr_t)box->payload;
-    if (!buf) return NULL;
-    if (out_len) *out_len = (size_t)buf->len;
-    return buf->data;
+    return joss_str_concat(a ? a : "", joss_i64_to_str(b));
 }
 
 static const char* unbox_web_cstr(const char* s) {
@@ -98,7 +146,7 @@ int64_t joss_strpos(const char* haystack, const char* needle) {
             rune_idx++;
         }
     }
-    return rune_idx;
+    return (int64_t)(uintptr_t)joss_box_i64(rune_idx);
 }
 
 const char* joss_substr(const char* s, int64_t start, int64_t length) {
@@ -282,6 +330,10 @@ int64_t joss_is_truthy(int64_t v) {
         uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
         if (tag == JOSS_TAG_NULL) return 0;
         if (tag == JOSS_TAG_BOOL || tag == JOSS_TAG_INT) return box->payload != 0 ? 1 : 0;
+        if (tag == JOSS_TAG_BYTES) {
+            const JossBytesBuf* bb = (const JossBytesBuf*)(uintptr_t)box->payload;
+            return (bb && bb->len > 0) ? 1 : 0;
+        }
         if (tag == JOSS_TAG_STRING) {
             const char* s = (const char*)(uintptr_t)box->payload;
             return (s && s[0] != '\0') ? 1 : 0;
@@ -313,7 +365,8 @@ int64_t joss_is_string(int64_t v) {
     if (joss_is_arr_ptr(v) || joss_is_map_ptr(v)) return 0;
     if (joss_is_boxed_ptr(v)) {
         const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)v;
-        return (uint32_t)(box->header & 0xFFFFFFFFULL) == JOSS_TAG_STRING ? 1 : 0;
+        uint32_t tag = (uint32_t)(box->header & 0xFFFFFFFFULL);
+        return (tag == JOSS_TAG_STRING || tag == JOSS_TAG_BYTES) ? 1 : 0;
     }
     uint64_t u = (uint64_t)v;
     if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return 0;
@@ -339,15 +392,29 @@ void* array_push(void* arr, int64_t val) {
 }
 
 const char* joss___joss_byte_string(int64_t b) {
+    b = joss_unbox_value(b);
+    uint8_t ch = (uint8_t)(b & 0xFF);
+    if (ch == 0) {
+        return (const char*)joss_bytes_new(&ch, 1);
+    }
     char* out = (char*)malloc(2);
     if (!out) return "";
-    out[0] = (char)(b & 0xFF);
+    out[0] = (char)ch;
     out[1] = '\0';
     return out;
 }
 
 int64_t joss___joss_string_byte_at(const char* s, int64_t idx) {
+    idx = joss_unbox_value(idx);
     if (!s || idx < 0) return 0;
+    size_t blen = 0;
+    const uint8_t* bdata = joss_bytes_unwrap(s, &blen);
+    if (bdata) {
+        if ((size_t)idx >= blen) return 0;
+        return (int64_t)bdata[idx];
+    }
+    s = unbox_web_cstr(s);
+    if (!s) return 0;
     size_t n = strlen(s);
     if ((size_t)idx >= n) return 0;
     return (int64_t)(unsigned char)s[idx];
@@ -370,12 +437,18 @@ static uint32_t sha1_rol(uint32_t v, unsigned int bits) {
 }
 
 const char* joss_sha1_base64(const char* s) {
-    if (!s) s = "";
-    size_t msg_len = strlen(s);
+    size_t msg_len = 0;
+    const uint8_t* src = joss_bytes_unwrap(s, &msg_len);
+    if (!src) {
+        s = unbox_web_cstr(s);
+        if (!s) s = "";
+        src = (const uint8_t*)s;
+        msg_len = strlen(s);
+    }
     size_t padded_len = ((msg_len + 8U) / 64U + 1U) * 64U;
     uint8_t* msg = (uint8_t*)calloc(1, padded_len);
     if (!msg) return "";
-    memcpy(msg, s, msg_len);
+    if (msg_len > 0) memcpy(msg, src, msg_len);
     msg[msg_len] = 0x80;
     uint64_t bit_len = (uint64_t)msg_len * 8ULL;
     for (int i = 0; i < 8; i++) {
@@ -622,17 +695,21 @@ static void joss_load_env_file_if_needed(void) {
 }
 
 const char* joss_env(const char* key, const char* defVal) {
+    key = unbox_web_cstr(key);
     if (!key) return defVal ? defVal : "";
     if (strcmp(key, "PREFIX") != 0) {
         const char* v = getenv(key);
         if (v && v[0] != '\0') return v;
     }
+    const char* result = NULL;
+    joss_global_lock(JOSS_LOCK_ENV);
     joss_load_env_file_if_needed();
     if (g_joss_env_map != NULL && joss_array_key_exists(key, g_joss_env_map)) {
         const char* mv = joss_map_get_str(g_joss_env_map, key);
-        if (mv) return mv;
+        if (mv) result = mv;
     }
-    return defVal ? defVal : "";
+    joss_global_unlock(JOSS_LOCK_ENV);
+    return result ? result : (defVal ? defVal : "");
 }
 
 static bool is_safe_relative_path(const char* path) {
@@ -692,6 +769,11 @@ const char* joss_file_get_contents(const char* path) {
                     size_t rd = fread(buf, 1, (size_t)sz, f);
                     buf[rd] = '\0';
                     fclose(f);
+                    if (memchr(buf, '\0', rd) != NULL) {
+                        void* boxed = joss_bytes_new(buf, rd);
+                        free(buf);
+                        return (const char*)boxed;
+                    }
                     return buf;
                 }
             }
@@ -758,7 +840,18 @@ static void json_encode_value(JossStringBuilder* sb, int64_t val) {
         if (tag == JOSS_TAG_NULL) { joss_sb_append(sb, "null"); return; }
         if (tag == JOSS_TAG_BOOL) { joss_sb_append(sb, box->payload ? "true" : "false"); return; }
         if (tag == JOSS_TAG_INT)  { joss_sb_append_i64(sb, (int64_t)box->payload); return; }
+        if (tag == JOSS_TAG_FLOAT) {
+            double d = 0.0;
+            memcpy(&d, &box->payload, sizeof(d));
+            joss_sb_append(sb, joss_f64_to_string(d));
+            return;
+        }
         if (tag == JOSS_TAG_STRING) { json_escape_append(sb, unbox_web_cstr((const char*)(uintptr_t)box->payload)); return; }
+        if (tag == JOSS_TAG_BYTES) {
+            const JossBytesBuf* bb = (const JossBytesBuf*)(uintptr_t)box->payload;
+            json_escape_append(sb, bb ? (const char*)bb->data : "");
+            return;
+        }
         json_encode_value(sb, (int64_t)box->payload);
         return;
     }
@@ -771,7 +864,8 @@ static void json_encode_value(JossStringBuilder* sb, int64_t val) {
 }
 
 const char* joss_json(int64_t data, int64_t status) {
-    if (status <= 0) status = 200;
+    status = joss_intval(status);
+    if (status < 100 || status > 599) status = 200;
     JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "HTTP/1.1 ");
     joss_sb_append_i64(sb, status);
@@ -797,7 +891,8 @@ const char* joss_response(const char* body, int64_t status, const char* content_
     if (ct && *ct) {
         return fn_Response_raw(body, status, ct);
     }
-    if (status <= 0) status = 200;
+    status = joss_intval(status);
+    if (status < 100 || status > 599) status = 200;
     JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "HTTP/1.1 ");
     joss_sb_append_i64(sb, status);
@@ -809,8 +904,10 @@ const char* joss_response(const char* body, int64_t status, const char* content_
 }
 
 const char* joss_redirect(const char* url, int64_t status) {
+    url = unbox_web_cstr(url);
     if (!url || !*url) url = "/";
-    if (status <= 0) status = 302;
+    status = joss_intval(status);
+    if (status < 300 || status > 399) status = 302;
     JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "HTTP/1.1 ");
     joss_sb_append_i64(sb, status);
@@ -844,8 +941,43 @@ const char* joss___joss_get_embedded_asset(const char* path) {
     return joss_file_get_contents(path);
 }
 
+static bool joss_ws_resolve_socket(int64_t sock_fd, joss_socket_t* out_sock);
+static void joss_ws_close_socket(joss_socket_t sock);
+static void joss_unregister_wrapped_socket(intptr_t handle_val);
+static void joss_ws_hub_subscribe_raw(const char* channel, joss_socket_t sock);
+static void joss_ws_hub_unsubscribe_all(joss_socket_t sock);
+
 const char* joss___joss_http_dispatch(const char* method, const char* path, void* req) {
-    (void)method;
+    method = unbox_web_cstr(method);
+    path = unbox_web_cstr(path);
+    if (method && strcmp(method, "__websocket__") == 0) {
+        joss_socket_t sock;
+        if (!joss_ws_resolve_socket((int64_t)(uintptr_t)req, &sock)) {
+            return "";
+        }
+        const char* channel = (path && path[0]) ? path : "/";
+        joss_ws_hub_subscribe_raw(channel, sock);
+        for (;;) {
+            int opcode = 0;
+            char* payload = NULL;
+            size_t plen = 0;
+            int rc = joss_ws_read_frame(sock, &opcode, &payload, &plen);
+            if (rc != 0) {
+                free(payload);
+                break;
+            }
+            if ((opcode == 0x1 || opcode == 0x2) && payload) {
+                (void)fn_WebSocket_publish(channel, payload);
+            }
+            free(payload);
+        }
+        joss_ws_hub_unsubscribe_all(sock);
+        joss_unregister_wrapped_socket((intptr_t)joss_unbox_value((int64_t)(uintptr_t)req));
+        joss_ws_close_socket(sock);
+        joss_req_state_reset();
+        joss_req_arena_reset();
+        return "__JOSS_WEBSOCKET_HANDLED__";
+    }
     (void)path;
     (void)req;
     return "";
@@ -931,11 +1063,90 @@ const char* __joss_rt_route_param(const char* pattern, const char* path, const c
 }
 
 /* =========================================================================
+ * Wrapped Socket Handle Registry & Socket Helpers
+ * ========================================================================= */
+#define JOSS_WRAPPED_SOCK_MAX 4096
+static intptr_t g_joss_wrapped_sockets[JOSS_WRAPPED_SOCK_MAX];
+static int      g_joss_wrapped_sock_count = 0;
+
+static void joss_register_wrapped_socket(intptr_t handle_val) {
+    if (handle_val <= 0) return;
+    joss_global_lock(JOSS_LOCK_WS);
+    for (int i = 0; i < g_joss_wrapped_sock_count; i++) {
+        if (g_joss_wrapped_sockets[i] == handle_val) {
+            joss_global_unlock(JOSS_LOCK_WS);
+            return;
+        }
+    }
+    if (g_joss_wrapped_sock_count < JOSS_WRAPPED_SOCK_MAX) {
+        g_joss_wrapped_sockets[g_joss_wrapped_sock_count++] = handle_val;
+    }
+    joss_global_unlock(JOSS_LOCK_WS);
+}
+
+static void joss_unregister_wrapped_socket(intptr_t handle_val) {
+    if (handle_val <= 0) return;
+    joss_global_lock(JOSS_LOCK_WS);
+    for (int i = 0; i < g_joss_wrapped_sock_count; i++) {
+        if (g_joss_wrapped_sockets[i] == handle_val) {
+            g_joss_wrapped_sockets[i] = g_joss_wrapped_sockets[--g_joss_wrapped_sock_count];
+            break;
+        }
+    }
+    joss_global_unlock(JOSS_LOCK_WS);
+}
+
+static bool joss_ws_resolve_socket(int64_t sock_fd, joss_socket_t* out_sock) {
+    if (!out_sock) return false;
+    int64_t u = joss_unbox_value(sock_fd);
+    if (u <= 0) return false;
+    bool is_wrapped = false;
+    joss_global_lock(JOSS_LOCK_WS);
+    for (int i = 0; i < g_joss_wrapped_sock_count; i++) {
+        if (g_joss_wrapped_sockets[i] == (intptr_t)u) {
+            is_wrapped = true;
+            break;
+        }
+    }
+    joss_global_unlock(JOSS_LOCK_WS);
+    if (is_wrapped) {
+        *out_sock = (joss_socket_t)((uintptr_t)u - 1U);
+        return true;
+    }
+#if defined(_WIN32)
+    if ((uint64_t)u >= JOSS_MIN_PTR_ADDR) {
+        int stype = 0;
+        int slen = (int)sizeof(stype);
+        if (getsockopt((SOCKET)(uintptr_t)u, SOL_SOCKET, SO_TYPE, (char*)&stype, &slen) != 0) {
+            return false;
+        }
+    }
+    *out_sock = (joss_socket_t)(uintptr_t)u;
+    return true;
+#else
+    if ((uint64_t)u >= JOSS_MIN_PTR_ADDR) {
+        return false;
+    }
+    *out_sock = (joss_socket_t)(int)u;
+    return true;
+#endif
+}
+
+static void joss_ws_close_socket(joss_socket_t sock) {
+#if defined(_WIN32)
+    if (sock != (joss_socket_t)INVALID_SOCKET) closesocket((SOCKET)sock);
+#else
+    if (sock >= 0) close(sock);
+#endif
+}
+
+/* =========================================================================
  * POSIX TCP Socket Server (with SO_REUSEADDR & TCP_NODELAY)
  * ========================================================================= */
 void* fn_Socket_listen(const char* host, const char* port) {
     (void)host;
 #if defined(__unix__) || defined(__APPLE__)
+    signal(SIGPIPE, SIG_IGN);
     int p = port ? atoi(port) : 8000;
     if (p <= 0) p = 8000;
     int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -957,11 +1168,18 @@ void* fn_Socket_listen(const char* host, const char* port) {
     }
     return (void*)(intptr_t)(fd + 1);
 #elif defined(_WIN32)
-    static int wsa_ready = 0;
-    if (!wsa_ready) {
-        WSADATA wsa;
-        if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return NULL;
-        wsa_ready = 1;
+    static atomic_int wsa_ready = 0;
+    if (atomic_load(&wsa_ready) == 0) {
+        joss_global_lock(JOSS_LOCK_GENERAL);
+        if (atomic_load(&wsa_ready) == 0) {
+            WSADATA wsa;
+            if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+                joss_global_unlock(JOSS_LOCK_GENERAL);
+                return NULL;
+            }
+            atomic_store(&wsa_ready, 1);
+        }
+        joss_global_unlock(JOSS_LOCK_GENERAL);
     }
     int p = port ? atoi(port) : 8000;
     if (p <= 0) p = 8000;
@@ -989,14 +1207,39 @@ void* fn_Socket_listen(const char* host, const char* port) {
 #endif
 }
 
+static void joss_configure_client_socket(intptr_t handle_val) {
+#if defined(__unix__) || defined(__APPLE__)
+    int cfd = (int)handle_val - 1;
+    if (cfd < 0) return;
+    int nodelay = 1;
+    setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+#ifdef SO_NOSIGPIPE
+    int nosig = 1;
+    setsockopt(cfd, SOL_SOCKET, SO_NOSIGPIPE, &nosig, sizeof(nosig));
+#endif
+    struct timeval tv;
+    tv.tv_sec = 15;
+    tv.tv_usec = 0;
+    setsockopt(cfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#elif defined(_WIN32)
+    SOCKET cfd = (SOCKET)(handle_val - 1);
+    BOOL nodelay = TRUE;
+    setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&nodelay, sizeof(nodelay));
+    DWORD ms = 15000;
+    setsockopt(cfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&ms, sizeof(ms));
+#else
+    (void)handle_val;
+#endif
+}
+
 void* fn_Socket_accept(void* srv) {
 #if defined(__unix__) || defined(__APPLE__)
     int sfd = (int)(intptr_t)srv - 1;
     if (sfd < 0) return NULL;
     int cfd = accept(sfd, NULL, NULL);
     if (cfd < 0) return NULL;
-    int nodelay = 1;
-    setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+    joss_configure_client_socket((intptr_t)(cfd + 1));
+    joss_register_wrapped_socket((intptr_t)(cfd + 1));
     joss_req_arena_begin();
     return (void*)(intptr_t)(cfd + 1);
 #elif defined(_WIN32)
@@ -1004,8 +1247,8 @@ void* fn_Socket_accept(void* srv) {
     SOCKET sfd = (SOCKET)((uintptr_t)srv - 1);
     SOCKET cfd = accept(sfd, NULL, NULL);
     if (cfd == INVALID_SOCKET) return NULL;
-    BOOL nodelay = TRUE;
-    setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&nodelay, sizeof(nodelay));
+    joss_configure_client_socket((intptr_t)(cfd + 1));
+    joss_register_wrapped_socket((intptr_t)(cfd + 1));
     joss_req_arena_begin();
     return (void*)(uintptr_t)(cfd + 1);
 #else
@@ -1047,14 +1290,38 @@ int64_t fn_Socket_send(void* sock, const char* data) {
     const uint8_t* bdata = joss_bytes_unwrap(data, &blen);
     const char* send_ptr = bdata ? (const char*)bdata : data;
     size_t send_len = bdata ? blen : (data ? strlen(data) : 0);
+    if (!sock || !send_ptr || send_len == 0) return 0;
 #if defined(__unix__) || defined(__APPLE__)
     int fd = (int)(intptr_t)sock - 1;
-    if (fd < 0 || !send_ptr) return 0;
-    return (int64_t)send(fd, send_ptr, send_len, 0);
+    if (fd < 0) return -1;
+    int flags = 0;
+#ifdef MSG_NOSIGNAL
+    flags |= MSG_NOSIGNAL;
+#endif
+    size_t sent = 0;
+    while (sent < send_len) {
+        ssize_t n = send(fd, send_ptr + sent, send_len - sent, flags);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            return sent > 0 ? (int64_t)sent : -1;
+        }
+        if (n == 0) break;
+        sent += (size_t)n;
+    }
+    return (int64_t)sent;
 #elif defined(_WIN32)
-    if (!sock || !send_ptr) return 0;
     SOCKET fd = (SOCKET)((uintptr_t)sock - 1);
-    return (int64_t)send(fd, send_ptr, (int)send_len, 0);
+    size_t sent = 0;
+    while (sent < send_len) {
+        size_t chunk = send_len - sent;
+        if (chunk > (size_t)0x3FFFFFFF) chunk = (size_t)0x3FFFFFFF;
+        int n = send(fd, send_ptr + sent, (int)chunk, 0);
+        if (n <= 0) {
+            return sent > 0 ? (int64_t)sent : -1;
+        }
+        sent += (size_t)n;
+    }
+    return (int64_t)sent;
 #else
     (void)sock;
     (void)send_ptr;
@@ -1064,18 +1331,424 @@ int64_t fn_Socket_send(void* sock, const char* data) {
 }
 
 void fn_Socket_close(void* sock) {
+    joss_unregister_wrapped_socket((intptr_t)sock);
 #if defined(__unix__) || defined(__APPLE__)
     int fd = (int)(intptr_t)sock - 1;
     if (fd >= 0) close(fd);
-    joss_req_arena_reset();
 #elif defined(_WIN32)
     if (sock) {
         SOCKET fd = (SOCKET)((uintptr_t)sock - 1);
         closesocket(fd);
     }
-    joss_req_arena_reset();
 #else
     (void)sock;
+#endif
+    joss_req_state_reset();
+    joss_req_arena_reset();
+}
+
+const char* joss___joss_socket_peer_ip(void* sock) {
+    sock = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)sock);
+#if defined(__unix__) || defined(__APPLE__)
+    int fd = (int)(intptr_t)sock - 1;
+    if (fd >= 0) {
+        struct sockaddr_storage ss;
+        socklen_t slen = sizeof(ss);
+        if (getpeername(fd, (struct sockaddr*)&ss, &slen) == 0) {
+            char buf[INET6_ADDRSTRLEN] = {0};
+            if (ss.ss_family == AF_INET) {
+                struct sockaddr_in* in = (struct sockaddr_in*)&ss;
+                if (inet_ntop(AF_INET, &in->sin_addr, buf, sizeof(buf))) {
+                    return joss_req_strdup(buf);
+                }
+            } else if (ss.ss_family == AF_INET6) {
+                struct sockaddr_in6* in6 = (struct sockaddr_in6*)&ss;
+                if (inet_ntop(AF_INET6, &in6->sin6_addr, buf, sizeof(buf))) {
+                    const char* out = buf;
+                    if (strncmp(out, "::ffff:", 7) == 0) out += 7;
+                    return joss_req_strdup(out);
+                }
+            }
+        }
+    }
+#elif defined(_WIN32)
+    if (sock) {
+        SOCKET fd = (SOCKET)((uintptr_t)sock - 1);
+        struct sockaddr_storage ss;
+        int slen = (int)sizeof(ss);
+        if (getpeername(fd, (struct sockaddr*)&ss, &slen) == 0) {
+            char buf[INET6_ADDRSTRLEN] = {0};
+            if (ss.ss_family == AF_INET) {
+                struct sockaddr_in* in = (struct sockaddr_in*)&ss;
+                if (inet_ntop(AF_INET, &in->sin_addr, buf, sizeof(buf))) {
+                    return joss_req_strdup(buf);
+                }
+            } else if (ss.ss_family == AF_INET6) {
+                struct sockaddr_in6* in6 = (struct sockaddr_in6*)&ss;
+                if (inet_ntop(AF_INET6, &in6->sin6_addr, buf, sizeof(buf))) {
+                    const char* out = buf;
+                    if (strncmp(out, "::ffff:", 7) == 0) out += 7;
+                    return joss_req_strdup(out);
+                }
+            }
+        }
+    }
+#else
+    (void)sock;
+#endif
+    return "127.0.0.1";
+}
+
+static const uint8_t* joss_memmem_bytes(const uint8_t* hay, size_t hlen, const uint8_t* needle, size_t nlen) {
+    if (!hay || !needle || nlen == 0 || hlen < nlen) return NULL;
+    for (size_t i = 0; i <= hlen - nlen; i++) {
+        if (hay[i] == needle[0] && memcmp(hay + i, needle, nlen) == 0) {
+            return hay + i;
+        }
+    }
+    return NULL;
+}
+
+static int joss_strncasecmp_ascii(const char* a, const char* b, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        unsigned char ca = (unsigned char)tolower((unsigned char)a[i]);
+        unsigned char cb = (unsigned char)tolower((unsigned char)b[i]);
+        if (ca != cb) return (int)ca - (int)cb;
+        if (ca == '\0') return 0;
+    }
+    return 0;
+}
+
+int64_t joss___joss_http_read_request(void* sock) {
+    sock = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)sock);
+    if (!sock) return (int64_t)(uintptr_t)"";
+#if defined(__unix__) || defined(__APPLE__)
+    int fd = (int)(intptr_t)sock - 1;
+    if (fd < 0) return (int64_t)(uintptr_t)"";
+#elif defined(_WIN32)
+    SOCKET fd = (SOCKET)((uintptr_t)sock - 1);
+#else
+    return (int64_t)(uintptr_t)"";
+#endif
+    size_t cap = 8192;
+    size_t len = 0;
+    uint8_t* buf = (uint8_t*)malloc(cap + 1);
+    if (!buf) return (int64_t)(uintptr_t)"";
+    size_t hdr_end = 0;
+    bool found_hdr = false;
+    const size_t max_hdr_bytes = 131072U;
+    const size_t max_body_bytes = 32U * 1024U * 1024U;
+
+    while (!found_hdr) {
+        if (len + 4096U > cap) {
+            if (cap >= max_hdr_bytes) break;
+            size_t ncap = cap * 2U;
+            if (ncap > max_hdr_bytes + 4096U) ncap = max_hdr_bytes + 4096U;
+            uint8_t* nb = (uint8_t*)realloc(buf, ncap + 1);
+            if (!nb) break;
+            buf = nb;
+            cap = ncap;
+        }
+#if defined(__unix__) || defined(__APPLE__)
+        ssize_t n = recv(fd, (char*)buf + len, cap - len, 0);
+        if (n < 0 && errno == EINTR) continue;
+#else
+        int n = recv(fd, (char*)buf + len, (int)(cap - len), 0);
+#endif
+        if (n <= 0) break;
+        len += (size_t)n;
+        const uint8_t* sep = joss_memmem_bytes(buf, len, (const uint8_t*)"\r\n\r\n", 4);
+        if (sep) {
+            hdr_end = (size_t)(sep - buf) + 4U;
+            found_hdr = true;
+            break;
+        }
+    }
+    if (!found_hdr) {
+        buf[len] = '\0';
+        char* req_copy = (char*)joss_req_alloc(len + 1);
+        if (req_copy) memcpy(req_copy, buf, len + 1);
+        free(buf);
+        return req_copy ? (int64_t)(uintptr_t)req_copy : (int64_t)(uintptr_t)"";
+    }
+
+    int64_t content_len = -1;
+    bool is_chunked = false;
+    for (size_t pos = 0; pos + 2 < hdr_end; ) {
+        const uint8_t* eol = joss_memmem_bytes(buf + pos, hdr_end - pos, (const uint8_t*)"\r\n", 2);
+        size_t line_len = eol ? (size_t)(eol - (buf + pos)) : (hdr_end - pos);
+        if (line_len == 0) break;
+        const char* line = (const char*)(buf + pos);
+        if (line_len >= 15 && joss_strncasecmp_ascii(line, "content-length:", 15) == 0) {
+            const char* p = line + 15;
+            while ((size_t)(p - line) < line_len && (*p == ' ' || *p == '\t')) p++;
+            content_len = strtoll(p, NULL, 10);
+            if (content_len < 0) content_len = 0;
+            if ((size_t)content_len > max_body_bytes) content_len = (int64_t)max_body_bytes;
+        } else if (line_len >= 18 && joss_strncasecmp_ascii(line, "transfer-encoding:", 18) == 0) {
+            char tmp[256];
+            size_t cpy = line_len - 18;
+            if (cpy >= sizeof(tmp)) cpy = sizeof(tmp) - 1;
+            memcpy(tmp, line + 18, cpy);
+            tmp[cpy] = '\0';
+            for (size_t k = 0; k < cpy; k++) tmp[k] = (char)tolower((unsigned char)tmp[k]);
+            if (strstr(tmp, "chunked") != NULL) is_chunked = true;
+        }
+        pos += line_len + 2;
+    }
+
+    if (content_len > 0) {
+        size_t need = hdr_end + (size_t)content_len;
+        if (need > cap) {
+            uint8_t* nb = (uint8_t*)realloc(buf, need + 1);
+            if (nb) {
+                buf = nb;
+                cap = need;
+            }
+        }
+        while (len < need && len < cap) {
+#if defined(__unix__) || defined(__APPLE__)
+            ssize_t n = recv(fd, (char*)buf + len, need - len, 0);
+            if (n < 0 && errno == EINTR) continue;
+#else
+            size_t chunk = need - len;
+            if (chunk > 65536U) chunk = 65536U;
+            int n = recv(fd, (char*)buf + len, (int)chunk, 0);
+#endif
+            if (n <= 0) break;
+            len += (size_t)n;
+        }
+    } else if (is_chunked) {
+        /* Read until terminating 0\r\n\r\n chunk marker (bounded by max_body_bytes) */
+        size_t max_total = hdr_end + max_body_bytes;
+        while (len < max_total) {
+            const uint8_t* body_ptr = buf + hdr_end;
+            size_t body_len = len - hdr_end;
+            if (body_len >= 5 && joss_memmem_bytes(body_ptr, body_len, (const uint8_t*)"0\r\n\r\n", 5) != NULL) {
+                break;
+            }
+            if (len + 4096U > cap) {
+                size_t ncap = cap * 2U;
+                if (ncap > max_total) ncap = max_total;
+                if (ncap <= cap) break;
+                uint8_t* nb = (uint8_t*)realloc(buf, ncap + 1);
+                if (!nb) break;
+                buf = nb;
+                cap = ncap;
+            }
+#if defined(__unix__) || defined(__APPLE__)
+            ssize_t n = recv(fd, (char*)buf + len, cap - len, 0);
+            if (n < 0 && errno == EINTR) continue;
+#else
+            int n = recv(fd, (char*)buf + len, (int)(cap - len), 0);
+#endif
+            if (n <= 0) break;
+            len += (size_t)n;
+        }
+        /* Decode chunked encoding in place into out_buf */
+        uint8_t* decoded = (uint8_t*)malloc(len + 1);
+        if (decoded) {
+            memcpy(decoded, buf, hdr_end);
+            size_t dlen = hdr_end;
+            size_t p = hdr_end;
+            while (p < len) {
+                const uint8_t* crlf = joss_memmem_bytes(buf + p, len - p, (const uint8_t*)"\r\n", 2);
+                if (!crlf) break;
+                size_t csz = (size_t)strtoul((const char*)(buf + p), NULL, 16);
+                p = (size_t)(crlf - buf) + 2U;
+                if (csz == 0) break;
+                if (p + csz > len) csz = len - p;
+                memcpy(decoded + dlen, buf + p, csz);
+                dlen += csz;
+                p += csz;
+                if (p + 2 <= len && buf[p] == '\r' && buf[p + 1] == '\n') p += 2;
+            }
+            free(buf);
+            buf = decoded;
+            len = dlen;
+        }
+    }
+
+    buf[len] = '\0';
+    void* result = NULL;
+    if (memchr(buf, '\0', len) != NULL) {
+        result = joss_bytes_new(buf, len);
+    } else {
+        char* req_copy = (char*)joss_req_alloc(len + 1);
+        if (req_copy) memcpy(req_copy, buf, len + 1);
+        result = req_copy ? (void*)req_copy : (void*)"";
+    }
+    free(buf);
+    return (int64_t)(uintptr_t)result;
+}
+
+typedef void (*JossConnHandlerFn)(void* client_sock);
+
+#define JOSS_HTTP_QUEUE_CAP 512
+
+typedef struct {
+    void*             queue[JOSS_HTTP_QUEUE_CAP];
+    int               head;
+    int               tail;
+    int               count;
+    bool              stopping;
+    JossConnHandlerFn handler;
+#if defined(__unix__) || defined(__APPLE__)
+    pthread_mutex_t   mu;
+    pthread_cond_t    not_empty;
+    pthread_cond_t    not_full;
+#elif defined(_WIN32)
+    CRITICAL_SECTION   cs;
+    CONDITION_VARIABLE not_empty;
+    CONDITION_VARIABLE not_full;
+#endif
+} JossHttpWorkerPool;
+
+#if defined(__unix__) || defined(__APPLE__)
+static void* joss_http_worker_main(void* arg) {
+    JossHttpWorkerPool* pool = (JossHttpWorkerPool*)arg;
+    for (;;) {
+        pthread_mutex_lock(&pool->mu);
+        while (pool->count == 0 && !pool->stopping) {
+            pthread_cond_wait(&pool->not_empty, &pool->mu);
+        }
+        if (pool->count == 0 && pool->stopping) {
+            pthread_mutex_unlock(&pool->mu);
+            break;
+        }
+        void* client = pool->queue[pool->head];
+        pool->head = (pool->head + 1) % JOSS_HTTP_QUEUE_CAP;
+        pool->count--;
+        pthread_cond_signal(&pool->not_full);
+        pthread_mutex_unlock(&pool->mu);
+
+        joss_req_arena_begin();
+        joss_try_reset();
+        joss_req_state_reset();
+        if (pool->handler) {
+            pool->handler(client);
+        }
+        joss_req_state_reset();
+        joss_req_arena_reset();
+    }
+    return NULL;
+}
+#elif defined(_WIN32)
+static DWORD WINAPI joss_http_worker_main(LPVOID arg) {
+    JossHttpWorkerPool* pool = (JossHttpWorkerPool*)arg;
+    for (;;) {
+        EnterCriticalSection(&pool->cs);
+        while (pool->count == 0 && !pool->stopping) {
+            SleepConditionVariableCS(&pool->not_empty, &pool->cs, INFINITE);
+        }
+        if (pool->count == 0 && pool->stopping) {
+            LeaveCriticalSection(&pool->cs);
+            break;
+        }
+        void* client = pool->queue[pool->head];
+        pool->head = (pool->head + 1) % JOSS_HTTP_QUEUE_CAP;
+        pool->count--;
+        WakeConditionVariable(&pool->not_full);
+        LeaveCriticalSection(&pool->cs);
+
+        joss_req_arena_begin();
+        joss_try_reset();
+        joss_req_state_reset();
+        if (pool->handler) {
+            pool->handler(client);
+        }
+        joss_req_state_reset();
+        joss_req_arena_reset();
+    }
+    return 0;
+}
+#endif
+
+void joss___joss_http_serve_concurrent(void* srv, void* handler_fn_ptr) {
+    srv = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)srv);
+    if (!srv || !handler_fn_ptr) return;
+#if defined(__unix__) || defined(__APPLE__)
+    int sfd = (int)(intptr_t)srv - 1;
+    if (sfd < 0) return;
+    signal(SIGPIPE, SIG_IGN);
+    JossHttpWorkerPool* pool = (JossHttpWorkerPool*)calloc(1, sizeof(JossHttpWorkerPool));
+    if (!pool) return;
+    pool->handler = (JossConnHandlerFn)handler_fn_ptr;
+    pthread_mutex_init(&pool->mu, NULL);
+    pthread_cond_init(&pool->not_empty, NULL);
+    pthread_cond_init(&pool->not_full, NULL);
+
+    long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
+    if (ncpu < 4) ncpu = 4;
+    long nworkers = ncpu * 4;
+    if (nworkers < 16) nworkers = 16;
+    if (nworkers > 64) nworkers = 64;
+    for (long i = 0; i < nworkers; i++) {
+        pthread_t tid;
+        if (pthread_create(&tid, NULL, joss_http_worker_main, pool) == 0) {
+            pthread_detach(tid);
+        }
+    }
+    for (;;) {
+        int cfd = accept(sfd, NULL, NULL);
+        if (cfd < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
+        intptr_t h = (intptr_t)(cfd + 1);
+        joss_configure_client_socket(h);
+        joss_register_wrapped_socket(h);
+        pthread_mutex_lock(&pool->mu);
+        while (pool->count == JOSS_HTTP_QUEUE_CAP && !pool->stopping) {
+            pthread_cond_wait(&pool->not_full, &pool->mu);
+        }
+        pool->queue[pool->tail] = (void*)h;
+        pool->tail = (pool->tail + 1) % JOSS_HTTP_QUEUE_CAP;
+        pool->count++;
+        pthread_cond_signal(&pool->not_empty);
+        pthread_mutex_unlock(&pool->mu);
+    }
+#elif defined(_WIN32)
+    SOCKET sfd = (SOCKET)((uintptr_t)srv - 1);
+    JossHttpWorkerPool* pool = (JossHttpWorkerPool*)calloc(1, sizeof(JossHttpWorkerPool));
+    if (!pool) return;
+    pool->handler = (JossConnHandlerFn)handler_fn_ptr;
+    InitializeCriticalSection(&pool->cs);
+    InitializeConditionVariable(&pool->not_empty);
+    InitializeConditionVariable(&pool->not_full);
+
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    DWORD ncpu = si.dwNumberOfProcessors;
+    if (ncpu < 4) ncpu = 4;
+    DWORD nworkers = ncpu * 4;
+    if (nworkers < 16) nworkers = 16;
+    if (nworkers > 64) nworkers = 64;
+    for (DWORD i = 0; i < nworkers; i++) {
+        HANDLE th = CreateThread(NULL, 0, joss_http_worker_main, pool, 0, NULL);
+        if (th) CloseHandle(th);
+    }
+    for (;;) {
+        SOCKET cfd = accept(sfd, NULL, NULL);
+        if (cfd == INVALID_SOCKET) {
+            break;
+        }
+        intptr_t h = (intptr_t)(cfd + 1);
+        joss_configure_client_socket(h);
+        joss_register_wrapped_socket(h);
+        EnterCriticalSection(&pool->cs);
+        while (pool->count == JOSS_HTTP_QUEUE_CAP && !pool->stopping) {
+            SleepConditionVariableCS(&pool->not_full, &pool->cs, INFINITE);
+        }
+        pool->queue[pool->tail] = (void*)(uintptr_t)h;
+        pool->tail = (pool->tail + 1) % JOSS_HTTP_QUEUE_CAP;
+        pool->count++;
+        WakeConditionVariable(&pool->not_empty);
+        LeaveCriticalSection(&pool->cs);
+    }
+#else
+    (void)srv;
+    (void)handler_fn_ptr;
 #endif
 }
 
@@ -1136,14 +1809,22 @@ const char* joss_session(const char* key, int64_t defVal) {
 }
 
 void* with(void* recv, const char* k, int64_t v) {
-    if (k) {
+    recv = (void*)unbox_web_cstr((const char*)recv);
+    k = unbox_web_cstr(k);
+    if (k && k[0]) {
+        const char* sv = joss_strval(v);
         if (!g_joss_session_flash) g_joss_session_flash = joss_map_new();
-        joss_map_set_str(g_joss_session_flash, k, joss_strval(v));
+        joss_map_set_str(g_joss_session_flash, k, sv ? sv : "");
+        if (!g_joss_new_flash) g_joss_new_flash = joss_map_new();
+        joss_map_set_str(g_joss_new_flash, k, sv ? sv : "");
     }
     return recv;
 }
 
 void* withCookie(void* recv, const char* k, const char* v) {
+    recv = (void*)unbox_web_cstr((const char*)recv);
+    k = unbox_web_cstr(k);
+    v = unbox_web_cstr(v);
     if (!recv || !k) return recv;
     const char* resp = (const char*)recv;
     const char* sep = strstr(resp, "\r\n\r\n");
@@ -1162,22 +1843,102 @@ void* withCookie(void* recv, const char* k, const char* v) {
     return out;
 }
 
+typedef int64_t (*JossUnaryCb)(int64_t);
+
 void* onSuccess(void* recv, int64_t cb) {
-    (void)cb;
+    void* obj = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)recv);
+    if (obj && joss_is_map_ptr((int64_t)(uintptr_t)obj) && joss_is_not_null(cb)) {
+        bool ok = joss_unbox_value(joss_map_get_i64(obj, "success")) != 0;
+        bool req2fa = joss_unbox_value(joss_map_get_i64(obj, "requires_2fa")) != 0;
+        if (ok && !req2fa) {
+            void* fn = joss_closure_prepare_call((void*)(uintptr_t)cb);
+            if (fn) {
+                int64_t jwt = joss_map_get_i64(obj, "jwt");
+                int64_t res = ((JossUnaryCb)fn)(jwt);
+                joss_map_set_i64(obj, "_response", res);
+            }
+        }
+    }
     return recv;
 }
 
 void* onChallenge(void* recv, int64_t cb) {
-    (void)cb;
+    void* obj = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)recv);
+    if (obj && joss_is_map_ptr((int64_t)(uintptr_t)obj) && joss_is_not_null(cb)) {
+        bool ok = joss_unbox_value(joss_map_get_i64(obj, "success")) != 0;
+        bool req2fa = joss_unbox_value(joss_map_get_i64(obj, "requires_2fa")) != 0;
+        if (ok && req2fa) {
+            void* fn = joss_closure_prepare_call((void*)(uintptr_t)cb);
+            if (!fn) return recv;
+            int64_t uid = joss_intval(joss_map_get_i64(obj, "user_id"));
+            const char* email = joss_map_get_str(obj, "email");
+            const char* tok = joss_map_get_str(obj, "challenge_token");
+            if (!tok || !tok[0]) {
+                char payload[512];
+                int64_t now = (int64_t)time(NULL);
+                snprintf(payload, sizeof(payload),
+                         "{\"token_type\":\"mfa_challenge\",\"user_id\":%lld,\"sub\":%lld,\"email\":\"%s\",\"jti\":\"mfa_%lld_%lld\",\"iat\":%lld,\"exp\":%lld}",
+                         (long long)uid, (long long)uid, email ? email : "", (long long)uid, (long long)now, (long long)now, (long long)(now + 300));
+                const char* sec = joss_env("JWT_SECRET", "");
+                if (!sec || !sec[0]) sec = joss_env("APP_KEY", "");
+                if (!sec || !sec[0]) sec = "joss_ephemeral_jwt_key";
+                tok = payload;
+                /* Sign HS256 inline using joss_prim_hmac_sha256 */
+                static const char B64U[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+                const char* hdr_json = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
+                char h_b64[64];
+                joss_prim_base64_encode_alphabet((const uint8_t*)hdr_json, strlen(hdr_json), B64U, false, h_b64);
+                size_t plen = strlen(payload);
+                char* p_b64 = (char*)malloc(plen * 2 + 16);
+                if (p_b64) {
+                    joss_prim_base64_encode_alphabet((const uint8_t*)payload, plen, B64U, false, p_b64);
+                    size_t mlen = strlen(h_b64) + 1 + strlen(p_b64);
+                    char* msg = (char*)malloc(mlen + 1);
+                    if (msg) {
+                        snprintf(msg, mlen + 1, "%s.%s", h_b64, p_b64);
+                        uint8_t mac[32];
+                        joss_prim_hmac_sha256((const uint8_t*)sec, strlen(sec), (const uint8_t*)msg, mlen, mac);
+                        char s_b64[64];
+                        joss_prim_base64_encode_alphabet(mac, 32, B64U, false, s_b64);
+                        char* full = (char*)malloc(mlen + 1 + strlen(s_b64) + 1);
+                        if (full) {
+                            snprintf(full, mlen + 1 + strlen(s_b64) + 1, "%s.%s", msg, s_b64);
+                            tok = full;
+                        }
+                        free(msg);
+                    }
+                    free(p_b64);
+                }
+            }
+            int64_t res = ((JossUnaryCb)fn)((int64_t)(uintptr_t)tok);
+            joss_map_set_i64(obj, "_response", res);
+        }
+    }
     return recv;
 }
 
 void* onFail(void* recv, int64_t cb) {
-    (void)cb;
+    void* obj = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)recv);
+    if (obj && joss_is_map_ptr((int64_t)(uintptr_t)obj) && joss_is_not_null(cb)) {
+        bool ok = joss_unbox_value(joss_map_get_i64(obj, "success")) != 0;
+        if (!ok) {
+            void* fn = joss_closure_prepare_call((void*)(uintptr_t)cb);
+            if (fn) {
+                int64_t err_v = joss_map_get_i64(obj, "error");
+                int64_t res = ((JossUnaryCb)fn)(err_v);
+                joss_map_set_i64(obj, "_response", res);
+            }
+        }
+    }
     return recv;
 }
 
 void* response(void* recv) {
+    void* obj = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)recv);
+    if (obj && joss_is_map_ptr((int64_t)(uintptr_t)obj)) {
+        int64_t r = joss_map_get_i64(obj, "_response");
+        if (r != 0) return (void*)(uintptr_t)r;
+    }
     return recv;
 }
 
@@ -1203,7 +1964,33 @@ const char* html_escape(const char* s) {
 }
 
 const char* csrf_field(void) {
-    return "<input type=\"hidden\" name=\"_token\" value=\"joss-native-csrf\">";
+    const char* tok = "";
+    void* sess = joss_get_active_session();
+    if (sess && joss_is_map_ptr((int64_t)(uintptr_t)sess)) {
+        const char* s = joss_map_get_str(sess, "csrf_token");
+        if (s && s[0]) {
+            tok = s;
+        } else {
+            s = joss_map_get_str(sess, "_csrf_token");
+            if (s && s[0]) tok = s;
+        }
+    }
+    const char* escaped = html_escape(tok);
+    size_t len = strlen(escaped);
+    const char* prefix = "<input type=\"hidden\" name=\"_token\" value=\"";
+    const char* suffix = "\">";
+    size_t plen = strlen(prefix);
+    size_t slen = strlen(suffix);
+    char* out = (char*)malloc(plen + len + slen + 1);
+    if (!out) return "<input type=\"hidden\" name=\"_token\" value=\"\">";
+    memcpy(out, prefix, plen);
+    memcpy(out + plen, escaped, len);
+    memcpy(out + plen + len, suffix, slen + 1);
+    return out;
+}
+
+const char* joss_csrf_field(void) {
+    return csrf_field();
 }
 
 int64_t joss___joss_local_utc_offset(void) {
@@ -1256,18 +2043,7 @@ static void joss_cache_init(void) {
     if (!g_joss_cache_expiry) g_joss_cache_expiry = joss_map_new();
 }
 
-int64_t fn_Cache_put(const char* key, int64_t val, int64_t ttl_seconds) {
-    key = unbox_web_cstr(key);
-    if (!key) return 0;
-    joss_cache_init();
-    joss_map_set_i64(g_joss_cache_values, key, val);
-    int64_t exp = (ttl_seconds > 0) ? ((int64_t)time(NULL) + ttl_seconds) : 0;
-    joss_map_set_i64(g_joss_cache_expiry, key, exp);
-    return 1;
-}
-
-int64_t fn_Cache_has(const char* key) {
-    key = unbox_web_cstr(key);
+static int64_t joss_cache_has_locked(const char* key) {
     if (!key) return 0;
     joss_cache_init();
     if (!joss_array_key_exists(key, g_joss_cache_values)) return 0;
@@ -1280,18 +2056,44 @@ int64_t fn_Cache_has(const char* key) {
     return 1;
 }
 
+int64_t fn_Cache_put(const char* key, int64_t val, int64_t ttl_seconds) {
+    key = unbox_web_cstr(key);
+    if (!key) return 0;
+    joss_global_lock(JOSS_LOCK_CACHE);
+    joss_cache_init();
+    joss_map_set_i64(g_joss_cache_values, key, val);
+    int64_t exp = (ttl_seconds > 0) ? ((int64_t)time(NULL) + ttl_seconds) : 0;
+    joss_map_set_i64(g_joss_cache_expiry, key, exp);
+    joss_global_unlock(JOSS_LOCK_CACHE);
+    return 1;
+}
+
+int64_t fn_Cache_has(const char* key) {
+    key = unbox_web_cstr(key);
+    if (!key) return 0;
+    joss_global_lock(JOSS_LOCK_CACHE);
+    int64_t ok = joss_cache_has_locked(key);
+    joss_global_unlock(JOSS_LOCK_CACHE);
+    return ok;
+}
+
 int64_t fn_Cache_get(const char* key, int64_t defVal) {
     key = unbox_web_cstr(key);
-    if (!key || !fn_Cache_has(key)) return defVal;
-    return joss_map_get_i64(g_joss_cache_values, key);
+    if (!key) return defVal;
+    joss_global_lock(JOSS_LOCK_CACHE);
+    int64_t val = joss_cache_has_locked(key) ? joss_map_get_i64(g_joss_cache_values, key) : defVal;
+    joss_global_unlock(JOSS_LOCK_CACHE);
+    return val;
 }
 
 int64_t fn_Cache_forget(const char* key) {
     key = unbox_web_cstr(key);
     if (!key) return 0;
+    joss_global_lock(JOSS_LOCK_CACHE);
     joss_cache_init();
     joss_map_delete_i64(g_joss_cache_values, key);
     joss_map_delete_i64(g_joss_cache_expiry, key);
+    joss_global_unlock(JOSS_LOCK_CACHE);
     return 1;
 }
 
@@ -1442,7 +2244,8 @@ const char* fn_Response_raw(const char* body, int64_t status, const char* conten
         body = unbox_web_cstr(body);
         if (!body) body = "";
     }
-    if (status <= 0) status = 200;
+    status = joss_intval(status);
+    if (status < 100 || status > 599) status = 200;
     JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "HTTP/1.1 ");
     joss_sb_append_i64(sb, status);
@@ -1490,7 +2293,8 @@ const char* fn_Response_raw(const char* body, int64_t status, const char* conten
 
 const char* fn_Response_error(const char* msg, int64_t status) {
     msg = unbox_web_cstr(msg);
-    if (status <= 0) status = 500;
+    status = joss_intval(status);
+    if (status < 100 || status > 599) status = 500;
     return fn_Response_raw(msg ? msg : "Internal Server Error", status, "text/plain; charset=utf-8");
 }
 
@@ -1499,10 +2303,18 @@ const char* fn_Response_download(const char* path, const char* filename) {
     filename = unbox_web_cstr(filename);
     const char* content = joss_file_get_contents(path);
     if (!filename || !*filename) filename = "download.bin";
+    size_t bin_len = 0;
+    const uint8_t* bin_data = joss_bytes_unwrap(content, &bin_len);
     JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=\"");
     joss_sb_append(sb, filename);
     joss_sb_append(sb, "\"\r\nConnection: close\r\n\r\n");
+    if (bin_data) {
+        joss_buf_append_bytes(sb, bin_data, (int64_t)bin_len);
+        void* out = joss_bytes_new(sb->data, (size_t)sb->len);
+        joss_sb_free(sb);
+        return (const char*)out;
+    }
     joss_sb_append(sb, content ? content : "");
     char* out = joss_sb_to_string(sb);
     joss_sb_free(sb);
@@ -1511,6 +2323,18 @@ const char* fn_Response_download(const char* path, const char* filename) {
 
 const char* fn_Response_stream(const char* body, const char* content_type) {
     return fn_Response_raw(body, 200, content_type);
+}
+
+const char* fn_Response_redirect(const char* url, int64_t status) {
+    return joss_redirect(url, status);
+}
+
+const char* fn_Response_back(void) {
+    return joss_back();
+}
+
+void* fn_WebResponse_with(void* resp, const char* key, int64_t value) {
+    return with(resp, key, value);
 }
 
 void* fn_WebResponse_withCookie(void* resp, const char* name, const char* value) {
@@ -1549,13 +2373,15 @@ const char* fn_System_Run(const char* cmd) {
     return out ? out : "";
 }
 
-static void append_curl_headers(JossStringBuilder* cmd, void* hdr_map) {
-    if (!hdr_map || !joss_is_map_ptr((int64_t)(uintptr_t)hdr_map)) return;
+static int append_curl_headers_checked(JossStringBuilder* cmd, void* hdr_map) {
+    int has_ct = 0;
+    if (!hdr_map || !joss_is_map_ptr((int64_t)(uintptr_t)hdr_map)) return 0;
     int64_t n = joss_map_len(hdr_map);
     for (int64_t i = 0; i < n; i++) {
         const char* k = unbox_web_cstr(joss_map_key_at(hdr_map, i));
         const char* v = unbox_web_cstr((const char*)(uintptr_t)joss_map_val_at(hdr_map, i));
         if (!k || !*k || !v) continue;
+        if (strcasecmp(k, "Content-Type") == 0) has_ct = 1;
         joss_sb_append(cmd, " -H \"");
         joss_sb_append(cmd, k);
         joss_sb_append(cmd, ": ");
@@ -1565,9 +2391,70 @@ static void append_curl_headers(JossStringBuilder* cmd, void* hdr_map) {
         }
         joss_buf_append_byte(cmd, '"');
     }
+    return has_ct;
 }
 
-const char* joss_rawurlencode(const char* s);
+static bool joss_http_write_temp_file(const uint8_t* data, size_t len, char* out_path, size_t out_cap) {
+    if (!out_path || out_cap < 64) return false;
+    static volatile int64_t g_tmp_seq = 0;
+#if defined(_WIN32)
+    char tmp_dir[MAX_PATH];
+    DWORD dlen = GetTempPathA((DWORD)sizeof(tmp_dir), tmp_dir);
+    if (dlen == 0 || dlen >= sizeof(tmp_dir)) strcpy(tmp_dir, ".\\");
+    DWORD pid = GetCurrentProcessId();
+    for (int attempt = 0; attempt < 32; attempt++) {
+        LONG seq = (LONG)InterlockedIncrement64(&g_tmp_seq);
+        snprintf(out_path, out_cap, "%sjoss_http_%lu_%ld.bin", tmp_dir, (unsigned long)pid, (long)seq);
+        HANDLE h = CreateFileA(out_path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, NULL);
+        if (h == INVALID_HANDLE_VALUE) continue;
+        DWORD written = 0;
+        BOOL ok = (len == 0) ? TRUE : WriteFile(h, data, (DWORD)len, &written, NULL);
+        CloseHandle(h);
+        if (ok && (size_t)written == len) return true;
+        remove(out_path);
+        return false;
+    }
+    return false;
+#else
+    const char* tmp_dir = getenv("TMPDIR");
+    if (!tmp_dir || !*tmp_dir) tmp_dir = "/tmp";
+    unsigned long pid = (unsigned long)getpid();
+    for (int attempt = 0; attempt < 32; attempt++) {
+        long long seq = (long long)__sync_add_and_fetch(&g_tmp_seq, 1);
+        snprintf(out_path, out_cap, "%s/joss_http_%lu_%lld.bin", tmp_dir, pid, seq);
+        int fd = open(out_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+        if (fd < 0) continue;
+        size_t off = 0;
+        bool ok = true;
+        while (off < len) {
+            ssize_t w = write(fd, data + off, len - off);
+            if (w <= 0) { ok = false; break; }
+            off += (size_t)w;
+        }
+        close(fd);
+        if (ok) return true;
+        remove(out_path);
+        return false;
+    }
+    return false;
+#endif
+}
+
+static void append_url_encoded(JossStringBuilder* sb, const char* s) {
+    if (!sb || !s) return;
+    static const char hex[] = "0123456789ABCDEF";
+    for (const unsigned char* p = (const unsigned char*)s; *p; p++) {
+        unsigned char c = *p;
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+            c == '-' || c == '_' || c == '.' || c == '~') {
+            joss_buf_append_byte(sb, c);
+        } else {
+            joss_buf_append_byte(sb, '%');
+            joss_buf_append_byte(sb, (uint8_t)hex[c >> 4]);
+            joss_buf_append_byte(sb, (uint8_t)hex[c & 0x0F]);
+        }
+    }
+}
 
 void* fn_Http_request(const char* method, const char* url, const char* body, void* headers) {
     method = unbox_web_cstr(method);
@@ -1576,71 +2463,118 @@ void* fn_Http_request(const char* method, const char* url, const char* body, voi
     headers = (hdr_raw && joss_is_map_ptr(hdr_raw)) ? (void*)(uintptr_t)hdr_raw : NULL;
     void* res_map = joss_map_new();
     joss_map_set_i64(res_map, "status", 0);
+    joss_map_set_i64(res_map, "success", (int64_t)(uintptr_t)joss_box_bool(false));
     joss_map_set_str(res_map, "body", "");
     if (!url || !*url) return res_map;
     if (!method || !*method) method = "GET";
 
     void* opt_map = NULL;
     void* form_map = NULL;
+    const uint8_t* bin_body = NULL;
+    size_t bin_body_len = 0;
     const char* body_str = NULL;
+    int64_t timeout_sec = 30;
     int64_t body_raw = joss_unbox_value((int64_t)(uintptr_t)body);
     if (body_raw && joss_is_map_ptr(body_raw)) {
         opt_map = (void*)(uintptr_t)body_raw;
         if (joss_array_key_exists("body", opt_map)) {
-            body_str = unbox_web_cstr((const char*)(uintptr_t)joss_map_get_i64(opt_map, "body"));
+            int64_t bv = joss_map_get_i64(opt_map, "body");
+            bin_body = joss_bytes_unwrap((const void*)(uintptr_t)bv, &bin_body_len);
+            if (!bin_body) {
+                body_str = unbox_web_cstr((const char*)(uintptr_t)bv);
+            }
         }
         if (joss_array_key_exists("form", opt_map)) {
             int64_t fm = joss_unbox_value(joss_map_get_i64(opt_map, "form"));
             if (fm && joss_is_map_ptr(fm)) form_map = (void*)(uintptr_t)fm;
         }
         if (!headers && joss_array_key_exists("headers", opt_map)) {
-            headers = (void*)(uintptr_t)joss_unbox_value(joss_map_get_i64(opt_map, "headers"));
+            int64_t hm = joss_unbox_value(joss_map_get_i64(opt_map, "headers"));
+            if (hm && joss_is_map_ptr(hm)) headers = (void*)(uintptr_t)hm;
+        }
+        if (joss_array_key_exists("timeout", opt_map)) {
+            int64_t tv = joss_intval(joss_map_get_i64(opt_map, "timeout"));
+            if (tv > 0) timeout_sec = tv;
         }
     } else {
-        body_str = unbox_web_cstr(body);
+        bin_body = joss_bytes_unwrap(body, &bin_body_len);
+        if (!bin_body) {
+            body_str = unbox_web_cstr(body);
+        }
     }
 
     JossStringBuilder* cmd = joss_sb_new();
-    joss_sb_append(cmd, "curl -sS -w \"\\n%{http_code}\" -X ");
-    joss_sb_append(cmd, method);
-    append_curl_headers(cmd, headers);
+    joss_sb_append(cmd, "curl -sS --max-time ");
+    joss_sb_append_i64(cmd, timeout_sec);
+    joss_sb_append(cmd, " -w \"\\n%{http_code}\" -X \"");
+    for (const char* p = method; *p; p++) {
+        if (*p == '"' || *p == '\\') joss_buf_append_byte(cmd, '\\');
+        joss_buf_append_byte(cmd, (uint8_t)*p);
+    }
+    joss_buf_append_byte(cmd, '"');
+    int has_ct = append_curl_headers_checked(cmd, headers);
+
+    char tmp_body_path[512];
+    tmp_body_path[0] = '\0';
+
     if (form_map) {
         JossStringBuilder* fb = joss_sb_new();
         int64_t fn = joss_map_len(form_map);
         for (int64_t i = 0; i < fn; i++) {
             const char* fk = unbox_web_cstr(joss_map_key_at(form_map, i));
-            const char* fv = joss_strval(joss_map_val_at(form_map, i));
+            const char* fv = unbox_web_cstr(joss_strval(joss_map_val_at(form_map, i)));
             if (!fk || !*fk) continue;
             if (fb->len > 0) joss_buf_append_byte(fb, '&');
-            joss_sb_append(fb, fk);
+            append_url_encoded(fb, fk);
             joss_buf_append_byte(fb, '=');
-            if (fv) joss_sb_append(fb, joss_rawurlencode(fv));
+            if (fv) append_url_encoded(fb, fv);
         }
         char* form_str = joss_sb_to_string(fb);
+        size_t flen = (size_t)fb->len;
         joss_sb_free(fb);
-        if (form_str && *form_str) {
-            joss_sb_append(cmd, " -H \"Content-Type: application/x-www-form-urlencoded\" -d \"");
-            joss_sb_append(cmd, form_str);
+        if (form_str) {
+            if (!has_ct) {
+                joss_sb_append(cmd, " -H \"Content-Type: application/x-www-form-urlencoded\"");
+            }
+            if (joss_http_write_temp_file((const uint8_t*)form_str, flen, tmp_body_path, sizeof(tmp_body_path))) {
+                joss_sb_append(cmd, " --data-binary \"@");
+                joss_sb_append(cmd, tmp_body_path);
+                joss_buf_append_byte(cmd, '"');
+            }
+            free(form_str);
+        }
+    } else if (bin_body || (body_str && *body_str)) {
+        const uint8_t* ptr = bin_body ? bin_body : (const uint8_t*)body_str;
+        size_t plen = bin_body ? bin_body_len : strlen(body_str);
+        if (!has_ct) {
+            joss_sb_append(cmd, bin_body ? " -H \"Content-Type: application/octet-stream\"" : " -H \"Content-Type: application/json\"");
+        }
+        if (joss_http_write_temp_file(ptr, plen, tmp_body_path, sizeof(tmp_body_path))) {
+            joss_sb_append(cmd, " --data-binary \"@");
+            joss_sb_append(cmd, tmp_body_path);
             joss_buf_append_byte(cmd, '"');
         }
-        free(form_str);
-    } else if (body_str && *body_str) {
-        joss_sb_append(cmd, " -H \"Content-Type: application/json\" -d \"");
-        for (const char* p = body_str; *p; p++) {
-            if (*p == '"' || *p == '\\') joss_buf_append_byte(cmd, '\\');
-            joss_buf_append_byte(cmd, (uint8_t)*p);
-        }
-        joss_buf_append_byte(cmd, '"');
     }
+
     joss_sb_append(cmd, " \"");
-    joss_sb_append(cmd, url);
+    for (const char* p = url; *p; p++) {
+        if (*p == '"' || *p == '\\') joss_buf_append_byte(cmd, '\\');
+        joss_buf_append_byte(cmd, (uint8_t)*p);
+    }
     joss_buf_append_byte(cmd, '"');
     char* cmd_str = joss_sb_to_string(cmd);
     joss_sb_free(cmd);
+
     size_t raw_len = 0;
     char* raw = joss_system_run_bytes(cmd_str, &raw_len);
     free(cmd_str);
-    if (!raw || raw_len == 0) return res_map;
+    if (tmp_body_path[0] != '\0') {
+        remove(tmp_body_path);
+    }
+    if (!raw || raw_len == 0) {
+        free(raw);
+        return res_map;
+    }
 
     size_t nl_pos = raw_len;
     while (nl_pos > 0 && raw[nl_pos - 1] != '\n') {
@@ -1649,7 +2583,7 @@ void* fn_Http_request(const char* method, const char* url, const char* body, voi
     if (nl_pos > 0) {
         int64_t code = atoll(raw + nl_pos);
         joss_map_set_i64(res_map, "status", code);
-        joss_map_set_i64(res_map, "success", (code >= 200 && code < 300) ? 1 : 0);
+        joss_map_set_i64(res_map, "success", (int64_t)(uintptr_t)joss_box_bool(code >= 200 && code < 300));
         size_t blen = nl_pos - 1;
         if (memchr(raw, '\0', blen) != NULL) {
             void* boxed = joss_bytes_new(raw, blen);
@@ -1680,7 +2614,90 @@ const char* fn_Http_post(const char* url, const char* body, void* headers) {
     return joss_map_get_str(res, "body");
 }
 
-static void* g_joss_ws_channels = NULL;
+/* =========================================================================
+ * RFC 6455 WebSocket Frame Codec, Socket Reader/Writer & Pub/Sub Hub
+ * ========================================================================= */
+#define JOSS_WS_MAX_FRAME_BYTES (16U * 1024U * 1024U)
+#define JOSS_WS_MAX_CHANNELS    128
+
+typedef struct {
+    char*          name;
+    char*          last_message;
+    bool           has_published;
+    bool           had_explicit_subs;
+    joss_socket_t* sockets;
+    int            sock_count;
+    int            sock_cap;
+} JossWsChannel;
+
+static JossWsChannel g_joss_ws_hub[JOSS_WS_MAX_CHANNELS];
+static int           g_joss_ws_hub_count = 0;
+
+static char* joss_ws_strdup_heap(const char* s) {
+    if (!s) s = "";
+    size_t n = strlen(s);
+    char* out = (char*)malloc(n + 1U);
+    if (!out) return NULL;
+    memcpy(out, s, n + 1U);
+    return out;
+}
+
+static bool joss_ws_recv_exact(joss_socket_t sock, uint8_t* buf, size_t len) {
+    size_t got = 0;
+    while (got < len) {
+#if defined(_WIN32)
+        if (sock == (joss_socket_t)INVALID_SOCKET) return false;
+        size_t rem = len - got;
+        int chunk = (rem > (size_t)0x3FFFFFFFU) ? 0x3FFFFFFF : (int)rem;
+        int n = recv((SOCKET)sock, (char*)(buf + got), chunk, 0);
+        if (n <= 0) return false;
+        got += (size_t)n;
+#else
+        if (sock < 0) return false;
+        ssize_t n = recv(sock, buf + got, len - got, 0);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) return false;
+        got += (size_t)n;
+#endif
+    }
+    return true;
+}
+
+static bool joss_ws_send_all(joss_socket_t sock, const uint8_t* buf, size_t len) {
+    size_t sent = 0;
+    while (sent < len) {
+#if defined(_WIN32)
+        if (sock == (joss_socket_t)INVALID_SOCKET) return false;
+        size_t rem = len - sent;
+        int chunk = (rem > (size_t)0x3FFFFFFFU) ? 0x3FFFFFFF : (int)rem;
+        int n = send((SOCKET)sock, (const char*)(buf + sent), chunk, 0);
+        if (n <= 0) return false;
+        sent += (size_t)n;
+#else
+        if (sock < 0) return false;
+        int flags = 0;
+#ifdef MSG_NOSIGNAL
+        flags |= MSG_NOSIGNAL;
+#endif
+        ssize_t n = send(sock, buf + sent, len - sent, flags);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) return false;
+        sent += (size_t)n;
+#endif
+    }
+    return true;
+}
+
+static bool joss_ws_send_control_frame(joss_socket_t sock, uint8_t first_byte, const uint8_t* payload, size_t len) {
+    if (len > 125U) len = 125U;
+    uint8_t frame[2 + 125];
+    frame[0] = first_byte;
+    frame[1] = (uint8_t)len;
+    if (len > 0 && payload) {
+        memcpy(frame + 2, payload, len);
+    }
+    return joss_ws_send_all(sock, frame, 2U + len);
+}
 
 /* RFC 6455 Section 4.2.2: Sec-WebSocket-Accept = Base64(SHA1(key + GUID)) */
 const char* joss_ws_accept_key(const char* client_key) {
@@ -1714,19 +2731,635 @@ size_t joss_ws_encode_text_frame(const char* payload, uint8_t* out_buf, size_t o
     return hdr_len + len;
 }
 
+static int joss_ws_read_frame_ex(joss_socket_t sock, bool* out_fin, int* out_opcode, char** out_payload, size_t* out_len) {
+    if (out_fin) *out_fin = true;
+    if (out_opcode) *out_opcode = 0;
+    if (out_payload) *out_payload = NULL;
+    if (out_len) *out_len = 0;
+#if defined(_WIN32)
+    if (sock == (joss_socket_t)INVALID_SOCKET) return -1;
+#else
+    if (sock < 0) return -1;
+#endif
+
+    uint8_t hdr[2];
+    if (!joss_ws_recv_exact(sock, hdr, 2U)) {
+        return -1;
+    }
+    bool fin = (hdr[0] & 0x80U) != 0;
+    int opcode = (int)(hdr[0] & 0x0FU);
+    bool masked = (hdr[1] & 0x80U) != 0;
+    uint64_t len7 = (uint64_t)(hdr[1] & 0x7FU);
+    uint64_t payload_len = len7;
+
+    if (len7 == 126U) {
+        uint8_t ext[2];
+        if (!joss_ws_recv_exact(sock, ext, 2U)) return -1;
+        payload_len = ((uint64_t)ext[0] << 8) | (uint64_t)ext[1];
+    } else if (len7 == 127U) {
+        uint8_t ext[8];
+        if (!joss_ws_recv_exact(sock, ext, 8U)) return -1;
+        if ((ext[0] & 0x80U) != 0) return -1;
+        payload_len = ((uint64_t)ext[0] << 56) |
+                      ((uint64_t)ext[1] << 48) |
+                      ((uint64_t)ext[2] << 40) |
+                      ((uint64_t)ext[3] << 32) |
+                      ((uint64_t)ext[4] << 24) |
+                      ((uint64_t)ext[5] << 16) |
+                      ((uint64_t)ext[6] << 8)  |
+                      (uint64_t)ext[7];
+    }
+
+    if (payload_len > (uint64_t)JOSS_WS_MAX_FRAME_BYTES) {
+        return -1;
+    }
+    if (opcode >= 0x8 && (!fin || payload_len > 125U)) {
+        return -1;
+    }
+
+    uint8_t mask[4] = {0, 0, 0, 0};
+    if (masked) {
+        if (!joss_ws_recv_exact(sock, mask, 4U)) return -1;
+    }
+
+    char* payload = (char*)malloc((size_t)payload_len + 1U);
+    if (!payload) return -1;
+    if (payload_len > 0) {
+        if (!joss_ws_recv_exact(sock, (uint8_t*)payload, (size_t)payload_len)) {
+            free(payload);
+            return -1;
+        }
+        if (masked) {
+            for (size_t i = 0; i < (size_t)payload_len; i++) {
+                payload[i] = (char)((uint8_t)payload[i] ^ mask[i & 3U]);
+            }
+        }
+    }
+    payload[payload_len] = '\0';
+
+    if (opcode == 0x9) {
+        (void)joss_ws_send_control_frame(sock, 0x8AU, (const uint8_t*)payload, (size_t)payload_len);
+    } else if (opcode == 0x8) {
+        int close_code = 1000;
+        if (payload_len >= 2U) {
+            uint16_t raw_code = (uint16_t)(((uint16_t)(uint8_t)payload[0] << 8) | (uint16_t)(uint8_t)payload[1]);
+            if (raw_code > 0) close_code = (int)raw_code;
+            (void)joss_ws_send_control_frame(sock, 0x88U, (const uint8_t*)payload, 2U);
+        } else {
+            (void)joss_ws_send_control_frame(sock, 0x88U, NULL, 0U);
+        }
+        if (out_fin) *out_fin = fin;
+        if (out_opcode) *out_opcode = opcode;
+        if (out_len) *out_len = (size_t)payload_len;
+        if (out_payload) *out_payload = payload;
+        else free(payload);
+        return close_code;
+    }
+
+    if (out_fin) *out_fin = fin;
+    if (out_opcode) *out_opcode = opcode;
+    if (out_len) *out_len = (size_t)payload_len;
+    if (out_payload) *out_payload = payload;
+    else free(payload);
+    return 0;
+}
+
+int joss_ws_read_frame(joss_socket_t sock, int* out_opcode, char** out_payload, size_t* out_len) {
+    return joss_ws_read_frame_ex(sock, NULL, out_opcode, out_payload, out_len);
+}
+
+const char* joss___joss_ws_read_text(int64_t sock_fd) {
+    joss_socket_t sock;
+    if (!joss_ws_resolve_socket(sock_fd, &sock)) {
+        return "";
+    }
+    JossStringBuilder* acc = NULL;
+    for (;;) {
+        bool fin = true;
+        int opcode = 0;
+        char* payload = NULL;
+        size_t plen = 0;
+        int rc = joss_ws_read_frame_ex(sock, &fin, &opcode, &payload, &plen);
+        if (rc != 0) {
+            free(payload);
+            if (acc) joss_sb_free(acc);
+            return "";
+        }
+        if (opcode == 0x9 || opcode == 0xA) {
+            free(payload);
+            continue;
+        }
+        if (fin && !acc) {
+            char* out = (char*)joss_req_alloc(plen + 1U);
+            if (!out) {
+                free(payload);
+                return "";
+            }
+            if (plen > 0 && payload) memcpy(out, payload, plen);
+            out[plen] = '\0';
+            free(payload);
+            return out;
+        }
+        if (!acc) acc = joss_sb_new();
+        if (plen > 0 && payload) {
+            joss_buf_append_bytes(acc, (const uint8_t*)payload, (int64_t)plen);
+        }
+        free(payload);
+        if (fin) {
+            size_t total = (size_t)acc->len;
+            char* out = (char*)joss_req_alloc(total + 1U);
+            if (out) {
+                if (total > 0) memcpy(out, acc->data, total);
+                out[total] = '\0';
+            }
+            joss_sb_free(acc);
+            return out ? out : "";
+        }
+    }
+}
+
+int64_t joss___joss_ws_send_text(int64_t sock_fd, const char* text) {
+    joss_socket_t sock;
+    if (!joss_ws_resolve_socket(sock_fd, &sock)) {
+        return 0;
+    }
+    text = unbox_web_cstr(text);
+    if (!text) text = "";
+    size_t len = strlen(text);
+    size_t cap = len + 16U;
+    uint8_t stack_buf[4112];
+    uint8_t* frame = (cap <= sizeof(stack_buf)) ? stack_buf : (uint8_t*)malloc(cap);
+    if (!frame) return 0;
+    size_t flen = joss_ws_encode_text_frame(text, frame, cap);
+    bool ok = (flen > 0) ? joss_ws_send_all(sock, frame, flen) : false;
+    if (frame != stack_buf) free(frame);
+    return ok ? 1 : 0;
+}
+
+static JossWsChannel* joss_ws_hub_find_locked(const char* channel, bool create) {
+    for (int i = 0; i < g_joss_ws_hub_count; i++) {
+        if (g_joss_ws_hub[i].name && strcmp(g_joss_ws_hub[i].name, channel) == 0) {
+            return &g_joss_ws_hub[i];
+        }
+    }
+    if (!create || g_joss_ws_hub_count >= JOSS_WS_MAX_CHANNELS) return NULL;
+    JossWsChannel* ch = &g_joss_ws_hub[g_joss_ws_hub_count++];
+    memset(ch, 0, sizeof(*ch));
+    ch->name = joss_ws_strdup_heap(channel);
+    return ch;
+}
+
+static void joss_ws_hub_subscribe_raw(const char* channel, joss_socket_t sock) {
+    if (!channel || !channel[0]) return;
+    joss_global_lock(JOSS_LOCK_WS);
+    JossWsChannel* ch = joss_ws_hub_find_locked(channel, true);
+    if (ch) {
+        ch->had_explicit_subs = true;
+        ch->has_published = false;
+        bool exists = false;
+        for (int i = 0; i < ch->sock_count; i++) {
+            if (ch->sockets[i] == sock) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            if (ch->sock_count >= ch->sock_cap) {
+                int ncap = ch->sock_cap > 0 ? ch->sock_cap * 2 : 16;
+                joss_socket_t* next = (joss_socket_t*)realloc(ch->sockets, (size_t)ncap * sizeof(joss_socket_t));
+                if (next) {
+                    ch->sockets = next;
+                    ch->sock_cap = ncap;
+                }
+            }
+            if (ch->sock_count < ch->sock_cap) {
+                ch->sockets[ch->sock_count++] = sock;
+            }
+        }
+    }
+    joss_global_unlock(JOSS_LOCK_WS);
+}
+
+static int64_t joss_ws_hub_unsubscribe_raw(const char* channel, joss_socket_t sock) {
+    if (!channel || !channel[0]) return 0;
+    int64_t removed = 0;
+    joss_global_lock(JOSS_LOCK_WS);
+    JossWsChannel* ch = joss_ws_hub_find_locked(channel, false);
+    if (ch) {
+        ch->had_explicit_subs = true;
+        ch->has_published = false;
+        for (int i = 0; i < ch->sock_count; i++) {
+            if (ch->sockets[i] == sock) {
+                for (int j = i; j + 1 < ch->sock_count; j++) {
+                    ch->sockets[j] = ch->sockets[j + 1];
+                }
+                ch->sock_count--;
+                removed = 1;
+                break;
+            }
+        }
+    }
+    joss_global_unlock(JOSS_LOCK_WS);
+    return removed;
+}
+
+static void joss_ws_hub_unsubscribe_all(joss_socket_t sock) {
+    joss_global_lock(JOSS_LOCK_WS);
+    for (int c = 0; c < g_joss_ws_hub_count; c++) {
+        JossWsChannel* ch = &g_joss_ws_hub[c];
+        for (int i = 0; i < ch->sock_count; i++) {
+            if (ch->sockets[i] == sock) {
+                for (int j = i; j + 1 < ch->sock_count; j++) {
+                    ch->sockets[j] = ch->sockets[j + 1];
+                }
+                ch->sock_count--;
+                break;
+            }
+        }
+    }
+    joss_global_unlock(JOSS_LOCK_WS);
+}
+
+int64_t fn_WebSocket_subscribe(const char* channel, int64_t sock_fd) {
+    channel = unbox_web_cstr(channel);
+    if (!channel || !channel[0]) return 0;
+    joss_socket_t sock;
+    if (!joss_ws_resolve_socket(sock_fd, &sock)) return 0;
+    joss_ws_hub_subscribe_raw(channel, sock);
+    return 1;
+}
+
+int64_t fn_WebSocket_unsubscribe(const char* channel, int64_t sock_fd) {
+    channel = unbox_web_cstr(channel);
+    if (!channel || !channel[0]) return 0;
+    joss_socket_t sock;
+    if (!joss_ws_resolve_socket(sock_fd, &sock)) return 0;
+    return joss_ws_hub_unsubscribe_raw(channel, sock);
+}
+
 int64_t fn_WebSocket_publish(const char* channel, const char* message) {
     channel = unbox_web_cstr(channel);
     message = unbox_web_cstr(message);
-    if (!channel) return 0;
-    if (!g_joss_ws_channels) g_joss_ws_channels = joss_map_new();
-    joss_map_set_str(g_joss_ws_channels, channel, message ? message : "");
-    return 1;
+    if (!channel || !channel[0]) return 0;
+    if (!message) message = "";
+
+    size_t msg_len = strlen(message);
+    size_t frame_cap = msg_len + 16U;
+    uint8_t stack_frame[4112];
+    uint8_t* frame = (frame_cap <= sizeof(stack_frame)) ? stack_frame : (uint8_t*)malloc(frame_cap);
+    if (!frame) return 0;
+    size_t frame_len = joss_ws_encode_text_frame(message, frame, frame_cap);
+
+    joss_socket_t* snap = NULL;
+    int snap_count = 0;
+    bool in_mem_compat = false;
+
+    joss_global_lock(JOSS_LOCK_WS);
+    JossWsChannel* ch = joss_ws_hub_find_locked(channel, true);
+    if (ch) {
+        free(ch->last_message);
+        ch->last_message = joss_ws_strdup_heap(message);
+        if (ch->sock_count > 0) {
+            snap = (joss_socket_t*)malloc((size_t)ch->sock_count * sizeof(joss_socket_t));
+            if (snap) {
+                memcpy(snap, ch->sockets, (size_t)ch->sock_count * sizeof(joss_socket_t));
+                snap_count = ch->sock_count;
+            }
+        } else if (!ch->had_explicit_subs) {
+            ch->has_published = true;
+            in_mem_compat = true;
+        }
+    }
+    joss_global_unlock(JOSS_LOCK_WS);
+
+    int64_t delivered = 0;
+    if (snap_count > 0 && frame_len > 0) {
+        bool* dead = (bool*)calloc((size_t)snap_count, sizeof(bool));
+        bool any_dead = false;
+        for (int i = 0; i < snap_count; i++) {
+            if (joss_ws_send_all(snap[i], frame, frame_len)) {
+                delivered++;
+            } else if (dead) {
+                dead[i] = true;
+                any_dead = true;
+            }
+        }
+        if (any_dead && dead) {
+            joss_global_lock(JOSS_LOCK_WS);
+            JossWsChannel* ch_purge = joss_ws_hub_find_locked(channel, false);
+            if (ch_purge) {
+                for (int i = 0; i < snap_count; i++) {
+                    if (!dead[i]) continue;
+                    for (int k = 0; k < ch_purge->sock_count; k++) {
+                        if (ch_purge->sockets[k] == snap[i]) {
+                            for (int m = k; m + 1 < ch_purge->sock_count; m++) {
+                                ch_purge->sockets[m] = ch_purge->sockets[m + 1];
+                            }
+                            ch_purge->sock_count--;
+                            break;
+                        }
+                    }
+                }
+            }
+            joss_global_unlock(JOSS_LOCK_WS);
+        }
+        free(dead);
+    } else if (in_mem_compat) {
+        delivered = 1;
+    }
+
+    free(snap);
+    if (frame != stack_frame) free(frame);
+    return delivered;
 }
 
 int64_t fn_WebSocket_subscriberCount(const char* channel) {
     channel = unbox_web_cstr(channel);
-    if (!channel || !g_joss_ws_channels) return 0;
-    return joss_array_key_exists(channel, g_joss_ws_channels) ? 1 : 0;
+    if (!channel || !channel[0]) return 0;
+    joss_global_lock(JOSS_LOCK_WS);
+    int64_t count = 0;
+    JossWsChannel* ch = joss_ws_hub_find_locked(channel, false);
+    if (ch) {
+        if (ch->sock_count > 0) {
+            count = (int64_t)ch->sock_count;
+        } else if (ch->has_published && !ch->had_explicit_subs) {
+            count = 1;
+        }
+    }
+    joss_global_unlock(JOSS_LOCK_WS);
+    return count;
+}
+
+/* =========================================================================
+ * Cron Scheduler & Background Ticker (5-field RFC/Vixie Cron)
+ * ========================================================================= */
+#define JOSS_MAX_CRON_JOBS 64
+
+typedef void (*JossCronCallbackFn)(void);
+
+typedef struct {
+    bool    active;
+    char*   expr;
+    void*   callback_raw;
+    int64_t last_run_minute;
+} JossCronJob;
+
+static JossCronJob g_joss_cron_jobs[JOSS_MAX_CRON_JOBS];
+static int         g_joss_cron_count = 0;
+static atomic_flag g_joss_cron_ticker_started = ATOMIC_FLAG_INIT;
+
+static bool joss_cron_parse_int(const char* s, int min_v, int max_v, bool is_dow, int* out) {
+    if (!s || !*s) return false;
+    char* endp = NULL;
+    long v = strtol(s, &endp, 10);
+    if (endp == s || *endp != '\0') return false;
+    if (is_dow && v == 7) v = 0;
+    if (v < min_v || v > max_v) return false;
+    *out = (int)v;
+    return true;
+}
+
+static bool joss_cron_field_eval(const char* field, int val, int min_v, int max_v, bool is_dow, bool* out_valid) {
+    if (!field || !*field) {
+        *out_valid = false;
+        return false;
+    }
+    char buf[128];
+    size_t flen = strlen(field);
+    if (flen >= sizeof(buf)) {
+        *out_valid = false;
+        return false;
+    }
+    memcpy(buf, field, flen + 1U);
+
+    bool matched = false;
+    char* p = buf;
+    while (p && *p) {
+        char* comma = strchr(p, ',');
+        if (comma) *comma = '\0';
+        char* tok = p;
+        p = comma ? (comma + 1) : NULL;
+        if (!*tok) {
+            *out_valid = false;
+            return false;
+        }
+        char* slash = strchr(tok, '/');
+        int step = 1;
+        if (slash) {
+            *slash = '\0';
+            char* step_str = slash + 1;
+            char* endp = NULL;
+            long sv = strtol(step_str, &endp, 10);
+            if (*step_str == '\0' || *endp != '\0' || sv <= 0 || sv > 1000) {
+                *out_valid = false;
+                return false;
+            }
+            step = (int)sv;
+        }
+        if (strcmp(tok, "*") == 0) {
+            if (val >= min_v && val <= max_v && ((val - min_v) % step) == 0) {
+                matched = true;
+            }
+        } else {
+            char* dash = strchr(tok, '-');
+            if (dash) {
+                *dash = '\0';
+                const char* left = tok;
+                const char* right = dash + 1;
+                char* end1 = NULL;
+                char* end2 = NULL;
+                long a = strtol(left, &end1, 10);
+                long b = strtol(right, &end2, 10);
+                if (*left == '\0' || *end1 != '\0' || *right == '\0' || *end2 != '\0') {
+                    *out_valid = false;
+                    return false;
+                }
+                if (is_dow && a == 7 && b == 7) {
+                    a = 0;
+                    b = 0;
+                }
+                int max_allowed = is_dow ? 7 : max_v;
+                if (a < min_v || b > max_allowed || a > b) {
+                    *out_valid = false;
+                    return false;
+                }
+                if (is_dow && b == 7 && val == 0) {
+                    if (((7L - a) % step) == 0) matched = true;
+                }
+                if (val >= (int)a && val <= (int)b && ((val - (int)a) % step) == 0) {
+                    matched = true;
+                }
+            } else {
+                int num = 0;
+                if (!joss_cron_parse_int(tok, min_v, max_v, is_dow, &num)) {
+                    *out_valid = false;
+                    return false;
+                }
+                if (slash) {
+                    if (val >= num && val <= max_v && ((val - num) % step) == 0) {
+                        matched = true;
+                    }
+                } else if (val == num) {
+                    matched = true;
+                }
+            }
+        }
+    }
+    *out_valid = true;
+    return matched;
+}
+
+static bool joss_cron_eval(const char* expr, const struct tm* tm_val, bool* out_valid) {
+    if (out_valid) *out_valid = false;
+    if (!expr) return false;
+    while (*expr && isspace((unsigned char)*expr)) expr++;
+    if (!*expr) return false;
+
+    const char* canonical = expr;
+    if (strcasecmp(expr, "hourly") == 0 || strcasecmp(expr, "@hourly") == 0) canonical = "0 * * * *";
+    else if (strcasecmp(expr, "daily") == 0 || strcasecmp(expr, "@daily") == 0) canonical = "0 0 * * *";
+    else if (strcasecmp(expr, "weekly") == 0 || strcasecmp(expr, "@weekly") == 0) canonical = "0 0 * * 0";
+    else if (strcasecmp(expr, "monthly") == 0 || strcasecmp(expr, "@monthly") == 0) canonical = "0 0 1 * *";
+    else if (strcasecmp(expr, "yearly") == 0 || strcasecmp(expr, "@yearly") == 0 || strcasecmp(expr, "@annually") == 0) canonical = "0 0 1 1 *";
+
+    char copy[256];
+    size_t len = strlen(canonical);
+    if (len >= sizeof(copy)) return false;
+    memcpy(copy, canonical, len + 1U);
+
+    char* fields[5] = {NULL, NULL, NULL, NULL, NULL};
+    int nf = 0;
+    char* p = copy;
+    while (*p) {
+        while (*p && isspace((unsigned char)*p)) p++;
+        if (!*p) break;
+        if (nf >= 5) return false;
+        fields[nf++] = p;
+        while (*p && !isspace((unsigned char)*p)) p++;
+        if (*p) *p++ = '\0';
+    }
+    if (nf != 5) return false;
+
+    int min_v = tm_val ? tm_val->tm_min : 0;
+    int hour_v = tm_val ? tm_val->tm_hour : 0;
+    int dom_v = tm_val ? tm_val->tm_mday : 1;
+    int mon_v = tm_val ? (tm_val->tm_mon + 1) : 1;
+    int dow_v = tm_val ? tm_val->tm_wday : 0;
+
+    bool v0 = false, v1 = false, v2 = false, v3 = false, v4 = false;
+    bool m0 = joss_cron_field_eval(fields[0], min_v,  0, 59, false, &v0);
+    bool m1 = joss_cron_field_eval(fields[1], hour_v, 0, 23, false, &v1);
+    bool m2 = joss_cron_field_eval(fields[2], dom_v,  1, 31, false, &v2);
+    bool m3 = joss_cron_field_eval(fields[3], mon_v,  1, 12, false, &v3);
+    bool m4 = joss_cron_field_eval(fields[4], dow_v,  0, 6,  true,  &v4);
+
+    if (!v0 || !v1 || !v2 || !v3 || !v4) return false;
+    if (out_valid) *out_valid = true;
+    return tm_val ? (m0 && m1 && m2 && m3 && m4) : true;
+}
+
+static int64_t joss_cron_tick_once(bool force_due) {
+    time_t now = time(NULL);
+    struct tm tm_now;
+#if defined(_WIN32)
+    localtime_s(&tm_now, &now);
+#else
+    localtime_r(&now, &tm_now);
+#endif
+    int64_t cur_min = (int64_t)(now / 60);
+
+    void* due[JOSS_MAX_CRON_JOBS];
+    int due_count = 0;
+
+    joss_global_lock(JOSS_LOCK_CRON);
+    for (int i = 0; i < g_joss_cron_count; i++) {
+        JossCronJob* job = &g_joss_cron_jobs[i];
+        if (!job->active || !job->callback_raw || !job->expr) continue;
+        bool valid = false;
+        if (joss_cron_eval(job->expr, &tm_now, &valid) && valid) {
+            if (force_due || job->last_run_minute != cur_min) {
+                job->last_run_minute = cur_min;
+                if (due_count < JOSS_MAX_CRON_JOBS) {
+                    due[due_count++] = job->callback_raw;
+                }
+            }
+        }
+    }
+    joss_global_unlock(JOSS_LOCK_CRON);
+
+    for (int i = 0; i < due_count; i++) {
+        joss_req_arena_begin();
+        joss_try_reset();
+        void* fn_raw = joss_closure_prepare_call(due[i]);
+        if (fn_raw) {
+            ((JossCronCallbackFn)fn_raw)();
+        }
+        joss_req_state_reset();
+        joss_req_arena_reset();
+    }
+    return (int64_t)due_count;
+}
+
+#if defined(_WIN32)
+static unsigned __stdcall joss_cron_ticker_main(void* arg) {
+    (void)arg;
+    for (;;) {
+        Sleep(1000);
+        (void)joss_cron_tick_once(false);
+    }
+    return 0;
+}
+#elif defined(__unix__) || defined(__APPLE__)
+static void* joss_cron_ticker_main(void* arg) {
+    (void)arg;
+    for (;;) {
+        sleep(1);
+        (void)joss_cron_tick_once(false);
+    }
+    return NULL;
+}
+#endif
+
+static void joss_cron_ensure_ticker_started(void) {
+    if (!atomic_flag_test_and_set(&g_joss_cron_ticker_started)) {
+#if defined(_WIN32)
+        uintptr_t th = _beginthreadex(NULL, 0, joss_cron_ticker_main, NULL, 0, NULL);
+        if (th != 0) CloseHandle((HANDLE)th);
+#elif defined(__unix__) || defined(__APPLE__)
+        pthread_t tid;
+        if (pthread_create(&tid, NULL, joss_cron_ticker_main, NULL) == 0) {
+            pthread_detach(tid);
+        }
+#endif
+    }
+}
+
+void* fn_Cron_schedule(const char* expr, void* callback) {
+    expr = unbox_web_cstr(expr);
+    if (!expr || !expr[0] || !joss_is_not_null((int64_t)(uintptr_t)callback)) return NULL;
+    bool valid = false;
+    (void)joss_cron_eval(expr, NULL, &valid);
+    if (!valid) return NULL;
+
+    joss_global_lock(JOSS_LOCK_CRON);
+    void* result = NULL;
+    if (g_joss_cron_count < JOSS_MAX_CRON_JOBS) {
+        JossCronJob* job = &g_joss_cron_jobs[g_joss_cron_count++];
+        job->active = true;
+        job->expr = joss_ws_strdup_heap(expr);
+        job->callback_raw = callback;
+        job->last_run_minute = -1;
+        result = (void*)(intptr_t)1;
+    }
+    joss_global_unlock(JOSS_LOCK_CRON);
+    if (result) {
+        joss_cron_ensure_ticker_started();
+    }
+    return result;
+}
+
+int64_t fn_Cron_runDue(void) {
+    return joss_cron_tick_once(true);
 }
 
 void* fn_AI_client(const char* provider, const char* api_key) {
@@ -1755,22 +3388,32 @@ int64_t fn_Notify_registerDevice(const char* user_id, const char* token) {
     user_id = unbox_web_cstr(user_id);
     token = unbox_web_cstr(token);
     if (!user_id || !token) return 0;
+    joss_global_lock(JOSS_LOCK_NOTIFY);
     if (!g_joss_notify_devices) g_joss_notify_devices = joss_map_new();
     joss_map_set_str(g_joss_notify_devices, user_id, token);
+    joss_global_unlock(JOSS_LOCK_NOTIFY);
     return 1;
 }
 
 int64_t fn_Notify_unregisterDevice(const char* user_id) {
     user_id = unbox_web_cstr(user_id);
-    if (!user_id || !g_joss_notify_devices) return 0;
-    joss_map_delete_i64(g_joss_notify_devices, user_id);
-    return 1;
+    if (!user_id) return 0;
+    joss_global_lock(JOSS_LOCK_NOTIFY);
+    int64_t ok = 0;
+    if (g_joss_notify_devices) {
+        joss_map_delete_i64(g_joss_notify_devices, user_id);
+        ok = 1;
+    }
+    joss_global_unlock(JOSS_LOCK_NOTIFY);
+    return ok;
 }
 
 void* fn_Notify_pendingMessages(const char* user_id) {
     user_id = unbox_web_cstr(user_id);
-    if (!user_id || !g_joss_notify_pending) return joss_arr_new(0);
-    int64_t v = joss_map_get_i64(g_joss_notify_pending, user_id);
+    if (!user_id) return joss_arr_new(0);
+    joss_global_lock(JOSS_LOCK_NOTIFY);
+    int64_t v = g_joss_notify_pending ? joss_map_get_i64(g_joss_notify_pending, user_id) : 0;
+    joss_global_unlock(JOSS_LOCK_NOTIFY);
     if (joss_is_arr_ptr(v)) return (void*)(uintptr_t)v;
     return joss_arr_new(0);
 }
@@ -1778,16 +3421,164 @@ void* fn_Notify_pendingMessages(const char* user_id) {
 int64_t fn_Notify_acknowledge(const char* user_id, const char* msg_id) {
     (void)msg_id;
     user_id = unbox_web_cstr(user_id);
-    if (!user_id || !g_joss_notify_pending) return 1;
-    joss_map_delete_i64(g_joss_notify_pending, user_id);
+    if (!user_id) return 1;
+    joss_global_lock(JOSS_LOCK_NOTIFY);
+    if (g_joss_notify_pending) joss_map_delete_i64(g_joss_notify_pending, user_id);
+    joss_global_unlock(JOSS_LOCK_NOTIFY);
     return 1;
 }
 
+typedef int64_t (*JossPluginDispatchFn)(const char*, const char*, void*);
+static JossPluginDispatchFn g_joss_plugin_dispatcher = NULL;
+
+void joss_register_plugin_dispatcher(void* fn) {
+    g_joss_plugin_dispatcher = (JossPluginDispatchFn)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)fn);
+}
+
 int64_t fn_Plugin_call(const char* plugin_name, const char* func_name, void* args) {
-    (void)plugin_name;
-    (void)func_name;
-    (void)args;
+    plugin_name = unbox_web_cstr(plugin_name);
+    func_name = unbox_web_cstr(func_name);
+    if (g_joss_plugin_dispatcher && plugin_name && func_name) {
+        return g_joss_plugin_dispatcher(plugin_name, func_name, args);
+    }
     return 0;
+}
+
+int64_t fn_Plugin_stream(const char* name, const char* func_name, void* args) {
+    return fn_Plugin_call(name, func_name, args);
+}
+
+const char* fn_Plugin_platform(void) {
+#if defined(_WIN32)
+    #if defined(__aarch64__) || defined(_M_ARM64)
+        return "windows-arm64";
+    #elif defined(__x86_64__) || defined(_M_X64)
+        return "windows-amd64";
+    #elif defined(__i386__) || defined(_M_IX86)
+        return "windows-386";
+    #else
+        return "windows-unknown";
+    #endif
+#elif defined(__APPLE__)
+    #if defined(__aarch64__) || defined(__arm64__)
+        return "darwin-arm64";
+    #elif defined(__x86_64__)
+        return "darwin-amd64";
+    #else
+        return "darwin-unknown";
+    #endif
+#elif defined(__ANDROID__)
+    #if defined(__aarch64__)
+        return "android-arm64";
+    #elif defined(__x86_64__)
+        return "android-amd64";
+    #elif defined(__arm__)
+        return "android-arm";
+    #else
+        return "android-unknown";
+    #endif
+#elif defined(__linux__)
+    #if defined(__aarch64__)
+        return "linux-arm64";
+    #elif defined(__x86_64__)
+        return "linux-amd64";
+    #elif defined(__i386__)
+        return "linux-386";
+    #elif defined(__arm__)
+        return "linux-arm";
+    #else
+        return "linux-unknown";
+    #endif
+#else
+    return "unknown-unknown";
+#endif
+}
+
+static bool joss_plugin_clean_rel(const char* val, char* out, size_t out_cap, bool allow_subdirs) {
+    if (!val || !val[0] || !out || out_cap < 2) return false;
+    if (val[0] == '/' || val[0] == '\\') return false;
+    if (isalpha((unsigned char)val[0]) && val[1] == ':') return false;
+
+    const char* seg_start[64];
+    size_t seg_len[64];
+    int seg_count = 0;
+
+    const char* p = val;
+    while (*p) {
+        if (*p == '/' || *p == '\\') {
+            if (!allow_subdirs) return false;
+            p++;
+            continue;
+        }
+        const char* start = p;
+        while (*p && *p != '/' && *p != '\\') p++;
+        size_t len = (size_t)(p - start);
+        if (len == 1 && start[0] == '.') {
+            continue;
+        }
+        if (len == 2 && start[0] == '.' && start[1] == '.') {
+            return false;
+        }
+        if (seg_count >= 64) return false;
+        seg_start[seg_count] = start;
+        seg_len[seg_count] = len;
+        seg_count++;
+    }
+    if (seg_count == 0) return false;
+
+#if defined(_WIN32)
+    const char sep = '\\';
+#else
+    const char sep = '/';
+#endif
+    size_t pos = 0;
+    for (int i = 0; i < seg_count; i++) {
+        if (i > 0) {
+            if (pos + 1 >= out_cap) return false;
+            out[pos++] = sep;
+        }
+        if (pos + seg_len[i] >= out_cap) return false;
+        memcpy(out + pos, seg_start[i], seg_len[i]);
+        pos += seg_len[i];
+    }
+    out[pos] = '\0';
+    return true;
+}
+
+const char* fn_Plugin_path(const char* name, const char* rel) {
+    name = unbox_web_cstr(name);
+    rel = unbox_web_cstr(rel);
+
+    char cwd[1024];
+    cwd[0] = '\0';
+#if defined(_WIN32)
+    if (!_getcwd(cwd, (int)sizeof(cwd))) snprintf(cwd, sizeof(cwd), ".");
+    const char sep = '\\';
+#else
+    if (!getcwd(cwd, sizeof(cwd))) snprintf(cwd, sizeof(cwd), ".");
+    const char sep = '/';
+#endif
+    size_t cwd_len = strlen(cwd);
+    while (cwd_len > 1 && (cwd[cwd_len - 1] == '/' || cwd[cwd_len - 1] == '\\')) {
+        cwd[--cwd_len] = '\0';
+    }
+
+    char clean_name[256];
+    char clean_rel[1024];
+    bool ok_name = joss_plugin_clean_rel(name, clean_name, sizeof(clean_name), false);
+    bool ok_rel = joss_plugin_clean_rel(rel, clean_rel, sizeof(clean_rel), true);
+
+    char out[2400];
+    if (!ok_name || !ok_rel) {
+        snprintf(out, sizeof(out), "%s%cplugins", cwd, sep);
+    } else {
+        snprintf(out, sizeof(out), "%s%cplugins%c%s%c%s", cwd, sep, sep, clean_name, sep, clean_rel);
+    }
+    size_t n = strlen(out);
+    char* copy = (char*)malloc(n + 1);
+    if (!copy) return "plugins";
+    memcpy(copy, out, n + 1);
+    return copy;
 }
 
 /* =========================================================================
@@ -1847,6 +3638,274 @@ int64_t joss_sleep(int64_t seconds) {
     return 0;
 }
 
+int64_t fn_System_sleep(int64_t seconds) {
+    joss_sleep(joss_unbox_value(seconds));
+    return 1;
+}
+
+const char* fn_System_env(const char* key, int64_t defVal) {
+    key = unbox_web_cstr(key);
+    const char* def_str = "";
+    if (joss_is_not_null(defVal)) {
+        const char* s = joss_strval(defVal);
+        if (s) def_str = s;
+    }
+    return joss_env(key, def_str);
+}
+
+void fn_System_log(int64_t msg) {
+    const char* s = joss_strval(msg);
+    printf("[System Log] %s\n", s ? s : "");
+    fflush(stdout);
+}
+
+const char* fn_System_now(int64_t days_offset) {
+    int64_t offset = joss_is_not_null(days_offset) ? joss_intval(days_offset) : 0;
+    time_t now = time(NULL);
+    struct tm tm_val;
+#if defined(_WIN32)
+    localtime_s(&tm_val, &now);
+#else
+    localtime_r(&now, &tm_val);
+#endif
+    if (offset != 0) {
+        tm_val.tm_mday += (int)offset;
+        tm_val.tm_isdst = -1;
+        mktime(&tm_val);
+    }
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
+             tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday,
+             tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec);
+    return joss_web_strdup(buf);
+}
+
+#if !defined(_WIN32)
+static char* joss_proc_strdup_heap(const char* s) {
+    if (!s) s = "";
+    size_t n = strlen(s);
+    char* out = (char*)malloc(n + 1);
+    if (!out) return NULL;
+    memcpy(out, s, n + 1);
+    return out;
+}
+#else
+static void joss_win_append_quoted_arg(JossStringBuilder* sb, const char* arg) {
+    if (!arg || !*arg) {
+        joss_sb_append(sb, "\"\"");
+        return;
+    }
+    bool needs_quote = false;
+    for (const char* p = arg; *p; p++) {
+        if (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\v' || *p == '"') {
+            needs_quote = true;
+            break;
+        }
+    }
+    if (!needs_quote) {
+        joss_sb_append(sb, arg);
+        return;
+    }
+    joss_buf_append_byte(sb, '"');
+    for (const char* p = arg; ; ) {
+        size_t bs = 0;
+        while (*p == '\\') {
+            bs++;
+            p++;
+        }
+        if (*p == '\0') {
+            for (size_t k = 0; k < bs * 2U; k++) joss_buf_append_byte(sb, '\\');
+            break;
+        } else if (*p == '"') {
+            for (size_t k = 0; k < bs * 2U + 1U; k++) joss_buf_append_byte(sb, '\\');
+            joss_buf_append_byte(sb, '"');
+            p++;
+        } else {
+            for (size_t k = 0; k < bs; k++) joss_buf_append_byte(sb, '\\');
+            joss_buf_append_byte(sb, (uint8_t)*p);
+            p++;
+        }
+    }
+    joss_buf_append_byte(sb, '"');
+}
+#endif
+
+void* fn_Process_constructor(void* proc, const char* cmd, void* args) {
+    proc = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)proc);
+    if (!proc || !joss_is_map_ptr((int64_t)(uintptr_t)proc)) {
+        proc = joss_obj_new("Process");
+    }
+    cmd = unbox_web_cstr(cmd);
+    void* args_arr = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)args);
+    joss_obj_set_field_str(proc, "_cmd", cmd ? joss_web_strdup(cmd) : "");
+    joss_obj_set_field_i64(proc, "_args", (args_arr && joss_is_arr_ptr((int64_t)(uintptr_t)args_arr)) ? (int64_t)(uintptr_t)args_arr : 0);
+    joss_obj_set_field_i64(proc, "_started", 0);
+    joss_obj_set_field_i64(proc, "_pid", 0);
+    joss_obj_set_field_i64(proc, "_handle", 0);
+    joss_obj_set_field_i64(proc, "_waited", 0);
+    joss_obj_set_field_i64(proc, "_exit_code", -1);
+    return proc;
+}
+
+int64_t fn_Process_start(void* proc) {
+    proc = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)proc);
+    if (!proc || !joss_is_map_ptr((int64_t)(uintptr_t)proc)) return 0;
+    if (joss_obj_get_field_i64(proc, "_started") != 0) return 0;
+    const char* cmd = joss_obj_get_field_str(proc, "_cmd");
+    if (!cmd || !cmd[0]) return 0;
+    void* args_arr = (void*)(uintptr_t)joss_obj_get_field_i64(proc, "_args");
+    int64_t nargs = (args_arr && joss_is_arr_ptr((int64_t)(uintptr_t)args_arr)) ? joss_arr_len(args_arr) : 0;
+
+#if defined(_WIN32)
+    JossStringBuilder* sb = joss_sb_new();
+    joss_win_append_quoted_arg(sb, cmd);
+    for (int64_t i = 0; i < nargs; i++) {
+        joss_buf_append_byte(sb, ' ');
+        const char* a = joss_strval(joss_arr_get_i64(args_arr, i));
+        joss_win_append_quoted_arg(sb, a ? a : "");
+    }
+    char* cmdline = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    if (!cmdline) return 0;
+
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    memset(&si, 0, sizeof(si));
+    si.cb = (DWORD)sizeof(si);
+    memset(&pi, 0, sizeof(pi));
+    BOOL ok = CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+    free(cmdline);
+    if (!ok) return 0;
+    CloseHandle(pi.hThread);
+    joss_obj_set_field_i64(proc, "_started", 1);
+    joss_obj_set_field_i64(proc, "_pid", (int64_t)pi.dwProcessId);
+    joss_obj_set_field_i64(proc, "_handle", (int64_t)(uintptr_t)pi.hProcess);
+    return 1;
+#elif defined(__unix__) || defined(__APPLE__)
+    char** argv = (char**)calloc((size_t)nargs + 2U, sizeof(char*));
+    if (!argv) return 0;
+    argv[0] = joss_proc_strdup_heap(cmd);
+    if (!argv[0]) { free(argv); return 0; }
+    for (int64_t i = 0; i < nargs; i++) {
+        const char* a = joss_strval(joss_arr_get_i64(args_arr, i));
+        argv[i + 1] = joss_proc_strdup_heap(a ? a : "");
+        if (!argv[i + 1]) {
+            for (int64_t j = 0; j <= i; j++) free(argv[j]);
+            free(argv);
+            return 0;
+        }
+    }
+    argv[nargs + 1] = NULL;
+
+    int err_pipe[2] = {-1, -1};
+    if (pipe(err_pipe) == 0) {
+        (void)fcntl(err_pipe[0], F_SETFD, FD_CLOEXEC);
+        (void)fcntl(err_pipe[1], F_SETFD, FD_CLOEXEC);
+    }
+    pid_t pid = fork();
+    if (pid < 0) {
+        if (err_pipe[0] >= 0) { close(err_pipe[0]); close(err_pipe[1]); }
+        for (int64_t i = 0; i <= nargs; i++) free(argv[i]);
+        free(argv);
+        return 0;
+    }
+    if (pid == 0) {
+        if (err_pipe[0] >= 0) close(err_pipe[0]);
+        execvp(cmd, argv);
+        int err_val = errno;
+        if (err_pipe[1] >= 0) {
+            ssize_t wr = write(err_pipe[1], &err_val, sizeof(err_val));
+            (void)wr;
+            close(err_pipe[1]);
+        }
+        _exit(127);
+    }
+    for (int64_t i = 0; i <= nargs; i++) free(argv[i]);
+    free(argv);
+    if (err_pipe[1] >= 0) close(err_pipe[1]);
+    if (err_pipe[0] >= 0) {
+        int child_err = 0;
+        ssize_t rd = 0;
+        do {
+            rd = read(err_pipe[0], &child_err, sizeof(child_err));
+        } while (rd < 0 && errno == EINTR);
+        close(err_pipe[0]);
+        if (rd > 0) {
+            int st = 0;
+            while (waitpid(pid, &st, 0) < 0 && errno == EINTR) {}
+            return 0;
+        }
+    }
+    joss_obj_set_field_i64(proc, "_started", 1);
+    joss_obj_set_field_i64(proc, "_pid", (int64_t)pid);
+    return 1;
+#else
+    (void)nargs;
+    return 0;
+#endif
+}
+
+int64_t fn_Process_wait(void* proc) {
+    proc = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)proc);
+    if (!proc || !joss_is_map_ptr((int64_t)(uintptr_t)proc)) return -1;
+    if (joss_obj_get_field_i64(proc, "_started") == 0) return -1;
+    if (joss_obj_get_field_i64(proc, "_waited") != 0) {
+        return joss_obj_get_field_i64(proc, "_exit_code");
+    }
+#if defined(_WIN32)
+    HANDLE hProc = (HANDLE)(uintptr_t)joss_obj_get_field_i64(proc, "_handle");
+    if (!hProc) return -1;
+    WaitForSingleObject(hProc, INFINITE);
+    DWORD ec = 0;
+    int64_t exit_code = GetExitCodeProcess(hProc, &ec) ? (int64_t)(int32_t)ec : -1;
+    CloseHandle(hProc);
+    joss_obj_set_field_i64(proc, "_handle", 0);
+    joss_obj_set_field_i64(proc, "_waited", 1);
+    joss_obj_set_field_i64(proc, "_exit_code", exit_code);
+    return exit_code;
+#elif defined(__unix__) || defined(__APPLE__)
+    pid_t pid = (pid_t)joss_obj_get_field_i64(proc, "_pid");
+    if (pid <= 0) return -1;
+    int status = 0;
+    while (waitpid(pid, &status, 0) < 0) {
+        if (errno != EINTR) return -1;
+    }
+    int64_t exit_code = -1;
+    if (WIFEXITED(status)) {
+        exit_code = (int64_t)WEXITSTATUS(status);
+    }
+    joss_obj_set_field_i64(proc, "_waited", 1);
+    joss_obj_set_field_i64(proc, "_exit_code", exit_code);
+    return exit_code;
+#else
+    return -1;
+#endif
+}
+
+int64_t fn_Process_kill(void* proc) {
+    proc = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)proc);
+    if (!proc || !joss_is_map_ptr((int64_t)(uintptr_t)proc)) return 0;
+    if (joss_obj_get_field_i64(proc, "_started") == 0) return 0;
+#if defined(_WIN32)
+    HANDLE hProc = (HANDLE)(uintptr_t)joss_obj_get_field_i64(proc, "_handle");
+    if (!hProc) return 0;
+    return TerminateProcess(hProc, 1) ? 1 : 0;
+#elif defined(__unix__) || defined(__APPLE__)
+    if (joss_obj_get_field_i64(proc, "_waited") != 0) return 0;
+    pid_t pid = (pid_t)joss_obj_get_field_i64(proc, "_pid");
+    if (pid <= 0) return 0;
+    return (kill(pid, SIGKILL) == 0) ? 1 : 0;
+#else
+    return 0;
+#endif
+}
+
+int64_t fn_Process_pid(void* proc) {
+    proc = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)proc);
+    if (!proc || !joss_is_map_ptr((int64_t)(uintptr_t)proc)) return 0;
+    return joss_obj_get_field_i64(proc, "_pid");
+}
+
 int64_t joss_usleep(int64_t usec) {
     if (usec <= 0) return 0;
 #if defined(_WIN32)
@@ -1886,6 +3945,7 @@ int64_t joss_is_file(const char* path) {
 static uint64_t g_joss_rand_state = 0;
 
 int64_t joss_rand(int64_t min_val, int64_t max_val) {
+    joss_global_lock(JOSS_LOCK_RAND);
     if (g_joss_rand_state == 0) {
         g_joss_rand_state = (uint64_t)time(NULL) ^ 0x9E3779B97F4A7C15ULL;
     }
@@ -1895,6 +3955,7 @@ int64_t joss_rand(int64_t min_val, int64_t max_val) {
     x ^= x << 25;
     x ^= x >> 27;
     g_joss_rand_state = x;
+    joss_global_unlock(JOSS_LOCK_RAND);
     uint64_t r = x * 0x2545F4914F6CDD1DULL;
     if (max_val <= min_val) return min_val;
     uint64_t span = (uint64_t)(max_val - min_val) + 1ULL;
@@ -2043,13 +4104,18 @@ const char* fn_DateTime_format(const char* fmt, int64_t ts) {
 static char g_joss_locale[32] = "es";
 
 const char* fn_Lang_locale(void) {
-    return g_joss_locale;
+    joss_global_lock(JOSS_LOCK_GENERAL);
+    char* copy = joss_req_strdup(g_joss_locale);
+    joss_global_unlock(JOSS_LOCK_GENERAL);
+    return copy;
 }
 
 int64_t fn_Lang_setLocale(const char* loc) {
     loc = unbox_web_cstr(loc);
     if (!loc || !loc[0]) return 0;
+    joss_global_lock(JOSS_LOCK_GENERAL);
     snprintf(g_joss_locale, sizeof(g_joss_locale), "%s", loc);
+    joss_global_unlock(JOSS_LOCK_GENERAL);
     return 1;
 }
 
@@ -2063,27 +4129,298 @@ const char* fn_Http_json(const char* url, const char* body, void* headers) {
     return fn_Http_post(url, body, headers);
 }
 
+static void* joss_schema_db_query(const char* sql, void* bindings) {
+    return g_joss_schema_db_query ? g_joss_schema_db_query(sql, bindings) : joss_arr_new(0);
+}
+
+static int64_t joss_schema_db_exec(const char* sql, void* bindings) {
+    return g_joss_schema_db_exec ? g_joss_schema_db_exec(sql, bindings) : -1;
+}
+
+static const char* joss_schema_dialect(void) {
+    const char* drv = joss_env("DB", "");
+    if (!drv || !*drv) drv = joss_env("DB_MOTOR", "");
+    if (!drv || !*drv) drv = joss_env("DB_CONNECTION", "");
+    if (!drv || !*drv) drv = joss_env("DB_DRIVER", "");
+    if (drv && *drv) {
+        if (strcasecmp(drv, "sqlite") == 0 || strcasecmp(drv, "sqlite3") == 0) return "sqlite";
+        if (strcasecmp(drv, "pgsql") == 0 || strcasecmp(drv, "postgres") == 0 || strcasecmp(drv, "postgresql") == 0) return "postgres";
+        if (strcasecmp(drv, "mysql") == 0 || strcasecmp(drv, "mariadb") == 0) return "mysql";
+        if (strcasecmp(drv, "sqlsrv") == 0 || strcasecmp(drv, "mssql") == 0 || strcasecmp(drv, "odbc") == 0) return "sqlsrv";
+    }
+    const char* db_host = joss_env("DB_HOST", "");
+    if (db_host && *db_host) return "mysql";
+    const char* db_path = joss_env("DB_DATABASE", "");
+    if (!db_path || !*db_path) db_path = joss_env("DB_PATH", "");
+    if ((db_path && *db_path) || joss_file_exists("database.sqlite")) return "sqlite";
+    return "mysql";
+}
+
+static void* joss_bp_add_col(void* bp, const char* name, const char* type_sql, bool is_pk) {
+    bp = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)bp);
+    name = unbox_web_cstr(name);
+    if (!bp || !name || !name[0]) return bp;
+    int64_t cols_v = joss_map_get_i64(bp, "_cols");
+    void* cols = joss_is_arr_ptr(cols_v) ? (void*)(uintptr_t)cols_v : joss_arr_new(8);
+    if (!joss_is_arr_ptr(cols_v)) joss_map_set_i64(bp, "_cols", (int64_t)(uintptr_t)cols);
+    void* col = joss_map_new();
+    joss_map_set_str(col, "name", joss_web_strdup(name));
+    joss_map_set_str(col, "type", joss_web_strdup(type_sql ? type_sql : "TEXT"));
+    joss_map_set_i64(col, "pk", is_pk ? 1 : 0);
+    joss_map_set_i64(col, "nullable", is_pk ? 0 : 0);
+    joss_map_set_i64(col, "unique", 0);
+    joss_map_set_str(col, "default", "");
+    joss_arr_push_i64(cols, (int64_t)(uintptr_t)col);
+    joss_map_set_i64(bp, "_last_col", (int64_t)(uintptr_t)col);
+    return bp;
+}
+
+void* fn_Blueprint_id(void* bp, const char* name) {
+    name = unbox_web_cstr(name);
+    if (!name || !name[0]) name = "id";
+    const char* d = joss_schema_dialect();
+    if (strcmp(d, "sqlite") == 0) return joss_bp_add_col(bp, name, "INTEGER PRIMARY KEY AUTOINCREMENT", true);
+    if (strcmp(d, "postgres") == 0) return joss_bp_add_col(bp, name, "SERIAL PRIMARY KEY", true);
+    return joss_bp_add_col(bp, name, "INT AUTO_INCREMENT PRIMARY KEY", true);
+}
+void* fn_Blueprint_increments(void* bp, const char* name) { return fn_Blueprint_id(bp, name); }
+void* fn_Blueprint_char(void* bp, const char* name, int64_t len) {
+    int64_t n = joss_intval(len);
+    if (n <= 0) n = 255;
+    char tb[48];
+    snprintf(tb, sizeof(tb), "CHAR(%lld)", (long long)n);
+    return joss_bp_add_col(bp, name, tb, false);
+}
+void* fn_Blueprint_string(void* bp, const char* name, int64_t len) {
+    int64_t n = joss_intval(len);
+    if (n <= 0) n = 255;
+    char tb[48];
+    snprintf(tb, sizeof(tb), "VARCHAR(%lld)", (long long)n);
+    return joss_bp_add_col(bp, name, tb, false);
+}
+void* fn_Blueprint_integer(void* bp, const char* name) { return joss_bp_add_col(bp, name, "INTEGER", false); }
+void* fn_Blueprint_tinyInteger(void* bp, const char* name) { return joss_bp_add_col(bp, name, "SMALLINT", false); }
+void* fn_Blueprint_smallInteger(void* bp, const char* name) { return joss_bp_add_col(bp, name, "SMALLINT", false); }
+void* fn_Blueprint_mediumInteger(void* bp, const char* name) { return joss_bp_add_col(bp, name, "INTEGER", false); }
+void* fn_Blueprint_bigInteger(void* bp, const char* name) { return joss_bp_add_col(bp, name, "BIGINT", false); }
+void* fn_Blueprint_unsignedInteger(void* bp, const char* name) { return joss_bp_add_col(bp, name, "INTEGER", false); }
+void* fn_Blueprint_unsignedBigInteger(void* bp, const char* name) { return joss_bp_add_col(bp, name, "BIGINT", false); }
+void* fn_Blueprint_text(void* bp, const char* name) { return joss_bp_add_col(bp, name, "TEXT", false); }
+void* fn_Blueprint_mediumText(void* bp, const char* name) {
+    const char* d = joss_schema_dialect();
+    return joss_bp_add_col(bp, name, (strcmp(d, "sqlite") == 0 || strcmp(d, "postgres") == 0) ? "TEXT" : "MEDIUMTEXT", false);
+}
+void* fn_Blueprint_longText(void* bp, const char* name) {
+    const char* d = joss_schema_dialect();
+    return joss_bp_add_col(bp, name, (strcmp(d, "sqlite") == 0 || strcmp(d, "postgres") == 0) ? "TEXT" : "LONGTEXT", false);
+}
+void* fn_Blueprint_date(void* bp, const char* name) { return joss_bp_add_col(bp, name, "DATE", false); }
+void* fn_Blueprint_dateTime(void* bp, const char* name) {
+    const char* d = joss_schema_dialect();
+    return joss_bp_add_col(bp, name, (strcmp(d, "postgres") == 0) ? "TIMESTAMP" : "DATETIME", false);
+}
+void* fn_Blueprint_time(void* bp, const char* name) { return joss_bp_add_col(bp, name, "TIME", false); }
+void* fn_Blueprint_boolean(void* bp, const char* name) { return joss_bp_add_col(bp, name, "BOOLEAN", false); }
+void* fn_Blueprint_json(void* bp, const char* name) {
+    const char* d = joss_schema_dialect();
+    if (strcmp(d, "postgres") == 0) return joss_bp_add_col(bp, name, "JSONB", false);
+    if (strcmp(d, "sqlite") == 0) return joss_bp_add_col(bp, name, "TEXT", false);
+    return joss_bp_add_col(bp, name, "JSON", false);
+}
+void* fn_Blueprint_enum(void* bp, const char* name, void* vals) { (void)vals; return joss_bp_add_col(bp, name, "TEXT", false); }
+void* fn_Blueprint_float(void* bp, const char* name) { return joss_bp_add_col(bp, name, "DOUBLE PRECISION", false); }
+void* fn_Blueprint_double(void* bp, const char* name) { return joss_bp_add_col(bp, name, "DOUBLE PRECISION", false); }
+void* fn_Blueprint_decimal(void* bp, const char* name, int64_t p, int64_t s) {
+    int64_t pp = joss_intval(p), ss = joss_intval(s);
+    if (pp <= 0) pp = 10;
+    if (ss < 0) ss = 2;
+    char tb[48];
+    snprintf(tb, sizeof(tb), "DECIMAL(%lld,%lld)", (long long)pp, (long long)ss);
+    return joss_bp_add_col(bp, name, tb, false);
+}
+void* fn_Blueprint_timestamp(void* bp, const char* name) { return joss_bp_add_col(bp, name, "TIMESTAMP", false); }
+void* fn_Blueprint_timestamps(void* bp) {
+    bp = joss_bp_add_col(bp, "created_at", "TIMESTAMP", false);
+    return joss_bp_add_col(bp, "updated_at", "TIMESTAMP", false);
+}
+void* fn_Blueprint_softDeletes(void* bp) {
+    bp = joss_bp_add_col(bp, "deleted_at", "TIMESTAMP", false);
+    int64_t lv = bp ? joss_map_get_i64(bp, "_last_col") : 0;
+    if (joss_is_map_ptr(lv)) joss_map_set_i64((void*)(uintptr_t)lv, "nullable", 1);
+    return bp;
+}
+void* fn_Blueprint_nullable(void* bp) {
+    bp = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)bp);
+    int64_t lv = bp ? joss_map_get_i64(bp, "_last_col") : 0;
+    if (joss_is_map_ptr(lv)) joss_map_set_i64((void*)(uintptr_t)lv, "nullable", 1);
+    return bp;
+}
+void* fn_Blueprint_unique(void* bp, int64_t cols) {
+    bp = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)bp);
+    if (cols == 0) {
+        int64_t lv = bp ? joss_map_get_i64(bp, "_last_col") : 0;
+        if (joss_is_map_ptr(lv)) joss_map_set_i64((void*)(uintptr_t)lv, "unique", 1);
+    }
+    return bp;
+}
+void* fn_Blueprint_default(void* bp, int64_t val) {
+    bp = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)bp);
+    int64_t lv = bp ? joss_map_get_i64(bp, "_last_col") : 0;
+    if (joss_is_map_ptr(lv)) joss_map_set_str((void*)(uintptr_t)lv, "default", joss_web_strdup(joss_strval(val)));
+    return bp;
+}
+void* fn_Blueprint_unsigned(void* bp) { return bp; }
+void* fn_Blueprint_comment(void* bp, const char* text) { (void)text; return bp; }
+void* fn_Blueprint_dropColumn(void* bp, int64_t cols) { (void)cols; return bp; }
+void* fn_Blueprint_renameColumn(void* bp, const char* from_col, const char* to_col) { (void)from_col; (void)to_col; return bp; }
+void* fn_Blueprint_index(void* bp, int64_t cols, const char* name) { (void)cols; (void)name; return bp; }
+void* fn_Blueprint_uniqueIndex(void* bp, int64_t cols, const char* name) { (void)cols; (void)name; return bp; }
+void* fn_Blueprint_dropIndex(void* bp, const char* name) { (void)name; return bp; }
+void* fn_Blueprint_foreign(void* bp, int64_t cols, const char* name) { (void)cols; (void)name; return bp; }
+void* fn_Blueprint_references(void* bp, int64_t cols) { (void)cols; return bp; }
+void* fn_Blueprint_on(void* bp, const char* table) { (void)table; return bp; }
+void* fn_Blueprint_onDelete(void* bp, const char* action) { (void)action; return bp; }
+void* fn_Blueprint_onUpdate(void* bp, const char* action) { (void)action; return bp; }
+void* fn_Blueprint_dropForeign(void* bp, const char* name) { (void)name; return bp; }
+
+static void joss_schema_append_col_def(JossStringBuilder* sb, void* col) {
+    const char* cname = joss_map_get_str(col, "name");
+    const char* ctype = joss_map_get_str(col, "type");
+    bool is_pk = joss_map_get_i64(col, "pk") != 0;
+    bool nullable = joss_map_get_i64(col, "nullable") != 0;
+    bool uniq = joss_map_get_i64(col, "unique") != 0;
+    const char* defv = joss_map_get_str(col, "default");
+    joss_sb_append(sb, cname);
+    joss_sb_append(sb, " ");
+    joss_sb_append(sb, ctype);
+    if (!is_pk) {
+        if (!nullable) joss_sb_append(sb, " NOT NULL");
+        if (uniq) joss_sb_append(sb, " UNIQUE");
+        if (defv && defv[0]) {
+            joss_sb_append(sb, " DEFAULT '");
+            joss_sb_append(sb, defv);
+            joss_sb_append(sb, "'");
+        }
+    }
+}
+
 int64_t fn_Schema_create(const char* table, void* callback) {
-    (void)table;
-    (void)callback;
-    return 1;
+    table = unbox_web_cstr(table);
+    void* cb = joss_closure_prepare_call(callback);
+    if (!table || !table[0] || !cb) return 0;
+    void* bp = joss_obj_new("Blueprint");
+    joss_map_set_str(bp, "_table", joss_web_strdup(table));
+    joss_map_set_i64(bp, "_cols", (int64_t)(uintptr_t)joss_arr_new(8));
+    ((void (*)(void*))cb)(bp);
+    void* cols = (void*)(uintptr_t)joss_map_get_i64(bp, "_cols");
+    int64_t n = cols ? joss_arr_len(cols) : 0;
+    if (n <= 0) return 0;
+    JossStringBuilder* sb = joss_sb_new();
+    joss_sb_append(sb, "CREATE TABLE IF NOT EXISTS ");
+    joss_sb_append(sb, table);
+    joss_sb_append(sb, " (");
+    for (int64_t i = 0; i < n; i++) {
+        if (i > 0) joss_sb_append(sb, ", ");
+        void* col = (void*)(uintptr_t)joss_arr_get_i64(cols, i);
+        if (joss_is_map_ptr((int64_t)(uintptr_t)col)) joss_schema_append_col_def(sb, col);
+    }
+    joss_sb_append(sb, ")");
+    char* sql = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    int64_t rc = joss_schema_db_exec(sql, joss_arr_new(0));
+    free(sql);
+    return rc >= 0 ? 1 : 0;
 }
 
 int64_t fn_Schema_table(const char* table, void* callback) {
-    (void)table;
-    (void)callback;
+    table = unbox_web_cstr(table);
+    void* cb = joss_closure_prepare_call(callback);
+    if (!table || !table[0] || !cb) return 0;
+    void* bp = joss_obj_new("Blueprint");
+    joss_map_set_str(bp, "_table", joss_web_strdup(table));
+    joss_map_set_i64(bp, "_cols", (int64_t)(uintptr_t)joss_arr_new(4));
+    ((void (*)(void*))cb)(bp);
+    void* cols = (void*)(uintptr_t)joss_map_get_i64(bp, "_cols");
+    int64_t n = cols ? joss_arr_len(cols) : 0;
+    for (int64_t i = 0; i < n; i++) {
+        void* col = (void*)(uintptr_t)joss_arr_get_i64(cols, i);
+        if (!joss_is_map_ptr((int64_t)(uintptr_t)col)) continue;
+        JossStringBuilder* sb = joss_sb_new();
+        joss_sb_append(sb, "ALTER TABLE ");
+        joss_sb_append(sb, table);
+        joss_sb_append(sb, " ADD COLUMN ");
+        joss_schema_append_col_def(sb, col);
+        char* sql = joss_sb_to_string(sb);
+        joss_sb_free(sb);
+        joss_schema_db_exec(sql, joss_arr_new(0));
+        free(sql);
+    }
     return 1;
+}
+
+int64_t fn_Schema_drop(const char* table) {
+    table = unbox_web_cstr(table);
+    if (!table || !table[0]) return 0;
+    char sql[256];
+    snprintf(sql, sizeof(sql), "DROP TABLE %s", table);
+    return joss_schema_db_exec(sql, joss_arr_new(0)) >= 0 ? 1 : 0;
+}
+
+int64_t fn_Schema_dropIfExists(const char* table) {
+    table = unbox_web_cstr(table);
+    if (!table || !table[0]) return 0;
+    char sql[256];
+    snprintf(sql, sizeof(sql), "DROP TABLE IF EXISTS %s", table);
+    return joss_schema_db_exec(sql, joss_arr_new(0)) >= 0 ? 1 : 0;
+}
+
+int64_t fn_Schema_rename(const char* from, const char* to) {
+    from = unbox_web_cstr(from);
+    to = unbox_web_cstr(to);
+    if (!from || !from[0] || !to || !to[0]) return 0;
+    char sql[320];
+    snprintf(sql, sizeof(sql), "ALTER TABLE %s RENAME TO %s", from, to);
+    return joss_schema_db_exec(sql, joss_arr_new(0)) >= 0 ? 1 : 0;
 }
 
 int64_t fn_Schema_hasTable(const char* table) {
     table = unbox_web_cstr(table);
-    return (table && table[0]) ? 1 : 0;
+    if (!table || !table[0]) return 0;
+    const char* d = joss_schema_dialect();
+    char sql[256];
+    if (strcmp(d, "sqlite") == 0) {
+        snprintf(sql, sizeof(sql), "SELECT name FROM sqlite_master WHERE type='table' AND name='%s'", table);
+    } else if (strcmp(d, "postgres") == 0) {
+        snprintf(sql, sizeof(sql), "SELECT table_name FROM information_schema.tables WHERE table_name='%s'", table);
+    } else {
+        snprintf(sql, sizeof(sql), "SHOW TABLES LIKE '%s'", table);
+    }
+    void* rows = joss_schema_db_query(sql, joss_arr_new(0));
+    return (rows && joss_arr_len(rows) > 0) ? 1 : 0;
 }
 
 int64_t fn_Schema_hasColumn(const char* table, const char* column) {
     table = unbox_web_cstr(table);
     column = unbox_web_cstr(column);
-    return (table && table[0] && column && column[0]) ? 1 : 0;
+    if (!table || !table[0] || !column || !column[0]) return 0;
+    const char* d = joss_schema_dialect();
+    char sql[256];
+    if (strcmp(d, "sqlite") == 0) {
+        snprintf(sql, sizeof(sql), "PRAGMA table_info(%s)", table);
+        void* rows = joss_schema_db_query(sql, joss_arr_new(0));
+        int64_t n = rows ? joss_arr_len(rows) : 0;
+        for (int64_t i = 0; i < n; i++) {
+            void* r = (void*)(uintptr_t)joss_arr_get_i64(rows, i);
+            if (joss_is_map_ptr((int64_t)(uintptr_t)r) && strcmp(joss_map_get_str(r, "name"), column) == 0) return 1;
+        }
+        return 0;
+    } else if (strcmp(d, "postgres") == 0) {
+        snprintf(sql, sizeof(sql), "SELECT column_name FROM information_schema.columns WHERE table_name='%s' AND column_name='%s'", table, column);
+    } else {
+        snprintf(sql, sizeof(sql), "SHOW COLUMNS FROM %s LIKE '%s'", table, column);
+    }
+    void* rows = joss_schema_db_query(sql, joss_arr_new(0));
+    return (rows && joss_arr_len(rows) > 0) ? 1 : 0;
 }
 
 /* --- Additional C11 Web/Utility Builtins for Full App Linking --- */
@@ -2166,6 +4503,12 @@ int64_t joss_in_array(void* needle, void* haystack) {
     return 0;
 }
 
+const char* joss_rawurlencode(const char* s);
+
+const char* joss_urlencode(const char* s) {
+    return joss_rawurlencode(s);
+}
+
 const char* joss_rawurlencode(const char* s) {
     s = unbox_web_cstr(s);
     if (!s) return "";
@@ -2218,26 +4561,40 @@ const char* joss_gmdate(const char* fmt, int64_t ts) {
 }
 
 const char* joss_md5(const char* s) {
-    s = unbox_web_cstr(s);
-    if (!s) s = "";
-    /* FNV-1a 128-bit style deterministic 32-hex fallback when OpenSSL MD5 is not linked */
-    uint64_t h1 = 14695981039346656037ULL;
-    uint64_t h2 = 1099511628211ULL;
-    for (const unsigned char* p = (const unsigned char*)s; *p; p++) {
-        h1 ^= (uint64_t)(*p);
-        h1 *= 1099511628211ULL;
-        h2 ^= (uint64_t)(*p) + 0x9e3779b97f4a7c15ULL;
-        h2 *= 14695981039346656037ULL;
+    size_t len = 0;
+    const uint8_t* ptr = joss_bytes_unwrap(s, &len);
+    if (!ptr) {
+        s = unbox_web_cstr(s);
+        if (!s) s = "";
+        ptr = (const uint8_t*)s;
+        len = strlen(s);
     }
+    uint8_t digest[16];
+    joss_prim_md5(ptr, len, digest);
+    static const char hex[] = "0123456789abcdef";
     char buf[33];
-    snprintf(buf, sizeof(buf), "%016llx%016llx", (unsigned long long)h1, (unsigned long long)h2);
+    for (int i = 0; i < 16; i++) {
+        buf[i * 2]     = hex[(digest[i] >> 4) & 0x0F];
+        buf[i * 2 + 1] = hex[digest[i] & 0x0F];
+    }
+    buf[32] = '\0';
     return joss_web_strdup(buf);
 }
 
 const char* joss_sha256_base64(const char* s) {
-    s = unbox_web_cstr(s);
-    if (!s) s = "";
-    return joss_web_strdup(joss_md5(s));
+    size_t len = 0;
+    const uint8_t* ptr = joss_bytes_unwrap(s, &len);
+    if (!ptr) {
+        s = unbox_web_cstr(s);
+        if (!s) s = "";
+        ptr = (const uint8_t*)s;
+        len = strlen(s);
+    }
+    uint8_t digest[32];
+    joss_prim_sha256(ptr, len, digest);
+    char b64[64];
+    joss_prim_base64_encode(digest, sizeof(digest), b64);
+    return joss_web_strdup(b64);
 }
 
 #if defined(__has_include)
@@ -2365,19 +4722,64 @@ void fn_Sitemap_add(const char* loc, const char* changefreq, const char* priorit
     loc = unbox_web_cstr(loc);
     changefreq = unbox_web_cstr(changefreq);
     priority = unbox_web_cstr(priority);
-    if (!loc || !loc[0] || g_sitemap_count >= 256) return;
-    g_sitemap_entries[g_sitemap_count].loc = joss_web_strdup(loc);
-    g_sitemap_entries[g_sitemap_count].changefreq = joss_web_strdup((changefreq && changefreq[0]) ? changefreq : "weekly");
-    g_sitemap_entries[g_sitemap_count].priority = joss_web_strdup((priority && priority[0]) ? priority : "0.8");
-    g_sitemap_count++;
+    if (!loc || !loc[0]) return;
+    joss_global_lock(JOSS_LOCK_SITEMAP);
+    if (g_sitemap_count < 256) {
+        g_sitemap_entries[g_sitemap_count].loc = joss_web_strdup(loc);
+        g_sitemap_entries[g_sitemap_count].changefreq = joss_web_strdup((changefreq && changefreq[0]) ? changefreq : "weekly");
+        g_sitemap_entries[g_sitemap_count].priority = joss_web_strdup((priority && priority[0]) ? priority : "0.8");
+        g_sitemap_count++;
+    }
+    joss_global_unlock(JOSS_LOCK_SITEMAP);
 }
 
-void fn_Sitemap_provider(void* callback) {
-    (void)callback;
+typedef void* (*JossSitemapProviderFn)(void);
+static void* g_sitemap_providers[32];
+static int g_sitemap_provider_count = 0;
+static char* g_sitemap_excludes[64];
+static int g_sitemap_exclude_count = 0;
+
+static bool joss_sitemap_is_excluded(const char* loc) {
+    if (!loc) return false;
+    for (int i = 0; i < g_sitemap_exclude_count; i++) {
+        const char* pat = g_sitemap_excludes[i];
+        if (!pat || !pat[0]) continue;
+        size_t plen = strlen(pat);
+        if (pat[plen - 1] == '*') {
+            if (strncmp(loc, pat, plen - 1) == 0) return true;
+        } else if (strcmp(loc, pat) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void* fn_Sitemap_provider(void* callback) {
+    if (!callback || !joss_is_not_null((int64_t)(uintptr_t)callback)) return NULL;
+    joss_global_lock(JOSS_LOCK_SITEMAP);
+    if (g_sitemap_provider_count < 32) {
+        g_sitemap_providers[g_sitemap_provider_count++] = callback;
+    }
+    joss_global_unlock(JOSS_LOCK_SITEMAP);
+    return NULL;
 }
 
 void fn_Sitemap_exclude(void* paths) {
-    (void)paths;
+    int64_t pv = joss_unbox_value((int64_t)(uintptr_t)paths);
+    joss_global_lock(JOSS_LOCK_SITEMAP);
+    if (joss_is_arr_ptr(pv)) {
+        int64_t n = joss_arr_len((void*)(uintptr_t)pv);
+        for (int64_t i = 0; i < n && g_sitemap_exclude_count < 64; i++) {
+            const char* s = joss_strval(joss_arr_get_i64((void*)(uintptr_t)pv, i));
+            if (s && s[0]) g_sitemap_excludes[g_sitemap_exclude_count++] = joss_web_strdup(s);
+        }
+    } else {
+        const char* s = unbox_web_cstr((const char*)(uintptr_t)pv);
+        if (s && s[0] && g_sitemap_exclude_count < 64) {
+            g_sitemap_excludes[g_sitemap_exclude_count++] = joss_web_strdup(s);
+        }
+    }
+    joss_global_unlock(JOSS_LOCK_SITEMAP);
 }
 
 const char* fn_Sitemap_xsl(void) {
@@ -2401,9 +4803,11 @@ const char* fn_Sitemap_generate(const char* base_url) {
     joss_sb_append(sb, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     joss_sb_append(sb, "<?xml-stylesheet type=\"text/xsl\" href=\"/sitemap.xsl\"?>\n");
     joss_sb_append(sb, "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
-    if (g_sitemap_count == 0) {
+    joss_global_lock(JOSS_LOCK_SITEMAP);
+    if (g_sitemap_count == 0 && g_sitemap_provider_count == 0) {
         static const char* defaults[] = {"/", "/lenguaje", "/docs", "/blog", "/creador", "/catalogs", "/pub"};
         for (int i = 0; i < 7; i++) {
+            if (joss_sitemap_is_excluded(defaults[i])) continue;
             joss_sb_append(sb, "  <url><loc>");
             joss_sb_append(sb, base_url);
             joss_sb_append(sb, defaults[i]);
@@ -2411,6 +4815,7 @@ const char* fn_Sitemap_generate(const char* base_url) {
         }
     } else {
         for (int i = 0; i < g_sitemap_count; i++) {
+            if (joss_sitemap_is_excluded(g_sitemap_entries[i].loc)) continue;
             joss_sb_append(sb, "  <url><loc>");
             if (strncmp(g_sitemap_entries[i].loc, "http", 4) != 0) joss_sb_append(sb, base_url);
             joss_sb_append(sb, g_sitemap_entries[i].loc);
@@ -2420,11 +4825,1527 @@ const char* fn_Sitemap_generate(const char* base_url) {
             joss_sb_append(sb, g_sitemap_entries[i].priority);
             joss_sb_append(sb, "</priority></url>\n");
         }
+        for (int p = 0; p < g_sitemap_provider_count; p++) {
+            void* fn_raw = joss_closure_prepare_call(g_sitemap_providers[p]);
+            if (!fn_raw) continue;
+            void* items = ((JossSitemapProviderFn)fn_raw)();
+            int64_t iv = joss_unbox_value((int64_t)(uintptr_t)items);
+            if (!joss_is_arr_ptr(iv)) continue;
+            int64_t n = joss_arr_len((void*)(uintptr_t)iv);
+            for (int64_t i = 0; i < n; i++) {
+                int64_t el = joss_arr_get_i64((void*)(uintptr_t)iv, i);
+                const char* loc = NULL;
+                const char* cf = "weekly";
+                const char* prio = "0.8";
+                if (joss_is_map_ptr(el)) {
+                    loc = joss_map_get_str((void*)(uintptr_t)el, "loc");
+                    const char* mcf = joss_map_get_str((void*)(uintptr_t)el, "changefreq");
+                    const char* mpr = joss_map_get_str((void*)(uintptr_t)el, "priority");
+                    if (mcf && mcf[0]) cf = mcf;
+                    if (mpr && mpr[0]) prio = mpr;
+                } else {
+                    loc = joss_strval(el);
+                }
+                if (!loc || !loc[0] || joss_sitemap_is_excluded(loc)) continue;
+                joss_sb_append(sb, "  <url><loc>");
+                if (strncmp(loc, "http", 4) != 0) joss_sb_append(sb, base_url);
+                joss_sb_append(sb, loc);
+                joss_sb_append(sb, "</loc><changefreq>");
+                joss_sb_append(sb, cf);
+                joss_sb_append(sb, "</changefreq><priority>");
+                joss_sb_append(sb, prio);
+                joss_sb_append(sb, "</priority></url>\n");
+            }
+        }
     }
+    joss_global_unlock(JOSS_LOCK_SITEMAP);
     joss_sb_append(sb, "</urlset>\n");
     char* out = joss_sb_to_string(sb);
     joss_sb_free(sb);
     return out;
+}
+
+/* =========================================================================
+ * Espiral 2: Binary Multipart Parser, Rate Limiter, Middlewares & Sessions
+ * ========================================================================= */
+
+static void joss_register_temp_upload(const char* path) {
+    if (!path || !path[0]) return;
+    if (g_tls_temp_upload_count < 64) {
+        size_t n = strlen(path);
+        char* copy = (char*)malloc(n + 1);
+        if (copy) {
+            memcpy(copy, path, n + 1);
+            g_tls_temp_uploads[g_tls_temp_upload_count++] = copy;
+        }
+    }
+}
+
+static void joss_sanitize_upload_name(const char* in, char* out, size_t out_cap) {
+    if (!out || out_cap == 0) return;
+    size_t j = 0;
+    if (in) {
+        const char* base = in;
+        for (const char* p = in; *p; p++) {
+            if (*p == '/' || *p == '\\') base = p + 1;
+        }
+        for (const char* p = base; *p && j + 1 < out_cap; p++) {
+            unsigned char c = (unsigned char)*p;
+            if (isalnum(c) || c == '.' || c == '-' || c == '_') {
+                out[j++] = (char)c;
+            } else {
+                out[j++] = '_';
+            }
+        }
+    }
+    if (j == 0) {
+        snprintf(out, out_cap, "upload.bin");
+    } else {
+        out[j] = '\0';
+    }
+}
+
+static bool joss_write_temp_upload(const uint8_t* data, size_t len, const char* orig_name, char* path_out, size_t path_cap) {
+    static atomic_uint_fast64_t g_upload_seq = 0;
+    uint64_t seq = atomic_fetch_add(&g_upload_seq, 1ULL);
+    char safe_name[64];
+    joss_sanitize_upload_name(orig_name, safe_name, sizeof(safe_name));
+    const char* tmpdir = NULL;
+#if defined(_WIN32)
+    char win_tmp[512];
+    DWORD n = GetTempPathA((DWORD)sizeof(win_tmp), win_tmp);
+    if (n > 0 && n < sizeof(win_tmp)) {
+        tmpdir = win_tmp;
+    } else {
+        tmpdir = ".";
+    }
+    size_t tlen = strlen(tmpdir);
+    const char* sep = (tlen > 0 && (tmpdir[tlen - 1] == '\\' || tmpdir[tlen - 1] == '/')) ? "" : "\\";
+    snprintf(path_out, path_cap, "%s%sjoss_up_%llu_%llu_%s",
+             tmpdir, sep, (unsigned long long)GetCurrentProcessId(), (unsigned long long)seq, safe_name);
+#else
+    tmpdir = getenv("TMPDIR");
+    if (!tmpdir || !tmpdir[0]) tmpdir = "/tmp";
+    snprintf(path_out, path_cap, "%s/joss_up_%llu_%llu_%s",
+             tmpdir, (unsigned long long)getpid(), (unsigned long long)seq, safe_name);
+#endif
+    FILE* f = fopen(path_out, "wb");
+    if (!f) return false;
+    if (len > 0 && fwrite(data, 1, len, f) != len) {
+        fclose(f);
+        remove(path_out);
+        return false;
+    }
+    fclose(f);
+    joss_register_temp_upload(path_out);
+    return true;
+}
+
+static bool joss_extract_header_param(const char* hdr_line, size_t hdr_len, const char* param_name, char* out, size_t out_cap) {
+    if (!hdr_line || !param_name || !out || out_cap == 0) return false;
+    out[0] = '\0';
+    size_t plen = strlen(param_name);
+    for (size_t i = 0; i + plen + 1 < hdr_len; i++) {
+        if (joss_strncasecmp_ascii(hdr_line + i, param_name, plen) == 0 && hdr_line[i + plen] == '=') {
+            if (i > 0 && isalnum((unsigned char)hdr_line[i - 1])) continue;
+            size_t pos = i + plen + 1;
+            if (pos >= hdr_len) return false;
+            size_t j = 0;
+            if (hdr_line[pos] == '"') {
+                pos++;
+                while (pos < hdr_len && hdr_line[pos] != '"' && j + 1 < out_cap) {
+                    if (hdr_line[pos] == '\\' && pos + 1 < hdr_len) pos++;
+                    out[j++] = hdr_line[pos++];
+                }
+            } else {
+                while (pos < hdr_len && hdr_line[pos] != ';' && hdr_line[pos] != '\r' && hdr_line[pos] != '\n' &&
+                       !isspace((unsigned char)hdr_line[pos]) && j + 1 < out_cap) {
+                    out[j++] = hdr_line[pos++];
+                }
+            }
+            out[j] = '\0';
+            return true;
+        }
+    }
+    return false;
+}
+
+void joss___joss_http_parse_multipart(int64_t raw_val, void* req_map_ptr) {
+    const void* raw_req = (const void*)(uintptr_t)raw_val;
+    if (!raw_req || !req_map_ptr) return;
+    void* req_map = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)req_map_ptr);
+    if (!req_map || !joss_is_map_ptr((int64_t)(uintptr_t)req_map)) return;
+
+    size_t raw_len = 0;
+    const uint8_t* raw_bytes = joss_bytes_unwrap(raw_req, &raw_len);
+    const char* raw_str = NULL;
+    if (!raw_bytes) {
+        raw_str = unbox_web_cstr((const char*)raw_req);
+        if (!raw_str) return;
+        raw_bytes = (const uint8_t*)raw_str;
+        raw_len = strlen(raw_str);
+    }
+
+    const uint8_t* hdr_sep = joss_memmem_bytes(raw_bytes, raw_len, (const uint8_t*)"\r\n\r\n", 4);
+    if (!hdr_sep) return;
+    size_t hdr_len = (size_t)(hdr_sep - raw_bytes);
+    const uint8_t* body = hdr_sep + 4;
+    size_t body_len = raw_len - (size_t)(body - raw_bytes);
+
+    char boundary[256] = {0};
+    for (size_t pos = 0; pos < hdr_len; ) {
+        const uint8_t* eol = joss_memmem_bytes(raw_bytes + pos, hdr_len - pos, (const uint8_t*)"\r\n", 2);
+        size_t line_len = eol ? (size_t)(eol - (raw_bytes + pos)) : (hdr_len - pos);
+        const char* line = (const char*)(raw_bytes + pos);
+        if (line_len >= 13 && joss_strncasecmp_ascii(line, "content-type:", 13) == 0) {
+            if (joss_extract_header_param(line + 13, line_len - 13, "boundary", boundary, sizeof(boundary))) {
+                break;
+            }
+        }
+        pos += line_len + 2;
+    }
+    if (!boundary[0]) return;
+
+    char dash_boundary[264];
+    int db_len_i = snprintf(dash_boundary, sizeof(dash_boundary), "--%s", boundary);
+    if (db_len_i <= 2) return;
+    size_t db_len = (size_t)db_len_i;
+
+    void* files_map = NULL;
+    if (joss_array_key_exists("_files", req_map)) {
+        int64_t fv = joss_unbox_value(joss_map_get_i64(req_map, "_files"));
+        if (fv && joss_is_map_ptr(fv)) files_map = (void*)(uintptr_t)fv;
+    }
+    if (!files_map) {
+        files_map = joss_map_new();
+        joss_map_set_i64(req_map, "_files", (int64_t)(uintptr_t)files_map);
+    }
+
+    const uint8_t* cur = joss_memmem_bytes(body, body_len, (const uint8_t*)dash_boundary, db_len);
+    while (cur) {
+        const uint8_t* after = cur + db_len;
+        size_t rem = (size_t)((body + body_len) - after);
+        if (rem >= 2 && after[0] == '-' && after[1] == '-') break; /* --boundary-- terminator */
+        if (rem >= 2 && after[0] == '\r' && after[1] == '\n') {
+            after += 2;
+            rem -= 2;
+        } else if (rem >= 1 && after[0] == '\n') {
+            after += 1;
+            rem -= 1;
+        } else {
+            break;
+        }
+
+        const uint8_t* part_sep = joss_memmem_bytes(after, rem, (const uint8_t*)"\r\n\r\n", 4);
+        if (!part_sep) break;
+        size_t phdr_len = (size_t)(part_sep - after);
+        const uint8_t* pbody = part_sep + 4;
+        size_t p_rem = (size_t)((body + body_len) - pbody);
+
+        const uint8_t* next_b = joss_memmem_bytes(pbody, p_rem, (const uint8_t*)dash_boundary, db_len);
+        if (!next_b) break;
+        size_t pdata_len = (size_t)(next_b - pbody);
+        if (pdata_len >= 2 && pbody[pdata_len - 2] == '\r' && pbody[pdata_len - 1] == '\n') {
+            pdata_len -= 2;
+        } else if (pdata_len >= 1 && pbody[pdata_len - 1] == '\n') {
+            pdata_len -= 1;
+        }
+
+        char field_name[128] = {0};
+        char file_name[256] = {0};
+        bool has_filename = false;
+        char part_ct[128] = "application/octet-stream";
+
+        for (size_t p = 0; p < phdr_len; ) {
+            const uint8_t* peol = joss_memmem_bytes(after + p, phdr_len - p, (const uint8_t*)"\r\n", 2);
+            size_t pl_len = peol ? (size_t)(peol - (after + p)) : (phdr_len - p);
+            const char* pl = (const char*)(after + p);
+            if (pl_len >= 20 && joss_strncasecmp_ascii(pl, "content-disposition:", 20) == 0) {
+                joss_extract_header_param(pl + 20, pl_len - 20, "name", field_name, sizeof(field_name));
+                has_filename = joss_extract_header_param(pl + 20, pl_len - 20, "filename", file_name, sizeof(file_name));
+            } else if (pl_len >= 13 && joss_strncasecmp_ascii(pl, "content-type:", 13) == 0) {
+                const char* v = pl + 13;
+                size_t vl = pl_len - 13;
+                while (vl > 0 && (*v == ' ' || *v == '\t')) {
+                    v++;
+                    vl--;
+                }
+                size_t cpy = vl < sizeof(part_ct) - 1 ? vl : sizeof(part_ct) - 1;
+                memcpy(part_ct, v, cpy);
+                part_ct[cpy] = '\0';
+            }
+            p += pl_len + 2;
+        }
+
+        if (field_name[0]) {
+            if (has_filename) {
+                char tmp_path[600] = {0};
+                if (!joss_write_temp_upload(pbody, pdata_len, file_name, tmp_path, sizeof(tmp_path))) {
+                    tmp_path[0] = '\0';
+                }
+                void* fentry = joss_map_new();
+                joss_map_set_str(fentry, "name", joss_web_strdup(file_name));
+                joss_map_set_str(fentry, "path", joss_web_strdup(tmp_path));
+                joss_map_set_str(fentry, "tmp_name", joss_web_strdup(tmp_path));
+                joss_map_set_str(fentry, "type", joss_web_strdup(part_ct));
+                joss_map_set_i64(fentry, "size", (int64_t)pdata_len);
+                joss_map_set_i64(fentry, "error", 0);
+                if (memchr(pbody, '\0', pdata_len) != NULL) {
+                    joss_map_set_i64(fentry, "content", (int64_t)(uintptr_t)joss_bytes_new(pbody, pdata_len));
+                } else {
+                    char* sc = (char*)malloc(pdata_len + 1);
+                    if (sc) {
+                        memcpy(sc, pbody, pdata_len);
+                        sc[pdata_len] = '\0';
+                        joss_map_set_str(fentry, "content", sc);
+                    }
+                }
+                joss_map_set_i64(files_map, field_name, (int64_t)(uintptr_t)fentry);
+            } else {
+                char* val_copy = (char*)malloc(pdata_len + 1);
+                if (val_copy) {
+                    memcpy(val_copy, pbody, pdata_len);
+                    val_copy[pdata_len] = '\0';
+                    joss_map_set_str(req_map, field_name, val_copy);
+                }
+            }
+        }
+        cur = next_b;
+    }
+}
+
+#define JOSS_RATE_BUCKETS 1024
+typedef struct {
+    char    ip[192];
+    int64_t window_start;
+    int64_t count;
+    bool    used;
+} JossRateEntry;
+
+static JossRateEntry g_rate_entries[JOSS_RATE_BUCKETS];
+
+int64_t joss___joss_rate_limit_check(const char* ip, int64_t max_req, int64_t window_sec) {
+    ip = unbox_web_cstr(ip);
+    if (!ip || !ip[0]) ip = "127.0.0.1";
+    if (max_req <= 0) max_req = 60;
+    if (window_sec <= 0) window_sec = 60;
+    int64_t now = (int64_t)time(NULL);
+
+    joss_global_lock(JOSS_LOCK_RATELIMIT);
+    int empty_idx = -1;
+    int oldest_idx = 0;
+    int match_idx = -1;
+    for (int i = 0; i < JOSS_RATE_BUCKETS; i++) {
+        if (!g_rate_entries[i].used) {
+            if (empty_idx < 0) empty_idx = i;
+            continue;
+        }
+        if (strcmp(g_rate_entries[i].ip, ip) == 0) {
+            match_idx = i;
+            break;
+        }
+        if (g_rate_entries[i].window_start < g_rate_entries[oldest_idx].window_start) {
+            oldest_idx = i;
+        }
+    }
+    if (match_idx < 0) {
+        match_idx = (empty_idx >= 0) ? empty_idx : oldest_idx;
+        memset(&g_rate_entries[match_idx], 0, sizeof(JossRateEntry));
+        snprintf(g_rate_entries[match_idx].ip, sizeof(g_rate_entries[match_idx].ip), "%s", ip);
+        g_rate_entries[match_idx].used = true;
+        g_rate_entries[match_idx].window_start = now;
+        g_rate_entries[match_idx].count = 0;
+    } else if (now - g_rate_entries[match_idx].window_start > window_sec) {
+        g_rate_entries[match_idx].window_start = now;
+        g_rate_entries[match_idx].count = 0;
+    }
+    g_rate_entries[match_idx].count++;
+    int64_t cur_count = g_rate_entries[match_idx].count;
+    joss_global_unlock(JOSS_LOCK_RATELIMIT);
+
+    if (cur_count > max_req) {
+        return -window_sec;
+    }
+    return max_req - cur_count;
+}
+
+/* Minimal recursive-descent C11 JSON parser (used for JWT claims & file sessions) */
+static const char* joss_json_skip_ws(const char* p) {
+    while (p && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')) p++;
+    return p;
+}
+
+static char* joss_json_parse_string_val(const char** pp) {
+    const char* p = joss_json_skip_ws(*pp);
+    if (!p || *p != '"') return NULL;
+    p++;
+    JossStringBuilder* sb = joss_sb_new();
+    while (*p && *p != '"') {
+        if (*p == '\\' && p[1]) {
+            p++;
+            switch (*p) {
+            case '"': joss_buf_append_byte(sb, '"'); break;
+            case '\\': joss_buf_append_byte(sb, '\\'); break;
+            case '/': joss_buf_append_byte(sb, '/'); break;
+            case 'b': joss_buf_append_byte(sb, '\b'); break;
+            case 'f': joss_buf_append_byte(sb, '\f'); break;
+            case 'n': joss_buf_append_byte(sb, '\n'); break;
+            case 'r': joss_buf_append_byte(sb, '\r'); break;
+            case 't': joss_buf_append_byte(sb, '\t'); break;
+            default: joss_buf_append_byte(sb, (uint8_t)*p); break;
+            }
+            p++;
+        } else {
+            joss_buf_append_byte(sb, (uint8_t)*p++);
+        }
+    }
+    if (*p == '"') p++;
+    *pp = p;
+    char* res = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    return res;
+}
+
+static int64_t joss_json_parse_any(const char** pp);
+
+static void* joss_json_parse_object(const char** pp) {
+    const char* p = joss_json_skip_ws(*pp);
+    if (!p || *p != '{') return NULL;
+    p++;
+    void* m = joss_map_new();
+    p = joss_json_skip_ws(p);
+    while (*p && *p != '}') {
+        char* key = joss_json_parse_string_val(&p);
+        if (!key) break;
+        p = joss_json_skip_ws(p);
+        if (*p == ':') p++;
+        int64_t val = joss_json_parse_any(&p);
+        joss_map_set_i64(m, key, val);
+        free(key);
+        p = joss_json_skip_ws(p);
+        if (*p == ',') {
+            p = joss_json_skip_ws(p + 1);
+        } else {
+            break;
+        }
+    }
+    if (*p == '}') p++;
+    *pp = p;
+    return m;
+}
+
+static void* joss_json_parse_array(const char** pp) {
+    const char* p = joss_json_skip_ws(*pp);
+    if (!p || *p != '[') return NULL;
+    p++;
+    void* arr = joss_arr_new(8);
+    p = joss_json_skip_ws(p);
+    while (*p && *p != ']') {
+        int64_t val = joss_json_parse_any(&p);
+        joss_arr_push_i64(arr, val);
+        p = joss_json_skip_ws(p);
+        if (*p == ',') {
+            p = joss_json_skip_ws(p + 1);
+        } else {
+            break;
+        }
+    }
+    if (*p == ']') p++;
+    *pp = p;
+    return arr;
+}
+
+static int64_t joss_json_parse_any(const char** pp) {
+    const char* p = joss_json_skip_ws(*pp);
+    if (!p || !*p) return 0;
+    if (*p == '"') {
+        *pp = p;
+        return (int64_t)(uintptr_t)joss_json_parse_string_val(pp);
+    }
+    if (*p == '{') {
+        *pp = p;
+        return (int64_t)(uintptr_t)joss_json_parse_object(pp);
+    }
+    if (*p == '[') {
+        *pp = p;
+        return (int64_t)(uintptr_t)joss_json_parse_array(pp);
+    }
+    if (strncmp(p, "true", 4) == 0) {
+        *pp = p + 4;
+        return (int64_t)(uintptr_t)joss_box_bool(true);
+    }
+    if (strncmp(p, "false", 5) == 0) {
+        *pp = p + 5;
+        return (int64_t)(uintptr_t)joss_box_bool(false);
+    }
+    if (strncmp(p, "null", 4) == 0) {
+        *pp = p + 4;
+        return 0;
+    }
+    char* endptr = NULL;
+    int is_float = 0;
+    for (const char* q = p; *q && (isdigit((unsigned char)*q) || *q == '-' || *q == '+' || *q == '.' || *q == 'e' || *q == 'E'); q++) {
+        if (*q == '.' || *q == 'e' || *q == 'E') is_float = 1;
+    }
+    if (is_float) {
+        double d = strtod(p, &endptr);
+        if (endptr > p) {
+            *pp = endptr;
+            return (int64_t)(uintptr_t)joss_box_f64(d);
+        }
+    } else {
+        int64_t v = strtoll(p, &endptr, 10);
+        if (endptr > p) {
+            *pp = endptr;
+            return (int64_t)(uintptr_t)joss_box_i64(v);
+        }
+    }
+    *pp = p;
+    return 0;
+}
+
+static bool joss_is_weak_jwt_secret(const char* sec) {
+    if (!sec || !*sec) return true;
+    while (*sec && isspace((unsigned char)*sec)) sec++;
+    if (!*sec) return true;
+    return strcmp(sec, "joss_default_secret_change_in_production") == 0 || strcmp(sec, "joss_default_secret") == 0;
+}
+
+static void* joss_web_verify_hs256_jwt(const char* token) {
+    static const char B64URL_ALPHA[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    if (!token || !token[0]) return NULL;
+    const char* dot1 = strchr(token, '.');
+    if (!dot1) return NULL;
+    const char* dot2 = strchr(dot1 + 1, '.');
+    if (!dot2 || strchr(dot2 + 1, '.') != NULL) return NULL;
+
+    const char* secret = joss_env("JWT_SECRET", "");
+    if (joss_is_weak_jwt_secret(secret)) {
+        secret = joss_env("APP_KEY", "");
+    }
+    if (joss_is_weak_jwt_secret(secret)) {
+        return NULL;
+    }
+
+    size_t h_len = (size_t)(dot1 - token);
+    char hdr_buf[512];
+    size_t hdr_dec_len = joss_prim_base64_decode_alphabet(token, h_len, B64URL_ALPHA, (uint8_t*)hdr_buf, sizeof(hdr_buf) - 1);
+    hdr_buf[hdr_dec_len] = '\0';
+    const char* hp = hdr_buf;
+    void* hdr_map = joss_json_parse_object(&hp);
+    if (!hdr_map) return NULL;
+    const char* alg = joss_map_get_str(hdr_map, "alg");
+    if (!alg || strcmp(alg, "HS256") != 0) return NULL;
+
+    size_t msg_len = (size_t)(dot2 - token);
+    uint8_t mac[32];
+    joss_prim_hmac_sha256((const uint8_t*)secret, strlen(secret), (const uint8_t*)token, msg_len, mac);
+    char expected_sig[64];
+    size_t exp_sig_len = joss_prim_base64_encode_alphabet(mac, 32, B64URL_ALPHA, false, expected_sig);
+    const char* given_sig = dot2 + 1;
+    size_t given_len = strlen(given_sig);
+    if (given_len != exp_sig_len) return NULL;
+    uint8_t diff = 0;
+    for (size_t i = 0; i < exp_sig_len; i++) {
+        diff |= (uint8_t)(expected_sig[i] ^ given_sig[i]);
+    }
+    if (diff != 0) return NULL;
+
+    size_t p_b64_len = (size_t)(dot2 - (dot1 + 1));
+    size_t p_cap = (p_b64_len * 3U) / 4U + 8U;
+    char* p_json = (char*)malloc(p_cap);
+    if (!p_json) return NULL;
+    size_t p_len = joss_prim_base64_decode_alphabet(dot1 + 1, p_b64_len, B64URL_ALPHA, (uint8_t*)p_json, p_cap - 1);
+    p_json[p_len] = '\0';
+    const char* pp = p_json;
+    void* claims = joss_json_parse_object(&pp);
+    free(p_json);
+    if (!claims) return NULL;
+
+    if (joss_array_key_exists("exp", claims)) {
+        int64_t exp = joss_intval(joss_map_get_i64(claims, "exp"));
+        if (exp > 0 && (int64_t)time(NULL) > exp) {
+            return NULL;
+        }
+    }
+    const char* ttype = joss_map_get_str(claims, "token_type");
+    if (ttype && strcmp(ttype, "mfa_challenge") == 0) {
+        return NULL;
+    }
+    return claims;
+}
+
+static const char* joss_get_header_ci(void* headers_map, const char* name) {
+    if (!headers_map || !name || !joss_is_map_ptr((int64_t)(uintptr_t)headers_map)) return "";
+    if (joss_array_key_exists(name, headers_map)) {
+        const char* v = joss_map_get_str(headers_map, name);
+        if (v && v[0]) return v;
+    }
+    int64_t n = joss_map_len(headers_map);
+    size_t nlen = strlen(name);
+    for (int64_t i = 0; i < n; i++) {
+        const char* k = joss_map_key_at(headers_map, i);
+        if (k && strlen(k) == nlen && joss_strncasecmp_ascii(k, name, nlen) == 0) {
+            return joss_strval(joss_map_val_at(headers_map, i));
+        }
+    }
+    return "";
+}
+
+#define JOSS_MAX_CUSTOM_MW 128
+typedef struct {
+    char* name;
+    int64_t closure_val;
+} JossCustomMiddlewareEntry;
+
+static JossCustomMiddlewareEntry g_joss_custom_mw[JOSS_MAX_CUSTOM_MW];
+static int g_joss_custom_mw_count = 0;
+
+int64_t joss_router_register_middleware(const char* name, int64_t closure_val) {
+    name = unbox_web_cstr(name);
+    if (!name || !name[0]) return 0;
+    for (int i = 0; i < g_joss_custom_mw_count; i++) {
+        if (g_joss_custom_mw[i].name && strcmp(g_joss_custom_mw[i].name, name) == 0) {
+            g_joss_custom_mw[i].closure_val = closure_val;
+            return 1;
+        }
+    }
+    if (g_joss_custom_mw_count >= JOSS_MAX_CUSTOM_MW) return 0;
+    g_joss_custom_mw[g_joss_custom_mw_count].name = joss_web_strdup(name);
+    g_joss_custom_mw[g_joss_custom_mw_count].closure_val = closure_val;
+    g_joss_custom_mw_count++;
+    return 1;
+}
+
+const char* joss_router_list_custom_middlewares(void) {
+    if (g_joss_custom_mw_count <= 0) return "";
+    JossStringBuilder* sb = joss_sb_new();
+    for (int i = 0; i < g_joss_custom_mw_count; i++) {
+        if (i > 0) joss_sb_append(sb, ", ");
+        if (g_joss_custom_mw[i].name) joss_sb_append(sb, g_joss_custom_mw[i].name);
+    }
+    char* res = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    return res ? res : "";
+}
+
+const char* joss___joss_http_check_middleware(const char* mw_spec, void* req_ptr, void* sess_ptr) {
+    mw_spec = unbox_web_cstr(mw_spec);
+    if (!mw_spec || !mw_spec[0]) return "";
+    void* req_map = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)req_ptr);
+    void* sess_map = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)sess_ptr);
+    if (!sess_map || !joss_is_map_ptr((int64_t)(uintptr_t)sess_map)) sess_map = joss_map_new();
+
+    const char* p = mw_spec;
+    while (*p) {
+        while (*p == '\n' || *p == '\r' || *p == ' ' || *p == '\t') p++;
+        if (!*p) break;
+        const char* sep = strchr(p, '\n');
+        size_t tlen = sep ? (size_t)(sep - p) : strlen(p);
+        while (tlen > 0 && (p[tlen - 1] == '\r' || p[tlen - 1] == ' ' || p[tlen - 1] == '\t')) tlen--;
+        char mw[128];
+        if (tlen >= sizeof(mw)) tlen = sizeof(mw) - 1;
+        memcpy(mw, p, tlen);
+        mw[tlen] = '\0';
+        p += sep ? (size_t)(sep - p) + 1 : strlen(p);
+
+        if (strcmp(mw, "auth") == 0) {
+            int64_t uid = joss_intval(joss_map_get_i64(sess_map, "user_id"));
+            if (uid <= 0) {
+                return (const char*)with((void*)joss_redirect("/login", 302), "error", (int64_t)(uintptr_t)"Debes iniciar sesi\xC3\xB3n.");
+            }
+        } else if (strcmp(mw, "guest") == 0) {
+            int64_t uid = joss_intval(joss_map_get_i64(sess_map, "user_id"));
+            if (uid > 0) {
+                return joss_redirect("/dashboard", 302);
+            }
+        } else if (strcmp(mw, "admin") == 0) {
+            const char* role = joss_map_get_str(sess_map, "user_role");
+            if (!role || strcmp(role, "admin") != 0) {
+                return (const char*)with((void*)joss_redirect("/", 302), "error", (int64_t)(uintptr_t)"Acceso denegado.");
+            }
+        } else if (strcmp(mw, "auth_api") == 0) {
+            const char* auth_hdr = "";
+            if (req_map && joss_is_map_ptr((int64_t)(uintptr_t)req_map)) {
+                int64_t hv = joss_unbox_value(joss_map_get_i64(req_map, "_headers"));
+                if (hv && joss_is_map_ptr(hv)) {
+                    auth_hdr = joss_get_header_ci((void*)(uintptr_t)hv, "authorization");
+                }
+                if ((!auth_hdr || !auth_hdr[0]) && joss_array_key_exists("Authorization", req_map)) {
+                    auth_hdr = joss_map_get_str(req_map, "Authorization");
+                }
+            }
+            const char* tok = "";
+            if (auth_hdr && joss_strncasecmp_ascii(auth_hdr, "Bearer ", 7) == 0) {
+                tok = auth_hdr + 7;
+            } else if (auth_hdr && auth_hdr[0]) {
+                tok = auth_hdr;
+            }
+            if ((!tok || !tok[0]) && req_map && joss_is_map_ptr((int64_t)(uintptr_t)req_map)) {
+                int64_t cv = joss_unbox_value(joss_map_get_i64(req_map, "_cookies"));
+                if (cv && joss_is_map_ptr(cv) && joss_array_key_exists("joss_token", (void*)(uintptr_t)cv)) {
+                    tok = joss_map_get_str((void*)(uintptr_t)cv, "joss_token");
+                }
+            }
+            if (!tok || !tok[0]) {
+                tok = joss_map_get_str(sess_map, "user_token");
+            }
+            if (!tok || !tok[0]) {
+                return "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json; charset=utf-8\r\nConnection: close\r\n\r\n{\"error\":\"Unauthorized: Missing Token\"}";
+            }
+            void* claims = joss_web_verify_hs256_jwt(tok);
+            if (!claims) {
+                return "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json; charset=utf-8\r\nConnection: close\r\n\r\n{\"error\":\"Unauthorized: Invalid Token\"}";
+            }
+            if (joss_array_key_exists("user_id", claims)) {
+                int64_t uid = joss_intval(joss_map_get_i64(claims, "user_id"));
+                joss_map_set_i64(sess_map, "user_id", (int64_t)(uintptr_t)joss_box_i64(uid));
+            } else if (joss_array_key_exists("sub", claims)) {
+                int64_t uid = joss_intval(joss_map_get_i64(claims, "sub"));
+                joss_map_set_i64(sess_map, "user_id", (int64_t)(uintptr_t)joss_box_i64(uid));
+            }
+            if (joss_array_key_exists("email", claims)) {
+                joss_map_set_str(sess_map, "user_email", joss_web_strdup(joss_map_get_str(claims, "email")));
+            }
+            if (joss_array_key_exists("name", claims)) {
+                joss_map_set_str(sess_map, "user_name", joss_web_strdup(joss_map_get_str(claims, "name")));
+            }
+            if (joss_array_key_exists("role", claims)) {
+                joss_map_set_str(sess_map, "user_role", joss_web_strdup(joss_map_get_str(claims, "role")));
+            }
+        } else if (strncmp(mw, "throttle:", 9) == 0) {
+            int64_t max_req = 60;
+            int64_t win_sec = 60;
+            const char* spec = mw + 9;
+            max_req = strtoll(spec, NULL, 10);
+            const char* c = strchr(spec, ',');
+            if (c) win_sec = strtoll(c + 1, NULL, 10);
+            if (max_req <= 0) max_req = 60;
+            if (win_sec <= 0) win_sec = 60;
+            const char* ip = "127.0.0.1";
+            if (req_map && joss_is_map_ptr((int64_t)(uintptr_t)req_map)) {
+                const char* rip = joss_map_get_str(req_map, "_ip");
+                if (rip && rip[0]) ip = rip;
+            }
+            char rl_key[192];
+            snprintf(rl_key, sizeof(rl_key), "%s|%s", mw, ip);
+            int64_t rem = joss___joss_rate_limit_check(rl_key, max_req, win_sec);
+            if (rem < 0) {
+                char hdr[256];
+                snprintf(hdr, sizeof(hdr),
+                         "HTTP/1.1 429 Too Many Requests\r\nContent-Type: text/html; charset=utf-8\r\nRetry-After: %lld\r\nConnection: close\r\n\r\n<h1>429 Too Many Requests</h1>",
+                         (long long)win_sec);
+                return joss_req_strdup(hdr);
+            }
+        } else {
+            for (int i = 0; i < g_joss_custom_mw_count; i++) {
+                if (g_joss_custom_mw[i].name && strcmp(g_joss_custom_mw[i].name, mw) == 0) {
+                    void* fn = joss_closure_prepare_call((void*)(uintptr_t)g_joss_custom_mw[i].closure_val);
+                    if (fn) {
+                        int64_t res = ((JossUnaryCb)fn)((int64_t)(uintptr_t)mw);
+                        joss_closure_env_tls_reset();
+                        if (joss_is_not_null(res)) {
+                            const char* s = unbox_web_cstr((const char*)(uintptr_t)res);
+                            if (s && s[0]) {
+                                return s;
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    return "";
+}
+
+static void* g_joss_session_mem_store = NULL;
+
+static int64_t joss_clone_session_value(int64_t v);
+
+static void* joss_clone_flat_session_map(void* src) {
+    void* dst = joss_map_new();
+    if (!src || !joss_is_map_ptr((int64_t)(uintptr_t)src)) return dst;
+    int64_t n = joss_map_len(src);
+    for (int64_t i = 0; i < n; i++) {
+        const char* k = joss_map_key_at(src, i);
+        int64_t v = joss_map_val_at(src, i);
+        if (!k || !k[0]) continue;
+        joss_map_set_i64(dst, k, joss_clone_session_value(v));
+    }
+    return dst;
+}
+
+static int64_t joss_clone_session_value(int64_t v) {
+    if (v == 0) return 0;
+    if (joss_is_boxed_ptr(v)) {
+        const JossBoxedValue* b = (const JossBoxedValue*)(uintptr_t)(uint64_t)v;
+        uint32_t tag = (uint32_t)(b->header & 0xFFFFFFFFULL);
+        if (tag == JOSS_TAG_NULL) return 0;
+        if (tag == JOSS_TAG_INT) return (int64_t)(uintptr_t)joss_box_i64((int64_t)b->payload);
+        if (tag == JOSS_TAG_FLOAT) {
+            double d = 0.0;
+            memcpy(&d, &b->payload, sizeof(d));
+            return (int64_t)(uintptr_t)joss_box_f64(d);
+        }
+        if (tag == JOSS_TAG_BOOL) return (int64_t)(uintptr_t)joss_box_bool(b->payload != 0);
+        if (tag == JOSS_TAG_STRING) {
+            const char* s = (const char*)(uintptr_t)b->payload;
+            return (int64_t)(uintptr_t)joss_web_strdup(s ? s : "");
+        }
+        return (int64_t)(uintptr_t)joss_web_strdup(joss_strval(v));
+    }
+    if (joss_is_map_ptr(v)) {
+        return (int64_t)(uintptr_t)joss_clone_flat_session_map((void*)(uintptr_t)v);
+    }
+    if (joss_is_arr_ptr(v)) {
+        void* src_arr = (void*)(uintptr_t)v;
+        int64_t len = joss_arr_len(src_arr);
+        void* dst_arr = joss_arr_new(len > 0 ? len : 4);
+        for (int64_t i = 0; i < len; i++) {
+            joss_arr_push_i64(dst_arr, joss_clone_session_value(joss_arr_get_i64(src_arr, i)));
+        }
+        return (int64_t)(uintptr_t)dst_arr;
+    }
+    uint64_t u = (uint64_t)v;
+    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) {
+        return (int64_t)(uintptr_t)joss_box_i64(v);
+    }
+    return (int64_t)(uintptr_t)joss_web_strdup(joss_strval(v));
+}
+
+int64_t joss_json_decode(const char* s) {
+    s = unbox_web_cstr(s);
+    if (!s || !*s) return 0;
+    const char* p = s;
+    return joss_json_parse_any(&p);
+}
+
+void* joss___joss_jwt_parse_verified(const char* token, const char* secret) {
+    static const char B64URL_ALPHA[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    token = unbox_web_cstr(token);
+    secret = unbox_web_cstr(secret);
+    if (!token || !token[0]) return NULL;
+    if (!secret || !secret[0]) {
+        secret = joss_env("JWT_SECRET", "");
+        if (!secret || !secret[0]) secret = joss_env("APP_KEY", "");
+        if (!secret || !secret[0]) secret = "joss_ephemeral_jwt_key";
+    }
+    const char* dot1 = strchr(token, '.');
+    if (!dot1) return NULL;
+    const char* dot2 = strchr(dot1 + 1, '.');
+    if (!dot2 || strchr(dot2 + 1, '.') != NULL) return NULL;
+
+    size_t h_len = (size_t)(dot1 - token);
+    char hdr_buf[512];
+    size_t hdr_dec_len = joss_prim_base64_decode_alphabet(token, h_len, B64URL_ALPHA, (uint8_t*)hdr_buf, sizeof(hdr_buf) - 1);
+    hdr_buf[hdr_dec_len] = '\0';
+    const char* hp = hdr_buf;
+    void* hdr_map = joss_json_parse_object(&hp);
+    if (!hdr_map) return NULL;
+    const char* alg = joss_map_get_str(hdr_map, "alg");
+    if (!alg || strcmp(alg, "HS256") != 0) return NULL;
+
+    size_t msg_len = (size_t)(dot2 - token);
+    uint8_t mac[32];
+    joss_prim_hmac_sha256((const uint8_t*)secret, strlen(secret), (const uint8_t*)token, msg_len, mac);
+    char expected_sig[64];
+    size_t exp_sig_len = joss_prim_base64_encode_alphabet(mac, 32, B64URL_ALPHA, false, expected_sig);
+    const char* given_sig = dot2 + 1;
+    if (strlen(given_sig) != exp_sig_len) return NULL;
+    uint8_t diff = 0;
+    for (size_t i = 0; i < exp_sig_len; i++) {
+        diff |= (uint8_t)(expected_sig[i] ^ given_sig[i]);
+    }
+    if (diff != 0) return NULL;
+
+    size_t p_b64_len = (size_t)(dot2 - (dot1 + 1));
+    size_t p_cap = (p_b64_len * 3U) / 4U + 8U;
+    char* p_json = (char*)malloc(p_cap);
+    if (!p_json) return NULL;
+    size_t p_len = joss_prim_base64_decode_alphabet(dot1 + 1, p_b64_len, B64URL_ALPHA, (uint8_t*)p_json, p_cap - 1);
+    p_json[p_len] = '\0';
+    const char* pp = p_json;
+    void* claims = joss_json_parse_object(&pp);
+    free(p_json);
+    if (!claims) return NULL;
+    if (joss_array_key_exists("exp", claims)) {
+        int64_t exp = joss_intval(joss_map_get_i64(claims, "exp"));
+        if (exp > 0 && (int64_t)time(NULL) > exp) return NULL;
+    }
+    return claims;
+}
+
+int64_t joss___joss_http_inject_header(int64_t resp_val, const char* header_line) {
+    header_line = unbox_web_cstr(header_line);
+    if (!header_line || !header_line[0]) return resp_val;
+    size_t bin_len = 0;
+    const uint8_t* bin = joss_bytes_unwrap((const void*)(uintptr_t)resp_val, &bin_len);
+    const uint8_t* data = bin;
+    size_t total_len = bin_len;
+    const char* cstr = NULL;
+    if (!data) {
+        cstr = unbox_web_cstr((const char*)(uintptr_t)resp_val);
+        if (!cstr) return resp_val;
+        data = (const uint8_t*)cstr;
+        total_len = strlen(cstr);
+    }
+    if (total_len < 5 || memcmp(data, "HTTP/", 5) != 0) return resp_val;
+    const uint8_t* sep = joss_memmem_bytes(data, total_len, (const uint8_t*)"\r\n\r\n", 4);
+    if (!sep) return resp_val;
+    size_t head_len = (size_t)(sep - data);
+    if (joss_memmem_bytes(data, head_len, (const uint8_t*)"joss_session=", 13) != NULL) {
+        return resp_val;
+    }
+    size_t hlen = strlen(header_line);
+    size_t tail_len = total_len - head_len;
+    size_t new_len = head_len + 2 + hlen + tail_len;
+    uint8_t* buf = (uint8_t*)malloc(new_len + 1);
+    if (!buf) return resp_val;
+    memcpy(buf, data, head_len);
+    memcpy(buf + head_len, "\r\n", 2);
+    memcpy(buf + head_len + 2, header_line, hlen);
+    memcpy(buf + head_len + 2 + hlen, sep, tail_len);
+    buf[new_len] = '\0';
+    if (bin) {
+        void* boxed = joss_bytes_new(buf, new_len);
+        free(buf);
+        return (int64_t)(uintptr_t)boxed;
+    }
+    return (int64_t)(uintptr_t)buf;
+}
+
+static char g_joss_session_loaded_path[512] = {0};
+
+static void joss_set_session_err(const char* msg) {
+    snprintf(g_joss_session_last_err, sizeof(g_joss_session_last_err), "%s", msg ? msg : "session error");
+}
+
+static int joss_session_resolve_driver(void) {
+    g_joss_session_last_err[0] = '\0';
+    const char* raw = joss_env("SESSION_DRIVER", "file");
+    if (!raw || !raw[0]) return 1; /* file */
+    while (*raw && isspace((unsigned char)*raw)) raw++;
+    char drv[64];
+    size_t n = strlen(raw);
+    while (n > 0 && isspace((unsigned char)raw[n - 1])) n--;
+    if (n == 0) return 1;
+    if (n >= sizeof(drv)) n = sizeof(drv) - 1;
+    for (size_t i = 0; i < n; i++) drv[i] = (char)tolower((unsigned char)raw[i]);
+    drv[n] = '\0';
+    if (strcmp(drv, "memory") == 0) return 0;
+    if (strcmp(drv, "file") == 0) return 1;
+    if (strcmp(drv, "redis") == 0) return 2;
+    char msg[160];
+    snprintf(msg, sizeof(msg), "session driver \"%s\" is not supported", drv);
+    joss_set_session_err(msg);
+    return -1;
+}
+
+static void joss_mkdir_parents(const char* path) {
+    if (!path) return;
+    char tmp[512];
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    for (char* p = tmp + 1; *p; p++) {
+        if (*p == '/' || *p == '\\') {
+            char saved = *p;
+            *p = '\0';
+#if defined(_WIN32)
+            CreateDirectoryA(tmp, NULL);
+#else
+            mkdir(tmp, 0700);
+#endif
+            *p = saved;
+        }
+    }
+}
+
+static const char* joss_session_file_path(void) {
+    const char* p = joss_env("SESSION_FILE", "");
+    if (!p || !p[0]) return "storage/sessions.json";
+    return p;
+}
+
+static bool joss_file_sessions_ensure_loaded_locked(const char* path) {
+    if (strcmp(g_joss_session_loaded_path, path) == 0 && g_joss_session_mem_store) {
+        return true;
+    }
+    FILE* f = fopen(path, "rb");
+    if (!f) {
+        if (!g_joss_session_mem_store) g_joss_session_mem_store = joss_map_new();
+        snprintf(g_joss_session_loaded_path, sizeof(g_joss_session_loaded_path), "%s", path);
+        return true;
+    }
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (sz <= 0) {
+        fclose(f);
+        g_joss_session_mem_store = joss_map_new();
+        snprintf(g_joss_session_loaded_path, sizeof(g_joss_session_loaded_path), "%s", path);
+        return true;
+    }
+    char* buf = (char*)malloc((size_t)sz + 1);
+    if (!buf) {
+        fclose(f);
+        joss_set_session_err("out of memory reading session file");
+        return false;
+    }
+    size_t rd = fread(buf, 1, (size_t)sz, f);
+    fclose(f);
+    buf[rd] = '\0';
+    const char* p = joss_json_skip_ws(buf);
+    if (!p || !*p) {
+        free(buf);
+        g_joss_session_mem_store = joss_map_new();
+        snprintf(g_joss_session_loaded_path, sizeof(g_joss_session_loaded_path), "%s", path);
+        return true;
+    }
+    if (*p != '{') {
+        free(buf);
+        joss_set_session_err("invalid JSON in session file");
+        return false;
+    }
+    void* loaded = joss_json_parse_object(&p);
+    free(buf);
+    if (!loaded) {
+        joss_set_session_err("failed to parse session file");
+        return false;
+    }
+    g_joss_session_mem_store = loaded;
+    snprintf(g_joss_session_loaded_path, sizeof(g_joss_session_loaded_path), "%s", path);
+    return true;
+}
+
+static bool joss_file_sessions_persist_locked(const char* path) {
+    joss_mkdir_parents(path);
+    JossStringBuilder* sb = joss_sb_new();
+    json_encode_value(sb, (int64_t)(uintptr_t)(g_joss_session_mem_store ? g_joss_session_mem_store : joss_map_new()));
+    char tmp_path[560];
+    snprintf(tmp_path, sizeof(tmp_path), "%s.%lu.tmp", path, (unsigned long)time(NULL));
+    FILE* f = fopen(tmp_path, "wb");
+    if (!f) {
+        joss_sb_free(sb);
+        joss_set_session_err("failed to open temp session file for write");
+        return false;
+    }
+    size_t wr = fwrite(sb->data, 1, (size_t)sb->len, f);
+    int flush_rc = fflush(f);
+    int close_rc = fclose(f);
+    if (wr != (size_t)sb->len || flush_rc != 0 || close_rc != 0) {
+        joss_sb_free(sb);
+        remove(tmp_path);
+        joss_set_session_err("failed writing session file");
+        return false;
+    }
+    joss_sb_free(sb);
+#if defined(_WIN32)
+    if (!MoveFileExA(tmp_path, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        remove(tmp_path);
+        joss_set_session_err("failed replacing session file");
+        return false;
+    }
+#else
+    if (rename(tmp_path, path) != 0) {
+        remove(tmp_path);
+        joss_set_session_err("failed renaming session file");
+        return false;
+    }
+#endif
+    return true;
+}
+
+/* Minimal C11 TCP RESP2 Redis Client */
+static int joss_redis_connect_fd(void) {
+    const char* host_env = joss_env("REDIS_HOST", "127.0.0.1");
+    const char* port_env = joss_env("REDIS_PORT", "6379");
+    char host[256];
+    char port[32];
+    snprintf(host, sizeof(host), "%s", (host_env && host_env[0]) ? host_env : "127.0.0.1");
+    snprintf(port, sizeof(port), "%s", (port_env && port_env[0]) ? port_env : "6379");
+    char* colon = strrchr(host, ':');
+    if (colon && !strchr(host, ']')) {
+        *colon = '\0';
+        if (colon[1]) snprintf(port, sizeof(port), "%s", colon + 1);
+    }
+#if defined(_WIN32)
+    static atomic_int wsa_init = 0;
+    if (atomic_load(&wsa_init) == 0) {
+        WSADATA wd;
+        if (WSAStartup(MAKEWORD(2, 2), &wd) == 0) atomic_store(&wsa_init, 1);
+    }
+#endif
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    struct addrinfo* res = NULL;
+    if (getaddrinfo(host, port, &hints, &res) != 0 || !res) {
+        joss_set_session_err("redis host resolution failed");
+        return -1;
+    }
+    int fd = -1;
+    for (struct addrinfo* rp = res; rp; rp = rp->ai_next) {
+#if defined(_WIN32)
+        SOCKET s = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (s == INVALID_SOCKET) continue;
+        DWORD tv = 3000;
+        setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+        setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
+        if (connect(s, rp->ai_addr, (int)rp->ai_addrlen) == 0) {
+            fd = (int)s;
+            break;
+        }
+        closesocket(s);
+#else
+        int s = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (s < 0) continue;
+        struct timeval tv = {3, 0};
+        setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+        if (connect(s, rp->ai_addr, rp->ai_addrlen) == 0) {
+            fd = s;
+            break;
+        }
+        close(s);
+#endif
+    }
+    freeaddrinfo(res);
+    if (fd < 0) {
+        joss_set_session_err("redis connection failed");
+    }
+    return fd;
+}
+
+static void joss_redis_close_fd(int fd) {
+    if (fd < 0) return;
+#if defined(_WIN32)
+    closesocket((SOCKET)fd);
+#else
+    close(fd);
+#endif
+}
+
+static bool joss_redis_send_all(int fd, const char* buf, size_t len) {
+    size_t sent = 0;
+    while (sent < len) {
+#if defined(_WIN32)
+        int n = send((SOCKET)fd, buf + sent, (int)(len - sent), 0);
+#else
+        ssize_t n = send(fd, buf + sent, len - sent, 0);
+#endif
+        if (n <= 0) return false;
+        sent += (size_t)n;
+    }
+    return true;
+}
+
+static bool joss_redis_read_line(int fd, char* out, size_t cap) {
+    size_t idx = 0;
+    while (idx + 1 < cap) {
+        char ch = 0;
+#if defined(_WIN32)
+        int n = recv((SOCKET)fd, &ch, 1, 0);
+#else
+        ssize_t n = recv(fd, &ch, 1, 0);
+#endif
+        if (n <= 0) return false;
+        out[idx++] = ch;
+        if (idx >= 2 && out[idx - 2] == '\r' && out[idx - 1] == '\n') {
+            out[idx - 2] = '\0';
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool joss_redis_send_cmd(int fd, int argc, const char** argv, const size_t* lens) {
+    JossStringBuilder* sb = joss_sb_new();
+    joss_buf_append_byte(sb, '*');
+    joss_sb_append_i64(sb, argc);
+    joss_sb_append(sb, "\r\n");
+    for (int i = 0; i < argc; i++) {
+        joss_buf_append_byte(sb, '$');
+        joss_sb_append_i64(sb, (int64_t)lens[i]);
+        joss_sb_append(sb, "\r\n");
+        joss_buf_append_bytes(sb, (const uint8_t*)argv[i], (int64_t)lens[i]);
+        joss_sb_append(sb, "\r\n");
+    }
+    bool ok = joss_redis_send_all(fd, (const char*)sb->data, (size_t)sb->len);
+    joss_sb_free(sb);
+    return ok;
+}
+
+static bool joss_redis_auth_and_select(int fd) {
+    const char* pwd = joss_env("REDIS_PASSWORD", "");
+    if (pwd && pwd[0]) {
+        const char* av[2] = {"AUTH", pwd};
+        size_t al[2] = {4, strlen(pwd)};
+        char line[256];
+        if (!joss_redis_send_cmd(fd, 2, av, al) || !joss_redis_read_line(fd, line, sizeof(line)) || line[0] != '+') {
+            joss_set_session_err("redis AUTH failed");
+            return false;
+        }
+    }
+    const char* db_str = joss_env("REDIS_DB", "0");
+    int db_num = db_str ? atoi(db_str) : 0;
+    if (db_num > 0) {
+        char db_buf[32];
+        snprintf(db_buf, sizeof(db_buf), "%d", db_num);
+        const char* av[2] = {"SELECT", db_buf};
+        size_t al[2] = {6, strlen(db_buf)};
+        char line[256];
+        if (!joss_redis_send_cmd(fd, 2, av, al) || !joss_redis_read_line(fd, line, sizeof(line)) || line[0] != '+') {
+            joss_set_session_err("redis SELECT failed");
+            return false;
+        }
+    }
+    return true;
+}
+
+void* joss___joss_session_load(const char* sid) {
+    sid = unbox_web_cstr(sid);
+    int drv = joss_session_resolve_driver();
+    if (drv < 0) return joss_map_new();
+    void* out = NULL;
+    if (drv == 0) {
+        joss_global_lock(JOSS_LOCK_SESSION);
+        if (g_joss_session_mem_store && sid && sid[0] && joss_array_key_exists(sid, g_joss_session_mem_store)) {
+            int64_t stored = joss_map_get_i64(g_joss_session_mem_store, sid);
+            if (stored && joss_is_map_ptr(stored)) {
+                out = joss_clone_flat_session_map((void*)(uintptr_t)stored);
+            }
+        }
+        joss_global_unlock(JOSS_LOCK_SESSION);
+    } else if (drv == 1) {
+        const char* path = joss_session_file_path();
+        joss_global_lock(JOSS_LOCK_SESSION);
+        if (joss_file_sessions_ensure_loaded_locked(path) && g_joss_session_mem_store && sid && sid[0] &&
+            joss_array_key_exists(sid, g_joss_session_mem_store)) {
+            int64_t stored = joss_map_get_i64(g_joss_session_mem_store, sid);
+            if (stored && joss_is_map_ptr(stored)) {
+                out = joss_clone_flat_session_map((void*)(uintptr_t)stored);
+            }
+        }
+        joss_global_unlock(JOSS_LOCK_SESSION);
+    } else if (drv == 2 && sid && sid[0]) {
+        int fd = joss_redis_connect_fd();
+        if (fd >= 0) {
+            if (joss_redis_auth_and_select(fd)) {
+                char rkey[320];
+                snprintf(rkey, sizeof(rkey), "session:%s", sid);
+                const char* av[2] = {"GET", rkey};
+                size_t al[2] = {3, strlen(rkey)};
+                char line[256];
+                if (!joss_redis_send_cmd(fd, 2, av, al) || !joss_redis_read_line(fd, line, sizeof(line))) {
+                    joss_set_session_err("redis GET failed");
+                } else if (line[0] == '$') {
+                    long blen = strtol(line + 1, NULL, 10);
+                    if (blen >= 0) {
+                        char* payload = (char*)malloc((size_t)blen + 3);
+                        if (payload) {
+                            size_t got = 0;
+                            while (got < (size_t)blen + 2) {
+#if defined(_WIN32)
+                                int n = recv((SOCKET)fd, payload + got, (int)((size_t)blen + 2 - got), 0);
+#else
+                                ssize_t n = recv(fd, payload + got, (size_t)blen + 2 - got, 0);
+#endif
+                                if (n <= 0) break;
+                                got += (size_t)n;
+                            }
+                            if (got == (size_t)blen + 2) {
+                                payload[blen] = '\0';
+                                const char* pp = payload;
+                                out = joss_json_parse_object(&pp);
+                            } else {
+                                joss_set_session_err("redis GET truncated");
+                            }
+                            free(payload);
+                        }
+                    }
+                } else if (line[0] == '-') {
+                    joss_set_session_err(line + 1);
+                }
+            }
+            joss_redis_close_fd(fd);
+        }
+    }
+    if (!out) out = joss_map_new();
+    /* Hydrate pending flash keys (once-only) into both session map and TLS flash */
+    if (joss_array_key_exists("_flash", out)) {
+        int64_t fv = joss_map_get_i64(out, "_flash");
+        if (fv && joss_is_map_ptr(fv)) {
+            void* fm = (void*)(uintptr_t)fv;
+            g_joss_session_flash = joss_clone_flat_session_map(fm);
+            g_joss_consumed_flash = joss_clone_flat_session_map(fm);
+            int64_t fn = joss_map_len(fm);
+            for (int64_t i = 0; i < fn; i++) {
+                const char* fk = joss_map_key_at(fm, i);
+                if (fk && fk[0]) {
+                    joss_map_set_i64(out, fk, joss_clone_session_value(joss_map_val_at(fm, i)));
+                }
+            }
+            joss_map_delete_i64(out, "_flash");
+        }
+    }
+    return out;
+}
+
+int64_t joss___joss_session_save(const char* sid, void* data_ptr) {
+    sid = unbox_web_cstr(sid);
+    if (!sid || !sid[0]) return 0;
+    int drv = joss_session_resolve_driver();
+    if (drv < 0) return 0;
+    void* src = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)data_ptr);
+    void* copy = joss_clone_flat_session_map(src);
+    if (g_joss_consumed_flash && joss_is_map_ptr((int64_t)(uintptr_t)g_joss_consumed_flash)) {
+        int64_t cn = joss_map_len(g_joss_consumed_flash);
+        for (int64_t i = 0; i < cn; i++) {
+            const char* fk = joss_map_key_at(g_joss_consumed_flash, i);
+            if (!fk || !fk[0]) continue;
+            if (joss_array_key_exists(fk, copy) &&
+                strcmp(joss_map_get_str(copy, fk), joss_map_get_str(g_joss_consumed_flash, fk)) == 0) {
+                joss_map_delete_i64(copy, fk);
+            }
+        }
+    }
+    if (g_joss_new_flash && joss_is_map_ptr((int64_t)(uintptr_t)g_joss_new_flash) &&
+        joss_map_len(g_joss_new_flash) > 0) {
+        joss_map_set_i64(copy, "_flash", (int64_t)(uintptr_t)joss_clone_flat_session_map(g_joss_new_flash));
+    }
+    if (drv == 0) {
+        joss_global_lock(JOSS_LOCK_SESSION);
+        if (!g_joss_session_mem_store) g_joss_session_mem_store = joss_map_new();
+        joss_map_set_i64(g_joss_session_mem_store, sid, (int64_t)(uintptr_t)copy);
+        joss_global_unlock(JOSS_LOCK_SESSION);
+        return 1;
+    }
+    if (drv == 1) {
+        const char* path = joss_session_file_path();
+        joss_global_lock(JOSS_LOCK_SESSION);
+        bool ok = joss_file_sessions_ensure_loaded_locked(path);
+        if (ok) {
+            if (!g_joss_session_mem_store) g_joss_session_mem_store = joss_map_new();
+            joss_map_set_i64(g_joss_session_mem_store, sid, (int64_t)(uintptr_t)copy);
+            ok = joss_file_sessions_persist_locked(path);
+        }
+        joss_global_unlock(JOSS_LOCK_SESSION);
+        return ok ? 1 : 0;
+    }
+    int fd = joss_redis_connect_fd();
+    if (fd < 0) return 0;
+    bool ok = false;
+    if (joss_redis_auth_and_select(fd)) {
+        JossStringBuilder* jsb = joss_sb_new();
+        json_encode_value(jsb, (int64_t)(uintptr_t)copy);
+        char rkey[320];
+        snprintf(rkey, sizeof(rkey), "session:%s", sid);
+        const char* ttl = "86400";
+        const char* av[4] = {"SETEX", rkey, ttl, (const char*)jsb->data};
+        size_t al[4] = {5, strlen(rkey), 5, (size_t)jsb->len};
+        char line[256];
+        if (joss_redis_send_cmd(fd, 4, av, al) && joss_redis_read_line(fd, line, sizeof(line)) && line[0] == '+') {
+            ok = true;
+        } else {
+            joss_set_session_err("redis SETEX failed");
+        }
+        joss_sb_free(jsb);
+    }
+    joss_redis_close_fd(fd);
+    return ok ? 1 : 0;
+}
+
+int64_t joss___joss_session_destroy(const char* sid) {
+    sid = unbox_web_cstr(sid);
+    if (!sid || !sid[0]) return 0;
+    int drv = joss_session_resolve_driver();
+    if (drv < 0) return 0;
+    if (drv == 0) {
+        joss_global_lock(JOSS_LOCK_SESSION);
+        if (g_joss_session_mem_store) joss_map_delete_i64(g_joss_session_mem_store, sid);
+        joss_global_unlock(JOSS_LOCK_SESSION);
+        return 1;
+    }
+    if (drv == 1) {
+        const char* path = joss_session_file_path();
+        joss_global_lock(JOSS_LOCK_SESSION);
+        bool ok = joss_file_sessions_ensure_loaded_locked(path);
+        if (ok && g_joss_session_mem_store) {
+            joss_map_delete_i64(g_joss_session_mem_store, sid);
+            ok = joss_file_sessions_persist_locked(path);
+        }
+        joss_global_unlock(JOSS_LOCK_SESSION);
+        return ok ? 1 : 0;
+    }
+    int fd = joss_redis_connect_fd();
+    if (fd < 0) return 0;
+    bool ok = false;
+    if (joss_redis_auth_and_select(fd)) {
+        char rkey[320];
+        snprintf(rkey, sizeof(rkey), "session:%s", sid);
+        const char* av[2] = {"DEL", rkey};
+        size_t al[2] = {3, strlen(rkey)};
+        char line[256];
+        if (joss_redis_send_cmd(fd, 2, av, al) && joss_redis_read_line(fd, line, sizeof(line)) &&
+            (line[0] == ':' || line[0] == '+')) {
+            ok = true;
+        } else {
+            joss_set_session_err("redis DEL failed");
+        }
+    }
+    joss_redis_close_fd(fd);
+    return ok ? 1 : 0;
+}
+
+const char* joss___joss_session_last_error(void) {
+    return g_joss_session_last_err;
+}
+
+const char* fn_IndexNow_key(void) {
+    return joss_env("INDEXNOW_KEY", "");
+}
+
+int64_t fn_IndexNow_submit(void* urls) {
+    const char* key = joss_env("INDEXNOW_KEY", "");
+    if (!key || !key[0]) return 0;
+    const char* endpoint = joss_env("INDEXNOW_ENDPOINT", "https://api.indexnow.org/indexnow");
+    if (!endpoint || !endpoint[0]) endpoint = "https://api.indexnow.org/indexnow";
+    const char* app_url = joss_env("APP_URL", "http://localhost");
+    const char* host = app_url;
+    const char* sl = strstr(host, "://");
+    if (sl) host = sl + 3;
+    char host_buf[256];
+    snprintf(host_buf, sizeof(host_buf), "%s", host);
+    char* slash = strchr(host_buf, '/');
+    if (slash) *slash = '\0';
+
+    void* payload = joss_map_new();
+    joss_map_set_str(payload, "host", host_buf);
+    joss_map_set_str(payload, "key", key);
+    joss_map_set_i64(payload, "urlList", (int64_t)(uintptr_t)urls);
+
+    void* hdrs = joss_map_new();
+    joss_map_set_str(hdrs, "Content-Type", "application/json");
+    const char* body_json = joss_json_encode((int64_t)(uintptr_t)payload);
+    void* resp = fn_Http_request("POST", endpoint, body_json, hdrs);
+    if (resp && joss_is_map_ptr((int64_t)(uintptr_t)resp)) {
+        int64_t st = joss_intval(joss_map_get_i64(resp, "status"));
+        return (st >= 200 && st < 300) ? 1 : 0;
+    }
+    return 0;
+}
+
+int64_t fn_SmtpClient_send(const char* to, const char* subject, const char* body) {
+    to = unbox_web_cstr(to);
+    subject = unbox_web_cstr(subject);
+    body = unbox_web_cstr(body);
+    if (!to || !to[0]) {
+        fprintf(stderr, "[SmtpClient] empty recipient\n");
+        return 0;
+    }
+    const char* host = joss_env("MAIL_HOST", "");
+    if (!host || !host[0]) host = joss_env("SMTP_HOST", "127.0.0.1");
+    const char* port = joss_env("MAIL_PORT", "");
+    if (!port || !port[0]) port = joss_env("SMTP_PORT", "25");
+    const char* from = joss_env("MAIL_FROM_ADDRESS", "");
+    if (!from || !from[0]) from = "noreply@joss.local";
+    const char* user = joss_env("MAIL_USERNAME", "");
+    if (!user || !user[0]) user = joss_env("SMTP_USER", "");
+    const char* pass = joss_env("MAIL_PASSWORD", "");
+    if (!pass || !pass[0]) pass = joss_env("SMTP_PASS", "");
+
+    if ((strcmp(port, "465") == 0 || strcmp(port, "587") == 0) && user && user[0] && pass && pass[0]) {
+        char tmp_eml[256];
+        snprintf(tmp_eml, sizeof(tmp_eml), "joss_smtp_%lu.eml", (unsigned long)time(NULL));
+        FILE* ef = fopen(tmp_eml, "wb");
+        if (!ef) return 0;
+        fprintf(ef, "From: <%s>\r\nTo: <%s>\r\nSubject: %s\r\nContent-Type: text/html; charset=utf-8\r\n\r\n%s\r\n",
+                from, to, subject ? subject : "", body ? body : "");
+        fclose(ef);
+        char cmd_buf[2048];
+        const char* scheme = (strcmp(port, "465") == 0) ? "smtps" : "smtp";
+        const char* ssl_flag = (strcmp(port, "587") == 0) ? " --ssl-reqd" : "";
+        snprintf(cmd_buf, sizeof(cmd_buf),
+                 "curl -sS%s --url \"%s://%s:%s\" --user \"%s:%s\" --mail-from \"%s\" --mail-rcpt \"%s\" --upload-file \"%s\"",
+                 ssl_flag, scheme, host, port, user, pass, from, to, tmp_eml);
+        int rc = system(cmd_buf);
+        remove(tmp_eml);
+        return rc == 0 ? 1 : 0;
+    }
+
+#if defined(_WIN32)
+    static atomic_int smtp_wsa = 0;
+    if (atomic_load(&smtp_wsa) == 0) {
+        WSADATA wd;
+        if (WSAStartup(MAKEWORD(2, 2), &wd) == 0) atomic_store(&smtp_wsa, 1);
+    }
+#endif
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    struct addrinfo* res = NULL;
+    if (getaddrinfo(host, port, &hints, &res) != 0 || !res) {
+        fprintf(stderr, "[SmtpClient] getaddrinfo failed for %s:%s\n", host, port);
+        return 0;
+    }
+    int fd = -1;
+    for (struct addrinfo* rp = res; rp; rp = rp->ai_next) {
+#if defined(_WIN32)
+        SOCKET s = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (s == INVALID_SOCKET) continue;
+        if (connect(s, rp->ai_addr, (int)rp->ai_addrlen) == 0) { fd = (int)s; break; }
+        closesocket(s);
+#else
+        int s = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (s < 0) continue;
+        if (connect(s, rp->ai_addr, rp->ai_addrlen) == 0) { fd = s; break; }
+        close(s);
+#endif
+    }
+    freeaddrinfo(res);
+    if (fd < 0) {
+        fprintf(stderr, "[SmtpClient] connect failed to %s:%s\n", host, port);
+        return 0;
+    }
+
+    char line[512];
+    (void)joss_redis_read_line(fd, line, sizeof(line));
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "EHLO localhost\r\n");
+    joss_redis_send_all(fd, cmd, strlen(cmd));
+    while (joss_redis_read_line(fd, line, sizeof(line))) {
+        if (strlen(line) >= 4 && line[3] == ' ') break;
+    }
+    snprintf(cmd, sizeof(cmd), "MAIL FROM:<%s>\r\n", from);
+    joss_redis_send_all(fd, cmd, strlen(cmd));
+    (void)joss_redis_read_line(fd, line, sizeof(line));
+    snprintf(cmd, sizeof(cmd), "RCPT TO:<%s>\r\n", to);
+    joss_redis_send_all(fd, cmd, strlen(cmd));
+    (void)joss_redis_read_line(fd, line, sizeof(line));
+    joss_redis_send_all(fd, "DATA\r\n", 6);
+    (void)joss_redis_read_line(fd, line, sizeof(line));
+
+    JossStringBuilder* msg = joss_sb_new();
+    joss_sb_append(msg, "From: "); joss_sb_append(msg, from); joss_sb_append(msg, "\r\n");
+    joss_sb_append(msg, "To: "); joss_sb_append(msg, to); joss_sb_append(msg, "\r\n");
+    joss_sb_append(msg, "Subject: "); joss_sb_append(msg, subject ? subject : ""); joss_sb_append(msg, "\r\n\r\n");
+    joss_sb_append(msg, body ? body : "");
+    joss_sb_append(msg, "\r\n.\r\n");
+    bool ok = joss_redis_send_all(fd, (const char*)msg->data, (size_t)msg->len);
+    if (!ok) {
+        fprintf(stderr, "[SmtpClient] send DATA body failed\n");
+    }
+    joss_sb_free(msg);
+    (void)joss_redis_read_line(fd, line, sizeof(line));
+    joss_redis_send_all(fd, "QUIT\r\n", 6);
+    joss_redis_close_fd(fd);
+    return ok ? 1 : 0;
+}
+
+int64_t fn_Mail_send(const char* to, const char* subject, const char* body) {
+    return fn_SmtpClient_send(to, subject, body);
 }
 
 

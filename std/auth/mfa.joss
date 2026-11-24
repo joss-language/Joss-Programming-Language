@@ -1,6 +1,28 @@
-// Pure Joss MFA RFC 6238 TOTP helpers shared across interpreter, JIT, and AOT.
-public func __joss_host_MFA_generateTOTP(string $secret): string {
-    return totp_generate($secret, 0)
+// Pure Joss MFA RFC 6238 TOTP & TwoFactor helpers shared across interpreter, JIT, and AOT.
+public func __joss_host_MFA_generateTOTP(mixed $secret = null): mixed {
+    string $secStr = ($secret != null) ? trim(strval($secret)) : ""
+    ($secStr == "") ? {
+        string $alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+        string $gen = ""
+        int $i = 0
+        while ($i < 16) {
+            int $idx = rand(0, 31)
+            $gen = $gen . substr($alpha, $idx, 1)
+            $i++
+        }
+        string $appName = trim(env("APP_NAME", "JossApp"))
+        ($appName == "") ? {
+            $appName = "JossApp"
+        }
+        string $rawUri = "otpauth://totp/" . $appName . "?secret=" . $gen . "&issuer=Joss"
+        string $qrUri = urlencode($rawUri)
+        return {
+        "secret" : $gen,
+        "qr_uri" : $qrUri,
+        "qr_url": "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" . $qrUri
+    }
+}
+return totp_generate($secStr, 0)
 }
 
 public func __joss_host_MFA_verifyTOTP(string $secret, string $code): bool {
@@ -17,4 +39,82 @@ public func __joss_host_MFA_generateRecoveryCodes(int $count = 8): array<string>
         $i++
     }
     return $codes
+}
+
+public func __joss_host_MFA_verifyRecoveryCode(mixed $userId, string $code): bool {
+    ($userId == null ||!__joss_db_is_connected()) ? {
+        return false
+    }
+    string $clean = trim($code)
+    ($clean == "") ? {
+        return false
+    }
+    var $rows = GranDB::table("user_recovery_codes")
+        ->select("id, code_hash")
+        ->where("user_id", $userId)
+        ->where("used", 0)
+        ->get()
+    foreach ($rows as $row) {
+        string $hash = strval($row ["code_hash"] ?? "")
+        bool $matched = ($hash == $clean) || password_verify($hash, $clean)
+        ($matched) ? {
+            GranDB::table("user_recovery_codes")
+                ->where("id", $row ["id"])
+                ->update( {"used" : 1, "used_at" : now()
+        })
+        return true
+    }
+}
+return false
+}
+
+public class TwoFactor {
+    public static func required(mixed $user) : bool {
+        ($user == null ||!__joss_db_is_connected()) ? {
+            return false
+        }
+        mixed $uid = $user ["id"] ?? null
+        ($uid == null) ? {
+            return false
+        }
+        var $row = GranDB::table("user_mfa_methods")
+            ->select("id")
+            ->where("user_id", $uid)
+            ->where("is_active", 1)
+            ->first()
+        return $row !== null
+    }
+
+    public static func verify(mixed $userId, string $code) : bool {
+        ($userId == null || trim($code) == "" ||!__joss_db_is_connected()) ? {
+            return false
+        }
+        string $clean = trim($code)
+        var $challenges = GranDB::table("user_mfa_challenges")
+            ->select("id, code_hash")
+            ->where("user_id", $userId)
+            ->where("used", 0)
+            ->get()
+        foreach ($challenges as $ch) {
+            string $chHash = strval($ch ["code_hash"] ?? "")
+            (password_verify($chHash, $clean) || $chHash == $clean) ? {
+                GranDB::table("user_mfa_challenges")->where("id", $ch ["id"])->update( {"used" : 1
+            })
+            return true
+        }
+    }
+    var $totpRow = GranDB::table("user_mfa_methods")
+        ->select("secret")
+        ->where("user_id", $userId)
+        ->where("method_type", "totp")
+        ->where("is_active", 1)
+        ->first()
+    ($totpRow !== null) ? {
+        string $sec = strval($totpRow ["secret"] ?? "")
+        ($sec != "" && totp_verify($sec, $clean, 0)) ? {
+            return true
+        }
+    }
+    return __joss_host_MFA_verifyRecoveryCode($userId, $clean)
+}
 }

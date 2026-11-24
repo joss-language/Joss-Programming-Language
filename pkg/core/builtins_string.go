@@ -23,6 +23,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/crypto"
 	"github.com/jossecurity/joss/pkg/i18n"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{}, bool) {
@@ -247,7 +248,12 @@ func (r *Runtime) callBuiltinString(name string, args []interface{}) (interface{
 		if len(args) < 2 {
 			return false, true
 		}
-		return jossPBKDF2Verify(fmt.Sprintf("%v", args[0]), fmt.Sprintf("%v", args[1])), true
+		storedHash := fmt.Sprintf("%v", args[0])
+		plainText := fmt.Sprintf("%v", args[1])
+		if strings.HasPrefix(storedHash, "$2a$") || strings.HasPrefix(storedHash, "$2b$") || strings.HasPrefix(storedHash, "$2y$") {
+			return bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(plainText)) == nil, true
+		}
+		return jossPBKDF2Verify(storedHash, plainText), true
 
 	case "jwt_sign":
 		if len(args) < 2 {

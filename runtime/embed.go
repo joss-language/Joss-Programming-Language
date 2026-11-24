@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-//go:embed native/joss_rt.h native/joss_rt.c native/joss_web_rt.c native/joss_concurrency_rt.c native/joss_db_rt.c native/joss_crypto_rt.c
+//go:embed native/joss_rt.h native/joss_rt.c native/joss_web_rt.c native/joss_concurrency_rt.c native/joss_db_rt.c native/joss_db_wire.inc native/joss_crypto_rt.c native/joss_crypto_primitives.inc
 var NativeFS embed.FS
 
 var embeddedNativeFiles = []string{
@@ -16,7 +16,9 @@ var embeddedNativeFiles = []string{
 	"joss_web_rt.c",
 	"joss_concurrency_rt.c",
 	"joss_db_rt.c",
+	"joss_db_wire.inc",
 	"joss_crypto_rt.c",
+	"joss_crypto_primitives.inc",
 }
 
 // ExtractNativeRuntime materializa los archivos del runtime C11 embebidos en targetDir

@@ -35,37 +35,61 @@ public class HttpServer {
 
         print("[Server] Socket TCP enlazado con éxito en :" . $port . ". Servidor listo para peticiones.\n")
 
-        while (true) {
-            var $client = $server->accept()
-            ($client == null) ? {
-                continue
-            }
+        // Execute route-file bootstrap (e.g. MiddlewareLoader::load() from DB) in all modes
+        string $customMws = __joss_http_dispatch("__bootstrap__", "/", __joss_empty_request_session(), __joss_empty_request_session(), "")
 
-            var $raw = $client->receive(4096)
-            var $expectedBytes = HttpServer::expectedRequestBytes($raw)
-            while ($expectedBytes < 0 || strlen($raw) < $expectedBytes) {
-                var $chunk = $client->receive(4096)
-                (strlen($chunk) == 0) ? {
-                    break
+        string $startEnv = strtolower(trim(env("APP_ENV", "local")))
+        bool $startProd = ($startEnv == "production" || $startEnv == "prod")
+        string $startDebugVal = strtolower(trim(env("APP_DEBUG", env("DEBUG", ""))))
+        bool $showStartupDebug = (!$startProd) || ($startDebugVal == "true" || $startDebugVal == "1")
+        ($showStartupDebug) ? {
+            string $decVal = strtolower(trim(env("SECURITY_DECEPTION", "")))
+            bool $decOn = ($decVal != "false" && $decVal != "0" && $decVal != "no" && $decVal != "off")
+            string $sessDrv = trim(env("SESSION_DRIVER", "file"))
+            string $hrState = (strlen(trim(env("JOSS_HOT_RELOAD_URL", ""))) > 0) ? "activo (DOM/CSS)" : "desactivado (standalone)"
+            print("[Server] Entorno: " . $startEnv . " | Sesión: " . $sessDrv . " | Decepción: " . ($decOn ? "ON" : "OFF") . " | Hot-Reload: " . $hrState)
+            string $summary = __joss_http_dispatch("__debug_summary__", "/", __joss_empty_request_session(), __joss_empty_request_session(), "")
+            (strlen($summary) > 0) ? {
+                print($summary)
+            }
+            (strlen($customMws) > 0) ? {
+                print("[Server] Middlewares personalizados (DB/dinámicos): " . $customMws)
+            }
+            string $verboseRoutes = strtolower(trim(env("JOSS_DEBUG_ROUTES", env("APP_DEBUG_ROUTES", ""))))
+            ($verboseRoutes == "1" || $verboseRoutes == "true") ? {
+                string $routeDump = __joss_http_dispatch("__debug_routes__", "/", __joss_empty_request_session(), __joss_empty_request_session(), "")
+                (strlen($routeDump) > 0) ? {
+                    print($routeDump)
                 }
-                $raw = $raw . $chunk
-                $expectedBytes = HttpServer::expectedRequestBytes($raw)
             }
-            (strlen($raw) == 0) ? {
-                $client->close()
-                continue
-            }
+        }
 
-            var $response = HttpServer::handle($raw, $client)
-            ($response != "__JOSS_WEBSOCKET_HANDLED__") ? {
-                $client->send($response)
-                $client->close()
-            }
+        __joss_http_serve_concurrent($server, func(Socket $client): void {
+            HttpServer::handleClient($client)
+        })
+    }
+
+    public static func handleClient(Socket $client): void {
+        guard ($client != null) : {
+            return
+        }
+        mixed $raw = __joss_http_read_request($client)
+        string $rawCheck = strval($raw)
+        (strlen($rawCheck) == 0) ? {
+            $client->close()
+            return
+        }
+        string $peerIp = __joss_socket_peer_ip($client)
+        string $response = HttpServer::handle($raw, $client, $peerIp)
+        ($response != "__JOSS_WEBSOCKET_HANDLED__") ? {
+            $client->send($response)
+            $client->close()
         }
     }
 
-    public static func handle(string $raw, mixed $client = null) : string {
-        var $lines = explode("\r\n", $raw)
+    public static func handle(mixed $raw, mixed $client = null, string $peerIp = "127.0.0.1") : string {
+        string $rawText = strval($raw)
+        var $lines = explode("\r\n", $rawText)
         guard (count($lines) > 0) : {
             return "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
         }
@@ -77,7 +101,7 @@ public class HttpServer {
 
         string $_method = $reqLine [0]
         string $path = $reqLine [1]
-        var $requestData = HttpRequestParser::parse($raw)
+        var $requestData = HttpRequestParser::parse($rawText)
         var $pathParts = explode("?", $path)
         (count($pathParts) > 0) ? {
             $path = $pathParts [0]
@@ -126,33 +150,71 @@ public class HttpServer {
             guard ($secKey != "" && $client != null) : {
                 return "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
             }
-            $client->send(WebSocketProtocol::handshakeResponse($secKey))
+            Socket $wsSocket = $client
+            $wsSocket->send(WebSocketProtocol::handshakeResponse($secKey))
             map $websocketSession = __joss_empty_request_session()
-            __joss_http_dispatch("__websocket__", $path, $client, $websocketSession, "")
+            __joss_http_dispatch("__websocket__", $path, $wsSocket, $websocketSession, "")
             return "__JOSS_WEBSOCKET_HANDLED__"
         }
 
-        // Health endpoint for Hot-Reload probing
-        guard ($path != "/__joss_health") : {
-            return "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-cache, no-store\r\nConnection: close\r\n\r\n" . time()
+        string $appEnv = strtolower(trim(env("APP_ENV", "")))
+        bool $isProd = ($appEnv == "production" || $appEnv == "prod")
+        string $hrUrl = trim(env("JOSS_HOT_RELOAD_URL", ""))
+        bool $isHotReload = (!$isProd) && (strlen($hrUrl) > 0) && (env("JOSS_HOT_RELOAD", "") != "false")
+
+        // Health & live-reload endpoints are strictly disabled in compiled production binaries
+        ($isHotReload) ? {
+            guard ($path != "/__joss_health") : {
+                return "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-cache, no-store\r\nConnection: close\r\n\r\n" . time()
+            }
+
+            // Live script for Hot-Reload DOM diffing / morphing
+            guard ($path != "/__joss_live.js") : {
+                return "HTTP/1.1 200 OK\r\nContent-Type: application/javascript; charset=utf-8\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . HotReload::liveJs()
+            }
+
+            // WebSocket endpoint for Hot-Reload compatibility
+            guard ($path != "/__hot_reload") : {
+                return "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-cache, no-store\r\nConnection: close\r\n\r\nok"
+            }
         }
 
-        // Live script for Hot-Reload DOM diffing / morphing
-        guard ($path != "/__joss_live.js") : {
-            return "HTTP/1.1 200 OK\r\nContent-Type: application/javascript; charset=utf-8\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . HotReload::liveJs()
+        // Early /favicon.ico fallback matching Go pkg/server/handler_routing.go
+        ($path == "/favicon.ico") ? {
+            (file_exists("public/favicon.ico")) ? {
+                return "HTTP/1.1 200 OK\r\nContent-Type: image/x-icon\r\nCache-Control: public, max-age=86400\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . file_get_contents("public/favicon.ico")
+            }
+            (file_exists("assets/logo.png")) ? {
+                return "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nCache-Control: public, max-age=86400\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . file_get_contents("assets/logo.png")
+            }
+            (file_exists("assets/logo.ico")) ? {
+                return "HTTP/1.1 200 OK\r\nContent-Type: image/x-icon\r\nCache-Control: public, max-age=86400\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . file_get_contents("assets/logo.ico")
+            }
+        }
+
+        // IndexNow verification key endpoint (/<INDEXNOW_KEY>.txt)
+        string $indexNowKey = trim(env("INDEXNOW_KEY", ""))
+        (strlen($indexNowKey) > 0 && $path == ("/" . $indexNowKey . ".txt")) ? {
+            return "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . $indexNowKey
         }
 
         print("[Server] " . $_method . " " . $path)
 
+        bool $unsafeStatic = HttpServer::isUnsafeStaticPath($path)
+
         // 1. Static assets embedded directly in the standalone executable binary (.rodata)
-        var $embedded = __joss_get_embedded_asset($path)
-        guard ($embedded == "" || $embedded == null) : {
-            var $mime = Mime::fromPath($path)
-            return "HTTP/1.1 200 OK\r\nContent-Type: " . $mime . "\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . $embedded
+        // In Hot-Reload dev mode, prefer live disk assets so CSS/SCSS updates apply instantly without recompiling.
+        (!$unsafeStatic && !$isHotReload) ? {
+            var $embedded = __joss_get_embedded_asset($path)
+            guard ($embedded == "" || $embedded == null) : {
+                var $mime = Mime::fromPath($path)
+                string $cacheCtrl = HttpServer::staticCacheHeader($path)
+                return "HTTP/1.1 200 OK\r\nContent-Type: " . $mime . "\r\nCache-Control: " . $cacheCtrl . "\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . $embedded
+            }
         }
 
         // 2. Dynamic disk-backed assets (relative project paths: ./, subfolders like ./pruebitas, dynamic uploads)
-        var $isStatic = str_contains($path, "/public/") || str_contains($path, "/assets/") || str_contains($path, "/css/") || str_contains($path, "/images/") || str_contains($path, "/favicon") || str_contains($path, ".")
+        var $isStatic = (!$unsafeStatic) && (str_contains($path, "/public/") || str_contains($path, "/assets/") || str_contains($path, "/css/") || str_contains($path, "/images/") || str_contains($path, "/favicon") || str_contains($path, "."))
         var $foundStatic = false
         var $staticContent = ""
         var $staticMime = ""
@@ -172,24 +234,195 @@ public class HttpServer {
             }
         }
         guard (!$foundStatic) : {
-            return "HTTP/1.1 200 OK\r\nContent-Type: " . $staticMime . "\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n" . $staticContent
+            string $cacheCtrl = ($isHotReload) ? "no-cache" : HttpServer::staticCacheHeader($path)
+            return "HTTP/1.1 200 OK\r\nContent-Type: " . $staticMime . "\r\nCache-Control: " . $cacheCtrl . "\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . $staticContent
+        }
+
+        // Fallback to embedded static assets in Hot-Reload mode if not present on disk
+        (!$unsafeStatic && $isHotReload) ? {
+            var $embeddedDev = __joss_get_embedded_asset($path)
+            guard ($embeddedDev == "" || $embeddedDev == null) : {
+                var $mimeDev = Mime::fromPath($path)
+                return "HTTP/1.1 200 OK\r\nContent-Type: " . $mimeDev . "\r\nCache-Control: no-cache\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . $embeddedDev
+            }
         }
 
         // Keep request session state in the canonical Joss Session store.
         var $headers = $requestData ["_headers"] ?? {
     }
-    string $cookieHeader = strval($headers ["cookie"] ?? "")
-    var $webSession = Session::start($cookieHeader)
+    string $xff = strval($headers ["x-forwarded-for"] ?? "")
+    string $clientIp = $peerIp
+    (strlen($xff) > 0) ? {
+        var $xffParts = explode(",", $xff)
+        (count($xffParts) > 0 && strlen(trim(strval($xffParts [0]))) > 0) ? {
+            $clientIp = trim(strval($xffParts [0]))
+        }
+    }
+    (strlen($clientIp) == 0) ? {
+        $clientIp = "127.0.0.1"
+    }
+    $requestData ["_ip"] = $clientIp
 
-    // Application Controller Routing via __joss_http_dispatch
-    var $dispatched = __joss_http_dispatch($_method, $path, $requestData, $webSession->data, $webSession->getCookieHeader())
-    guard ($dispatched == "" || $dispatched == null) : {
-        $webSession->save()
-        var $response = (str_contains($dispatched, "HTTP/1.1")) ? $dispatched : ("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n" . $dispatched)
-        return $response
+    string $rlMaxStr = env("RATE_LIMIT_REQUESTS", "60")
+    string $rlWinStr = env("RATE_LIMIT_WINDOW_SECONDS", "60")
+    int $rlMax = intval($rlMaxStr)
+    int $rlWin = intval($rlWinStr)
+    ($rlMax > 0 && $rlWin > 0) ? {
+        int $rlRem = __joss_rate_limit_check($clientIp, $rlMax, $rlWin)
+        ($rlRem < 0) ? {
+            return RateLimiter::response429($rlWin)
+        }
     }
 
-    return ErrorPages::render404($path)
+    string $ctHeader = strtolower(strval($headers ["content-type"] ?? ""))
+    (str_contains($ctHeader, "multipart/form-data")) ? {
+        __joss_http_parse_multipart($raw, $requestData)
+        $requestData ["_ip"] = $clientIp
+    }
+
+    // CORS Preflight (OPTIONS) - supports both CORS_WEB (Go parity) and CORS_ALLOWED_ORIGINS
+    string $originHeader = strval($headers ["origin"] ?? "")
+    string $corsAllowed = trim(env("CORS_WEB", ""))
+    (strlen($corsAllowed) == 0) ? {
+        $corsAllowed = trim(env("CORS_ALLOWED_ORIGINS", ""))
+    }
+    bool $corsMatch = ($corsAllowed == "*") || (strlen($originHeader) > 0 && str_contains($corsAllowed, $originHeader))
+    ($_method == "OPTIONS" && $corsMatch) ? {
+        string $allowOrigin = ($corsAllowed == "*") ? "*" : $originHeader
+        string $credHdr = ($corsAllowed != "*") ? "Access-Control-Allow-Credentials: true\r\n" : ""
+        return "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: " . $allowOrigin . "\r\n" . $credHdr . "Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token, X-Requested-With\r\nAccess-Control-Max-Age: 86400\r\nConnection: close\r\n\r\n"
+    }
+
+    string $cookieHeader = strval($headers ["cookie"] ?? "")
+    var $webSession = Session::start($cookieHeader)
+    string $sessLoadErr = __joss_session_last_error()
+    (strlen($sessLoadErr) > 0) ? {
+        return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\nSession error: " . $sessLoadErr
+    }
+
+    // Auto-restore authenticated session from valid joss_token JWT cookie (Go applyJWTPersistence parity)
+    string $existingUid = strval($webSession->get("user_id", ""))
+    (strlen($existingUid) == 0 || $existingUid == "0") ? {
+        var $reqCookies = $requestData ["_cookies"] ?? {}
+        string $jwtCookie = strval($reqCookies ["joss_token"] ?? "")
+        (strlen($jwtCookie) > 0) ? {
+            string $jwtSecret = env("JWT_SECRET", env("APP_KEY", ""))
+            var $claims = __joss_jwt_parse_verified($jwtCookie, $jwtSecret)
+            ($claims != null) ? {
+                string $cUid = strval($claims ["user_id"] ?? ($claims ["sub"] ?? ""))
+                (strlen($cUid) > 0 && $cUid != "0") ? {
+                    $webSession->put("user_id", $cUid)
+                    string $cEmail = strval($claims ["email"] ?? "")
+                    (strlen($cEmail) > 0) ? { $webSession->put("user_email", $cEmail) }
+                    string $cName = strval($claims ["name"] ?? "")
+                    (strlen($cName) > 0) ? { $webSession->put("user_name", $cName) }
+                    string $cRole = strval($claims ["role"] ?? "")
+                    (strlen($cRole) > 0) ? { $webSession->put("user_role", $cRole) }
+                    $webSession->put("user_token", $jwtCookie)
+                }
+            }
+        }
+    }
+
+    // Auto-initialize CSRF token on session if missing (Go ensureCSRFToken parity)
+    string $initCsrf = strval($webSession->get("csrf_token", ""))
+    (strlen($initCsrf) == 0) ? {
+        string $newCsrf = sha256(strval(rand()) . "_" . strval(time()) . "_" . $webSession->getId())
+        $webSession->put("csrf_token", $newCsrf)
+    }
+
+    bool $wantsJson = HttpServer::isJsonRequest($path, $headers)
+    string $deceptionEnv = strtolower(trim(env("SECURITY_DECEPTION", "")))
+    bool $deceptionEnabled = ($deceptionEnv != "false" && $deceptionEnv != "0" && $deceptionEnv != "no" && $deceptionEnv != "off")
+
+    // Automatic CSRF verification for state-changing web requests
+    bool $isStateChanging = ($_method == "POST" || $_method == "PUT" || $_method == "PATCH" || $_method == "DELETE")
+    bool $isApiRoute = str_starts_with($path, "/api/")
+    ($isStateChanging && !$isApiRoute) ? {
+        string $sessCsrf = strval($webSession->get("csrf_token", ""))
+        (strlen($sessCsrf) == 0) ? {
+            $sessCsrf = strval($webSession->get("_csrf_token", ""))
+        }
+        (strlen($sessCsrf) > 0) ? {
+            string $reqCsrf = strval($requestData ["_token"] ?? ($headers ["x-csrf-token"] ?? ""))
+            (!Csrf::verify($reqCsrf, $sessCsrf)) ? {
+                string $csrfReason = (strlen($reqCsrf) == 0) ? "token _token/X-CSRF-TOKEN ausente en la solicitud" : "el token _token enviado no coincide con csrf_token de la sesión"
+                ($deceptionEnabled) ? {
+                    print("[SECURITY DECEPTION] " . $_method . " " . $path . " -> 419 CSRF Error (" . $csrfReason . ") -> Ocultando como 404 Not Found (Cliente: " . $clientIp . ")")
+                    ($wantsJson) ? {
+                        return "HTTP/1.1 404 Not Found\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nX-XSS-Protection: 1; mode=block\r\nConnection: close\r\n\r\n{\"status\":404,\"error\":\"Not Found\",\"message\":\"El recurso que buscas no existe o ha sido movido.\"}"
+                    }
+                    return HttpServer::renderCustomErrorOr(404, "404 Not Found", ErrorPages::render404(""))
+                }
+                print("[CSRF ERROR] " . $_method . " " . $path . " -> 419 (" . $csrfReason . ", Cliente: " . $clientIp . ")")
+                return ErrorPages::render419()
+            }
+        }
+    }
+
+    string $appDebugEnv = strtolower(trim(env("APP_DEBUG", "")))
+    (strlen($appDebugEnv) == 0) ? {
+        $appDebugEnv = strtolower(trim(env("DEBUG", "")))
+    }
+    bool $isDebug = (!$isProd) && ($appDebugEnv == "true" || $appDebugEnv == "1" || $appDebugEnv == "yes" || $appDebugEnv == "on")
+
+    // Application Controller Routing via __joss_http_dispatch
+    string $dispatched = ""
+    string $dispatchErr = ""
+    try {
+        $dispatched = strval(__joss_http_dispatch($_method, $path, $requestData, $webSession->data, $webSession->getCookieHeader()))
+    }  catch ($e) {
+        $dispatchErr = strval($e)
+    }
+    (strlen($dispatchErr) > 0) ? {
+        print("[Server Error 500] " . $_method . " " . $path . ": " . $dispatchErr)
+        ($wantsJson) ? {
+            string $jsonErr = ($isDebug) ? $dispatchErr : "Internal Server Error"
+            return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n{\"error\":\"" . str_replace("\"", "\\\"", $jsonErr) . "\",\"status\":500}"
+        }
+        string $displayErr = ($isDebug) ? $dispatchErr : "Ocurrió un error interno en el servidor."
+        string $errHtml = "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"UTF-8\"><title>500 Error Interno</title><style>body{font-family:system-ui,sans-serif;background:#07101f;color:#f4f7fb;padding:40px;margin:0}.card{max-width:720px;margin:40px auto;background:#101d31;border:1px solid rgba(255,112,125,.4);border-radius:10px;padding:28px}h1{color:#ff707d;margin:0 0 12px;font-size:1.4rem}pre{background:#07101f;padding:16px;border-radius:6px;overflow:auto;color:#f2bd5b;white-space:pre-wrap}a{color:#61dafb;text-decoration:none}</style></head><body><div class=\"card\"><h1>500 — Error interno del servidor</h1><p>Ruta: <code>" . html_escape($_method . " " . $path) . "</code></p><pre>" . html_escape($displayErr) . "</pre><p><a href=\"/\">&larr; Volver al inicio</a></p></div></body></html>"
+        return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/html; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . $errHtml
+    }
+    guard ($dispatched == "" || $dispatched == null) : {
+        $webSession->save()
+        string $sessSaveErr = __joss_session_last_error()
+        (strlen($sessSaveErr) > 0) ? {
+            return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\nSession error: " . $sessSaveErr
+        }
+        string $respStr = (str_starts_with(strval($dispatched), "HTTP/")) ? strval($dispatched) : ("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n" . strval($dispatched))
+        ($deceptionEnabled && (str_starts_with($respStr, "HTTP/1.1 403") || str_starts_with($respStr, "HTTP/1.1 401") || str_starts_with($respStr, "HTTP/1.0 403") || str_starts_with($respStr, "HTTP/1.0 401"))) ? {
+            print("[SECURITY DECEPTION] " . $_method . " " . $path . " -> Ocultando status como 404 Not Found (Cliente: " . $clientIp . ")")
+            ($wantsJson) ? {
+                return "HTTP/1.1 404 Not Found\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nX-XSS-Protection: 1; mode=block\r\nConnection: close\r\n\r\n{\"status\":404,\"error\":\"Not Found\",\"message\":\"El recurso que buscas no existe o ha sido movido.\"}"
+            }
+            return HttpServer::renderCustomErrorOr(404, "404 Not Found", ErrorPages::render404(""))
+        }
+        ($isHotReload && str_contains($respStr, "</body>")) ? {
+            string $hrScript = HttpServer::hotReloadScript($hrUrl)
+            $respStr = str_replace("</body>", $hrScript . "</body>", $respStr)
+        }
+        ($corsMatch) ? {
+            string $allowOrigin = ($corsAllowed == "*") ? "*" : $originHeader
+            $respStr = __joss_http_inject_header($respStr, "Access-Control-Allow-Origin: " . $allowOrigin)
+            ($corsAllowed != "*") ? {
+                $respStr = __joss_http_inject_header($respStr, "Access-Control-Allow-Credentials: true")
+            }
+        }
+        $respStr = __joss_http_inject_header($respStr, "X-Content-Type-Options: nosniff")
+        $respStr = __joss_http_inject_header($respStr, "X-Frame-Options: DENY")
+        $respStr = __joss_http_inject_header($respStr, "X-XSS-Protection: 1; mode=block")
+        string $xfProto = strtolower(trim(strval($headers ["x-forwarded-proto"] ?? "")))
+        ($xfProto == "https") ? {
+            $respStr = __joss_http_inject_header($respStr, "Strict-Transport-Security: max-age=31536000; includeSubDomains")
+        }
+        return __joss_http_inject_header($respStr, $webSession->getCookieHeader())
+    }
+
+    ($wantsJson) ? {
+        return "HTTP/1.1 404 Not Found\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n{\"error\":\"Not Found\",\"status\":404}"
+    }
+    return HttpServer::renderCustomErrorOr(404, "404 Not Found", ErrorPages::render404($path))
 }
 
 public static func expectedRequestBytes(string $raw) : int {
@@ -210,6 +443,62 @@ public static func expectedRequestBytes(string $raw) : int {
         }
     }
     return $expected
+}
+
+private static func renderCustomErrorOr(int $code, string $statusText, string $fallback) : string {
+    string $relPath = "app/views/errors/" . strval($code) . ".joss.html"
+    var $embedded = __joss_get_embedded_asset("/" . $relPath)
+    ($embedded != "" && $embedded != null) ? {
+        return "HTTP/1.1 " . $statusText . "\r\nContent-Type: text/html; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . strval($embedded)
+    }
+    (file_exists($relPath)) ? {
+        return "HTTP/1.1 " . $statusText . "\r\nContent-Type: text/html; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . file_get_contents($relPath)
+    }
+    return $fallback
+}
+
+private static func staticCacheHeader(string $path) : string {
+    var $parts = explode(".", $path)
+    (count($parts) > 1) ? {
+        string $ext = strtolower(trim(strval($parts [count($parts) - 1])))
+        (Mime::isCacheable($ext)) ? {
+            return "public, max-age=86400"
+        }
+    }
+    return "no-cache"
+}
+
+private static func hotReloadScript(string $eventsUrl) : string {
+    return "<script>(function(){if(window.__hr_init)return;window.__hr_init=1;function mD(t,s){if(t.nodeType!==s.nodeType||t.nodeName!==s.nodeName){if(t.parentNode)t.parentNode.replaceChild(s.cloneNode(true),t);return}if(t.nodeType===3||t.nodeType===8){if(t.nodeValue!==s.nodeValue)t.nodeValue=s.nodeValue;return}if(t.nodeType===1){var a=t.attributes,b=s.attributes;for(var i=a.length-1;i>=0;i--){if(!s.hasAttribute(a[i].name))t.removeAttribute(a[i].name)}for(var j=0;j<b.length;j++){if(t.getAttribute(b[j].name)!==b[j].value)t.setAttribute(b[j].name,b[j].value)}if((t.nodeName==='INPUT'||t.nodeName==='TEXTAREA'||t.nodeName==='SELECT')&&t!==document.activeElement){if(s.value!==undefined&&t.value!==s.value)t.value=s.value}var tc=Array.from(t.childNodes),sc=Array.from(s.childNodes),ml=Math.max(tc.length,sc.length);for(var k=0;k<ml;k++){if(!tc[k]&&sc[k])t.appendChild(sc[k].cloneNode(true));else if(tc[k]&&!sc[k])t.removeChild(tc[k]);else if(tc[k]&&sc[k])mD(tc[k],sc[k])}}}function rC(){var l=document.getElementsByTagName('link');for(var i=0;i<l.length;i++){if(l[i].rel==='stylesheet'&&l[i].href){var u=new URL(l[i].href,location.href);u.searchParams.set('_h',Date.now());l[i].href=u.toString()}}}function sR(){var sx=window.scrollX,sy=window.scrollY;fetch(location.href,{headers:{'X-Hot-Reload':'1'},cache:'no-cache'}).then(function(r){return r.text()}).then(function(h){var d=new DOMParser().parseFromString(h,'text/html');if(d&&d.body){mD(document.body,d.body);if(d.title&&document.title!==d.title)document.title=d.title;window.scrollTo(sx,sy)}else{location.reload()}}).catch(function(){setTimeout(sR,300)})}function c(){var es=new EventSource('" . $eventsUrl . "');es.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='css')rC();else sR()}catch(err){sR()}};es.onerror=function(){es.close();setTimeout(c,1500)}}c();})();</script>"
+}
+
+private static func isJsonRequest(string $path, map $headers) : bool {
+    (str_starts_with($path, "/api/")) ? {
+        return true
+    }
+    string $accept = strtolower(strval($headers ["accept"] ?? ""))
+    return str_contains($accept, "application/json")
+}
+
+private static func isUnsafeStaticPath(string $path) : bool {
+    string $lower = strtolower(trim($path))
+    guard (!str_contains($lower, "..") &&!str_contains($lower, "\\") &&!str_contains($lower, "%2e") &&!str_contains($lower, "%5c") &&!str_contains($lower, "%00")) : {
+        return true
+    }
+    string $clean = trim($lower, "/")
+    guard ($clean != "") : {
+        return false
+    }
+    guard (!str_starts_with($clean, ".") &&!str_contains($lower, "/.") &&!str_starts_with($clean, "__joss_")) : {
+        return true
+    }
+    guard ($clean != "joss.yaml" &&!str_ends_with($clean, "/joss.yaml")) : {
+        return true
+    }
+    guard (!str_ends_with($clean, ".joss") &&!str_ends_with($clean, ".jbc") &&!str_ends_with($clean, ".jp") &&!str_ends_with($clean, ".env") &&!str_ends_with($clean, ".yaml") &&!str_ends_with($clean, ".yml") &&!str_ends_with($clean, ".sqlite") &&!str_ends_with($clean, ".sqlite3") &&!str_ends_with($clean, ".db") &&!str_ends_with($clean, ".lock")) : {
+        return true
+    }
+    return false
 }
 
 }

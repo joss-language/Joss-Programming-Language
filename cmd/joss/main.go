@@ -169,8 +169,23 @@ func main() {
 		executeEval(source, asJSON)
 	case "run":
 		mode, args := takeExecutionMode(os.Args[2:])
+		noWatch := false
+		forceWatch := false
+		filtered := make([]string, 0, len(args))
+		for _, a := range args {
+			if a == "--no-watch" || a == "--nowatch" || a == "--once" {
+				noWatch = true
+				continue
+			}
+			if a == "--watch" || a == "-w" {
+				forceWatch = true
+				continue
+			}
+			filtered = append(filtered, a)
+		}
+		args = filtered
 		if len(args) < 1 {
-			fmt.Printf("%s joss run [archivo.joss | -e \"codigo\"] [--native]\n", i18n.Tr("cliUsageLabel"))
+			fmt.Printf("%s joss run [archivo.joss | -e \"codigo\"] [--native] [--no-watch]\n", i18n.Tr("cliUsageLabel"))
 			return
 		}
 		if args[0] == "-e" {
@@ -186,7 +201,22 @@ func main() {
 			return
 		}
 		filename := args[0]
+		if !noWatch && (forceWatch || isInteractiveTerminal()) {
+			if projectUsesHTTPServer(filename) {
+				runServerSupervisor(filename, "", false, nil, false, mode)
+				return
+			}
+			runScriptWithWatch(filename, mode)
+			return
+		}
 		executeScriptWithMode(filename, mode)
+	case "watch":
+		mode, args := takeExecutionMode(os.Args[2:])
+		if len(args) < 1 {
+			fmt.Printf("%s joss watch <archivo.joss> [--native]\n", i18n.Tr("cliUsageLabel"))
+			return
+		}
+		runScriptWithWatch(args[0], mode)
 	case "repl":
 		runRepl()
 
@@ -369,6 +399,7 @@ func analyzeScript(filename string) {
 		report.PrintReport()
 		os.Exit(1)
 	}
+	units = appendProjectPluginUnits(units, filename)
 
 	report := core.AnalyzeSourceUnits(units)
 	report.PrintReport()
@@ -390,6 +421,7 @@ func emitIRCommand(filename, outFile string) {
 		report.PrintReport()
 		os.Exit(1)
 	}
+	units = appendProjectPluginUnits(units, filename)
 
 	report := core.AnalyzeSourceUnits(units)
 	if report.HasErrors() {
@@ -533,10 +565,6 @@ func buildProgramForMode(filename, outExe, targetStr string, release, debug, tra
 		return buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName)
 	}
 	if mode == executionModeAuto {
-		if projectUsesHTTPServer(filename) {
-			fmt.Println("[Auto] El proyecto inicia HTTP; se selecciona runner Go con servidor concurrente net/http.")
-			return buildLegacyProgram(filename, outExe, targetStr, enableGUI)
-		}
 		path, err := buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName)
 		if err == nil {
 			fmt.Println("[Auto] Capacidades nativas disponibles; se seleccionó AOT puro, sin runtime Go.")
@@ -550,8 +578,30 @@ func buildProgramForMode(filename, outExe, targetStr string, release, debug, tra
 	return buildLegacyProgram(filename, outExe, targetStr, enableGUI)
 }
 
+func appendProjectPluginUnits(units []semanticanalyzer.SourceUnit, entryFilename string) []semanticanalyzer.SourceUnit {
+	seen := make(map[string]bool, len(units))
+	for _, unit := range units {
+		seen[unit.Path] = true
+	}
+	roots := []string{"."}
+	if entryDir := filepath.Clean(filepath.Dir(entryFilename)); entryDir != "" && entryDir != "." {
+		roots = append(roots, entryDir)
+	}
+	for _, root := range roots {
+		for _, pluginUnit := range pluginpkg.ExtractPluginSourceUnits(root) {
+			if seen[pluginUnit.Path] {
+				continue
+			}
+			seen[pluginUnit.Path] = true
+			units = append(units, pluginUnit)
+		}
+	}
+	return units
+}
+
 func projectUsesHTTPServer(filename string) bool {
 	units, _ := semanticanalyzer.LoadProject(filename, "app")
+	units = appendProjectPluginUnits(units, filename)
 	analysis := core.AnalyzeSourceUnits(units)
 	return preparedProgramUsesHTTPServer(analysis.Prepared)
 }
@@ -613,14 +663,16 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		report.PrintReport()
 		return "", fmt.Errorf("falló análisis sintáctico")
 	}
-	if pluginUnits := pluginpkg.ExtractPluginSourceUnits("."); len(pluginUnits) > 0 {
-		units = append(units, pluginUnits...)
-	}
+	units = appendProjectPluginUnits(units, filename)
 
 	report := core.AnalyzeSourceUnits(units)
 	if report.HasErrors() {
 		report.PrintReport()
 		return "", fmt.Errorf("falló análisis semántico")
+	}
+
+	if _, err := os.Stat("assets/css"); err == nil {
+		core.CompileStyles()
 	}
 
 	if trace {
@@ -664,10 +716,6 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 
 	if trace {
 		fmt.Printf("  [trace] 4. Generando código máquina y enlazando ejecutable (backend: %s)...\n", bKind)
-	}
-
-	if _, err := os.Stat("assets/css"); err == nil {
-		core.CompileStyles()
 	}
 
 	// 5. Pre-fetch database seed data for GranDB native compilation if DB is configured
@@ -734,6 +782,7 @@ func executeScriptWithMode(filename string, mode executionMode) {
 		core.AnalysisReportFromDiagnostics(parseDiagnostics).PrintReport()
 		os.Exit(1)
 	}
+	units = appendProjectPluginUnits(units, filename)
 	report := core.AnalyzeSourceUnits(units)
 	if report.HasIssues() {
 		report.PrintReport()
@@ -748,15 +797,20 @@ func executeScriptWithMode(filename string, mode executionMode) {
 	}
 
 	// All modes analyze the same PreparedProgram. Auto normally attempts shared
-	// IR/JIT first; server startup can explicitly select the concurrent Go HTTP
-	// runtime. A known capability gap uses the compatibility interpreter, while
-	// --native remains strict and never changes engines.
-	goHTTPServer := shouldUseGoHTTPRuntime(mode, os.Getenv("JOSS_HTTP_BACKEND")) ||
-		(mode != executionModeNative && preparedProgramUsesHTTPServer(report.Prepared))
+	// IR/JIT first; --anterior / JOSS_HTTP_BACKEND=go selects the concurrent Go
+	// HTTP runtime. A known capability gap uses the compatibility interpreter,
+	// while --native remains strict and never changes engines.
+	httpBackendEnv := strings.TrimSpace(os.Getenv("JOSS_HTTP_BACKEND"))
+	goHTTPServer := shouldUseGoHTTPRuntime(mode, httpBackendEnv) ||
+		(mode != executionModeNative && strings.EqualFold(httpBackendEnv, "go")) ||
+		(mode == executionModePrevious && preparedProgramUsesHTTPServer(report.Prepared))
 	if goHTTPServer {
 		fmt.Println("[Server] Backend HTTP seleccionado: runtime Go con net/http concurrente.")
 	}
-	if mode == executionModeNative || (mode == executionModeAuto && !goHTTPServer) {
+	if mode == executionModeNative || (mode == executionModeAuto && !goHTTPServer && !shouldDisableJIT()) {
+		if _, err := os.Stat("assets/css"); err == nil {
+			core.CompileStyles()
+		}
 		irProg, irErr := lowerPreparedProject(report.Prepared, filename)
 		if irErr == nil {
 			emitter := native.SelectCodeEmitter(native.HostTarget(), false)
@@ -775,6 +829,22 @@ func executeScriptWithMode(filename string, mode executionMode) {
 					os.Exit(exitCode)
 				}
 				return
+			}
+			if isNativeCapabilityGap(jitErr) {
+				handled, exitCode, llvmErr := executeViaNativeLLVMJIT(irProg, report.Prepared, filename, mode)
+				if handled {
+					if llvmErr != nil {
+						fmt.Fprintf(os.Stderr, "Native JIT execution failed: %v\n", llvmErr)
+						os.Exit(1)
+					}
+					if exitCode != 0 {
+						os.Exit(exitCode)
+					}
+					return
+				}
+				if llvmErr != nil {
+					jitErr = llvmErr
+				}
 			}
 			if mode == executionModeAuto && isNativeCapabilityGap(jitErr) {
 				fmt.Fprintf(os.Stderr, "[Auto] JIT no cubre una capacidad requerida; se selecciona el runtime de compatibilidad Go: %v\n", jitErr)

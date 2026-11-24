@@ -1,11 +1,26 @@
 //go:build ignore
 #include "joss_rt.h"
+#include "joss_crypto_primitives.inc"
 
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+static const char* crypto_cstr(const char* s) {
+    if (!s) return "";
+    size_t blen = 0;
+    const uint8_t* bdata = joss_bytes_unwrap(s, &blen);
+    if (bdata) return (const char*)bdata;
+    uintptr_t u = (uintptr_t)s;
+    int64_t v = (int64_t)u;
+    if (joss_is_boxed_ptr(v) || u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) {
+        const char* r = joss_strval(v);
+        return r ? r : "";
+    }
+    return s;
+}
 
 #if defined(__has_include) && !defined(JOSS_FORCE_BUILTIN_CRYPTO)
 #if __has_include(<openssl/evp.h>) && __has_include(<openssl/rand.h>) && __has_include(<openssl/hmac.h>)
@@ -91,13 +106,19 @@ static size_t base32_decode(const char* in, uint8_t* out, size_t max_out) {
 #if defined(JOSS_HAS_OPENSSL)
 
 const char* joss_sha256(const char* s) {
-    if (!s) s = "";
+    size_t slen = 0;
+    const uint8_t* ptr = joss_bytes_unwrap(s, &slen);
+    if (!ptr) {
+        s = crypto_cstr(s);
+        ptr = (const uint8_t*)s;
+        slen = strlen(s);
+    }
     uint8_t digest[32];
     unsigned int dlen = 0;
     EVP_MD_CTX* ctx = EVP_MD_CTX_new();
     if (!ctx) return "";
     EVP_DigestInit_ex(ctx, EVP_sha256(), NULL);
-    EVP_DigestUpdate(ctx, s, strlen(s));
+    EVP_DigestUpdate(ctx, ptr, slen);
     EVP_DigestFinal_ex(ctx, digest, &dlen);
     EVP_MD_CTX_free(ctx);
     char* out = (char*)joss_req_alloc(65);
@@ -120,7 +141,7 @@ const char* joss_random_hex(int64_t num_bytes) {
 }
 
 const char* joss_password_hash(const char* password) {
-    if (!password) password = "";
+    password = crypto_cstr(password);
     const int iterations = 100000;
     uint8_t salt[16];
     uint8_t dk[32];
@@ -145,7 +166,14 @@ const char* joss_password_hash(const char* password) {
 }
 
 int64_t joss_password_verify(const char* hash, const char* password) {
-    if (!hash || !password) return 0;
+    hash = crypto_cstr(hash);
+    password = crypto_cstr(password);
+    if (!hash[0]) return 0;
+    if (hash[0] == '$' && hash[1] == '2' &&
+        (hash[2] == 'a' || hash[2] == 'b' || hash[2] == 'y') &&
+        hash[3] == '$') {
+        return joss_prim_bcrypt_verify(hash, password);
+    }
     const char* prefix = "$pbkdf2-sha256$";
     size_t plen = strlen(prefix);
     if (strncmp(hash, prefix, plen) != 0) return 0;
@@ -180,8 +208,9 @@ int64_t joss_password_verify(const char* hash, const char* password) {
 }
 
 const char* joss_jwt_sign(const char* payload_json, const char* secret) {
-    if (!payload_json) payload_json = "{}";
-    if (!secret) secret = "";
+    payload_json = crypto_cstr(payload_json);
+    if (!payload_json[0]) payload_json = "{}";
+    secret = crypto_cstr(secret);
     const char* header_json = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
     char* h_b64 = b64url_encode((const uint8_t*)header_json, strlen(header_json));
     char* p_b64 = b64url_encode((const uint8_t*)payload_json, strlen(payload_json));
@@ -217,7 +246,9 @@ const char* joss_jwt_sign(const char* payload_json, const char* secret) {
 }
 
 int64_t joss_jwt_verify(const char* token, const char* secret) {
-    if (!token || !secret) return 0;
+    token = crypto_cstr(token);
+    secret = crypto_cstr(secret);
+    if (!token[0]) return 0;
     const char* dot1 = strchr(token, '.');
     if (!dot1) return 0;
     const char* dot2 = strchr(dot1 + 1, '.');
@@ -341,108 +372,7 @@ static bool joss_os_random_bytes(uint8_t* buf, size_t len) {
 #endif
 }
 
-/* --- Built-in FIPS 180-4 SHA-256 --- */
-static uint32_t rotr32(uint32_t x, uint32_t n) { return (x >> n) | (x << (32 - n)); }
-
-static void sha256_transform(uint32_t state[8], const uint8_t block[64]) {
-    static const uint32_t K[64] = {
-        0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
-        0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
-        0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
-        0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
-        0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
-        0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
-        0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
-        0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
-    };
-    uint32_t w[64];
-    for (int i = 0; i < 16; i++) {
-        w[i] = ((uint32_t)block[i*4] << 24) | ((uint32_t)block[i*4+1] << 16) |
-               ((uint32_t)block[i*4+2] << 8) | (uint32_t)block[i*4+3];
-    }
-    for (int i = 16; i < 64; i++) {
-        uint32_t s0 = rotr32(w[i-15], 7) ^ rotr32(w[i-15], 18) ^ (w[i-15] >> 3);
-        uint32_t s1 = rotr32(w[i-2], 17) ^ rotr32(w[i-2], 19) ^ (w[i-2] >> 10);
-        w[i] = w[i-16] + s0 + w[i-7] + s1;
-    }
-    uint32_t a=state[0], b=state[1], c=state[2], d=state[3], e=state[4], f=state[5], g=state[6], h=state[7];
-    for (int i = 0; i < 64; i++) {
-        uint32_t S1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25);
-        uint32_t ch = (e & f) ^ ((~e) & g);
-        uint32_t temp1 = h + S1 + ch + K[i] + w[i];
-        uint32_t S0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22);
-        uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
-        uint32_t temp2 = S0 + maj;
-        h = g; g = f; f = e; e = d + temp1; d = c; c = b; b = a; a = temp1 + temp2;
-    }
-    state[0]+=a; state[1]+=b; state[2]+=c; state[3]+=d;
-    state[4]+=e; state[5]+=f; state[6]+=g; state[7]+=h;
-}
-
-static void sha256_raw(const uint8_t* data, size_t len, uint8_t out[32]) {
-    uint32_t state[8] = {
-        0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,
-        0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19
-    };
-    size_t i = 0;
-    while (i + 64 <= len) { sha256_transform(state, data + i); i += 64; }
-    uint8_t tail[128];
-    memset(tail, 0, sizeof(tail));
-    size_t rem = len - i;
-    if (rem > 0) memcpy(tail, data + i, rem);
-    tail[rem] = 0x80;
-    size_t total_blocks = (rem < 56) ? 1 : 2;
-    uint64_t bit_len = (uint64_t)len * 8ULL;
-    for (int j = 0; j < 8; j++) {
-        tail[total_blocks * 64 - 1 - j] = (uint8_t)(bit_len >> (j * 8));
-    }
-    sha256_transform(state, tail);
-    if (total_blocks == 2) sha256_transform(state, tail + 64);
-    for (int j = 0; j < 8; j++) {
-        out[j*4]   = (uint8_t)(state[j] >> 24);
-        out[j*4+1] = (uint8_t)(state[j] >> 16);
-        out[j*4+2] = (uint8_t)(state[j] >> 8);
-        out[j*4+3] = (uint8_t)(state[j]);
-    }
-}
-
-static void hmac_sha256_raw(const uint8_t* key, size_t key_len, const uint8_t* msg, size_t msg_len, uint8_t out[32]) {
-    uint8_t k_pad[64];
-    memset(k_pad, 0, sizeof(k_pad));
-    if (key_len > 64) {
-        sha256_raw(key, key_len, k_pad);
-    } else if (key_len > 0) {
-        memcpy(k_pad, key, key_len);
-    }
-    uint8_t* inner = (uint8_t*)malloc(64 + msg_len);
-    if (!inner) { memset(out, 0, 32); return; }
-    for (int i = 0; i < 64; i++) inner[i] = k_pad[i] ^ 0x36;
-    if (msg_len > 0) memcpy(inner + 64, msg, msg_len);
-    uint8_t ih[32];
-    sha256_raw(inner, 64 + msg_len, ih);
-    free(inner);
-
-    uint8_t outer[64 + 32];
-    for (int i = 0; i < 64; i++) outer[i] = k_pad[i] ^ 0x5C;
-    memcpy(outer + 64, ih, 32);
-    sha256_raw(outer, sizeof(outer), out);
-}
-
-static void pbkdf2_hmac_sha256_raw(const char* password, const uint8_t* salt, size_t salt_len, int iterations, uint8_t out[32]) {
-    size_t pw_len = strlen(password);
-    uint8_t* salt_blk = (uint8_t*)malloc(salt_len + 4);
-    if (!salt_blk) { memset(out, 0, 32); return; }
-    memcpy(salt_blk, salt, salt_len);
-    salt_blk[salt_len] = 0; salt_blk[salt_len+1] = 0; salt_blk[salt_len+2] = 0; salt_blk[salt_len+3] = 1;
-    uint8_t u[32];
-    hmac_sha256_raw((const uint8_t*)password, pw_len, salt_blk, salt_len + 4, u);
-    free(salt_blk);
-    memcpy(out, u, 32);
-    for (int i = 1; i < iterations; i++) {
-        hmac_sha256_raw((const uint8_t*)password, pw_len, u, 32, u);
-        for (int j = 0; j < 32; j++) out[j] ^= u[j];
-    }
-}
+/* --- Built-in FIPS 180-4 SHA-256 (provided by joss_crypto_primitives.inc) --- */
 
 /* --- Built-in RFC 3174 SHA-1 + HMAC-SHA1 (for TOTP RFC 6238) --- */
 static uint32_t rotl32(uint32_t x, uint32_t n) { return (x << n) | (x >> (32 - n)); }
@@ -524,9 +454,15 @@ static void totp_for_step_builtin(const uint8_t* key, size_t key_len, uint64_t s
 }
 
 const char* joss_sha256(const char* s) {
-    if (!s) s = "";
+    size_t slen = 0;
+    const uint8_t* ptr = joss_bytes_unwrap(s, &slen);
+    if (!ptr) {
+        s = crypto_cstr(s);
+        ptr = (const uint8_t*)s;
+        slen = strlen(s);
+    }
     uint8_t digest[32];
-    sha256_raw((const uint8_t*)s, strlen(s), digest);
+    joss_prim_sha256(ptr, slen, digest);
     char* out = (char*)joss_req_alloc(65);
     if (!out) return "";
     bytes_to_hex(digest, 32, out);
@@ -547,14 +483,14 @@ const char* joss_random_hex(int64_t num_bytes) {
 }
 
 const char* joss_password_hash(const char* password) {
-    if (!password) password = "";
+    password = crypto_cstr(password);
     const int iterations = 100000;
     uint8_t salt[16];
     uint8_t dk[32];
     if (!joss_os_random_bytes(salt, sizeof(salt))) {
         joss_panic("JOSS-CRYPTO-001: OS CSPRNG salt generation failed");
     }
-    pbkdf2_hmac_sha256_raw(password, salt, sizeof(salt), iterations, dk);
+    joss_prim_pbkdf2_sha256((const uint8_t*)password, strlen(password), salt, sizeof(salt), iterations, dk);
     char salt_hex[33], dk_hex[65];
     bytes_to_hex(salt, sizeof(salt), salt_hex);
     bytes_to_hex(dk, sizeof(dk), dk_hex);
@@ -565,7 +501,14 @@ const char* joss_password_hash(const char* password) {
 }
 
 int64_t joss_password_verify(const char* hash, const char* password) {
-    if (!hash || !password) return 0;
+    hash = crypto_cstr(hash);
+    password = crypto_cstr(password);
+    if (!hash[0]) return 0;
+    if (hash[0] == '$' && hash[1] == '2' &&
+        (hash[2] == 'a' || hash[2] == 'b' || hash[2] == 'y') &&
+        hash[3] == '$') {
+        return joss_prim_bcrypt_verify(hash, password);
+    }
     const char* prefix = "$pbkdf2-sha256$";
     size_t plen = strlen(prefix);
     if (strncmp(hash, prefix, plen) != 0) return 0;
@@ -583,13 +526,14 @@ int64_t joss_password_verify(const char* hash, const char* password) {
     uint8_t salt[16], expected_dk[32], actual_dk[32];
     if (!hex_to_bytes(salt_hex, salt, 16)) return 0;
     if (!hex_to_bytes(d2 + 1, expected_dk, 32)) return 0;
-    pbkdf2_hmac_sha256_raw(password, salt, sizeof(salt), iterations, actual_dk);
+    joss_prim_pbkdf2_sha256((const uint8_t*)password, strlen(password), salt, sizeof(salt), iterations, actual_dk);
     return joss_ct_memcmp(actual_dk, expected_dk, 32) == 0 ? 1 : 0;
 }
 
 const char* joss_jwt_sign(const char* payload_json, const char* secret) {
-    if (!payload_json) payload_json = "{}";
-    if (!secret) secret = "";
+    payload_json = crypto_cstr(payload_json);
+    if (!payload_json[0]) payload_json = "{}";
+    secret = crypto_cstr(secret);
     const char* header_json = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
     char* h_b64 = b64url_encode((const uint8_t*)header_json, strlen(header_json));
     char* p_b64 = b64url_encode((const uint8_t*)payload_json, strlen(payload_json));
@@ -599,7 +543,7 @@ const char* joss_jwt_sign(const char* payload_json, const char* secret) {
     if (!msg) return "";
     memcpy(msg, h_b64, h_len); msg[h_len] = '.'; memcpy(msg + h_len + 1, p_b64, p_len); msg[msg_len] = '\0';
     uint8_t mac[32];
-    hmac_sha256_raw((const uint8_t*)secret, strlen(secret), (const uint8_t*)msg, msg_len, mac);
+    joss_prim_hmac_sha256((const uint8_t*)secret, strlen(secret), (const uint8_t*)msg, msg_len, mac);
     char* s_b64 = b64url_encode(mac, 32);
     if (!s_b64) return "";
     size_t s_len = strlen(s_b64);
@@ -610,7 +554,9 @@ const char* joss_jwt_sign(const char* payload_json, const char* secret) {
 }
 
 int64_t joss_jwt_verify(const char* token, const char* secret) {
-    if (!token || !secret) return 0;
+    token = crypto_cstr(token);
+    secret = crypto_cstr(secret);
+    if (!token[0]) return 0;
     const char* dot1 = strchr(token, '.');
     if (!dot1) return 0;
     const char* dot2 = strchr(dot1 + 1, '.');
@@ -620,7 +566,7 @@ int64_t joss_jwt_verify(const char* token, const char* secret) {
     size_t given_len = strlen(given_sig);
     if (given_len == 0) return 0;
     uint8_t mac[32];
-    hmac_sha256_raw((const uint8_t*)secret, strlen(secret), (const uint8_t*)token, msg_len, mac);
+    joss_prim_hmac_sha256((const uint8_t*)secret, strlen(secret), (const uint8_t*)token, msg_len, mac);
     char* expected_sig = b64url_encode(mac, 32);
     if (!expected_sig || strlen(expected_sig) != given_len) return 0;
     return joss_ct_memcmp(expected_sig, given_sig, given_len) == 0 ? 1 : 0;

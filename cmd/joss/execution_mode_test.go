@@ -4,9 +4,19 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
+	"github.com/jossecurity/joss/pkg/backend/native"
+	"github.com/jossecurity/joss/pkg/bytecode"
+	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/ir"
+	"github.com/jossecurity/joss/pkg/parser"
+	"github.com/jossecurity/joss/pkg/pluginpkg"
 )
 
 func TestExecutionModeDefaultsToAutoAndNativeIsExplicit(t *testing.T) {
@@ -18,6 +28,11 @@ func TestExecutionModeDefaultsToAutoAndNativeIsExplicit(t *testing.T) {
 	mode, args = takeExecutionMode([]string{"main.joss", "--native"})
 	if mode != executionModeNative || len(args) != 1 || args[0] != "main.joss" {
 		t.Fatalf("native mode = %q, args = %v; want native mode and selector removed", executionModeName(mode), args)
+	}
+
+	mode, args = takeExecutionMode([]string{"main.joss", "--anterior"})
+	if mode != executionModePrevious || len(args) != 1 || args[0] != "main.joss" {
+		t.Fatalf("previous mode = %q, args = %v; want anterior mode and selector removed", executionModeName(mode), args)
 	}
 }
 
@@ -37,9 +52,9 @@ func TestServerChildPreservesNativeModeThroughReload(t *testing.T) {
 	}
 }
 
-func TestServerChildSelectsConcurrentGoHTTPByDefault(t *testing.T) {
-	if got := serverBackendForMode(executionModeAuto); got != "go" {
-		t.Fatalf("auto HTTP backend = %q, want go", got)
+func TestServerChildSelectsNativeHTTPByDefault(t *testing.T) {
+	if got := serverBackendForMode(executionModeAuto); got != "native" {
+		t.Fatalf("auto HTTP backend = %q, want native", got)
 	}
 	if got := serverBackendForMode(executionModePrevious); got != "go" {
 		t.Fatalf("previous HTTP backend = %q, want go", got)
@@ -47,15 +62,15 @@ func TestServerChildSelectsConcurrentGoHTTPByDefault(t *testing.T) {
 	if got := serverBackendForMode(executionModeNative); got != "native" {
 		t.Fatalf("native HTTP backend = %q, want native", got)
 	}
-	if !shouldUseGoHTTPRuntime(executionModeAuto, "go") || !shouldUseGoHTTPRuntime(executionModePrevious, "go") {
-		t.Fatal("automatic and previous server modes should use the Go HTTP runtime")
+	if !shouldUseGoHTTPRuntime(executionModePrevious, "go") {
+		t.Fatal("previous server mode should use the Go HTTP runtime")
 	}
-	if shouldUseGoHTTPRuntime(executionModeNative, "go") || shouldUseGoHTTPRuntime(executionModeAuto, "native") {
-		t.Fatal("native mode or an explicitly native server backend must not select Go HTTP")
+	if shouldUseGoHTTPRuntime(executionModeAuto, "native") || shouldUseGoHTTPRuntime(executionModeNative, "go") {
+		t.Fatal("auto and native modes must not select Go HTTP")
 	}
 	t.Setenv("JOSS_HTTP_BACKEND", "inherited-invalid")
 	for mode, want := range map[executionMode]string{
-		executionModeAuto:     "go",
+		executionModeAuto:     "native",
 		executionModePrevious: "go",
 		executionModeNative:   "native",
 	} {
@@ -94,7 +109,7 @@ func TestProjectHTTPServerDetectionUsesPreparedCallFacts(t *testing.T) {
 	}
 }
 
-func TestAutomaticHTTPBuildUsesGoRunner(t *testing.T) {
+func TestAutomaticHTTPBuildAttemptsNativeAndPreviousUsesGoRunner(t *testing.T) {
 	project := t.TempDir()
 	t.Chdir(project)
 	if err := os.WriteFile("main.joss", []byte(`public func main(): int {
@@ -112,16 +127,44 @@ func TestAutomaticHTTPBuildUsesGoRunner(t *testing.T) {
 	}
 	t.Setenv("JOSS_RUNNER_DIR", runnerDir)
 
-	output, err := buildProgramForMode("main.joss", "", "windows-amd64", false, false, false, false, "native", executionModeAuto)
+	prevOutput, err := buildProgramForMode("main.joss", filepath.Join("build", "previous.exe"), "windows-amd64", false, false, false, false, "auto", executionModePrevious)
 	if err != nil {
-		t.Fatalf("auto HTTP build should select the Go runner: %v", err)
+		t.Fatalf("previous (--anterior) HTTP build should select the Go runner: %v", err)
 	}
-	contents, err := os.ReadFile(output)
+	prevContents, err := os.ReadFile(prevOutput)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(contents, []byte(legacyRunnerTrailer)) {
-		t.Fatal("auto HTTP build did not package the Go runner")
+	if !bytes.Contains(prevContents, []byte(legacyRunnerTrailer)) {
+		t.Fatal("previous (--anterior) HTTP build did not package the Go runner")
+	}
+
+	autoOutput, err := buildProgramForMode("main.joss", filepath.Join("build", "auto.exe"), "windows-amd64", false, false, false, false, "auto", executionModeAuto)
+	if err != nil {
+		t.Fatalf("auto HTTP build failed: %v", err)
+	}
+	autoContents, err := os.ReadFile(autoOutput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ensureNativeToolchainReady() {
+		if len(autoContents) < 2 || string(autoContents[:2]) != "MZ" {
+			t.Fatalf("auto HTTP build did not emit a native PE executable: prefix=%q", autoContents[:min(2, len(autoContents))])
+		}
+		if bytes.Contains(autoContents, []byte(legacyRunnerTrailer)) {
+			t.Fatal("auto HTTP build unexpectedly packaged the Go runner instead of compiling natively")
+		}
+	}
+
+	// Verify auto mode enters the native frontend first rather than bypassing to buildLegacyProgram.
+	if err := os.WriteFile("broken.joss", []byte(`public func main(): int {
+    Server::start()
+    return "wrong-type"
+}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := buildProgramForMode("broken.joss", filepath.Join("build", "broken.exe"), "windows-amd64", false, false, false, false, "auto", executionModeAuto); err == nil {
+		t.Fatal("auto mode must run native frontend analysis instead of bypassing HTTP projects straight to the Go runner")
 	}
 }
 
@@ -227,5 +270,174 @@ func TestAutomaticBuildUsesCompactAOTWhenNoHostCapabilityIsNeeded(t *testing.T) 
 	}
 	if len(contents) > 80*1024 {
 		t.Fatalf("pure auto build size = %d bytes, exceeds the 80 KiB compact profile goal", len(contents))
+	}
+}
+
+func buildTestJPArchive(t *testing.T, pluginName, source string) []byte {
+	t.Helper()
+	p := parser.NewParser(parser.NewLexer(source))
+	prog := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("plugin parse errors: %v", p.Errors())
+	}
+	bcBytes, err := bytecode.Encode(prog)
+	if err != nil {
+		t.Fatalf("bytecode.Encode failed: %v", err)
+	}
+	jpBytes, err := pluginpkg.Build(pluginpkg.Metadata{
+		Name:     pluginName,
+		Version:  "1.0.0",
+		Bytecode: "bytecode/main.jbc",
+	}, map[string][]byte{
+		"bytecode/main.jbc": bcBytes,
+	})
+	if err != nil {
+		t.Fatalf("pluginpkg.Build failed: %v", err)
+	}
+	return jpBytes
+}
+
+func TestAppendProjectPluginUnitsFindsSubdirPluginsAndDeduplicates(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+
+	jpBytes := buildTestJPArchive(t, "math_ext", `public func plugin_double(int $x): int {
+    return $x * 2
+}`)
+
+	subDir := filepath.Join(root, "subapp")
+	subPluginDir := filepath.Join(subDir, "plugins", "math_ext", "latest")
+	if err := os.MkdirAll(subPluginDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subPluginDir, "math_ext.jp"), jpBytes, 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Also place the same plugin at the workspace root to verify Path deduplication.
+	rootPluginDir := filepath.Join(root, "plugins", "math_ext", "latest")
+	if err := os.MkdirAll(rootPluginDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rootPluginDir, "math_ext.jp"), jpBytes, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	entryPath := filepath.Join("subapp", "main.joss")
+	if err := os.WriteFile(entryPath, []byte(`public func main(): int { return 0 }`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	units := appendProjectPluginUnits([]semanticanalyzer.SourceUnit{{Path: entryPath}}, entryPath)
+	pluginCount := 0
+	for _, u := range units {
+		if strings.HasPrefix(u.Path, "<plugin:math_ext/") {
+			pluginCount++
+		}
+	}
+	if pluginCount != 1 {
+		t.Fatalf("expected exactly 1 deduplicated math_ext plugin unit, got %d (%+v)", pluginCount, units)
+	}
+}
+
+func TestPluginDispatchIRAndNativeAOTExecution(t *testing.T) {
+	project := t.TempDir()
+	t.Chdir(project)
+
+	pluginSrc := `public func plugin_double(int $x): int {
+    return $x * 2
+}
+
+public func add_offset(int $x, int $offset = 10): int {
+    return $x + $offset
+}
+
+public class Greeter {
+    private string $prefix = "Hello "
+    public func hello(string $name): string {
+        return $this->prefix . $name
+    }
+}`
+	jpBytes := buildTestJPArchive(t, "math_ext", pluginSrc)
+	pluginDir := filepath.Join("sub", "plugins", "math_ext", "latest")
+	if err := os.MkdirAll(pluginDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pluginDir, "math_ext.jp"), jpBytes, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	entryPath := filepath.Join("sub", "main.joss")
+	mainSrc := `public func main(): int {
+    int $a = intval(Plugin::call("math_ext", "plugin_double", [21]))
+    int $b = intval(Plugin::call("math_ext", "add_offset", [5]))
+    string $c = strval(Plugin::call("math_ext", "Greeter::hello", ["Ana"]))
+    string $d = strval(Plugin::call("math_ext", "hello", ["Bob"]))
+    print($a)
+    print($b)
+    print($c)
+    print($d)
+    return 0
+}`
+	if err := os.WriteFile(entryPath, []byte(mainSrc), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	units, parseDiags := semanticanalyzer.LoadProject(entryPath, "app")
+	if len(parseDiags) > 0 {
+		t.Fatalf("unexpected parse diagnostics: %v", parseDiags)
+	}
+	units = appendProjectPluginUnits(units, entryPath)
+	report := core.AnalyzeSourceUnits(units)
+	if report.HasErrors() {
+		report.PrintReport()
+		t.Fatal("semantic analysis failed")
+	}
+	irProg, err := lowerPreparedProject(report.Prepared, entryPath)
+	if err != nil {
+		t.Fatalf("lowerPreparedProject failed: %v", err)
+	}
+	if irProg.Functions["__joss_plugin_dispatch"] == nil {
+		t.Fatal("expected __joss_plugin_dispatch to be synthesized and retained")
+	}
+	for _, fnName := range []string{"plugin_double", "add_offset", "Greeter_hello"} {
+		if irProg.Functions[fnName] == nil {
+			t.Fatalf("expected plugin function %q to be lowered and retained", fnName)
+		}
+	}
+	mainFn := irProg.Functions["main"]
+	if mainFn == nil || mainFn.EntryBlock == nil {
+		t.Fatal("expected main function in IR")
+	}
+	foundReg := false
+	for _, inst := range mainFn.EntryBlock.Instructions {
+		if cr, ok := inst.(*ir.CallRuntimeInst); ok && cr.Func == "joss_register_plugin_dispatcher" {
+			if len(cr.Args) == 1 {
+				if fp, okFp := cr.Args[0].(*ir.ConstFnPtr); okFp && fp.FnName == "__joss_plugin_dispatch" {
+					foundReg = true
+				}
+			}
+		}
+	}
+	if !foundReg {
+		t.Fatalf("expected main entry block to register __joss_plugin_dispatch via joss_register_plugin_dispatcher")
+	}
+
+	if ensureNativeToolchainReady() {
+		outBin, err := buildNativeProgram(entryPath, filepath.Join("build", "plugin_test"), native.HostTarget().DashString(), false, false, false, false, "auto")
+		if err != nil {
+			t.Fatalf("native build with plugins failed: %v", err)
+		}
+		if runtime.GOOS == "windows" && !strings.HasSuffix(strings.ToLower(outBin), ".exe") {
+			outBin += ".exe"
+		}
+		outBytes, err := exec.Command(outBin).CombinedOutput()
+		if err != nil {
+			t.Fatalf("native plugin binary execution failed: %v\noutput:\n%s", err, string(outBytes))
+		}
+		got := strings.ReplaceAll(strings.TrimSpace(string(outBytes)), "\r\n", "\n")
+		want := "42\n15\nHello Ana\nHello Bob"
+		if got != want {
+			t.Fatalf("native plugin binary stdout = %q, want %q", got, want)
+		}
 	}
 }

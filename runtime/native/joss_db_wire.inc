@@ -6,6 +6,7 @@
 #ifndef JOSS_DB_WIRE_INC
 #define JOSS_DB_WIRE_INC
 
+#include "joss_crypto_primitives.inc"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -422,8 +423,7 @@ static joss_wire_sock_t joss_wire_get_mysql(void) {
 
 static void* mysql_wire_query(const char* sql, void* bindings) {
     void* rows = joss_arr_new(4);
-    joss_wire_sock_t fd = joss_wire_get_mysql();
-    if (fd == JOSS_WIRE_INVALID_SOCK || !sql) return rows;
+    if (!sql) return rows;
     char* bound = joss_wire_bind_sql(sql, bindings);
     if (!bound) return rows;
     size_t qlen = strlen(bound);
@@ -432,16 +432,27 @@ static void* mysql_wire_query(const char* sql, void* bindings) {
     cmd[0] = 0x03; /* COM_QUERY */
     memcpy(cmd + 1, bound, qlen);
     free(bound);
-    if (mysql_wire_write_pkt(fd, 0, cmd, qlen + 1) != 0) {
-        free(cmd);
-        joss_wire_close(g_wire_mysql_fd);
-        g_wire_mysql_fd = JOSS_WIRE_INVALID_SOCK;
-        return rows;
+
+    uint8_t* pkt = NULL;
+    size_t plen = 0;
+    joss_wire_sock_t fd = JOSS_WIRE_INVALID_SOCK;
+    for (int attempt = 0; attempt < 2; attempt++) {
+        fd = joss_wire_get_mysql();
+        if (fd == JOSS_WIRE_INVALID_SOCK) break;
+        if (mysql_wire_write_pkt(fd, 0, cmd, qlen + 1) != 0) {
+            joss_wire_close(g_wire_mysql_fd);
+            g_wire_mysql_fd = JOSS_WIRE_INVALID_SOCK;
+            continue;
+        }
+        pkt = mysql_wire_read_pkt(fd, &plen, NULL);
+        if (!pkt && attempt == 0) {
+            joss_wire_close(g_wire_mysql_fd);
+            g_wire_mysql_fd = JOSS_WIRE_INVALID_SOCK;
+            continue;
+        }
+        break;
     }
     free(cmd);
-
-    size_t plen = 0;
-    uint8_t* pkt = mysql_wire_read_pkt(fd, &plen, NULL);
     if (!pkt || plen == 0 || pkt[0] == 0xFF || pkt[0] == 0x00) {
         free(pkt);
         return rows;
@@ -512,8 +523,7 @@ static void* mysql_wire_query(const char* sql, void* bindings) {
 }
 
 static int64_t mysql_wire_execute(const char* sql, void* bindings) {
-    joss_wire_sock_t fd = joss_wire_get_mysql();
-    if (fd == JOSS_WIRE_INVALID_SOCK || !sql) return 0;
+    if (!sql) return 0;
     char* bound = joss_wire_bind_sql(sql, bindings);
     if (!bound) return 0;
     size_t qlen = strlen(bound);
@@ -522,15 +532,26 @@ static int64_t mysql_wire_execute(const char* sql, void* bindings) {
     cmd[0] = 0x03;
     memcpy(cmd + 1, bound, qlen);
     free(bound);
-    if (mysql_wire_write_pkt(fd, 0, cmd, qlen + 1) != 0) {
-        free(cmd);
-        joss_wire_close(g_wire_mysql_fd);
-        g_wire_mysql_fd = JOSS_WIRE_INVALID_SOCK;
-        return 0;
+
+    uint8_t* pkt = NULL;
+    size_t plen = 0;
+    for (int attempt = 0; attempt < 2; attempt++) {
+        joss_wire_sock_t fd = joss_wire_get_mysql();
+        if (fd == JOSS_WIRE_INVALID_SOCK) break;
+        if (mysql_wire_write_pkt(fd, 0, cmd, qlen + 1) != 0) {
+            joss_wire_close(g_wire_mysql_fd);
+            g_wire_mysql_fd = JOSS_WIRE_INVALID_SOCK;
+            continue;
+        }
+        pkt = mysql_wire_read_pkt(fd, &plen, NULL);
+        if (!pkt && attempt == 0) {
+            joss_wire_close(g_wire_mysql_fd);
+            g_wire_mysql_fd = JOSS_WIRE_INVALID_SOCK;
+            continue;
+        }
+        break;
     }
     free(cmd);
-    size_t plen = 0;
-    uint8_t* pkt = mysql_wire_read_pkt(fd, &plen, NULL);
     int64_t affected = 0;
     if (pkt && plen > 1 && pkt[0] == 0x00) {
         size_t c = 0;
@@ -551,6 +572,37 @@ static uint32_t pg_read_be32(const uint8_t* p) {
 }
 static void pg_write_be32(uint8_t* p, uint32_t v) {
     p[0] = (uint8_t)(v >> 24); p[1] = (uint8_t)(v >> 16); p[2] = (uint8_t)(v >> 8); p[3] = (uint8_t)v;
+}
+
+static void joss_wire_random_bytes(uint8_t* out, size_t len) {
+    if (!out || len == 0) return;
+#if defined(_WIN32)
+    /* Use RtlGenRandom/BCrypt-free fallback or rand_s/time+pid mix if bcrypt not linked */
+    for (size_t i = 0; i < len; i++) {
+        out[i] = (uint8_t)((rand() ^ (int)(i * 31)) & 0xFF);
+    }
+#else
+    FILE* f = fopen("/dev/urandom", "rb");
+    if (f) {
+        size_t rd = fread(out, 1, len, f);
+        fclose(f);
+        if (rd == len) return;
+    }
+    for (size_t i = 0; i < len; i++) {
+        out[i] = (uint8_t)((rand() ^ (int)(i * 31)) & 0xFF);
+    }
+#endif
+}
+
+static void joss_wire_md5_hex(const uint8_t* data, size_t len, char out_hex[33]) {
+    static const char hex[] = "0123456789abcdef";
+    uint8_t dig[16];
+    joss_prim_md5(data, len, dig);
+    for (int i = 0; i < 16; i++) {
+        out_hex[i * 2] = hex[(dig[i] >> 4) & 0xF];
+        out_hex[i * 2 + 1] = hex[dig[i] & 0xF];
+    }
+    out_hex[32] = '\0';
 }
 
 static joss_wire_sock_t joss_wire_get_pg(void) {
@@ -583,6 +635,8 @@ static joss_wire_sock_t joss_wire_get_pg(void) {
     pg_write_be32(msg + 4, 196608U); /* 3.0 */
     if (joss_wire_send_all(fd, msg, pos) != 0) { joss_wire_close(fd); return JOSS_WIRE_INVALID_SOCK; }
 
+    char scram_client_first_bare[128] = {0};
+    char scram_expected_server_sig[64] = {0};
     while (1) {
         uint8_t hdr[5];
         if (joss_wire_recv_all(fd, hdr, 5) != 0) { joss_wire_close(fd); return JOSS_WIRE_INVALID_SOCK; }
@@ -606,6 +660,114 @@ static joss_wire_sock_t joss_wire_get_pg(void) {
                     (void)joss_wire_send_all(fd, pm, 5 + pl + 1);
                     free(pm);
                 }
+            } else if (auth_type == 5 && blen >= 8) { /* MD5Password */
+                size_t pl = strlen(pass);
+                size_t ul2 = strlen(user);
+                char* pu = (char*)malloc(pl + ul2 + 1);
+                if (pu) {
+                    memcpy(pu, pass, pl);
+                    memcpy(pu + pl, user, ul2);
+                    pu[pl + ul2] = '\0';
+                    char inner_hex[33];
+                    joss_wire_md5_hex((const uint8_t*)pu, pl + ul2, inner_hex);
+                    free(pu);
+                    uint8_t outer_in[36];
+                    memcpy(outer_in, inner_hex, 32);
+                    memcpy(outer_in + 32, body + 4, 4);
+                    char outer_hex[33];
+                    joss_wire_md5_hex(outer_in, 36, outer_hex);
+                    char md5_resp[37];
+                    snprintf(md5_resp, sizeof(md5_resp), "md5%s", outer_hex);
+                    uint8_t pm[5 + 36];
+                    pm[0] = 'p';
+                    pg_write_be32(pm + 1, 4 + 36);
+                    memcpy(pm + 5, md5_resp, 36);
+                    (void)joss_wire_send_all(fd, pm, 5 + 36);
+                }
+            } else if (auth_type == 10) { /* AuthenticationSASL */
+                uint8_t rnd[18];
+                joss_wire_random_bytes(rnd, sizeof(rnd));
+                char cnonce[32];
+                joss_prim_base64_encode(rnd, sizeof(rnd), cnonce);
+                snprintf(scram_client_first_bare, sizeof(scram_client_first_bare), "n=,r=%s", cnonce);
+                char client_first[140];
+                snprintf(client_first, sizeof(client_first), "n,,%s", scram_client_first_bare);
+                size_t cflen = strlen(client_first);
+                const char* mech = "SCRAM-SHA-256";
+                size_t mech_len = strlen(mech) + 1;
+                size_t pay_len = mech_len + 4 + cflen;
+                uint8_t* pm = (uint8_t*)malloc(5 + pay_len);
+                if (pm) {
+                    pm[0] = 'p';
+                    pg_write_be32(pm + 1, (uint32_t)(4 + pay_len));
+                    memcpy(pm + 5, mech, mech_len);
+                    pg_write_be32(pm + 5 + mech_len, (uint32_t)cflen);
+                    memcpy(pm + 5 + mech_len + 4, client_first, cflen);
+                    (void)joss_wire_send_all(fd, pm, 5 + pay_len);
+                    free(pm);
+                }
+            } else if (auth_type == 11 && blen > 4) { /* AuthenticationSASLContinue */
+                char* sfirst = (char*)malloc(blen - 4 + 1);
+                if (sfirst) {
+                    memcpy(sfirst, body + 4, blen - 4);
+                    sfirst[blen - 4] = '\0';
+                    char snonce[128] = {0}, salt_b64[128] = {0};
+                    int iter = 4096;
+                    const char* rp = strstr(sfirst, "r=");
+                    if (rp) { rp += 2; const char* c = strchr(rp, ','); size_t l = c ? (size_t)(c - rp) : strlen(rp); if (l >= sizeof(snonce)) l = sizeof(snonce) - 1; memcpy(snonce, rp, l); snonce[l] = '\0'; }
+                    const char* sp = strstr(sfirst, "s=");
+                    if (sp) { sp += 2; const char* c = strchr(sp, ','); size_t l = c ? (size_t)(c - sp) : strlen(sp); if (l >= sizeof(salt_b64)) l = sizeof(salt_b64) - 1; memcpy(salt_b64, sp, l); salt_b64[l] = '\0'; }
+                    const char* ip = strstr(sfirst, "i=");
+                    if (ip) iter = atoi(ip + 2);
+                    if (iter <= 0) iter = 4096;
+                    uint8_t salt_raw[64];
+                    size_t salt_len = joss_prim_base64_decode(salt_b64, salt_raw, sizeof(salt_raw));
+                    uint8_t salted_pw[32];
+                    joss_prim_pbkdf2_sha256((const uint8_t*)pass, strlen(pass), salt_raw, salt_len, iter, salted_pw);
+                    uint8_t client_key[32], stored_key[32], server_key[32];
+                    joss_prim_hmac_sha256(salted_pw, 32, (const uint8_t*)"Client Key", 10, client_key);
+                    joss_prim_sha256(client_key, 32, stored_key);
+                    joss_prim_hmac_sha256(salted_pw, 32, (const uint8_t*)"Server Key", 10, server_key);
+                    char cf_wo_p[192];
+                    snprintf(cf_wo_p, sizeof(cf_wo_p), "c=biws,r=%s", snonce);
+                    size_t am_len = strlen(scram_client_first_bare) + 1 + strlen(sfirst) + 1 + strlen(cf_wo_p);
+                    char* auth_msg = (char*)malloc(am_len + 1);
+                    if (auth_msg) {
+                        snprintf(auth_msg, am_len + 1, "%s,%s,%s", scram_client_first_bare, sfirst, cf_wo_p);
+                        uint8_t csig[32], cproof[32], ssig[32];
+                        joss_prim_hmac_sha256(stored_key, 32, (const uint8_t*)auth_msg, am_len, csig);
+                        for (int i = 0; i < 32; i++) cproof[i] = client_key[i] ^ csig[i];
+                        joss_prim_hmac_sha256(server_key, 32, (const uint8_t*)auth_msg, am_len, ssig);
+                        joss_prim_base64_encode(ssig, 32, scram_expected_server_sig);
+                        char proof_b64[64];
+                        joss_prim_base64_encode(cproof, 32, proof_b64);
+                        char cfinal[320];
+                        snprintf(cfinal, sizeof(cfinal), "%s,p=%s", cf_wo_p, proof_b64);
+                        size_t cfl = strlen(cfinal);
+                        uint8_t* pm = (uint8_t*)malloc(5 + cfl);
+                        if (pm) {
+                            pm[0] = 'p';
+                            pg_write_be32(pm + 1, (uint32_t)(4 + cfl));
+                            memcpy(pm + 5, cfinal, cfl);
+                            (void)joss_wire_send_all(fd, pm, 5 + cfl);
+                            free(pm);
+                        }
+                        free(auth_msg);
+                    }
+                    free(sfirst);
+                }
+            } else if (auth_type == 12 && blen > 4) { /* AuthenticationSASLFinal */
+                size_t vlen = blen - 4;
+                if (scram_expected_server_sig[0]) {
+                    char vbuf[128];
+                    size_t cpy = vlen < sizeof(vbuf) - 1 ? vlen : sizeof(vbuf) - 1;
+                    memcpy(vbuf, body + 4, cpy);
+                    vbuf[cpy] = '\0';
+                    const char* vp = strstr(vbuf, "v=");
+                    if (!vp || strncmp(vp + 2, scram_expected_server_sig, strlen(scram_expected_server_sig)) != 0) {
+                        free(body); joss_wire_close(fd); return JOSS_WIRE_INVALID_SOCK;
+                    }
+                }
             }
         } else if (tag == 'Z') {
             free(body);
@@ -620,8 +782,7 @@ static joss_wire_sock_t joss_wire_get_pg(void) {
 
 static void* pg_wire_query(const char* sql, void* bindings) {
     void* rows = joss_arr_new(4);
-    joss_wire_sock_t fd = joss_wire_get_pg();
-    if (fd == JOSS_WIRE_INVALID_SOCK || !sql) return rows;
+    if (!sql) return rows;
     char* bound = joss_wire_bind_sql(sql, bindings);
     if (!bound) return rows;
     size_t ql = strlen(bound);
@@ -631,16 +792,35 @@ static void* pg_wire_query(const char* sql, void* bindings) {
     pg_write_be32(qm + 1, (uint32_t)(4 + ql + 1));
     memcpy(qm + 5, bound, ql + 1);
     free(bound);
-    if (joss_wire_send_all(fd, qm, 5 + ql + 1) != 0) {
-        free(qm); joss_wire_close(g_wire_pg_fd); g_wire_pg_fd = JOSS_WIRE_INVALID_SOCK; return rows;
+
+    joss_wire_sock_t fd = JOSS_WIRE_INVALID_SOCK;
+    uint8_t first_hdr[5];
+    bool have_first = false;
+    for (int attempt = 0; attempt < 2; attempt++) {
+        fd = joss_wire_get_pg();
+        if (fd == JOSS_WIRE_INVALID_SOCK) break;
+        if (joss_wire_send_all(fd, qm, 5 + ql + 1) != 0 || joss_wire_recv_all(fd, first_hdr, 5) != 0) {
+            joss_wire_close(g_wire_pg_fd);
+            g_wire_pg_fd = JOSS_WIRE_INVALID_SOCK;
+            continue;
+        }
+        have_first = true;
+        break;
     }
     free(qm);
+    if (!have_first) return rows;
 
     char** cols = NULL;
     int ncols = 0;
+    bool use_first = true;
     while (1) {
         uint8_t hdr[5];
-        if (joss_wire_recv_all(fd, hdr, 5) != 0) break;
+        if (use_first) {
+            memcpy(hdr, first_hdr, 5);
+            use_first = false;
+        } else if (joss_wire_recv_all(fd, hdr, 5) != 0) {
+            break;
+        }
         char tag = (char)hdr[0];
         uint32_t mlen = pg_read_be32(hdr + 1);
         if (mlen < 4) break;

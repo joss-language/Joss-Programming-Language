@@ -75,6 +75,11 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 			return false
 		}
 		switch className {
+		case "Cron":
+			switch methodName {
+			case "schedule", "runDue":
+				return true
+			}
 		case "Cache":
 			switch methodName {
 			case "get", "put", "has", "forget":
@@ -85,28 +90,28 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 			case "readFile", "toHtml":
 				return true
 			}
-		case "Response":
+		case "Blueprint":
+			return true
+		case "Process":
 			switch methodName {
-			case "json", "raw", "error", "download", "stream":
+			case "constructor", "start", "wait", "kill", "pid":
 				return true
 			}
-		case "WebResponse":
-			return methodName == "withCookie"
+		case "Response", "WebResponse", "Request", "Session", "Cookie", "Auth", "MFA", "TwoFactor", "Sitemap", "IndexNow", "SmtpClient", "Mail", "Http":
+			return true
 		case "System":
-			return methodName == "Run"
-		case "Http":
 			switch methodName {
-			case "get", "post", "request", "json":
+			case "Run", "sleep", "env", "log", "now":
 				return true
 			}
 		case "Schema":
 			switch methodName {
-			case "create", "table", "hasTable", "hasColumn":
+			case "create", "table", "drop", "dropIfExists", "rename", "hasTable", "hasColumn":
 				return true
 			}
 		case "WebSocket":
 			switch methodName {
-			case "publish", "subscriberCount":
+			case "subscribe", "unsubscribe", "publish", "subscriberCount":
 				return true
 			}
 		case "AI":
@@ -120,7 +125,10 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 				return true
 			}
 		case "Plugin":
-			return methodName == "call"
+			switch methodName {
+			case "call", "load", "path", "platform", "stream":
+				return true
+			}
 		case "Console":
 			switch methodName {
 			case "log", "error", "readLine":
@@ -169,6 +177,46 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 		}
 		report("host service " + service + " (no Joss implementation or native platform ABI)")
 	}
+	checkLLVMOnlyRuntimeCall := func(name string) {
+		if backend == BackendLLVM {
+			return
+		}
+		clean := strings.TrimPrefix(name, "fn_")
+		if hasProgramFunction(program, clean) {
+			return
+		}
+		if jitMode && jit.SupportsInProcessHostBridge() && jit.HasHostBridgeHandler(strings.TrimPrefix(clean, "joss_")) {
+			return
+		}
+		trimmed := strings.TrimPrefix(clean, "joss_")
+		switch {
+		case clean == "joss_register_plugin_dispatcher",
+			clean == "joss_register_schema_db",
+			strings.HasPrefix(clean, "joss___joss_http_"),
+			strings.HasPrefix(clean, "joss___joss_socket_"),
+			strings.HasPrefix(clean, "joss___joss_session_"),
+			strings.HasPrefix(clean, "joss___joss_rate_"),
+			strings.HasPrefix(clean, "joss___joss_jwt_"),
+			strings.HasPrefix(clean, "joss___joss_ws_"),
+			strings.HasPrefix(clean, "joss_ws_"),
+			strings.HasPrefix(trimmed, "__joss_http_"),
+			strings.HasPrefix(trimmed, "__joss_socket_"),
+			strings.HasPrefix(trimmed, "__joss_session_"),
+			strings.HasPrefix(trimmed, "__joss_rate_"),
+			strings.HasPrefix(trimmed, "__joss_jwt_"),
+			strings.HasPrefix(trimmed, "__joss_ws_"),
+			strings.HasPrefix(clean, "joss_sb_"),
+			strings.HasPrefix(clean, "joss_buf_"):
+			report("llvm runtime " + name + " (requires BackendLLVM C11 runtime)")
+		case strings.HasPrefix(clean, "joss___joss_rt_"),
+			strings.HasPrefix(trimmed, "__joss_rt_"):
+			switch trimmed {
+			case "__joss_rt_strlen", "__joss_rt_strcmp", "__joss_rt_throw", "__joss_rt_route_matches", "__joss_rt_route_param":
+			default:
+				report("llvm runtime " + name + " (requires BackendLLVM C11 runtime)")
+			}
+		}
+	}
 	checkProductShim := func(name string) {
 		if strings.HasPrefix(strings.TrimPrefix(name, "fn_"), "SEO_") {
 			method := strings.TrimPrefix(strings.TrimPrefix(name, "fn_"), "SEO_")
@@ -198,28 +246,37 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 		for _, block := range blocks {
 			for _, instruction := range block.Instructions {
 				switch call := instruction.(type) {
+				case *ir.AllocBufferInst, *ir.FreeBufferInst, *ir.BufferLenInst, *ir.BufferGetInst, *ir.BufferSetInst:
+					if backend != BackendLLVM {
+						report("bytebuffer native runtime (requires BackendLLVM)")
+					}
 				case *ir.CallBuiltinInst:
 					checkProductShim(call.BuiltinID)
 					checkARM64Stub(call.BuiltinID)
 					if call.BuiltinID == "json_decode" {
-						if !jitMode || !jit.SupportsInProcessHostBridge() || !jit.HasHostBridgeHandler("json_decode") {
+						if backend != BackendLLVM && (!jitMode || !jit.SupportsInProcessHostBridge() || !jit.HasHostBridgeHandler("json_decode")) {
 							report("builtin json_decode (native implementation unavailable; JIT host callback unavailable)")
 						}
 					}
 					checkDatabaseCall(call.BuiltinID)
+					checkLLVMOnlyRuntimeCall(call.BuiltinID)
 				case *ir.CallRuntimeInst:
 					checkDatabaseCall(call.Func)
 					checkProductShim(call.Func)
 					checkARM64Stub(call.Func)
+					checkLLVMOnlyRuntimeCall(call.Func)
 				case *ir.CallInst:
 					checkDatabaseCall(call.Callee)
 					checkProductShim(call.Callee)
 					checkARM64Stub(call.Callee)
+					checkLLVMOnlyRuntimeCall(call.Callee)
 					if program.Functions[call.Callee] == nil && isUnimplementedFrameworkTarget("fn_"+call.Callee) {
 						report("framework method " + call.Callee + " (missing Joss implementation; placeholder emission is disabled)")
 					}
 				case *ir.CallHostServiceInst:
-					checkProductShim(call.ClassName + "_" + call.MethodName)
+					if !isSupportedLLVMHostService(call.ClassName, call.MethodName) {
+						checkProductShim(call.ClassName + "_" + call.MethodName)
+					}
 					checkHostService(call.ClassName, call.MethodName)
 				case *ir.TryCatchInst:
 					scanBlocks(call.TryBlocks)

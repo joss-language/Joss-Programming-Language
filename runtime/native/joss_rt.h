@@ -20,21 +20,33 @@ extern "C" {
 #endif
 
 typedef enum {
-    JOSS_TAG_NULL   = 0,
-    JOSS_TAG_INT    = 1,
-    JOSS_TAG_FLOAT  = 2,
-    JOSS_TAG_BOOL   = 3,
-    JOSS_TAG_STRING = 4,
-    JOSS_TAG_OBJECT = 5,
-    JOSS_TAG_ARRAY  = 6,
-    JOSS_TAG_MAP    = 7,
-    JOSS_TAG_BYTES  = 8
+    JOSS_TAG_NULL    = 0,
+    JOSS_TAG_INT     = 1,
+    JOSS_TAG_FLOAT   = 2,
+    JOSS_TAG_BOOL    = 3,
+    JOSS_TAG_STRING  = 4,
+    JOSS_TAG_OBJECT  = 5,
+    JOSS_TAG_ARRAY   = 6,
+    JOSS_TAG_MAP     = 7,
+    JOSS_TAG_BYTES   = 8,
+    JOSS_TAG_CLOSURE = 9
 } JossTag;
 
 typedef struct {
     uint64_t header;  /* (JOSS_BOX_MAGIC << 32) | (uint32_t)tag */
     uint64_t payload; /* i64, bitcast f64, bool (0/1), or pointer */
 } JossBoxedValue;
+
+typedef struct {
+    uint64_t header;
+    void*    fn_ptr;
+    void*    env_map;
+} JossClosureBox;
+
+typedef struct {
+    uint64_t len;
+    uint8_t  data[];
+} JossBytesBuf;
 
 JossBoxedValue* joss_box_value(uint64_t tag, uint64_t payload);
 int64_t         joss_unbox_value(int64_t val);
@@ -43,6 +55,13 @@ JossBoxedValue* joss_box_i64(int64_t v);
 JossBoxedValue* joss_box_f64(double v);
 JossBoxedValue* joss_box_bool(bool v);
 JossBoxedValue* joss_box_str(const char* s);
+void*           joss_bytes_new(const void* data, size_t len);
+const uint8_t*  joss_bytes_unwrap(const void* val, size_t* out_len);
+void*           joss_closure_alloc(void* fn_ptr, void* env_map);
+void*           joss_closure_prepare_call(void* callee);
+bool            joss_is_not_null(int64_t v);
+const char*     joss_i64_to_str(int64_t v);
+const char*     joss_f64_to_string(double d);
 
 /* =========================================================================
  * 2. Deterministic Arena Allocator
@@ -145,6 +164,59 @@ void        joss_obj_set_field_str(void* obj, const char* field, const char* val
 const char* joss_obj_get_field_str(void* obj, const char* field);
 int64_t     joss_intval(int64_t v);
 const char* joss_strval(int64_t v);
+
+void        joss_try_reset(void);
+
+void        joss_closure_env_set(void* fn_ptr, void* env_map);
+void*       joss_closure_env_get(void* fn_ptr);
+void        joss_closure_env_tls_reset(void);
+
+typedef enum {
+    JOSS_LOCK_ENV = 0,
+    JOSS_LOCK_CACHE,
+    JOSS_LOCK_RATELIMIT,
+    JOSS_LOCK_SESSION,
+    JOSS_LOCK_WS,
+    JOSS_LOCK_DB,
+    JOSS_LOCK_SITEMAP,
+    JOSS_LOCK_CRON,
+    JOSS_LOCK_RAND,
+    JOSS_LOCK_NOTIFY,
+    JOSS_LOCK_GENERAL,
+    JOSS_LOCK_COUNT
+} JossLockSlot;
+
+void        joss_global_lock(uint32_t slot);
+void        joss_global_unlock(uint32_t slot);
+
+/* =========================================================================
+ * 5. Schema DB Bridge & WebSocket / Cron Native Contracts
+ * ========================================================================= */
+typedef void*   (*JossSchemaDbQueryFn)(const char*, void*);
+typedef int64_t (*JossSchemaDbExecFn)(const char*, void*);
+extern JossSchemaDbQueryFn g_joss_schema_db_query;
+extern JossSchemaDbExecFn  g_joss_schema_db_exec;
+void        joss_register_schema_db(JossSchemaDbQueryFn q, JossSchemaDbExecFn e);
+int64_t     joss_db_ensure_connected(void);
+
+#if defined(_WIN32)
+typedef uintptr_t joss_socket_t;
+#else
+typedef int joss_socket_t;
+#endif
+
+const char* joss_ws_accept_key(const char* client_key);
+size_t      joss_ws_encode_text_frame(const char* payload, uint8_t* out_buf, size_t out_cap);
+int         joss_ws_read_frame(joss_socket_t sock, int* out_opcode, char** out_payload, size_t* out_len);
+const char* joss___joss_ws_read_text(int64_t sock_fd);
+int64_t     joss___joss_ws_send_text(int64_t sock_fd, const char* text);
+int64_t     fn_WebSocket_subscribe(const char* channel, int64_t sock_fd);
+int64_t     fn_WebSocket_unsubscribe(const char* channel, int64_t sock_fd);
+int64_t     fn_WebSocket_publish(const char* channel, const char* message);
+int64_t     fn_WebSocket_subscriberCount(const char* channel);
+
+void*       fn_Cron_schedule(const char* expr, void* callback);
+int64_t     fn_Cron_runDue(void);
 
 #ifdef __cplusplus
 }

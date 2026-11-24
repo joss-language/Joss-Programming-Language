@@ -76,6 +76,10 @@ func (b *ARM64Builder) emitNativeStrposARM64() {
 	b.emitMovReg(regX19, regX0) // haystack
 	b.emitMovReg(regX20, regX1) // needle
 	b.emitLoadImm64(regX21, 0)  // candidate byte offset
+	b.emitCmp(regX19, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_strpos_missing")
+	b.emitCmp(regX20, regXZR)
+	b.emitBranchCond(condEQ, ".arm64_strpos_found")
 	b.emitLdrb(regX2, regX20, 0)
 	b.emitCmp(regX2, regXZR)
 	b.emitBranchCond(condEQ, ".arm64_strpos_found")
@@ -105,7 +109,7 @@ func (b *ARM64Builder) emitNativeStrposARM64() {
 	b.emitLoadImm64(regX2, 0) // byte cursor
 	b.defineLabel(".arm64_strpos_count")
 	b.emitCmp(regX2, regX21)
-	b.emitBranchCond(condGE, ".arm64_strpos_done")
+	b.emitBranchCond(condGE, ".arm64_strpos_box")
 	b.emitAdd(regX3, regX19, regX2)
 	b.emitLdrb(regX4, regX3, 0)
 	b.emitLoadImm64(regX5, 0xC0)
@@ -117,6 +121,12 @@ func (b *ARM64Builder) emitNativeStrposARM64() {
 	b.defineLabel(".arm64_strpos_continuation")
 	b.emitAddImm(regX2, regX2, 1)
 	b.emitBranch(".arm64_strpos_count")
+	b.defineLabel(".arm64_strpos_box")
+	// Box found index as JOSS_TAG_INT(1) so 0 is non-null/truthy while missing stays 0 (false)
+	b.emitMovReg(regX1, regX0)
+	b.emitLoadImm64(regX0, 1)
+	b.emitCall("joss_box_value")
+	b.emitBranch(".arm64_strpos_done")
 	b.defineLabel(".arm64_strpos_missing")
 	b.emitLoadImm64(regX0, 0) // false is represented as zero in native IR
 	b.defineLabel(".arm64_strpos_done")

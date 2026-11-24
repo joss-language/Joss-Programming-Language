@@ -44,9 +44,9 @@ public static func start(string $cookieHeader) : Session {
     string $sid = strval($sessionCookie)
 
     var $sess = new Session()
-    (strlen($sid) > 0 && isset(Session::$globalStore [$sid])) ? {
+    (strlen($sid) > 0) ? {
         $sess->id = $sid
-        $sess->data = Session::$globalStore [$sid]
+        $sess->data = __joss_session_load($sid)
     } : {
         string $newId = Session::generateId()
         $sess->id = $newId
@@ -59,7 +59,7 @@ public static func start(string $cookieHeader) : Session {
     $sess->data ["csrf_token"] = $csrfToken
     $sess->data ["_token"] = $csrfToken
 }
-Session::$globalStore [$sess->id] = $sess->data
+__joss_session_save($sess->id, $sess->data)
 return $sess
 }
 
@@ -73,7 +73,7 @@ public func get(string $key, mixed $defaultValue = null) : mixed {
 
 public func put(string $key, mixed $value): void {
     $this->data [$key] = $value
-    Session::$globalStore [$this->id] = $this->data
+    __joss_session_save($this->id, $this->data)
 }
 
 public func has(string $key): bool {
@@ -90,22 +90,33 @@ public func forget(string $key): void {
         }
     }
     $this->data = $cleaned
-    Session::$globalStore [$this->id] = $this->data
+    __joss_session_save($this->id, $this->data)
 }
 }
 
 public func flush() : void {
     $this->data = {
 }
-Session::$globalStore [$this->id] = {
-}
+__joss_session_save($this->id, $this->data)
 }
 
 public func getCookieHeader() : string {
-    return "Set-Cookie: joss_session=" . $this->id . "; Path=/; HttpOnly; SameSite=Lax"
+    string $hdr = "Set-Cookie: joss_session=" . $this->id . "; Path=/; HttpOnly; SameSite=Lax"
+    string $appEnv = strtolower(trim(env("APP_ENV", "")))
+    string $sessSec = strtolower(trim(env("SESSION_SECURE", "")))
+    ($appEnv == "production" || $sessSec == "true") ? {
+        $hdr = $hdr . "; Secure"
+    }
+    return $hdr
+}
+
+public func destroy() : void {
+    $this->data = {
+}
+__joss_session_destroy($this->id)
 }
 
 public func save(): void {
-    Session::$globalStore [$this->id] = $this->data
+    __joss_session_save($this->id, $this->data)
 }
 }
