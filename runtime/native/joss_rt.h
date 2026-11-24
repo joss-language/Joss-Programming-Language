@@ -15,8 +15,11 @@ extern "C" {
 #define JOSS_BOX_MAGIC 0x8192A3B4ULL
 #if UINTPTR_MAX > 0xFFFFFFFFULL
 #define JOSS_MIN_PTR_ADDR 0x100000ULL
+/* Linux AArch64 user-space virtual addresses span 48 bits (up to 0x0000FFFFFFFFFFFF). */
+#define JOSS_PTR_VA_BITS  48
 #else
 #define JOSS_MIN_PTR_ADDR 0x10000ULL
+#define JOSS_PTR_VA_BITS  32
 #endif
 
 typedef enum {

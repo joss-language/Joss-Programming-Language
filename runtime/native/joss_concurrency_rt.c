@@ -168,7 +168,7 @@ int64_t joss_async(int64_t fn_ptr) {
 int64_t joss_await(int64_t fut_handle) {
     fut_handle = joss_unbox_value(fut_handle);
     uint64_t u = (uint64_t)fut_handle;
-    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return fut_handle;
+    if (u < JOSS_MIN_PTR_ADDR || (u >> JOSS_PTR_VA_BITS) != 0) return fut_handle;
     JossFuture* fut = (JossFuture*)(uintptr_t)u;
     pthread_mutex_lock(&fut->mu);
     while (!fut->done) {
@@ -451,7 +451,7 @@ int64_t joss_async(int64_t fn_ptr) {
 int64_t joss_await(int64_t fut_handle) {
     fut_handle = joss_unbox_value(fut_handle);
     uint64_t u = (uint64_t)fut_handle;
-    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return fut_handle;
+    if (u < JOSS_MIN_PTR_ADDR || (u >> JOSS_PTR_VA_BITS) != 0) return fut_handle;
     JossFuture* fut = (JossFuture*)(uintptr_t)u;
     EnterCriticalSection(&fut->cs);
     while (!fut->done) {

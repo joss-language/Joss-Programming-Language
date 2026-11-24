@@ -237,7 +237,7 @@ static const char* db_cstr(const char* s) {
     if (!s) return "";
     uintptr_t u = (uintptr_t)s;
     int64_t v = (int64_t)u;
-    if (joss_is_boxed_ptr(v) || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> 47) != 0) {
+    if (joss_is_boxed_ptr(v) || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> JOSS_PTR_VA_BITS) != 0) {
         const char* r = joss_strval(v);
         return r ? r : "";
     }
@@ -1652,14 +1652,14 @@ static int           g_model_class_count = 0;
 
 static bool joss_is_model_ptr(int64_t v) {
     int64_t u = joss_unbox_value(v);
-    if (u == 0 || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> 47) != 0) return false;
+    if (u == 0 || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> JOSS_PTR_VA_BITS) != 0) return false;
     JossModel* m = (JossModel*)(uintptr_t)u;
     return m->magic == JOSS_MODEL_MAGIC;
 }
 
 static JossModel* joss_as_model(void* p) {
     int64_t u = joss_unbox_value((int64_t)(uintptr_t)p);
-    if (u == 0 || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> 47) != 0) return NULL;
+    if (u == 0 || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> JOSS_PTR_VA_BITS) != 0) return NULL;
     JossModel* m = (JossModel*)(uintptr_t)u;
     return (m->magic == JOSS_MODEL_MAGIC) ? m : NULL;
 }
@@ -1673,7 +1673,7 @@ static const char* joss_model_cstr(const void* p) {
         return s ? s : "";
     }
     uintptr_t u = (uintptr_t)p;
-    if ((uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> 47) != 0) {
+    if ((uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> JOSS_PTR_VA_BITS) != 0) {
         const char* s = joss_strval(v);
         return s ? s : "";
     }

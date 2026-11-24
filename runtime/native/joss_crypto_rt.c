@@ -15,7 +15,7 @@ static const char* crypto_cstr(const char* s) {
     if (bdata) return (const char*)bdata;
     uintptr_t u = (uintptr_t)s;
     int64_t v = (int64_t)u;
-    if (joss_is_boxed_ptr(v) || u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) {
+    if (joss_is_boxed_ptr(v) || u < JOSS_MIN_PTR_ADDR || (u >> JOSS_PTR_VA_BITS) != 0) {
         const char* r = joss_strval(v);
         return r ? r : "";
     }

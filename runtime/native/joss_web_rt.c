@@ -131,7 +131,7 @@ static const char* unbox_web_cstr(const char* s) {
     if (joss_is_boxed_ptr(v)) {
         return joss_strval(v);
     }
-    if (u < 0x10000ULL || (u >> 47) != 0) {
+    if (u < 0x10000ULL || (u >> JOSS_PTR_VA_BITS) != 0) {
         return joss_strval(v);
     }
     return s;
@@ -320,7 +320,7 @@ int64_t len(void* container) {
     if (joss_is_map_ptr(v)) return joss_map_len((void*)(uintptr_t)v);
     if (joss_is_arr_ptr(v)) return joss_arr_len((void*)(uintptr_t)v);
     uint64_t u = (uint64_t)v;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
+    if (u >= JOSS_MIN_PTR_ADDR && (u >> JOSS_PTR_VA_BITS) == 0) {
         return joss_strlen((const char*)(uintptr_t)u);
     }
     return 0;
@@ -347,7 +347,7 @@ int64_t joss_is_truthy(int64_t v) {
     if (joss_is_arr_ptr(v)) return joss_arr_len((void*)(uintptr_t)v) > 0 ? 1 : 0;
     if (joss_is_map_ptr(v)) return joss_map_len((void*)(uintptr_t)v) > 0 ? 1 : 0;
     uint64_t u = (uint64_t)v;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
+    if (u >= JOSS_MIN_PTR_ADDR && (u >> JOSS_PTR_VA_BITS) == 0) {
         const char* s = (const char*)(uintptr_t)u;
         return s[0] != '\0' ? 1 : 0;
     }
@@ -372,7 +372,7 @@ int64_t joss_is_string(int64_t v) {
         return (tag == JOSS_TAG_STRING || tag == JOSS_TAG_BYTES) ? 1 : 0;
     }
     uint64_t u = (uint64_t)v;
-    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return 0;
+    if (u < JOSS_MIN_PTR_ADDR || (u >> JOSS_PTR_VA_BITS) != 0) return 0;
     return 1;
 }
 
@@ -425,7 +425,7 @@ int64_t joss___joss_string_byte_at(const char* s, int64_t idx) {
 
 double joss_floatval(int64_t v) {
     uint64_t u = (uint64_t)v;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
+    if (u >= JOSS_MIN_PTR_ADDR && (u >> JOSS_PTR_VA_BITS) == 0) {
         const char* s = joss_strval(v);
         return s ? strtod(s, NULL) : 0.0;
     }
@@ -911,7 +911,7 @@ static void json_encode_value(JossStringBuilder* sb, int64_t val) {
         return;
     }
     uint64_t u = (uint64_t)val;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
+    if (u >= JOSS_MIN_PTR_ADDR && (u >> JOSS_PTR_VA_BITS) == 0) {
         json_escape_append(sb, (const char*)(uintptr_t)u);
         return;
     }
@@ -4470,7 +4470,7 @@ typedef struct {
 
 static JossFileStream* joss_fs_unwrap(void* handle) {
     int64_t raw = joss_unbox_value((int64_t)(uintptr_t)handle);
-    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> 47) == 0) {
+    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> JOSS_PTR_VA_BITS) == 0) {
         JossFileStream* fs = (JossFileStream*)(uintptr_t)(uint64_t)raw;
         if (fs->magic == JOSS_FILESTREAM_MAGIC) {
             return fs;
@@ -4695,7 +4695,7 @@ static void* joss_di_new(int64_t total_sec) {
 
 static int64_t joss_dt_extract_sec(void* self) {
     int64_t raw = joss_unbox_value((int64_t)(uintptr_t)self);
-    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> 47) == 0) {
+    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> JOSS_PTR_VA_BITS) == 0) {
         const JossDateTime* dt = (const JossDateTime*)(uintptr_t)(uint64_t)raw;
         if (dt->magic == JOSS_DATETIME_MAGIC) {
             return dt->unix_sec;
@@ -4706,7 +4706,7 @@ static int64_t joss_dt_extract_sec(void* self) {
 
 static int64_t joss_di_extract_sec(int64_t val) {
     int64_t raw = joss_unbox_value(val);
-    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> 47) == 0) {
+    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> JOSS_PTR_VA_BITS) == 0) {
         const JossDateInterval* di = (const JossDateInterval*)(uintptr_t)(uint64_t)raw;
         if (di->magic == JOSS_DATEINTERVAL_MAGIC) {
             return di->total_sec;
@@ -6663,7 +6663,7 @@ static int64_t joss_clone_session_value(int64_t v) {
         return (int64_t)(uintptr_t)dst_arr;
     }
     uint64_t u = (uint64_t)v;
-    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) {
+    if (u < JOSS_MIN_PTR_ADDR || (u >> JOSS_PTR_VA_BITS) != 0) {
         return (int64_t)(uintptr_t)joss_box_i64(v);
     }
     return (int64_t)(uintptr_t)joss_web_strdup(joss_strval(v));
