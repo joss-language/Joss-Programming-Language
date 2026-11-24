@@ -280,10 +280,10 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 			}
 		}
 	}
-	if needsCrypto {
+	if needsCrypto || needsWeb {
 		if hasHeader("openssl/evp.h") {
 			linkArgs = append(linkArgs, "-lcrypto")
-		} else if opts.Target.OS == "windows" {
+		} else if needsCrypto && opts.Target.OS == "windows" {
 			linkArgs = append(linkArgs, "-lbcrypt", "-lcrypt32")
 		}
 	}
