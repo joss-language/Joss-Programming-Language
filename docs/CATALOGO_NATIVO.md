@@ -545,14 +545,14 @@ Implementación: [executeRedisMethod](../pkg/core/redis_stub.go#L16).
 
 | Método | Retorno publicado al analizador |
 |---|---|
-| `connect` | `mixed` |
-| `del` | `mixed` |
-| `flush` | `mixed` |
-| `forget` | `mixed` |
-| `get` | `mixed` |
-| `has` | `mixed` |
-| `set` | `mixed` |
-| `ttl` | `mixed` |
+| `connect` | `bool` |
+| `del` | `bool` |
+| `flush` | `bool` |
+| `forget` | `bool` |
+| `get` | `string\|null` |
+| `has` | `bool` |
+| `set` | `bool` |
+| `ttl` | `int` |
 
 ## Request
 

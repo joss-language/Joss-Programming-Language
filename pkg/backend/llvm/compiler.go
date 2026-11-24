@@ -395,7 +395,7 @@ func llvmNeedsWebRuntime(llvmIR string) bool {
 		"@fn_Socket_", "@fn_Request_", "@fn_Cache_", "@fn_Markdown_",
 		"@fn_Response_", "@fn_WebResponse_", "@fn_System_", "@fn_Http_",
 		"@fn_WebSocket_", "@fn_AI_", "@fn_Notify_", "@fn_Plugin_",
-		"@fn_Console_", "@fn_FileStream_", "@fn_StreamReader_", "@fn_StreamWriter_", "@fn_DateTime_", "@fn_DateInterval_", "@fn_Lang_", "@fn_Zip_",
+		"@fn_Console_", "@fn_FileStream_", "@fn_StreamReader_", "@fn_StreamWriter_", "@fn_DateTime_", "@fn_DateInterval_", "@fn_Lang_", "@fn_Zip_", "@fn_Redis_",
 		"@fn_Process_", "@fn_Blueprint_", "@joss_csrf_field",
 		"@joss_microtime", "@joss_sleep", "@joss_usleep", "@joss_is_dir", "@joss_is_file",
 		"@joss_rand", "@joss_ord", "@joss_round", "@joss_floor", "@joss_ceil",
