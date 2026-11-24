@@ -10,12 +10,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/jchv/go-webview2"
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/i18n"
 )
+
+func containsWindowAPI(src string) bool {
+	return strings.Contains(src, "Window::open") || strings.Contains(src, "new Window")
+}
 
 func startProgram(args []string) {
 	mode, args := takeExecutionMode(args)
@@ -41,6 +46,19 @@ func startProgram(args []string) {
 		if err != nil {
 			fmt.Printf("❌ [Desktop GUI] Error compilando binario nativo: %v\n", err)
 			os.Exit(1)
+		}
+		if rawSrc, readErr := os.ReadFile("main.joss"); readErr == nil && (containsWindowAPI(string(rawSrc))) {
+			fmt.Printf("🚀 [Desktop GUI] Ejecutando aplicación nativa standalone (%s)...\n", exePath)
+			direct := exec.Command(exePath, args...)
+			direct.Stdout = os.Stdout
+			direct.Stderr = os.Stderr
+			direct.Stdin = os.Stdin
+			direct.Env = append(os.Environ(), "JOSS_GUI=true")
+			if runErr := direct.Run(); runErr != nil {
+				fmt.Printf("❌ [Desktop GUI] Error ejecutando aplicación nativa: %v\n", runErr)
+				os.Exit(1)
+			}
+			return
 		}
 	} else {
 		var err error

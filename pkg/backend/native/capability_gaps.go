@@ -166,6 +166,8 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 			}
 		case "Model":
 			return true
+		case "Window":
+			return true
 		case "Lang":
 			switch methodName {
 			case "locale", "setLocale", "get":

@@ -172,8 +172,9 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 
 	rtDir := filepath.Dir(rtCPath)
 	needsDB := strings.Contains(llvmIR, "joss___joss_db_") || strings.Contains(llvmIR, "@fn_Schema_") || strings.Contains(llvmIR, "@fn_Blueprint_") || strings.Contains(llvmIR, "@fn_Model_")
+	needsGUI := opts.GUI || strings.Contains(llvmIR, "@fn_Window_")
 	needsCrypto := strings.Contains(llvmIR, "joss_sha256") || strings.Contains(llvmIR, "joss_password_") || strings.Contains(llvmIR, "joss_random_hex") || strings.Contains(llvmIR, "joss_jwt_") || strings.Contains(llvmIR, "joss_totp_") || strings.Contains(llvmIR, "joss_rsa_sign_")
-	needsWeb := needsDB || llvmNeedsWebRuntime(llvmIR) || strings.Contains(llvmIR, "@joss_set_active_request") || strings.Contains(llvmIR, "@joss_register_embedded_asset_resolver")
+	needsWeb := needsDB || needsGUI || llvmNeedsWebRuntime(llvmIR) || strings.Contains(llvmIR, "@joss_set_active_request") || strings.Contains(llvmIR, "@joss_register_embedded_asset_resolver")
 	needsThreads := strings.Contains(llvmIR, "@joss_async") || strings.Contains(llvmIR, "@joss_make_chan") ||
 		strings.Contains(llvmIR, "@fn_Mutex_") || strings.Contains(llvmIR, "@fn_RWMutex_") || strings.Contains(llvmIR, "@fn_WaitGroup_")
 	needsConcurrency := needsThreads || strings.Contains(llvmIR, "@joss_dp_get") || strings.Contains(llvmIR, "@joss_dp_put")
@@ -209,6 +210,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		{"joss_concurrency_rt.c", needsConcurrency, nil},
 		{"joss_db_rt.c", needsDB, dbDefines},
 		{"joss_crypto_rt.c", needsCrypto, nil},
+		{"joss_gui_rt.c", needsGUI, nil},
 	}
 	for _, u := range optionalUnits {
 		if !u.include {
@@ -295,7 +297,24 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	if needsWeb && opts.Target.OS == "windows" {
 		linkArgs = append(linkArgs, "-lws2_32", "-lbcrypt", "-lcrypt32")
 	}
-	if (needsThreads || needsWeb || needsDB) && (opts.Target.OS == "linux" || opts.Target.OS == "") {
+	if needsGUI {
+		targetOS := opts.Target.OS
+		if targetOS == "" {
+			targetOS = runtime.GOOS
+		}
+		switch targetOS {
+		case "windows":
+			linkArgs = append(linkArgs, "-luser32", "-lole32", "-lshell32", "-ldwmapi", "-lshlwapi", "-ladvapi32")
+			if opts.GUI {
+				linkArgs = append(linkArgs, "-mwindows")
+			}
+		case "darwin":
+			linkArgs = append(linkArgs, "-framework", "Cocoa", "-framework", "WebKit")
+		case "linux":
+			linkArgs = append(linkArgs, "-ldl")
+		}
+	}
+	if (needsThreads || needsWeb || needsDB || needsGUI) && (opts.Target.OS == "linux" || opts.Target.OS == "") {
 		linkArgs = append(linkArgs, "-pthread")
 	}
 	if !tc.UseZigCC && lldPath != "" && opts.Target.OS != "darwin" {

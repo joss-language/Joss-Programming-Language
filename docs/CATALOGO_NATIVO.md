@@ -852,13 +852,30 @@ Implementación: [executeWebSocketMethod](../pkg/core/websocket.go#L60).
 
 | Método | Retorno publicado al analizador |
 |---|---|
+| `bind` | `void` |
 | `close` | `void` |
+| `dispatch` | `string` |
+| `eval` | `void` |
+| `getHeight` | `int` |
+| `getTitle` | `string` |
+| `getWidth` | `int` |
 | `hide` | `void` |
+| `isVisible` | `bool` |
+| `maximize` | `void` |
+| `minimize` | `void` |
+| `navigate` | `void` |
 | `on` | `void` |
 | `open` | `Window` |
 | `pollEvents` | `bool` |
 | `render` | `void` |
+| `run` | `void` |
+| `setAlwaysOnTop` | `void` |
+| `setFrameless` | `void` |
+| `setHtml` | `void` |
+| `setMinSize` | `void` |
+| `setResizable` | `void` |
 | `setSize` | `void` |
+| `setTheme` | `void` |
 | `setTitle` | `void` |
 | `show` | `void` |
 
@@ -1032,4 +1049,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 54 clases, 530 métodos y 158 built-ins.
+Total: 54 clases, 547 métodos y 158 built-ins.

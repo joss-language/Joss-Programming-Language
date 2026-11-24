@@ -29,7 +29,7 @@ func TestEnsureRuntimeC_ExtractsEmbeddedOutsideRepo(t *testing.T) {
 		t.Fatalf("EnsureRuntimeC failed outside repo: %v", err)
 	}
 	rtDir := filepath.Dir(rtPath)
-	for _, f := range []string{"joss_rt.h", "joss_rt.c", "joss_web_rt.c", "joss_concurrency_rt.c", "joss_db_rt.c", "joss_crypto_rt.c"} {
+	for _, f := range []string{"joss_rt.h", "joss_rt.c", "joss_web_rt.c", "joss_concurrency_rt.c", "joss_db_rt.c", "joss_crypto_rt.c", "joss_gui_rt.c"} {
 		if info, statErr := os.Stat(filepath.Join(rtDir, f)); statErr != nil || info.Size() == 0 {
 			t.Fatalf("expected embedded runtime file %s in %s: %v", f, rtDir, statErr)
 		}

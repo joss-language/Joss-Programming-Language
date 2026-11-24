@@ -55,8 +55,9 @@ jobs:
             -DJOSS_DB_DISABLE_PG -DJOSS_DB_DISABLE_MYSQL -DJOSS_DB_DISABLE_ODBC \
             runtime/native/joss_rt.c runtime/native/joss_web_rt.c \
             runtime/native/joss_concurrency_rt.c runtime/native/joss_db_rt.c \
-            runtime/native/joss_crypto_rt.c runtime/native/joss_rt_test.c \
-            -lsqlite3 -lcrypto -pthread -o "$RUNNER_TEMP/joss_rt_test"
+            runtime/native/joss_crypto_rt.c runtime/native/joss_gui_rt.c \
+            runtime/native/joss_rt_test.c \
+            -lsqlite3 -lcrypto -pthread -ldl -o "$RUNNER_TEMP/joss_rt_test"
           "$RUNNER_TEMP/joss_rt_test"
 
       - name: Analyze committed integration project
