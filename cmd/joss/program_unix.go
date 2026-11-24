@@ -7,37 +7,38 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
+
+	"github.com/jossecurity/joss/pkg/i18n"
 )
 
 //go:embed default_logo.png
 var defaultLogo []byte
 
-func containsWindowAPI(src string) bool {
-	return strings.Contains(src, "Window::open") || strings.Contains(src, "new Window")
-}
-
 func startProgram(args []string) {
-	mode, rest := takeExecutionMode(args)
-	if mode == executionModeNative {
-		if rawSrc, err := os.ReadFile("main.joss"); err == nil && containsWindowAPI(string(rawSrc)) {
-			fmt.Println("⚡ [Desktop GUI] Compilando aplicación a binario nativo AOT...")
-			exePath, buildErr := buildNativeProgram("main.joss", "", "", false, false, false, true, "auto")
-			if buildErr != nil {
-				fmt.Printf("❌ [Desktop GUI] Error compilando binario nativo: %v\n", buildErr)
-				os.Exit(1)
-			}
-			cmd := exec.Command(exePath, rest...)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Stdin = os.Stdin
-			cmd.Env = append(os.Environ(), "JOSS_GUI=true")
-			if runErr := cmd.Run(); runErr != nil {
-				fmt.Printf("❌ [Desktop GUI] Error ejecutando aplicación nativa: %v\n", runErr)
-				os.Exit(1)
-			}
-			return
-		}
+	_, rest := takeExecutionMode(args)
+
+	if _, err := os.Stat("main.joss"); os.IsNotExist(err) {
+		fmt.Println(i18n.Tr("cliErrNoMain"))
+		fmt.Println("  main.joss")
+		fmt.Println(i18n.Tr("cliErrRequireMain"))
+		os.Exit(1)
 	}
-	handleServerStart(append(args, "--gui"))
+
+	fmt.Println("⚡ [Desktop GUI] Compilando aplicación a binario Joss Native AOT...")
+	exePath, err := buildNativeProgram("main.joss", "", "", false, false, false, true, "auto")
+	if err != nil {
+		fmt.Printf("❌ [Desktop GUI] Error compilando binario nativo: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("🚀 [Desktop GUI] Ejecutando aplicación nativa standalone (%s)...\n", exePath)
+	cmd := exec.Command(exePath, rest...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Env = append(os.Environ(), "JOSS_GUI=true", "JOSS_PROGRAM_START=true")
+	if runErr := cmd.Run(); runErr != nil {
+		fmt.Printf("❌ [Desktop GUI] Error ejecutando aplicación nativa: %v\n", runErr)
+		os.Exit(1)
+	}
 }

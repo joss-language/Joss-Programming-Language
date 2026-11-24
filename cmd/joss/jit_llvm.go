@@ -20,11 +20,6 @@ import (
 	"github.com/jossecurity/joss/pkg/ir"
 )
 
-func shouldDisableJIT() bool {
-	v := strings.TrimSpace(os.Getenv("JOSS_NO_JIT"))
-	return v == "1" || strings.EqualFold(v, "true")
-}
-
 func computeNativeJITCacheKey(filename string, prepared *semanticanalyzer.PreparedProgram, enableGUI bool) string {
 	h := sha256.New()
 
@@ -119,9 +114,6 @@ func executeViaNativeLLVMJIT(irProg *ir.Program, prepared *semanticanalyzer.Prep
 	}
 
 	if !cacheHit {
-		if mode == executionModeAuto {
-			fmt.Println("[Auto] Capacidades nativas disponibles; se seleccionó JIT nativo (LLVM).")
-		}
 		var seedTables map[string][]map[string]string
 		envDetect := core.DetectAndLoadEnv(nil)
 		if len(envDetect.EnvMap) > 0 {
@@ -157,8 +149,6 @@ func executeViaNativeLLVMJIT(irProg *ir.Program, prepared *semanticanalyzer.Prep
 				defer os.Remove(tmpPath)
 			}
 		}
-	} else if mode == executionModeAuto {
-		fmt.Println("[Auto] Capacidades nativas disponibles; se seleccionó JIT nativo (LLVM cache).")
 	}
 
 	cmd := exec.Command(cachePath)

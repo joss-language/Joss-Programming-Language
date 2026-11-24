@@ -19,10 +19,10 @@ import (
 	"github.com/jossecurity/joss/pkg/pluginpkg"
 )
 
-func TestExecutionModeDefaultsToAutoAndNativeIsExplicit(t *testing.T) {
+func TestExecutionModeIsAlwaysNative(t *testing.T) {
 	mode, args := takeExecutionMode([]string{"main.joss"})
-	if mode != executionModeAuto || len(args) != 1 || args[0] != "main.joss" {
-		t.Fatalf("default mode = %q, args = %v; want auto mode and untouched args", executionModeName(mode), args)
+	if mode != executionModeNative || len(args) != 1 || args[0] != "main.joss" {
+		t.Fatalf("default mode = %q, args = %v; want native mode and untouched args", executionModeName(mode), args)
 	}
 
 	mode, args = takeExecutionMode([]string{"main.joss", "--native"})
@@ -31,8 +31,8 @@ func TestExecutionModeDefaultsToAutoAndNativeIsExplicit(t *testing.T) {
 	}
 
 	mode, args = takeExecutionMode([]string{"main.joss", "--anterior"})
-	if mode != executionModePrevious || len(args) != 1 || args[0] != "main.joss" {
-		t.Fatalf("previous mode = %q, args = %v; want anterior mode and selector removed", executionModeName(mode), args)
+	if mode != executionModeNative || len(args) != 1 || args[0] != "main.joss" {
+		t.Fatalf("deprecated anterior flag = %q, args = %v; want native mode with flag stripped", executionModeName(mode), args)
 	}
 }
 
@@ -42,47 +42,24 @@ func TestServerChildPreservesNativeModeThroughReload(t *testing.T) {
 	if strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Fatalf("native child args = %v, want %v", got, want)
 	}
-	got = serverChildArgs("main.joss", nil, executionModePrevious)
-	if strings.Join(got, " ") != "run main.joss" {
-		t.Fatalf("previous child args = %v, want no native selector", got)
-	}
-	got = serverChildArgs("main.joss", nil, executionModeAuto)
-	if strings.Join(got, " ") != "run main.joss" {
-		t.Fatalf("auto child args = %v, want auto selection via default", got)
-	}
 }
 
-func TestServerChildSelectsNativeHTTPByDefault(t *testing.T) {
-	if got := serverBackendForMode(executionModeAuto); got != "native" {
-		t.Fatalf("auto HTTP backend = %q, want native", got)
-	}
-	if got := serverBackendForMode(executionModePrevious); got != "go" {
-		t.Fatalf("previous HTTP backend = %q, want go", got)
-	}
+func TestServerChildAlwaysSelectsNativeHTTP(t *testing.T) {
 	if got := serverBackendForMode(executionModeNative); got != "native" {
-		t.Fatalf("native HTTP backend = %q, want native", got)
+		t.Fatalf("HTTP backend = %q, want native", got)
 	}
-	if !shouldUseGoHTTPRuntime(executionModePrevious, "go") {
-		t.Fatal("previous server mode should use the Go HTTP runtime")
+	if shouldUseGoHTTPRuntime(executionModeNative, "go") {
+		t.Fatal("native mode must never select Go HTTP")
 	}
-	if shouldUseGoHTTPRuntime(executionModeAuto, "native") || shouldUseGoHTTPRuntime(executionModeNative, "go") {
-		t.Fatal("auto and native modes must not select Go HTTP")
-	}
-	t.Setenv("JOSS_HTTP_BACKEND", "inherited-invalid")
-	for mode, want := range map[executionMode]string{
-		executionModeAuto:     "native",
-		executionModePrevious: "go",
-		executionModeNative:   "native",
-	} {
-		var selected string
-		for _, entry := range serverChildEnv(false, mode) {
-			if strings.HasPrefix(strings.ToUpper(entry), "JOSS_HTTP_BACKEND=") {
-				selected = strings.TrimPrefix(entry, "JOSS_HTTP_BACKEND=")
-			}
+	t.Setenv("JOSS_HTTP_BACKEND", "go")
+	var selected string
+	for _, entry := range serverChildEnv(false, executionModeNative) {
+		if strings.HasPrefix(strings.ToUpper(entry), "JOSS_HTTP_BACKEND=") {
+			selected = strings.TrimPrefix(entry, "JOSS_HTTP_BACKEND=")
 		}
-		if selected != want {
-			t.Errorf("child HTTP backend for %s = %q, want %q", executionModeName(mode), selected, want)
-		}
+	}
+	if selected != "native" {
+		t.Errorf("child HTTP backend = %q, want native", selected)
 	}
 }
 
@@ -97,7 +74,7 @@ func TestProjectHTTPServerDetectionUsesPreparedCallFacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !projectUsesHTTPServer("main.joss") {
-		t.Fatal("project with resolved Server::start should select the Go HTTP server in auto mode")
+		t.Fatal("project with resolved Server::start should be detected as an HTTP server")
 	}
 	if err := os.WriteFile("main.joss", []byte(`public func main(): int {
     return 0
@@ -109,7 +86,7 @@ func TestProjectHTTPServerDetectionUsesPreparedCallFacts(t *testing.T) {
 	}
 }
 
-func TestAutomaticHTTPBuildAttemptsNativeAndPreviousUsesGoRunner(t *testing.T) {
+func TestHTTPBuildIsStrictlyNative(t *testing.T) {
 	project := t.TempDir()
 	t.Chdir(project)
 	if err := os.WriteFile("main.joss", []byte(`public func main(): int {
@@ -120,79 +97,56 @@ func TestAutomaticHTTPBuildAttemptsNativeAndPreviousUsesGoRunner(t *testing.T) {
 	}
 	hostTarget := native.HostTarget()
 	targetStr := hostTarget.DashString()
-	runnerBinName := "joss-runner"
 	ext := ""
 	if hostTarget.OS == "windows" {
-		runnerBinName = "joss-runner.exe"
 		ext = ".exe"
 	}
-	runnerDir := filepath.Join(t.TempDir(), "runners")
-	if err := os.MkdirAll(filepath.Join(runnerDir, targetStr), 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(runnerDir, targetStr, runnerBinName), []byte("test-runner"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("JOSS_RUNNER_DIR", runnerDir)
 
-	prevOutput, err := buildProgramForMode("main.joss", filepath.Join("build", "previous"+ext), targetStr, false, false, false, false, "auto", executionModePrevious)
-	if err != nil {
-		t.Fatalf("previous (--anterior) HTTP build should select the Go runner: %v", err)
-	}
-	prevContents, err := os.ReadFile(prevOutput)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(prevContents, []byte(legacyRunnerTrailer)) {
-		t.Fatal("previous (--anterior) HTTP build did not package the Go runner")
-	}
-
-	autoOutput, err := buildProgramForMode("main.joss", filepath.Join("build", "auto"+ext), targetStr, false, false, false, false, "auto", executionModeAuto)
-	if err != nil {
-		t.Fatalf("auto HTTP build failed: %v", err)
-	}
-	autoContents, err := os.ReadFile(autoOutput)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if ensureNativeToolchainReady() {
+		nativeOutput, err := buildProgramForMode("main.joss", filepath.Join("build", "native_http"+ext), targetStr, false, false, false, false, "auto", executionModeNative)
+		if err != nil {
+			t.Fatalf("native HTTP build failed: %v", err)
+		}
+		contents, err := os.ReadFile(nativeOutput)
+		if err != nil {
+			t.Fatal(err)
+		}
 		validMagic := false
 		switch hostTarget.OS {
 		case "windows":
-			validMagic = len(autoContents) >= 2 && string(autoContents[:2]) == "MZ"
+			validMagic = len(contents) >= 2 && string(contents[:2]) == "MZ"
 		case "linux":
-			validMagic = len(autoContents) >= 4 && string(autoContents[:4]) == "\x7fELF"
+			validMagic = len(contents) >= 4 && string(contents[:4]) == "\x7fELF"
 		case "darwin":
-			validMagic = len(autoContents) >= 4 && (bytes.Equal(autoContents[:4], []byte{0xcf, 0xfa, 0xed, 0xfe}) || bytes.Equal(autoContents[:4], []byte{0xca, 0xfe, 0xba, 0xbe}))
+			validMagic = len(contents) >= 4 && (bytes.Equal(contents[:4], []byte{0xcf, 0xfa, 0xed, 0xfe}) || bytes.Equal(contents[:4], []byte{0xca, 0xfe, 0xba, 0xbe}))
 		default:
-			validMagic = len(autoContents) > 0
+			validMagic = len(contents) > 0
 		}
 		if !validMagic {
-			t.Fatalf("auto HTTP build did not emit a native %s executable: prefix=%x", hostTarget.OS, autoContents[:min(4, len(autoContents))])
+			t.Fatalf("native HTTP build did not emit a native %s executable", hostTarget.OS)
 		}
-		if bytes.Contains(autoContents, []byte(legacyRunnerTrailer)) {
-			t.Fatal("auto HTTP build unexpectedly packaged the Go runner instead of compiling natively")
+		if bytes.Contains(contents, []byte("JOSS_RUNNER_DATA")) {
+			t.Fatal("native HTTP build must never embed legacy runner data")
 		}
 	}
 
-	// Verify auto mode enters the native frontend first rather than bypassing to buildLegacyProgram.
 	if err := os.WriteFile("broken.joss", []byte(`public func main(): int {
     Server::start()
     return "wrong-type"
 }`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := buildProgramForMode("broken.joss", filepath.Join("build", "broken"+ext), targetStr, false, false, false, false, "auto", executionModeAuto); err == nil {
-		t.Fatal("auto mode must run native frontend analysis instead of bypassing HTTP projects straight to the Go runner")
+	if _, err := buildProgramForMode("broken.joss", filepath.Join("build", "broken"+ext), targetStr, false, false, false, false, "auto", executionModeNative); err == nil {
+		t.Fatal("build must fail on static semantic errors")
 	}
 }
 
-func TestNativeCapabilityGapIsTheOnlyAutomaticFallback(t *testing.T) {
+func TestNativeCapabilityGapDetection(t *testing.T) {
 	if !isNativeCapabilityGap(errors.New("JOSS-NATIVE-001: unsupported call")) {
-		t.Fatal("native capability diagnostic should allow automatic compatibility selection")
+		t.Fatal("native capability diagnostic should be detected")
 	}
 	if !isNativeCapabilityGap(errors.New("capacidades AOT no disponibles: Socket::listen")) {
-		t.Fatal("AOT capability validation error should allow automatic compatibility selection")
+		t.Fatal("AOT capability validation error should be detected")
 	}
 	for _, err := range []error{
 		nil,
@@ -200,7 +154,7 @@ func TestNativeCapabilityGapIsTheOnlyAutomaticFallback(t *testing.T) {
 		errors.New("IR verifier internal failure"),
 	} {
 		if isNativeCapabilityGap(err) {
-			t.Errorf("%v must not trigger compatibility selection", err)
+			t.Errorf("%v must not be classified as a capability gap", err)
 		}
 	}
 }
@@ -231,40 +185,7 @@ func TestBuildRejectsMissingAOTCapabilityBeforePreparingProjectAssets(t *testing
 	}
 }
 
-func TestAutomaticBuildUsesCompatibilityRunnerOnlyForNativeCapabilityGap(t *testing.T) {
-	project := t.TempDir()
-	t.Chdir(project)
-	if err := os.WriteFile("custom.joss", []byte(`public func main(): int {
-    Cache::get("probe")
-    return 0
-}`), 0600); err != nil {
-		t.Fatal(err)
-	}
-
-	runnerDir := filepath.Join(t.TempDir(), "runners")
-	targetRunnerDir := filepath.Join(runnerDir, "windows-amd64")
-	if err := os.MkdirAll(targetRunnerDir, 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(targetRunnerDir, "joss-runner.exe"), []byte("test-runner"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("JOSS_RUNNER_DIR", runnerDir)
-
-	output, err := buildProgramForMode("custom.joss", "", "windows-amd64", false, false, false, false, "native", executionModeAuto)
-	if err != nil {
-		t.Fatalf("auto build should select the compatibility runner for a known native gap: %v", err)
-	}
-	contents, err := os.ReadFile(output)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(contents, []byte(legacyRunnerTrailer)) {
-		t.Fatalf("auto build output lacks the sealed compatibility payload marker")
-	}
-}
-
-func TestAutomaticBuildUsesCompactAOTWhenNoHostCapabilityIsNeeded(t *testing.T) {
+func TestBuildUsesCompactAOTWhenNoHostCapabilityIsNeeded(t *testing.T) {
 	project := t.TempDir()
 	t.Chdir(project)
 	if err := os.WriteFile("main.joss", []byte(`public func main(): int {
@@ -273,22 +194,22 @@ func TestAutomaticBuildUsesCompactAOTWhenNoHostCapabilityIsNeeded(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	output, err := buildProgramForMode("main.joss", "", "windows-amd64", true, false, false, false, "native", executionModeAuto)
+	output, err := buildProgramForMode("main.joss", "", "windows-amd64", true, false, false, false, "native", executionModeNative)
 	if err != nil {
-		t.Fatalf("auto build should select AOT for a pure program: %v", err)
+		t.Fatalf("native build should select AOT for a pure program: %v", err)
 	}
 	contents, err := os.ReadFile(output)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(contents) < 2 || string(contents[:2]) != "MZ" {
-		t.Fatalf("pure auto build is not a PE executable: prefix=%q", contents[:min(2, len(contents))])
+		t.Fatalf("pure native build is not a PE executable: prefix=%q", contents[:min(2, len(contents))])
 	}
-	if bytes.Contains(contents, []byte(legacyRunnerTrailer)) {
-		t.Fatal("pure auto build unexpectedly embeds a Go compatibility runner")
+	if bytes.Contains(contents, []byte("JOSS_RUNNER_DATA")) {
+		t.Fatal("pure native build unexpectedly embeds a Go compatibility runner")
 	}
 	if len(contents) > 80*1024 {
-		t.Fatalf("pure auto build size = %d bytes, exceeds the 80 KiB compact profile goal", len(contents))
+		t.Fatalf("pure native build size = %d bytes, exceeds the 80 KiB compact profile goal", len(contents))
 	}
 }
 

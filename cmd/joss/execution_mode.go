@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"reflect"
 	"strings"
 
@@ -11,33 +13,20 @@ import (
 type executionMode uint8
 
 const (
-	executionModeAuto executionMode = iota
-	executionModePrevious
-	executionModeNative
+	executionModeNative executionMode = iota
 )
 
 func executionModeName(mode executionMode) string {
-	switch mode {
-	case executionModeNative:
-		return "native"
-	case executionModePrevious:
-		return "anterior"
-	default:
-		return "auto"
-	}
+	return "native"
 }
 
-// Native HTTP server is now the default for auto and native modes;
-// --anterior / --go keeps the Go net/http compatibility server available.
+// Joss runs exclusively on the Joss Native HTTP & execution engine.
 func serverBackendForMode(mode executionMode) string {
-	if mode == executionModePrevious {
-		return "go"
-	}
 	return "native"
 }
 
 func shouldUseGoHTTPRuntime(mode executionMode, backend string) bool {
-	return mode == executionModePrevious && strings.EqualFold(backend, "go")
+	return false
 }
 
 func preparedProgramUsesHTTPServer(prepared *semanticanalyzer.PreparedProgram) bool {
@@ -46,7 +35,7 @@ func preparedProgramUsesHTTPServer(prepared *semanticanalyzer.PreparedProgram) b
 	}
 	for _, unit := range prepared.Units {
 		// Standard Library definitions include their own Server::start call;
-		// only project code that invokes a server selects the Go server profile.
+		// only project code that invokes a server selects the HTTP server supervisor.
 		if strings.HasPrefix(strings.ReplaceAll(unit.Path, `\`, "/"), "<std/") {
 			continue
 		}
@@ -118,29 +107,23 @@ func isHTTPServerStartTarget(target string) bool {
 		strings.HasSuffix(target, ":Server::start") || strings.HasSuffix(target, ":HttpServer::start") || strings.HasSuffix(target, ":HttpServer::run")
 }
 
-// takeExecutionMode removes the shared --native / --anterior / --go selectors
-// from command args. Normal commands auto-select native execution when the backend
-// supports the program and otherwise use the compatibility runtime with a visible notice.
+// takeExecutionMode strips optional --native selector (now always active) and
+// warns if deprecated --anterior / --go flags are supplied.
 func takeExecutionMode(args []string) (executionMode, []string) {
-	mode := executionModeAuto
 	filtered := make([]string, 0, len(args))
 	for _, arg := range args {
 		if strings.EqualFold(arg, "--native") {
-			mode = executionModeNative
 			continue
 		}
 		if strings.EqualFold(arg, "--anterior") || strings.EqualFold(arg, "--go") {
-			mode = executionModePrevious
+			fmt.Fprintln(os.Stderr, "[aviso] El motor de ejecución Go fue retirado; Joss ejecuta exclusivamente en modo Joss Native.")
 			continue
 		}
 		filtered = append(filtered, arg)
 	}
-	return mode, filtered
+	return executionModeNative, filtered
 }
 
-// isNativeCapabilityGap distinguishes a known backend coverage gap from
-// analysis, verification, or code-generation failures. Auto mode may use the
-// compatibility runtime only for the former; strict --native never does.
 func isNativeCapabilityGap(err error) bool {
 	if err == nil {
 		return false
