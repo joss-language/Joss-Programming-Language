@@ -1165,6 +1165,11 @@ static int64_t pg_execute(const char* sql, void* bindings) {
         paramValues[i] = joss_strval(joss_arr_get_i64(bindings, i));
     }
     PGresult* res = PQexecParams(conn, pg_sql, nParams, NULL, paramValues, NULL, NULL, 0);
+    if ((!res || (PQresultStatus(res) != PGRES_COMMAND_OK && PQresultStatus(res) != PGRES_TUPLES_OK)) && PQstatus(conn) != CONNECTION_OK) {
+        if (res) PQclear(res);
+        conn = joss_get_pg();
+        res = conn ? PQexecParams(conn, pg_sql, nParams, NULL, paramValues, NULL, NULL, 0) : NULL;
+    }
     free(paramValues);
     free(pg_sql);
     if (!res) return 0;

@@ -52,6 +52,7 @@ jobs:
         shell: bash
         run: |
           clang -Wall -Wextra -Werror -O2 \
+            -DJOSS_DB_DISABLE_PG -DJOSS_DB_DISABLE_MYSQL -DJOSS_DB_DISABLE_ODBC \
             runtime/native/joss_rt.c runtime/native/joss_web_rt.c \
             runtime/native/joss_concurrency_rt.c runtime/native/joss_db_rt.c \
             runtime/native/joss_crypto_rt.c runtime/native/joss_rt_test.c \
