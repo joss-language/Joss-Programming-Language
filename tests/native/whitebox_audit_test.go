@@ -693,7 +693,7 @@ Router::get("/json-types", "AuditCtrl@jsonTypes")
 Router::get("/flash-set", "AuditCtrl@flashSet")
 Router::get("/flash-read", "AuditCtrl@flashRead")
 Router::get("/cookie-on-raw", "AuditCtrl@cookieOnRaw")
-Router::post("/upload-bin", "AuditCtrl@uploadBin")
+Router::post("/api/upload-bin", "AuditCtrl@uploadBin")
 Router::get("/session-counter", "AuditCtrl@sessionCounter")
 
 Router::group("auth", func() {
@@ -909,7 +909,7 @@ public class Main {
 		_ = mw.WriteField("after_field", "trailing_ok")
 		_ = mw.Close()
 
-		req, _ := http.NewRequest("POST", base1+"/upload-bin", &body)
+		req, _ := http.NewRequest("POST", base1+"/api/upload-bin", &body)
 		req.Header.Set("Content-Type", mw.FormDataContentType())
 		resp, err := client.Do(req)
 		if err != nil {
@@ -1195,7 +1195,7 @@ print("CSRF_VERIFY_EMPTY:" . strval(Csrf::verify("", $t1)));
 	t.Run("oauth_callback_and_request_facade_http", func(t *testing.T) {
 		dir := t.TempDir()
 		routesSrc := `
-Router::post("/facade-probe", "FacadeCtrl@probe")
+Router::post("/api/facade-probe", "FacadeCtrl@probe")
 Router::get("/oauth-cb", "FacadeCtrl@oauthCb")
 `
 		mainSrc := `
@@ -1248,22 +1248,22 @@ public class Main {
 			}
 		})
 		base := fmt.Sprintf("http://127.0.0.1:%d", port)
-		req, _ := http.NewRequest("POST", base+"/facade-probe", strings.NewReader(`{"name":"joss","secret":"123"}`))
+		req, _ := http.NewRequest("POST", base+"/api/facade-probe", strings.NewReader(`{"name":"joss","secret":"123"}`))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Cookie", "theme=ocean")
 		req.Header.Set("X-Custom-Header", "AuditVal")
 		req.Header.Set("Authorization", "Bearer tok_abc")
 		resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
 		if err != nil {
-			t.Fatalf("POST /facade-probe: %v\n%s", err, logs.String())
+			t.Fatalf("POST /api/facade-probe: %v\n%s", err, logs.String())
 		}
 		rb, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		var got map[string]any
 		if err := json.Unmarshal(rb, &got); err != nil {
-			t.Fatalf("invalid json /facade-probe: %q (%v)", string(rb), err)
+			t.Fatalf("invalid json /api/facade-probe: %q (%v)", string(rb), err)
 		}
-		if got["method"] != "POST" || got["is_post"] != true || got["path"] != "/facade-probe" ||
+		if got["method"] != "POST" || got["is_post"] != true || got["path"] != "/api/facade-probe" ||
 			got["cookie"] != "ocean" || got["header_ci"] != "AuditVal" || got["bearer"] != "tok_abc" ||
 			got["has_name"] != true {
 			t.Errorf("Request facade mismatch: %v", got)
@@ -1384,27 +1384,22 @@ print("AFTER_DROP:" . strval(Schema::hasTable("audit_users")));
 					if _, err := io.ReadFull(conn, startup); err != nil {
 						return
 					}
+					if mlen == 8 && binary.BigEndian.Uint32(startup) == 80877103 {
+						_, _ = conn.Write([]byte{'N'})
+						if _, err := io.ReadFull(conn, lenBuf); err != nil {
+							return
+						}
+						mlen = binary.BigEndian.Uint32(lenBuf)
+						startup = make([]byte, mlen-4)
+						if _, err := io.ReadFull(conn, startup); err != nil {
+							return
+						}
+					}
 					_, _ = conn.Write([]byte{'R', 0, 0, 0, 8, 0, 0, 0, 0})
 					rfq := []byte{'Z', 0, 0, 0, 5, 'I'}
 					_, _ = conn.Write(rfq)
-					for {
-						hdr := make([]byte, 5)
-						if _, err := io.ReadFull(conn, hdr); err != nil {
-							return
-						}
-						qlen := binary.BigEndian.Uint32(hdr[1:5])
-						qbody := make([]byte, qlen-4)
-						if _, err := io.ReadFull(conn, qbody); err != nil {
-							return
-						}
-						sqlStr := strings.TrimRight(string(qbody), "\x00")
-						if id == 1 && strings.Contains(sqlStr, "CREATE TABLE") {
-							// Drop connection on first CREATE TABLE to force wire reconnect
-							return
-						}
-						qmu.Lock()
-						queries = append(queries, sqlStr)
-						qmu.Unlock()
+					var pendingSQL string
+					writeRowOrCmd := func(sqlStr string) {
 						if strings.Contains(sqlStr, "information_schema.tables") || strings.Contains(sqlStr, "information_schema.columns") {
 							col := "table_name\x00"
 							tb := make([]byte, 2+len(col)+18)
@@ -1415,8 +1410,14 @@ print("AFTER_DROP:" . strval(Schema::hasTable("audit_users")));
 							binary.BigEndian.PutUint32(tm[1:5], uint32(4+len(tb)))
 							copy(tm[5:], tb)
 							dm := []byte{'D', 0, 0, 0, 17, 0, 1, 0, 0, 0, 7, 'i', 't', 'e', 'm', 's', '_', '1'}
+							cmdTag := "SELECT 1\x00"
+							cm := make([]byte, 5+len(cmdTag))
+							cm[0] = 'C'
+							binary.BigEndian.PutUint32(cm[1:5], uint32(4+len(cmdTag)))
+							copy(cm[5:], cmdTag)
 							_, _ = conn.Write(tm)
 							_, _ = conn.Write(dm)
+							_, _ = conn.Write(cm)
 						} else {
 							cmdTag := "OK\x00"
 							cm := make([]byte, 5+len(cmdTag))
@@ -1425,7 +1426,80 @@ print("AFTER_DROP:" . strval(Schema::hasTable("audit_users")));
 							copy(cm[5:], cmdTag)
 							_, _ = conn.Write(cm)
 						}
-						_, _ = conn.Write(rfq)
+					}
+					for {
+						hdr := make([]byte, 5)
+						if _, err := io.ReadFull(conn, hdr); err != nil {
+							return
+						}
+						qlen := binary.BigEndian.Uint32(hdr[1:5])
+						qbody := make([]byte, qlen-4)
+						if _, err := io.ReadFull(conn, qbody); err != nil {
+							return
+						}
+						switch hdr[0] {
+						case 'Q':
+							sqlStr := strings.TrimRight(string(qbody), "\x00")
+							if id == 1 && strings.Contains(sqlStr, "CREATE TABLE") {
+								return
+							}
+							qmu.Lock()
+							queries = append(queries, sqlStr)
+							qmu.Unlock()
+							writeRowOrCmd(sqlStr)
+							_, _ = conn.Write(rfq)
+						case 'P':
+							// Parse: stmtName\0 query\0 ...
+							parts := strings.SplitN(string(qbody), "\x00", 3)
+							if len(parts) >= 2 {
+								pendingSQL = parts[1]
+							}
+							if id == 1 && strings.Contains(pendingSQL, "CREATE TABLE") {
+								return
+							}
+							qmu.Lock()
+							queries = append(queries, pendingSQL)
+							qmu.Unlock()
+							_, _ = conn.Write([]byte{'1', 0, 0, 0, 4}) // ParseComplete
+						case 'B':
+							_, _ = conn.Write([]byte{'2', 0, 0, 0, 4}) // BindComplete
+						case 'D':
+							if strings.Contains(pendingSQL, "information_schema.tables") || strings.Contains(pendingSQL, "information_schema.columns") {
+								col := "table_name\x00"
+								tb := make([]byte, 2+len(col)+18)
+								binary.BigEndian.PutUint16(tb[0:2], 1)
+								copy(tb[2:], col)
+								tm := make([]byte, 5+len(tb))
+								tm[0] = 'T'
+								binary.BigEndian.PutUint32(tm[1:5], uint32(4+len(tb)))
+								copy(tm[5:], tb)
+								_, _ = conn.Write(tm)
+							} else {
+								_, _ = conn.Write([]byte{'n', 0, 0, 0, 4}) // NoData
+							}
+						case 'E':
+							if strings.Contains(pendingSQL, "information_schema.tables") || strings.Contains(pendingSQL, "information_schema.columns") {
+								dm := []byte{'D', 0, 0, 0, 17, 0, 1, 0, 0, 0, 7, 'i', 't', 'e', 'm', 's', '_', '1'}
+								cmdTag := "SELECT 1\x00"
+								cm := make([]byte, 5+len(cmdTag))
+								cm[0] = 'C'
+								binary.BigEndian.PutUint32(cm[1:5], uint32(4+len(cmdTag)))
+								copy(cm[5:], cmdTag)
+								_, _ = conn.Write(dm)
+								_, _ = conn.Write(cm)
+							} else {
+								cmdTag := "OK\x00"
+								cm := make([]byte, 5+len(cmdTag))
+								cm[0] = 'C'
+								binary.BigEndian.PutUint32(cm[1:5], uint32(4+len(cmdTag)))
+								copy(cm[5:], cmdTag)
+								_, _ = conn.Write(cm)
+							}
+						case 'S':
+							_, _ = conn.Write(rfq)
+						case 'X':
+							return
+						}
 					}
 				}(c, cid)
 			}
@@ -1457,6 +1531,7 @@ print("PG_DDL:" . strval($ok) . "," . strval($cr) . "," . strval($ht) . "," . st
 			"DB_USERNAME=pg",
 			"DB_PASSWORD=pw",
 			"DB_DATABASE=app",
+			"DB_SSLMODE=disable",
 		})
 		if runErr != nil || code != 0 {
 			t.Fatalf("pg_ddl exited code=%d err=%v\n%s", code, runErr, out)
@@ -1810,6 +1885,9 @@ print("JP_RES:" . strval($r1));
 	t.Run("jossecurity_default_and_native_build", func(t *testing.T) {
 		repoRoot := wbRepoRoot(t)
 		srcDir := filepath.Join(repoRoot, "ejemplos", "Joss-Red-JosSecurity")
+		if _, err := os.Stat(filepath.Join(srcDir, "main.joss")); err != nil {
+			t.Skipf("external project %s not present in checkout", srcDir)
+		}
 		tmpDir := t.TempDir()
 		wbCopyDir(t, srcDir, tmpDir)
 

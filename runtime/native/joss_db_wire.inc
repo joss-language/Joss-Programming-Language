@@ -6,6 +6,12 @@
 #ifndef JOSS_DB_WIRE_INC
 #define JOSS_DB_WIRE_INC
 
+#if defined(__GNUC__) || defined(__clang__)
+#define JOSS_WIRE_UNUSED __attribute__((unused))
+#else
+#define JOSS_WIRE_UNUSED
+#endif
+
 #include "joss_crypto_primitives.inc"
 #include <stdint.h>
 #include <stdio.h>
@@ -421,7 +427,7 @@ static joss_wire_sock_t joss_wire_get_mysql(void) {
     return g_wire_mysql_fd;
 }
 
-static void* mysql_wire_query(const char* sql, void* bindings) {
+static JOSS_WIRE_UNUSED void* mysql_wire_query(const char* sql, void* bindings) {
     void* rows = joss_arr_new(4);
     if (!sql) return rows;
     char* bound = joss_wire_bind_sql(sql, bindings);
@@ -522,7 +528,7 @@ static void* mysql_wire_query(const char* sql, void* bindings) {
     return rows;
 }
 
-static int64_t mysql_wire_execute(const char* sql, void* bindings) {
+static JOSS_WIRE_UNUSED int64_t mysql_wire_execute(const char* sql, void* bindings) {
     if (!sql) return 0;
     char* bound = joss_wire_bind_sql(sql, bindings);
     if (!bound) return 0;
@@ -797,7 +803,7 @@ static joss_wire_sock_t joss_wire_get_pg(void) {
     }
 }
 
-static void* pg_wire_query(const char* sql, void* bindings) {
+static JOSS_WIRE_UNUSED void* pg_wire_query(const char* sql, void* bindings) {
     void* rows = joss_arr_new(4);
     if (!sql) return rows;
     char* bound = joss_wire_bind_sql(sql, bindings);
@@ -883,7 +889,7 @@ static void* pg_wire_query(const char* sql, void* bindings) {
     return rows;
 }
 
-static int64_t pg_wire_execute(const char* sql, void* bindings) {
+static JOSS_WIRE_UNUSED int64_t pg_wire_execute(const char* sql, void* bindings) {
     (void)pg_wire_query(sql, bindings);
     return 1;
 }

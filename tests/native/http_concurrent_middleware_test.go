@@ -138,7 +138,7 @@ public class AppCtrl {
 }
 
 Router::get("/echo/{id}", "AppCtrl@echoId")
-Router::post("/upload", "AppCtrl@upload")
+Router::post("/api/upload", "AppCtrl@upload")
 Router::get("/test-login", "AppCtrl@setUser")
 Router::get("/test-admin", "AppCtrl@setAdmin")
 
@@ -212,6 +212,7 @@ public class Main {
 		"RATE_LIMIT_REQUESTS=1000",
 		"RATE_LIMIT_WINDOW_SECONDS=60",
 		"JWT_SECRET=" + jwtSecret,
+		"SECURITY_DECEPTION=false",
 	})
 	t.Cleanup(func() {
 		if cmd1 != nil && cmd1.Process != nil {
@@ -279,7 +280,7 @@ public class Main {
 		_, _ = fw.Write(pngBytes)
 		_ = mw.Close()
 
-		req, _ := http.NewRequest("POST", base1+"/upload", &bodyBuf)
+		req, _ := http.NewRequest("POST", base1+"/api/upload", &bodyBuf)
 		req.Header.Set("Content-Type", mw.FormDataContentType())
 		resp, err := clientNoRedirect.Do(req)
 		if err != nil {

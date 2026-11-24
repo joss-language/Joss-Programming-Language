@@ -526,7 +526,13 @@ public class Main {
 		}))
 		defer mockOAuth.Close()
 
-		authSource := `
+		bcryptBytes, err := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.MinCost)
+		if err != nil {
+			t.Fatalf("bcrypt.GenerateFromPassword: %v", err)
+		}
+		bcrypt2bHash := strings.Replace(string(bcryptBytes), "$2a$", "$2b$", 1)
+
+		authSource := fmt.Sprintf(`
 public class Main {
 	Init main() {
 		__joss_db_execute("CREATE TABLE IF NOT EXISTS js_roles (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)", [])
@@ -563,7 +569,7 @@ public class Main {
 		print("PBKDF2:" . strval($okOut))
 
 		// 3. Bcrypt $2b$ hash compatibility
-		string $bcryptHash = "$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+		string $bcryptHash = %q
 		print("BCRYPT:" . strval(Auth::verifyHash($bcryptHash, "password")))
 
 		// 4. 2FA TOTP flow + single-use challenge replay guard
@@ -590,7 +596,7 @@ public class Main {
 		print("OAUTH_CB:" . strval($socJwt != null && strlen(strval($socJwt)) > 20))
 	}
 }
-`
+`, bcrypt2bHash)
 		authExe := buildNativeTestServerExe(t, authSource, "auth_parity")
 		dbPath := filepath.Join(t.TempDir(), "auth.db")
 		cmd := exec.Command(authExe)
@@ -599,6 +605,7 @@ public class Main {
 			"DB_DATABASE="+dbPath,
 			"DB_PATH="+dbPath,
 			"PREFIX=js_",
+			"DB_PREFIX=js_",
 			"JWT_SECRET=espiral3-super-secret-jwt-key-123456",
 			"GITHUB_CLIENT_ID=gh_cid",
 			"GITHUB_CLIENT_SECRET=gh_csec",

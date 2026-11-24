@@ -14,9 +14,9 @@ concurrency:
 
 jobs:
   quality:
-    name: Build, test, vet and analyze
+    name: Static checks, vet and analyze
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -48,18 +48,16 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      - name: Architectural Contract Gate
-        run: go test -v -count=1 ./tests/architecture
-
-      - name: Test
-        run: go test ./...
-
-
-      - name: Race-sensitive core tests
-        run: go test -race ./pkg/parser ./pkg/typesystem ./pkg/analyzer ./pkg/core
-
-      - name: Build
-        run: go build ./...
+      - name: C11 native runtime strict build and test
+        shell: bash
+        run: |
+          clang -Wall -Wextra -Werror -O2 \
+            -DJOSS_DB_DISABLE_PG -DJOSS_DB_DISABLE_MYSQL -DJOSS_DB_DISABLE_ODBC \
+            runtime/native/joss_rt.c runtime/native/joss_web_rt.c \
+            runtime/native/joss_concurrency_rt.c runtime/native/joss_db_rt.c \
+            runtime/native/joss_crypto_rt.c runtime/native/joss_rt_test.c \
+            -lsqlite3 -lcrypto -pthread -o "$RUNNER_TEMP/joss_rt_test"
+          "$RUNNER_TEMP/joss_rt_test"
 
       - name: Analyze committed integration project
         shell: bash
@@ -101,33 +99,87 @@ jobs:
           echo "::error::Se detectaron archivos sin formato gofmt. Ejecuta 'gofmt -w <archivos>' en tu rama local."
           exit 1
 
-  windows:
-    name: Windows build and test
-    runs-on: windows-latest
+  test:
+    name: Tests (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Linux amd64
+            os: ubuntu-latest
+            run_race: true
+          - label: Windows amd64
+            os: windows-latest
+            run_race: false
+          - label: macOS arm64
+            os: macos-latest
+            run_race: false
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - run: go test -v -count=1 ./tests/architecture
-      - run: go test ./...
-      - run: go build ./...
 
-  macos:
-    name: macOS ARM64 build and test
-    runs-on: macos-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
-      - run: go test -v -count=1 ./tests/architecture
-      - run: go test ./...
-      - run: go build ./...
+
+      - name: Architectural Contract Gate
+        run: go test -v -count=1 ./tests/architecture
+
+      - name: Full test suite
+        run: go test ./...
+
+      - name: Race-sensitive core tests
+        if: ${{ matrix.run_race }}
+        run: go test -race ./pkg/parser ./pkg/typesystem ./pkg/analyzer ./pkg/core
+
+  build:
+    name: Build (${{ matrix.goos }}-${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ext: ".exe"
+          - goos: windows
+            goarch: arm64
+            ext: ".exe"
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Compile packages for ${{ matrix.goos }}/${{ matrix.goarch }}
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build ./...
+          mkdir -p "$RUNNER_TEMP/out"
+          go build -trimpath -o "$RUNNER_TEMP/out/joss-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" ./cmd/joss
+          go build -trimpath -ldflags '-s -w' -o "$RUNNER_TEMP/out/joss-runner-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" ./cmd/runner
+          ls -lh "$RUNNER_TEMP/out/"
 
   vscode:
     name: VS Code language tooling

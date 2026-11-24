@@ -1469,7 +1469,7 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 	// joss_print_mixed(rcx = val) -> checks JossBoxedValue magic header before falling back to string/int
 	b.defineLabel("joss_print_mixed")
 	b.emitBytes(0x48, 0x85, 0xC9) // test rcx, rcx
-	b.emitJeLabel(".print_mixed_null")
+	b.emitJeLabel("joss_print_i64")
 	b.emitBytes(0x48, 0x81, 0xF9, 0x00, 0x00, 0x01, 0x00) // cmp rcx, 0x10000
 	b.emitJlLabel("joss_print_i64")
 	b.emitBytes(0x49, 0x89, 0xCB)       // mov r11, rcx
@@ -1828,6 +1828,16 @@ func (b *MachineCodeBuilder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitCallLabel("joss_map_new")
 		b.emitBytes(0x48, 0x83, 0xC4, 0x20, 0x5D)
 		b.defineLabel(".active_sess_done")
+		b.emitBytes(0xC3)
+	}
+
+	if b.hasRelocTarget("joss_router_list_custom_middlewares", "joss_router_register_middleware") {
+		b.defineLabel("joss_router_list_custom_middlewares")
+		b.emitLeaRAXString("")
+		b.emitBytes(0xC3)
+
+		b.defineLabel("joss_router_register_middleware")
+		b.emitBytes(0xB8, 0x01, 0x00, 0x00, 0x00) // mov eax, 1
 		b.emitBytes(0xC3)
 	}
 

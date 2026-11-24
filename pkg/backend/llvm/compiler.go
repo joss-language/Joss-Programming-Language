@@ -172,8 +172,8 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 
 	rtDir := filepath.Dir(rtCPath)
 	needsDB := strings.Contains(llvmIR, "joss___joss_db_") || strings.Contains(llvmIR, "@fn_Schema_") || strings.Contains(llvmIR, "@fn_Blueprint_")
-	needsCrypto := strings.Contains(llvmIR, "joss_sha256") || strings.Contains(llvmIR, "joss_password_") || strings.Contains(llvmIR, "joss_random_hex") || strings.Contains(llvmIR, "joss_jwt_") || strings.Contains(llvmIR, "joss_totp_")
-	needsWeb := needsDB || llvmNeedsWebRuntime(llvmIR) || strings.Contains(llvmIR, "@joss_set_active_request")
+	needsCrypto := strings.Contains(llvmIR, "joss_sha256") || strings.Contains(llvmIR, "joss_password_") || strings.Contains(llvmIR, "joss_random_hex") || strings.Contains(llvmIR, "joss_jwt_") || strings.Contains(llvmIR, "joss_totp_") || strings.Contains(llvmIR, "joss_rsa_sign_")
+	needsWeb := needsDB || llvmNeedsWebRuntime(llvmIR) || strings.Contains(llvmIR, "@joss_set_active_request") || strings.Contains(llvmIR, "@joss_register_embedded_asset_resolver")
 	needsThreads := strings.Contains(llvmIR, "@joss_async") || strings.Contains(llvmIR, "@joss_make_chan") ||
 		strings.Contains(llvmIR, "@fn_Mutex_") || strings.Contains(llvmIR, "@fn_RWMutex_") || strings.Contains(llvmIR, "@fn_WaitGroup_")
 	needsConcurrency := needsThreads || strings.Contains(llvmIR, "@joss_dp_get") || strings.Contains(llvmIR, "@joss_dp_put")
@@ -195,12 +195,17 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		}
 	}
 
+	var webDefines []string
+	if !needsCrypto {
+		webDefines = append(webDefines, "-DJOSS_DISABLE_OPENSSL_SIGN")
+	}
+
 	optionalUnits := []struct {
 		file    string
 		include bool
 		defines []string
 	}{
-		{"joss_web_rt.c", needsWeb, nil},
+		{"joss_web_rt.c", needsWeb, webDefines},
 		{"joss_concurrency_rt.c", needsConcurrency, nil},
 		{"joss_db_rt.c", needsDB, dbDefines},
 		{"joss_crypto_rt.c", needsCrypto, nil},
@@ -360,7 +365,7 @@ func detectNeededDBDrivers(llvmIR string, needsDB bool) dbDriverSelection {
 		return dbDriverSelection{sqlite: true}
 	}
 	if hasPG || hasMySQL || hasODBC || hasSQLite {
-		return dbDriverSelection{sqlite: hasSQLite, postgres: hasPG, mysql: hasMySQL, odbc: hasODBC}
+		return dbDriverSelection{sqlite: true, postgres: hasPG, mysql: hasMySQL, odbc: hasODBC}
 	}
 	// Si no se puede determinar estáticamente, habilitar todos los disponibles
 	return dbDriverSelection{sqlite: true, postgres: true, mysql: true, odbc: true}

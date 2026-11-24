@@ -407,7 +407,7 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.defineLabel("joss_print_mixed")
 	b.emitProlog(16)
 	b.emitCmp(regX0, regXZR)
-	b.emitBranchCond(condEQ, ".print_mixed_done")
+	b.emitBranchCond(condEQ, ".print_mixed_int")
 	b.emitLoadImm64(regX1, 0x10000)
 	b.emitCmp(regX0, regX1)
 	b.emitBranchCond(condLT, ".print_mixed_int")
@@ -1338,6 +1338,16 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitCall("joss_map_new")
 		b.emitEpilog(16)
 		b.defineLabel(".arm64_active_sess_done")
+		b.emitRet(regX30)
+	}
+
+	if b.hasRelocTarget("joss_router_list_custom_middlewares", "joss_router_register_middleware") {
+		b.defineLabel("joss_router_list_custom_middlewares")
+		b.emitLoadStringAddr(regX0, "")
+		b.emitRet(regX30)
+
+		b.defineLabel("joss_router_register_middleware")
+		b.emitLoadImm64(regX0, 1)
 		b.emitRet(regX30)
 	}
 

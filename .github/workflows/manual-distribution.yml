@@ -1,3 +1,4 @@
+# Manual distribution and release packaging workflow for Joss
 name: Build manual distribution
 
 on:

@@ -118,16 +118,24 @@ func TestAutomaticHTTPBuildAttemptsNativeAndPreviousUsesGoRunner(t *testing.T) {
 }`), 0600); err != nil {
 		t.Fatal(err)
 	}
+	hostTarget := native.HostTarget()
+	targetStr := hostTarget.DashString()
+	runnerBinName := "joss-runner"
+	ext := ""
+	if hostTarget.OS == "windows" {
+		runnerBinName = "joss-runner.exe"
+		ext = ".exe"
+	}
 	runnerDir := filepath.Join(t.TempDir(), "runners")
-	if err := os.MkdirAll(filepath.Join(runnerDir, "windows-amd64"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(runnerDir, targetStr), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(runnerDir, "windows-amd64", "joss-runner.exe"), []byte("test-runner"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(runnerDir, targetStr, runnerBinName), []byte("test-runner"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("JOSS_RUNNER_DIR", runnerDir)
 
-	prevOutput, err := buildProgramForMode("main.joss", filepath.Join("build", "previous.exe"), "windows-amd64", false, false, false, false, "auto", executionModePrevious)
+	prevOutput, err := buildProgramForMode("main.joss", filepath.Join("build", "previous"+ext), targetStr, false, false, false, false, "auto", executionModePrevious)
 	if err != nil {
 		t.Fatalf("previous (--anterior) HTTP build should select the Go runner: %v", err)
 	}
@@ -139,7 +147,7 @@ func TestAutomaticHTTPBuildAttemptsNativeAndPreviousUsesGoRunner(t *testing.T) {
 		t.Fatal("previous (--anterior) HTTP build did not package the Go runner")
 	}
 
-	autoOutput, err := buildProgramForMode("main.joss", filepath.Join("build", "auto.exe"), "windows-amd64", false, false, false, false, "auto", executionModeAuto)
+	autoOutput, err := buildProgramForMode("main.joss", filepath.Join("build", "auto"+ext), targetStr, false, false, false, false, "auto", executionModeAuto)
 	if err != nil {
 		t.Fatalf("auto HTTP build failed: %v", err)
 	}
@@ -148,8 +156,19 @@ func TestAutomaticHTTPBuildAttemptsNativeAndPreviousUsesGoRunner(t *testing.T) {
 		t.Fatal(err)
 	}
 	if ensureNativeToolchainReady() {
-		if len(autoContents) < 2 || string(autoContents[:2]) != "MZ" {
-			t.Fatalf("auto HTTP build did not emit a native PE executable: prefix=%q", autoContents[:min(2, len(autoContents))])
+		validMagic := false
+		switch hostTarget.OS {
+		case "windows":
+			validMagic = len(autoContents) >= 2 && string(autoContents[:2]) == "MZ"
+		case "linux":
+			validMagic = len(autoContents) >= 4 && string(autoContents[:4]) == "\x7fELF"
+		case "darwin":
+			validMagic = len(autoContents) >= 4 && (bytes.Equal(autoContents[:4], []byte{0xcf, 0xfa, 0xed, 0xfe}) || bytes.Equal(autoContents[:4], []byte{0xca, 0xfe, 0xba, 0xbe}))
+		default:
+			validMagic = len(autoContents) > 0
+		}
+		if !validMagic {
+			t.Fatalf("auto HTTP build did not emit a native %s executable: prefix=%x", hostTarget.OS, autoContents[:min(4, len(autoContents))])
 		}
 		if bytes.Contains(autoContents, []byte(legacyRunnerTrailer)) {
 			t.Fatal("auto HTTP build unexpectedly packaged the Go runner instead of compiling natively")
@@ -163,7 +182,7 @@ func TestAutomaticHTTPBuildAttemptsNativeAndPreviousUsesGoRunner(t *testing.T) {
 }`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := buildProgramForMode("broken.joss", filepath.Join("build", "broken.exe"), "windows-amd64", false, false, false, false, "auto", executionModeAuto); err == nil {
+	if _, err := buildProgramForMode("broken.joss", filepath.Join("build", "broken"+ext), targetStr, false, false, false, false, "auto", executionModeAuto); err == nil {
 		t.Fatal("auto mode must run native frontend analysis instead of bypassing HTTP projects straight to the Go runner")
 	}
 }

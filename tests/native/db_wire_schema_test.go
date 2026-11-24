@@ -62,6 +62,20 @@ func startMockPGServerWithQueryHandler(
 				if _, err := io.ReadFull(conn, startup); err != nil {
 					return
 				}
+				if mlen == 8 && binary.BigEndian.Uint32(startup) == 80877103 {
+					_, _ = conn.Write([]byte{'N'})
+					if _, err := io.ReadFull(conn, lenBuf); err != nil {
+						return
+					}
+					mlen = binary.BigEndian.Uint32(lenBuf)
+					if mlen < 4 || mlen > 4096 {
+						return
+					}
+					startup = make([]byte, mlen-4)
+					if _, err := io.ReadFull(conn, startup); err != nil {
+						return
+					}
+				}
 
 				switch authMode {
 				case "md5":
@@ -170,7 +184,52 @@ func startMockPGServerWithQueryHandler(
 				_, _ = conn.Write(okMsg)
 				_, _ = conn.Write(rfq)
 
-				// Query loop
+				// Query loop (supports both Simple Query 'Q' and Extended Query P/B/D/E/S)
+				writeRowDesc := func(cols []string) {
+					tBody := make([]byte, 2)
+					binary.BigEndian.PutUint16(tBody[0:2], uint16(len(cols)))
+					for _, col := range cols {
+						tBody = append(tBody, []byte(col)...)
+						tBody = append(tBody, 0)
+						tBody = append(tBody, make([]byte, 18)...)
+					}
+					tMsg := make([]byte, 5+len(tBody))
+					tMsg[0] = 'T'
+					binary.BigEndian.PutUint32(tMsg[1:5], uint32(4+len(tBody)))
+					copy(tMsg[5:], tBody)
+					_, _ = conn.Write(tMsg)
+				}
+				writeDataRows := func(cols []string, rows [][]string) {
+					for _, row := range rows {
+						dBody := make([]byte, 2)
+						binary.BigEndian.PutUint16(dBody[0:2], uint16(len(cols)))
+						for ci := range cols {
+							val := ""
+							if ci < len(row) {
+								val = row[ci]
+							}
+							var lb [4]byte
+							binary.BigEndian.PutUint32(lb[:], uint32(len(val)))
+							dBody = append(dBody, lb[:]...)
+							dBody = append(dBody, []byte(val)...)
+						}
+						dMsg := make([]byte, 5+len(dBody))
+						dMsg[0] = 'D'
+						binary.BigEndian.PutUint32(dMsg[1:5], uint32(4+len(dBody)))
+						copy(dMsg[5:], dBody)
+						_, _ = conn.Write(dMsg)
+					}
+				}
+				writeCmdComplete := func() {
+					cmdTag := "OK\x00"
+					cMsg := make([]byte, 5+len(cmdTag))
+					cMsg[0] = 'C'
+					binary.BigEndian.PutUint32(cMsg[1:5], uint32(4+len(cmdTag)))
+					copy(cMsg[5:], cmdTag)
+					_, _ = conn.Write(cMsg)
+				}
+				var pendingCols []string
+				var pendingRows [][]string
 				for {
 					hdr := make([]byte, 5)
 					if _, err := io.ReadFull(conn, hdr); err != nil {
@@ -181,56 +240,56 @@ func startMockPGServerWithQueryHandler(
 					if _, err := io.ReadFull(conn, qbody); err != nil {
 						return
 					}
-					if dropFirstQuery && id == 1 {
+					switch hdr[0] {
+					case 'Q':
+						if dropFirstQuery && id == 1 {
+							return
+						}
+						sqlText := strings.TrimRight(string(qbody), "\x00")
+						cols := []string{"ok"}
+						rows := [][]string{{"1"}}
+						if onQuery != nil {
+							cols, rows = onQuery(sqlText)
+						}
+						if len(cols) > 0 {
+							writeRowDesc(cols)
+							writeDataRows(cols, rows)
+						}
+						writeCmdComplete()
+						_, _ = conn.Write(rfq)
+					case 'P':
+						if dropFirstQuery && id == 1 {
+							return
+						}
+						parts := strings.SplitN(string(qbody), "\x00", 3)
+						sqlText := ""
+						if len(parts) >= 2 {
+							sqlText = parts[1]
+						}
+						pendingCols = []string{"ok"}
+						pendingRows = [][]string{{"1"}}
+						if onQuery != nil {
+							pendingCols, pendingRows = onQuery(sqlText)
+						}
+						_, _ = conn.Write([]byte{'1', 0, 0, 0, 4}) // ParseComplete
+					case 'B':
+						_, _ = conn.Write([]byte{'2', 0, 0, 0, 4}) // BindComplete
+					case 'D':
+						if len(pendingCols) > 0 {
+							writeRowDesc(pendingCols)
+						} else {
+							_, _ = conn.Write([]byte{'n', 0, 0, 0, 4}) // NoData
+						}
+					case 'E':
+						if len(pendingCols) > 0 {
+							writeDataRows(pendingCols, pendingRows)
+						}
+						writeCmdComplete()
+					case 'S':
+						_, _ = conn.Write(rfq)
+					case 'X':
 						return
 					}
-					sqlText := strings.TrimRight(string(qbody), "\x00")
-					cols := []string{"ok"}
-					rows := [][]string{{"1"}}
-					if onQuery != nil {
-						cols, rows = onQuery(sqlText)
-					}
-					if len(cols) > 0 {
-						tBody := make([]byte, 2)
-						binary.BigEndian.PutUint16(tBody[0:2], uint16(len(cols)))
-						for _, col := range cols {
-							tBody = append(tBody, []byte(col)...)
-							tBody = append(tBody, 0)
-							tBody = append(tBody, make([]byte, 18)...)
-						}
-						tMsg := make([]byte, 5+len(tBody))
-						tMsg[0] = 'T'
-						binary.BigEndian.PutUint32(tMsg[1:5], uint32(4+len(tBody)))
-						copy(tMsg[5:], tBody)
-						_, _ = conn.Write(tMsg)
-
-						for _, row := range rows {
-							dBody := make([]byte, 2)
-							binary.BigEndian.PutUint16(dBody[0:2], uint16(len(cols)))
-							for ci := range cols {
-								val := ""
-								if ci < len(row) {
-									val = row[ci]
-								}
-								var lb [4]byte
-								binary.BigEndian.PutUint32(lb[:], uint32(len(val)))
-								dBody = append(dBody, lb[:]...)
-								dBody = append(dBody, []byte(val)...)
-							}
-							dMsg := make([]byte, 5+len(dBody))
-							dMsg[0] = 'D'
-							binary.BigEndian.PutUint32(dMsg[1:5], uint32(4+len(dBody)))
-							copy(dMsg[5:], dBody)
-							_, _ = conn.Write(dMsg)
-						}
-					}
-					cmdTag := "OK\x00"
-					cMsg := make([]byte, 5+len(cmdTag))
-					cMsg[0] = 'C'
-					binary.BigEndian.PutUint32(cMsg[1:5], uint32(4+len(cmdTag)))
-					copy(cMsg[5:], cmdTag)
-					_, _ = conn.Write(cMsg)
-					_, _ = conn.Write(rfq)
 				}
 			}(c, cid)
 		}

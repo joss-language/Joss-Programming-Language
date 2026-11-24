@@ -671,10 +671,6 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		return "", fmt.Errorf("falló análisis semántico")
 	}
 
-	if _, err := os.Stat("assets/css"); err == nil {
-		core.CompileStyles()
-	}
-
 	if trace {
 		fmt.Println("  [trace] 2. Generando Joss Native IR (Lowering)...")
 	}
@@ -708,6 +704,12 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 		if err != nil {
 			fmt.Printf("Error de capacidades AOT: %v\n", err)
 			return "", fmt.Errorf("capacidades AOT no disponibles: %w", err)
+		}
+	}
+	if _, err := os.Stat("assets/css"); err == nil {
+		core.CompileStyles()
+		if refreshedIR, refreshErr := lowerPreparedProject(report.Prepared, filename); refreshErr == nil {
+			irProg = refreshedIR
 		}
 	}
 	if trace {

@@ -584,136 +584,136 @@ public static func socialCallback(mixed $provider, mixed $code, mixed $redirectU
         return $res
     }
     string $formBody = "code=" . urlencode(strval($code))
-        . "&client_id=" . urlencode($clientId)
-        . "&client_secret=" . urlencode($clientSecret)
-        . "&redirect_uri=" . urlencode(strval($redirectUri))
-        . "&grant_type=authorization_code"
+    . "&client_id=" . urlencode($clientId)
+    . "&client_secret=" . urlencode($clientSecret)
+    . "&redirect_uri=" . urlencode(strval($redirectUri))
+    . "&grant_type=authorization_code"
     mixed $tokResp = Http::request("POST", $tokenUrl, $formBody, {
-        "Accept" : "application/json",
-        "Content-Type" : "application/x-www-form-urlencoded",
-        "User-Agent" : "Joss-Language-Auth"
-    })
-    mixed $tokJson = json_decode(strval($tokResp ["body"] ?? ""))
-    string $accessToken = ($tokJson != null) ? strval($tokJson ["access_token"] ?? "") : ""
-    ($accessToken == "") ? {
-        $res->error = "No se pudo obtener access_token de " . $norm
-        return $res
-    }
-    mixed $uResp = Http::request("GET", $userUrl, "", {
-        "Authorization" : "Bearer " . $accessToken,
-        "User-Agent" : "Joss-Language-Auth",
-        "Accept" : "application/json"
-    })
-    mixed $uData = json_decode(strval($uResp ["body"] ?? ""))
-    string $provUid = ($uData != null) ? trim(strval($uData ["sub"] ?? ($uData ["id"] ?? ""))) : ""
-    (str_ends_with($provUid, ".0000")) ? {
-        $provUid = substr($provUid, 0, strlen($provUid) - 5)
-    }
-    ($provUid == "") ? {
-        $res->error = "No se pudo obtener ID de usuario de " . $norm
-        return $res
-    }
-    string $uEmail = strtolower(trim(strval($uData ["email"] ?? ($uData ["mail"] ?? ""))))
-    ($uEmail == "" && $norm == "github") ? {
-        mixed $emResp = Http::request("GET", "https://api.github.com/user/emails", "", {
-            "Authorization" : "Bearer " . $accessToken,
-            "User-Agent" : "Joss-Language-Auth",
-            "Accept" : "application/json"
-        })
-        mixed $emList = json_decode(strval($emResp ["body"] ?? ""))
-        (is_array($emList)) ? {
-            foreach ($emList as $emItem) {
-                string $cand = strtolower(trim(strval($emItem ["email"] ?? "")))
-                bool $isPrim = ($emItem ["primary"] ?? false) == true
-                ($cand != "" && ($isPrim || $uEmail == "")) ? {
-                    $uEmail = $cand
-                }
-            }
-        }
-    }
-    ($uEmail == "") ? {
-        $uEmail = $norm . "_" . $provUid . "@social.joss.local"
-    }
-    string $uName = trim(strval($uData ["name"] ?? ($uData ["login"] ?? ("user_" . $provUid))))
-    (!Auth::databaseReady()) ? {
-        $res->error = "Base de datos no disponible"
-        return $res
-    }
-    bool $alreadyLoggedIn = Auth::check()
-    int $currentSessionUid = ($alreadyLoggedIn) ? intval(Auth::id()) : 0
-    mixed $existingSocial = GranDB::table("user_social_accounts")
-        ->select("user_id")
-        ->where("provider", $norm)
-        ->where("provider_user_id", $provUid)
-        ->first()
-    int $targetUserId = 0
-    ($existingSocial !== null) ? {
-        $targetUserId = intval($existingSocial ["user_id"] ?? 0)
-        ($alreadyLoggedIn && $currentSessionUid > 0 && $targetUserId != $currentSessionUid) ? {
-            $res->error = "Esta cuenta de " . $norm . " ya está vinculada a otro usuario."
-            return $res
-        }
-        print("[SocialTrace] Existing social link found; provider=" . $norm . ", provUid=" . $provUid . ", user_id=" . strval($targetUserId))
-    } : {
-        ($alreadyLoggedIn && $currentSessionUid > 0) ? {
-            $targetUserId = $currentSessionUid
-            print("[SocialTrace] Linking social account to active session; provider=" . $norm . ", provUid=" . $provUid . ", user_id=" . strval($targetUserId))
-        } : {
-            mixed $byEmail = GranDB::table("users")->select("id")->where("email", $uEmail)->first()
-            ($byEmail !== null) ? {
-                $targetUserId = intval($byEmail ["id"] ?? 0)
-                print("[SocialTrace] Matched existing user by email; provider=" . $norm . ", email=" . $uEmail . ", user_id=" . strval($targetUserId))
-            } : {
-                string $uTok = UUID::generate()
-                string $uname = strtolower(str_replace(" ", "", $uName)) . "_" . strval(rand(100, 999))
-                GranDB::table("users")->insert( {
-                    "user_token" : $uTok,
-                    "username" : $uname,
-                    "first_name" : $uName,
-                    "last_name" : "",
-                    "email" : $uEmail,
-                    "password" : Auth::hash(UUID::generate()),
-                    "role_id" : 2,
-                    "verificado" : 1
-                })
-                mixed $created = GranDB::table("users")->select("id")->where("email", $uEmail)->first()
-                ($created !== null) ? {
-                    $targetUserId = intval($created ["id"] ?? 0)
-                }
-                print("[SocialTrace] Created new social user; provider=" . $norm . ", email=" . $uEmail . ", user_id=" . strval($targetUserId))
-            }
-        }
-        ($targetUserId > 0) ? {
-            int $linked = GranDB::table("user_social_accounts")->insert( {
-                "user_id" : $targetUserId,
-                "provider" : $norm,
-                "provider_user_id" : $provUid,
-                "avatar" : strval($uData ["avatar_url"] ?? ($uData ["picture"] ?? ""))
-            })
-            print("[SocialTrace] Saved social link row; provider=" . $norm . ", provUid=" . $provUid . ", user_id=" . strval($targetUserId) . ", inserted=" . strval($linked))
-        }
-    }
-    ($targetUserId <= 0) ? {
-        $res->error = "No se pudo provisionar usuario social"
-        return $res
-    }
-    mixed $jwt = Auth::complete2FA($targetUserId)
-    $res->user_id = $targetUserId
-    $res->email = $uEmail
-    $res->jwt = $jwt
-    $res->success = is_string($jwt) && $jwt != ""
-    (!$alreadyLoggedIn) ? {
-        map $mfa = Auth::prepareLogin2FA($targetUserId, $uEmail)
-        ($mfa != null && ($mfa ["requires_2fa"] ?? false)) ? {
-            $res->requires_2fa = true
-            Session::forget("user_id")
-            Session::forget("user_token")
-            Session::forget("user_name")
-            Session::forget("user_email")
-            Session::forget("user_role")
-        }
-    }
+    "Accept" : "application/json",
+    "Content-Type" : "application/x-www-form-urlencoded",
+    "User-Agent" : "Joss-Language-Auth"
+})
+mixed $tokJson = json_decode(strval($tokResp ["body"] ?? ""))
+string $accessToken = ($tokJson != null) ? strval($tokJson ["access_token"] ?? "") : ""
+($accessToken == "") ? {
+    $res->error = "No se pudo obtener access_token de " . $norm
     return $res
+}
+mixed $uResp = Http::request("GET", $userUrl, "", {
+"Authorization" : "Bearer " . $accessToken,
+"User-Agent" : "Joss-Language-Auth",
+"Accept" : "application/json"
+})
+mixed $uData = json_decode(strval($uResp ["body"] ?? ""))
+string $provUid = ($uData != null) ? trim(strval($uData ["sub"] ?? ($uData ["id"] ?? ""))) : ""
+(str_ends_with($provUid, ".0000")) ? {
+    $provUid = substr($provUid, 0, strlen($provUid) - 5)
+}
+($provUid == "") ? {
+    $res->error = "No se pudo obtener ID de usuario de " . $norm
+    return $res
+}
+string $uEmail = strtolower(trim(strval($uData ["email"] ?? ($uData ["mail"] ?? ""))))
+($uEmail == "" && $norm == "github") ? {
+    mixed $emResp = Http::request("GET", "https://api.github.com/user/emails", "", {
+    "Authorization" : "Bearer " . $accessToken,
+    "User-Agent" : "Joss-Language-Auth",
+    "Accept" : "application/json"
+})
+mixed $emList = json_decode(strval($emResp ["body"] ?? ""))
+(is_array($emList)) ? {
+    foreach ($emList as $emItem) {
+        string $cand = strtolower(trim(strval($emItem ["email"] ?? "")))
+        bool $isPrim = ($emItem ["primary"] ?? false) == true
+        ($cand != "" && ($isPrim || $uEmail == "")) ? {
+            $uEmail = $cand
+        }
+    }
+}
+}
+($uEmail == "") ? {
+    $uEmail = $norm . "_" . $provUid . "@social.joss.local"
+}
+string $uName = trim(strval($uData ["name"] ?? ($uData ["login"] ?? ("user_" . $provUid))))
+(!Auth::databaseReady()) ? {
+    $res->error = "Base de datos no disponible"
+    return $res
+}
+bool $alreadyLoggedIn = Auth::check()
+int $currentSessionUid = ($alreadyLoggedIn) ? intval(Auth::id()) : 0
+mixed $existingSocial = GranDB::table("user_social_accounts")
+    ->select("user_id")
+    ->where("provider", $norm)
+    ->where("provider_user_id", $provUid)
+    ->first()
+int $targetUserId = 0
+($existingSocial !== null) ? {
+    $targetUserId = intval($existingSocial ["user_id"] ?? 0)
+    ($alreadyLoggedIn && $currentSessionUid > 0 && $targetUserId != $currentSessionUid) ? {
+        $res->error = "Esta cuenta de " . $norm . " ya está vinculada a otro usuario."
+        return $res
+    }
+    print("[SocialTrace] Existing social link found; provider=" . $norm . ", provUid=" . $provUid . ", user_id=" . strval($targetUserId))
+} : {
+    ($alreadyLoggedIn && $currentSessionUid > 0) ? {
+        $targetUserId = $currentSessionUid
+        print("[SocialTrace] Linking social account to active session; provider=" . $norm . ", provUid=" . $provUid . ", user_id=" . strval($targetUserId))
+    } : {
+        mixed $byEmail = GranDB::table("users")->select("id")->where("email", $uEmail)->first()
+        ($byEmail !== null) ? {
+            $targetUserId = intval($byEmail ["id"] ?? 0)
+            print("[SocialTrace] Matched existing user by email; provider=" . $norm . ", email=" . $uEmail . ", user_id=" . strval($targetUserId))
+        } : {
+            string $uTok = UUID::generate()
+            string $uname = strtolower(str_replace(" ", "", $uName)) . "_" . strval(rand(100, 999))
+            GranDB::table("users")->insert( {
+            "user_token" : $uTok,
+            "username" : $uname,
+            "first_name" : $uName,
+            "last_name" : "",
+            "email" : $uEmail,
+            "password" : Auth::hash(UUID::generate()),
+            "role_id" : 2,
+            "verificado" : 1
+        })
+        mixed $created = GranDB::table("users")->select("id")->where("email", $uEmail)->first()
+        ($created !== null) ? {
+            $targetUserId = intval($created ["id"] ?? 0)
+        }
+        print("[SocialTrace] Created new social user; provider=" . $norm . ", email=" . $uEmail . ", user_id=" . strval($targetUserId))
+    }
+}
+($targetUserId > 0) ? {
+    int $linked = GranDB::table("user_social_accounts")->insert( {
+    "user_id" : $targetUserId,
+    "provider" : $norm,
+    "provider_user_id" : $provUid,
+    "avatar" : strval($uData ["avatar_url"] ?? ($uData ["picture"] ?? ""))
+})
+print("[SocialTrace] Saved social link row; provider=" . $norm . ", provUid=" . $provUid . ", user_id=" . strval($targetUserId) . ", inserted=" . strval($linked))
+}
+}
+($targetUserId <= 0) ? {
+    $res->error = "No se pudo provisionar usuario social"
+    return $res
+}
+mixed $jwt = Auth::complete2FA($targetUserId)
+$res->user_id = $targetUserId
+$res->email = $uEmail
+$res->jwt = $jwt
+$res->success = is_string($jwt) && $jwt != ""
+(!$alreadyLoggedIn) ? {
+    map $mfa = Auth::prepareLogin2FA($targetUserId, $uEmail)
+    ($mfa != null && ($mfa ["requires_2fa"] ?? false)) ? {
+        $res->requires_2fa = true
+        Session::forget("user_id")
+        Session::forget("user_token")
+        Session::forget("user_name")
+        Session::forget("user_email")
+        Session::forget("user_role")
+    }
+}
+return $res
 }
 
 public static func validateToken(mixed $token) : bool {
