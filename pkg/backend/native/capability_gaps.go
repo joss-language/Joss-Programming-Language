@@ -106,7 +106,7 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 			}
 		case "Schema":
 			switch methodName {
-			case "create", "table", "drop", "dropIfExists", "rename", "hasTable", "hasColumn":
+			case "create", "table", "drop", "dropIfExists", "rename", "hasTable", "hasColumn", "hasForeign":
 				return true
 			}
 		case "WebSocket":
@@ -131,7 +131,7 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 			}
 		case "Console":
 			switch methodName {
-			case "log", "error", "readLine":
+			case "log", "error", "readLine", "green", "red", "yellow", "blue", "cyan", "magenta", "gray", "bold", "clear", "color":
 				return true
 			}
 		case "FileStream":

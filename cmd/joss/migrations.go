@@ -83,9 +83,7 @@ func performMigrations(rt *core.Runtime) error {
 			return fmt.Errorf("parseando %s: %v", file, p.Errors())
 		}
 
-		rt.Execute(program)
-
-		// Find the migration class and execute 'up'
+		// Find the migration class and execute 'up' natively
 		var migrationClass *parser.ClassStatement
 		for _, stmt := range program.Statements {
 			if classStmt, ok := stmt.(*parser.ClassStatement); ok {
@@ -95,9 +93,6 @@ func performMigrations(rt *core.Runtime) error {
 		}
 
 		if migrationClass != nil {
-			// Instantiate
-			instance := core.NewInstance(migrationClass)
-
 			// Find 'up' method
 			var upMethod *parser.MethodStatement
 			for _, stmt := range migrationClass.Body.Statements {
@@ -111,7 +106,11 @@ func performMigrations(rt *core.Runtime) error {
 
 			if upMethod != nil {
 				fmt.Println(i18n.Tr("migrateRunningUp", i18n.M{"class": migrationClass.Name.Value}))
-				rt.CallMethodEvaluated(upMethod, instance, []interface{}{})
+				wrapped := string(data) + fmt.Sprintf("\nvar $__joss_mig = new %s();\n$__joss_mig->up();\n", migrationClass.Name.Value)
+				_, _, exitCode, execErr := executeInlineSourceNative(file, wrapped, false)
+				if execErr != nil || exitCode != 0 {
+					return fmt.Errorf("ejecutando migracion nativa %s (exit=%d): %v", filename, exitCode, execErr)
+				}
 			} else {
 				return fmt.Errorf("la migracion %s no define up()", filename)
 			}

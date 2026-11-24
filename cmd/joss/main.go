@@ -19,7 +19,6 @@ import (
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/ir"
-	"github.com/jossecurity/joss/pkg/mobile"
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/pluginpkg"
 	_ "github.com/jossecurity/joss/pkg/server"
@@ -882,23 +881,7 @@ func executeScriptWithMode(filename string, mode executionMode) {
 }
 
 func executeEval(source string, asJSON bool) {
-	if asJSON {
-		fmt.Println(mobile.Run(source, 0))
-		return
-	}
-	res := mobile.RunDirect(source, 0)
-	if res.Stdout != "" {
-		fmt.Print(res.Stdout)
-	}
-	if res.Stderr != "" {
-		fmt.Fprint(os.Stderr, res.Stderr)
-	}
-	if !res.Success {
-		if res.Error != "" {
-			fmt.Fprintln(os.Stderr, res.Error)
-		}
-		os.Exit(1)
-	}
+	executeEvalNative(source, asJSON)
 }
 
 func createNewPackage(name string) {
@@ -978,11 +961,11 @@ func packageClassName(name string) string {
 }
 
 func runRepl() {
-	fmt.Printf("Joss %s Interactive REPL\n", version.Version)
+	fmt.Printf("Joss %s Interactive Native REPL\n", version.Version)
 	fmt.Println("Escribe expresiones o sentencias Joss. Escribe 'exit' o presiona Ctrl+C para salir.")
 	fmt.Println()
 
-	rt := core.NewRuntime()
+	var history []string
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
@@ -998,11 +981,14 @@ func runRepl() {
 		if trimmed == "exit" || trimmed == "quit" {
 			break
 		}
+		if trimmed == "clear" {
+			history = nil
+			continue
+		}
 
 		lexer := parser.NewLexer(trimmed)
 		p := parser.NewParser(lexer)
 		prog := p.ParseProgram()
-
 		if len(p.Errors()) > 0 {
 			for _, e := range p.Errors() {
 				fmt.Printf("Error: %s\n", e)
@@ -1010,23 +996,45 @@ func runRepl() {
 			continue
 		}
 
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					fmt.Printf("Runtime Error: %v\n", r)
-				}
-			}()
-			for _, stmt := range prog.Statements {
-				if exprStmt, ok := stmt.(*parser.ExpressionStatement); ok {
-					res := rt.EvaluateExpression(exprStmt.Expression)
-					if res != nil {
-						fmt.Printf("=> %v\n", res)
-					}
-				} else {
-					rt.ExecuteStatement(stmt)
+		isSingleExpr := false
+		if len(prog.Statements) == 1 {
+			if exprStmt, ok := prog.Statements[0].(*parser.ExpressionStatement); ok {
+				if _, isCall := exprStmt.Expression.(*parser.CallExpression); !isCall {
+					isSingleExpr = true
 				}
 			}
-		}()
+		}
+
+		var candidate string
+		if isSingleExpr {
+			candidate = strings.Join(history, "\n") + "\nprint(" + strings.TrimSuffix(trimmed, ";") + ");\n"
+		} else {
+			candidate = strings.Join(append(append([]string(nil), history...), trimmed), "\n") + "\n"
+		}
+
+		stdout, stderr, exitCode, execErr := executeInlineSourceNative("<repl>", candidate, true)
+		if execErr != nil {
+			fmt.Printf("Error: %v\n", execErr)
+			continue
+		}
+		if stderr != "" {
+			fmt.Fprint(os.Stderr, stderr)
+		}
+		if exitCode == 0 {
+			if !isSingleExpr {
+				// Keep declarations/statements for subsequent lines (skip pure print lines to avoid re-printing).
+				if !strings.HasPrefix(trimmed, "print(") && !strings.HasPrefix(trimmed, "Console::log(") {
+					history = append(history, trimmed)
+				}
+			}
+			if stdout != "" {
+				if isSingleExpr {
+					fmt.Printf("=> %s", stdout)
+				} else {
+					fmt.Print(stdout)
+				}
+			}
+		}
 	}
 }
 

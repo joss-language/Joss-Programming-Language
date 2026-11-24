@@ -419,3 +419,19 @@ print("FLUSH:" . strval($fl) . "|AFTER:" . strval(Redis::has("k_flush_a")) . ","
 
 	wbRunCLISourceAcrossBackends(t, "redis_parity", src, []string{"llvm"}, nil)
 }
+
+func TestNativeParity_ConsoleColors(t *testing.T) {
+	src := `
+print("G:" . Console::green("ok"));
+print("R:" . Console::red("err"));
+print("Y:" . Console::yellow("warn"));
+print("B:" . Console::blue("info"));
+print("C:" . Console::cyan("tip"));
+print("M:" . Console::magenta("mag"));
+print("GR:" . Console::gray("dim"));
+print("BO:" . Console::bold("strong"));
+print("CL:" . strval(strlen(Console::clear())));
+print("CO:" . Console::color("hi", "32"));
+`
+	wbRunCLISourceAcrossBackends(t, "console_colors_parity", src, []string{"llvm"}, nil)
+}

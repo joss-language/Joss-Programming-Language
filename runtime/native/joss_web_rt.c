@@ -4459,6 +4459,45 @@ const char* fn_Console_readLine(void) {
     return joss_web_strdup(buf);
 }
 
+static const char* joss_console_wrap_ansi(const char* code, int64_t text_raw) {
+    if (!code) code = "";
+    if (text_raw == 0) {
+        return joss_web_strdup(code);
+    }
+    const char* text = joss_strval(text_raw);
+    if (!text) text = "";
+    size_t clen = strlen(code);
+    size_t tlen = strlen(text);
+    const char* reset = "\033[0m";
+    size_t rlen = 4;
+    char* out = (char*)malloc(clen + tlen + rlen + 1);
+    if (!out) return text;
+    memcpy(out, code, clen);
+    memcpy(out + clen, text, tlen);
+    memcpy(out + clen + tlen, reset, rlen);
+    out[clen + tlen + rlen] = '\0';
+    return out;
+}
+
+const char* fn_Console_green(int64_t text)   { return joss_console_wrap_ansi("\033[32m", text); }
+const char* fn_Console_red(int64_t text)     { return joss_console_wrap_ansi("\033[31m", text); }
+const char* fn_Console_yellow(int64_t text)  { return joss_console_wrap_ansi("\033[33m", text); }
+const char* fn_Console_blue(int64_t text)    { return joss_console_wrap_ansi("\033[34m", text); }
+const char* fn_Console_cyan(int64_t text)    { return joss_console_wrap_ansi("\033[36m", text); }
+const char* fn_Console_magenta(int64_t text) { return joss_console_wrap_ansi("\033[35m", text); }
+const char* fn_Console_gray(int64_t text)    { return joss_console_wrap_ansi("\033[90m", text); }
+const char* fn_Console_bold(int64_t text)    { return joss_console_wrap_ansi("\033[1m", text); }
+const char* fn_Console_clear(void)           { return joss_web_strdup("\033[2J\033[H"); }
+
+const char* fn_Console_color(int64_t text_raw, int64_t code_raw) {
+    const char* text = text_raw ? joss_strval(text_raw) : "";
+    const char* code = code_raw ? joss_strval(code_raw) : "";
+    if (!code || !code[0]) return joss_web_strdup(text ? text : "");
+    char prefix[64];
+    snprintf(prefix, sizeof(prefix), "\033[%sm", code);
+    return joss_console_wrap_ansi(prefix, text_raw);
+}
+
 /* --- FileStream, StreamReader & StreamWriter Host Classes --- */
 #define JOSS_FILESTREAM_MAGIC 0x4A4653545631ULL
 
@@ -5469,6 +5508,43 @@ int64_t fn_Schema_hasColumn(const char* table, const char* column) {
         snprintf(sql, sizeof(sql), "SHOW COLUMNS FROM %s LIKE '%s'", tbl, column);
     }
     void* rows = joss_schema_db_query(sql, joss_arr_new(0));
+    return (rows && joss_arr_len(rows) > 0) ? 1 : 0;
+}
+
+int64_t fn_Schema_hasForeign(const char* table, const char* constraint_name) {
+    table = unbox_web_cstr(table);
+    constraint_name = unbox_web_cstr(constraint_name);
+    if (!table || !table[0] || !constraint_name || !constraint_name[0]) return 0;
+    char full_table[192];
+    const char* tbl = joss_schema_prefixed_table(table, full_table, sizeof(full_table));
+    const char* d = joss_schema_dialect();
+    if (strcmp(d, "sqlite") == 0) {
+        void* params = joss_arr_new(1);
+        joss_arr_push_i64(params, (int64_t)(uintptr_t)tbl);
+        void* rows = joss_schema_db_query("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", params);
+        if (!rows || joss_arr_len(rows) == 0) return 0;
+        void* r = (void*)(uintptr_t)joss_arr_get_i64(rows, 0);
+        if (!joss_is_map_ptr((int64_t)(uintptr_t)r)) return 0;
+        const char* def = joss_map_get_str(r, "sql");
+        if (!def || !def[0]) return 0;
+        char pat1[256], pat2[256], pat3[256];
+        snprintf(pat1, sizeof(pat1), "CONSTRAINT `%s`", constraint_name);
+        snprintf(pat2, sizeof(pat2), "CONSTRAINT \"%s\"", constraint_name);
+        snprintf(pat3, sizeof(pat3), "CONSTRAINT %s ", constraint_name);
+        return (strstr(def, pat1) || strstr(def, pat2) || strstr(def, pat3)) ? 1 : 0;
+    }
+    void* params = joss_arr_new(2);
+    joss_arr_push_i64(params, (int64_t)(uintptr_t)tbl);
+    joss_arr_push_i64(params, (int64_t)(uintptr_t)constraint_name);
+    const char* sql = NULL;
+    if (strcmp(d, "postgres") == 0) {
+        sql = "SELECT constraint_name FROM information_schema.table_constraints WHERE table_schema = current_schema() AND table_name = ? AND constraint_name = ? AND constraint_type = 'FOREIGN KEY'";
+    } else if (strcmp(d, "sqlserver") == 0) {
+        sql = "SELECT fk.name FROM sys.foreign_keys fk JOIN sys.tables t ON t.object_id = fk.parent_object_id WHERE t.name = ? AND fk.name = ?";
+    } else {
+        sql = "SELECT constraint_name FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = ? AND constraint_name = ? AND constraint_type = 'FOREIGN KEY'";
+    }
+    void* rows = joss_schema_db_query(sql, params);
     return (rows && joss_arr_len(rows) > 0) ? 1 : 0;
 }
 
