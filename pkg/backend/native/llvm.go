@@ -24,6 +24,7 @@ type LLVMEmitter struct {
 	activeDPParam0  string
 	activeDPParam1  string
 	currentFn       *ir.Function
+	currentFnHasTry bool
 	TargetOS        string
 	TargetArch      string
 }
@@ -562,8 +563,20 @@ func isAutoDPEligible(fn *ir.Function) bool {
 	return hasSelfCall
 }
 
+func fnContainsTryCatch(blocks []*ir.BasicBlock) bool {
+	for _, b := range blocks {
+		for _, inst := range b.Instructions {
+			if _, ok := inst.(*ir.TryCatchInst); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {
 	e.currentFn = fn
+	e.currentFnHasTry = fnContainsTryCatch(fn.Blocks)
 	e.tempLLVMTypes = make(map[int]string)
 	e.activeDPFnID = 0
 	e.activeDPParam0 = "0"
@@ -633,6 +646,10 @@ func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {
 }
 
 func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
+	vol := ""
+	if e.currentFnHasTry {
+		vol = "volatile "
+	}
 	switch i := inst.(type) {
 	case *ir.AllocaInst:
 		allocType := MapLLVMType(i.AllocType)
@@ -651,10 +668,10 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		if strings.HasSuffix(ptrType, "*") {
 			elemLLVM := strings.TrimSuffix(ptrType, "*")
 			pre, valExpr := e.coerceLLVM(i.Val, elemLLVM, fmt.Sprintf("st_%p", i))
-			return fmt.Sprintf("%sstore %s %s, %s %s, align 8", pre, elemLLVM, valExpr, ptrType, e.formatValue(i.Ptr)), nil
+			return fmt.Sprintf("%sstore %s%s %s, %s %s, align 8", pre, vol, elemLLVM, valExpr, ptrType, e.formatValue(i.Ptr)), nil
 		}
 		valStr := e.formatTypedValue(i.Val)
-		return fmt.Sprintf("store %s, %s %s, align 8", valStr, ptrType, e.formatValue(i.Ptr)), nil
+		return fmt.Sprintf("store %s%s, %s %s, align 8", vol, valStr, ptrType, e.formatValue(i.Ptr)), nil
 
 	case *ir.LoadInst:
 		destType := MapLLVMType(i.Dest.ValueType)
@@ -666,11 +683,11 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 				if elem != destType {
 					raw := fmt.Sprintf("%%ldraw_%p", i)
 					conv := e.emitDirectCast(elem, raw, destType, e.formatValue(i.Dest))
-					return fmt.Sprintf("%s = load %s, %s %s, align 8\n\t%s", raw, elem, ptrType, e.formatValue(i.Ptr), conv), nil
+					return fmt.Sprintf("%s = load %s%s, %s %s, align 8\n\t%s", raw, vol, elem, ptrType, e.formatValue(i.Ptr), conv), nil
 				}
 			}
 		}
-		return fmt.Sprintf("%s = load %s, %s %s, align 8", e.formatValue(i.Dest), destType, ptrType, e.formatValue(i.Ptr)), nil
+		return fmt.Sprintf("%s = load %s%s, %s %s, align 8", e.formatValue(i.Dest), vol, destType, ptrType, e.formatValue(i.Ptr)), nil
 
 	case *ir.GlobalLoadInst:
 		global := e.program.Globals[i.GlobalName]

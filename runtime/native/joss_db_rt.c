@@ -54,6 +54,16 @@
 #endif
 #endif
 
+static int db_strncasecmp_ascii(const char* a, const char* b, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        unsigned char ca = (unsigned char)tolower((unsigned char)a[i]);
+        unsigned char cb = (unsigned char)tolower((unsigned char)b[i]);
+        if (ca != cb) return (int)ca - (int)cb;
+        if (ca == '\0') return 0;
+    }
+    return 0;
+}
+
 extern const char* joss_strval(int64_t v);
 extern int64_t     joss_file_exists(const char* path);
 
@@ -178,22 +188,12 @@ static int64_t sqlite_execute(const char* sql, void* bindings) {
     sqlite3_finalize(stmt);
     if (rc != SQLITE_DONE && rc != SQLITE_ROW) return 0;
     int changes = sqlite3_changes(db);
-    if (changes == 0 && strncasecmp(sql, "INSERT", 6) == 0) {
+    if (changes == 0 && db_strncasecmp_ascii(sql, "INSERT", 6) == 0) {
         return (int64_t)sqlite3_last_insert_rowid(db);
     }
     return (int64_t)changes;
 }
 #else
-
-static int db_strncasecmp_ascii(const char* a, const char* b, size_t n) {
-    for (size_t i = 0; i < n; i++) {
-        unsigned char ca = (unsigned char)tolower((unsigned char)a[i]);
-        unsigned char cb = (unsigned char)tolower((unsigned char)b[i]);
-        if (ca != cb) return (int)ca - (int)cb;
-        if (ca == '\0') return 0;
-    }
-    return 0;
-}
 
 static int db_strcasecmp_ascii(const char* a, const char* b) {
     if (a == b) return 0;

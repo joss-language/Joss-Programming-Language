@@ -64,12 +64,12 @@ public class HttpServer {
             }
         }
 
-        __joss_http_serve_concurrent($server, func(Socket $client): void {
+        __joss_http_serve_concurrent($server, func(Socket $client) : void {
             HttpServer::handleClient($client)
         })
     }
 
-    public static func handleClient(Socket $client): void {
+    public static func handleClient(Socket $client) : void {
         guard ($client != null) : {
             return
         }
@@ -204,7 +204,7 @@ public class HttpServer {
 
         // 1. Static assets embedded directly in the standalone executable binary (.rodata)
         // In Hot-Reload dev mode, prefer live disk assets so CSS/SCSS updates apply instantly without recompiling.
-        (!$unsafeStatic && !$isHotReload) ? {
+        (!$unsafeStatic &&!$isHotReload) ? {
             var $embedded = __joss_get_embedded_asset($path)
             guard ($embedded == "" || $embedded == null) : {
                 var $mime = Mime::fromPath($path)
@@ -303,126 +303,133 @@ public class HttpServer {
     // Auto-restore authenticated session from valid joss_token JWT cookie (Go applyJWTPersistence parity)
     string $existingUid = strval($webSession->get("user_id", ""))
     (strlen($existingUid) == 0 || $existingUid == "0") ? {
-        var $reqCookies = $requestData ["_cookies"] ?? {}
-        string $jwtCookie = strval($reqCookies ["joss_token"] ?? "")
-        (strlen($jwtCookie) > 0) ? {
-            string $jwtSecret = env("JWT_SECRET", env("APP_KEY", ""))
-            var $claims = __joss_jwt_parse_verified($jwtCookie, $jwtSecret)
-            ($claims != null) ? {
-                string $cUid = strval($claims ["user_id"] ?? ($claims ["sub"] ?? ""))
-                (strlen($cUid) > 0 && $cUid != "0") ? {
-                    $webSession->put("user_id", $cUid)
-                    string $cEmail = strval($claims ["email"] ?? "")
-                    (strlen($cEmail) > 0) ? { $webSession->put("user_email", $cEmail) }
-                    string $cName = strval($claims ["name"] ?? "")
-                    (strlen($cName) > 0) ? { $webSession->put("user_name", $cName) }
-                    string $cRole = strval($claims ["role"] ?? "")
-                    (strlen($cRole) > 0) ? { $webSession->put("user_role", $cRole) }
-                    $webSession->put("user_token", $jwtCookie)
+        var $reqCookies = $requestData ["_cookies"] ?? {
+    }
+    string $jwtCookie = strval($reqCookies ["joss_token"] ?? "")
+    (strlen($jwtCookie) > 0) ? {
+        string $jwtSecret = env("JWT_SECRET", env("APP_KEY", ""))
+        var $claims = __joss_jwt_parse_verified($jwtCookie, $jwtSecret)
+        ($claims != null) ? {
+            string $cUid = strval($claims ["user_id"] ?? ($claims ["sub"] ?? ""))
+            (strlen($cUid) > 0 && $cUid != "0") ? {
+                $webSession->put("user_id", $cUid)
+                string $cEmail = strval($claims ["email"] ?? "")
+                (strlen($cEmail) > 0) ? {
+                    $webSession->put("user_email", $cEmail)
                 }
-            }
-        }
-    }
-
-    // Auto-initialize CSRF token on session if missing (Go ensureCSRFToken parity)
-    string $initCsrf = strval($webSession->get("csrf_token", ""))
-    (strlen($initCsrf) == 0) ? {
-        string $newCsrf = sha256(strval(rand()) . "_" . strval(time()) . "_" . $webSession->getId())
-        $webSession->put("csrf_token", $newCsrf)
-    }
-
-    bool $wantsJson = HttpServer::isJsonRequest($path, $headers)
-    string $deceptionEnv = strtolower(trim(env("SECURITY_DECEPTION", "")))
-    bool $deceptionEnabled = ($deceptionEnv != "false" && $deceptionEnv != "0" && $deceptionEnv != "no" && $deceptionEnv != "off")
-
-    // Automatic CSRF verification for state-changing web requests
-    bool $isStateChanging = ($_method == "POST" || $_method == "PUT" || $_method == "PATCH" || $_method == "DELETE")
-    bool $isApiRoute = str_starts_with($path, "/api/")
-    ($isStateChanging && !$isApiRoute) ? {
-        string $sessCsrf = strval($webSession->get("csrf_token", ""))
-        (strlen($sessCsrf) == 0) ? {
-            $sessCsrf = strval($webSession->get("_csrf_token", ""))
-        }
-        (strlen($sessCsrf) > 0) ? {
-            string $reqCsrf = strval($requestData ["_token"] ?? ($headers ["x-csrf-token"] ?? ""))
-            (!Csrf::verify($reqCsrf, $sessCsrf)) ? {
-                string $csrfReason = (strlen($reqCsrf) == 0) ? "token _token/X-CSRF-TOKEN ausente en la solicitud" : "el token _token enviado no coincide con csrf_token de la sesión"
-                ($deceptionEnabled) ? {
-                    print("[SECURITY DECEPTION] " . $_method . " " . $path . " -> 419 CSRF Error (" . $csrfReason . ") -> Ocultando como 404 Not Found (Cliente: " . $clientIp . ")")
-                    ($wantsJson) ? {
-                        return "HTTP/1.1 404 Not Found\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nX-XSS-Protection: 1; mode=block\r\nConnection: close\r\n\r\n{\"status\":404,\"error\":\"Not Found\",\"message\":\"El recurso que buscas no existe o ha sido movido.\"}"
-                    }
-                    return HttpServer::renderCustomErrorOr(404, "404 Not Found", ErrorPages::render404(""))
+                string $cName = strval($claims ["name"] ?? "")
+                (strlen($cName) > 0) ? {
+                    $webSession->put("user_name", $cName)
                 }
-                print("[CSRF ERROR] " . $_method . " " . $path . " -> 419 (" . $csrfReason . ", Cliente: " . $clientIp . ")")
-                return ErrorPages::render419()
+                string $cRole = strval($claims ["role"] ?? "")
+                (strlen($cRole) > 0) ? {
+                    $webSession->put("user_role", $cRole)
+                }
+                $webSession->put("user_token", $jwtCookie)
             }
         }
     }
+}
 
-    string $appDebugEnv = strtolower(trim(env("APP_DEBUG", "")))
-    (strlen($appDebugEnv) == 0) ? {
-        $appDebugEnv = strtolower(trim(env("DEBUG", "")))
-    }
-    bool $isDebug = (!$isProd) && ($appDebugEnv == "true" || $appDebugEnv == "1" || $appDebugEnv == "yes" || $appDebugEnv == "on")
+// Auto-initialize CSRF token on session if missing (Go ensureCSRFToken parity)
+string $initCsrf = strval($webSession->get("csrf_token", ""))
+(strlen($initCsrf) == 0) ? {
+    string $newCsrf = sha256(strval(rand()) . "_" . strval(time()) . "_" . $webSession->getId())
+    $webSession->put("csrf_token", $newCsrf)
+}
 
-    // Application Controller Routing via __joss_http_dispatch
-    string $dispatched = ""
-    string $dispatchErr = ""
-    try {
-        $dispatched = strval(__joss_http_dispatch($_method, $path, $requestData, $webSession->data, $webSession->getCookieHeader()))
-    }  catch ($e) {
-        $dispatchErr = strval($e)
+bool $wantsJson = HttpServer::isJsonRequest($path, $headers)
+string $deceptionEnv = strtolower(trim(env("SECURITY_DECEPTION", "")))
+bool $deceptionEnabled = ($deceptionEnv != "false" && $deceptionEnv != "0" && $deceptionEnv != "no" && $deceptionEnv != "off")
+
+// Automatic CSRF verification for state-changing web requests
+bool $isStateChanging = ($_method == "POST" || $_method == "PUT" || $_method == "PATCH" || $_method == "DELETE")
+bool $isApiRoute = str_starts_with($path, "/api/")
+($isStateChanging &&!$isApiRoute) ? {
+    string $sessCsrf = strval($webSession->get("csrf_token", ""))
+    (strlen($sessCsrf) == 0) ? {
+        $sessCsrf = strval($webSession->get("_csrf_token", ""))
     }
-    (strlen($dispatchErr) > 0) ? {
-        print("[Server Error 500] " . $_method . " " . $path . ": " . $dispatchErr)
-        ($wantsJson) ? {
-            string $jsonErr = ($isDebug) ? $dispatchErr : "Internal Server Error"
-            return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n{\"error\":\"" . str_replace("\"", "\\\"", $jsonErr) . "\",\"status\":500}"
-        }
-        string $displayErr = ($isDebug) ? $dispatchErr : "Ocurrió un error interno en el servidor."
-        string $errHtml = "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"UTF-8\"><title>500 Error Interno</title><style>body{font-family:system-ui,sans-serif;background:#07101f;color:#f4f7fb;padding:40px;margin:0}.card{max-width:720px;margin:40px auto;background:#101d31;border:1px solid rgba(255,112,125,.4);border-radius:10px;padding:28px}h1{color:#ff707d;margin:0 0 12px;font-size:1.4rem}pre{background:#07101f;padding:16px;border-radius:6px;overflow:auto;color:#f2bd5b;white-space:pre-wrap}a{color:#61dafb;text-decoration:none}</style></head><body><div class=\"card\"><h1>500 — Error interno del servidor</h1><p>Ruta: <code>" . html_escape($_method . " " . $path) . "</code></p><pre>" . html_escape($displayErr) . "</pre><p><a href=\"/\">&larr; Volver al inicio</a></p></div></body></html>"
-        return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/html; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . $errHtml
-    }
-    guard ($dispatched == "" || $dispatched == null) : {
-        $webSession->save()
-        string $sessSaveErr = __joss_session_last_error()
-        (strlen($sessSaveErr) > 0) ? {
-            return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\nSession error: " . $sessSaveErr
-        }
-        string $respStr = (str_starts_with(strval($dispatched), "HTTP/")) ? strval($dispatched) : ("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n" . strval($dispatched))
-        ($deceptionEnabled && (str_starts_with($respStr, "HTTP/1.1 403") || str_starts_with($respStr, "HTTP/1.1 401") || str_starts_with($respStr, "HTTP/1.0 403") || str_starts_with($respStr, "HTTP/1.0 401"))) ? {
-            print("[SECURITY DECEPTION] " . $_method . " " . $path . " -> Ocultando status como 404 Not Found (Cliente: " . $clientIp . ")")
-            ($wantsJson) ? {
-                return "HTTP/1.1 404 Not Found\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nX-XSS-Protection: 1; mode=block\r\nConnection: close\r\n\r\n{\"status\":404,\"error\":\"Not Found\",\"message\":\"El recurso que buscas no existe o ha sido movido.\"}"
+    (strlen($sessCsrf) > 0) ? {
+        string $reqCsrf = strval($requestData ["_token"] ?? ($headers ["x-csrf-token"] ?? ""))
+        (!Csrf::verify($reqCsrf, $sessCsrf)) ? {
+            string $csrfReason = (strlen($reqCsrf) == 0) ? "token _token/X-CSRF-TOKEN ausente en la solicitud" : "el token _token enviado no coincide con csrf_token de la sesión"
+            ($deceptionEnabled) ? {
+                print("[SECURITY DECEPTION] " . $_method . " " . $path . " -> 419 CSRF Error (" . $csrfReason . ") -> Ocultando como 404 Not Found (Cliente: " . $clientIp . ")")
+                ($wantsJson) ? {
+                    return "HTTP/1.1 404 Not Found\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nX-XSS-Protection: 1; mode=block\r\nConnection: close\r\n\r\n{\"status\":404,\"error\":\"Not Found\",\"message\":\"El recurso que buscas no existe o ha sido movido.\"}"
+                }
+                return HttpServer::renderCustomErrorOr(404, "404 Not Found", ErrorPages::render404(""))
             }
-            return HttpServer::renderCustomErrorOr(404, "404 Not Found", ErrorPages::render404(""))
+            print("[CSRF ERROR] " . $_method . " " . $path . " -> 419 (" . $csrfReason . ", Cliente: " . $clientIp . ")")
+            return ErrorPages::render419()
         }
-        ($isHotReload && str_contains($respStr, "</body>")) ? {
-            string $hrScript = HttpServer::hotReloadScript($hrUrl)
-            $respStr = str_replace("</body>", $hrScript . "</body>", $respStr)
-        }
-        ($corsMatch) ? {
-            string $allowOrigin = ($corsAllowed == "*") ? "*" : $originHeader
-            $respStr = __joss_http_inject_header($respStr, "Access-Control-Allow-Origin: " . $allowOrigin)
-            ($corsAllowed != "*") ? {
-                $respStr = __joss_http_inject_header($respStr, "Access-Control-Allow-Credentials: true")
-            }
-        }
-        $respStr = __joss_http_inject_header($respStr, "X-Content-Type-Options: nosniff")
-        $respStr = __joss_http_inject_header($respStr, "X-Frame-Options: DENY")
-        $respStr = __joss_http_inject_header($respStr, "X-XSS-Protection: 1; mode=block")
-        string $xfProto = strtolower(trim(strval($headers ["x-forwarded-proto"] ?? "")))
-        ($xfProto == "https") ? {
-            $respStr = __joss_http_inject_header($respStr, "Strict-Transport-Security: max-age=31536000; includeSubDomains")
-        }
-        return __joss_http_inject_header($respStr, $webSession->getCookieHeader())
     }
+}
 
+string $appDebugEnv = strtolower(trim(env("APP_DEBUG", "")))
+(strlen($appDebugEnv) == 0) ? {
+    $appDebugEnv = strtolower(trim(env("DEBUG", "")))
+}
+bool $isDebug = (!$isProd) && ($appDebugEnv == "true" || $appDebugEnv == "1" || $appDebugEnv == "yes" || $appDebugEnv == "on")
+
+// Application Controller Routing via __joss_http_dispatch
+string $dispatched = ""
+string $dispatchErr = ""
+try {
+    $dispatched = strval(__joss_http_dispatch($_method, $path, $requestData, $webSession->data, $webSession->getCookieHeader()))
+}  catch ($e) {
+    $dispatchErr = strval($e)
+}
+(strlen($dispatchErr) > 0) ? {
+    print("[Server Error 500] " . $_method . " " . $path . ": " . $dispatchErr)
     ($wantsJson) ? {
-        return "HTTP/1.1 404 Not Found\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n{\"error\":\"Not Found\",\"status\":404}"
+        string $jsonErr = ($isDebug) ? $dispatchErr : "Internal Server Error"
+        return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n{\"error\":\"" . str_replace("\"", "\\\"", $jsonErr) . "\",\"status\":500}"
     }
-    return HttpServer::renderCustomErrorOr(404, "404 Not Found", ErrorPages::render404($path))
+    string $displayErr = ($isDebug) ? $dispatchErr : "Ocurrió un error interno en el servidor."
+    string $errHtml = "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"UTF-8\"><title>500 Error Interno</title><style>body{font-family:system-ui,sans-serif;background:#07101f;color:#f4f7fb;padding:40px;margin:0}.card{max-width:720px;margin:40px auto;background:#101d31;border:1px solid rgba(255,112,125,.4);border-radius:10px;padding:28px}h1{color:#ff707d;margin:0 0 12px;font-size:1.4rem}pre{background:#07101f;padding:16px;border-radius:6px;overflow:auto;color:#f2bd5b;white-space:pre-wrap}a{color:#61dafb;text-decoration:none}</style></head><body><div class=\"card\"><h1>500 — Error interno del servidor</h1><p>Ruta: <code>" . html_escape($_method . " " . $path) . "</code></p><pre>" . html_escape($displayErr) . "</pre><p><a href=\"/\">&larr; Volver al inicio</a></p></div></body></html>"
+    return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/html; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . $errHtml
+}
+guard ($dispatched == "" || $dispatched == null) : {
+    $webSession->save()
+    string $sessSaveErr = __joss_session_last_error()
+    (strlen($sessSaveErr) > 0) ? {
+        return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\nSession error: " . $sessSaveErr
+    }
+    string $respStr = (str_starts_with(strval($dispatched), "HTTP/")) ? strval($dispatched) : ("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n" . strval($dispatched))
+    ($deceptionEnabled && (str_starts_with($respStr, "HTTP/1.1 403") || str_starts_with($respStr, "HTTP/1.1 401") || str_starts_with($respStr, "HTTP/1.0 403") || str_starts_with($respStr, "HTTP/1.0 401"))) ? {
+        print("[SECURITY DECEPTION] " . $_method . " " . $path . " -> Ocultando status como 404 Not Found (Cliente: " . $clientIp . ")")
+        ($wantsJson) ? {
+            return "HTTP/1.1 404 Not Found\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nX-XSS-Protection: 1; mode=block\r\nConnection: close\r\n\r\n{\"status\":404,\"error\":\"Not Found\",\"message\":\"El recurso que buscas no existe o ha sido movido.\"}"
+        }
+        return HttpServer::renderCustomErrorOr(404, "404 Not Found", ErrorPages::render404(""))
+    }
+    ($isHotReload && str_contains($respStr, "</body>")) ? {
+        string $hrScript = HttpServer::hotReloadScript($hrUrl)
+        $respStr = str_replace("</body>", $hrScript . "</body>", $respStr)
+    }
+    ($corsMatch) ? {
+        string $allowOrigin = ($corsAllowed == "*") ? "*" : $originHeader
+        $respStr = __joss_http_inject_header($respStr, "Access-Control-Allow-Origin: " . $allowOrigin)
+        ($corsAllowed != "*") ? {
+            $respStr = __joss_http_inject_header($respStr, "Access-Control-Allow-Credentials: true")
+        }
+    }
+    $respStr = __joss_http_inject_header($respStr, "X-Content-Type-Options: nosniff")
+    $respStr = __joss_http_inject_header($respStr, "X-Frame-Options: DENY")
+    $respStr = __joss_http_inject_header($respStr, "X-XSS-Protection: 1; mode=block")
+    string $xfProto = strtolower(trim(strval($headers ["x-forwarded-proto"] ?? "")))
+    ($xfProto == "https") ? {
+        $respStr = __joss_http_inject_header($respStr, "Strict-Transport-Security: max-age=31536000; includeSubDomains")
+    }
+    return __joss_http_inject_header($respStr, $webSession->getCookieHeader())
+}
+
+($wantsJson) ? {
+    return "HTTP/1.1 404 Not Found\r\nContent-Type: application/json; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n{\"error\":\"Not Found\",\"status\":404}"
+}
+return HttpServer::renderCustomErrorOr(404, "404 Not Found", ErrorPages::render404($path))
 }
 
 public static func expectedRequestBytes(string $raw) : int {

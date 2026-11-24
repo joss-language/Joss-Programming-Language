@@ -693,7 +693,7 @@ Router::get("/json-types", "AuditCtrl@jsonTypes")
 Router::get("/flash-set", "AuditCtrl@flashSet")
 Router::get("/flash-read", "AuditCtrl@flashRead")
 Router::get("/cookie-on-raw", "AuditCtrl@cookieOnRaw")
-Router::post("/upload-bin", "AuditCtrl@uploadBin")
+Router::post("/api/upload-bin", "AuditCtrl@uploadBin")
 Router::get("/session-counter", "AuditCtrl@sessionCounter")
 
 Router::group("auth", func() {
@@ -909,7 +909,7 @@ public class Main {
 		_ = mw.WriteField("after_field", "trailing_ok")
 		_ = mw.Close()
 
-		req, _ := http.NewRequest("POST", base1+"/upload-bin", &body)
+		req, _ := http.NewRequest("POST", base1+"/api/upload-bin", &body)
 		req.Header.Set("Content-Type", mw.FormDataContentType())
 		resp, err := client.Do(req)
 		if err != nil {
@@ -1195,7 +1195,7 @@ print("CSRF_VERIFY_EMPTY:" . strval(Csrf::verify("", $t1)));
 	t.Run("oauth_callback_and_request_facade_http", func(t *testing.T) {
 		dir := t.TempDir()
 		routesSrc := `
-Router::post("/facade-probe", "FacadeCtrl@probe")
+Router::post("/api/facade-probe", "FacadeCtrl@probe")
 Router::get("/oauth-cb", "FacadeCtrl@oauthCb")
 `
 		mainSrc := `
@@ -1248,22 +1248,22 @@ public class Main {
 			}
 		})
 		base := fmt.Sprintf("http://127.0.0.1:%d", port)
-		req, _ := http.NewRequest("POST", base+"/facade-probe", strings.NewReader(`{"name":"joss","secret":"123"}`))
+		req, _ := http.NewRequest("POST", base+"/api/facade-probe", strings.NewReader(`{"name":"joss","secret":"123"}`))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Cookie", "theme=ocean")
 		req.Header.Set("X-Custom-Header", "AuditVal")
 		req.Header.Set("Authorization", "Bearer tok_abc")
 		resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
 		if err != nil {
-			t.Fatalf("POST /facade-probe: %v\n%s", err, logs.String())
+			t.Fatalf("POST /api/facade-probe: %v\n%s", err, logs.String())
 		}
 		rb, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		var got map[string]any
 		if err := json.Unmarshal(rb, &got); err != nil {
-			t.Fatalf("invalid json /facade-probe: %q (%v)", string(rb), err)
+			t.Fatalf("invalid json /api/facade-probe: %q (%v)", string(rb), err)
 		}
-		if got["method"] != "POST" || got["is_post"] != true || got["path"] != "/facade-probe" ||
+		if got["method"] != "POST" || got["is_post"] != true || got["path"] != "/api/facade-probe" ||
 			got["cookie"] != "ocean" || got["header_ci"] != "AuditVal" || got["bearer"] != "tok_abc" ||
 			got["has_name"] != true {
 			t.Errorf("Request facade mismatch: %v", got)
@@ -1810,6 +1810,9 @@ print("JP_RES:" . strval($r1));
 	t.Run("jossecurity_default_and_native_build", func(t *testing.T) {
 		repoRoot := wbRepoRoot(t)
 		srcDir := filepath.Join(repoRoot, "ejemplos", "Joss-Red-JosSecurity")
+		if _, err := os.Stat(filepath.Join(srcDir, "main.joss")); err != nil {
+			t.Skipf("external project %s not present in checkout", srcDir)
+		}
 		tmpDir := t.TempDir()
 		wbCopyDir(t, srcDir, tmpDir)
 

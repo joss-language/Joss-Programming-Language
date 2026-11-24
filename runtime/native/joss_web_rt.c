@@ -108,6 +108,9 @@ void joss_set_active_session(void* sess) {
 }
 
 void* joss_get_active_session(void) {
+    if (!g_joss_active_session) {
+        g_joss_active_session = joss_map_new();
+    }
     return g_joss_active_session;
 }
 
@@ -4455,6 +4458,8 @@ const char* joss_ws_run_loop(void* ws_ptr) {
                     (void)((JossUnaryCb)fn)((int64_t)(uintptr_t)payload);
                     joss_closure_env_tls_reset();
                 }
+            } else {
+                (void)joss_ws_obj_send(ws_map, payload);
             }
         }
         free(payload);

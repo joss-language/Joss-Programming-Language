@@ -26,9 +26,59 @@ type compiledViewEntry struct {
 //     HTTP requests to compiled native Controller_method functions with their request context.
 //  2. __joss_view_<idx>(__data): compiled native IR functions for each reachable .joss.html template
 //  3. view(viewName, dataMap): dispatches viewName to the compiled view IR function
+func (l *Lowerer) programNeedsEmbeddedAssets() bool {
+	if l.reachGraph == nil {
+		return true
+	}
+	if l.reachGraph.HasCapability(analyzer.CapServer) ||
+		l.reachGraph.HasCapability(analyzer.CapHTTP) ||
+		l.reachGraph.HasCapability(analyzer.CapDatabase) ||
+		l.reachGraph.HasCapability(analyzer.CapFilesystem) ||
+		l.reachGraph.HasCapability(analyzer.CapOCI) {
+		return true
+	}
+	if l.prog == nil {
+		return false
+	}
+	var scan func(blocks []*BasicBlock) bool
+	scan = func(blocks []*BasicBlock) bool {
+		for _, blk := range blocks {
+			for _, inst := range blk.Instructions {
+				switch i := inst.(type) {
+				case *CallInst:
+					if i.Callee == "env" || i.Callee == "config" || i.Callee == "file_get_contents" || i.Callee == "file_exists" || i.Callee == "is_file" || i.Callee == "is_dir" {
+						return true
+					}
+				case *CallBuiltinInst:
+					if i.BuiltinID == "env" || i.BuiltinID == "config" || i.BuiltinID == "file_get_contents" || i.BuiltinID == "file_exists" || i.BuiltinID == "is_file" || i.BuiltinID == "is_dir" || i.BuiltinID == "__joss_file_get_bytes" {
+						return true
+					}
+				case *CallRuntimeInst:
+					if i.Func == "env" || i.Func == "joss_env" || i.Func == "joss_config" || strings.HasPrefix(i.Func, "joss_file_") || i.Func == "joss_is_file" || i.Func == "joss_is_dir" {
+						return true
+					}
+				case *TryCatchInst:
+					if scan(i.TryBlocks) || scan(i.CatchBlocks) {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	}
+	for _, fn := range l.prog.Functions {
+		if scan(fn.Blocks) {
+			return true
+		}
+	}
+	return false
+}
+
 func (l *Lowerer) lowerProjectViewsAndRoutes() error {
-	if err := l.synthesizeEmbeddedAssetsFunction(); err != nil {
-		return err
+	if l.programNeedsEmbeddedAssets() {
+		if err := l.synthesizeEmbeddedAssetsFunction(); err != nil {
+			return err
+		}
 	}
 	if l.reachGraph != nil && !l.reachGraph.HasCapability(analyzer.CapServer) && !l.reachGraph.HasCapability(analyzer.CapHTTP) {
 		return l.synthesizePluginDispatchFunction()
@@ -573,12 +623,9 @@ func (l *Lowerer) lowerRequestSessionContext() {
 				}
 			}
 		}
-		if strings.HasPrefix(fn.Name, "__closure_") || fn.Name == "__joss_plugin_dispatch" {
-			tmp := fn.NewTemp(contextType, "active_sess")
-			*emit = append(*emit, &CallRuntimeInst{Dest: tmp, Func: "joss_get_active_session"})
-			return tmp
-		}
-		return NewConstNull(contextType)
+		tmp := fn.NewTemp(contextType, "active_sess")
+		*emit = append(*emit, &CallRuntimeInst{Dest: tmp, Func: "joss_get_active_session"})
+		return tmp
 	}
 	var rewriteBlocks func(*Function, []*BasicBlock)
 	rewriteBlocks = func(fn *Function, blocks []*BasicBlock) {
