@@ -200,6 +200,9 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	if !needsCrypto {
 		webDefines = append(webDefines, "-DJOSS_DISABLE_OPENSSL_SIGN")
 	}
+	if opts.GUI {
+		webDefines = append(webDefines, "-DJOSS_BUILD_GUI=1")
+	}
 
 	optionalUnits := []struct {
 		file    string
@@ -306,7 +309,9 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		case "windows":
 			linkArgs = append(linkArgs, "-luser32", "-lole32", "-lshell32", "-ldwmapi", "-lshlwapi", "-ladvapi32")
 			if opts.GUI {
-				linkArgs = append(linkArgs, "-mwindows")
+				// Use -Wl,--subsystem,windows instead of -mwindows because zig cc ignores -mwindows
+				// and would leave the PE header as CUI (3) instead of GUI (2).
+				linkArgs = append(linkArgs, "-Wl,--subsystem,windows")
 			}
 		case "darwin":
 			linkArgs = append(linkArgs, "-framework", "Cocoa", "-framework", "WebKit")

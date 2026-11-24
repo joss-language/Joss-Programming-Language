@@ -1,6 +1,7 @@
 package llvm
 
 import (
+	"archive/tar"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/backend/native"
 	"github.com/jossecurity/joss/pkg/ir"
+	"github.com/ulikunitz/xz"
 )
 
 func TestEnsureRuntimeC_ExtractsEmbeddedOutsideRepo(t *testing.T) {
@@ -96,5 +98,70 @@ func TestEndToEnd_CompileFromEmptyDirUsingEmbeddedRuntime(t *testing.T) {
 	}
 	if strings.TrimSpace(string(out)) != "2026" {
 		t.Fatalf("expected 2026, got %q", strings.TrimSpace(string(out)))
+	}
+}
+
+func TestExtractStripTopTarXz_ZeroExternalTools(t *testing.T) {
+	tmpDir := t.TempDir()
+	archivePath := filepath.Join(tmpDir, "zig-linux-aarch64-0.14.0.tar.xz")
+	destDir := filepath.Join(tmpDir, "extracted")
+
+	f, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	xw, err := xz.NewWriter(f)
+	if err != nil {
+		_ = f.Close()
+		t.Fatal(err)
+	}
+	tw := tar.NewWriter(xw)
+
+	payload := []byte("#!/bin/sh\necho zig-ok\n")
+	if err := tw.WriteHeader(&tar.Header{
+		Name:     "zig-linux-aarch64-0.14.0/zig",
+		Mode:     0755,
+		Size:     int64(len(payload)),
+		Typeflag: tar.TypeReg,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tw.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.WriteHeader(&tar.Header{
+		Name:     "zig-linux-aarch64-0.14.0/lib/std.zig",
+		Mode:     0644,
+		Size:     4,
+		Typeflag: tar.TypeReg,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tw.Write([]byte("pub\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := xw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := extractStripTopTarXz(archivePath, destDir); err != nil {
+		t.Fatalf("extractStripTopTarXz failed: %v", err)
+	}
+	gotZig, err := os.ReadFile(filepath.Join(destDir, "zig"))
+	if err != nil {
+		t.Fatalf("expected extracted zig binary: %v", err)
+	}
+	if string(gotZig) != string(payload) {
+		t.Fatalf("unexpected zig contents: %q", string(gotZig))
+	}
+	gotStd, err := os.ReadFile(filepath.Join(destDir, "lib", "std.zig"))
+	if err != nil || string(gotStd) != "pub\n" {
+		t.Fatalf("expected extracted lib/std.zig, got %q (err=%v)", string(gotStd), err)
 	}
 }

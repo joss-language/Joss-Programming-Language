@@ -53,6 +53,8 @@ func ensureNativeToolchainReady() bool {
 	if _, err := llvmbackend.EnsureToolchain(); err == nil {
 		llvmbackend.RegisterAvailableToolchain()
 		return native.NewNativeCompiler().HasNativeToolchain()
+	} else {
+		fmt.Fprintf(os.Stderr, "⚠️  [Toolchain] No se pudo preparar el toolchain nativo: %v\n", err)
 	}
 	return false
 }

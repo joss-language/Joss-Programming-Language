@@ -47,7 +47,7 @@ func buildLegacyProgram(filename, outExe, targetStr string, enableGUI bool) (str
 	}
 	detectedCaps["gui"] = enableGUI
 	pruningTags := computePruningTags(detectedCaps)
-	runner, cleanup, err := resolveLegacyRunner(target, pruningTags)
+	runner, cleanup, err := resolveLegacyRunner(target, pruningTags, enableGUI)
 	if err != nil {
 		return "", err
 	}
@@ -138,7 +138,7 @@ func sealLegacyProject(files map[string][]byte) ([]byte, []byte, error) {
 	return sealed, key, nil
 }
 
-func resolveLegacyRunner(target native.Target, pruningTags []string) (string, func(), error) {
+func resolveLegacyRunner(target native.Target, pruningTags []string, enableGUI bool) (string, func(), error) {
 	name := "joss-runner"
 	if target.OS == "windows" {
 		name += ".exe"
@@ -195,7 +195,11 @@ func resolveLegacyRunner(target native.Target, pruningTags []string) (string, fu
 	}
 	_ = temp.Close()
 	_ = os.Remove(temp.Name())
-	args := []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w", "-o", temp.Name()}
+	ldflags := "-s -w"
+	if target.OS == "windows" && enableGUI {
+		ldflags = "-s -w -H=windowsgui"
+	}
+	args := []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=" + ldflags, "-o", temp.Name()}
 	if len(pruningTags) > 0 {
 		args = append(args, "-tags="+strings.Join(pruningTags, ","))
 	}

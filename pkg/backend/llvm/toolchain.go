@@ -16,6 +16,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/version"
 	runtimeassets "github.com/jossecurity/joss/runtime"
+	"github.com/ulikunitz/xz"
 )
 
 const managedZigVersion = "0.14.0"
@@ -281,9 +282,8 @@ func InstallManagedToolchain() (ToolchainInfo, error) {
 			return ToolchainInfo{}, err
 		}
 	case "tar.xz":
-		cmd := exec.Command("tar", "-xJf", tmpPath, "--strip-components=1", "-C", destDir)
-		if out, tarErr := cmd.CombinedOutput(); tarErr != nil {
-			return ToolchainInfo{}, fmt.Errorf("extraer toolchain tar.xz: %w\n%s", tarErr, string(out))
+		if err := extractStripTopTarXz(tmpPath, destDir); err != nil {
+			return ToolchainInfo{}, fmt.Errorf("extraer toolchain tar.xz: %w", err)
 		}
 	}
 
@@ -348,7 +348,24 @@ func extractStripTopTarGz(tarPath, destDir string) error {
 		return err
 	}
 	defer gz.Close()
-	tr := tar.NewReader(gz)
+	return extractStripTopTar(gz, destDir)
+}
+
+func extractStripTopTarXz(tarPath, destDir string) error {
+	f, err := os.Open(tarPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	xr, err := xz.NewReader(f)
+	if err != nil {
+		return err
+	}
+	return extractStripTopTar(xr, destDir)
+}
+
+func extractStripTopTar(r io.Reader, destDir string) error {
+	tr := tar.NewReader(r)
 	cleanDest := filepath.Clean(destDir)
 	for {
 		hdr, err := tr.Next()
@@ -366,22 +383,54 @@ func extractStripTopTarGz(tarPath, destDir string) error {
 		if !strings.HasPrefix(filepath.Clean(target), cleanDest+string(os.PathSeparator)) {
 			continue
 		}
-		if hdr.Typeflag == tar.TypeDir {
-			_ = os.MkdirAll(target, 0755)
-			continue
-		}
-		if hdr.Typeflag == tar.TypeReg {
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
 			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 				return err
 			}
-			out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode))
+			mode := os.FileMode(hdr.Mode) & 0777
+			if mode == 0 {
+				mode = 0644
+			}
+			out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 			if err != nil {
 				return err
 			}
 			_, copyErr := io.Copy(out, tr)
-			_ = out.Close()
+			closeErr := out.Close()
 			if copyErr != nil {
 				return copyErr
+			}
+			if closeErr != nil {
+				return closeErr
+			}
+		case tar.TypeSymlink:
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return err
+			}
+			_ = os.Remove(target)
+			if err := os.Symlink(hdr.Linkname, target); err != nil {
+				return err
+			}
+		case tar.TypeLink:
+			linkParts := strings.SplitN(filepath.ToSlash(hdr.Linkname), "/", 2)
+			if len(linkParts) < 2 || linkParts[1] == "" {
+				continue
+			}
+			linkTarget := filepath.Join(cleanDest, filepath.FromSlash(linkParts[1]))
+			if !strings.HasPrefix(filepath.Clean(linkTarget), cleanDest+string(os.PathSeparator)) {
+				continue
+			}
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return err
+			}
+			_ = os.Remove(target)
+			if err := os.Link(linkTarget, target); err != nil {
+				return err
 			}
 		}
 	}

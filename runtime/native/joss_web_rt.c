@@ -1639,6 +1639,22 @@ int64_t joss___joss_http_read_request(void* sock) {
 
 typedef void (*JossConnHandlerFn)(void* client_sock);
 
+#ifdef JOSS_BUILD_GUI
+extern void joss_gui_launch_url(const char* title, const char* url, int64_t width, int64_t height);
+
+static bool joss_should_launch_gui_window(void) {
+    const char* prog_start = getenv("JOSS_PROGRAM_START");
+    if (prog_start && (strcmp(prog_start, "true") == 0 || strcmp(prog_start, "1") == 0)) {
+        return false;
+    }
+    const char* env_gui = joss_env("JOSS_GUI", "");
+    if (env_gui && (strcmp(env_gui, "false") == 0 || strcmp(env_gui, "0") == 0)) {
+        return false;
+    }
+    return true;
+}
+#endif
+
 #define JOSS_HTTP_QUEUE_CAP 512
 
 typedef struct {
@@ -1719,6 +1735,79 @@ static DWORD WINAPI joss_http_worker_main(LPVOID arg) {
 }
 #endif
 
+#if defined(__unix__) || defined(__APPLE__)
+typedef struct {
+    int                 sfd;
+    JossHttpWorkerPool* pool;
+} JossHttpAcceptCtx;
+
+static void* joss_http_accept_loop(void* arg) {
+    JossHttpAcceptCtx* ctx = (JossHttpAcceptCtx*)arg;
+    int sfd = ctx->sfd;
+    JossHttpWorkerPool* pool = ctx->pool;
+    for (;;) {
+        int cfd = accept(sfd, NULL, NULL);
+        if (cfd < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
+        intptr_t h = (intptr_t)(cfd + 1);
+        joss_configure_client_socket(h);
+        joss_register_wrapped_socket(h);
+        pthread_mutex_lock(&pool->mu);
+        while (pool->count == JOSS_HTTP_QUEUE_CAP && !pool->stopping) {
+            pthread_cond_wait(&pool->not_full, &pool->mu);
+        }
+        if (pool->stopping) {
+            pthread_mutex_unlock(&pool->mu);
+            close(cfd);
+            break;
+        }
+        pool->queue[pool->tail] = (void*)h;
+        pool->tail = (pool->tail + 1) % JOSS_HTTP_QUEUE_CAP;
+        pool->count++;
+        pthread_cond_signal(&pool->not_empty);
+        pthread_mutex_unlock(&pool->mu);
+    }
+    return NULL;
+}
+#elif defined(_WIN32)
+typedef struct {
+    SOCKET              sfd;
+    JossHttpWorkerPool* pool;
+} JossHttpAcceptCtx;
+
+static DWORD WINAPI joss_http_accept_loop(LPVOID arg) {
+    JossHttpAcceptCtx* ctx = (JossHttpAcceptCtx*)arg;
+    SOCKET sfd = ctx->sfd;
+    JossHttpWorkerPool* pool = ctx->pool;
+    for (;;) {
+        SOCKET cfd = accept(sfd, NULL, NULL);
+        if (cfd == INVALID_SOCKET) {
+            break;
+        }
+        intptr_t h = (intptr_t)(cfd + 1);
+        joss_configure_client_socket(h);
+        joss_register_wrapped_socket(h);
+        EnterCriticalSection(&pool->cs);
+        while (pool->count == JOSS_HTTP_QUEUE_CAP && !pool->stopping) {
+            SleepConditionVariableCS(&pool->not_full, &pool->cs, INFINITE);
+        }
+        if (pool->stopping) {
+            LeaveCriticalSection(&pool->cs);
+            closesocket(cfd);
+            break;
+        }
+        pool->queue[pool->tail] = (void*)(uintptr_t)h;
+        pool->tail = (pool->tail + 1) % JOSS_HTTP_QUEUE_CAP;
+        pool->count++;
+        WakeConditionVariable(&pool->not_empty);
+        LeaveCriticalSection(&pool->cs);
+    }
+    return 0;
+}
+#endif
+
 void joss___joss_http_serve_concurrent(void* srv, void* handler_fn_ptr) {
     srv = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)srv);
     if (!srv || !handler_fn_ptr) return;
@@ -1744,25 +1833,38 @@ void joss___joss_http_serve_concurrent(void* srv, void* handler_fn_ptr) {
             pthread_detach(tid);
         }
     }
-    for (;;) {
-        int cfd = accept(sfd, NULL, NULL);
-        if (cfd < 0) {
-            if (errno == EINTR) continue;
-            break;
+    JossHttpAcceptCtx* accept_ctx = (JossHttpAcceptCtx*)calloc(1, sizeof(JossHttpAcceptCtx));
+    if (!accept_ctx) return;
+    accept_ctx->sfd = sfd;
+    accept_ctx->pool = pool;
+#ifdef JOSS_BUILD_GUI
+    if (joss_should_launch_gui_window()) {
+        pthread_t accept_tid;
+        if (pthread_create(&accept_tid, NULL, joss_http_accept_loop, accept_ctx) == 0) {
+            pthread_detach(accept_tid);
+            struct sockaddr_in sin;
+            socklen_t sin_len = (socklen_t)sizeof(sin);
+            unsigned short bound_port = 8080;
+            if (getsockname(sfd, (struct sockaddr*)&sin, &sin_len) == 0 && sin.sin_port != 0) {
+                bound_port = ntohs(sin.sin_port);
+            }
+            char url[128];
+            snprintf(url, sizeof(url), "http://127.0.0.1:%u", (unsigned)bound_port);
+            const char* title = joss_env("APP_NAME", "Joss Application");
+            if (!title || !*title) title = "Joss Application";
+            joss_gui_launch_url(title, url, 1120, 760);
+            pthread_mutex_lock(&pool->mu);
+            pool->stopping = true;
+            pthread_cond_broadcast(&pool->not_empty);
+            pthread_cond_broadcast(&pool->not_full);
+            pthread_mutex_unlock(&pool->mu);
+            close(sfd);
+            return;
         }
-        intptr_t h = (intptr_t)(cfd + 1);
-        joss_configure_client_socket(h);
-        joss_register_wrapped_socket(h);
-        pthread_mutex_lock(&pool->mu);
-        while (pool->count == JOSS_HTTP_QUEUE_CAP && !pool->stopping) {
-            pthread_cond_wait(&pool->not_full, &pool->mu);
-        }
-        pool->queue[pool->tail] = (void*)h;
-        pool->tail = (pool->tail + 1) % JOSS_HTTP_QUEUE_CAP;
-        pool->count++;
-        pthread_cond_signal(&pool->not_empty);
-        pthread_mutex_unlock(&pool->mu);
     }
+#endif
+    joss_http_accept_loop(accept_ctx);
+    free(accept_ctx);
 #elif defined(_WIN32)
     SOCKET sfd = (SOCKET)((uintptr_t)srv - 1);
     JossHttpWorkerPool* pool = (JossHttpWorkerPool*)calloc(1, sizeof(JossHttpWorkerPool));
@@ -1783,24 +1885,38 @@ void joss___joss_http_serve_concurrent(void* srv, void* handler_fn_ptr) {
         HANDLE th = CreateThread(NULL, 0, joss_http_worker_main, pool, 0, NULL);
         if (th) CloseHandle(th);
     }
-    for (;;) {
-        SOCKET cfd = accept(sfd, NULL, NULL);
-        if (cfd == INVALID_SOCKET) {
-            break;
+    JossHttpAcceptCtx* accept_ctx = (JossHttpAcceptCtx*)calloc(1, sizeof(JossHttpAcceptCtx));
+    if (!accept_ctx) return;
+    accept_ctx->sfd = sfd;
+    accept_ctx->pool = pool;
+#ifdef JOSS_BUILD_GUI
+    if (joss_should_launch_gui_window()) {
+        HANDLE accept_th = CreateThread(NULL, 0, joss_http_accept_loop, accept_ctx, 0, NULL);
+        if (accept_th) {
+            CloseHandle(accept_th);
+            struct sockaddr_in sin;
+            int sin_len = (int)sizeof(sin);
+            unsigned short bound_port = 8080;
+            if (getsockname(sfd, (struct sockaddr*)&sin, &sin_len) == 0 && sin.sin_port != 0) {
+                bound_port = ntohs(sin.sin_port);
+            }
+            char url[128];
+            snprintf(url, sizeof(url), "http://127.0.0.1:%u", (unsigned)bound_port);
+            const char* title = joss_env("APP_NAME", "Joss Application");
+            if (!title || !*title) title = "Joss Application";
+            joss_gui_launch_url(title, url, 1120, 760);
+            EnterCriticalSection(&pool->cs);
+            pool->stopping = true;
+            WakeAllConditionVariable(&pool->not_empty);
+            WakeAllConditionVariable(&pool->not_full);
+            LeaveCriticalSection(&pool->cs);
+            closesocket(sfd);
+            return;
         }
-        intptr_t h = (intptr_t)(cfd + 1);
-        joss_configure_client_socket(h);
-        joss_register_wrapped_socket(h);
-        EnterCriticalSection(&pool->cs);
-        while (pool->count == JOSS_HTTP_QUEUE_CAP && !pool->stopping) {
-            SleepConditionVariableCS(&pool->not_full, &pool->cs, INFINITE);
-        }
-        pool->queue[pool->tail] = (void*)(uintptr_t)h;
-        pool->tail = (pool->tail + 1) % JOSS_HTTP_QUEUE_CAP;
-        pool->count++;
-        WakeConditionVariable(&pool->not_empty);
-        LeaveCriticalSection(&pool->cs);
     }
+#endif
+    joss_http_accept_loop(accept_ctx);
+    free(accept_ctx);
 #else
     (void)srv;
     (void)handler_fn_ptr;
@@ -2396,15 +2512,94 @@ void* fn_WebResponse_withCookie(void* resp, const char* name, const char* value)
     return withCookie(resp, unbox_web_cstr(name), unbox_web_cstr(value));
 }
 
+#if defined(_WIN32)
+static int joss_win_run_hidden_cmd(const char* cmd) {
+    if (!cmd || !*cmd) return -1;
+    const char* comspec = getenv("COMSPEC");
+    if (!comspec || !*comspec) comspec = "cmd.exe";
+    size_t clen = strlen(comspec) + strlen(cmd) + 16;
+    char* cmdline = (char*)malloc(clen);
+    if (!cmdline) return -1;
+    snprintf(cmdline, clen, "\"%s\" /c %s", comspec, cmd);
+
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    memset(&si, 0, sizeof(si));
+    memset(&pi, 0, sizeof(pi));
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+
+    BOOL ok = CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+    free(cmdline);
+    if (!ok) return -1;
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    DWORD exit_code = 1;
+    GetExitCodeProcess(pi.hProcess, &exit_code);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    return (int)exit_code;
+}
+#endif
+
 static char* joss_system_run_bytes(const char* cmd, size_t* out_len) {
     if (out_len) *out_len = 0;
     cmd = unbox_web_cstr(cmd);
     if (!cmd || !*cmd) return NULL;
 #if defined(_WIN32)
-    FILE* pipe = _popen(cmd, "rb");
+    const char* comspec = getenv("COMSPEC");
+    if (!comspec || !*comspec) comspec = "cmd.exe";
+    size_t clen = strlen(comspec) + strlen(cmd) + 16;
+    char* cmdline = (char*)malloc(clen);
+    if (!cmdline) return NULL;
+    snprintf(cmdline, clen, "\"%s\" /c %s", comspec, cmd);
+
+    SECURITY_ATTRIBUTES sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.nLength = sizeof(sa);
+    sa.bInheritHandle = TRUE;
+    HANDLE hRead = NULL, hWrite = NULL;
+    if (!CreatePipe(&hRead, &hWrite, &sa, 0)) {
+        free(cmdline);
+        return NULL;
+    }
+    SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0);
+
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    memset(&si, 0, sizeof(si));
+    memset(&pi, 0, sizeof(pi));
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+    si.hStdOutput = hWrite;
+    si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+    si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+
+    BOOL ok = CreateProcessA(NULL, cmdline, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+    free(cmdline);
+    CloseHandle(hWrite);
+    if (!ok) {
+        CloseHandle(hRead);
+        return NULL;
+    }
+
+    JossStringBuilder* sb = joss_sb_new();
+    char buf[4096];
+    DWORD nread = 0;
+    while (ReadFile(hRead, buf, sizeof(buf), &nread, NULL) && nread > 0) {
+        joss_buf_append_bytes(sb, (const uint8_t*)buf, (int64_t)nread);
+    }
+    CloseHandle(hRead);
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    if (out_len) *out_len = (size_t)sb->len;
+    char* out = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    return out;
 #else
     FILE* pipe = popen(cmd, "r");
-#endif
     if (!pipe) return NULL;
     JossStringBuilder* sb = joss_sb_new();
     char buf[4096];
@@ -2412,15 +2607,12 @@ static char* joss_system_run_bytes(const char* cmd, size_t* out_len) {
     while ((n = fread(buf, 1, sizeof(buf), pipe)) > 0) {
         joss_buf_append_bytes(sb, (const uint8_t*)buf, (int64_t)n);
     }
-#if defined(_WIN32)
-    _pclose(pipe);
-#else
     pclose(pipe);
-#endif
     if (out_len) *out_len = (size_t)sb->len;
     char* out = joss_sb_to_string(sb);
     joss_sb_free(sb);
     return out;
+#endif
 }
 
 static bool joss_http_write_temp_file(const uint8_t* data, size_t len, char* out_path, size_t out_cap);
@@ -7307,7 +7499,11 @@ int64_t fn_SmtpClient_send(const char* to, const char* subject, const char* body
         snprintf(cmd_buf, sizeof(cmd_buf),
                  "curl -sS%s --url \"%s://%s:%s\" --user \"%s:%s\" --mail-from \"%s\" --mail-rcpt \"%s\" --upload-file \"%s\"",
                  ssl_flag, scheme, host, port, user, pass, from, to, tmp_eml);
+#if defined(_WIN32)
+        int rc = joss_win_run_hidden_cmd(cmd_buf);
+#else
         int rc = system(cmd_buf);
+#endif
         remove(tmp_eml);
         return rc == 0 ? 1 : 0;
     }
