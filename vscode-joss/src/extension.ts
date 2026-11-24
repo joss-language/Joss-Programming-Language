@@ -9,6 +9,8 @@ import {
 
 import { registerCommands } from './commands';
 import { getCompletionItemProvider } from './completion';
+import { JossTaskProvider } from './tasks';
+import { JossExplorerProvider } from './views/jossExplorer';
 
 let client: LanguageClient;
 
@@ -16,15 +18,41 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('Joss Language Extension v3.8 is now active!');
 
     try {
-        // Start Language Server (handles formatting, diagnostics, quick fixes, CodeLens, inlay hints, folding, etc.)
+        // Start Language Server
         client = startLanguageServer(context);
 
         // Register Commands
         registerCommands(context, client);
 
         // View templates (.joss.html) keep their controller-variable suggestions.
-        // Source files (.joss) use the richer LSP completion provider.
         context.subscriptions.push(getCompletionItemProvider());
+
+        // Built-in VS Code Task Provider (Ctrl+Shift+B Build Native / GUI / Test / Lint)
+        context.subscriptions.push(
+            vscode.tasks.registerTaskProvider(JossTaskProvider.JossType, new JossTaskProvider())
+        );
+
+        // Joss Explorer Sidebar TreeView (Quick Actions, Routes, Models, Controllers)
+        const explorerProvider = new JossExplorerProvider(client);
+        context.subscriptions.push(
+            vscode.window.registerTreeDataProvider('jossExplorer', explorerProvider),
+            vscode.commands.registerCommand('joss.refreshExplorer', () => explorerProvider.refresh()),
+            vscode.commands.registerCommand('joss.openRouteTarget', async (route: unknown) => {
+                const location = await client.sendRequest<{ uri: string; range: { start: { line: number; character: number } } }>('joss/resolveRoute', route);
+                if (location) {
+                    const uri = vscode.Uri.parse(location.uri);
+                    const pos = new vscode.Position(location.range.start.line, location.range.start.character);
+                    await vscode.window.showTextDocument(uri, { selection: new vscode.Range(pos, pos) });
+                }
+            })
+        );
+
+        // Auto-refresh explorer when .joss files are created/deleted/saved
+        context.subscriptions.push(
+            vscode.workspace.onDidSaveTextDocument(doc => {
+                if (doc.languageId === 'joss') explorerProvider.refresh();
+            })
+        );
 
         // Interactive Status Bar Item
         const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);

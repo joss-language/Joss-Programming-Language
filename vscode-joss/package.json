@@ -228,8 +228,22 @@
       {
         "command": "joss.quickActions",
         "title": "Joss: Quick Actions Menu"
+      },
+      {
+        "command": "joss.refreshExplorer",
+        "title": "Joss: Refresh Explorer",
+        "icon": "$(refresh)"
       }
     ],
+    "views": {
+      "explorer": [
+        {
+          "id": "jossExplorer",
+          "name": "Joss Project",
+          "when": "workspaceFolderCount > 0"
+        }
+      ]
+    },
     "menus": {
       "editor/title": [
         {
@@ -247,8 +261,55 @@
           "command": "joss.buildGUI",
           "group": "navigation@3"
         }
+      ],
+      "view/title": [
+        {
+          "when": "view == jossExplorer",
+          "command": "joss.refreshExplorer",
+          "group": "navigation"
+        }
       ]
     },
+    "taskDefinitions": [
+      {
+        "type": "joss",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The Joss CLI subcommand (e.g., build, run, test, check, lint, fix, format)"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Additional arguments passed to the Joss CLI"
+          }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "joss",
+        "owner": "joss",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^\\[(JOSS-[A-Z0-9-]+)\\]\\s+(ERROR|WARNING|INFO)\\s+(.+?):(\\d+):(\\d+):\\s+(.+)$",
+          "code": 1,
+          "severity": 2,
+          "file": 3,
+          "line": 4,
+          "column": 5,
+          "message": 6
+        }
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "Joss",

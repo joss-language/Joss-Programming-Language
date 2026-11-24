@@ -657,5 +657,71 @@
       "public record ${1:Point}(${2:int \\$x, int \\$y})"
     ],
     "description": "Declare an immutable Joss record"
+  },
+  "Guard Clause": {
+    "prefix": "guard",
+    "body": [
+      "guard (${1:\\$value != null}) : {",
+      "\treturn ${2:null}",
+      "}"
+    ],
+    "description": "Joss guard clause for early return"
+  },
+  "Match Expression": {
+    "prefix": "match",
+    "body": [
+      "var \\$res = match (${1:\\$value}) {",
+      "\t${2:1} => ${3:\"one\"},",
+      "\tdefault => ${4:\"other\"}",
+      "}"
+    ],
+    "description": "Joss match expression"
+  },
+  "Enum Declaration": {
+    "prefix": "enum",
+    "body": [
+      "public enum ${1:Status} {",
+      "\tcase ${2:Active}",
+      "\tcase ${3:Inactive}",
+      "}"
+    ],
+    "description": "Declare a Joss enum"
+  },
+  "Interface Declaration": {
+    "prefix": "interface",
+    "body": [
+      "public interface ${1:Repository} {",
+      "\tpublic func ${2:find}(int \\$id): mixed",
+      "}"
+    ],
+    "description": "Declare a Joss interface"
+  },
+  "Try Catch": {
+    "prefix": "trycatch",
+    "body": [
+      "try {",
+      "\t$1",
+      "} catch (\\$e) {",
+      "\tprint(\"Error: \" . strval(\\$e))",
+      "}"
+    ],
+    "description": "Try / catch block"
+  },
+  "Defer Statement": {
+    "prefix": "defer",
+    "body": [
+      "defer ${1:\\$resource->close()}"
+    ],
+    "description": "Defer cleanup until scope exit"
+  },
+  "Channel Send & Recv": {
+    "prefix": "channel",
+    "body": [
+      "var \\$ch = make_chan(${1:1})",
+      "send(\\$ch, ${2:\"hello\"})",
+      "var \\$msg = recv(\\$ch)",
+      "close(\\$ch)"
+    ],
+    "description": "Create and use a concurrent Joss channel"
   }
 }

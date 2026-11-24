@@ -26,6 +26,8 @@ import { setupCodeActionProvider } from './providers/codeActionProvider';
 import { setupCodeLensProvider } from './providers/codeLensProvider';
 import { setupInlayHintProvider } from './providers/inlayHintProvider';
 import { setupFoldingRangeProvider } from './providers/foldingRangeProvider';
+import { setupDocumentHighlightProvider } from './providers/documentHighlightProvider';
+import { setupSelectionRangeProvider } from './providers/selectionRangeProvider';
 import { JossSettings, getDefaultSettings } from './config/settings';
 import { URI } from 'vscode-uri';
 
@@ -77,6 +79,8 @@ connection.onInitialize((params: InitializeParams) => {
             },
             inlayHintProvider: true,
             foldingRangeProvider: true,
+            documentHighlightProvider: true,
+            selectionRangeProvider: true,
             renameProvider: {
                 prepareProvider: true
             }
@@ -128,6 +132,8 @@ setupCodeActionProvider();
 setupCodeLensProvider();
 setupInlayHintProvider();
 setupFoldingRangeProvider();
+setupDocumentHighlightProvider();
+setupSelectionRangeProvider();
 
 // Configuration management
 let globalSettings: JossSettings = getDefaultSettings();
