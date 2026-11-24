@@ -2,7 +2,7 @@
   "name": "joss-language",
   "displayName": "Joss Language Support",
   "description": "Joss IntelliSense with parameter hints, project indexing, navigation, diagnostics, and security analysis",
-  "version": "3.7.0",
+  "version": "3.8.0",
   "icon": "images/icon.png",
   "publisher": "jossecurity",
   "engines": {
@@ -201,8 +201,54 @@
       {
         "command": "joss.pluginValidate",
         "title": "Joss: Validate Plugin"
+      },
+      {
+        "command": "joss.runFile",
+        "title": "Joss: Run Current File",
+        "icon": "$(play)"
+      },
+      {
+        "command": "joss.runFileNative",
+        "title": "Joss: Run Current File (Native)",
+        "icon": "$(zap)"
+      },
+      {
+        "command": "joss.buildGUI",
+        "title": "Joss: Build Native GUI Executable",
+        "icon": "$(window)"
+      },
+      {
+        "command": "joss.programStart",
+        "title": "Joss: Launch Native Desktop App (joss program)"
+      },
+      {
+        "command": "joss.emitIR",
+        "title": "Joss: Inspect Native IR (emit-ir)"
+      },
+      {
+        "command": "joss.quickActions",
+        "title": "Joss: Quick Actions Menu"
       }
     ],
+    "menus": {
+      "editor/title": [
+        {
+          "when": "editorLangId == joss",
+          "command": "joss.runFile",
+          "group": "navigation@1"
+        },
+        {
+          "when": "editorLangId == joss",
+          "command": "joss.runFileNative",
+          "group": "navigation@2"
+        },
+        {
+          "when": "editorLangId == joss",
+          "command": "joss.buildGUI",
+          "group": "navigation@3"
+        }
+      ]
+    },
     "configuration": {
       "type": "object",
       "title": "Joss",
@@ -221,6 +267,21 @@
           "type": "boolean",
           "default": true,
           "description": "Enable formatting for Joss files"
+        },
+        "joss.diagnostics.compiler.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time Joss compiler and linter diagnostics (joss lint --json)"
+        },
+        "joss.inlayHints.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline parameter name hints and inferred var types"
+        },
+        "joss.codeLens.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show clickable Run / Build Native / Build GUI / Run Tests CodeLens actions"
         }
       }
     }

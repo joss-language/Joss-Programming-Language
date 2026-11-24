@@ -146,7 +146,8 @@ export function registerCommands(context: vscode.ExtensionContext, client: Langu
                     cancellable: false
                 }, async (progress) => {
                     return new Promise<void>((resolve, reject) => {
-                        cp.exec(`joss change db prefix ${prefix}`, { cwd: rootPath }, (err, stdout, stderr) => {
+                        const jossBin = vscode.workspace.getConfiguration('joss').get<string>('executablePath', 'joss') || 'joss';
+                        cp.execFile(jossBin, ['change', 'db', 'prefix', prefix], { cwd: rootPath }, (err, _stdout, stderr) => {
                             if (err) {
                                 vscode.window.showErrorMessage(`Failed to change prefix: ${stderr || err.message}`);
                                 resolve();
@@ -451,6 +452,112 @@ export function registerCommands(context: vscode.ExtensionContext, client: Langu
             const terminal = vscode.window.createTerminal('Joss Plugin Validate');
             terminal.show();
             terminal.sendText('joss plugin validate');
+        })
+    );
+
+    const getJossBin = (): string =>
+        vscode.workspace.getConfiguration('joss').get<string>('executablePath', 'joss') || 'joss';
+
+    const getSharedTerminal = (): vscode.Terminal => {
+        const existing = vscode.window.terminals.find(t => t.name === 'Joss');
+        return existing ?? vscode.window.createTerminal('Joss');
+    };
+
+    const getActiveJossFile = (): string | undefined => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.languageId !== 'joss') {
+            return undefined;
+        }
+        return editor.document.uri.fsPath;
+    };
+
+    // Run Current File
+    context.subscriptions.push(
+        vscode.commands.registerCommand('joss.runFile', async () => {
+            const file = getActiveJossFile();
+            if (!file) {
+                vscode.window.showWarningMessage('Open a .joss file to run it.');
+                return;
+            }
+            await vscode.window.activeTextEditor?.document.save();
+            const term = getSharedTerminal();
+            term.show();
+            term.sendText(`${getJossBin()} run "${file}"`);
+        })
+    );
+
+    // Run Current File (Native)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('joss.runFileNative', async () => {
+            const file = getActiveJossFile();
+            if (!file) {
+                vscode.window.showWarningMessage('Open a .joss file to run in native mode.');
+                return;
+            }
+            await vscode.window.activeTextEditor?.document.save();
+            const term = getSharedTerminal();
+            term.show();
+            term.sendText(`${getJossBin()} run --native "${file}"`);
+        })
+    );
+
+    // Build Native GUI Executable
+    context.subscriptions.push(
+        vscode.commands.registerCommand('joss.buildGUI', async () => {
+            const file = getActiveJossFile() || 'main.joss';
+            await vscode.window.activeTextEditor?.document.save();
+            const term = getSharedTerminal();
+            term.show();
+            term.sendText(`${getJossBin()} build "${file}" --gui --release`);
+        })
+    );
+
+    // Launch Native Desktop App (joss program --native)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('joss.programStart', async () => {
+            await vscode.window.activeTextEditor?.document.save();
+            const term = getSharedTerminal();
+            term.show();
+            term.sendText(`${getJossBin()} program --native`);
+        })
+    );
+
+    // Inspect Native IR (emit-ir)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('joss.emitIR', async () => {
+            const file = getActiveJossFile();
+            if (!file) {
+                vscode.window.showWarningMessage('Open a .joss file to inspect its Native IR.');
+                return;
+            }
+            await vscode.window.activeTextEditor?.document.save();
+            const term = getSharedTerminal();
+            term.show();
+            term.sendText(`${getJossBin()} emit-ir "${file}"`);
+        })
+    );
+
+    // Status Bar Quick Actions Menu
+    context.subscriptions.push(
+        vscode.commands.registerCommand('joss.quickActions', async () => {
+            const picks = [
+                { label: '$(play) Run Current File', command: 'joss.runFile' },
+                { label: '$(zap) Run Current File (Native)', command: 'joss.runFileNative' },
+                { label: '$(package) Build Native Executable', command: 'joss.buildNative' },
+                { label: '$(window) Build Native GUI Executable (--gui)', command: 'joss.buildGUI' },
+                { label: '$(browser) Launch Desktop App (joss program --native)', command: 'joss.programStart' },
+                { label: '$(beaker) Run Tests', command: 'joss.test' },
+                { label: '$(check) Check Syntax & Types', command: 'joss.checkSyntax' },
+                { label: '$(wrench) Fix Auto-Fixable Issues (joss fix)', command: 'joss.fix' },
+                { label: '$(file-code) Inspect Native IR (emit-ir)', command: 'joss.emitIR' },
+                { label: '$(refresh) Restart Joss Language Server', command: 'joss.restartServer' }
+            ];
+            const choice = await vscode.window.showQuickPick(picks, {
+                placeHolder: 'Select a Joss action'
+            });
+            if (choice) {
+                await vscode.commands.executeCommand(choice.command);
+            }
         })
     );
 }

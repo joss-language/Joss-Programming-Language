@@ -583,5 +583,79 @@
       "Session::forget(\"${1:key}\")"
     ],
     "description": "Forget a session key"
+  },
+  "Native Desktop Window App": {
+    "prefix": "window",
+    "body": [
+      "var \\$win = Window::open(\"${1:Joss App}\", ${2:1120}, ${3:760})",
+      "\\$win->setTheme(\"${4|dark,light,system|}\")",
+      "\\$win->bind(\"${5:greet}\", func(string \\$name): string {",
+      "\treturn \"Hola \" . \\$name",
+      "})",
+      "\\$win->setHtml(\"<h1>${1:Joss App}</h1>\")",
+      "\\$win->run()"
+    ],
+    "description": "Create a native standalone desktop GUI app with Window + IPC"
+  },
+  "Model ORM Class": {
+    "prefix": "model",
+    "body": [
+      "public class ${1:User} extends Model {",
+      "\tprotected string \\$table = \"${2:users}\"",
+      "\tprotected bool \\$softDeletes = ${3|true,false|}",
+      "\tprotected array \\$fillable = [${4:\"name\", \"email\"}]",
+      "\tprotected array \\$hidden = [${5:\"password\"}]",
+      "\tprotected map \\$casts = {${6:\"active\": \"bool\"}}",
+      "",
+      "\t$0",
+      "}"
+    ],
+    "description": "Define a Model ORM class extending Model"
+  },
+  "DateTime & DateInterval": {
+    "prefix": "datetime",
+    "body": [
+      "var \\$now = DateTime::now()",
+      "var \\$next = \\$now->add(DateInterval::days(${1:7}))",
+      "print(\\$next->format(\"${2:Y-m-d H:i:s}\"))"
+    ],
+    "description": "Create and format DateTime with DateInterval"
+  },
+  "StreamReader Loop": {
+    "prefix": "streamr",
+    "body": [
+      "var \\$reader = StreamReader::open(\"${1:file.txt}\")",
+      "while (true) {",
+      "\tstring|null \\$line = \\$reader->readLine()",
+      "\t(\\$line == null) ? { break }",
+      "\tprint(\\$line)",
+      "}",
+      "\\$reader->close()"
+    ],
+    "description": "Read a file line by line with StreamReader"
+  },
+  "StreamWriter": {
+    "prefix": "streamw",
+    "body": [
+      "var \\$writer = StreamWriter::open(\"${1:output.txt}\", ${2|false,true|})",
+      "\\$writer->writeLine(\"${3:Hello Joss}\")",
+      "\\$writer->flush()",
+      "\\$writer->close()"
+    ],
+    "description": "Write lines to a file with StreamWriter"
+  },
+  "Zip Extract": {
+    "prefix": "zip",
+    "body": [
+      "bool \\$ok = Zip::extract(\"${1:archive.zip}\", \"${2:dest_dir}\")"
+    ],
+    "description": "Extract a ZIP archive safely (anti Zip-Slip + DEFLATE)"
+  },
+  "Record Declaration": {
+    "prefix": "record",
+    "body": [
+      "public record ${1:Point}(${2:int \\$x, int \\$y})"
+    ],
+    "description": "Declare an immutable Joss record"
   }
 }

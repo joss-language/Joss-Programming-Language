@@ -22,6 +22,10 @@ import { setupDocumentSymbolProvider } from './providers/documentSymbolProvider'
 import { setupReferencesProvider } from './providers/referencesProvider';
 import { setupFormattingProvider } from './providers/formattingProvider';
 import { setupRenameProvider } from './providers/renameProvider';
+import { setupCodeActionProvider } from './providers/codeActionProvider';
+import { setupCodeLensProvider } from './providers/codeLensProvider';
+import { setupInlayHintProvider } from './providers/inlayHintProvider';
+import { setupFoldingRangeProvider } from './providers/foldingRangeProvider';
 import { JossSettings, getDefaultSettings } from './config/settings';
 import { URI } from 'vscode-uri';
 
@@ -67,6 +71,12 @@ connection.onInitialize((params: InitializeParams) => {
             documentSymbolProvider: true,
             workspaceSymbolProvider: true,
             documentFormattingProvider: true,
+            codeActionProvider: true,
+            codeLensProvider: {
+                resolveProvider: false
+            },
+            inlayHintProvider: true,
+            foldingRangeProvider: true,
             renameProvider: {
                 prepareProvider: true
             }
@@ -114,6 +124,10 @@ setupDocumentSymbolProvider();
 setupReferencesProvider();
 setupFormattingProvider();
 setupRenameProvider();
+setupCodeActionProvider();
+setupCodeLensProvider();
+setupInlayHintProvider();
+setupFoldingRangeProvider();
 
 // Configuration management
 let globalSettings: JossSettings = getDefaultSettings();
