@@ -4267,75 +4267,506 @@ const char* fn_Console_readLine(void) {
     return joss_web_strdup(buf);
 }
 
-/* --- FileStream Host Class --- */
+/* --- FileStream, StreamReader & StreamWriter Host Classes --- */
+#define JOSS_FILESTREAM_MAGIC 0x4A4653545631ULL
+
+typedef struct {
+    uint64_t magic;
+    FILE*    fp;
+    int      owned;
+} JossFileStream;
+
+static JossFileStream* joss_fs_unwrap(void* handle) {
+    int64_t raw = joss_unbox_value((int64_t)(uintptr_t)handle);
+    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> 47) == 0) {
+        JossFileStream* fs = (JossFileStream*)(uintptr_t)(uint64_t)raw;
+        if (fs->magic == JOSS_FILESTREAM_MAGIC) {
+            return fs;
+        }
+    }
+    return NULL;
+}
+
+static void* joss_fs_wrap(FILE* fp, int owned) {
+    if (!fp) return NULL;
+    JossFileStream* fs = (JossFileStream*)malloc(sizeof(JossFileStream));
+    if (!fs) {
+        if (owned) fclose(fp);
+        return NULL;
+    }
+    fs->magic = JOSS_FILESTREAM_MAGIC;
+    fs->fp = fp;
+    fs->owned = owned;
+    return (void*)fs;
+}
+
 void* fn_FileStream_open(const char* path, const char* mode) {
     path = unbox_web_cstr(path);
     mode = unbox_web_cstr(mode);
     if (!path || !path[0]) return NULL;
-    const char* m = (mode && mode[0]) ? mode : "r";
-    return (void*)fopen(path, m);
+    const char* cmode = "rb";
+    if (mode && mode[0]) {
+        if (strcmp(mode, "w") == 0) cmode = "wb";
+        else if (strcmp(mode, "a") == 0) cmode = "ab";
+        else if (strcmp(mode, "r+") == 0) cmode = "r+b";
+        else if (strcmp(mode, "w+") == 0) cmode = "w+b";
+        else if (strcmp(mode, "a+") == 0) cmode = "a+b";
+        else if (strcmp(mode, "r") == 0) cmode = "rb";
+        else cmode = mode;
+    }
+    return joss_fs_wrap(fopen(path, cmode), 1);
 }
 
 const char* fn_FileStream_read(void* handle, int64_t max_bytes) {
-    FILE* f = (FILE*)handle;
-    if (!f) return "";
-    if (max_bytes <= 0) max_bytes = 65536;
+    JossFileStream* fs = joss_fs_unwrap(handle);
+    if (!fs || !fs->fp) return "";
+    max_bytes = joss_unbox_value(max_bytes);
+    if (max_bytes <= 0) {
+        JossStringBuilder* sb = joss_sb_new();
+        uint8_t chunk[4096];
+        for (;;) {
+            size_t n = fread(chunk, 1, sizeof(chunk), fs->fp);
+            if (n > 0) joss_buf_append_bytes(sb, chunk, (int64_t)n);
+            if (n < sizeof(chunk)) break;
+        }
+        char* out = joss_sb_to_string(sb);
+        joss_sb_free(sb);
+        return out;
+    }
     if (max_bytes > 16 * 1024 * 1024) max_bytes = 16 * 1024 * 1024;
     char* buf = (char*)malloc((size_t)max_bytes + 1);
     if (!buf) return "";
-    size_t n = fread(buf, 1, (size_t)max_bytes, f);
+    size_t n = fread(buf, 1, (size_t)max_bytes, fs->fp);
     buf[n] = '\0';
     return buf;
 }
 
 int64_t fn_FileStream_write(void* handle, const char* data) {
-    FILE* f = (FILE*)handle;
+    JossFileStream* fs = joss_fs_unwrap(handle);
     data = unbox_web_cstr(data);
-    if (!f || !data) return 0;
+    if (!fs || !fs->fp || !data) return 0;
     size_t n = strlen(data);
-    size_t w = fwrite(data, 1, n, f);
-    fflush(f);
+    size_t w = fwrite(data, 1, n, fs->fp);
+    fflush(fs->fp);
     return (int64_t)w;
 }
 
-int64_t fn_FileStream_close(void* handle) {
-    FILE* f = (FILE*)handle;
-    if (!f) return 0;
-    return (fclose(f) == 0) ? 1 : 0;
+int64_t fn_FileStream_seek(void* handle, int64_t offset, int64_t whence) {
+    JossFileStream* fs = joss_fs_unwrap(handle);
+    if (!fs || !fs->fp) return -1;
+    int w = SEEK_SET;
+    int64_t wv = joss_unbox_value(whence);
+    if (wv == 1) w = SEEK_CUR;
+    else if (wv == 2) w = SEEK_END;
+    if (fseek(fs->fp, (long)joss_unbox_value(offset), w) != 0) return -1;
+    return (int64_t)ftell(fs->fp);
 }
 
-/* --- DateTime Host Class --- */
-int64_t fn_DateTime_now(void) {
+int64_t fn_FileStream_size(void* handle) {
+    JossFileStream* fs = joss_fs_unwrap(handle);
+    if (!fs || !fs->fp) return 0;
+    long cur = ftell(fs->fp);
+    if (fseek(fs->fp, 0, SEEK_END) != 0) return 0;
+    long sz = ftell(fs->fp);
+    if (cur >= 0) fseek(fs->fp, cur, SEEK_SET);
+    return sz >= 0 ? (int64_t)sz : 0;
+}
+
+void fn_FileStream_flush(void* handle) {
+    JossFileStream* fs = joss_fs_unwrap(handle);
+    if (fs && fs->fp) {
+        fflush(fs->fp);
+    }
+}
+
+void fn_FileStream_close(void* handle) {
+    JossFileStream* fs = joss_fs_unwrap(handle);
+    if (fs && fs->fp) {
+        if (fs->owned) fclose(fs->fp);
+        fs->fp = NULL;
+    }
+}
+
+void* fn_StreamReader_open(void* source) {
+    JossFileStream* existing = joss_fs_unwrap(source);
+    if (existing && existing->fp) {
+        return joss_fs_wrap(existing->fp, 0);
+    }
+    const char* path = unbox_web_cstr((const char*)source);
+    if (!path || !path[0]) return NULL;
+    return joss_fs_wrap(fopen(path, "rb"), 1);
+}
+
+const char* fn_StreamReader_readLine(void* handle) {
+    JossFileStream* fs = joss_fs_unwrap(handle);
+    if (!fs || !fs->fp) return NULL;
+    JossStringBuilder* sb = joss_sb_new();
+    int ch = EOF;
+    int got_any = 0;
+    while ((ch = fgetc(fs->fp)) != EOF) {
+        got_any = 1;
+        if (ch == '\n') break;
+        joss_buf_append_byte(sb, (uint8_t)ch);
+    }
+    if (!got_any) {
+        joss_sb_free(sb);
+        return NULL;
+    }
+    if (sb->len > 0 && sb->data[sb->len - 1] == '\r') {
+        sb->len--;
+        sb->data[sb->len] = '\0';
+    }
+    char* out = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    return out;
+}
+
+const char* fn_StreamReader_readToEnd(void* handle) {
+    return fn_FileStream_read(handle, 0);
+}
+
+void fn_StreamReader_close(void* handle) {
+    fn_FileStream_close(handle);
+}
+
+void* fn_StreamWriter_open(void* dest, int64_t append) {
+    JossFileStream* existing = joss_fs_unwrap(dest);
+    if (existing && existing->fp) {
+        return joss_fs_wrap(existing->fp, 0);
+    }
+    const char* path = unbox_web_cstr((const char*)dest);
+    if (!path || !path[0]) return NULL;
+    const char* cmode = (joss_unbox_value(append) != 0) ? "ab" : "wb";
+    return joss_fs_wrap(fopen(path, cmode), 1);
+}
+
+int64_t fn_StreamWriter_write(void* handle, const char* text) {
+    JossFileStream* fs = joss_fs_unwrap(handle);
+    text = unbox_web_cstr(text);
+    if (!fs || !fs->fp || !text) return 0;
+    size_t n = strlen(text);
+    return (int64_t)fwrite(text, 1, n, fs->fp);
+}
+
+int64_t fn_StreamWriter_writeLine(void* handle, const char* text) {
+    JossFileStream* fs = joss_fs_unwrap(handle);
+    text = unbox_web_cstr(text);
+    if (!fs || !fs->fp) return 0;
+    size_t n = text ? strlen(text) : 0;
+    size_t w = n > 0 ? fwrite(text, 1, n, fs->fp) : 0;
+    w += fwrite("\n", 1, 1, fs->fp);
+    return (int64_t)w;
+}
+
+void fn_StreamWriter_flush(void* handle) {
+    fn_FileStream_flush(handle);
+}
+
+void fn_StreamWriter_close(void* handle) {
+    JossFileStream* fs = joss_fs_unwrap(handle);
+    if (fs && fs->fp) {
+        fflush(fs->fp);
+        if (fs->owned) fclose(fs->fp);
+        fs->fp = NULL;
+    }
+}
+
+/* --- DateTime & DateInterval Host Classes --- */
+#define JOSS_DATETIME_MAGIC     0x4A44544D5631ULL
+#define JOSS_DATEINTERVAL_MAGIC 0x4A44494E5631ULL
+
+typedef struct {
+    uint64_t magic;
+    int64_t  unix_sec;
+} JossDateTime;
+
+typedef struct {
+    uint64_t magic;
+    int64_t  total_sec;
+} JossDateInterval;
+
+static void* joss_dt_new(int64_t unix_sec) {
+    JossDateTime* dt = (JossDateTime*)malloc(sizeof(JossDateTime));
+    if (!dt) return NULL;
+    dt->magic = JOSS_DATETIME_MAGIC;
+    dt->unix_sec = unix_sec;
+    return (void*)dt;
+}
+
+static void* joss_di_new(int64_t total_sec) {
+    JossDateInterval* di = (JossDateInterval*)malloc(sizeof(JossDateInterval));
+    if (!di) return NULL;
+    di->magic = JOSS_DATEINTERVAL_MAGIC;
+    di->total_sec = total_sec;
+    return (void*)di;
+}
+
+static int64_t joss_dt_extract_sec(void* self) {
+    int64_t raw = joss_unbox_value((int64_t)(uintptr_t)self);
+    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> 47) == 0) {
+        const JossDateTime* dt = (const JossDateTime*)(uintptr_t)(uint64_t)raw;
+        if (dt->magic == JOSS_DATETIME_MAGIC) {
+            return dt->unix_sec;
+        }
+    }
     return (int64_t)time(NULL);
 }
 
-int64_t fn_DateTime_timestamp(void) {
-    return (int64_t)time(NULL);
+static int64_t joss_di_extract_sec(int64_t val) {
+    int64_t raw = joss_unbox_value(val);
+    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> 47) == 0) {
+        const JossDateInterval* di = (const JossDateInterval*)(uintptr_t)(uint64_t)raw;
+        if (di->magic == JOSS_DATEINTERVAL_MAGIC) {
+            return di->total_sec;
+        }
+    }
+    return raw;
 }
 
-const char* fn_DateTime_format(const char* fmt, int64_t ts) {
-    fmt = unbox_web_cstr(fmt);
-    time_t t = (ts > 0) ? (time_t)ts : time(NULL);
-    struct tm tm_val;
+static void joss_dt_to_local_tm(int64_t unix_sec, struct tm* out_tm) {
+    time_t t = (time_t)unix_sec;
 #if defined(_WIN32)
-    localtime_s(&tm_val, &t);
+    localtime_s(out_tm, &t);
 #else
-    localtime_r(&t, &tm_val);
+    localtime_r(&t, out_tm);
 #endif
-    char buf[128];
-    if (!fmt || !fmt[0] || strcmp(fmt, "Y-m-d H:i:s") == 0) {
-        snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
-            tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday,
-            tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec);
-        return joss_web_strdup(buf);
+}
+
+void* fn_DateInterval_days(int64_t n) {
+    return joss_di_new(joss_unbox_value(n) * 86400LL);
+}
+
+void* fn_DateInterval_hours(int64_t n) {
+    return joss_di_new(joss_unbox_value(n) * 3600LL);
+}
+
+void* fn_DateInterval_minutes(int64_t n) {
+    return joss_di_new(joss_unbox_value(n) * 60LL);
+}
+
+void* fn_DateInterval_seconds(int64_t n) {
+    return joss_di_new(joss_unbox_value(n));
+}
+
+int64_t fn_DateInterval_totalSeconds(void* self) {
+    return joss_di_extract_sec((int64_t)(uintptr_t)self);
+}
+
+void* fn_DateTime_now(void) {
+    return joss_dt_new((int64_t)time(NULL));
+}
+
+void* fn_DateTime_create(int64_t year, int64_t month, int64_t day) {
+    struct tm tm_val;
+    memset(&tm_val, 0, sizeof(tm_val));
+    tm_val.tm_year = (int)joss_unbox_value(year) - 1900;
+    tm_val.tm_mon  = (int)joss_unbox_value(month) - 1;
+    tm_val.tm_mday = (int)joss_unbox_value(day);
+    tm_val.tm_isdst = -1;
+    time_t t = mktime(&tm_val);
+    return joss_dt_new((int64_t)t);
+}
+
+void* fn_DateTime_parse(const char* str) {
+    str = unbox_web_cstr(str);
+    if (!str || !str[0]) {
+        return joss_dt_new((int64_t)time(NULL));
     }
-    if (strcmp(fmt, "Y-m-d") == 0) {
-        snprintf(buf, sizeof(buf), "%04d-%02d-%02d",
-            tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday);
-        return joss_web_strdup(buf);
+    int y = 0, mo = 1, d = 1, h = 0, mi = 0, s = 0;
+    int tzh = 0, tzm = 0;
+    char tzsign = 0;
+    if (sscanf(str, "%d-%d-%dT%d:%d:%d%c%d:%d", &y, &mo, &d, &h, &mi, &s, &tzsign, &tzh, &tzm) >= 7 &&
+        (tzsign == 'Z' || tzsign == 'z' || tzsign == '+' || tzsign == '-')) {
+        struct tm tm_val;
+        memset(&tm_val, 0, sizeof(tm_val));
+        tm_val.tm_year = y - 1900;
+        tm_val.tm_mon  = mo - 1;
+        tm_val.tm_mday = d;
+        tm_val.tm_hour = h;
+        tm_val.tm_min  = mi;
+        tm_val.tm_sec  = s;
+#if defined(_WIN32)
+        int64_t utc_sec = (int64_t)_mkgmtime(&tm_val);
+#else
+        int64_t utc_sec = (int64_t)timegm(&tm_val);
+#endif
+        int64_t off = (int64_t)tzh * 3600LL + (int64_t)tzm * 60LL;
+        if (tzsign == '+') utc_sec -= off;
+        else if (tzsign == '-') utc_sec += off;
+        return joss_dt_new(utc_sec);
     }
-    strftime(buf, sizeof(buf), fmt, &tm_val);
+    if (sscanf(str, "%d-%d-%d %d:%d:%d", &y, &mo, &d, &h, &mi, &s) >= 3 ||
+        sscanf(str, "%d-%d-%dT%d:%d:%d", &y, &mo, &d, &h, &mi, &s) >= 3) {
+        struct tm tm_val;
+        memset(&tm_val, 0, sizeof(tm_val));
+        tm_val.tm_year = y - 1900;
+        tm_val.tm_mon  = mo - 1;
+        tm_val.tm_mday = d;
+        tm_val.tm_hour = h;
+        tm_val.tm_min  = mi;
+        tm_val.tm_sec  = s;
+        tm_val.tm_isdst = -1;
+        return joss_dt_new((int64_t)mktime(&tm_val));
+    }
+    return joss_dt_new(joss_strtotime(str));
+}
+
+int64_t fn_DateTime_timestamp(void* self) {
+    return joss_dt_extract_sec(self);
+}
+
+const char* fn_DateTime_format(void* self, const char* fmt) {
+    int64_t ts = joss_dt_extract_sec(self);
+    fmt = unbox_web_cstr(fmt);
+    if (!fmt || !fmt[0]) fmt = "Y-m-d H:i:s";
+    struct tm tm_val;
+    joss_dt_to_local_tm(ts, &tm_val);
+    JossStringBuilder* sb = joss_sb_new();
+    char tmp[32];
+    for (const char* p = fmt; *p; p++) {
+        switch (*p) {
+            case 'Y':
+                snprintf(tmp, sizeof(tmp), "%04d", tm_val.tm_year + 1900);
+                joss_sb_append(sb, tmp);
+                break;
+            case 'y':
+                snprintf(tmp, sizeof(tmp), "%02d", (tm_val.tm_year + 1900) % 100);
+                joss_sb_append(sb, tmp);
+                break;
+            case 'm':
+                snprintf(tmp, sizeof(tmp), "%02d", tm_val.tm_mon + 1);
+                joss_sb_append(sb, tmp);
+                break;
+            case 'd':
+                snprintf(tmp, sizeof(tmp), "%02d", tm_val.tm_mday);
+                joss_sb_append(sb, tmp);
+                break;
+            case 'H':
+                snprintf(tmp, sizeof(tmp), "%02d", tm_val.tm_hour);
+                joss_sb_append(sb, tmp);
+                break;
+            case 'h': {
+                int h12 = tm_val.tm_hour % 12;
+                if (h12 == 0) h12 = 12;
+                snprintf(tmp, sizeof(tmp), "%02d", h12);
+                joss_sb_append(sb, tmp);
+                break;
+            }
+            case 'i':
+                snprintf(tmp, sizeof(tmp), "%02d", tm_val.tm_min);
+                joss_sb_append(sb, tmp);
+                break;
+            case 's':
+                snprintf(tmp, sizeof(tmp), "%02d", tm_val.tm_sec);
+                joss_sb_append(sb, tmp);
+                break;
+            case 'a':
+                joss_sb_append(sb, tm_val.tm_hour < 12 ? "am" : "pm");
+                break;
+            case 'A':
+                joss_sb_append(sb, tm_val.tm_hour < 12 ? "AM" : "PM");
+                break;
+            default:
+                joss_buf_append_byte(sb, (uint8_t)*p);
+                break;
+        }
+    }
+    char* out = joss_sb_to_string(sb);
+    joss_sb_free(sb);
+    return out;
+}
+
+const char* fn_DateTime_iso(void* self) {
+    int64_t ts = joss_dt_extract_sec(self);
+    struct tm loc_tm, utc_tm;
+    joss_dt_to_local_tm(ts, &loc_tm);
+    time_t t = (time_t)ts;
+#if defined(_WIN32)
+    gmtime_s(&utc_tm, &t);
+#else
+    gmtime_r(&t, &utc_tm);
+#endif
+    utc_tm.tm_isdst = 0;
+    int64_t loc_as_utc = 0, utc_as_utc = 0;
+#if defined(_WIN32)
+    loc_as_utc = (int64_t)_mkgmtime(&loc_tm);
+    utc_as_utc = (int64_t)_mkgmtime(&utc_tm);
+#else
+    loc_as_utc = (int64_t)timegm(&loc_tm);
+    utc_as_utc = (int64_t)timegm(&utc_tm);
+#endif
+    int64_t off_sec = loc_as_utc - utc_as_utc;
+    char buf[64];
+    if (off_sec == 0) {
+        snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
+            loc_tm.tm_year + 1900, loc_tm.tm_mon + 1, loc_tm.tm_mday,
+            loc_tm.tm_hour, loc_tm.tm_min, loc_tm.tm_sec);
+    } else {
+        char sign = off_sec >= 0 ? '+' : '-';
+        int64_t abs_off = off_sec >= 0 ? off_sec : -off_sec;
+        int oh = (int)(abs_off / 3600);
+        int om = (int)((abs_off % 3600) / 60);
+        snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02d%c%02d:%02d",
+            loc_tm.tm_year + 1900, loc_tm.tm_mon + 1, loc_tm.tm_mday,
+            loc_tm.tm_hour, loc_tm.tm_min, loc_tm.tm_sec, sign, oh, om);
+    }
     return joss_web_strdup(buf);
+}
+
+int64_t fn_DateTime_year(void* self) {
+    struct tm tm_val;
+    joss_dt_to_local_tm(joss_dt_extract_sec(self), &tm_val);
+    return (int64_t)(tm_val.tm_year + 1900);
+}
+
+int64_t fn_DateTime_month(void* self) {
+    struct tm tm_val;
+    joss_dt_to_local_tm(joss_dt_extract_sec(self), &tm_val);
+    return (int64_t)(tm_val.tm_mon + 1);
+}
+
+int64_t fn_DateTime_day(void* self) {
+    struct tm tm_val;
+    joss_dt_to_local_tm(joss_dt_extract_sec(self), &tm_val);
+    return (int64_t)tm_val.tm_mday;
+}
+
+int64_t fn_DateTime_hour(void* self) {
+    struct tm tm_val;
+    joss_dt_to_local_tm(joss_dt_extract_sec(self), &tm_val);
+    return (int64_t)tm_val.tm_hour;
+}
+
+int64_t fn_DateTime_minute(void* self) {
+    struct tm tm_val;
+    joss_dt_to_local_tm(joss_dt_extract_sec(self), &tm_val);
+    return (int64_t)tm_val.tm_min;
+}
+
+int64_t fn_DateTime_second(void* self) {
+    struct tm tm_val;
+    joss_dt_to_local_tm(joss_dt_extract_sec(self), &tm_val);
+    return (int64_t)tm_val.tm_sec;
+}
+
+void* fn_DateTime_add(void* self, int64_t interval_val) {
+    int64_t base = joss_dt_extract_sec(self);
+    int64_t delta = joss_di_extract_sec(interval_val);
+    return joss_dt_new(base + delta);
+}
+
+void* fn_DateTime_sub(void* self, int64_t interval_val) {
+    int64_t base = joss_dt_extract_sec(self);
+    int64_t delta = joss_di_extract_sec(interval_val);
+    return joss_dt_new(base - delta);
+}
+
+void* fn_DateTime_diff(void* self, void* other) {
+    int64_t t1 = joss_dt_extract_sec(self);
+    int64_t t2 = joss_dt_extract_sec(other);
+    int64_t d = t1 - t2;
+    if (d < 0) d = -d;
+    return joss_di_new(d);
 }
 
 /* --- Lang Host Class --- */
@@ -6779,6 +7210,563 @@ int64_t fn_SmtpClient_send(const char* to, const char* subject, const char* body
 int64_t fn_Mail_send(const char* to, const char* subject, const char* body) {
     return fn_SmtpClient_send(to, subject, body);
 }
+
+/* =========================================================================
+ * Zip::extract — Pure C11 ZIP extractor (STORE + RFC 1951 DEFLATE + CRC-32)
+ * Zero external dependencies; enforces symlink, Zip-Slip, and Zip-Bomb guards.
+ * ========================================================================= */
+
+static uint16_t joss_zip_u16(const uint8_t* p) {
+    return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
+}
+
+static uint32_t joss_zip_u32(const uint8_t* p) {
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+static uint32_t joss_zip_crc32(const uint8_t* data, size_t len) {
+    uint32_t crc = 0xFFFFFFFFu;
+    for (size_t i = 0; i < len; i++) {
+        crc ^= (uint32_t)data[i];
+        for (int b = 0; b < 8; b++) {
+            uint32_t mask = (uint32_t)(-(int32_t)(crc & 1u));
+            crc = (crc >> 1) ^ (0xEDB88320u & mask);
+        }
+    }
+    return ~crc;
+}
+
+static int joss_zip_mkdir_all(const char* path) {
+    if (!path || !*path) return 0;
+    size_t len = strlen(path);
+    char* tmp = (char*)malloc(len + 1);
+    if (!tmp) return -1;
+    memcpy(tmp, path, len + 1);
+    for (size_t i = 1; i < len; i++) {
+        if (tmp[i] == '/' || tmp[i] == '\\') {
+            char saved = tmp[i];
+            tmp[i] = '\0';
+            if (tmp[0] != '\0' && !(i == 2 && tmp[1] == ':')) {
+#if defined(_WIN32)
+                _mkdir(tmp);
+#else
+                mkdir(tmp, 0755);
+#endif
+            }
+            tmp[i] = saved;
+        }
+    }
+#if defined(_WIN32)
+    _mkdir(tmp);
+#else
+    mkdir(tmp, 0755);
+#endif
+    free(tmp);
+    return 0;
+}
+
+static bool joss_zip_path_is_safe(const char* name, size_t name_len) {
+    if (!name || name_len == 0) return false;
+    for (size_t i = 0; i < name_len; i++) {
+        if (name[i] == '\0') return false;
+    }
+    if (name[0] == '/' || name[0] == '\\') return false;
+    if (name_len >= 2 && isalpha((unsigned char)name[0]) && name[1] == ':') return false;
+    int depth = 0;
+    size_t i = 0;
+    while (i < name_len) {
+        while (i < name_len && (name[i] == '/' || name[i] == '\\')) i++;
+        if (i >= name_len) break;
+        size_t start = i;
+        while (i < name_len && name[i] != '/' && name[i] != '\\') i++;
+        size_t seg_len = i - start;
+        if (seg_len == 1 && name[start] == '.') {
+            continue;
+        } else if (seg_len == 2 && name[start] == '.' && name[start + 1] == '.') {
+            depth--;
+            if (depth < 0) return false;
+        } else {
+            depth++;
+        }
+    }
+    return true;
+}
+
+typedef struct {
+    const uint8_t* src;
+    size_t src_len;
+    size_t byte_pos;
+    uint32_t bit_buf;
+    int bit_cnt;
+} JossInflateBits;
+
+static int joss_inf_bits(JossInflateBits* bs, int n, uint32_t* out) {
+    while (bs->bit_cnt < n) {
+        if (bs->byte_pos >= bs->src_len) return -1;
+        bs->bit_buf |= ((uint32_t)bs->src[bs->byte_pos++]) << bs->bit_cnt;
+        bs->bit_cnt += 8;
+    }
+    *out = bs->bit_buf & ((1u << n) - 1u);
+    bs->bit_buf >>= n;
+    bs->bit_cnt -= n;
+    return 0;
+}
+
+typedef struct {
+    int count[16];
+    int symbol[288];
+} JossHuffTable;
+
+static int joss_huff_build(JossHuffTable* tbl, const uint8_t* lengths, int num_syms) {
+    int offs[16];
+    memset(tbl->count, 0, sizeof(tbl->count));
+    for (int i = 0; i < num_syms; i++) {
+        if (lengths[i] > 15) return -1;
+        tbl->count[lengths[i]]++;
+    }
+    if (tbl->count[0] == num_syms) return 0;
+    int left = 1;
+    for (int len = 1; len <= 15; len++) {
+        left <<= 1;
+        left -= tbl->count[len];
+        if (left < 0) return -1;
+    }
+    offs[1] = 0;
+    for (int len = 1; len < 15; len++) {
+        offs[len + 1] = offs[len] + tbl->count[len];
+    }
+    for (int sym = 0; sym < num_syms; sym++) {
+        if (lengths[sym] != 0) {
+            tbl->symbol[offs[lengths[sym]]++] = sym;
+        }
+    }
+    return 0;
+}
+
+static int joss_huff_decode(JossInflateBits* bs, const JossHuffTable* tbl, int* out_sym) {
+    int code = 0;
+    int first = 0;
+    int index = 0;
+    for (int len = 1; len <= 15; len++) {
+        uint32_t bit = 0;
+        if (joss_inf_bits(bs, 1, &bit) != 0) return -1;
+        code |= (int)bit;
+        int count = tbl->count[len];
+        if (code - count < first) {
+            *out_sym = tbl->symbol[index + (code - first)];
+            return 0;
+        }
+        index += count;
+        first += count;
+        first <<= 1;
+        code <<= 1;
+    }
+    return -1;
+}
+
+static int joss_zip_inflate(const uint8_t* src, size_t src_len,
+                            uint8_t** out_buf, size_t* out_len, size_t max_out) {
+    static const uint16_t len_base[29] = {
+        3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31,
+        35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258
+    };
+    static const uint8_t len_extra[29] = {
+        0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2,
+        3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0
+    };
+    static const uint16_t dist_base[30] = {
+        1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193,
+        257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577
+    };
+    static const uint8_t dist_extra[30] = {
+        0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6,
+        7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13
+    };
+    static const uint8_t cl_order[19] = {
+        16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15
+    };
+
+    JossInflateBits bs = { src, src_len, 0, 0, 0 };
+    size_t cap = 4096;
+    if (cap > max_out + 1) cap = max_out + 1;
+    uint8_t* dst = (uint8_t*)malloc(cap > 0 ? cap : 1);
+    if (!dst) return -1;
+    size_t pos = 0;
+
+    uint32_t bfinal = 0;
+    do {
+        uint32_t btype = 0;
+        if (joss_inf_bits(&bs, 1, &bfinal) != 0 || joss_inf_bits(&bs, 2, &btype) != 0) {
+            free(dst);
+            return -1;
+        }
+        if (btype == 0) {
+            /* Stored (uncompressed) block */
+            bs.bit_buf = 0;
+            bs.bit_cnt = 0;
+            if (bs.byte_pos + 4 > bs.src_len) { free(dst); return -1; }
+            uint16_t blen = joss_zip_u16(bs.src + bs.byte_pos);
+            uint16_t nlen = joss_zip_u16(bs.src + bs.byte_pos + 2);
+            bs.byte_pos += 4;
+            if ((uint16_t)(~blen) != nlen || bs.byte_pos + blen > bs.src_len) {
+                free(dst);
+                return -1;
+            }
+            if (pos + blen > max_out) { free(dst); return -1; }
+            if (pos + blen > cap) {
+                while (cap < pos + blen) cap = cap * 2;
+                uint8_t* nd = (uint8_t*)realloc(dst, cap);
+                if (!nd) { free(dst); return -1; }
+                dst = nd;
+            }
+            memcpy(dst + pos, bs.src + bs.byte_pos, blen);
+            pos += blen;
+            bs.byte_pos += blen;
+        } else if (btype == 1 || btype == 2) {
+            JossHuffTable lit_tbl, dist_tbl;
+            uint8_t lengths[288 + 32];
+            if (btype == 1) {
+                for (int i = 0; i <= 143; i++) lengths[i] = 8;
+                for (int i = 144; i <= 255; i++) lengths[i] = 9;
+                for (int i = 256; i <= 279; i++) lengths[i] = 7;
+                for (int i = 280; i <= 287; i++) lengths[i] = 8;
+                if (joss_huff_build(&lit_tbl, lengths, 288) != 0) { free(dst); return -1; }
+                for (int i = 0; i < 32; i++) lengths[i] = 5;
+                if (joss_huff_build(&dist_tbl, lengths, 32) != 0) { free(dst); return -1; }
+            } else {
+                uint32_t hlit = 0, hdist = 0, hclen = 0;
+                if (joss_inf_bits(&bs, 5, &hlit) != 0 ||
+                    joss_inf_bits(&bs, 5, &hdist) != 0 ||
+                    joss_inf_bits(&bs, 4, &hclen) != 0) {
+                    free(dst);
+                    return -1;
+                }
+                int nlit = (int)hlit + 257;
+                int ndist = (int)hdist + 1;
+                int nclen = (int)hclen + 4;
+                if (nlit > 286 || ndist > 30) { free(dst); return -1; }
+                uint8_t cl_lens[19];
+                memset(cl_lens, 0, sizeof(cl_lens));
+                for (int i = 0; i < nclen; i++) {
+                    uint32_t v = 0;
+                    if (joss_inf_bits(&bs, 3, &v) != 0) { free(dst); return -1; }
+                    cl_lens[cl_order[i]] = (uint8_t)v;
+                }
+                JossHuffTable cl_tbl;
+                if (joss_huff_build(&cl_tbl, cl_lens, 19) != 0) { free(dst); return -1; }
+                int idx = 0;
+                int total = nlit + ndist;
+                while (idx < total) {
+                    int sym = 0;
+                    if (joss_huff_decode(&bs, &cl_tbl, &sym) != 0) { free(dst); return -1; }
+                    if (sym < 16) {
+                        lengths[idx++] = (uint8_t)sym;
+                    } else if (sym == 16) {
+                        if (idx == 0) { free(dst); return -1; }
+                        uint32_t rep = 0;
+                        if (joss_inf_bits(&bs, 2, &rep) != 0) { free(dst); return -1; }
+                        int cnt = (int)rep + 3;
+                        uint8_t prev = lengths[idx - 1];
+                        if (idx + cnt > total) { free(dst); return -1; }
+                        while (cnt-- > 0) lengths[idx++] = prev;
+                    } else if (sym == 17) {
+                        uint32_t rep = 0;
+                        if (joss_inf_bits(&bs, 3, &rep) != 0) { free(dst); return -1; }
+                        int cnt = (int)rep + 3;
+                        if (idx + cnt > total) { free(dst); return -1; }
+                        while (cnt-- > 0) lengths[idx++] = 0;
+                    } else if (sym == 18) {
+                        uint32_t rep = 0;
+                        if (joss_inf_bits(&bs, 7, &rep) != 0) { free(dst); return -1; }
+                        int cnt = (int)rep + 11;
+                        if (idx + cnt > total) { free(dst); return -1; }
+                        while (cnt-- > 0) lengths[idx++] = 0;
+                    } else {
+                        free(dst);
+                        return -1;
+                    }
+                }
+                if (joss_huff_build(&lit_tbl, lengths, nlit) != 0 ||
+                    joss_huff_build(&dist_tbl, lengths + nlit, ndist) != 0) {
+                    free(dst);
+                    return -1;
+                }
+            }
+
+            for (;;) {
+                int sym = 0;
+                if (joss_huff_decode(&bs, &lit_tbl, &sym) != 0) { free(dst); return -1; }
+                if (sym < 256) {
+                    if (pos + 1 > max_out) { free(dst); return -1; }
+                    if (pos + 1 > cap) {
+                        cap = cap * 2;
+                        uint8_t* nd = (uint8_t*)realloc(dst, cap);
+                        if (!nd) { free(dst); return -1; }
+                        dst = nd;
+                    }
+                    dst[pos++] = (uint8_t)sym;
+                } else if (sym == 256) {
+                    break;
+                } else {
+                    int lidx = sym - 257;
+                    if (lidx < 0 || lidx >= 29) { free(dst); return -1; }
+                    uint32_t lex = 0;
+                    if (len_extra[lidx] > 0 && joss_inf_bits(&bs, len_extra[lidx], &lex) != 0) {
+                        free(dst);
+                        return -1;
+                    }
+                    size_t match_len = (size_t)len_base[lidx] + (size_t)lex;
+
+                    int dsym = 0;
+                    if (joss_huff_decode(&bs, &dist_tbl, &dsym) != 0 || dsym < 0 || dsym >= 30) {
+                        free(dst);
+                        return -1;
+                    }
+                    uint32_t dex = 0;
+                    if (dist_extra[dsym] > 0 && joss_inf_bits(&bs, dist_extra[dsym], &dex) != 0) {
+                        free(dst);
+                        return -1;
+                    }
+                    size_t dist = (size_t)dist_base[dsym] + (size_t)dex;
+                    if (dist == 0 || dist > pos) { free(dst); return -1; }
+                    if (pos + match_len > max_out) { free(dst); return -1; }
+                    if (pos + match_len > cap) {
+                        while (cap < pos + match_len) cap = cap * 2;
+                        uint8_t* nd = (uint8_t*)realloc(dst, cap);
+                        if (!nd) { free(dst); return -1; }
+                        dst = nd;
+                    }
+                    for (size_t k = 0; k < match_len; k++) {
+                        dst[pos] = dst[pos - dist];
+                        pos++;
+                    }
+                }
+            }
+        } else {
+            free(dst);
+            return -1;
+        }
+    } while (!bfinal);
+
+    *out_buf = dst;
+    *out_len = pos;
+    return 0;
+}
+
+int64_t fn_Zip_extract(const char* src_raw, const char* dest_raw) {
+    const char* zip_path = unbox_web_cstr(src_raw);
+    const char* dest_path = unbox_web_cstr(dest_raw);
+    if (!zip_path || !*zip_path || !dest_path || !*dest_path) {
+        return 0;
+    }
+
+    FILE* fp = fopen(zip_path, "rb");
+    if (!fp) {
+        return 0;
+    }
+    if (fseek(fp, 0, SEEK_END) != 0) { fclose(fp); return 0; }
+    long fsz_l = ftell(fp);
+    if (fsz_l < 22 || (uint64_t)fsz_l > (512ULL << 20)) {
+        fclose(fp);
+        return 0;
+    }
+    size_t fsz = (size_t)fsz_l;
+    rewind(fp);
+    uint8_t* buf = (uint8_t*)malloc(fsz);
+    if (!buf) { fclose(fp); return 0; }
+    if (fread(buf, 1, fsz, fp) != fsz) {
+        free(buf);
+        fclose(fp);
+        return 0;
+    }
+    fclose(fp);
+
+    /* Locate End of Central Directory (EOCD) */
+    size_t min_eocd = (fsz > 65557) ? (fsz - 65557) : 0;
+    size_t eocd_pos = fsz;
+    for (size_t i = fsz - 22; ; i--) {
+        if (joss_zip_u32(buf + i) == 0x06054b50u) {
+            eocd_pos = i;
+            break;
+        }
+        if (i == min_eocd) break;
+    }
+    if (eocd_pos == fsz) {
+        free(buf);
+        return 0;
+    }
+
+    uint16_t cd_entries = joss_zip_u16(buf + eocd_pos + 10);
+    uint32_t cd_size = joss_zip_u32(buf + eocd_pos + 12);
+    uint32_t cd_offset = joss_zip_u32(buf + eocd_pos + 16);
+    if ((uint64_t)cd_offset + (uint64_t)cd_size > (uint64_t)fsz) {
+        free(buf);
+        return 0;
+    }
+
+    const size_t max_single = 128ULL << 20;
+    const size_t max_total = 512ULL << 20;
+    size_t total_extracted = 0;
+
+    size_t cd_pos = (size_t)cd_offset;
+    for (uint16_t e = 0; e < cd_entries; e++) {
+        if (cd_pos + 46 > fsz || joss_zip_u32(buf + cd_pos) != 0x02014b50u) {
+            free(buf);
+            return 0;
+        }
+        uint16_t ver_made = joss_zip_u16(buf + cd_pos + 4);
+        uint16_t method = joss_zip_u16(buf + cd_pos + 10);
+        uint32_t expected_crc = joss_zip_u32(buf + cd_pos + 16);
+        uint32_t comp_size = joss_zip_u32(buf + cd_pos + 20);
+        uint32_t uncomp_size = joss_zip_u32(buf + cd_pos + 24);
+        uint16_t name_len = joss_zip_u16(buf + cd_pos + 28);
+        uint16_t extra_len = joss_zip_u16(buf + cd_pos + 30);
+        uint16_t comment_len = joss_zip_u16(buf + cd_pos + 32);
+        uint32_t ext_attr = joss_zip_u32(buf + cd_pos + 38);
+        uint32_t local_off = joss_zip_u32(buf + cd_pos + 42);
+
+        if (cd_pos + 46 + name_len + extra_len + comment_len > fsz) {
+            free(buf);
+            return 0;
+        }
+        char* entry_name = (char*)malloc((size_t)name_len + 1);
+        if (!entry_name) { free(buf); return 0; }
+        memcpy(entry_name, buf + cd_pos + 46, name_len);
+        entry_name[name_len] = '\0';
+        cd_pos += 46 + (size_t)name_len + (size_t)extra_len + (size_t)comment_len;
+
+        /* Reject Unix symlinks */
+        if (((ver_made >> 8) == 3) && (((ext_attr >> 16) & 0170000u) == 0120000u)) {
+            free(entry_name);
+            free(buf);
+            return 0;
+        }
+
+        /* Prevent Zip Slip */
+        if (!joss_zip_path_is_safe(entry_name, name_len)) {
+            free(entry_name);
+            free(buf);
+            return 0;
+        }
+
+        /* Build destination full path */
+        size_t dlen = strlen(dest_path);
+        while (dlen > 1 && (dest_path[dlen - 1] == '/' || dest_path[dlen - 1] == '\\')) dlen--;
+        size_t full_len = dlen + 1 + (size_t)name_len;
+        char* full_path = (char*)malloc(full_len + 1);
+        if (!full_path) { free(entry_name); free(buf); return 0; }
+        memcpy(full_path, dest_path, dlen);
+        full_path[dlen] = '/';
+        memcpy(full_path + dlen + 1, entry_name, name_len);
+        full_path[full_len] = '\0';
+        for (size_t k = dlen + 1; k < full_len; k++) {
+            if (full_path[k] == '\\') full_path[k] = '/';
+        }
+
+        bool is_dir = (name_len > 0 && (entry_name[name_len - 1] == '/' || entry_name[name_len - 1] == '\\'));
+        if (!is_dir && ((ver_made >> 8) == 3) && (((ext_attr >> 16) & 0170000u) == 0040000u)) {
+            is_dir = true;
+        }
+        if (is_dir) {
+            joss_zip_mkdir_all(full_path);
+            free(full_path);
+            free(entry_name);
+            continue;
+        }
+
+        /* Ensure parent directory exists */
+        char* last_slash = strrchr(full_path, '/');
+        if (last_slash && last_slash > full_path) {
+            *last_slash = '\0';
+            joss_zip_mkdir_all(full_path);
+            *last_slash = '/';
+        }
+
+        /* Parse Local File Header */
+        if ((uint64_t)local_off + 30 > (uint64_t)fsz || joss_zip_u32(buf + local_off) != 0x04034b50u) {
+            free(full_path);
+            free(entry_name);
+            free(buf);
+            return 0;
+        }
+        uint16_t lh_name_len = joss_zip_u16(buf + local_off + 26);
+        uint16_t lh_extra_len = joss_zip_u16(buf + local_off + 28);
+        uint64_t data_off = (uint64_t)local_off + 30 + (uint64_t)lh_name_len + (uint64_t)lh_extra_len;
+        if (data_off + (uint64_t)comp_size > (uint64_t)fsz) {
+            free(full_path);
+            free(entry_name);
+            free(buf);
+            return 0;
+        }
+
+        size_t remaining = (total_extracted < max_total) ? (max_total - total_extracted) : 0;
+        size_t limit = (remaining < max_single) ? remaining : max_single;
+
+        const uint8_t* out_data = NULL;
+        uint8_t* inflated = NULL;
+        size_t out_size = 0;
+
+        if (method == 0) {
+            if ((size_t)comp_size > limit || comp_size != uncomp_size) {
+                free(full_path);
+                free(entry_name);
+                free(buf);
+                return 0;
+            }
+            out_data = buf + data_off;
+            out_size = (size_t)comp_size;
+        } else if (method == 8) {
+            if (joss_zip_inflate(buf + data_off, (size_t)comp_size, &inflated, &out_size, limit) != 0) {
+                free(full_path);
+                free(entry_name);
+                free(buf);
+                return 0;
+            }
+            out_data = inflated;
+        } else {
+            free(full_path);
+            free(entry_name);
+            free(buf);
+            return 0;
+        }
+
+        uint32_t actual_crc = joss_zip_crc32(out_data, out_size);
+        if (actual_crc != expected_crc) {
+            free(inflated);
+            free(full_path);
+            free(entry_name);
+            free(buf);
+            return 0;
+        }
+
+        FILE* out_fp = fopen(full_path, "wb");
+        if (!out_fp) {
+            free(inflated);
+            free(full_path);
+            free(entry_name);
+            free(buf);
+            return 0;
+        }
+        if (out_size > 0 && fwrite(out_data, 1, out_size, out_fp) != out_size) {
+            fclose(out_fp);
+            remove(full_path);
+            free(inflated);
+            free(full_path);
+            free(entry_name);
+            free(buf);
+            return 0;
+        }
+        fclose(out_fp);
+        total_extracted += out_size;
+        free(inflated);
+        free(full_path);
+        free(entry_name);
+    }
+
+    free(buf);
+    return 1;
+}
+
 
 
 

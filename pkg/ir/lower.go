@@ -129,7 +129,8 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 								continue
 							}
 							qualifiedName := s.Name.Value + "::" + m.Name.Value
-							if l.reachGraph != nil && !l.reachGraph.IsMethodReachable(s.Name.Value, m.Name.Value) && !l.reachGraph.IsFunctionReachable(qualifiedName) && !l.reachGraph.IsFunctionReachable(m.Name.Value) {
+							isModelCB := l.isModelClass(s.Name.Value) && isModelCallbackMethodName(m.Name.Value, len(m.Parameters))
+							if !isModelCB && l.reachGraph != nil && !l.reachGraph.IsMethodReachable(s.Name.Value, m.Name.Value) && !l.reachGraph.IsFunctionReachable(qualifiedName) && !l.reachGraph.IsFunctionReachable(m.Name.Value) {
 								continue
 							}
 							if err := l.lowerClassMethod(s.Name.Value, m); err != nil {
@@ -198,6 +199,7 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 	if err := l.lowerProjectViewsAndRoutes(); err != nil {
 		return nil, err
 	}
+	l.emitModelMetadataRegistrations()
 	if err := l.flushPendingVirtualMethods(); err != nil {
 		return nil, err
 	}
@@ -352,8 +354,11 @@ func (l *Lowerer) lowerClassMethod(className string, stmt *parser.MethodStatemen
 		l.varLocals["this"] = ptrTemp
 	}
 
-	for _, param := range stmt.Parameters {
+	for pIdx, param := range stmt.Parameters {
 		paramType := l.mapType(param.Type.Literal)
+		if pIdx == 0 && l.isModelClass(className) && strings.HasPrefix(stmt.Name.Value, "scope") {
+			paramType = PtrType(StructType(className, nil))
+		}
 		paramVal := fn.AddParam(param.Name.Value, paramType)
 		fn.DefaultArgs = append(fn.DefaultArgs, l.lowerConstantDefault(param.DefaultValue, paramType))
 
@@ -1948,6 +1953,31 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			l.currBlock.AddInstruction(&CallRuntimeInst{Dest: sbTemp, Func: "joss_sb_new"})
 			return sbTemp, nil
 		}
+		if l.isModelClass(className) {
+			objType := PtrType(StructType(className, nil))
+			objTemp := l.currentFn.NewTemp(objType, "model_obj")
+			l.currBlock.AddInstruction(&CallInst{
+				Dest:   objTemp,
+				Callee: "fn_Model_newInstance",
+				Args:   []Value{NewConstString(className)},
+			})
+			if l.prog.Functions[className+"_Init"] != nil {
+				ctorArgs := []Value{objTemp}
+				for _, arg := range e.Arguments {
+					v, err := l.lowerExpression(arg)
+					if err != nil {
+						return nil, err
+					}
+					ctorArgs = append(ctorArgs, v)
+				}
+				l.currBlock.AddInstruction(&CallInst{
+					Dest:   nil,
+					Callee: className + "_Init",
+					Args:   ctorArgs,
+				})
+			}
+			return objTemp, nil
+		}
 		objType := PtrType(StructType(className, nil))
 		objTemp := l.currentFn.NewTemp(objType, "obj")
 		l.currBlock.AddInstruction(&NewObjectInst{
@@ -2127,6 +2157,15 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			return nil, err
 		}
 		propName := e.Property.Value
+		if l.isModelType(objVal.Type()) {
+			resTemp := l.currentFn.NewTemp(TypeMixed, "model_attr")
+			l.currBlock.AddInstruction(&CallInst{
+				Dest:   resTemp,
+				Callee: "fn_Model_getAttr",
+				Args:   []Value{objVal, NewConstString(propName)},
+			})
+			return resTemp, nil
+		}
 		fieldType := l.inferNodeType(e)
 		resolvedClassProp := false
 		if (fieldType.Kind == TypeKindI64 || fieldType.Kind == TypeKindUnion || fieldType.Kind == TypeKindUnknown) && objVal.Type().Kind == TypeKindPtr && objVal.Type().Elem != nil && objVal.Type().Elem.Name != "map" {
@@ -2245,7 +2284,9 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			})
 			return resTemp, nil
 		}
-		if resType.Kind == TypeKindI64 {
+		if container.Type().Kind == TypeKindArray && container.Type().Elem != nil && l.isModelType(*container.Type().Elem) {
+			resType = *container.Type().Elem
+		} else if resType.Kind == TypeKindI64 {
 			if container.Type().Kind == TypeKindArray && container.Type().Elem != nil {
 				resType = *container.Type().Elem
 			} else if container.Type().Kind == TypeKindMixed {
@@ -2275,6 +2316,13 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 					receiverObj = dest
 					calleeName = member.Property.Value
 				} else {
+					if l.isModelClass(identLeft.Value) {
+						if _, _, _, found := l.resolveClassMethod(identLeft.Value, member.Property.Value); !found {
+							if res, handled, err := l.lowerModelStaticCall(identLeft.Value, member.Property.Value, e.Arguments); handled {
+								return res, err
+							}
+						}
+					}
 					calleeName = identLeft.Value + "_" + member.Property.Value
 					if targetFn, _, mStmt, found := l.resolveClassMethod(identLeft.Value, member.Property.Value); found {
 						calleeName = targetFn
@@ -2295,6 +2343,11 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 					if targetFn, _, mStmt, found := l.resolveClassMethod(clsName, member.Property.Value); found {
 						calleeName = targetFn
 						resolvedMethodStmt = mStmt
+					} else if l.isModelType(receiverObj.Type()) {
+						if res, handled, err := l.lowerModelInstanceCall(receiverObj, member.Property.Value, e.Arguments); handled {
+							return res, err
+						}
+						calleeName = clsName + "_" + member.Property.Value
 					} else {
 						calleeName = clsName + "_" + member.Property.Value
 					}
@@ -3051,6 +3104,14 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			objVal, err := l.lowerExpression(member.Left)
 			if err != nil {
 				return nil, err
+			}
+			if l.isModelType(objVal.Type()) {
+				l.currBlock.AddInstruction(&CallInst{
+					Dest:   nil,
+					Callee: "fn_Model_setAttr",
+					Args:   []Value{objVal, NewConstString(member.Property.Value), l.boxIfMixed(val, TypeMixed)},
+				})
+				return val, nil
 			}
 			l.currBlock.AddInstruction(&StoreFieldInst{
 				Val:       val,

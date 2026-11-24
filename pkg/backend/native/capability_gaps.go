@@ -136,14 +136,36 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 			}
 		case "FileStream":
 			switch methodName {
-			case "open", "read", "write", "close":
+			case "open", "read", "write", "seek", "size", "flush", "close":
+				return true
+			}
+		case "StreamReader":
+			switch methodName {
+			case "open", "readLine", "readToEnd", "close":
+				return true
+			}
+		case "StreamWriter":
+			switch methodName {
+			case "open", "write", "writeLine", "flush", "close":
 				return true
 			}
 		case "DateTime":
 			switch methodName {
-			case "now", "timestamp", "format":
+			case "now", "create", "parse", "format", "timestamp", "iso", "year", "month", "day", "hour", "minute", "second", "add", "sub", "diff":
 				return true
 			}
+		case "DateInterval":
+			switch methodName {
+			case "days", "hours", "minutes", "seconds", "totalSeconds":
+				return true
+			}
+		case "Zip":
+			switch methodName {
+			case "extract":
+				return true
+			}
+		case "Model":
+			return true
 		case "Lang":
 			switch methodName {
 			case "locale", "setLocale", "get":
