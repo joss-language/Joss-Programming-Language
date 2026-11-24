@@ -5029,7 +5029,7 @@ const char* joss_sha256_base64(const char* s) {
     return joss_web_strdup(b64);
 }
 
-#if defined(__has_include)
+#if defined(__has_include) && !defined(JOSS_DISABLE_OPENSSL_SIGN)
 #if __has_include(<openssl/evp.h>) && __has_include(<openssl/pem.h>)
 #define JOSS_HAS_OPENSSL_SIGN 1
 #include <openssl/bio.h>

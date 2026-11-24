@@ -195,12 +195,17 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		}
 	}
 
+	var webDefines []string
+	if !needsCrypto {
+		webDefines = append(webDefines, "-DJOSS_DISABLE_OPENSSL_SIGN")
+	}
+
 	optionalUnits := []struct {
 		file    string
 		include bool
 		defines []string
 	}{
-		{"joss_web_rt.c", needsWeb, nil},
+		{"joss_web_rt.c", needsWeb, webDefines},
 		{"joss_concurrency_rt.c", needsConcurrency, nil},
 		{"joss_db_rt.c", needsDB, dbDefines},
 		{"joss_crypto_rt.c", needsCrypto, nil},
@@ -280,10 +285,10 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 			}
 		}
 	}
-	if needsCrypto || needsWeb {
+	if needsCrypto {
 		if hasHeader("openssl/evp.h") {
 			linkArgs = append(linkArgs, "-lcrypto")
-		} else if needsCrypto && opts.Target.OS == "windows" {
+		} else if opts.Target.OS == "windows" {
 			linkArgs = append(linkArgs, "-lbcrypt", "-lcrypt32")
 		}
 	}
