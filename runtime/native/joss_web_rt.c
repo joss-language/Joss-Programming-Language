@@ -515,12 +515,13 @@ int64_t joss_time(void) {
 }
 
 const char* joss_date(const char* fmt, int64_t ts) {
+    fmt = unbox_web_cstr(fmt);
     time_t t = ts > 0 ? (time_t)ts : time(NULL);
     struct tm tm_val;
 #if defined(_WIN32)
-    gmtime_s(&tm_val, &t);
+    localtime_s(&tm_val, &t);
 #else
-    gmtime_r(&t, &tm_val);
+    localtime_r(&t, &tm_val);
 #endif
     if (!fmt || !*fmt) fmt = "Y-m-d H:i:s";
     JossStringBuilder* sb = joss_sb_new();
@@ -541,10 +542,57 @@ const char* joss_date(const char* fmt, int64_t ts) {
     return out;
 }
 
+static int joss_strncasecmp_ascii(const char* a, const char* b, size_t n);
+
+static int joss_strcasecmp_ascii(const char* a, const char* b) {
+    if (!a) a = "";
+    if (!b) b = "";
+    while (*a && *b) {
+        unsigned char ca = (unsigned char)*a++;
+        unsigned char cb = (unsigned char)*b++;
+        if (ca >= 'A' && ca <= 'Z') ca = (unsigned char)(ca + ('a' - 'A'));
+        if (cb >= 'A' && cb <= 'Z') cb = (unsigned char)(cb + ('a' - 'A'));
+        if (ca != cb) return (int)ca - (int)cb;
+    }
+    return (int)(unsigned char)*a - (int)(unsigned char)*b;
+}
+
 int64_t joss_strtotime(const char* s) {
+    s = unbox_web_cstr(s);
     if (!s || !*s) return 0;
+    while (*s == ' ' || *s == '\t' || *s == '\r' || *s == '\n') s++;
+    if (!*s) return 0;
+
+    int64_t now_ts = (int64_t)time(NULL);
+    if (joss_strcasecmp_ascii(s, "now") == 0) return now_ts;
+    if (joss_strcasecmp_ascii(s, "tomorrow") == 0) return now_ts + 86400;
+    if (joss_strcasecmp_ascii(s, "yesterday") == 0) return now_ts - 86400;
+
+    /* Relative offset: e.g. "+8 hours", "-5 minutes", "+30 seconds", "+7 days" */
+    if (*s == '+' || *s == '-') {
+        char* endp = NULL;
+        long long delta = strtoll(s, &endp, 10);
+        if (endp && endp != s) {
+            while (*endp == ' ' || *endp == '\t') endp++;
+            int64_t mult = 0;
+            if (joss_strncasecmp_ascii(endp, "sec", 3) == 0) mult = 1;
+            else if (joss_strncasecmp_ascii(endp, "min", 3) == 0) mult = 60;
+            else if (joss_strncasecmp_ascii(endp, "hour", 4) == 0) mult = 3600;
+            else if (joss_strncasecmp_ascii(endp, "day", 3) == 0) mult = 86400;
+            else if (joss_strncasecmp_ascii(endp, "week", 4) == 0) mult = 604800;
+            else if (joss_strncasecmp_ascii(endp, "month", 5) == 0) mult = 2592000;
+            else if (joss_strncasecmp_ascii(endp, "year", 4) == 0) mult = 31536000;
+            if (mult > 0) {
+                return now_ts + (int64_t)delta * mult;
+            }
+        }
+    }
+
     int y = 0, m = 1, d = 1, H = 0, M = 0, S = 0;
     int parsed = sscanf(s, "%d-%d-%d %d:%d:%d", &y, &m, &d, &H, &M, &S);
+    if (parsed < 3) {
+        parsed = sscanf(s, "%d-%d-%dT%d:%d:%d", &y, &m, &d, &H, &M, &S);
+    }
     if (parsed >= 3) {
         struct tm tm_val;
         memset(&tm_val, 0, sizeof(tm_val));
@@ -554,13 +602,10 @@ int64_t joss_strtotime(const char* s) {
         tm_val.tm_hour = H;
         tm_val.tm_min = M;
         tm_val.tm_sec = S;
-#if defined(__unix__) || defined(__APPLE__)
-        return (int64_t)timegm(&tm_val);
-#else
+        tm_val.tm_isdst = -1;
         return (int64_t)mktime(&tm_val);
-#endif
     }
-    return (int64_t)time(NULL);
+    return now_ts;
 }
 
 typedef const char* (*joss_embedded_asset_fn)(const char* path);
@@ -720,17 +765,24 @@ static bool is_safe_relative_path(const char* path) {
 
 static const char* joss_lookup_embedded_priv_or_asset(const char* path, bool decrypt) {
     if (!path || !*path || !g_joss_embedded_asset_resolver) return NULL;
-    while (strncmp(path, "./", 2) == 0) path += 2;
-    while (strncmp(path, "../", 3) == 0) path += 3;
-    char priv_key[512];
-    snprintf(priv_key, sizeof(priv_key), "__joss_priv_%s", path);
+    char norm[512];
+    size_t n = 0;
+    for (const char* p = path; *p && n + 1 < sizeof(norm); p++) {
+        norm[n++] = (*p == '\\') ? '/' : *p;
+    }
+    norm[n] = '\0';
+    const char* s = norm;
+    while (strncmp(s, "./", 2) == 0) s += 2;
+    while (strncmp(s, "../", 3) == 0) s += 3;
+    char priv_key[560];
+    snprintf(priv_key, sizeof(priv_key), "__joss_priv_%s", s);
     const char* enc = g_joss_embedded_asset_resolver(priv_key);
     if (enc && enc[0]) {
         if (!decrypt) return enc;
         char* plain = joss_decrypt_embedded_env(enc);
         return plain ? plain : "";
     }
-    const char* pub = g_joss_embedded_asset_resolver(path);
+    const char* pub = g_joss_embedded_asset_resolver(s);
     if (pub && pub[0]) return pub;
     return NULL;
 }
@@ -2368,7 +2420,190 @@ static char* joss_system_run_bytes(const char* cmd, size_t* out_len) {
     return out;
 }
 
-const char* fn_System_Run(const char* cmd) {
+static bool joss_http_write_temp_file(const uint8_t* data, size_t len, char* out_path, size_t out_cap);
+static char* joss_web_strdup(const char* s);
+
+static const char* joss_maybe_materialize_embedded_arg(const char* arg, char* tmp_out, size_t tmp_cap) {
+    if (!arg || !arg[0] || !g_joss_embedded_asset_resolver) return arg;
+    size_t alen = strlen(arg);
+    if (alen == 0 || alen >= 400 || strchr(arg, '\n') != NULL || strchr(arg, '\r') != NULL) return arg;
+    /* If it already exists on disk, use it directly. */
+    FILE* f = fopen(arg, "rb");
+    if (f) {
+        fclose(f);
+        return arg;
+    }
+    const char* emb = joss_lookup_embedded_priv_or_asset(arg, true);
+    if (!emb || !emb[0]) return arg;
+    if (joss_http_write_temp_file((const uint8_t*)emb, strlen(emb), tmp_out, tmp_cap)) {
+        return tmp_out;
+    }
+    return arg;
+}
+
+#if defined(_WIN32)
+static void joss_win_append_quoted_arg(JossStringBuilder* sb, const char* arg);
+
+static char* joss_system_run_argv(const char* prog, void* args_arr) {
+    if (!prog || !*prog) return NULL;
+    JossStringBuilder* cmd_sb = joss_sb_new();
+    joss_win_append_quoted_arg(cmd_sb, prog);
+    int64_t argc = (args_arr && joss_is_arr_ptr((int64_t)(uintptr_t)args_arr)) ? joss_arr_len(args_arr) : 0;
+    char** temp_files = (argc > 0) ? (char**)calloc((size_t)argc, sizeof(char*)) : NULL;
+    for (int64_t i = 0; i < argc; i++) {
+        joss_buf_append_byte(cmd_sb, ' ');
+        const char* a = joss_strval(joss_arr_get_i64(args_arr, i));
+        char tmp_path[512];
+        tmp_path[0] = '\0';
+        const char* resolved = joss_maybe_materialize_embedded_arg(a ? a : "", tmp_path, sizeof(tmp_path));
+        if (resolved == tmp_path && temp_files) {
+            temp_files[i] = joss_web_strdup(tmp_path);
+        }
+        joss_win_append_quoted_arg(cmd_sb, resolved ? resolved : "");
+    }
+    char* cmdline = joss_sb_to_string(cmd_sb);
+    joss_sb_free(cmd_sb);
+    if (!cmdline) {
+        if (temp_files) {
+            for (int64_t i = 0; i < argc; i++) { if (temp_files[i]) remove(temp_files[i]); }
+            free(temp_files);
+        }
+        return NULL;
+    }
+
+    SECURITY_ATTRIBUTES sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.nLength = sizeof(sa);
+    sa.bInheritHandle = TRUE;
+    HANDLE hRead = NULL, hWrite = NULL;
+    if (!CreatePipe(&hRead, &hWrite, &sa, 0)) {
+        free(cmdline);
+        if (temp_files) {
+            for (int64_t i = 0; i < argc; i++) { if (temp_files[i]) remove(temp_files[i]); }
+            free(temp_files);
+        }
+        return NULL;
+    }
+    SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0);
+
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    memset(&si, 0, sizeof(si));
+    memset(&pi, 0, sizeof(pi));
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdOutput = hWrite;
+    si.hStdError = hWrite;
+    si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+
+    BOOL ok = CreateProcessA(NULL, cmdline, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+    free(cmdline);
+    CloseHandle(hWrite);
+    if (!ok) {
+        CloseHandle(hRead);
+        if (temp_files) {
+            for (int64_t i = 0; i < argc; i++) { if (temp_files[i]) remove(temp_files[i]); }
+            free(temp_files);
+        }
+        return NULL;
+    }
+
+    JossStringBuilder* out_sb = joss_sb_new();
+    char buf[4096];
+    DWORD nread = 0;
+    while (ReadFile(hRead, buf, sizeof(buf), &nread, NULL) && nread > 0) {
+        joss_buf_append_bytes(out_sb, (const uint8_t*)buf, (int64_t)nread);
+    }
+    CloseHandle(hRead);
+    WaitForSingleObject(pi.hProcess, 30000);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    if (temp_files) {
+        for (int64_t i = 0; i < argc; i++) { if (temp_files[i]) remove(temp_files[i]); }
+        free(temp_files);
+    }
+    char* out = joss_sb_to_string(out_sb);
+    joss_sb_free(out_sb);
+    return out;
+}
+#else
+#include <sys/wait.h>
+static char* joss_system_run_argv(const char* prog, void* args_arr) {
+    if (!prog || !*prog) return NULL;
+    int64_t argc = (args_arr && joss_is_arr_ptr((int64_t)(uintptr_t)args_arr)) ? joss_arr_len(args_arr) : 0;
+    char** argv = (char**)calloc((size_t)(argc + 2), sizeof(char*));
+    char** temp_files = (argc > 0) ? (char**)calloc((size_t)argc, sizeof(char*)) : NULL;
+    if (!argv) { free(temp_files); return NULL; }
+    argv[0] = (char*)prog;
+    for (int64_t i = 0; i < argc; i++) {
+        const char* a = joss_strval(joss_arr_get_i64(args_arr, i));
+        char tmp_path[512];
+        tmp_path[0] = '\0';
+        const char* resolved = joss_maybe_materialize_embedded_arg(a ? a : "", tmp_path, sizeof(tmp_path));
+        if (resolved == tmp_path && temp_files) {
+            temp_files[i] = joss_web_strdup(tmp_path);
+            argv[i + 1] = temp_files[i];
+        } else {
+            argv[i + 1] = (char*)(resolved ? resolved : "");
+        }
+    }
+    argv[argc + 1] = NULL;
+
+    int pipefd[2];
+    if (pipe(pipefd) != 0) {
+        free(argv);
+        if (temp_files) {
+            for (int64_t i = 0; i < argc; i++) { if (temp_files[i]) remove(temp_files[i]); }
+            free(temp_files);
+        }
+        return NULL;
+    }
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(pipefd[0]);
+        dup2(pipefd[1], STDOUT_FILENO);
+        dup2(pipefd[1], STDERR_FILENO);
+        close(pipefd[1]);
+        execvp(prog, argv);
+        _exit(127);
+    }
+    free(argv);
+    close(pipefd[1]);
+    if (pid < 0) {
+        close(pipefd[0]);
+        if (temp_files) {
+            for (int64_t i = 0; i < argc; i++) { if (temp_files[i]) remove(temp_files[i]); }
+            free(temp_files);
+        }
+        return NULL;
+    }
+    JossStringBuilder* out_sb = joss_sb_new();
+    char buf[4096];
+    ssize_t nread = 0;
+    while ((nread = read(pipefd[0], buf, sizeof(buf))) > 0) {
+        joss_buf_append_bytes(out_sb, (const uint8_t*)buf, (int64_t)nread);
+    }
+    close(pipefd[0]);
+    int status = 0;
+    waitpid(pid, &status, 0);
+    if (temp_files) {
+        for (int64_t i = 0; i < argc; i++) { if (temp_files[i]) remove(temp_files[i]); }
+        free(temp_files);
+    }
+    char* out = joss_sb_to_string(out_sb);
+    joss_sb_free(out_sb);
+    return out;
+}
+#endif
+
+const char* fn_System_Run(const char* cmd, void* args_arr) {
+    cmd = unbox_web_cstr(cmd);
+    if (!cmd || !*cmd) return "";
+    int64_t raw_args = joss_unbox_value((int64_t)(uintptr_t)args_arr);
+    if (raw_args && joss_is_arr_ptr(raw_args)) {
+        char* out = joss_system_run_argv(cmd, (void*)(uintptr_t)raw_args);
+        return out ? out : "";
+    }
     char* out = joss_system_run_bytes(cmd, NULL);
     return out ? out : "";
 }
@@ -4124,9 +4359,157 @@ const char* fn_Lang_get(const char* key) {
     return key ? key : "";
 }
 
+/* --- WebSocket Connection Object ($ws) & Event Loop --- */
+void* joss_ws_wrap(void* sock_val) {
+    void* ws = joss_obj_new("WebSocket");
+    int64_t fd = joss_unbox_value((int64_t)(uintptr_t)sock_val);
+    joss_map_set_i64(ws, "_sock", (int64_t)(uintptr_t)joss_box_i64(fd));
+    joss_map_set_i64(ws, "_closed", (int64_t)(uintptr_t)joss_box_i64(0));
+    joss_map_set_i64(ws, "_on_message", 0);
+    joss_map_set_i64(ws, "_on_close", 0);
+    return ws;
+}
+
+static bool joss_ws_obj_get_socket(void* ws_ptr, joss_socket_t* out_sock) {
+    int64_t raw = joss_unbox_value((int64_t)(uintptr_t)ws_ptr);
+    if (raw && joss_is_map_ptr(raw)) {
+        int64_t fd = joss_intval(joss_map_get_i64((void*)(uintptr_t)raw, "_sock"));
+        return joss_ws_resolve_socket(fd, out_sock);
+    }
+    return joss_ws_resolve_socket(raw, out_sock);
+}
+
+int64_t joss_ws_obj_send(void* ws_ptr, const char* msg) {
+    msg = unbox_web_cstr(msg);
+    if (!msg) msg = "";
+    joss_socket_t sock;
+    if (!joss_ws_obj_get_socket(ws_ptr, &sock)) return 0;
+    size_t plen = strlen(msg);
+    uint8_t* frame = (uint8_t*)malloc(plen + 16U);
+    if (!frame) return 0;
+    size_t flen = joss_ws_encode_text_frame(msg, frame, plen + 16U);
+    bool ok = (flen > 0) && joss_ws_send_all(sock, frame, flen);
+    free(frame);
+    return ok ? 1 : 0;
+}
+
+int64_t joss_ws_obj_on_message(void* ws_ptr, int64_t cb) {
+    int64_t raw = joss_unbox_value((int64_t)(uintptr_t)ws_ptr);
+    if (!raw || !joss_is_map_ptr(raw)) return 0;
+    joss_map_set_i64((void*)(uintptr_t)raw, "_on_message", cb);
+    return 1;
+}
+
+int64_t joss_ws_obj_on_close(void* ws_ptr, int64_t cb) {
+    int64_t raw = joss_unbox_value((int64_t)(uintptr_t)ws_ptr);
+    if (!raw || !joss_is_map_ptr(raw)) return 0;
+    joss_map_set_i64((void*)(uintptr_t)raw, "_on_close", cb);
+    return 1;
+}
+
+int64_t joss_ws_obj_subscribe(void* ws_ptr, const char* channel) {
+    channel = unbox_web_cstr(channel);
+    if (!channel || !channel[0]) return 0;
+    joss_socket_t sock;
+    if (!joss_ws_obj_get_socket(ws_ptr, &sock)) return 0;
+    joss_ws_hub_subscribe_raw(channel, sock);
+    return 1;
+}
+
+int64_t joss_ws_obj_close(void* ws_ptr) {
+    int64_t raw = joss_unbox_value((int64_t)(uintptr_t)ws_ptr);
+    if (raw && joss_is_map_ptr(raw)) {
+        joss_map_set_i64((void*)(uintptr_t)raw, "_closed", (int64_t)(uintptr_t)joss_box_i64(1));
+    }
+    joss_socket_t sock;
+    if (joss_ws_obj_get_socket(ws_ptr, &sock)) {
+        (void)joss_ws_send_control_frame(sock, 0x88U, NULL, 0U);
+        joss_ws_hub_unsubscribe_all(sock);
+        joss_ws_close_socket(sock);
+    }
+    return 1;
+}
+
+const char* joss_ws_run_loop(void* ws_ptr) {
+    int64_t raw = joss_unbox_value((int64_t)(uintptr_t)ws_ptr);
+    void* ws_map = (raw && joss_is_map_ptr(raw)) ? (void*)(uintptr_t)raw : NULL;
+    joss_socket_t sock;
+    if (!ws_map || !joss_ws_obj_get_socket(ws_map, &sock)) {
+        return "__JOSS_WEBSOCKET_HANDLED__";
+    }
+    int64_t fd = joss_intval(joss_map_get_i64(ws_map, "_sock"));
+    while (joss_intval(joss_map_get_i64(ws_map, "_closed")) == 0) {
+        int opcode = 0;
+        char* payload = NULL;
+        size_t plen = 0;
+        int rc = joss_ws_read_frame(sock, &opcode, &payload, &plen);
+        if (rc != 0) {
+            free(payload);
+            break;
+        }
+        if ((opcode == 0x1 || opcode == 0x2) && payload) {
+            int64_t cb = joss_map_get_i64(ws_map, "_on_message");
+            if (cb != 0) {
+                void* fn = joss_closure_prepare_call((void*)(uintptr_t)cb);
+                if (fn) {
+                    (void)((JossUnaryCb)fn)((int64_t)(uintptr_t)payload);
+                    joss_closure_env_tls_reset();
+                }
+            }
+        }
+        free(payload);
+    }
+    int64_t close_cb = joss_map_get_i64(ws_map, "_on_close");
+    if (close_cb != 0) {
+        void* fn = joss_closure_prepare_call((void*)(uintptr_t)close_cb);
+        if (fn) {
+            ((JossCronCallbackFn)fn)();
+            joss_closure_env_tls_reset();
+        }
+    }
+    joss_ws_hub_unsubscribe_all(sock);
+    joss_unregister_wrapped_socket((intptr_t)fd);
+    if (joss_intval(joss_map_get_i64(ws_map, "_closed")) == 0) {
+        joss_ws_close_socket(sock);
+    }
+    joss_req_state_reset();
+    joss_req_arena_reset();
+    return "__JOSS_WEBSOCKET_HANDLED__";
+}
+
 /* --- Http::json & Schema Host Services --- */
-const char* fn_Http_json(const char* url, const char* body, void* headers) {
-    return fn_Http_post(url, body, headers);
+int64_t joss_json_decode(const char* s);
+
+int64_t fn_Http_json(const char* method, const char* url, int64_t payload, void* headers) {
+    method = unbox_web_cstr(method);
+    url = unbox_web_cstr(url);
+    if (!method || !method[0]) method = "POST";
+    if (!url || !url[0]) return 0;
+
+    const char* body_json = "";
+    if (joss_is_not_null(payload)) {
+        if (joss_is_map_ptr(payload) || joss_is_arr_ptr(payload)) {
+            body_json = joss_json_encode(payload);
+        } else {
+            body_json = unbox_web_cstr((const char*)(uintptr_t)payload);
+            if (!body_json) body_json = "";
+        }
+    }
+
+    int64_t hdr_raw = joss_unbox_value((int64_t)(uintptr_t)headers);
+    void* hdrs = (hdr_raw && joss_is_map_ptr(hdr_raw)) ? (void*)(uintptr_t)hdr_raw : joss_map_new();
+    if (!joss_array_key_exists("Content-Type", hdrs) && !joss_array_key_exists("content-type", hdrs)) {
+        joss_map_set_str(hdrs, "Content-Type", "application/json");
+    }
+    if (!joss_array_key_exists("Accept", hdrs) && !joss_array_key_exists("accept", hdrs)) {
+        joss_map_set_str(hdrs, "Accept", "application/json");
+    }
+
+    void* resp = fn_Http_request(method, url, body_json, hdrs);
+    if (!resp || !joss_is_map_ptr((int64_t)(uintptr_t)resp)) return 0;
+    const char* resp_body = joss_map_get_str(resp, "body");
+    if (!resp_body || !resp_body[0]) return 0;
+    return joss_json_decode(resp_body);
 }
 
 static void* joss_schema_db_query(const char* sql, void* bindings) {
@@ -4283,6 +4666,21 @@ void* fn_Blueprint_onDelete(void* bp, const char* action) { (void)action; return
 void* fn_Blueprint_onUpdate(void* bp, const char* action) { (void)action; return bp; }
 void* fn_Blueprint_dropForeign(void* bp, const char* name) { (void)name; return bp; }
 
+static const char* joss_schema_prefixed_table(const char* table, char* buf, size_t cap) {
+    if (!table || !table[0]) return "";
+    const char* prefix = joss_env("PREFIX", "");
+    if (!prefix || !prefix[0]) prefix = joss_env("DB_PREFIX", "");
+    if (prefix && prefix[0]) {
+        size_t plen = strlen(prefix);
+        if (strncmp(table, prefix, plen) != 0) {
+            snprintf(buf, cap, "%s%s", prefix, table);
+            return buf;
+        }
+    }
+    snprintf(buf, cap, "%s", table);
+    return buf;
+}
+
 static void joss_schema_append_col_def(JossStringBuilder* sb, void* col) {
     const char* cname = joss_map_get_str(col, "name");
     const char* ctype = joss_map_get_str(col, "type");
@@ -4297,9 +4695,17 @@ static void joss_schema_append_col_def(JossStringBuilder* sb, void* col) {
         if (!nullable) joss_sb_append(sb, " NOT NULL");
         if (uniq) joss_sb_append(sb, " UNIQUE");
         if (defv && defv[0]) {
-            joss_sb_append(sb, " DEFAULT '");
-            joss_sb_append(sb, defv);
-            joss_sb_append(sb, "'");
+            if (ctype && strcmp(ctype, "BOOLEAN") == 0) {
+                if (joss_strcasecmp_ascii(defv, "true") == 0 || strcmp(defv, "1") == 0) {
+                    joss_sb_append(sb, " DEFAULT 1");
+                } else {
+                    joss_sb_append(sb, " DEFAULT 0");
+                }
+            } else {
+                joss_sb_append(sb, " DEFAULT '");
+                joss_sb_append(sb, defv);
+                joss_sb_append(sb, "'");
+            }
         }
     }
 }
@@ -4308,8 +4714,10 @@ int64_t fn_Schema_create(const char* table, void* callback) {
     table = unbox_web_cstr(table);
     void* cb = joss_closure_prepare_call(callback);
     if (!table || !table[0] || !cb) return 0;
+    char full_table[192];
+    const char* tbl = joss_schema_prefixed_table(table, full_table, sizeof(full_table));
     void* bp = joss_obj_new("Blueprint");
-    joss_map_set_str(bp, "_table", joss_web_strdup(table));
+    joss_map_set_str(bp, "_table", joss_web_strdup(tbl));
     joss_map_set_i64(bp, "_cols", (int64_t)(uintptr_t)joss_arr_new(8));
     ((void (*)(void*))cb)(bp);
     void* cols = (void*)(uintptr_t)joss_map_get_i64(bp, "_cols");
@@ -4317,7 +4725,7 @@ int64_t fn_Schema_create(const char* table, void* callback) {
     if (n <= 0) return 0;
     JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "CREATE TABLE IF NOT EXISTS ");
-    joss_sb_append(sb, table);
+    joss_sb_append(sb, tbl);
     joss_sb_append(sb, " (");
     for (int64_t i = 0; i < n; i++) {
         if (i > 0) joss_sb_append(sb, ", ");
@@ -4336,8 +4744,10 @@ int64_t fn_Schema_table(const char* table, void* callback) {
     table = unbox_web_cstr(table);
     void* cb = joss_closure_prepare_call(callback);
     if (!table || !table[0] || !cb) return 0;
+    char full_table[192];
+    const char* tbl = joss_schema_prefixed_table(table, full_table, sizeof(full_table));
     void* bp = joss_obj_new("Blueprint");
-    joss_map_set_str(bp, "_table", joss_web_strdup(table));
+    joss_map_set_str(bp, "_table", joss_web_strdup(tbl));
     joss_map_set_i64(bp, "_cols", (int64_t)(uintptr_t)joss_arr_new(4));
     ((void (*)(void*))cb)(bp);
     void* cols = (void*)(uintptr_t)joss_map_get_i64(bp, "_cols");
@@ -4347,7 +4757,7 @@ int64_t fn_Schema_table(const char* table, void* callback) {
         if (!joss_is_map_ptr((int64_t)(uintptr_t)col)) continue;
         JossStringBuilder* sb = joss_sb_new();
         joss_sb_append(sb, "ALTER TABLE ");
-        joss_sb_append(sb, table);
+        joss_sb_append(sb, tbl);
         joss_sb_append(sb, " ADD COLUMN ");
         joss_schema_append_col_def(sb, col);
         char* sql = joss_sb_to_string(sb);
@@ -4361,16 +4771,20 @@ int64_t fn_Schema_table(const char* table, void* callback) {
 int64_t fn_Schema_drop(const char* table) {
     table = unbox_web_cstr(table);
     if (!table || !table[0]) return 0;
+    char full_table[192];
+    const char* tbl = joss_schema_prefixed_table(table, full_table, sizeof(full_table));
     char sql[256];
-    snprintf(sql, sizeof(sql), "DROP TABLE %s", table);
+    snprintf(sql, sizeof(sql), "DROP TABLE %s", tbl);
     return joss_schema_db_exec(sql, joss_arr_new(0)) >= 0 ? 1 : 0;
 }
 
 int64_t fn_Schema_dropIfExists(const char* table) {
     table = unbox_web_cstr(table);
     if (!table || !table[0]) return 0;
+    char full_table[192];
+    const char* tbl = joss_schema_prefixed_table(table, full_table, sizeof(full_table));
     char sql[256];
-    snprintf(sql, sizeof(sql), "DROP TABLE IF EXISTS %s", table);
+    snprintf(sql, sizeof(sql), "DROP TABLE IF EXISTS %s", tbl);
     return joss_schema_db_exec(sql, joss_arr_new(0)) >= 0 ? 1 : 0;
 }
 
@@ -4378,22 +4792,27 @@ int64_t fn_Schema_rename(const char* from, const char* to) {
     from = unbox_web_cstr(from);
     to = unbox_web_cstr(to);
     if (!from || !from[0] || !to || !to[0]) return 0;
-    char sql[320];
-    snprintf(sql, sizeof(sql), "ALTER TABLE %s RENAME TO %s", from, to);
+    char full_from[192], full_to[192];
+    const char* f = joss_schema_prefixed_table(from, full_from, sizeof(full_from));
+    const char* t = joss_schema_prefixed_table(to, full_to, sizeof(full_to));
+    char sql[448];
+    snprintf(sql, sizeof(sql), "ALTER TABLE %s RENAME TO %s", f, t);
     return joss_schema_db_exec(sql, joss_arr_new(0)) >= 0 ? 1 : 0;
 }
 
 int64_t fn_Schema_hasTable(const char* table) {
     table = unbox_web_cstr(table);
     if (!table || !table[0]) return 0;
+    char full_table[192];
+    const char* tbl = joss_schema_prefixed_table(table, full_table, sizeof(full_table));
     const char* d = joss_schema_dialect();
     char sql[256];
     if (strcmp(d, "sqlite") == 0) {
-        snprintf(sql, sizeof(sql), "SELECT name FROM sqlite_master WHERE type='table' AND name='%s'", table);
+        snprintf(sql, sizeof(sql), "SELECT name FROM sqlite_master WHERE type='table' AND name='%s'", tbl);
     } else if (strcmp(d, "postgres") == 0) {
-        snprintf(sql, sizeof(sql), "SELECT table_name FROM information_schema.tables WHERE table_name='%s'", table);
+        snprintf(sql, sizeof(sql), "SELECT table_name FROM information_schema.tables WHERE table_name='%s'", tbl);
     } else {
-        snprintf(sql, sizeof(sql), "SHOW TABLES LIKE '%s'", table);
+        snprintf(sql, sizeof(sql), "SHOW TABLES LIKE '%s'", tbl);
     }
     void* rows = joss_schema_db_query(sql, joss_arr_new(0));
     return (rows && joss_arr_len(rows) > 0) ? 1 : 0;
@@ -4403,10 +4822,12 @@ int64_t fn_Schema_hasColumn(const char* table, const char* column) {
     table = unbox_web_cstr(table);
     column = unbox_web_cstr(column);
     if (!table || !table[0] || !column || !column[0]) return 0;
+    char full_table[192];
+    const char* tbl = joss_schema_prefixed_table(table, full_table, sizeof(full_table));
     const char* d = joss_schema_dialect();
     char sql[256];
     if (strcmp(d, "sqlite") == 0) {
-        snprintf(sql, sizeof(sql), "PRAGMA table_info(%s)", table);
+        snprintf(sql, sizeof(sql), "PRAGMA table_info(%s)", tbl);
         void* rows = joss_schema_db_query(sql, joss_arr_new(0));
         int64_t n = rows ? joss_arr_len(rows) : 0;
         for (int64_t i = 0; i < n; i++) {
@@ -4415,9 +4836,9 @@ int64_t fn_Schema_hasColumn(const char* table, const char* column) {
         }
         return 0;
     } else if (strcmp(d, "postgres") == 0) {
-        snprintf(sql, sizeof(sql), "SELECT column_name FROM information_schema.columns WHERE table_name='%s' AND column_name='%s'", table, column);
+        snprintf(sql, sizeof(sql), "SELECT column_name FROM information_schema.columns WHERE table_name='%s' AND column_name='%s'", tbl, column);
     } else {
-        snprintf(sql, sizeof(sql), "SHOW COLUMNS FROM %s LIKE '%s'", table, column);
+        snprintf(sql, sizeof(sql), "SHOW COLUMNS FROM %s LIKE '%s'", tbl, column);
     }
     void* rows = joss_schema_db_query(sql, joss_arr_new(0));
     return (rows && joss_arr_len(rows) > 0) ? 1 : 0;
@@ -4469,7 +4890,13 @@ void* joss_append(void* arr, void* val) {
 
 int64_t joss_len(void* v) {
     if (!v) return 0;
-    return joss_count(v);
+    int64_t raw = joss_unbox_value((int64_t)(uintptr_t)v);
+    if (!raw) return 0;
+    if (joss_is_arr_ptr(raw) || joss_is_map_ptr(raw)) {
+        return joss_count((void*)(uintptr_t)raw);
+    }
+    const char* s = unbox_web_cstr((const char*)v);
+    return s ? (int64_t)strlen(s) : 0;
 }
 
 int64_t joss_unlink(const char* path) {

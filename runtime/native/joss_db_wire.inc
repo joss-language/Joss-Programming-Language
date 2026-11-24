@@ -207,7 +207,7 @@ static char* joss_wire_bind_sql(const char* sql, void* bindings) {
     for (const char* p = sql; *p; p++) {
         if (*p == '?' && bidx < nbind) {
             int64_t raw_v = joss_arr_get_i64(bindings, bidx++);
-            bool is_sql_null = false;
+            bool is_sql_null = (raw_v == 0);
             if (joss_is_boxed_ptr(raw_v)) {
                 const JossBoxedValue* box = (const JossBoxedValue*)(uintptr_t)(uint64_t)raw_v;
                 if ((uint32_t)(box->header & 0xFFFFFFFFULL) == JOSS_TAG_NULL) is_sql_null = true;
@@ -531,7 +531,6 @@ static int64_t mysql_wire_execute(const char* sql, void* bindings) {
     if (!cmd) { free(bound); return 0; }
     cmd[0] = 0x03;
     memcpy(cmd + 1, bound, qlen);
-    free(bound);
 
     uint8_t* pkt = NULL;
     size_t plen = 0;
@@ -556,8 +555,26 @@ static int64_t mysql_wire_execute(const char* sql, void* bindings) {
     if (pkt && plen > 1 && pkt[0] == 0x00) {
         size_t c = 0;
         affected = (int64_t)mysql_wire_read_lenenc(pkt + 1, plen - 1, &c);
-        if (affected == 0) affected = 1;
+        int64_t last_insert_id = 0;
+        if (1 + c < plen) {
+            size_t c2 = 0;
+            last_insert_id = (int64_t)mysql_wire_read_lenenc(pkt + 1 + c, plen - 1 - c, &c2);
+        }
+        const char* p_sql = sql;
+        while (*p_sql == ' ' || *p_sql == '\t' || *p_sql == '\r' || *p_sql == '\n') p_sql++;
+        if (db_strncasecmp_ascii(p_sql, "INSERT", 6) == 0 && last_insert_id > 0) {
+            affected = last_insert_id;
+        } else if (affected == 0) {
+            affected = 1;
+        }
+    } else if (pkt && plen > 3 && pkt[0] == 0xFF) {
+        uint16_t err_code = (uint16_t)pkt[1] | ((uint16_t)pkt[2] << 8);
+        size_t msg_off = (plen > 9 && pkt[3] == '#') ? 9 : 3;
+        size_t msg_len = (plen > msg_off) ? (plen - msg_off) : 0;
+        fprintf(stderr, "[GranDB MySQL Error %u] %.*s | SQL=%.240s\n", (unsigned)err_code, (int)msg_len, (const char*)(pkt + msg_off), bound);
+        fflush(stderr);
     }
+    free(bound);
     free(pkt);
     return affected;
 }

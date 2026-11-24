@@ -259,6 +259,7 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 		}
 		llvmEmitter := NewLLVMEmitter()
 		llvmEmitter.TargetOS = opts.Target.OS
+		llvmEmitter.TargetArch = opts.Target.Arch
 		llvmIR, err := llvmEmitter.Emit(prog)
 		if err != nil {
 			return nil, fmt.Errorf("error generando LLVM IR: %w", err)

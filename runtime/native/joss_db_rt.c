@@ -1297,8 +1297,9 @@ static int64_t mysql_execute_native(const char* sql, void* bindings) {
     int64_t affected = 0;
     if (mysql_stmt_execute(stmt) == 0) {
         affected = (int64_t)mysql_stmt_affected_rows(stmt);
-        if (affected == 0 && strncasecmp(sql, "INSERT", 6) == 0) {
-            affected = (int64_t)mysql_stmt_insert_id(stmt);
+        if (strncasecmp(sql, "INSERT", 6) == 0) {
+            int64_t lid = (int64_t)mysql_stmt_insert_id(stmt);
+            if (lid > 0) affected = lid;
         }
     }
     free(params);

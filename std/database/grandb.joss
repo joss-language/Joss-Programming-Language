@@ -738,13 +738,13 @@ public class GranDB {
             var $prefix = env("PREFIX", env("DB_PREFIX", ""))
             var $fullTable = $this->assertIdentifier($prefix . $this->tableName)
             array<string> $setClauses = []
-            var $vals = []
+            array<mixed> $vals = []
             foreach ($data as $k => $v) {
                 $setClauses [] = $this->assertIdentifier(strval($k)) . " = ?"
                 $vals [] = $v
             }
             var $sql = "UPDATE " . $fullTable . " SET " . implode(", ", $setClauses) . $this->renderWhere()
-            var $allBindings = []
+            array<mixed> $allBindings = []
             foreach ($vals as $v) {
                 $allBindings [] = $v
             }

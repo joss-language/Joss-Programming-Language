@@ -164,6 +164,11 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 			case "new", "add", "done", "wait":
 				return true
 			}
+		case "Socket":
+			switch methodName {
+			case "listen", "accept", "read", "recv", "send", "write", "close", "connect", "bind":
+				return true
+			}
 		}
 		return false
 	}

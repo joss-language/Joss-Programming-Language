@@ -25,6 +25,7 @@ type LLVMEmitter struct {
 	activeDPParam1  string
 	currentFn       *ir.Function
 	TargetOS        string
+	TargetArch      string
 }
 
 func NewLLVMEmitter() *LLVMEmitter {
@@ -74,7 +75,11 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare i8* @joss_catch_msg()\n")
 	buf.WriteString("declare void @joss_throw(i8*)\n")
 	if e.TargetOS == "windows" {
-		buf.WriteString("declare i32 @setjmp(i8*, i8*) returns_twice\n")
+		if e.TargetArch == "arm64" {
+			buf.WriteString("declare i32 @__intrinsic_setjmpex(i8*, i8*) returns_twice\n")
+		} else {
+			buf.WriteString("declare i32 @setjmp(i8*, i8*) returns_twice\n")
+		}
 	} else {
 		buf.WriteString("declare i32 @setjmp(i8*) returns_twice\n")
 	}
@@ -260,7 +265,14 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 		"fn_Http_request":                     {ret: "i8*", args: []string{"i8*", "i8*", "i8*", "i8*"}},
 		"fn_Http_get":                         {ret: "i8*", args: []string{"i8*", "i8*"}},
 		"fn_Http_post":                        {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
-		"fn_Http_json":                        {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
+		"fn_Http_json":                        {ret: "i64", args: []string{"i8*", "i8*", "i64", "i8*"}},
+		"joss_ws_wrap":                        {ret: "i8*", args: []string{"i8*"}},
+		"joss_ws_obj_send":                    {ret: "i64", args: []string{"i8*", "i8*"}},
+		"joss_ws_obj_on_message":              {ret: "i64", args: []string{"i8*", "i64"}},
+		"joss_ws_obj_on_close":                {ret: "i64", args: []string{"i8*", "i64"}},
+		"joss_ws_obj_subscribe":               {ret: "i64", args: []string{"i8*", "i8*"}},
+		"joss_ws_obj_close":                   {ret: "i64", args: []string{"i8*"}},
+		"joss_ws_run_loop":                    {ret: "i8*", args: []string{"i8*"}},
 		"fn_Sitemap_add":                      {ret: "void", args: []string{"i8*", "i8*", "i8*"}},
 		"fn_Sitemap_provider":                 {ret: "i8*", args: []string{"i8*"}},
 		"fn_Sitemap_exclude":                  {ret: "void", args: []string{"i8*"}},
@@ -1157,7 +1169,11 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		var lines []string
 		lines = append(lines, fmt.Sprintf("%%jb_%s = call i8* @joss_try_push()", id))
 		if e.TargetOS == "windows" {
-			lines = append(lines, fmt.Sprintf("%%sj_%s = call i32 @setjmp(i8* %%jb_%s, i8* null) returns_twice", id, id))
+			sjSym := "@setjmp"
+			if e.TargetArch == "arm64" {
+				sjSym = "@__intrinsic_setjmpex"
+			}
+			lines = append(lines, fmt.Sprintf("%%sj_%s = call i32 %s(i8* %%jb_%s, i8* null) returns_twice", id, sjSym, id))
 		} else {
 			lines = append(lines, fmt.Sprintf("%%sj_%s = call i32 @setjmp(i8* %%jb_%s) returns_twice", id, id))
 		}
@@ -1593,6 +1609,10 @@ func normalizeLLVMHostServiceArgs(className, methodName string, args []ir.Value)
 		}
 	case "System":
 		switch methodName {
+		case "Run":
+			if len(args) == 1 {
+				return []ir.Value{args[0], ir.NewConstNull(ir.PtrType(ir.TypeVoid))}
+			}
 		case "env":
 			if len(args) == 1 {
 				return []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}

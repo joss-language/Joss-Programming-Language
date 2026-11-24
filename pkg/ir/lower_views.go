@@ -27,11 +27,11 @@ type compiledViewEntry struct {
 //  2. __joss_view_<idx>(__data): compiled native IR functions for each reachable .joss.html template
 //  3. view(viewName, dataMap): dispatches viewName to the compiled view IR function
 func (l *Lowerer) lowerProjectViewsAndRoutes() error {
-	if l.reachGraph != nil && !l.reachGraph.HasCapability(analyzer.CapServer) && !l.reachGraph.HasCapability(analyzer.CapHTTP) {
-		return l.synthesizePluginDispatchFunction()
-	}
 	if err := l.synthesizeEmbeddedAssetsFunction(); err != nil {
 		return err
+	}
+	if l.reachGraph != nil && !l.reachGraph.HasCapability(analyzer.CapServer) && !l.reachGraph.HasCapability(analyzer.CapHTTP) {
+		return l.synthesizePluginDispatchFunction()
 	}
 	if err := l.synthesizeHTTPDispatchFunction(); err != nil {
 		return err
@@ -1115,13 +1115,122 @@ func (l *Lowerer) synthesizeHTTPDispatchFunction() error {
 			TrueBlock:  wsBlk,
 			FalseBlock: httpBlk,
 		})
+
+		// Dispatch registered Router::ws(...) controller/closure handlers with a
+		// native WebSocket connection object ($ws) and run its RFC 6455 event loop.
+		wsCurr := wsBlk
+		wsObj := fn.NewTemp(TypeMixed, "ws_obj")
+		wsCurr.AddInstruction(&CallRuntimeInst{
+			Dest: wsObj,
+			Func: "joss_ws_wrap",
+			Args: []Value{requestParam},
+		})
+		for idx, rt := range routes {
+			if !rt.isWS {
+				continue
+			}
+			isClosure := closureCallees[idx] != ""
+			targetFnName := ""
+			var targetFn *Function
+			if isClosure {
+				targetFnName = closureCallees[idx]
+				targetFn = l.prog.Functions[targetFnName]
+			} else {
+				targetFnName = rt.controller + "_" + rt.action
+				targetFn = l.prog.Functions[targetFnName]
+				if targetFn == nil {
+					for fnName, fObj := range l.prog.Functions {
+						if strings.EqualFold(fnName, targetFnName) {
+							targetFnName = fnName
+							targetFn = fObj
+							break
+						}
+					}
+				}
+			}
+			if targetFn == nil {
+				continue
+			}
+			numPlaceholders := strings.Count(rt.path, "{")
+			wsPathMatch := fn.NewTemp(TypeBool, fmt.Sprintf("ws_rpath_%d", idx))
+			if numPlaceholders == 0 {
+				wsCurr.AddInstruction(&CompareInst{
+					Op:    OpCmpEq,
+					Dest:  wsPathMatch,
+					Left:  pathParam,
+					Right: NewConstString(rt.path),
+				})
+			} else {
+				wsCurr.AddInstruction(&CallInst{
+					Dest:   wsPathMatch,
+					Callee: "__joss_rt_route_matches",
+					Args:   []Value{pathParam, NewConstString(rt.path)},
+				})
+			}
+			wsMatchBlk := fn.NewBlock(fmt.Sprintf("ws_match_%d", idx))
+			wsNextBlk := fn.NewBlock(fmt.Sprintf("ws_next_%d", idx))
+			wsCurr.SetTerminator(&BranchTerminator{
+				Cond:       wsPathMatch,
+				TrueBlock:  wsMatchBlk,
+				FalseBlock: wsNextBlk,
+			})
+
+			var wsArgs []Value
+			if !isClosure {
+				objType := PtrType(StructType(rt.controller, nil))
+				ctrlTemp := fn.NewTemp(objType, fmt.Sprintf("ws_ctrl_%d", idx))
+				wsMatchBlk.AddInstruction(&NewObjectInst{
+					Dest:      ctrlTemp,
+					ClassName: rt.controller,
+				})
+				wsArgs = append(wsArgs, ctrlTemp)
+			}
+			wsArgs = append(wsArgs, wsObj)
+			for pIdx := 0; pIdx < numPlaceholders; pIdx++ {
+				pTemp := fn.NewTemp(TypeString, fmt.Sprintf("ws_parg_%d_%d", idx, pIdx))
+				wsMatchBlk.AddInstruction(&CallInst{
+					Dest:   pTemp,
+					Callee: "__joss_rt_route_param",
+					Args:   []Value{pathParam, NewConstString(rt.path), NewConstInt(int64(pIdx), TypeI64)},
+				})
+				wsArgs = append(wsArgs, pTemp)
+			}
+			for len(wsArgs) < len(targetFn.Params) {
+				wsArgs = append(wsArgs, NewConstString(""))
+			}
+			if len(wsArgs) > len(targetFn.Params) {
+				wsArgs = wsArgs[:len(targetFn.Params)]
+			}
+			if targetFn.ReturnType.Kind == TypeKindVoid {
+				wsMatchBlk.AddInstruction(&CallInst{
+					Callee: targetFnName,
+					Args:   wsArgs,
+				})
+			} else {
+				ig := fn.NewTemp(targetFn.ReturnType, fmt.Sprintf("ws_hret_%d", idx))
+				wsMatchBlk.AddInstruction(&CallInst{
+					Dest:   ig,
+					Callee: targetFnName,
+					Args:   wsArgs,
+				})
+			}
+			wsLoopRet := fn.NewTemp(TypeString, fmt.Sprintf("ws_loop_ret_%d", idx))
+			wsMatchBlk.AddInstruction(&CallRuntimeInst{
+				Dest: wsLoopRet,
+				Func: "joss_ws_run_loop",
+				Args: []Value{wsObj},
+			})
+			wsMatchBlk.SetTerminator(&ReturnTerminator{Val: wsLoopRet})
+			wsCurr = wsNextBlk
+		}
+
 		wsRet := fn.NewTemp(TypeString, "ws_dispatch_ret")
-		wsBlk.AddInstruction(&CallRuntimeInst{
+		wsCurr.AddInstruction(&CallRuntimeInst{
 			Dest: wsRet,
 			Func: "joss___joss_http_dispatch",
 			Args: []Value{methodParam, pathParam, requestParam},
 		})
-		wsBlk.SetTerminator(&ReturnTerminator{Val: wsRet})
+		wsCurr.SetTerminator(&ReturnTerminator{Val: wsRet})
 		curr = httpBlk
 	}
 
@@ -1678,10 +1787,29 @@ func extractRouteFromCallExprWithMW(call *parser.CallExpression, mwStack *[][]st
 	return out
 }
 
+func encryptEmbeddedBlob(plain []byte) string {
+	key := make([]byte, 32)
+	_, _ = rand.Read(key)
+	cipherBytes := make([]byte, len(plain))
+	var state uint64 = 0x9e3779b97f4a7c15
+	for i := 0; i < len(key); i++ {
+		state ^= uint64(key[i]) << ((uint(i) % 8) * 8)
+		state *= 0xbf58476d1ce4e5b9
+	}
+	for i, b := range plain {
+		state ^= state >> 12
+		state ^= state << 25
+		state ^= state >> 27
+		ks := byte((state*0x2545f4914f6cdd1d)>>56) ^ key[i%len(key)]
+		cipherBytes[i] = b ^ ks
+	}
+	return "JOSSENV1:" + hex.EncodeToString(key) + ":" + hex.EncodeToString(cipherBytes)
+}
+
 // synthesizeEmbeddedAssetsFunction walks static asset directories (such as public/ and assets/)
-// and any project subdirectories containing static files (.css, .js, .svg, .png, .jpg, .ico, etc.)
+// and private project data/secret directories (such as storage/secrets/, config/, and custom folders)
 // and synthesizes the native IR function `__joss_get_embedded_asset(path: string): string`
-// which serves the files directly from the standalone binary (.rodata section).
+// which serves public assets and decrypted private files directly from the standalone binary (.rodata section).
 func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 	if l.prog.Functions["__joss_get_embedded_asset"] != nil {
 		return nil
@@ -1720,28 +1848,12 @@ func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 				return nil
 			}
 			ext := strings.ToLower(filepath.Ext(path))
-			if ext == ".pem" && fi.Size() <= 2<<20 {
+			if (ext == ".pem" || ext == ".key" || ext == ".p12" || ext == ".pfx") && fi.Size() <= 2<<20 {
 				if pemBytes, err := os.ReadFile(path); err == nil && len(pemBytes) > 0 {
-					key := make([]byte, 32)
-					_, _ = rand.Read(key)
-					cipherBytes := make([]byte, len(pemBytes))
-					var state uint64 = 0x9e3779b97f4a7c15
-					for i := 0; i < len(key); i++ {
-						state ^= uint64(key[i]) << ((uint(i) % 8) * 8)
-						state *= 0xbf58476d1ce4e5b9
-					}
-					for i, b := range pemBytes {
-						state ^= state >> 12
-						state ^= state << 25
-						state ^= state >> 27
-						ks := byte((state*0x2545f4914f6cdd1d)>>56) ^ key[i%len(key)]
-						cipherBytes[i] = b ^ ks
-					}
-					encoded := "JOSSENV1:" + hex.EncodeToString(key) + ":" + hex.EncodeToString(cipherBytes)
 					slashPath := filepath.ToSlash(path)
 					assets = append(assets, assetEntry{
 						aliases: []string{"__joss_priv_" + slashPath},
-						content: encoded,
+						content: encryptEmbeddedBlob(pemBytes),
 					})
 				}
 				return nil
@@ -1771,32 +1883,108 @@ func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 		})
 	}
 
+	// Embed private project files and custom folders (e.g. storage/secrets/*, config/*, etc.)
+	// encrypted under __joss_priv_<path> so the standalone binary works from any directory
+	// without exposing secrets in plaintext or over HTTP.
+	skipPrivateTopDirs := map[string]bool{
+		".git": true, ".vscode": true, ".idea": true, "build": true, "dist": true,
+		"vendor": true, "node_modules": true, ".gemini": true, ".codex": true,
+		".agents": true, ".github": true, "tests": true, "test": true, "testdata": true,
+		"app": true, "plugins": true, "public": true, "assets": true,
+	}
+	skipEphemeralPrefixes := []string{
+		"storage/sessions/", "storage/logs/", "storage/cache/",
+		"storage/framework/", "storage/tmp/", "storage/temp/",
+	}
+	skipPrivateExts := map[string]bool{
+		".joss": true, ".exe": true, ".dll": true, ".so": true, ".dylib": true,
+		".o": true, ".obj": true, ".a": true, ".jp": true, ".db": true,
+		".sqlite": true, ".sqlite3": true, ".log": true, ".tmp": true, ".bak": true,
+		".zip": true, ".tar": true, ".gz": true, ".7z": true, ".rar": true,
+		".mp4": true, ".mov": true, ".avi": true,
+	}
+	isJossProjectDir := false
+	for _, marker := range []string{"joss.yaml", "env.joss", ".env", "routes.joss", "storage"} {
+		if _, err := os.Stat(marker); err == nil {
+			isJossProjectDir = true
+			break
+		}
+	}
+	const maxPrivateFiles = 256
+	const maxPrivateTotalBytes int64 = 16 << 20
+	privateFilesCount := 0
+	var privateTotalBytes int64 = 0
+	if isJossProjectDir {
+		if entries, err := os.ReadDir("."); err == nil {
+			for _, entry := range entries {
+				if privateFilesCount >= maxPrivateFiles || privateTotalBytes >= maxPrivateTotalBytes {
+					break
+				}
+				name := entry.Name()
+				if skipPrivateTopDirs[name] || name == "env.joss" || name == ".env" || strings.HasPrefix(name, ".") {
+					continue
+				}
+				if !entry.IsDir() {
+					continue
+				}
+				_ = filepath.Walk(name, func(path string, fi os.FileInfo, walkErr error) error {
+					if walkErr != nil || fi == nil {
+						return nil
+					}
+					if privateFilesCount >= maxPrivateFiles || privateTotalBytes >= maxPrivateTotalBytes {
+						return filepath.SkipDir
+					}
+					slashPath := filepath.ToSlash(path)
+					if fi.IsDir() {
+						for _, ep := range skipEphemeralPrefixes {
+							if slashPath+"/" == ep || strings.HasPrefix(slashPath+"/", ep) {
+								return filepath.SkipDir
+							}
+						}
+						return nil
+					}
+					for _, ep := range skipEphemeralPrefixes {
+						if strings.HasPrefix(slashPath, ep) {
+							return nil
+						}
+					}
+					ext := strings.ToLower(filepath.Ext(path))
+					if skipPrivateExts[ext] || fi.Size() <= 0 || fi.Size() > 2<<20 {
+						return nil
+					}
+					if privateTotalBytes+fi.Size() > maxPrivateTotalBytes {
+						return nil
+					}
+					rawBytes, err := os.ReadFile(path)
+					if err != nil || len(rawBytes) == 0 {
+						return nil
+					}
+					assets = append(assets, assetEntry{
+						aliases: []string{"__joss_priv_" + slashPath},
+						content: encryptEmbeddedBlob(rawBytes),
+					})
+					privateFilesCount++
+					privateTotalBytes += int64(len(rawBytes))
+					return nil
+				})
+			}
+		}
+	}
+
 	// Encrypt and embed project env.joss / .env so standalone binaries carry
 	// protected configuration without exposing plaintext secrets in the executable.
 	for _, envFile := range []string{"env.joss", ".env"} {
 		if envBytes, err := os.ReadFile(envFile); err == nil && len(envBytes) > 0 {
-			key := make([]byte, 32)
-			_, _ = rand.Read(key)
-			cipherBytes := make([]byte, len(envBytes))
-			var state uint64 = 0x9e3779b97f4a7c15
-			for i := 0; i < len(key); i++ {
-				state ^= uint64(key[i]) << ((uint(i) % 8) * 8)
-				state *= 0xbf58476d1ce4e5b9
-			}
-			for i, b := range envBytes {
-				state ^= state >> 12
-				state ^= state << 25
-				state ^= state >> 27
-				ks := byte((state*0x2545f4914f6cdd1d)>>56) ^ key[i%len(key)]
-				cipherBytes[i] = b ^ ks
-			}
-			encoded := "JOSSENV1:" + hex.EncodeToString(key) + ":" + hex.EncodeToString(cipherBytes)
 			assets = append(assets, assetEntry{
 				aliases: []string{"__joss_embedded_env_enc"},
-				content: encoded,
+				content: encryptEmbeddedBlob(envBytes),
 			})
 			break
 		}
+	}
+
+	if len(assets) == 0 {
+		return nil
 	}
 
 	fn := NewFunction("__joss_get_embedded_asset", TypeString)

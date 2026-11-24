@@ -1631,8 +1631,31 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			return dest, nil
 		}
 
-		left = l.unboxIfMixed(left)
-		right = l.unboxIfMixed(right)
+		isIntArith := (op == OpAdd || op == OpSub || op == OpMul || op == OpDiv || op == OpMod) &&
+			!left.Type().IsFloat() && !right.Type().IsFloat() &&
+			left.Type().Kind != TypeKindDecimal && right.Type().Kind != TypeKindDecimal
+		if isIntArith && (left.Type().Kind == TypeKindMixed || left.Type().Kind == TypeKindString) {
+			convL := l.currentFn.NewTemp(TypeI64, "arith_l")
+			l.currBlock.AddInstruction(&CallBuiltinInst{
+				Dest:      convL,
+				BuiltinID: "intval",
+				Args:      []Value{left},
+			})
+			left = convL
+		} else {
+			left = l.unboxIfMixed(left)
+		}
+		if isIntArith && (right.Type().Kind == TypeKindMixed || right.Type().Kind == TypeKindString) {
+			convR := l.currentFn.NewTemp(TypeI64, "arith_r")
+			l.currBlock.AddInstruction(&CallBuiltinInst{
+				Dest:      convR,
+				BuiltinID: "intval",
+				Args:      []Value{right},
+			})
+			right = convR
+		} else {
+			right = l.unboxIfMixed(right)
+		}
 		{
 			destType := left.Type()
 			if op == OpAnd || op == OpOr {
@@ -2039,7 +2062,11 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				case *parser.InitStatement:
 					if isOwnClass && !hasCtor {
 						hasCtor = true
-						ctorName = className + "_Init"
+						initName := "Init"
+						if m.Name != nil && m.Name.Value != "" {
+							initName = m.Name.Value
+						}
+						ctorName = className + "_" + initName
 					}
 				case *parser.MethodStatement:
 					if isOwnClass && !hasCtor && (m.Name.Value == "Init" || m.Name.Value == "constructor") {
@@ -2128,7 +2155,10 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		return resTemp, nil
 
 	case *parser.ArrayLiteral:
-		elemType := TypeI64
+		elemType := TypeMixed
+		if len(e.Elements) > 0 {
+			elemType = TypeI64
+		}
 		mixedElems := false
 		elements := make([]Value, len(e.Elements))
 		for idx, el := range e.Elements {
@@ -2560,6 +2590,65 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				Args: []Value{args[0], args[1]},
 			})
 			return regTemp, nil
+		}
+
+		// Native WebSocket connection object ($ws) method dispatch:
+		// onMessage(cb), onClose(cb), subscribe(channel), send(msg) on mixed $ws, close() on mixed $ws.
+		if receiverObj != nil {
+			recvIsDynamicWS := receiverObj.Type().Kind == TypeKindMixed ||
+				(receiverObj.Type().Kind == TypeKindPtr && receiverObj.Type().Elem != nil && receiverObj.Type().Elem.Name == "WebSocket")
+			switch calleeName {
+			case "onMessage":
+				if len(args) >= 2 {
+					retTmp := l.currentFn.NewTemp(TypeI64, "ws_onmsg")
+					l.currBlock.AddInstruction(&CallRuntimeInst{
+						Dest: retTmp,
+						Func: "joss_ws_obj_on_message",
+						Args: []Value{args[0], args[1]},
+					})
+					return retTmp, nil
+				}
+			case "onClose":
+				if len(args) >= 2 {
+					retTmp := l.currentFn.NewTemp(TypeI64, "ws_onclose")
+					l.currBlock.AddInstruction(&CallRuntimeInst{
+						Dest: retTmp,
+						Func: "joss_ws_obj_on_close",
+						Args: []Value{args[0], args[1]},
+					})
+					return retTmp, nil
+				}
+			case "subscribe":
+				if len(args) >= 2 {
+					retTmp := l.currentFn.NewTemp(TypeI64, "ws_sub")
+					l.currBlock.AddInstruction(&CallRuntimeInst{
+						Dest: retTmp,
+						Func: "joss_ws_obj_subscribe",
+						Args: []Value{args[0], args[1]},
+					})
+					return retTmp, nil
+				}
+			case "send":
+				if recvIsDynamicWS && len(args) == 2 {
+					retTmp := l.currentFn.NewTemp(TypeI64, "ws_send")
+					l.currBlock.AddInstruction(&CallRuntimeInst{
+						Dest: retTmp,
+						Func: "joss_ws_obj_send",
+						Args: []Value{args[0], args[1]},
+					})
+					return retTmp, nil
+				}
+			case "close":
+				if recvIsDynamicWS && len(args) == 1 {
+					retTmp := l.currentFn.NewTemp(TypeI64, "ws_close")
+					l.currBlock.AddInstruction(&CallRuntimeInst{
+						Dest: retTmp,
+						Func: "joss_ws_obj_close",
+						Args: []Value{args[0]},
+					})
+					return retTmp, nil
+				}
+			}
 		}
 
 		if !isBlueprintCall {
@@ -3622,9 +3711,12 @@ func (l *Lowerer) mapTypeSystemType(t typesystem.Type) Type {
 	case typesystem.Class:
 		return PtrType(StructType(t.Name, nil))
 	case typesystem.Array:
-		elem := TypeI64
+		elem := TypeMixed
 		if t.Element != nil {
-			elem = l.mapTypeSystemType(*t.Element)
+			mapped := l.mapTypeSystemType(*t.Element)
+			if mapped.Kind != TypeKindUnknown {
+				elem = mapped
+			}
 		}
 		return ArrayType(elem)
 	case typesystem.Map:
@@ -3891,7 +3983,7 @@ func (l *Lowerer) mapType(lit string) Type {
 	case "map":
 		return PtrType(StructType("map", nil))
 	case "array":
-		return ArrayType(TypeI64)
+		return ArrayType(TypeMixed)
 	case "mixed":
 		return TypeMixed
 	case "var", "unknown":
