@@ -241,6 +241,16 @@ var migratedNativeMethods = map[string][]NativeMethodDefinition{
 		nativeMethodWithArity("toString", "string"),
 		nativeMethodWithArity("free", "void"),
 	},
+	"Redis": {
+		withNativeEffects(nativeMethodWithArity("connect", "bool", nativeParam("addr", "string"), nativeOptionalParam("password", "string"), nativeOptionalParam("db", "int")), "net", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("set", "bool", nativeParam("key", "string"), nativeParam("value", "mixed"), nativeOptionalParam("ttlSeconds", "int")), "net", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("get", "string|null", nativeParam("key", "string")), "net", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("del", "bool", nativeParam("key", "string")), "net", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("forget", "bool", nativeParam("key", "string")), "net", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("has", "bool", nativeParam("key", "string")), "net", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("ttl", "int", nativeParam("key", "string")), "net", "io", "blocking"),
+		withNativeEffects(nativeMethodWithArity("flush", "bool"), "net", "io", "blocking"),
+	},
 }
 
 // nativeMethodReturnType is the return-signature source of truth for core

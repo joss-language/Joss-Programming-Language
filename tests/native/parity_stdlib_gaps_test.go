@@ -2,11 +2,17 @@ package native_test
 
 import (
 	"archive/zip"
+	"bufio"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestNativeParity_Phase1_DateTimeAndDateInterval(t *testing.T) {
@@ -188,4 +194,228 @@ print("OK2:" . strval($ok2));
 	if _, err := os.Stat(filepath.Join(dir, "escape.txt")); err == nil {
 		t.Fatalf("Zip-Slip wrote escape.txt outside destination!")
 	}
+}
+
+type mockRedisEntry struct {
+	val    string
+	expAt  time.Time
+	hasExp bool
+}
+
+func startMockRESP2Server(t *testing.T) (string, func()) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("mock redis listen: %v", err)
+	}
+	var mu sync.Mutex
+	store := make(map[string]mockRedisEntry)
+
+	readRESPArray := func(r *bufio.Reader) ([]string, error) {
+		line, err := r.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+		line = strings.TrimRight(line, "\r\n")
+		if len(line) == 0 || line[0] != '*' {
+			return nil, fmt.Errorf("expected RESP array, got %q", line)
+		}
+		n, err := strconv.Atoi(line[1:])
+		if err != nil || n < 0 {
+			return nil, fmt.Errorf("invalid RESP array len %q", line)
+		}
+		args := make([]string, 0, n)
+		for i := 0; i < n; i++ {
+			hdr, err := r.ReadString('\n')
+			if err != nil {
+				return nil, err
+			}
+			hdr = strings.TrimRight(hdr, "\r\n")
+			if len(hdr) == 0 || hdr[0] != '$' {
+				return nil, fmt.Errorf("expected bulk string, got %q", hdr)
+			}
+			blen, err := strconv.Atoi(hdr[1:])
+			if err != nil || blen < 0 {
+				return nil, fmt.Errorf("invalid bulk len %q", hdr)
+			}
+			buf := make([]byte, blen+2)
+			if _, err := io.ReadFull(r, buf); err != nil {
+				return nil, err
+			}
+			args = append(args, string(buf[:blen]))
+		}
+		return args, nil
+	}
+
+	handleConn := func(conn net.Conn) {
+		defer conn.Close()
+		r := bufio.NewReader(conn)
+		for {
+			args, err := readRESPArray(r)
+			if err != nil {
+				return
+			}
+			if len(args) == 0 {
+				continue
+			}
+			cmd := strings.ToUpper(args[0])
+			switch cmd {
+			case "HELLO":
+				_, _ = conn.Write([]byte("-ERR unknown command 'HELLO'\r\n"))
+			case "CLIENT", "AUTH", "SELECT":
+				_, _ = conn.Write([]byte("+OK\r\n"))
+			case "PING":
+				_, _ = conn.Write([]byte("+PONG\r\n"))
+			case "SET":
+				if len(args) < 3 {
+					_, _ = conn.Write([]byte("-ERR wrong number of arguments\r\n"))
+					continue
+				}
+				entry := mockRedisEntry{val: args[2]}
+				for i := 3; i+1 < len(args); i += 2 {
+					opt := strings.ToUpper(args[i])
+					if opt == "EX" {
+						if sec, err := strconv.Atoi(args[i+1]); err == nil && sec > 0 {
+							entry.hasExp = true
+							entry.expAt = time.Now().Add(time.Duration(sec) * time.Second)
+						}
+					} else if opt == "PX" {
+						if ms, err := strconv.Atoi(args[i+1]); err == nil && ms > 0 {
+							entry.hasExp = true
+							entry.expAt = time.Now().Add(time.Duration(ms) * time.Millisecond)
+						}
+					}
+				}
+				mu.Lock()
+				store[args[1]] = entry
+				mu.Unlock()
+				_, _ = conn.Write([]byte("+OK\r\n"))
+			case "GET":
+				if len(args) < 2 {
+					_, _ = conn.Write([]byte("$-1\r\n"))
+					continue
+				}
+				mu.Lock()
+				entry, ok := store[args[1]]
+				if ok && entry.hasExp && time.Now().After(entry.expAt) {
+					delete(store, args[1])
+					ok = false
+				}
+				mu.Unlock()
+				if !ok {
+					_, _ = conn.Write([]byte("$-1\r\n"))
+				} else {
+					_, _ = fmt.Fprintf(conn, "$%d\r\n%s\r\n", len(entry.val), entry.val)
+				}
+			case "EXISTS":
+				if len(args) < 2 {
+					_, _ = conn.Write([]byte(":0\r\n"))
+					continue
+				}
+				mu.Lock()
+				entry, ok := store[args[1]]
+				if ok && entry.hasExp && time.Now().After(entry.expAt) {
+					delete(store, args[1])
+					ok = false
+				}
+				mu.Unlock()
+				if ok {
+					_, _ = conn.Write([]byte(":1\r\n"))
+				} else {
+					_, _ = conn.Write([]byte(":0\r\n"))
+				}
+			case "TTL":
+				if len(args) < 2 {
+					_, _ = conn.Write([]byte(":-2\r\n"))
+					continue
+				}
+				mu.Lock()
+				entry, ok := store[args[1]]
+				if ok && entry.hasExp && time.Now().After(entry.expAt) {
+					delete(store, args[1])
+					ok = false
+				}
+				mu.Unlock()
+				if !ok {
+					_, _ = conn.Write([]byte(":-2\r\n"))
+				} else if !entry.hasExp {
+					_, _ = conn.Write([]byte(":-1\r\n"))
+				} else {
+					rem := int(time.Until(entry.expAt).Seconds())
+					if rem < 1 {
+						rem = 1
+					}
+					_, _ = fmt.Fprintf(conn, ":%d\r\n", rem)
+				}
+			case "DEL":
+				deleted := 0
+				mu.Lock()
+				for _, k := range args[1:] {
+					if _, ok := store[k]; ok {
+						delete(store, k)
+						deleted++
+					}
+				}
+				mu.Unlock()
+				_, _ = fmt.Fprintf(conn, ":%d\r\n", deleted)
+			case "FLUSHDB":
+				mu.Lock()
+				store = make(map[string]mockRedisEntry)
+				mu.Unlock()
+				_, _ = conn.Write([]byte("+OK\r\n"))
+			default:
+				_, _ = fmt.Fprintf(conn, "-ERR unknown command '%s'\r\n", cmd)
+			}
+		}
+	}
+
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go handleConn(conn)
+		}
+	}()
+
+	return ln.Addr().String(), func() { _ = ln.Close() }
+}
+
+func TestNativeParity_Redis(t *testing.T) {
+	addr, stop := startMockRESP2Server(t)
+	defer stop()
+
+	src := fmt.Sprintf(`
+bool $c = Redis::connect(%q, "", 0);
+print("CONN:" . strval($c));
+
+bool $s1 = Redis::set("k_plain", "hello_redis");
+bool $s2 = Redis::set("k_ttl", "expiring_val", 120);
+print("SET:" . strval($s1) . "," . strval($s2));
+
+print("GET1:" . strval(Redis::get("k_plain")));
+print("GET2:" . strval(Redis::get("k_ttl")));
+print("HAS1:" . strval(Redis::has("k_plain")));
+print("HAS_MISSING:" . strval(Redis::has("no_such_key")));
+
+int $ttl = Redis::ttl("k_ttl");
+print("TTL_OK:" . strval($ttl > 60 && $ttl <= 120));
+
+bool $d1 = Redis::del("k_plain");
+print("DEL:" . strval($d1) . "|HAS_AFTER_DEL:" . strval(Redis::has("k_plain")));
+
+bool $f1 = Redis::forget("k_ttl");
+print("FORGET:" . strval($f1) . "|HAS_AFTER_FORGET:" . strval(Redis::has("k_ttl")));
+
+var $miss = Redis::get("k_plain");
+print("MISS_IS_NULL:" . strval($miss == null));
+
+Redis::set("k_flush_a", "1");
+Redis::set("k_flush_b", "2");
+bool $fl = Redis::flush();
+print("FLUSH:" . strval($fl) . "|AFTER:" . strval(Redis::has("k_flush_a")) . "," . strval(Redis::has("k_flush_b")));
+`, addr)
+
+	wbRunCLISourceAcrossBackends(t, "redis_parity", src, []string{"llvm"}, nil)
 }

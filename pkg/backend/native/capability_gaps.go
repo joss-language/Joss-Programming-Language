@@ -168,6 +168,11 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 			return true
 		case "Window":
 			return true
+		case "Redis":
+			switch methodName {
+			case "connect", "set", "get", "del", "forget", "has", "ttl", "flush":
+				return true
+			}
 		case "Lang":
 			switch methodName {
 			case "locale", "setLocale", "get":
