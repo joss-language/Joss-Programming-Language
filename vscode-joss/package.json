@@ -2,7 +2,7 @@
   "name": "joss-language",
   "displayName": "Joss Language Support",
   "description": "Joss IntelliSense with parameter hints, project indexing, navigation, diagnostics, and security analysis",
-  "version": "3.7.0",
+  "version": "3.8.0",
   "icon": "images/icon.png",
   "publisher": "jossecurity",
   "engines": {
@@ -201,6 +201,113 @@
       {
         "command": "joss.pluginValidate",
         "title": "Joss: Validate Plugin"
+      },
+      {
+        "command": "joss.runFile",
+        "title": "Joss: Run Current File",
+        "icon": "$(play)"
+      },
+      {
+        "command": "joss.runFileNative",
+        "title": "Joss: Run Current File (Native)",
+        "icon": "$(zap)"
+      },
+      {
+        "command": "joss.buildGUI",
+        "title": "Joss: Build Native GUI Executable",
+        "icon": "$(window)"
+      },
+      {
+        "command": "joss.programStart",
+        "title": "Joss: Launch Native Desktop App (joss program)"
+      },
+      {
+        "command": "joss.emitIR",
+        "title": "Joss: Inspect Native IR (emit-ir)"
+      },
+      {
+        "command": "joss.quickActions",
+        "title": "Joss: Quick Actions Menu"
+      },
+      {
+        "command": "joss.refreshExplorer",
+        "title": "Joss: Refresh Explorer",
+        "icon": "$(refresh)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "jossExplorer",
+          "name": "Joss Project",
+          "when": "workspaceFolderCount > 0"
+        }
+      ]
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "when": "editorLangId == joss",
+          "command": "joss.runFile",
+          "group": "navigation@1"
+        },
+        {
+          "when": "editorLangId == joss",
+          "command": "joss.runFileNative",
+          "group": "navigation@2"
+        },
+        {
+          "when": "editorLangId == joss",
+          "command": "joss.buildGUI",
+          "group": "navigation@3"
+        }
+      ],
+      "view/title": [
+        {
+          "when": "view == jossExplorer",
+          "command": "joss.refreshExplorer",
+          "group": "navigation"
+        }
+      ]
+    },
+    "taskDefinitions": [
+      {
+        "type": "joss",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The Joss CLI subcommand (e.g., build, run, test, check, lint, fix, format)"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Additional arguments passed to the Joss CLI"
+          }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "joss",
+        "owner": "joss",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^\\[(JOSS-[A-Z0-9-]+)\\]\\s+(ERROR|WARNING|INFO)\\s+(.+?):(\\d+):(\\d+):\\s+(.+)$",
+          "code": 1,
+          "severity": 2,
+          "file": 3,
+          "line": 4,
+          "column": 5,
+          "message": 6
+        }
       }
     ],
     "configuration": {
@@ -221,6 +328,21 @@
           "type": "boolean",
           "default": true,
           "description": "Enable formatting for Joss files"
+        },
+        "joss.diagnostics.compiler.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time Joss compiler and linter diagnostics (joss lint --json)"
+        },
+        "joss.inlayHints.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline parameter name hints and inferred var types"
+        },
+        "joss.codeLens.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show clickable Run / Build Native / Build GUI / Run Tests CodeLens actions"
         }
       }
     }

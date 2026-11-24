@@ -33,15 +33,15 @@
       "patterns": [
         {
           "name": "keyword.control.joss",
-          "match": "\\b(if|else|while|do|foreach|as|return|break|continue|defer|new|this|try|catch|throw|extends|implements|async|await|match|default)\\b"
+          "match": "\\b(while|do|foreach|as|return|break|continue|defer|new|this|try|catch|throw|extends|implements|guard|match|case|default|select|yield|async|await)\\b"
         },
         {
           "name": "keyword.other.joss",
-          "match": "\\b(class|interface|Init|public|private|protected|static|func|let|const|ref)\\b"
+          "match": "\\b(class|record|enum|interface|abstract|extern|Init|public|private|protected|static|func|let|const|ref)\\b"
         },
         {
-          "name": "keyword.operator.logical.joss",
-          "match": "\\b(and|or|not)\\b"
+          "name": "keyword.operator.word.joss",
+          "match": "\\b(is|instanceof)\\b"
         }
       ]
     },
@@ -213,7 +213,7 @@
       "patterns": [
         {
           "name": "entity.name.type.class.joss",
-          "match": "\\b(Auth|GranDB|Stack|Queue|Main|Security|Server|Log|Task|Router|SmtpClient|View|Request|Response|Cron|Session|Redirect|RedirectResponse|WebResponse|WebSocket|Schema|Blueprint|Redis|Migration|Math|JSON|System|UserStorage|Markdown|Console)\\b"
+          "match": "\\b(Model|GranDB|Window|DateTime|DateInterval|FileStream|StreamReader|StreamWriter|Zip|Auth|MFA|TwoFactor|Stack|Queue|Main|Security|Server|Http|Log|Task|Router|SmtpClient|Mail|View|Request|Response|Cookie|Cache|Cron|Session|Redirect|RedirectResponse|WebResponse|WebSocket|Schema|Blueprint|Redis|Migration|Math|JSON|System|UserStorage|Markdown|Console|AI|Notify|Plugin|Process|UUID|Lang|Sitemap|IndexNow|ByteBuffer|StringBuilder|Mutex|RWMutex|WaitGroup|Exception)\\b"
         },
         {
           "name": "support.class.joss",

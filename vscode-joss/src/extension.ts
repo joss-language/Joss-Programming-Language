@@ -6,15 +6,16 @@ import {
     ServerOptions,
     TransportKind
 } from 'vscode-languageclient/node';
-import * as cp from 'child_process';
 
 import { registerCommands } from './commands';
 import { getCompletionItemProvider } from './completion';
+import { JossTaskProvider } from './tasks';
+import { JossExplorerProvider } from './views/jossExplorer';
 
 let client: LanguageClient;
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('JosSecurity Extension v3.0 is now active!');
+    console.log('Joss Language Extension v3.8 is now active!');
 
     try {
         // Start Language Server
@@ -23,64 +24,45 @@ export function activate(context: vscode.ExtensionContext) {
         // Register Commands
         registerCommands(context, client);
 
-        // View templates keep their controller-variable suggestions. Source
-        // files use the richer language-server completion provider.
+        // View templates (.joss.html) keep their controller-variable suggestions.
         context.subscriptions.push(getCompletionItemProvider());
 
-        // Document Formatting Provider using 'joss format -'
+        // Built-in VS Code Task Provider (Ctrl+Shift+B Build Native / GUI / Test / Lint)
         context.subscriptions.push(
-            vscode.languages.registerDocumentFormattingEditProvider('joss', {
-                provideDocumentFormattingEdits(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
-                    const config = vscode.workspace.getConfiguration('joss');
-                    if (!config.get<boolean>('format.enable', true)) {
-                        return Promise.resolve([]);
-                    }
-                    const jossBin = config.get<string>('executablePath', 'joss') || 'joss';
+            vscode.tasks.registerTaskProvider(JossTaskProvider.JossType, new JossTaskProvider())
+        );
 
-                    return new Promise((resolve) => {
-                        const text = document.getText();
-                        const proc = cp.spawn(jossBin, ['format', '-'], {
-                            cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd(),
-                            shell: true
-                        });
-
-                        let stdout = '';
-
-                        proc.stdout.on('data', (data) => {
-                            stdout += data.toString();
-                        });
-
-                        proc.on('close', (code) => {
-                            if (code === 0 && stdout && stdout !== text) {
-                                const fullRange = new vscode.Range(
-                                    document.positionAt(0),
-                                    document.positionAt(text.length)
-                                );
-                                resolve([vscode.TextEdit.replace(fullRange, stdout)]);
-                            } else {
-                                resolve([]);
-                            }
-                        });
-
-                        proc.on('error', () => {
-                            resolve([]);
-                        });
-
-                        proc.stdin.write(text);
-                        proc.stdin.end();
-                    });
+        // Joss Explorer Sidebar TreeView (Quick Actions, Routes, Models, Controllers)
+        const explorerProvider = new JossExplorerProvider(client);
+        context.subscriptions.push(
+            vscode.window.registerTreeDataProvider('jossExplorer', explorerProvider),
+            vscode.commands.registerCommand('joss.refreshExplorer', () => explorerProvider.refresh()),
+            vscode.commands.registerCommand('joss.openRouteTarget', async (route: unknown) => {
+                const location = await client.sendRequest<{ uri: string; range: { start: { line: number; character: number } } }>('joss/resolveRoute', route);
+                if (location) {
+                    const uri = vscode.Uri.parse(location.uri);
+                    const pos = new vscode.Position(location.range.start.line, location.range.start.character);
+                    await vscode.window.showTextDocument(uri, { selection: new vscode.Range(pos, pos) });
                 }
             })
         );
 
-        // Status Bar
+        // Auto-refresh explorer when .joss files are created/deleted/saved
+        context.subscriptions.push(
+            vscode.workspace.onDidSaveTextDocument(doc => {
+                if (doc.languageId === 'joss') explorerProvider.refresh();
+            })
+        );
+
+        // Interactive Status Bar Item
         const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-        statusBarItem.text = '$(database) Joss';
-        statusBarItem.tooltip = 'JosSecurity Language Server';
+        statusBarItem.text = '$(zap) Joss';
+        statusBarItem.tooltip = 'Joss Language Server — Click for Quick Actions (Run, Build Native, Build GUI, Test, Lint)';
+        statusBarItem.command = 'joss.quickActions';
         statusBarItem.show();
         context.subscriptions.push(statusBarItem);
     } catch (e) {
-        vscode.window.showErrorMessage(`JosSecurity Extension failed to activate: ${e}`);
+        vscode.window.showErrorMessage(`Joss Language Extension failed to activate: ${e}`);
         console.error('Activation failed:', e);
     }
 }
@@ -93,12 +75,10 @@ export function deactivate(): Thenable<void> | undefined {
 }
 
 function startLanguageServer(context: vscode.ExtensionContext): LanguageClient {
-    // Server module path
     const serverModule = context.asAbsolutePath(
         path.join('out', 'server', 'server.js')
     );
 
-    // Server options
     const serverOptions: ServerOptions = {
         run: { module: serverModule, transport: TransportKind.ipc },
         debug: {
@@ -108,21 +88,20 @@ function startLanguageServer(context: vscode.ExtensionContext): LanguageClient {
         }
     };
 
-    // Client options
     const clientOptions: LanguageClientOptions = {
         documentSelector: [{ scheme: 'file', language: 'joss' }],
         synchronize: {
             fileEvents: [
                 vscode.workspace.createFileSystemWatcher('**/*.joss'),
-                vscode.workspace.createFileSystemWatcher('**/*.jp')
+                vscode.workspace.createFileSystemWatcher('**/*.jp'),
+                vscode.workspace.createFileSystemWatcher('**/joss.yaml')
             ]
         }
     };
 
-    // Create and start client
     const client = new LanguageClient(
         'jossLanguageServer',
-        'JosSecurity Language Server',
+        'Joss Language Server',
         serverOptions,
         clientOptions
     );
