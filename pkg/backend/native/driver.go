@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/ir"
 )
 
@@ -33,6 +34,18 @@ type BuildOptions struct {
 	GUI           bool
 	SeedTables    map[string][]map[string]string
 	StaticLibs    []string
+}
+
+// programRequiresC11WebRuntime identifies applications lowered with the native
+// HTTP dispatcher.  The integrated machine-code emitter intentionally does not
+// implement the complete web ABI (sessions, binary responses, Redis and HTTP
+// clients); it must therefore never be selected for these programs.  LLVM
+// links the canonical C11 runtime that owns that ABI.
+func programRequiresC11WebRuntime(prog *ir.Program) bool {
+	if prog == nil {
+		return false
+	}
+	return prog.Functions["__joss_http_dispatch"] != nil
 }
 
 // BuildResult contiene la información del ejecutable generado y artefactos de trace.
@@ -197,12 +210,22 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 		}
 	}
 
-	// 4. Selección del backend (por defecto: BackendNative autocontenido)
+	// 4. Selección del backend. Los programas de consola puros conservan el
+	// emisor integrado; las aplicaciones HTTP requieren el ABI completo del
+	// runtime C11, que sólo implementa BackendLLVM.
 	selectedBackend := opts.Backend
 	if selectedBackend == "" || selectedBackend == BackendAuto {
-		selectedBackend = BackendNative
+		if programRequiresC11WebRuntime(prog) {
+			if !NewNativeCompiler().HasNativeToolchain() {
+				return nil, fmt.Errorf("%s\n\nLa aplicación HTTP requiere BackendLLVM y el runtime C11 nativo; instala o distribuye el toolchain LLVM/Zig de Joss", analyzer.FormatCapabilityError("HTTP runtime C11"))
+			}
+			selectedBackend = BackendLLVM
+		} else {
+			selectedBackend = BackendNative
+		}
+	} else if (selectedBackend == BackendNative || selectedBackend == BackendStandalone) && programRequiresC11WebRuntime(prog) {
+		return nil, fmt.Errorf("%s\n\nEl emisor integrado no implementa el ABI web completo. Compila esta aplicación con --backend=llvm", analyzer.FormatCapabilityError("HTTP runtime C11"))
 	}
-	res.BackendUsed = selectedBackend
 	if target.OS == "darwin" && (selectedBackend == BackendNative || selectedBackend == BackendStandalone) && NewNativeCompiler().HasNativeToolchain() {
 		if err := validateSharedBackendCapabilities(prog, target, false); err != nil {
 			return nil, err
@@ -223,6 +246,7 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 		}
 		selectedBackend = BackendLLVM
 	}
+	res.BackendUsed = selectedBackend
 
 	// 5. Compilación según el backend seleccionado
 	switch selectedBackend {
