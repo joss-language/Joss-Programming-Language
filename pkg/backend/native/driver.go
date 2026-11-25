@@ -226,6 +226,7 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 	} else if (selectedBackend == BackendNative || selectedBackend == BackendStandalone) && programRequiresC11WebRuntime(prog) {
 		return nil, fmt.Errorf("%s\n\nEl emisor integrado no implementa el ABI web completo. Compila esta aplicación con --backend=llvm", analyzer.FormatCapabilityError("HTTP runtime C11"))
 	}
+	res.BackendUsed = selectedBackend
 	if target.OS == "darwin" && (selectedBackend == BackendNative || selectedBackend == BackendStandalone) && NewNativeCompiler().HasNativeToolchain() {
 		if err := validateSharedBackendCapabilities(prog, target, false); err != nil {
 			return nil, err
@@ -246,7 +247,6 @@ func BuildProgram(prog *ir.Program, opts BuildOptions) (*BuildResult, error) {
 		}
 		selectedBackend = BackendLLVM
 	}
-	res.BackendUsed = selectedBackend
 
 	// 5. Compilación según el backend seleccionado
 	switch selectedBackend {

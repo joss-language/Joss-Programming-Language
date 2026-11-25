@@ -15,6 +15,7 @@
 #include "joss_rt.h"
 
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +47,13 @@
 #elif !defined(JOSS_DB_DISABLE_MYSQL) && __has_include(<mariadb/mysql.h>)
 #include <mariadb/mysql.h>
 #define JOSS_HAS_MYSQL 1
+#endif
+#if defined(JOSS_HAS_MYSQL)
+#if defined(MARIADB_BASE_VERSION) || defined(MARIADB_VERSION_ID) || defined(LIBMARIADB) || (defined(MYSQL_VERSION_ID) && MYSQL_VERSION_ID < 80000)
+typedef my_bool joss_mysql_bool_t;
+#else
+typedef bool joss_mysql_bool_t;
+#endif
 #endif
 #if !defined(JOSS_DB_DISABLE_ODBC) && __has_include(<sql.h>) && __has_include(<sqlext.h>)
 #include <sql.h>
@@ -1268,7 +1276,7 @@ static void* mysql_query_native(const char* sql, void* bindings) {
             MYSQL_BIND* resBinds = (MYSQL_BIND*)calloc(ncols, sizeof(MYSQL_BIND));
             char** bufs = (char**)calloc(ncols, sizeof(char*));
             unsigned long* resLens = (unsigned long*)calloc(ncols, sizeof(unsigned long));
-            my_bool* resNulls = (my_bool*)calloc(ncols, sizeof(my_bool));
+            joss_mysql_bool_t* resNulls = (joss_mysql_bool_t*)calloc(ncols, sizeof(joss_mysql_bool_t));
             for (unsigned int c = 0; c < ncols; c++) {
                 bufs[c] = (char*)calloc(1, 4096);
                 resBinds[c].buffer_type = MYSQL_TYPE_STRING;
