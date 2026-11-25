@@ -263,6 +263,7 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 		"fn_WebResponse_withCookie":           {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
 		"with":                                {ret: "i8*", args: []string{"i8*", "i8*", "i64"}},
 		"withCookie":                          {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
+		"joss_bytes_new":                      {ret: "i8*", args: []string{"i8*", "i64"}},
 		"fn_Http_request":                     {ret: "i8*", args: []string{"i8*", "i8*", "i8*", "i8*"}},
 		"fn_Http_get":                         {ret: "i8*", args: []string{"i8*", "i8*"}},
 		"fn_Http_post":                        {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
