@@ -106,10 +106,6 @@ public class HttpServer {
         (count($pathParts) > 0) ? {
             $path = $pathParts [0]
         }
-        ($_method == "POST") ? {
-            var $requestBody = strval($requestData ["_body"] ?? "")
-            print("[HTTPTrace] POST bodyBytes=" . strlen($requestBody) . ", turnstileFieldPresent=" . str_contains($requestBody, "cf-turnstile-response="))
-        }
 
         // Parse HTTP request headers
         var $upgradeHeader = ""

@@ -909,6 +909,22 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 				selTemp, gtTemp,
 				destVal, ltTemp, selTemp), nil
 		}
+		if i.Op == ir.OpCmpEq || i.Op == ir.OpCmpNe {
+			_, isLNull := i.Left.(*ir.ConstNull)
+			_, isRNull := i.Right.(*ir.ConstNull)
+			if (isLNull != isRNull) && (i.Left.Type().Kind == ir.TypeKindMixed || i.Right.Type().Kind == ir.TypeKindMixed) {
+				other := i.Left
+				if isLNull {
+					other = i.Right
+				}
+				preO, oVal := e.coerceLLVM(other, "i64", fmt.Sprintf("cn_%p", i))
+				if i.Op == ir.OpCmpNe {
+					return fmt.Sprintf("%s%s = call i1 @joss_is_not_null(i64 %s)", preO, e.formatValue(i.Dest), oVal), nil
+				}
+				nnTmp := fmt.Sprintf("%%nn_%p", i)
+				return fmt.Sprintf("%s%s = call i1 @joss_is_not_null(i64 %s)\n\t%s = xor i1 %s, true", preO, nnTmp, oVal, e.formatValue(i.Dest), nnTmp), nil
+			}
+		}
 		if (i.Op == ir.OpCmpEq || i.Op == ir.OpCmpNe) && (i.Left.Type().Kind == ir.TypeKindString || i.Right.Type().Kind == ir.TypeKindString) {
 			_, isLNull := i.Left.(*ir.ConstNull)
 			_, isRNull := i.Right.(*ir.ConstNull)
