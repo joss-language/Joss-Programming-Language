@@ -2,12 +2,15 @@ package llvm
 
 import (
 	"archive/tar"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jossecurity/joss/pkg/backend/native"
 	"github.com/jossecurity/joss/pkg/ir"
@@ -163,5 +166,101 @@ func TestExtractStripTopTarXz_ZeroExternalTools(t *testing.T) {
 	gotStd, err := os.ReadFile(filepath.Join(destDir, "lib", "std.zig"))
 	if err != nil || string(gotStd) != "pub\n" {
 		t.Fatalf("expected extracted lib/std.zig, got %q (err=%v)", string(gotStd), err)
+	}
+}
+
+func TestDownloadToolchainArchiveFromURLs_FallbackOnErrorAndStall(t *testing.T) {
+	origIdle := toolchainDownloadIdleTimeout
+	origHeader := toolchainResponseHeaderWait
+	origAttempt := toolchainAttemptMaxDuration
+	toolchainDownloadIdleTimeout = 150 * time.Millisecond
+	toolchainResponseHeaderWait = 300 * time.Millisecond
+	toolchainAttemptMaxDuration = 2 * time.Second
+	defer func() {
+		toolchainDownloadIdleTimeout = origIdle
+		toolchainResponseHeaderWait = origHeader
+		toolchainAttemptMaxDuration = origAttempt
+	}()
+
+	errServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "mirror unavailable", http.StatusServiceUnavailable)
+	}))
+	defer errServer.Close()
+
+	stallServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "1024")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("partial"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		select {
+		case <-r.Context().Done():
+		case <-time.After(2 * time.Second):
+		}
+	}))
+	defer stallServer.Close()
+
+	expected := "valid-toolchain-payload-data"
+	okServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(expected))
+	}))
+	defer okServer.Close()
+
+	path, err := downloadToolchainArchiveFromURLs([]string{
+		errServer.URL + "/zig.tar.xz",
+		stallServer.URL + "/zig.tar.xz",
+		okServer.URL + "/zig.tar.xz",
+	}, "tar.xz")
+	if err != nil {
+		t.Fatalf("expected fallback mirror to succeed, got err: %v", err)
+	}
+	defer os.Remove(path)
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read downloaded archive: %v", err)
+	}
+	if string(got) != expected {
+		t.Fatalf("expected %q, got %q", expected, string(got))
+	}
+}
+
+func TestZigArchiveCandidateURLs_RespectsOverrideAndCommunityMirrors(t *testing.T) {
+	mirrorListServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("# comment\nhttps://mirror-a.example/zig/\nhttps://mirror-b.example\n"))
+	}))
+	defer mirrorListServer.Close()
+
+	origMirrorsURL := zigCommunityMirrorsURL
+	zigCommunityMirrorsURL = mirrorListServer.URL
+	defer func() { zigCommunityMirrorsURL = origMirrorsURL }()
+
+	t.Setenv("JOSS_TOOLCHAIN_URL", "")
+	urls, ext, err := zigArchiveCandidateURLs("linux", "arm64")
+	if err != nil {
+		t.Fatalf("zigArchiveCandidateURLs failed: %v", err)
+	}
+	if ext != "tar.xz" {
+		t.Fatalf("expected tar.xz, got %q", ext)
+	}
+	if len(urls) < 4 {
+		t.Fatalf("expected multiple mirror candidates, got %v", urls)
+	}
+	if urls[0] != "https://mirror-a.example/zig/zig-linux-aarch64-0.14.0.tar.xz" {
+		t.Fatalf("unexpected first mirror URL: %q", urls[0])
+	}
+	if urls[len(urls)-1] != "https://ziglang.org/download/0.14.0/zig-linux-aarch64-0.14.0.tar.xz" {
+		t.Fatalf("expected official ziglang.org as final fallback, got %q", urls[len(urls)-1])
+	}
+
+	t.Setenv("JOSS_TOOLCHAIN_URL", "https://internal.corp/zig-custom.tar.xz")
+	overrideURLs, _, err := zigArchiveCandidateURLs("linux", "arm64")
+	if err != nil {
+		t.Fatalf("zigArchiveCandidateURLs override failed: %v", err)
+	}
+	if len(overrideURLs) != 1 || overrideURLs[0] != "https://internal.corp/zig-custom.tar.xz" {
+		t.Fatalf("unexpected override URLs: %v", overrideURLs)
 	}
 }

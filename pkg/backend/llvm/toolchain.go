@@ -3,9 +3,12 @@ package llvm
 import (
 	"archive/tar"
 	"archive/zip"
+	"bufio"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -20,6 +23,21 @@ import (
 )
 
 const managedZigVersion = "0.14.0"
+
+var (
+	zigCommunityMirrorsURL       = "https://ziglang.org/download/community-mirrors.txt"
+	toolchainMirrorFetchTimeout  = 5 * time.Second
+	toolchainResponseHeaderWait  = 20 * time.Second
+	toolchainDownloadIdleTimeout = 25 * time.Second
+	toolchainAttemptMaxDuration  = 3 * time.Minute
+	defaultZigCommunityMirrors   = []string{
+		"https://pkg.hexops.org/zig",
+		"https://zigmirror.hryx.net/zig",
+		"https://zig.linus.dev/zig",
+		"https://zig.squirl.dev",
+		"https://zig.mirror.mschae23.de/zig",
+	}
+)
 
 // ToolchainInfo describe el compilador C/LLVM resuelto para compilación nativa standalone.
 type ToolchainInfo struct {
@@ -200,7 +218,7 @@ func EnsureToolchain() (ToolchainInfo, error) {
 	return InstallManagedToolchain()
 }
 
-func zigArchiveURL(goos, goarch string) (string, string, error) {
+func zigArchiveName(goos, goarch string) (string, string, error) {
 	var zigOS, zigArch, ext string
 	switch goos {
 	case "windows":
@@ -224,8 +242,200 @@ func zigArchiveURL(goos, goarch string) (string, string, error) {
 		return "", "", fmt.Errorf("arquitectura no soportada para descarga automática de toolchain: %s/%s", goos, goarch)
 	}
 	name := fmt.Sprintf("zig-%s-%s-%s.%s", zigOS, zigArch, managedZigVersion, ext)
+	return name, ext, nil
+}
+
+func zigArchiveURL(goos, goarch string) (string, string, error) {
+	name, ext, err := zigArchiveName(goos, goarch)
+	if err != nil {
+		return "", "", err
+	}
 	url := fmt.Sprintf("https://ziglang.org/download/%s/%s", managedZigVersion, name)
 	return url, ext, nil
+}
+
+func fetchZigCommunityMirrors() []string {
+	if zigCommunityMirrorsURL == "" {
+		return nil
+	}
+	client := &http.Client{Timeout: toolchainMirrorFetchTimeout}
+	resp, err := client.Get(zigCommunityMirrorsURL)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	var mirrors []string
+	scanner := bufio.NewScanner(io.LimitReader(resp.Body, 64*1024))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "https://") || strings.HasPrefix(line, "http://") {
+			mirrors = append(mirrors, strings.TrimRight(line, "/"))
+		}
+	}
+	return mirrors
+}
+
+func zigArchiveCandidateURLs(goos, goarch string) ([]string, string, error) {
+	name, ext, err := zigArchiveName(goos, goarch)
+	if err != nil {
+		return nil, "", err
+	}
+
+	seen := make(map[string]struct{})
+	var urls []string
+	addURL := func(u string) {
+		u = strings.TrimSpace(u)
+		if u == "" {
+			return
+		}
+		if _, ok := seen[u]; ok {
+			return
+		}
+		seen[u] = struct{}{}
+		urls = append(urls, u)
+	}
+
+	if override := strings.TrimSpace(os.Getenv("JOSS_TOOLCHAIN_URL")); override != "" {
+		addURL(override)
+		return urls, ext, nil
+	}
+
+	for _, base := range fetchZigCommunityMirrors() {
+		addURL(base + "/" + name)
+	}
+	for _, base := range defaultZigCommunityMirrors {
+		addURL(strings.TrimRight(base, "/") + "/" + name)
+	}
+	addURL(fmt.Sprintf("https://ziglang.org/download/%s/%s", managedZigVersion, name))
+	return urls, ext, nil
+}
+
+func downloadWithIdleWatchdog(ctx context.Context, cancel context.CancelFunc, dst io.Writer, src io.Reader, idleTimeout time.Duration) (int64, error) {
+	var timer *time.Timer
+	if idleTimeout > 0 {
+		timer = time.AfterFunc(idleTimeout, cancel)
+		defer timer.Stop()
+	}
+	buf := make([]byte, 32*1024)
+	var written int64
+	for {
+		n, readErr := src.Read(buf)
+		if n > 0 {
+			if timer != nil {
+				timer.Reset(idleTimeout)
+			}
+			nw, writeErr := dst.Write(buf[:n])
+			written += int64(nw)
+			if writeErr != nil {
+				return written, writeErr
+			}
+			if nw != n {
+				return written, io.ErrShortWrite
+			}
+		}
+		if readErr == io.EOF {
+			return written, nil
+		}
+		if readErr != nil {
+			if ctx.Err() != nil {
+				return written, fmt.Errorf("descarga detenida o sin respuesta (%w)", ctx.Err())
+			}
+			return written, readErr
+		}
+	}
+}
+
+func downloadToolchainArchiveFromURLs(urls []string, ext string) (string, error) {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   15 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   15 * time.Second,
+		ResponseHeaderTimeout: toolchainResponseHeaderWait,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport}
+
+	var lastErr error
+	for idx, u := range urls {
+		ctx, cancel := context.WithTimeout(context.Background(), toolchainAttemptMaxDuration)
+		req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		if reqErr != nil {
+			cancel()
+			lastErr = reqErr
+			continue
+		}
+		req.Header.Set("User-Agent", "joss-toolchain/"+version.Version)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			cancel()
+			lastErr = fmt.Errorf("descargar toolchain nativo (%s): %w", u, err)
+			if idx+1 < len(urls) {
+				fmt.Fprintf(os.Stderr, "⚠️  [Toolchain] Mirror no respondió (%s), intentando siguiente...\n", u)
+			}
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			_ = resp.Body.Close()
+			cancel()
+			lastErr = fmt.Errorf("descargar toolchain nativo (%s): HTTP %d", u, resp.StatusCode)
+			if idx+1 < len(urls) {
+				fmt.Fprintf(os.Stderr, "⚠️  [Toolchain] Mirror devolvió HTTP %d (%s), intentando siguiente...\n", resp.StatusCode, u)
+			}
+			continue
+		}
+
+		tmpFile, err := os.CreateTemp("", "joss-toolchain-*."+ext)
+		if err != nil {
+			_ = resp.Body.Close()
+			cancel()
+			return "", err
+		}
+		tmpPath := tmpFile.Name()
+
+		written, copyErr := downloadWithIdleWatchdog(ctx, cancel, tmpFile, resp.Body, toolchainDownloadIdleTimeout)
+		_ = resp.Body.Close()
+		closeErr := tmpFile.Close()
+		cancel()
+
+		if copyErr != nil {
+			_ = os.Remove(tmpPath)
+			lastErr = fmt.Errorf("guardar toolchain descargado (%s): %w", u, copyErr)
+			if idx+1 < len(urls) {
+				fmt.Fprintf(os.Stderr, "⚠️  [Toolchain] Descarga interrumpida desde %s, intentando siguiente mirror...\n", u)
+			}
+			continue
+		}
+		if closeErr != nil {
+			_ = os.Remove(tmpPath)
+			return "", closeErr
+		}
+		if resp.ContentLength > 0 && written != resp.ContentLength {
+			_ = os.Remove(tmpPath)
+			lastErr = fmt.Errorf("descarga incompleta (%s): %d/%d bytes", u, written, resp.ContentLength)
+			if idx+1 < len(urls) {
+				fmt.Fprintf(os.Stderr, "⚠️  [Toolchain] Descarga incompleta desde %s, intentando siguiente mirror...\n", u)
+			}
+			continue
+		}
+		return tmpPath, nil
+	}
+
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no se encontraron URLs candidatas para descargar el toolchain nativo")
+	}
+	return "", lastErr
 }
 
 // InstallManagedToolchain descarga e instala el toolchain portable autocontenido (Zig/Clang/LLD)
@@ -239,34 +449,17 @@ func InstallManagedToolchain() (ToolchainInfo, error) {
 		return tc, nil
 	}
 
-	url, ext, err := zigArchiveURL(runtime.GOOS, runtime.GOARCH)
+	urls, ext, err := zigArchiveCandidateURLs(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		return ToolchainInfo{}, err
 	}
 
 	fmt.Printf("📦 Instalando toolchain nativo autocontenido de Joss (%s)...\n", managedZigVersion)
-	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
-	if err != nil {
-		return ToolchainInfo{}, fmt.Errorf("descargar toolchain nativo (%s): %w", url, err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return ToolchainInfo{}, fmt.Errorf("descargar toolchain nativo (%s): HTTP %d", url, resp.StatusCode)
-	}
-
-	tmpFile, err := os.CreateTemp("", "joss-toolchain-*."+ext)
+	tmpPath, err := downloadToolchainArchiveFromURLs(urls, ext)
 	if err != nil {
 		return ToolchainInfo{}, err
 	}
-	tmpPath := tmpFile.Name()
 	defer os.Remove(tmpPath)
-
-	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
-		_ = tmpFile.Close()
-		return ToolchainInfo{}, fmt.Errorf("guardar toolchain descargado: %w", err)
-	}
-	_ = tmpFile.Close()
 
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return ToolchainInfo{}, err
