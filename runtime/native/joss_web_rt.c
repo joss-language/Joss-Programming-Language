@@ -2007,7 +2007,19 @@ void* withCookie(void* recv, const char* k, const char* v) {
     joss_sb_append(sb, k);
     joss_sb_append(sb, "=");
     joss_sb_append(sb, v ? v : "");
-    joss_sb_append(sb, "; Path=/; HttpOnly");
+    joss_sb_append(sb, "; Path=/; HttpOnly; SameSite=Lax; Max-Age=");
+    if (!v || !v[0]) {
+        joss_sb_append(sb, "0");
+    } else {
+        int64_t ttl = strtoll(joss_env("JWT_TTL_SECONDS", joss_env("SESSION_TTL_SECONDS", "2592000")), NULL, 10);
+        if (ttl <= 0) ttl = 2592000;
+        joss_sb_append_i64(sb, ttl);
+    }
+    const char* app_env = joss_env("APP_ENV", "");
+    const char* sess_sec = joss_env("SESSION_SECURE", "");
+    if ((app_env && strcasecmp(app_env, "production") == 0) || (sess_sec && strcasecmp(sess_sec, "true") == 0)) {
+        joss_sb_append(sb, "; Secure");
+    }
     joss_sb_append(sb, sep);
     char* out = joss_sb_to_string(sb);
     joss_sb_free(sb);
@@ -7686,9 +7698,12 @@ int64_t joss___joss_session_save(const char* sid, void* data_ptr) {
         json_encode_value(jsb, (int64_t)(uintptr_t)copy);
         char rkey[320];
         snprintf(rkey, sizeof(rkey), "session:%s", sid);
-        const char* ttl = "86400";
-        const char* av[4] = {"SETEX", rkey, ttl, (const char*)jsb->data};
-        size_t al[4] = {5, strlen(rkey), 5, (size_t)jsb->len};
+        int64_t sess_ttl = strtoll(joss_env("SESSION_TTL_SECONDS", "2592000"), NULL, 10);
+        if (sess_ttl <= 0) sess_ttl = 2592000;
+        char ttl_buf[32];
+        snprintf(ttl_buf, sizeof(ttl_buf), "%lld", (long long)sess_ttl);
+        const char* av[4] = {"SETEX", rkey, ttl_buf, (const char*)jsb->data};
+        size_t al[4] = {5, strlen(rkey), strlen(ttl_buf), (size_t)jsb->len};
         char line[256];
         if (joss_redis_send_cmd(fd, 4, av, al) && joss_redis_read_line(fd, line, sizeof(line)) && line[0] == '+') {
             ok = true;
