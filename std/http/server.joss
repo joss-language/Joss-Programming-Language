@@ -297,6 +297,7 @@ public class HttpServer {
     }
 
     // Auto-restore authenticated session from valid joss_token JWT cookie (Go applyJWTPersistence parity)
+    bool $clearStaleJwtCookie = false
     string $existingUid = strval($webSession->get("user_id", ""))
     (strlen($existingUid) == 0 || $existingUid == "0") ? {
         var $reqCookies = $requestData ["_cookies"] ?? {
@@ -323,6 +324,8 @@ public class HttpServer {
                 }
                 $webSession->put("user_token", $jwtCookie)
             }
+        } : {
+            $clearStaleJwtCookie = true
         }
     }
 }
@@ -418,6 +421,12 @@ guard ($dispatched == "" || $dispatched == null) : {
     string $xfProto = strtolower(trim(strval($headers ["x-forwarded-proto"] ?? "")))
     ($xfProto == "https") ? {
         $respStr = __joss_http_inject_header($respStr, "Strict-Transport-Security: max-age=31536000; includeSubDomains")
+    }
+    (str_contains($respStr, "Content-Type: text/html") &&!str_contains($respStr, "Cache-Control:")) ? {
+        $respStr = __joss_http_inject_header($respStr, "Cache-Control: no-store, no-cache, must-revalidate")
+    }
+    ($clearStaleJwtCookie &&!str_contains($respStr, "Set-Cookie: joss_token=")) ? {
+        $respStr = __joss_http_inject_header($respStr, "Set-Cookie: joss_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
     }
     return __joss_http_inject_header($respStr, $webSession->getCookieHeader())
 }
