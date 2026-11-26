@@ -2,39 +2,41 @@
 
 [Index](README.md) · Before: [getting started](PRIMEROS_PASOS.md) · After: [analyzer](ANALIZADOR.md)
 
-The canonical source of commands is `cmd/joss/main.go`. `joss help` displays the installed interactive help and `joss version` shows the current runtime version (`3.6.8.0`).
+The canonical source of commands is `cmd/joss/main.go`. `joss help` displays the installed interactive help and `joss version` shows the current compiler version (`3.6.8.3`).
 
 The CLI is the program that receives commands in the terminal. It includes an interactive
-REPL environment (`joss repl`), direct script execution (`joss run`), a high-performance
-web server (`joss server start` / `joss server`), AOT native compilation (`--native`), and a complete suite of code quality and package management (`run [archivo]`) tools.
+REPL environment (`joss repl`), direct script execution (`joss run`), a native web server
+(`joss server start` / `joss server`), desktop mode (`joss program start`), and AOT compilation (`joss build`).
+All execution and compilation commands run **100% on Joss Native** (canonical IR + machine code / LLVM `-O3` + modular C11 runtime).
 
 ---
 
 ## 1. Execution, REPL, and Native Build
 
 ```bash
-joss run archivo.joss [--native]
+joss run archivo.joss
 joss repl
-joss server start [--native]
-joss program start [--native]
-joss build [archivo.joss] [opciones] [--native]
+joss server start
+joss program start
+joss build [archivo.joss] [opciones]
 joss emit-ir [archivo.joss] [-o salida.ir]
 joss analyze [archivo.joss]
 joss update [-f|--canary|--stable]
 ```
 
-- `.joss`: Executes a `LoadProject` script after analyzing the project (`--native`) and validating its `repl` with the Joss interpreter. Semantic errors block execution; warnings do not.
-- `joss> `: Starts the interactive console (Read-Eval-Print Loop) with the `exit` prompt to evaluate expressions, test functions, and experiment with code in real time. Type `Ctrl+C` or press `server start` to quit.
-- `joss server` (or `main.joss`): Requires the `--native` entry point and starts the high-performance multi-tier HTTP server interpreted by the server runtime. Press `q` or `Ctrl+C` to stop it safely.
-- `program start`: Starts the application in desktop mode.
-- `--native`: **Official Joss native compiler**. Compiles the program into a real self-contained native binary executable (PE `build [archivo.joss]` on Windows, ELF on Linux, Mach-O on macOS), placing it by default inside the `--native` folder. Performs exhaustive semantic analysis (`PreparedProgram`), reachability analysis (*Reachability Analysis*), lowering to Joss Native IR (`pkg/ir`), IR verification (`pkg/backend/native`), and native code generation (`joss_host.dll`).
-  - **Pure CLI binaries**: Compiled into ultra-compact pure machine code (~5.5 KB - 32 KB) without `_joss_host_bridge` or VFS trailer.
-  - **Full applications with web/DB services**: Selectively link `no<driver>` (pruning unused engines via `env.enc` tags) and seal the encrypted virtual file system (`-o <salida>` with AES-256) inside the executable.
-  - `--target=<os>-<arch>`: Custom name or path for the final executable binary.
-  - `joss build linux` (or direct shortcuts `joss build macos`, `joss build android`, `windows-amd64`): Built-in cross-compilation for `windows-arm64`, `linux-amd64`, `linux-arm64`, `darwin-arm64`, `darwin-amd64` (Apple Silicon), `android-arm64`, and `--release` (Termux).
-  - `--debug`: Production-optimized build without debug symbols.
-  - `--trace`: Build with debugging information.
-  - `.ir`: Emits and preserves intermediate artifacts from the native pipeline (`.ll`, `.standalone.go`, `--native`).
+- `run [archivo]`: Executes a `.joss` script after analyzing the project (`LoadProject`) using the **Joss Native JIT** engine (Tier-1 machine code / Tier-2 LLVM). Semantic errors block execution; warnings do not.
+- `repl`: Starts the interactive console (Read-Eval-Print Loop) with prompt `joss> ` on Joss Native to evaluate expressions, test functions, and experiment with code in real time. Type `exit` or press `Ctrl+C` to quit.
+- `server start` (or `joss server`): Requires `main.joss`. Starts the native HTTP server (`std/http` + `runtime/native/joss_web_rt.c`). Press `q` or `Ctrl+C` to stop it safely.
+- `program start`: Starts the application in native desktop mode (`runtime/native/joss_gui_rt.c` with WebView2/WebKitGTK/WKWebView).
+- `build [archivo.joss]`: Runs semantic analysis (`PreparedProgram`), lowering to Joss Native IR (`pkg/ir`), SSA verification, and AOT compilation (`pkg/backend/native` + `pkg/backend/llvm`), producing a self-contained standalone binary without embedded Go runtime or external DLLs.
+  - **Pure CLI binaries**: Compiled into ultra-compact pure machine code (~14 KB - 32 KB) with no external dependencies.
+  - **Full applications with web/DB/GUI services**: Selectively link only the C11 modules in `runtime/native/` required by the program and seal encrypted assets/variables (`env.enc` with AES-256) inside the executable.
+  - `-o <salida>`: Custom name or path for the final executable binary.
+  - `--target=<os>-<arch>` (or direct shortcuts `joss build linux`, `joss build macos`, `joss build android`): Built-in cross-compilation for `windows-amd64`, `windows-arm64`, `linux-amd64`, `linux-arm64`, `darwin-arm64` (Apple Silicon), `darwin-amd64`, and `android-arm64` (Termux).
+  - `--release`: Production-optimized build (`-O3` on LLVM IR and `joss_rt.c`) without debug symbols.
+  - `--debug`: Build with debugging information.
+  - `--trace`: Emits and preserves intermediate artifacts from the native pipeline (`.ir`, `.ll`).
+  - `--native`: Accepted for compatibility with existing scripts (Joss Native is the only active engine).
   - `build package [ruta]`: Packages extensions and plugins into Ed25519-signed `.jp` (v2) packages containing pure bytecode.
   - `build web`: Prepares assets and static distribution for web deployment.
 - `emit-ir [archivo.joss] [-o salida.ir]`: Emits the canonical intermediate representation (Joss Native IR) in deterministic textual format after semantic analysis and lowering.
