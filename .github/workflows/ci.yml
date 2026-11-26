@@ -193,14 +193,11 @@ jobs:
           go build ./...
           mkdir -p "$RUNNER_TEMP/out"
           joss_bin="$RUNNER_TEMP/out/joss-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
-          runner_bin="$RUNNER_TEMP/out/joss-runner-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
           go build -trimpath -o "$joss_bin" ./cmd/joss
-          go build -trimpath -ldflags '-s -w' -o "$runner_bin" ./cmd/runner
           ls -lh "$RUNNER_TEMP/out/"
           {
             echo "### 📦 Cross-Build \`${{ matrix.goos }}/${{ matrix.goarch }}\`"
             echo "- \`joss\`: **$(du -h "$joss_bin" | cut -f1)**"
-            echo "- \`joss-runner\`: **$(du -h "$runner_bin" | cut -f1)**"
           } >> "$GITHUB_STEP_SUMMARY"
 
   vscode:

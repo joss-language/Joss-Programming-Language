@@ -458,12 +458,7 @@ func runScriptWithWatch(filename string, mode executionMode) {
 		if clearScreen {
 			fmt.Print("\x1b[2J\x1b[H")
 		}
-		args := []string{"run", filename}
-		if mode == executionModeNative {
-			args = append(args, "--native")
-		} else if mode == executionModePrevious {
-			args = append(args, "--anterior")
-		}
+		args := []string{"run", filename, "--native"}
 		cmd := exec.Command(selfExe, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

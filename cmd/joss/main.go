@@ -19,10 +19,8 @@ import (
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/i18n"
 	"github.com/jossecurity/joss/pkg/ir"
-	"github.com/jossecurity/joss/pkg/mobile"
 	"github.com/jossecurity/joss/pkg/parser"
 	"github.com/jossecurity/joss/pkg/pluginpkg"
-	_ "github.com/jossecurity/joss/pkg/server"
 	"github.com/jossecurity/joss/pkg/template"
 	"github.com/jossecurity/joss/pkg/version"
 	"golang.org/x/term"
@@ -192,10 +190,6 @@ func main() {
 			if len(args) < 2 {
 				fmt.Printf("%s joss run -e \"codigo\"\n", i18n.Tr("cliUsageLabel"))
 				return
-			}
-			if mode == executionModeNative {
-				fmt.Fprintln(os.Stderr, "joss run -e --native no está disponible; guarda el código en un archivo .joss")
-				os.Exit(2)
 			}
 			executeEval(args[1], false)
 			return
@@ -561,21 +555,7 @@ func handleBuildCommand(args []string) {
 }
 
 func buildProgramForMode(filename, outExe, targetStr string, release, debug, trace, enableGUI bool, backendName string, mode executionMode) (string, error) {
-	if mode == executionModeNative {
-		return buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName)
-	}
-	if mode == executionModeAuto {
-		path, err := buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName)
-		if err == nil {
-			fmt.Println("[Auto] Capacidades nativas disponibles; se seleccionó AOT puro, sin runtime Go.")
-			return path, nil
-		}
-		if !isNativeCapabilityGap(err) {
-			return "", err
-		}
-		fmt.Fprintf(os.Stderr, "[Auto] El backend nativo aún no cubre una capacidad requerida; se selecciona el runner de compatibilidad Go: %v\n", err)
-	}
-	return buildLegacyProgram(filename, outExe, targetStr, enableGUI)
+	return buildNativeProgram(filename, outExe, targetStr, release, debug, trace, enableGUI, backendName)
 }
 
 func appendProjectPluginUnits(units []semanticanalyzer.SourceUnit, entryFilename string) []semanticanalyzer.SourceUnit {
@@ -773,7 +753,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 }
 
 func executeScript(filename string) {
-	executeScriptWithMode(filename, executionModePrevious)
+	executeScriptWithMode(filename, executionModeNative)
 }
 
 func executeScriptWithMode(filename string, mode executionMode) {
@@ -798,107 +778,53 @@ func executeScriptWithMode(filename string, mode executionMode) {
 		return
 	}
 
-	// All modes analyze the same PreparedProgram. Auto normally attempts shared
-	// IR/JIT first; --anterior / JOSS_HTTP_BACKEND=go selects the concurrent Go
-	// HTTP runtime. A known capability gap uses the compatibility interpreter,
-	// while --native remains strict and never changes engines.
-	httpBackendEnv := strings.TrimSpace(os.Getenv("JOSS_HTTP_BACKEND"))
-	goHTTPServer := shouldUseGoHTTPRuntime(mode, httpBackendEnv) ||
-		(mode != executionModeNative && strings.EqualFold(httpBackendEnv, "go")) ||
-		(mode == executionModePrevious && preparedProgramUsesHTTPServer(report.Prepared))
-	if goHTTPServer {
-		fmt.Println("[Server] Backend HTTP seleccionado: runtime Go con net/http concurrente.")
+	if _, err := os.Stat("assets/css"); err == nil {
+		core.CompileStyles()
 	}
-	if mode == executionModeNative || (mode == executionModeAuto && !goHTTPServer && !shouldDisableJIT()) {
-		if _, err := os.Stat("assets/css"); err == nil {
-			core.CompileStyles()
-		}
-		irProg, irErr := lowerPreparedProject(report.Prepared, filename)
-		if irErr == nil {
-			emitter := native.SelectCodeEmitter(native.HostTarget(), false)
-			jitExe, jitErr := emitter.CompileInMemory(irProg)
-			if jitErr == nil {
-				if mode == executionModeAuto {
-					fmt.Println("[Auto] Capacidades nativas disponibles; se seleccionó JIT.")
-				}
-				defer jitExe.Free()
-				exitCode, execErr := jitExe.Execute()
-				if execErr != nil {
-					fmt.Fprintf(os.Stderr, "JIT execution failed: %v\n", execErr)
-					os.Exit(1)
-				}
-				if exitCode != 0 {
-					os.Exit(exitCode)
-				}
-				return
-			}
-			if isNativeCapabilityGap(jitErr) {
-				handled, exitCode, llvmErr := executeViaNativeLLVMJIT(irProg, report.Prepared, filename, mode)
-				if handled {
-					if llvmErr != nil {
-						fmt.Fprintf(os.Stderr, "Native JIT execution failed: %v\n", llvmErr)
-						os.Exit(1)
-					}
-					if exitCode != 0 {
-						os.Exit(exitCode)
-					}
-					return
-				}
-				if llvmErr != nil {
-					jitErr = llvmErr
-				}
-			}
-			if mode == executionModeAuto && isNativeCapabilityGap(jitErr) {
-				fmt.Fprintf(os.Stderr, "[Auto] JIT no cubre una capacidad requerida; se selecciona el runtime de compatibilidad Go: %v\n", jitErr)
-			} else {
-				fmt.Fprintf(os.Stderr, "[Execution] JIT compilation failed; interpreter fallback is disabled: %v\n", jitErr)
-				os.Exit(1)
-			}
-		} else {
-			if mode == executionModeAuto && isNativeCapabilityGap(irErr) {
-				fmt.Fprintf(os.Stderr, "[Auto] IR no cubre una capacidad requerida; se selecciona el runtime de compatibilidad Go: %v\n", irErr)
-			} else {
-				fmt.Fprintf(os.Stderr, "[Execution] shared IR pipeline failed; interpreter fallback is disabled: %v\n", irErr)
-				os.Exit(1)
-			}
-		}
+	irProg, irErr := lowerPreparedProject(report.Prepared, filename)
+	if irErr != nil {
+		fmt.Fprintf(os.Stderr, "[Execution] shared IR pipeline failed: %v\n", irErr)
+		os.Exit(1)
 	}
 
-	rt := core.NewRuntime()
-	rt.CurrentFile = filename
-	rt.LoadEnv(nil)
-	if goHTTPServer {
-		rt.Env["JOSS_HTTP_BACKEND"] = "go"
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Printf("\n[Error de Ejecución JOSS]\n%s\n", core.FormatPanicAsError(r))
+	emitter := native.SelectCodeEmitter(native.HostTarget(), false)
+	jitExe, jitErr := emitter.CompileInMemory(irProg)
+	if jitErr == nil {
+		defer jitExe.Free()
+		exitCode, execErr := jitExe.Execute()
+		if execErr != nil {
+			fmt.Fprintf(os.Stderr, "JIT execution failed: %v\n", execErr)
 			os.Exit(1)
 		}
-	}()
+		if exitCode != 0 {
+			os.Exit(exitCode)
+		}
+		return
+	}
 
-	rt.ExecutePrepared(report.Prepared)
+	if isNativeCapabilityGap(jitErr) {
+		handled, exitCode, llvmErr := executeViaNativeLLVMJIT(irProg, report.Prepared, filename, mode)
+		if handled {
+			if llvmErr != nil {
+				fmt.Fprintf(os.Stderr, "Native JIT execution failed: %v\n", llvmErr)
+				os.Exit(1)
+			}
+			if exitCode != 0 {
+				os.Exit(exitCode)
+			}
+			return
+		}
+		if llvmErr != nil {
+			jitErr = llvmErr
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "[Execution] Native JIT compilation failed: %v\n", jitErr)
+	os.Exit(1)
 }
 
 func executeEval(source string, asJSON bool) {
-	if asJSON {
-		fmt.Println(mobile.Run(source, 0))
-		return
-	}
-	res := mobile.RunDirect(source, 0)
-	if res.Stdout != "" {
-		fmt.Print(res.Stdout)
-	}
-	if res.Stderr != "" {
-		fmt.Fprint(os.Stderr, res.Stderr)
-	}
-	if !res.Success {
-		if res.Error != "" {
-			fmt.Fprintln(os.Stderr, res.Error)
-		}
-		os.Exit(1)
-	}
+	executeEvalNative(source, asJSON)
 }
 
 func createNewPackage(name string) {
@@ -978,11 +904,11 @@ func packageClassName(name string) string {
 }
 
 func runRepl() {
-	fmt.Printf("Joss %s Interactive REPL\n", version.Version)
+	fmt.Printf("Joss %s Interactive Native REPL\n", version.Version)
 	fmt.Println("Escribe expresiones o sentencias Joss. Escribe 'exit' o presiona Ctrl+C para salir.")
 	fmt.Println()
 
-	rt := core.NewRuntime()
+	var history []string
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
@@ -998,11 +924,14 @@ func runRepl() {
 		if trimmed == "exit" || trimmed == "quit" {
 			break
 		}
+		if trimmed == "clear" {
+			history = nil
+			continue
+		}
 
 		lexer := parser.NewLexer(trimmed)
 		p := parser.NewParser(lexer)
 		prog := p.ParseProgram()
-
 		if len(p.Errors()) > 0 {
 			for _, e := range p.Errors() {
 				fmt.Printf("Error: %s\n", e)
@@ -1010,23 +939,45 @@ func runRepl() {
 			continue
 		}
 
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					fmt.Printf("Runtime Error: %v\n", r)
-				}
-			}()
-			for _, stmt := range prog.Statements {
-				if exprStmt, ok := stmt.(*parser.ExpressionStatement); ok {
-					res := rt.EvaluateExpression(exprStmt.Expression)
-					if res != nil {
-						fmt.Printf("=> %v\n", res)
-					}
-				} else {
-					rt.ExecuteStatement(stmt)
+		isSingleExpr := false
+		if len(prog.Statements) == 1 {
+			if exprStmt, ok := prog.Statements[0].(*parser.ExpressionStatement); ok {
+				if _, isCall := exprStmt.Expression.(*parser.CallExpression); !isCall {
+					isSingleExpr = true
 				}
 			}
-		}()
+		}
+
+		var candidate string
+		if isSingleExpr {
+			candidate = strings.Join(history, "\n") + "\nprint(" + strings.TrimSuffix(trimmed, ";") + ");\n"
+		} else {
+			candidate = strings.Join(append(append([]string(nil), history...), trimmed), "\n") + "\n"
+		}
+
+		stdout, stderr, exitCode, execErr := executeInlineSourceNative("<repl>", candidate, true)
+		if execErr != nil {
+			fmt.Printf("Error: %v\n", execErr)
+			continue
+		}
+		if stderr != "" {
+			fmt.Fprint(os.Stderr, stderr)
+		}
+		if exitCode == 0 {
+			if !isSingleExpr {
+				// Keep declarations/statements for subsequent lines (skip pure print lines to avoid re-printing).
+				if !strings.HasPrefix(trimmed, "print(") && !strings.HasPrefix(trimmed, "Console::log(") {
+					history = append(history, trimmed)
+				}
+			}
+			if stdout != "" {
+				if isSingleExpr {
+					fmt.Printf("=> %s", stdout)
+				} else {
+					fmt.Print(stdout)
+				}
+			}
+		}
 	}
 }
 

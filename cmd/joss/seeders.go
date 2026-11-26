@@ -59,8 +59,6 @@ func runSeeders() {
 			continue
 		}
 
-		rt.Execute(program)
-
 		var seederClass *parser.ClassStatement
 		for _, stmt := range program.Statements {
 			if classStmt, ok := stmt.(*parser.ClassStatement); ok {
@@ -70,11 +68,14 @@ func runSeeders() {
 		}
 
 		if seederClass == nil {
+			if _, _, exitCode, execErr := executeInlineSourceNative(file, string(data), false); execErr != nil || exitCode != 0 {
+				fmt.Printf("Error ejecutando seeder nativo %s: %v\n", file, execErr)
+				continue
+			}
 			count++
 			continue
 		}
 
-		instance := core.NewInstance(seederClass)
 		var runMethod *parser.MethodStatement
 		for _, stmt := range seederClass.Body.Statements {
 			if method, ok := stmt.(*parser.MethodStatement); ok && method.Name.Value == "run" {
@@ -87,7 +88,11 @@ func runSeeders() {
 			continue
 		}
 
-		rt.CallMethodEvaluated(runMethod, instance, []interface{}{})
+		wrapped := string(data) + fmt.Sprintf("\nvar $__joss_seeder = new %s();\n$__joss_seeder->run();\n", seederClass.Name.Value)
+		if _, _, exitCode, execErr := executeInlineSourceNative(file, wrapped, false); execErr != nil || exitCode != 0 {
+			fmt.Printf("Error ejecutando seeder nativo %s: %v\n", file, execErr)
+			continue
+		}
 		count++
 	}
 

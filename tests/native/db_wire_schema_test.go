@@ -579,7 +579,7 @@ public class Main {
 			lines := strings.Split(text, "\n")
 			filtered := make([]string, 0, len(lines))
 			for _, line := range lines {
-				if stripSecurityBanner && (strings.HasPrefix(line, "[Security] ") || strings.HasPrefix(line, "[AssetManager] ")) {
+				if stripSecurityBanner && (strings.HasPrefix(line, "[Security] ") || strings.HasPrefix(line, "[AssetManager] ") || strings.HasPrefix(line, "[aviso] ")) {
 					continue
 				}
 				filtered = append(filtered, line)

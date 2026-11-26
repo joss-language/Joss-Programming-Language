@@ -119,28 +119,11 @@ try {
         $targetDir = Join-Path $dist "$goos-$goarch"
         New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
         $targetName = if ($goos -eq 'windows') { 'joss.exe' } else { 'joss' }
-        $runnerTargetDir = Join-Path (Join-Path $dist 'runners') "$goos-$goarch"
-        New-Item -ItemType Directory -Force -Path $runnerTargetDir | Out-Null
-        $runnerName = if ($goos -eq 'windows') { 'joss-runner.exe' } else { 'joss-runner' }
         $oldGOOS, $oldGOARCH, $oldCGO = $env:GOOS, $env:GOARCH, $env:CGO_ENABLED
         try {
             $env:GOOS, $env:GOARCH, $env:CGO_ENABLED = $goos, $goarch, '0'
             Invoke-Checked "Joss $goos-$goarch" {
                 go build -trimpath -o (Join-Path $targetDir $targetName) ./cmd/joss
-            }
-            Invoke-Checked "Joss legacy runner $goos-$goarch" {
-                go build -trimpath -ldflags '-s -w' -o (Join-Path $runnerTargetDir $runnerName) ./cmd/runner
-            }
-            $runnerProfiles = @(
-                @{ Name = 'nodb_noembedlocales_nogui_noredis'; Tags = 'nodb,noredis,nogui,noembedlocales' },
-                @{ Name = 'noembedlocales_nogui_nomssql_nopostgres_noredis_nosqlite'; Tags = 'nomssql,nosqlite,nopostgres,noredis,nogui,noembedlocales' }
-            )
-            foreach ($profile in $runnerProfiles) {
-                $profileDir = Join-Path (Join-Path $runnerTargetDir 'profiles') $profile.Name
-                New-Item -ItemType Directory -Force -Path $profileDir | Out-Null
-                Invoke-Checked "Joss runner $goos-$goarch profile $($profile.Name)" {
-                    go build -trimpath -ldflags '-s -w' -tags $profile.Tags -o (Join-Path $profileDir $runnerName) ./cmd/runner
-                }
             }
         } finally {
             $env:GOOS, $env:GOARCH, $env:CGO_ENABLED = $oldGOOS, $oldGOARCH, $oldCGO
