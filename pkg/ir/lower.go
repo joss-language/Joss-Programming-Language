@@ -2249,9 +2249,17 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		return arrTemp, nil
 
 	case *parser.MapLiteral:
-		pairs := make([][2]Value, 0, len(e.Pairs))
+		orderedKeys := make([]parser.Expression, 0, len(e.Pairs))
+		for k := range e.Pairs {
+			orderedKeys = append(orderedKeys, k)
+		}
+		sort.Slice(orderedKeys, func(i, j int) bool {
+			return orderedKeys[i].String() < orderedKeys[j].String()
+		})
+		pairs := make([][2]Value, 0, len(orderedKeys))
 		valType := TypeMixed
-		for k, v := range e.Pairs {
+		for _, k := range orderedKeys {
+			v := e.Pairs[k]
 			kVal, err := l.lowerExpression(k)
 			if err != nil {
 				return nil, err
