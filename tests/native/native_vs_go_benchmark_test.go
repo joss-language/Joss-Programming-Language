@@ -127,7 +127,7 @@ print(fib(28));
 		t.Logf("[Compute fib(28)] Native LLVM+LLD:   exec=%v (%.1fx faster), size=%d bytes", llvmDur, float64(goDur)/float64(llvmDur), resLLVM.ExecutableSize)
 	})
 
-	t.Run("WebApp_TutorialWeb_NativeVsGoServer", func(t *testing.T) {
+	t.Run("WebApp_TutorialWeb_NativeServer", func(t *testing.T) {
 		origWd, err := os.Getwd()
 		if err != nil {
 			t.Fatal(err)
@@ -135,31 +135,6 @@ print(fib(28));
 		repoRoot := filepath.Clean(filepath.Join(origWd, "..", ".."))
 		webDir := filepath.Join(repoRoot, "ejemplos", "tutorial-web")
 		tmpDir := t.TempDir()
-
-		// Build Go Server benchmark binary (same pkg/server + core.Runtime used by joss server / runner)
-		goSrvSrcDir := filepath.Join(tmpDir, "gosrv")
-		if err := os.MkdirAll(goSrvSrcDir, 0755); err != nil {
-			t.Fatal(err)
-		}
-		goSrvMain := `package main
-import "github.com/jossecurity/joss/pkg/server"
-func main() {
-	server.Start(nil)
-}
-`
-		if err := os.WriteFile(filepath.Join(goSrvSrcDir, "main.go"), []byte(goSrvMain), 0644); err != nil {
-			t.Fatal(err)
-		}
-		goSrvBin := filepath.Join(tmpDir, "tutorial_web_go")
-		if runtime.GOOS == "windows" {
-			goSrvBin += ".exe"
-		}
-		buildGoCmd := exec.Command("go", "build", "-tags", "nodb noredis nowebview2 noembedlocales", "-o", goSrvBin, filepath.Join(goSrvSrcDir, "main.go"))
-		buildGoCmd.Dir = repoRoot
-		if out, err := buildGoCmd.CombinedOutput(); err != nil {
-			t.Fatalf("building Go server binary failed: %v\n%s", err, string(out))
-		}
-		goBinStat, _ := os.Stat(goSrvBin)
 
 		// Build Native AOT Web App binary (BackendLLVM, zero Go runtime)
 		if err := os.Chdir(webDir); err != nil {
@@ -244,20 +219,10 @@ func main() {
 			return coldStart, reqTotal, rssKB
 		}
 
-		goCold, goTotal, goRSS := benchServer("Go-Server", goSrvBin, "18996")
 		natCold, natTotal, natRSS := benchServer("Native-AOT", nativeWebBin, "18997")
-
-		goRPS := float64(numReqs) / goTotal.Seconds()
 		natRPS := float64(numReqs) / natTotal.Seconds()
 
-		t.Logf("[Web tutorial-web] Go Server:  binary=%d bytes (%.2f MB), cold_start=%v, %d reqs=%v (%.0f req/s, avg=%v), RSS=%d KB",
-			goBinStat.Size(), float64(goBinStat.Size())/(1024*1024), goCold, numReqs, goTotal, goRPS, goTotal/numReqs, goRSS)
 		t.Logf("[Web tutorial-web] Native AOT: binary=%d bytes (%.2f MB), cold_start=%v, %d reqs=%v (%.0f req/s, avg=%v), RSS=%d KB",
 			resNat.ExecutableSize, float64(resNat.ExecutableSize)/(1024*1024), natCold, numReqs, natTotal, natRPS, natTotal/numReqs, natRSS)
-		t.Logf("[Web tutorial-web] Ratios: binary=%.1fx smaller, cold_start=%.1fx faster, throughput=%.2fx, memory=%.1fx less RSS",
-			float64(goBinStat.Size())/float64(resNat.ExecutableSize),
-			float64(goCold)/float64(natCold),
-			natRPS/goRPS,
-			float64(goRSS)/float64(natRSS))
 	})
 }

@@ -1393,6 +1393,25 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		return dest, nil
 
 	case *parser.InfixExpression:
+		if e.Operator == "|>" {
+			if callExpr, ok := e.Right.(*parser.CallExpression); ok {
+				args := make([]parser.Expression, 0, len(callExpr.Arguments)+1)
+				args = append(args, e.Left)
+				args = append(args, callExpr.Arguments...)
+				synth := &parser.CallExpression{
+					Token:     callExpr.Token,
+					Function:  callExpr.Function,
+					Arguments: args,
+				}
+				return l.lowerExpression(synth)
+			}
+			synth := &parser.CallExpression{
+				Token:     e.Token,
+				Function:  e.Right,
+				Arguments: []parser.Expression{e.Left},
+			}
+			return l.lowerExpression(synth)
+		}
 		if e.Operator == "??" {
 			left, err := l.lowerExpression(e.Left)
 			if err != nil {

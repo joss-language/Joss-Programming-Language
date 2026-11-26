@@ -1,15 +1,21 @@
 package tester
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"reflect"
+	"runtime"
 	"strings"
 	"time"
 
+	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
+	_ "github.com/jossecurity/joss/pkg/backend/llvm"
+	"github.com/jossecurity/joss/pkg/backend/native"
 	"github.com/jossecurity/joss/pkg/core"
+	"github.com/jossecurity/joss/pkg/ir"
 	"github.com/jossecurity/joss/pkg/parser"
 )
 
@@ -46,7 +52,7 @@ func NewRunner() *Runner {
 	}
 }
 
-// Run executes tests in a given file or recursively in a directory.
+// Run executes tests in a given file or recursively in a directory using Joss Native.
 func (r *Runner) Run(targetPath string) (*TestReport, error) {
 	testFiles, err := r.discoverTestFiles(targetPath)
 	if err != nil {
@@ -59,7 +65,6 @@ func (r *Runner) Run(targetPath string) (*TestReport, error) {
 	for _, file := range testFiles {
 		suite, err := r.runTestFile(file)
 		if err != nil {
-			// File execution error (parse/syntax error)
 			suite = TestSuite{
 				File: file,
 				Cases: []TestCase{
@@ -112,6 +117,101 @@ func (r *Runner) discoverTestFiles(targetPath string) ([]string, error) {
 	return files, err
 }
 
+func nativeTestPrelude(filter string) string {
+	filterEsc := strings.ReplaceAll(strings.ToLower(filter), `\`, `\\`)
+	filterEsc = strings.ReplaceAll(filterEsc, `"`, `\"`)
+	return fmt.Sprintf(`
+public func __joss_test_matches(string $name): bool {
+	string $f = "%s"
+	($f == "") ? { return true }
+	return str_contains(strtolower($name), $f)
+}
+
+public func test(string $name, mixed $fn): void {
+	(!__joss_test_matches($name)) ? { return }
+	try {
+		$fn()
+		print("__JOSS_TEST_PASS__|" . $name)
+	} catch ($e) {
+		print("__JOSS_TEST_FAIL__|" . $name . "|" . strval($e))
+	}
+}
+
+public func it(string $name, mixed $fn): void {
+	test($name, $fn)
+}
+
+public func assert(mixed $cond, mixed $msg = null): bool {
+	(!$cond) ? {
+		($msg != null) ? { throw "Assertion failed: " . strval($msg) }
+		throw "Assertion failed"
+	}
+	return true
+}
+
+public func assertTrue(mixed $cond, mixed $msg = null): bool {
+	(!$cond) ? {
+		($msg != null) ? { throw strval($msg) }
+		throw "Expected true, got false"
+	}
+	return true
+}
+
+public func assertFalse(mixed $cond, mixed $msg = null): bool {
+	($cond) ? {
+		($msg != null) ? { throw strval($msg) }
+		throw "Expected false, got true"
+	}
+	return true
+}
+
+public func assertEqual(mixed $actual, mixed $expected, mixed $msg = null): bool {
+	(strval($actual) != strval($expected)) ? {
+		string $base = "Assertion failed: expected " . strval($expected) . ", got " . strval($actual)
+		($msg != null) ? { throw $base . " - " . strval($msg) }
+		throw $base
+	}
+	return true
+}
+
+public func assertNotEqual(mixed $actual, mixed $unexpected, mixed $msg = null): bool {
+	(strval($actual) == strval($unexpected)) ? {
+		string $base = "Assertion failed: expected value not to equal " . strval($unexpected)
+		($msg != null) ? { throw $base . " - " . strval($msg) }
+		throw $base
+	}
+	return true
+}
+
+public func assertNull(mixed $val, mixed $msg = null): bool {
+	($val != null) ? {
+		($msg != null) ? { throw strval($msg) }
+		throw "Expected null, got " . strval($val)
+	}
+	return true
+}
+
+public func assertNotNull(mixed $val, mixed $msg = null): bool {
+	($val == null) ? {
+		($msg != null) ? { throw strval($msg) }
+		throw "Expected not null, got null"
+	}
+	return true
+}
+
+public func assertThrows(mixed $fn): bool {
+	bool $threw = false
+	try {
+		$fn()
+	} catch ($e) {
+		$threw = true
+	}
+	(!$threw) ? { throw "Expected exception to be thrown, but execution succeeded" }
+	return true
+}
+`, filterEsc)
+}
+
 func (r *Runner) runTestFile(filePath string) (TestSuite, error) {
 	suiteStart := time.Now()
 	suite := TestSuite{File: filePath}
@@ -121,257 +221,99 @@ func (r *Runner) runTestFile(filePath string) (TestSuite, error) {
 		return suite, err
 	}
 
-	l := parser.NewLexer(string(data))
-	p := parser.NewParser(l)
+	// Validate user test file syntax first so error messages refer cleanly to user code.
+	userParser := parser.NewParser(parser.NewLexer(string(data)))
+	_ = userParser.ParseProgram()
+	if len(userParser.Errors()) > 0 {
+		return suite, fmt.Errorf("syntax error in test file: %v", userParser.Errors()[0])
+	}
+
+	combined := nativeTestPrelude(r.Filter) + "\n" + string(data)
+	p := parser.NewParser(parser.NewLexer(combined))
 	prog := p.ParseProgram()
 	if len(p.Errors()) > 0 {
 		return suite, fmt.Errorf("syntax error in test file: %v", p.Errors()[0])
 	}
 
-	rt := core.NewRuntime()
-	if r.Env != nil {
-		rt.Env = r.Env
-	}
-	rt.CurrentFile = filePath
-
-	var pendingTests []struct {
-		name string
-		fn   interface{}
-	}
-
-	testFn := func(args []interface{}) interface{} {
-		if len(args) < 2 {
-			panic("test() requiere nombre y función de prueba")
-		}
-		name, _ := args[0].(string)
-		pendingTests = append(pendingTests, struct {
-			name string
-			fn   interface{}
-		}{name: name, fn: args[1]})
-		return nil
-	}
-
-	// Register built-in assertion helpers in rt.Variables and mark as HostGlobals
-	rt.Variables["test"] = testFn
-	rt.Variables["it"] = testFn
-
-	rt.Variables["assert"] = func(args []interface{}) interface{} {
-		if len(args) == 0 || !isTruthy(args[0]) {
-			msg := "Assertion failed"
-			if len(args) > 1 && args[1] != nil {
-				msg = fmt.Sprintf("Assertion failed: %v", args[1])
+	units := []semanticanalyzer.SourceUnit{{
+		Path:    filePath,
+		Program: prog,
+	}}
+	report := core.AnalyzeSourceUnits(units)
+	if report.HasErrors() {
+		for _, d := range report.Diagnostics {
+			if d.Severity == "error" {
+				return suite, fmt.Errorf("semantic error in test file: %s", d.String())
 			}
-			panic(msg)
 		}
-		return true
 	}
 
-	rt.Variables["assertTrue"] = func(args []interface{}) interface{} {
-		if len(args) == 0 || !isTruthy(args[0]) {
-			msg := "Expected true, got false"
-			if len(args) > 1 && args[1] != nil {
-				msg = fmt.Sprintf("%v", args[1])
-			}
-			panic(msg)
-		}
-		return true
+	irProg, err := ir.LowerAndVerify(report.Prepared, filepath.Base(filePath), nil)
+	if err != nil {
+		return suite, fmt.Errorf("native IR lowering failed: %w", err)
 	}
 
-	rt.Variables["assertFalse"] = func(args []interface{}) interface{} {
-		if len(args) == 0 || isTruthy(args[0]) {
-			msg := "Expected false, got true"
-			if len(args) > 1 && args[1] != nil {
-				msg = fmt.Sprintf("%v", args[1])
-			}
-			panic(msg)
-		}
-		return true
-	}
-
-	rt.Variables["assertEqual"] = func(args []interface{}) interface{} {
-		if len(args) < 2 {
-			panic("assertEqual requiere 2 argumentos (actual, expected)")
-		}
-		if !valuesEqual(args[0], args[1]) {
-			msg := fmt.Sprintf("Assertion failed: expected %v (%T), got %v (%T)", args[1], args[1], args[0], args[0])
-			if len(args) > 2 && args[2] != nil {
-				msg += fmt.Sprintf(" - %v", args[2])
-			}
-			panic(msg)
-		}
-		return true
-	}
-
-	rt.Variables["assertNotEqual"] = func(args []interface{}) interface{} {
-		if len(args) < 2 {
-			panic("assertNotEqual requiere 2 argumentos (actual, unexpected)")
-		}
-		if valuesEqual(args[0], args[1]) {
-			msg := fmt.Sprintf("Assertion failed: expected value not to equal %v", args[1])
-			if len(args) > 2 && args[2] != nil {
-				msg += fmt.Sprintf(" - %v", args[2])
-			}
-			panic(msg)
-		}
-		return true
-	}
-
-	rt.Variables["assertNull"] = func(args []interface{}) interface{} {
-		if len(args) == 0 || args[0] != nil {
-			msg := fmt.Sprintf("Expected null, got %v", args[0])
-			if len(args) > 1 && args[1] != nil {
-				msg = fmt.Sprintf("%v", args[1])
-			}
-			panic(msg)
-		}
-		return true
-	}
-
-	rt.Variables["assertNotNull"] = func(args []interface{}) interface{} {
-		if len(args) == 0 || args[0] == nil {
-			msg := "Expected not null, got null"
-			if len(args) > 1 && args[1] != nil {
-				msg = fmt.Sprintf("%v", args[1])
-			}
-			panic(msg)
-		}
-		return true
-	}
-
-	rt.Variables["assertThrows"] = func(args []interface{}) interface{} {
-		if len(args) == 0 {
-			panic("assertThrows requiere una closure")
-		}
-		threw := false
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					threw = true
-				}
-			}()
-			rt.ApplyFunction(args[0], nil)
-		}()
-		if !threw {
-			panic("Expected exception to be thrown, but execution succeeded")
-		}
-		return true
-	}
-
-	rt.MarkHostGlobals("test", "it", "assert", "assertTrue", "assertFalse", "assertEqual", "assertNotEqual", "assertNull", "assertNotNull", "assertThrows")
-
-	// Execute top level file to register all `test(...)` calls
-	func() {
-		defer func() {
-			if rec := recover(); rec != nil {
-				err = fmt.Errorf("%v", rec)
-			}
-		}()
-		rt.Execute(prog)
-	}()
+	tmpDir, err := os.MkdirTemp("", "joss-native-test-*")
 	if err != nil {
 		return suite, err
 	}
+	defer os.RemoveAll(tmpDir)
 
-	// Now run each registered test
-	for _, tCase := range pendingTests {
-		if r.Filter != "" && !strings.Contains(strings.ToLower(tCase.name), strings.ToLower(r.Filter)) {
-			continue
+	binPath := filepath.Join(tmpDir, "test_runner")
+	if runtime.GOOS == "windows" {
+		binPath += ".exe"
+	}
+
+	if _, err := native.BuildProgram(irProg, native.BuildOptions{
+		Target:     native.HostTarget(),
+		Backend:    native.BackendLLVM,
+		OutputPath: binPath,
+	}); err != nil {
+		return suite, fmt.Errorf("native test build failed: %w", err)
+	}
+
+	cmd := exec.Command(binPath)
+	cmd.Env = os.Environ()
+	for k, v := range r.Env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	runErr := cmd.Run()
+
+	lines := strings.Split(strings.ReplaceAll(outBuf.String(), "\r\n", "\n"), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "__JOSS_TEST_PASS__|") {
+			name := strings.TrimPrefix(line, "__JOSS_TEST_PASS__|")
+			suite.Cases = append(suite.Cases, TestCase{
+				Name:   name,
+				File:   filePath,
+				Passed: true,
+			})
+		} else if strings.HasPrefix(line, "__JOSS_TEST_FAIL__|") {
+			rest := strings.TrimPrefix(line, "__JOSS_TEST_FAIL__|")
+			parts := strings.SplitN(rest, "|", 2)
+			name := parts[0]
+			errMsg := "assertion failed"
+			if len(parts) > 1 {
+				errMsg = parts[1]
+			}
+			suite.Cases = append(suite.Cases, TestCase{
+				Name:   name,
+				File:   filePath,
+				Passed: false,
+				Error:  errMsg,
+			})
 		}
+	}
 
-		tStart := time.Now()
-		tc := TestCase{
-			Name: tCase.name,
-			File: filePath,
-		}
-
-		func() {
-			defer func() {
-				if rec := recover(); rec != nil {
-					tc.Passed = false
-					tc.Error = fmt.Sprintf("%v", rec)
-				}
-			}()
-			rt.ApplyFunction(tCase.fn, nil)
-			tc.Passed = true
-		}()
-
-		tc.Duration = time.Since(tStart)
-		suite.Cases = append(suite.Cases, tc)
+	if runErr != nil && len(suite.Cases) == 0 {
+		return suite, fmt.Errorf("native test binary failed: %v\n%s", runErr, strings.TrimSpace(errBuf.String()))
 	}
 
 	suite.Duration = time.Since(suiteStart)
 	return suite, nil
-}
-
-func isTruthy(v interface{}) bool {
-	if v == nil {
-		return false
-	}
-	switch val := v.(type) {
-	case bool:
-		return val
-	case int64:
-		return val != 0
-	case int:
-		return val != 0
-	case float64:
-		return val != 0.0
-	case string:
-		return val != "" && val != "0"
-	default:
-		return true
-	}
-}
-
-func valuesEqual(a, b interface{}) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	// Numeric comparison tolerance
-	switch va := a.(type) {
-	case int64:
-		if vb, ok := b.(int64); ok {
-			return va == vb
-		}
-		if vb, ok := b.(int); ok {
-			return va == int64(vb)
-		}
-		if vb, ok := b.(float64); ok {
-			return float64(va) == vb
-		}
-	case int:
-		if vb, ok := b.(int); ok {
-			return va == vb
-		}
-		if vb, ok := b.(int64); ok {
-			return int64(va) == vb
-		}
-		if vb, ok := b.(float64); ok {
-			return float64(va) == vb
-		}
-	case float64:
-		if vb, ok := b.(float64); ok {
-			return va == vb
-		}
-		if vb, ok := b.(int64); ok {
-			return va == float64(vb)
-		}
-		if vb, ok := b.(int); ok {
-			return va == float64(vb)
-		}
-	case string:
-		if vb, ok := b.(string); ok {
-			return va == vb
-		}
-	case bool:
-		if vb, ok := b.(bool); ok {
-			return va == vb
-		}
-	}
-	return reflect.DeepEqual(a, b)
 }
 
 func (report *TestReport) PrintSummary() {

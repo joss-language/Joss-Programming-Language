@@ -36,9 +36,9 @@ No asuma que un comentario, un archivo histórico o una tesis describe el compor
                     ┌──────────────────────┼──────────────────────┐
                     ▼                      ▼                      ▼
                `joss run`             `joss server`          `joss build`
-               Selección auto        Selección auto        Selección auto
-              JIT o Go compat.       JIT o Go compat.      AOT o runner Go
-                   │                      │              `pkg/ir` → backend
+              Joss Native JIT        Joss Native HTTP      Joss Native AOT
+           (Tier-1 / Tier-2 LLVM)    (`std/http` + C11)   (`pkg/ir` → backend)
+                   │                      │                       │
                    ▼                      ▼                       ▼
              Salida Consola        Respuesta HTTP        Binario Standalone (.exe/ELF)
 ```
@@ -47,21 +47,20 @@ No asuma que un comentario, un archivo histórico o una tesis describe el compor
 - `pkg/typesystem`: Tipos canónicos, compatibilidad de asignación (`Assignable`), inferencia (`MergeInference`) y coerción explícita (`CoerceString`).
 - `pkg/analyzer`: Unidades fuente (`SourceUnit`), scopes léxicos, tablas de símbolos, firmas, comprobación de tipos y generación inmutable de `PreparedProgram`. **Nunca** debe importar `pkg/core`.
 - `pkg/diagnostics`: Modelo de errores y advertencias (`Diagnostic`) con código estable, severidad, rango, explicación y sugerencia.
-- `pkg/core`: Evaluador de AST, runtime Go, frames léxicos, slots, built-ins globales y clases nativas integradas; consume directamente `PreparedProgram`.
+- `pkg/core`: Catálogo de built-ins globales, firmas nativas (`native_signatures.go`), utilidades de entorno/estilos y oráculo de pruebas de referencia; el CLI de usuario (`joss run`, `server`, `program`, `build`, `test`, `eval`, `repl`) **nunca** ejecuta apps en el intérprete Go.
 - `pkg/ir`: Representación intermedia canónica (*Joss Native IR*), lowering de `PreparedProgram`, instrucciones SSA/3AC y verificador de tipos de bajo nivel (`ir.Verifier` con verificación de dominancia SSA).
 - `pkg/backend/native`: Generadores de código nativo (`x86_64` y `AArch64`) y emisor de LLVM IR (`llvm.go`, incluyendo `Auto-DP`). **Nunca** debe importar `os/exec` (protegido por `TestAuditZeroExternalProcessesAndZeroGoRuntime` y `TestCleanEnvironment003`).
 - `pkg/backend/llvm`: Integración externa con `clang` + `lld` registrada mediante `native.RegisterExternalLLVMCompiler`; compila y enlaza condicionalmente los módulos de `runtime/native/` y librerías C del sistema (`-lsqlite3`, `-lpq`, `-lmariadb`/`-lmysqlclient`, `-lodbc`, `-lcrypto`, `-pthread`).
-- `runtime/native`: Runtime modular en C11 sin runtime Go ni DLLs propias de Joss (`joss_rt.{h,c}`, `joss_web_rt.c`, `joss_concurrency_rt.c`, `joss_db_rt.c`, `joss_crypto_rt.c`).
+- `runtime/native`: Runtime modular en C11 sin runtime Go ni DLLs propias de Joss (`joss_rt.{h,c}`, `joss_web_rt.c`, `joss_concurrency_rt.c`, `joss_db_rt.c`, `joss_crypto_rt.c`, `joss_gui_rt.c`).
 - `pkg/golite`: Prototipo de compilación/reutilización controlada de algoritmos Go compatibles hacia el pipeline nativo.
-- `pkg/server`: Runtime HTTP multinivel, multiplexor, WebSockets, validación anti-path-traversal (`path_security.go`) y controladores MVC basados en el mismo modelo semántico.
 - `pkg/bytecode`: Serialización comprimida del AST (`JOSSBC2Z`) para plugins `.jp`, no para ejecutables nativos AOT.
 - `pkg/pluginruntime`, `pkg/pluginpkg`, `pkg/plugincompiler`: Runtime, paquetes y JPBC de plugins.
-- `cmd/joss`: CLI y orquestación unificada del proyecto (`run`, `server`, `program`, `build`, `analyze`, `emit-ir`, `repl`).
+- `cmd/joss`: CLI y orquestación unificada 100% nativa del proyecto (`run`, `server`, `program`, `build`, `test`, `eval`, `analyze`, `emit-ir`, `repl`).
 - `vscode-joss`: Servidor de lenguaje (LSP) y extensión de editor.
 
 La dirección estricta de dependencias es:
-`parser / typesystem / diagnostics → analyzer → ir → backend/native ← backend/llvm (registro por hook)`
-`analyzer → core / server`. `pkg/analyzer` **nunca** debe importar `pkg/core`, y `pkg/backend/native` **nunca** debe importar `os/exec`.
+`parser / typesystem / diagnostics → analyzer → ir → backend/native ← backend/llvm (registro por hook)`.
+`pkg/analyzer` **nunca** debe importar `pkg/core`, y `pkg/backend/native` **nunca** debe importar `os/exec`. `pkg/server`, `cmd/runner`, `legacy_build.go` y `go-webview2` están retirados permanentemente (protegido por `TestArchitecture_ZeroGoRuntimeEngineOrLegacyRunner`).
 
 ---
 
@@ -284,6 +283,7 @@ Todo cambio debe mantener en verde `tests/architecture/architecture_contract_tes
 * `TestArchitecture_EveryCoreLanguageFeatureExecutesEverywhere`
 * `TestArchitecture_LanguageFeatureMustBeImplementedOnceAndExecuteEverywhere`
 * `TestArchitecture_Regression_InterpreterSupportedNativeUnsupportedRejected`
+* `TestArchitecture_ZeroGoRuntimeEngineOrLegacyRunner`
 
 ---
 
