@@ -1451,12 +1451,14 @@ static void joss_configure_client_socket(intptr_t handle_val) {
     tv.tv_sec = 15;
     tv.tv_usec = 0;
     setsockopt(cfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    setsockopt(cfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 #elif defined(_WIN32)
     SOCKET cfd = (SOCKET)(handle_val - 1);
     BOOL nodelay = TRUE;
     setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&nodelay, sizeof(nodelay));
     DWORD ms = 15000;
     setsockopt(cfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&ms, sizeof(ms));
+    setsockopt(cfd, SOL_SOCKET, SO_SNDTIMEO, (const char*)&ms, sizeof(ms));
 #else
     (void)handle_val;
 #endif
@@ -1488,6 +1490,7 @@ void* fn_Socket_accept(void* srv) {
 }
 
 const char* fn_Socket_receive(void* sock, int64_t maxBytes) {
+    if (maxBytes > 10 * 1024 * 1024) maxBytes = 10 * 1024 * 1024;
 #if defined(__unix__) || defined(__APPLE__)
     int fd = (int)(intptr_t)sock - 1;
     if (fd < 0 || maxBytes <= 0) return "";
@@ -7122,6 +7125,7 @@ const char* joss___joss_http_check_middleware(const char* mw_spec, void* req_ptr
 
 static void* g_joss_session_mem_store = NULL;
 static void* g_joss_session_owners    = NULL;
+static void* g_joss_session_touched   = NULL;
 
 static void joss_session_store_init_locked(void) {
     bool _prev = joss_req_arena_pause();
@@ -7133,17 +7137,66 @@ static void joss_session_store_init_locked(void) {
         g_joss_session_owners = joss_map_new();
         joss_gc_add_root(&g_joss_session_owners);
     }
+    if (!g_joss_session_touched) {
+        g_joss_session_touched = joss_map_new();
+        joss_gc_add_root(&g_joss_session_touched);
+    }
     joss_req_arena_resume(_prev);
+}
+
+static void joss_session_remove_locked(const char* sid);
+
+static void joss_session_evict_if_needed_locked(void) {
+    if (!g_joss_session_mem_store || !g_joss_session_touched) return;
+    int64_t max_entries = strtoll(joss_env("SESSION_MAX_ENTRIES", "2048"), NULL, 10);
+    if (max_entries < 64) max_entries = 64;
+    int64_t cur_len = joss_map_len(g_joss_session_mem_store);
+    if (cur_len < max_entries) return;
+
+    int64_t ttl = strtoll(joss_env("SESSION_TTL_SECONDS", "86400"), NULL, 10);
+    if (ttl <= 0) ttl = 86400;
+    int64_t now = (int64_t)time(NULL);
+
+    /* Evict up to 25% oldest or expired entries in one sweep */
+    int64_t target_evict = (cur_len - max_entries) + (max_entries / 4);
+    if (target_evict < 16) target_evict = 16;
+    for (int64_t e = 0; e < target_evict; e++) {
+        int64_t n = joss_map_len(g_joss_session_mem_store);
+        if (n <= 0) break;
+        const char* oldest_sid = NULL;
+        int64_t oldest_ts = INT64_MAX;
+        for (int64_t i = 0; i < n; i++) {
+            const char* k = joss_map_key_at(g_joss_session_mem_store, i);
+            if (!k || !k[0]) continue;
+            int64_t ts = joss_unbox_value(joss_map_get_i64(g_joss_session_touched, k));
+            if (ts <= 0 || (now - ts) > ttl) {
+                oldest_sid = k;
+                break;
+            }
+            if (ts < oldest_ts) {
+                oldest_ts = ts;
+                oldest_sid = k;
+            }
+        }
+        if (!oldest_sid) break;
+        char evict_copy[256];
+        snprintf(evict_copy, sizeof(evict_copy), "%s", oldest_sid);
+        joss_session_remove_locked(evict_copy);
+    }
 }
 
 static void joss_session_replace_locked(const char* sid, void* copy, JossOwnedScope* owner) {
     joss_session_store_init_locked();
     bool _prev = joss_req_arena_pause();
+    if (!joss_array_key_exists(sid, g_joss_session_mem_store)) {
+        joss_session_evict_if_needed_locked();
+    }
     if (joss_array_key_exists(sid, g_joss_session_owners)) {
         JossOwnedScope* old_owner = (JossOwnedScope*)(uintptr_t)joss_map_get_i64(g_joss_session_owners, sid);
         if (old_owner && old_owner != owner) joss_owned_scope_destroy(old_owner);
     }
     joss_map_set_i64(g_joss_session_mem_store, sid, (int64_t)(uintptr_t)copy);
+    joss_map_set_i64(g_joss_session_touched, sid, (int64_t)time(NULL));
     if (owner) {
         joss_map_set_i64(g_joss_session_owners, sid, (int64_t)(uintptr_t)owner);
     } else {
@@ -7157,6 +7210,9 @@ static void joss_session_remove_locked(const char* sid) {
         JossOwnedScope* old_owner = (JossOwnedScope*)(uintptr_t)joss_map_get_i64(g_joss_session_owners, sid);
         joss_map_delete_i64(g_joss_session_owners, sid);
         if (old_owner) joss_owned_scope_destroy(old_owner);
+    }
+    if (g_joss_session_touched) {
+        joss_map_delete_i64(g_joss_session_touched, sid);
     }
     if (g_joss_session_mem_store) {
         joss_map_delete_i64(g_joss_session_mem_store, sid);
@@ -7436,11 +7492,13 @@ static bool joss_file_sessions_ensure_loaded_locked(const char* path) {
 }
 
 static bool joss_file_sessions_persist_locked(const char* path) {
+    static _Atomic(uint64_t) s_sess_tmp_seq = 0;
     joss_mkdir_parents(path);
     JossStringBuilder* sb = joss_sb_new();
     json_encode_value(sb, (int64_t)(uintptr_t)(g_joss_session_mem_store ? g_joss_session_mem_store : joss_map_new()));
+    uint64_t seq = atomic_fetch_add_explicit(&s_sess_tmp_seq, 1ULL, memory_order_relaxed);
     char tmp_path[560];
-    snprintf(tmp_path, sizeof(tmp_path), "%s.%lu.tmp", path, (unsigned long)time(NULL));
+    snprintf(tmp_path, sizeof(tmp_path), "%s.%llu.%lu.tmp", path, (unsigned long long)seq, (unsigned long)time(NULL));
     FILE* f = fopen(tmp_path, "wb");
     if (!f) {
         joss_sb_free(sb);
@@ -7458,7 +7516,15 @@ static bool joss_file_sessions_persist_locked(const char* path) {
     }
     joss_sb_free(sb);
 #if defined(_WIN32)
-    if (!MoveFileExA(tmp_path, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+    BOOL moved = FALSE;
+    for (int attempt = 0; attempt < 8; attempt++) {
+        if (MoveFileExA(tmp_path, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+            moved = TRUE;
+            break;
+        }
+        Sleep(5);
+    }
+    if (!moved) {
         remove(tmp_path);
         joss_set_session_err("failed replacing session file");
         return false;

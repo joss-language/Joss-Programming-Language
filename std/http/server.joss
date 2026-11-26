@@ -276,7 +276,8 @@ public class HttpServer {
         // Keep request session state in the canonical Joss Session store.
         var $headers = $requestData ["_headers"] ?? {
     }
-    string $xff = strval($headers ["x-forwarded-for"] ?? "")
+    string $trustProxy = strtolower(trim(env("TRUST_PROXY", "true")))
+    string $xff = ($trustProxy != "false" && $trustProxy != "0") ? strval($headers ["x-forwarded-for"] ?? "") : ""
     string $clientIp = $peerIp
     (strlen($xff) > 0) ? {
         var $xffParts = explode(",", $xff)
@@ -448,6 +449,7 @@ guard ($dispatched == "" || $dispatched == null) : {
     $respStr = __joss_http_inject_header($respStr, "X-Content-Type-Options: nosniff")
     $respStr = __joss_http_inject_header($respStr, "X-Frame-Options: DENY")
     $respStr = __joss_http_inject_header($respStr, "X-XSS-Protection: 1; mode=block")
+    $respStr = __joss_http_inject_header($respStr, "Referrer-Policy: strict-origin-when-cross-origin")
     string $xfProto = strtolower(trim(strval($headers ["x-forwarded-proto"] ?? "")))
     ($xfProto == "https") ? {
         $respStr = __joss_http_inject_header($respStr, "Strict-Transport-Security: max-age=31536000; includeSubDomains")

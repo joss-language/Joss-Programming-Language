@@ -149,6 +149,8 @@ static sqlite3* joss_get_sqlite(void) {
         }
         return NULL;
     }
+    sqlite3_busy_timeout(g_joss_sqlite, 5000);
+    sqlite3_exec(g_joss_sqlite, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;", NULL, NULL, NULL);
     snprintf(g_joss_sqlite_path, sizeof(g_joss_sqlite_path), "%s", db_path);
     return g_joss_sqlite;
 }
