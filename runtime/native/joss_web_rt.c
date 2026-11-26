@@ -723,6 +723,7 @@ static void joss_parse_env_buffer(char* buf) {
 
 static void joss_load_env_file_if_needed(void) {
     if (g_joss_env_map != NULL) return;
+    bool _prev_arena = joss_req_arena_pause();
     g_joss_env_map = joss_map_new();
     const char* candidates[] = {"env.joss", ".env"};
     for (int i = 0; i < 2; i++) {
@@ -744,6 +745,7 @@ static void joss_load_env_file_if_needed(void) {
         buf[rd] = '\0';
         fclose(f);
         joss_parse_env_buffer(buf);
+        joss_req_arena_resume(_prev_arena);
         return;
     }
     if (g_joss_embedded_asset_resolver != NULL) {
@@ -752,10 +754,12 @@ static void joss_load_env_file_if_needed(void) {
             char* plain = joss_decrypt_embedded_env(enc);
             if (plain) {
                 joss_parse_env_buffer(plain);
+                joss_req_arena_resume(_prev_arena);
                 return;
             }
         }
     }
+    joss_req_arena_resume(_prev_arena);
 }
 
 const char* joss_env(const char* key, const char* defVal) {
@@ -1827,6 +1831,7 @@ static DWORD WINAPI joss_http_accept_loop(LPVOID arg) {
 void joss___joss_http_serve_concurrent(void* srv, void* handler_fn_ptr) {
     srv = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)srv);
     if (!srv || !handler_fn_ptr) return;
+    joss_gc_set_multithreaded(true);
 #if defined(__unix__) || defined(__APPLE__)
     int sfd = (int)(intptr_t)srv - 1;
     if (sfd < 0) return;
@@ -2238,8 +2243,10 @@ static void* g_joss_cache_values = NULL;
 static void* g_joss_cache_expiry = NULL;
 
 static void joss_cache_init(void) {
+    bool _prev_arena = joss_req_arena_pause();
     if (!g_joss_cache_values) g_joss_cache_values = joss_map_new();
     if (!g_joss_cache_expiry) g_joss_cache_expiry = joss_map_new();
+    joss_req_arena_resume(_prev_arena);
 }
 
 static int64_t joss_cache_has_locked(const char* key) {
@@ -2255,14 +2262,19 @@ static int64_t joss_cache_has_locked(const char* key) {
     return 1;
 }
 
+static int64_t joss_clone_session_value(int64_t v);
+
 int64_t fn_Cache_put(const char* key, int64_t val, int64_t ttl_seconds) {
     key = unbox_web_cstr(key);
     if (!key) return 0;
     joss_global_lock(JOSS_LOCK_CACHE);
+    bool _prev_arena = joss_req_arena_pause();
     joss_cache_init();
-    joss_map_set_i64(g_joss_cache_values, key, val);
+    int64_t persisted_val = joss_clone_session_value(val);
+    joss_map_set_i64(g_joss_cache_values, key, persisted_val);
     int64_t exp = (ttl_seconds > 0) ? ((int64_t)time(NULL) + ttl_seconds) : 0;
     joss_map_set_i64(g_joss_cache_expiry, key, exp);
+    joss_req_arena_resume(_prev_arena);
     joss_global_unlock(JOSS_LOCK_CACHE);
     return 1;
 }
@@ -3847,8 +3859,10 @@ int64_t fn_Notify_registerDevice(const char* user_id, const char* token) {
     token = unbox_web_cstr(token);
     if (!user_id || !token) return 0;
     joss_global_lock(JOSS_LOCK_NOTIFY);
+    bool _prev_arena = joss_req_arena_pause();
     if (!g_joss_notify_devices) g_joss_notify_devices = joss_map_new();
-    joss_map_set_str(g_joss_notify_devices, user_id, token);
+    joss_map_set_str(g_joss_notify_devices, user_id, joss_web_strdup(token));
+    joss_req_arena_resume(_prev_arena);
     joss_global_unlock(JOSS_LOCK_NOTIFY);
     return 1;
 }
@@ -5332,7 +5346,7 @@ void* fn_Blueprint_decimal(void* bp, const char* name, int64_t p, int64_t s) {
     int64_t pp = joss_intval(p), ss = joss_intval(s);
     if (pp <= 0) pp = 10;
     if (ss < 0) ss = 2;
-    char tb[48];
+    char tb[64];
     snprintf(tb, sizeof(tb), "DECIMAL(%lld,%lld)", (long long)pp, (long long)ss);
     return joss_bp_add_col(bp, name, tb, false);
 }
@@ -7058,8 +7072,12 @@ static void* g_joss_session_mem_store = NULL;
 static int64_t joss_clone_session_value(int64_t v);
 
 static void* joss_clone_flat_session_map(void* src) {
+    bool _prev_arena = joss_req_arena_pause();
     void* dst = joss_map_new();
-    if (!src || !joss_is_map_ptr((int64_t)(uintptr_t)src)) return dst;
+    if (!src || !joss_is_map_ptr((int64_t)(uintptr_t)src)) {
+        joss_req_arena_resume(_prev_arena);
+        return dst;
+    }
     int64_t n = joss_map_len(src);
     for (int64_t i = 0; i < n; i++) {
         const char* k = joss_map_key_at(src, i);
@@ -7067,6 +7085,7 @@ static void* joss_clone_flat_session_map(void* src) {
         if (!k || !k[0]) continue;
         joss_map_set_i64(dst, k, joss_clone_session_value(v));
     }
+    joss_req_arena_resume(_prev_arena);
     return dst;
 }
 
@@ -7264,10 +7283,12 @@ static bool joss_file_sessions_ensure_loaded_locked(const char* path) {
     if (strcmp(g_joss_session_loaded_path, path) == 0 && g_joss_session_mem_store) {
         return true;
     }
+    bool _prev_arena = joss_req_arena_pause();
     FILE* f = fopen(path, "rb");
     if (!f) {
         if (!g_joss_session_mem_store) g_joss_session_mem_store = joss_map_new();
         snprintf(g_joss_session_loaded_path, sizeof(g_joss_session_loaded_path), "%s", path);
+        joss_req_arena_resume(_prev_arena);
         return true;
     }
     fseek(f, 0, SEEK_END);
@@ -7277,12 +7298,14 @@ static bool joss_file_sessions_ensure_loaded_locked(const char* path) {
         fclose(f);
         g_joss_session_mem_store = joss_map_new();
         snprintf(g_joss_session_loaded_path, sizeof(g_joss_session_loaded_path), "%s", path);
+        joss_req_arena_resume(_prev_arena);
         return true;
     }
     char* buf = (char*)malloc((size_t)sz + 1);
     if (!buf) {
         fclose(f);
         joss_set_session_err("out of memory reading session file");
+        joss_req_arena_resume(_prev_arena);
         return false;
     }
     size_t rd = fread(buf, 1, (size_t)sz, f);
@@ -7293,21 +7316,25 @@ static bool joss_file_sessions_ensure_loaded_locked(const char* path) {
         free(buf);
         g_joss_session_mem_store = joss_map_new();
         snprintf(g_joss_session_loaded_path, sizeof(g_joss_session_loaded_path), "%s", path);
+        joss_req_arena_resume(_prev_arena);
         return true;
     }
     if (*p != '{') {
         free(buf);
         joss_set_session_err("invalid JSON in session file");
+        joss_req_arena_resume(_prev_arena);
         return false;
     }
     void* loaded = joss_json_parse_object(&p);
     free(buf);
     if (!loaded) {
         joss_set_session_err("failed to parse session file");
+        joss_req_arena_resume(_prev_arena);
         return false;
     }
     g_joss_session_mem_store = loaded;
     snprintf(g_joss_session_loaded_path, sizeof(g_joss_session_loaded_path), "%s", path);
+    joss_req_arena_resume(_prev_arena);
     return true;
 }
 
@@ -7766,6 +7793,7 @@ int64_t joss___joss_session_save(const char* sid, void* data_ptr) {
     if (!sid || !sid[0]) return 0;
     int drv = joss_session_resolve_driver();
     if (drv < 0) return 0;
+    bool _prev_arena = joss_req_arena_pause();
     void* src = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)data_ptr);
     void* copy = joss_clone_flat_session_map(src);
     if (g_joss_consumed_flash && joss_is_map_ptr((int64_t)(uintptr_t)g_joss_consumed_flash)) {
@@ -7788,6 +7816,7 @@ int64_t joss___joss_session_save(const char* sid, void* data_ptr) {
         if (!g_joss_session_mem_store) g_joss_session_mem_store = joss_map_new();
         joss_map_set_i64(g_joss_session_mem_store, sid, (int64_t)(uintptr_t)copy);
         joss_global_unlock(JOSS_LOCK_SESSION);
+        joss_req_arena_resume(_prev_arena);
         return 1;
     }
     if (drv == 1) {
@@ -7800,8 +7829,10 @@ int64_t joss___joss_session_save(const char* sid, void* data_ptr) {
             ok = joss_file_sessions_persist_locked(path);
         }
         joss_global_unlock(JOSS_LOCK_SESSION);
+        joss_req_arena_resume(_prev_arena);
         return ok ? 1 : 0;
     }
+    joss_req_arena_resume(_prev_arena);
     int fd = joss_redis_connect_fd();
     if (fd < 0) return 0;
     bool ok = false;

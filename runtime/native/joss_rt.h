@@ -88,8 +88,30 @@ void       joss_arena_destroy(JossArena* arena);
 
 void       joss_req_arena_begin(void);
 void       joss_req_arena_reset(void);
+bool       joss_req_arena_pause(void);
+void       joss_req_arena_resume(bool prev_active);
+size_t     joss_req_arena_bytes_used(void);
 void*      joss_req_alloc(size_t size);
 char*      joss_req_strdup(const char* s);
+
+/* =========================================================================
+ * 2b. Mini Garbage Collector (Conservative Mark-and-Sweep + Root Registry)
+ * ========================================================================= */
+typedef struct {
+    size_t objects_live;
+    size_t bytes_live;
+    size_t total_allocs;
+    size_t total_freed;
+    size_t collections;
+    size_t threshold_bytes;
+} JossGCStats;
+
+void   joss_gc_init(void* stack_bottom);
+void   joss_gc_add_root(void** root_slot);
+void   joss_gc_set_threshold(size_t bytes);
+void   joss_gc_set_multithreaded(bool enabled);
+size_t joss_gc_collect(void);
+void   joss_gc_stats(JossGCStats* out);
 
 /* =========================================================================
  * 3. Bounds-Checked ByteSlice / ByteBuffer / StringBuilder
@@ -127,6 +149,13 @@ void               joss_sb_free(JossStringBuilder* sb);
  * 4. Core Runtime I/O, Strings, Arrays & Maps (LLVM & Native Backend ABI)
  * ========================================================================= */
 void        joss_panic(const char* msg);
+void        joss_trace_push(const char* func, const char* file, int64_t line);
+void        joss_trace_pop(void);
+void        joss_trace_set_line(int64_t line);
+int64_t     joss_trace_depth(void);
+void        joss_trace_reset(void);
+void        joss_print_stack_trace(void);
+
 void        joss_print_i64(int64_t v);
 void        joss_print_f64(double v);
 void        joss_print_bool(bool v);
@@ -159,8 +188,12 @@ int64_t     joss_map_val_at(void* m, int64_t idx);
 int64_t     joss_array_key_exists(const char* key, void* m);
 bool        joss_is_arr_ptr(int64_t v);
 bool        joss_is_map_ptr(int64_t v);
+bool        joss_is_nominal_ptr(int64_t v);
 
 void*       joss_obj_new(const char* class_name);
+void*       joss_nominal_obj_new(const char* class_name, int64_t num_fields, const char* const* field_names);
+int64_t     joss_nominal_get_slot(void* obj, int64_t slot_idx);
+void        joss_nominal_set_slot(void* obj, int64_t slot_idx, int64_t val);
 void        joss_obj_set_field_i64(void* obj, const char* field, int64_t val);
 int64_t     joss_obj_get_field_i64(void* obj, const char* field);
 void        joss_obj_set_field_str(void* obj, const char* field, const char* val);
