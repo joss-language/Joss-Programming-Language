@@ -254,11 +254,12 @@ print(Math::abs(-42.5) > 42.0);
 print(JSON::encode({"ok": true}));
 print(count(MFA::generateRecoveryCodes(4)));
 print(Markdown::toHtml("# Hola"));
+print(Markdown::toHtml("| A | B |\n|---|---|\n| 1 | 2 |"));
 print(WebSocket::publish("news", "ping"));
 print(WebSocket::subscriberCount("news"));
 `
 	out := runNativeLLVM(t, "full_host_services_native", source, nil)
-	for _, want := range []string{"true", "v1", "false", `"ok":`, "4", "<h1>Hola</h1>", "1"} {
+	for _, want := range []string{"true", "v1", "false", `"ok":`, "4", `<h1 id="hola">Hola</h1>`, "<table>", "<th>A</th>", "<td>1</td>", "1"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("expected %q in native output, got:\n%s", want, out)
 		}
