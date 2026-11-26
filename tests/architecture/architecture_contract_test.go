@@ -306,3 +306,56 @@ func TestArchitecture_Regression_InterpreterSupportedNativeUnsupportedRejected(t
 		}
 	}
 }
+
+// TestArchitecture_ZeroGoRuntimeEngineOrLegacyRunner enforces that Joss CLI
+// execution modes (run, build, server, program, test, eval, repl) run
+// exclusively on Joss Native without pkg/server, cmd/runner, legacy_build.go,
+// or go-webview2.
+func TestArchitecture_ZeroGoRuntimeEngineOrLegacyRunner(t *testing.T) {
+	repoRoot := filepath.Clean(filepath.Join("..", ".."))
+
+	// 1. Retired directories and files must not exist.
+	for _, retired := range []string{
+		"pkg/server",
+		"cmd/runner",
+		"cmd/joss/legacy_build.go",
+	} {
+		if _, err := os.Stat(filepath.Join(repoRoot, retired)); !os.IsNotExist(err) {
+			t.Fatalf("CI GATE FAILURE: retired Go execution artifact %q must not exist", retired)
+		}
+	}
+
+	// 2. go.mod must not reintroduce retired Go server / WebView2 dependencies.
+	goMod, err := os.ReadFile(filepath.Join(repoRoot, "go.mod"))
+	if err != nil {
+		t.Fatalf("failed to read go.mod: %v", err)
+	}
+	for _, forbiddenDep := range []string{
+		"github.com/jchv/go-webview2",
+		"github.com/gorilla/websocket",
+	} {
+		if bytes.Contains(goMod, []byte(forbiddenDep)) {
+			t.Fatalf("CI GATE FAILURE: go.mod reintroduces retired dependency %q", forbiddenDep)
+		}
+	}
+
+	// 3. CLI execution entrypoints and native test runner must never instantiate core.NewRuntime() or import pkg/server.
+	for _, relPath := range []string{
+		"cmd/joss/main.go",
+		"cmd/joss/jit_llvm.go",
+		"cmd/joss/native_exec.go",
+		"cmd/joss/program_windows.go",
+		"cmd/joss/program_unix.go",
+		"pkg/tester/tester.go",
+	} {
+		src, err := os.ReadFile(filepath.Join(repoRoot, relPath))
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", relPath, err)
+		}
+		for _, forbidden := range []string{"core.NewRuntime()", "github.com/jossecurity/joss/pkg/server", "github.com/jchv/go-webview2"} {
+			if bytes.Contains(src, []byte(forbidden)) {
+				t.Fatalf("CI GATE FAILURE: %s must not reference %q", relPath, forbidden)
+			}
+		}
+	}
+}
