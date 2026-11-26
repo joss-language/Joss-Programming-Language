@@ -104,8 +104,10 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	}
 
 	optLevel := "-Os"
+	hotOptLevel := "-O3"
 	if opts.Debug {
 		optLevel = "-O0"
+		hotOptLevel = "-O0"
 	}
 	triple := llvmTargetTriple(opts.Target)
 	zigTriple := zigTargetTriple(opts.Target)
@@ -136,8 +138,8 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		}
 	}
 
-	compileArgs := func(src, obj string, extra ...string) []string {
-		args := []string{"-c", optLevel, "-ffunction-sections", "-fdata-sections", "-Wno-override-module"}
+	compileArgsWithOpt := func(opt, src, obj string, extra ...string) []string {
+		args := []string{"-c", opt, "-ffunction-sections", "-fdata-sections", "-Wno-override-module"}
 		if !opts.Debug && strings.HasSuffix(src, ".c") {
 			args = append(args, "-fvisibility=hidden", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables")
 		}
@@ -155,11 +157,14 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		args = append(args, "-o", obj, src)
 		return args
 	}
+	compileArgs := func(src, obj string, extra ...string) []string {
+		return compileArgsWithOpt(optLevel, src, obj, extra...)
+	}
 
-	if err := runCC(compileArgs(llPath, progObjPath)...); err != nil {
+	if err := runCC(compileArgsWithOpt(hotOptLevel, llPath, progObjPath)...); err != nil {
 		return err
 	}
-	if err := runCC(compileArgs(rtCPath, rtObjPath)...); err != nil {
+	if err := runCC(compileArgsWithOpt(hotOptLevel, rtCPath, rtObjPath)...); err != nil {
 		return err
 	}
 

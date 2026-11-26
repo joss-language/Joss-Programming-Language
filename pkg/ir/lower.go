@@ -3148,10 +3148,10 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 				if colVal.Type().Kind == TypeKindArray && colVal.Type().Elem != nil && colVal.Type().Elem.Kind == TypeKindMixed {
 					pushVal = l.boxIfMixed(val, TypeMixed)
 				}
-				l.currBlock.AddInstruction(&CallInst{
-					Dest:   nil,
-					Callee: "array_push",
-					Args:   []Value{colVal, pushVal},
+				l.currBlock.AddInstruction(&CallBuiltinInst{
+					Dest:      nil,
+					BuiltinID: "array_push",
+					Args:      []Value{colVal, pushVal},
 				})
 				return val, nil
 			}

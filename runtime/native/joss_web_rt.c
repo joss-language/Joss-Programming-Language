@@ -286,18 +286,34 @@ void* joss_explode(const char* sep, const char* subj) {
         return arr;
     }
     size_t sep_len = strlen(sep);
-    const char* cur = subj;
-    while (1) {
-        const char* p = strstr(cur, sep);
+    size_t subj_len = strlen(subj);
+    char* buf = (char*)malloc(subj_len + 1);
+    if (!buf) return arr;
+    memcpy(buf, subj, subj_len + 1);
+
+    char* cur = buf;
+    if (sep_len == 1) {
+        char delim = sep[0];
+        for (;;) {
+            char* p = strchr(cur, delim);
+            if (!p) {
+                joss_arr_push_str(arr, cur);
+                break;
+            }
+            *p = '\0';
+            joss_arr_push_str(arr, cur);
+            cur = p + 1;
+        }
+        return arr;
+    }
+    for (;;) {
+        char* p = strstr(cur, sep);
         if (!p) {
-            joss_arr_push_str(arr, strdup(cur));
+            joss_arr_push_str(arr, cur);
             break;
         }
-        size_t part_len = (size_t)(p - cur);
-        char* part = (char*)malloc(part_len + 1);
-        memcpy(part, cur, part_len);
-        part[part_len] = '\0';
-        joss_arr_push_str(arr, part);
+        *p = '\0';
+        joss_arr_push_str(arr, cur);
         cur = p + sep_len;
     }
     return arr;
@@ -4643,17 +4659,37 @@ void* fn_StreamReader_open(void* source) {
 const char* fn_StreamReader_readLine(void* handle) {
     JossFileStream* fs = joss_fs_unwrap(handle);
     if (!fs || !fs->fp) return NULL;
-    JossStringBuilder* sb = joss_sb_new();
-    int ch = EOF;
-    int got_any = 0;
-    while ((ch = fgetc(fs->fp)) != EOF) {
-        got_any = 1;
-        if (ch == '\n') break;
-        joss_buf_append_byte(sb, (uint8_t)ch);
-    }
-    if (!got_any) {
-        joss_sb_free(sb);
+    char buf[4096];
+    if (!fgets(buf, (int)sizeof(buf), fs->fp)) {
         return NULL;
+    }
+    size_t len = strlen(buf);
+    if (len > 0 && buf[len - 1] == '\n') {
+        len--;
+        if (len > 0 && buf[len - 1] == '\r') len--;
+        char* out = (char*)malloc(len + 1);
+        if (!out) return "";
+        memcpy(out, buf, len);
+        out[len] = '\0';
+        return out;
+    }
+    if (feof(fs->fp)) {
+        if (len > 0 && buf[len - 1] == '\r') len--;
+        char* out = (char*)malloc(len + 1);
+        if (!out) return "";
+        memcpy(out, buf, len);
+        out[len] = '\0';
+        return out;
+    }
+    /* Long line (> 4095 bytes): accumulate remaining chunks */
+    JossStringBuilder* sb = joss_sb_new();
+    joss_sb_append(sb, buf);
+    while (fgets(buf, (int)sizeof(buf), fs->fp)) {
+        size_t clen = strlen(buf);
+        int done = (clen > 0 && buf[clen - 1] == '\n');
+        if (done) buf[--clen] = '\0';
+        joss_sb_append(sb, buf);
+        if (done) break;
     }
     if (sb->len > 0 && sb->data[sb->len - 1] == '\r') {
         sb->len--;

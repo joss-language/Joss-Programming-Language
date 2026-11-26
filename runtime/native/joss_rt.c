@@ -91,9 +91,12 @@ static _Atomic(uintptr_t) g_joss_box_max = 0;
 
 bool joss_is_boxed_ptr(int64_t val) {
     uintptr_t u = (uintptr_t)(uint64_t)val;
-    uintptr_t mn = atomic_load_explicit(&g_joss_box_min, memory_order_acquire);
-    uintptr_t mx = atomic_load_explicit(&g_joss_box_max, memory_order_acquire);
-    if (u == 0 || (u & 7U) != 0 || u < mn || u > mx) {
+    if (u < JOSS_MIN_PTR_ADDR || (u & 7U) != 0) {
+        return false;
+    }
+    uintptr_t mn = atomic_load_explicit(&g_joss_box_min, memory_order_relaxed);
+    uintptr_t mx = atomic_load_explicit(&g_joss_box_max, memory_order_relaxed);
+    if (u < mn || u > mx) {
         return false;
     }
     const JossBoxedValue* b = (const JossBoxedValue*)u;
@@ -216,10 +219,48 @@ bool joss_is_not_null(int64_t v) {
     return true;
 }
 
+static _Thread_local char*  g_tls_str_slab = NULL;
+static _Thread_local size_t g_tls_str_used = 0;
+static _Thread_local size_t g_tls_str_cap  = 0;
+
+static inline char* joss_tls_str_alloc(size_t n) {
+    if (__builtin_expect(n > 4096, 0)) {
+        return (char*)malloc(n);
+    }
+    if (__builtin_expect(g_tls_str_used + n > g_tls_str_cap, 0)) {
+        size_t cap = 262144; /* 256 KB per slab */
+        char* slab = (char*)malloc(cap);
+        if (!slab) return (char*)malloc(n);
+        g_tls_str_slab = slab;
+        g_tls_str_used = 0;
+        g_tls_str_cap = cap;
+    }
+    char* p = g_tls_str_slab + g_tls_str_used;
+    g_tls_str_used += n;
+    return p;
+}
+
 const char* joss_i64_to_str(int64_t v) {
-    char* out = (char*)malloc(32);
+    char tmp[32];
+    int neg = 0;
+    uint64_t uv;
+    if (v < 0) {
+        neg = 1;
+        uv = (uint64_t)(-(v + 1)) + 1ULL;
+    } else {
+        uv = (uint64_t)v;
+    }
+    int pos = 31;
+    tmp[pos] = '\0';
+    do {
+        tmp[--pos] = (char)('0' + (uv % 10ULL));
+        uv /= 10ULL;
+    } while (uv > 0ULL);
+    if (neg) tmp[--pos] = '-';
+    size_t len = (size_t)(32 - pos);
+    char* out = joss_tls_str_alloc(len);
     if (!out) return "0";
-    snprintf(out, 32, "%" PRId64, v);
+    memcpy(out, tmp + pos, len);
     return out;
 }
 
@@ -731,10 +772,13 @@ static const char* unbox_cstr(const char* s) {
 }
 
 void joss_arr_push_i64(void* arr, int64_t val) {
-    arr = unbox_ptr(arr);
+    if (!arr) joss_panic("null array");
     JossArray* a = (JossArray*)arr;
-    if (!a) joss_panic("null array");
-    if (a->len >= a->cap) arr_grow(a);
+    if (__builtin_expect(a->magic != JOSS_ARR_MAGIC, 0)) {
+        a = (JossArray*)unbox_ptr(arr);
+        if (!a) joss_panic("null array");
+    }
+    if (__builtin_expect(a->len >= a->cap, 0)) arr_grow(a);
     a->items[a->len++] = val;
 }
 
@@ -743,6 +787,17 @@ void joss_arr_push_str(void* arr, const char* val) {
 }
 
 int64_t joss_arr_get_i64(void* arr, int64_t idx) {
+    if (!arr) return 0;
+    JossArray* a = (JossArray*)arr;
+    if (__builtin_expect(a->magic == JOSS_ARR_MAGIC, 1)) {
+        if (__builtin_expect((uint64_t)idx >= JOSS_MIN_PTR_ADDR, 0)) {
+            idx = joss_unbox_value(idx);
+        }
+        if (__builtin_expect((uint64_t)idx < (uint64_t)a->len, 1)) {
+            return a->items[idx];
+        }
+        return 0;
+    }
     arr = unbox_ptr(arr);
     if (!arr) return 0;
     if (joss_is_map_ptr((int64_t)(uintptr_t)arr)) {
@@ -751,7 +806,7 @@ int64_t joss_arr_get_i64(void* arr, int64_t idx) {
     }
     if (!joss_is_arr_ptr((int64_t)(uintptr_t)arr)) return 0;
     idx = joss_unbox_value(idx);
-    JossArray* a = (JossArray*)arr;
+    a = (JossArray*)arr;
     if (idx < 0 || idx >= a->len) return 0;
     return a->items[idx];
 }
@@ -765,6 +820,20 @@ const char* joss_arr_get_str(void* arr, int64_t idx) {
 }
 
 void joss_arr_set_i64(void* arr, int64_t idx, int64_t val) {
+    if (!arr) return;
+    JossArray* a = (JossArray*)arr;
+    if (__builtin_expect(a->magic == JOSS_ARR_MAGIC, 1)) {
+        if (__builtin_expect((uint64_t)idx >= JOSS_MIN_PTR_ADDR, 0)) {
+            idx = joss_unbox_value(idx);
+        }
+        if (__builtin_expect(idx < 0, 0)) return;
+        if (__builtin_expect(idx >= a->cap, 0)) {
+            while (idx >= a->cap) arr_grow(a);
+        }
+        if (idx >= a->len) a->len = idx + 1;
+        a->items[idx] = val;
+        return;
+    }
     arr = unbox_ptr(arr);
     if (!arr) return;
     if (joss_is_map_ptr((int64_t)(uintptr_t)arr)) {
@@ -774,7 +843,7 @@ void joss_arr_set_i64(void* arr, int64_t idx, int64_t val) {
     }
     if (!joss_is_arr_ptr((int64_t)(uintptr_t)arr)) return;
     idx = joss_unbox_value(idx);
-    JossArray* a = (JossArray*)arr;
+    a = (JossArray*)arr;
     if (idx < 0) return;
     while (idx >= a->cap) arr_grow(a);
     if (idx >= a->len) a->len = idx + 1;
@@ -815,22 +884,48 @@ int64_t joss_array_pop(void* arr) {
 /* =========================================================================
  * Associative Maps & Dynamic Objects
  * ========================================================================= */
-typedef struct JossMapEntry {
-    char*                key;
-    int64_t              val;
-    struct JossMapEntry* next;
-} JossMapEntry;
+#define JOSS_MAP_INLINE_CAP 4
 
-#define JOSS_MAP_BUCKETS 256
+typedef struct {
+    char*    key;
+    uint32_t hash;
+    uint8_t  deleted;
+    uint8_t  key_owned;
+    int64_t  val;
+} JossMapEntry;
 
 typedef struct {
     uint64_t      magic;
-    char*         class_name;
+    const char*   class_name;
     int64_t       count;
-    JossMapEntry* buckets[JOSS_MAP_BUCKETS];
+    int32_t       entry_len;
+    int32_t       entry_cap;
+    int32_t       slot_cap;
+    int32_t       slot_used;
+    JossMapEntry* entries;
+    int32_t*      slots; /* -1 = empty, -2 = tombstone, >= 0 = index in entries */
+    JossMapEntry  inline_entries[JOSS_MAP_INLINE_CAP];
 } JossMap;
 
-static uint32_t fnv1a_hash(const char* s) {
+static _Thread_local JossMap* g_tls_map_slab = NULL;
+static _Thread_local size_t   g_tls_map_used = 0;
+static _Thread_local size_t   g_tls_map_cap  = 0;
+
+static inline JossMap* joss_map_alloc_raw(void) {
+    if (__builtin_expect(g_tls_map_used >= g_tls_map_cap, 0)) {
+        size_t cap = 2048; /* ~512 KB per slab -> 1 atomic bounds update per 2048 objects */
+        JossMap* slab = (JossMap*)malloc(cap * sizeof(JossMap));
+        if (!slab) joss_panic("out of memory allocating map slab");
+        joss_atomic_update_bounds(&g_joss_map_min, &g_joss_map_max, (uintptr_t)&slab[0]);
+        joss_atomic_update_bounds(&g_joss_map_min, &g_joss_map_max, (uintptr_t)&slab[cap - 1]);
+        g_tls_map_slab = slab;
+        g_tls_map_used = 0;
+        g_tls_map_cap = cap;
+    }
+    return &g_tls_map_slab[g_tls_map_used++];
+}
+
+static inline uint32_t fnv1a_hash(const char* s) {
     uint32_t h = 2166136261U;
     if (!s) return h;
     while (*s) {
@@ -840,38 +935,177 @@ static uint32_t fnv1a_hash(const char* s) {
     return h;
 }
 
+static void joss_map_rehash(JossMap* m, int32_t new_slot_cap) {
+    if (new_slot_cap < 16) new_slot_cap = 16;
+    if (m->entries == m->inline_entries) {
+        int32_t ncap = 16;
+        JossMapEntry* heap_e = (JossMapEntry*)malloc((size_t)ncap * sizeof(JossMapEntry));
+        if (!heap_e) joss_panic("out of memory promoting map entries");
+        if (m->entry_len > 0) {
+            memcpy(heap_e, m->inline_entries, (size_t)m->entry_len * sizeof(JossMapEntry));
+        }
+        m->entries = heap_e;
+        m->entry_cap = ncap;
+    }
+    int32_t* new_slots = (int32_t*)malloc((size_t)new_slot_cap * sizeof(int32_t));
+    if (!new_slots) joss_panic("out of memory rehashing map");
+    for (int32_t i = 0; i < new_slot_cap; i++) new_slots[i] = -1;
+
+    uint32_t mask = (uint32_t)(new_slot_cap - 1);
+    int32_t live = 0;
+    for (int32_t i = 0; i < m->entry_len; i++) {
+        if (m->entries[i].deleted) continue;
+        if (live != i) m->entries[live] = m->entries[i];
+        if (m->entries[live].hash == 0 && m->entries[live].key) {
+            m->entries[live].hash = fnv1a_hash(m->entries[live].key);
+        }
+        uint32_t pos = m->entries[live].hash & mask;
+        while (new_slots[pos] >= 0) {
+            pos = (pos + 1U) & mask;
+        }
+        new_slots[pos] = live;
+        live++;
+    }
+    free(m->slots);
+    m->slots = new_slots;
+    m->slot_cap = new_slot_cap;
+    m->entry_len = live;
+    m->slot_used = live;
+    m->count = live;
+}
+
 void* joss_map_new(void) {
-    JossMap* m = (JossMap*)calloc(1, sizeof(JossMap));
-    if (!m) joss_panic("out of memory allocating map");
+    JossMap* m = joss_map_alloc_raw();
     m->magic = JOSS_MAP_MAGIC;
-    joss_atomic_update_bounds(&g_joss_map_min, &g_joss_map_max, (uintptr_t)m);
+    m->class_name = NULL;
+    m->count = 0;
+    m->entry_len = 0;
+    m->entry_cap = JOSS_MAP_INLINE_CAP;
+    m->slot_cap = 0;
+    m->slot_used = 0;
+    m->entries = m->inline_entries;
+    m->slots = NULL;
     return m;
 }
 
-void joss_map_set_i64(void* mp, const char* key, int64_t val) {
-    mp = unbox_ptr(mp);
-    key = unbox_cstr(key);
-    if (!mp || !key || !joss_is_map_ptr((int64_t)(uintptr_t)mp)) return;
-    JossMap* m = (JossMap*)mp;
-    uint32_t b = fnv1a_hash(key) % JOSS_MAP_BUCKETS;
-    JossMapEntry* e = m->buckets[b];
-    while (e) {
-        if (strcmp(e->key, key) == 0) {
-            e->val = val;
+static inline void joss_map_set_internal(JossMap* m, const char* key, int64_t val, uint8_t dup_key) {
+    if (m->slot_cap == 0) {
+        /* Inline small-map / small-object fast path (<= 8 entries, zero malloc/hash) */
+        for (int32_t i = 0; i < m->entry_len; i++) {
+            JossMapEntry* e = &m->entries[i];
+            if (!e->deleted && (e->key == key || strcmp(e->key, key) == 0)) {
+                e->val = val;
+                return;
+            }
+        }
+        if (m->entry_len < JOSS_MAP_INLINE_CAP) {
+            int32_t idx = m->entry_len++;
+            m->entries[idx].key = dup_key ? strdup(key) : (char*)key;
+            m->entries[idx].hash = 0;
+            m->entries[idx].deleted = 0;
+            m->entries[idx].key_owned = dup_key;
+            m->entries[idx].val = val;
+            m->count++;
             return;
         }
-        e = e->next;
+        joss_map_rehash(m, 32);
+    } else if ((m->slot_used + 1) * 10 >= m->slot_cap * 7) {
+        int32_t target = (m->count * 2 >= m->slot_cap) ? (m->slot_cap * 2) : m->slot_cap;
+        joss_map_rehash(m, target);
     }
-    e = (JossMapEntry*)calloc(1, sizeof(JossMapEntry));
-    if (!e) joss_panic("out of memory allocating map entry");
-    e->key = strdup(key);
-    e->val = val;
-    e->next = m->buckets[b];
-    m->buckets[b] = e;
-    m->count++;
+
+    uint32_t h = fnv1a_hash(key);
+    uint32_t mask = (uint32_t)(m->slot_cap - 1);
+    uint32_t pos = h & mask;
+    int32_t first_tomb = -1;
+
+    for (;;) {
+        int32_t idx = m->slots[pos];
+        if (idx == -1) {
+            uint32_t insert_pos = (first_tomb >= 0) ? (uint32_t)first_tomb : pos;
+            if (m->entry_len >= m->entry_cap) {
+                int32_t ncap = m->entry_cap * 2;
+                JossMapEntry* ne = (JossMapEntry*)realloc(m->entries, (size_t)ncap * sizeof(JossMapEntry));
+                if (!ne) joss_panic("out of memory growing map entries");
+                m->entries = ne;
+                m->entry_cap = ncap;
+            }
+            int32_t new_idx = m->entry_len++;
+            m->entries[new_idx].key = dup_key ? strdup(key) : (char*)key;
+            m->entries[new_idx].hash = h;
+            m->entries[new_idx].deleted = 0;
+            m->entries[new_idx].key_owned = dup_key;
+            m->entries[new_idx].val = val;
+            m->slots[insert_pos] = new_idx;
+            if (first_tomb < 0) m->slot_used++;
+            m->count++;
+            return;
+        }
+        if (idx == -2) {
+            if (first_tomb < 0) first_tomb = (int32_t)pos;
+        } else {
+            JossMapEntry* e = &m->entries[idx];
+            if (e->key == key || (e->hash == h && strcmp(e->key, key) == 0)) {
+                e->val = val;
+                return;
+            }
+        }
+        pos = (pos + 1U) & mask;
+    }
+}
+
+static inline int64_t joss_map_get_internal(JossMap* m, const char* key) {
+    if (m->count == 0) return 0;
+    if (m->slot_cap == 0) {
+        for (int32_t i = 0; i < m->entry_len; i++) {
+            JossMapEntry* e = &m->entries[i];
+            if (!e->deleted && (e->key == key || strcmp(e->key, key) == 0)) {
+                return e->val;
+            }
+        }
+        return 0;
+    }
+    uint32_t h = fnv1a_hash(key);
+    uint32_t mask = (uint32_t)(m->slot_cap - 1);
+    uint32_t pos = h & mask;
+    for (;;) {
+        int32_t idx = m->slots[pos];
+        if (idx == -1) return 0;
+        if (idx >= 0) {
+            JossMapEntry* e = &m->entries[idx];
+            if (e->key == key || (e->hash == h && strcmp(e->key, key) == 0)) {
+                return e->val;
+            }
+        }
+        pos = (pos + 1U) & mask;
+    }
+}
+
+void joss_map_set_i64(void* mp, const char* key, int64_t val) {
+    if (!mp || !key) return;
+    JossMap* m = (JossMap*)mp;
+    if (__builtin_expect(m->magic != JOSS_MAP_MAGIC, 0)) {
+        mp = unbox_ptr(mp);
+        if (!mp || !joss_is_map_ptr((int64_t)(uintptr_t)mp)) return;
+        m = (JossMap*)mp;
+    }
+    if (__builtin_expect(joss_is_boxed_ptr((int64_t)(uintptr_t)key), 0)) {
+        key = unbox_cstr(key);
+        if (!key) return;
+    }
+    joss_map_set_internal(m, key, val, 1);
 }
 
 int64_t joss_map_get_i64(void* mp, const char* key) {
+    if (!mp || !key) return 0;
+    JossMap* m = (JossMap*)mp;
+    if (__builtin_expect(m->magic == JOSS_MAP_MAGIC, 1)) {
+        if (__builtin_expect(joss_is_boxed_ptr((int64_t)(uintptr_t)key), 0)) {
+            key = unbox_cstr(key);
+            if (!key) return 0;
+        }
+        return joss_map_get_internal(m, key);
+    }
     mp = unbox_ptr(mp);
     if (!mp) return 0;
     if (joss_is_arr_ptr((int64_t)(uintptr_t)mp)) {
@@ -880,16 +1114,7 @@ int64_t joss_map_get_i64(void* mp, const char* key) {
     if (!joss_is_map_ptr((int64_t)(uintptr_t)mp)) return 0;
     key = unbox_cstr(key);
     if (!key) return 0;
-    JossMap* m = (JossMap*)mp;
-    uint32_t b = fnv1a_hash(key) % JOSS_MAP_BUCKETS;
-    JossMapEntry* e = m->buckets[b];
-    while (e) {
-        if (strcmp(e->key, key) == 0) {
-            return e->val;
-        }
-        e = e->next;
-    }
-    return 0;
+    return joss_map_get_internal((JossMap*)mp, key);
 }
 
 void joss_map_set_str(void* mp, const char* key, const char* val) {
@@ -909,41 +1134,77 @@ void joss_map_delete_i64(void* mp, const char* key) {
     key = unbox_cstr(key);
     if (!mp || !key || !joss_is_map_ptr((int64_t)(uintptr_t)mp)) return;
     JossMap* m = (JossMap*)mp;
-    uint32_t b = fnv1a_hash(key) % JOSS_MAP_BUCKETS;
-    JossMapEntry** pp = &m->buckets[b];
-    while (*pp) {
-        JossMapEntry* cur = *pp;
-        if (strcmp(cur->key, key) == 0) {
-            *pp = cur->next;
-            free(cur->key);
-            free(cur);
-            m->count--;
-            return;
+    if (m->count == 0) return;
+    if (m->slot_cap == 0) {
+        for (int32_t i = 0; i < m->entry_len; i++) {
+            JossMapEntry* e = &m->entries[i];
+            if (!e->deleted && (e->key == key || strcmp(e->key, key) == 0)) {
+                if (e->key_owned) free(e->key);
+                e->key = NULL;
+                e->deleted = 1;
+                m->count--;
+                return;
+            }
         }
-        pp = &cur->next;
+        return;
+    }
+
+    uint32_t h = fnv1a_hash(key);
+    uint32_t mask = (uint32_t)(m->slot_cap - 1);
+    uint32_t pos = h & mask;
+    for (;;) {
+        int32_t idx = m->slots[pos];
+        if (idx == -1) return;
+        if (idx >= 0) {
+            JossMapEntry* e = &m->entries[idx];
+            if (e->key == key || (e->hash == h && strcmp(e->key, key) == 0)) {
+                if (e->key_owned) free(e->key);
+                e->key = NULL;
+                e->deleted = 1;
+                m->slots[pos] = -2;
+                m->count--;
+                return;
+            }
+        }
+        pos = (pos + 1U) & mask;
     }
 }
 
 void* joss_obj_new(const char* class_name) {
     JossMap* m = (JossMap*)joss_map_new();
-    m->class_name = class_name ? strdup(class_name) : NULL;
+    m->class_name = class_name;
     return m;
 }
 
 void joss_obj_set_field_i64(void* obj, const char* field, int64_t val) {
+    if (!obj || !field) return;
+    JossMap* m = (JossMap*)obj;
+    if (__builtin_expect(m->magic == JOSS_MAP_MAGIC, 1)) {
+        joss_map_set_internal(m, field, val, 0);
+        return;
+    }
     joss_map_set_i64(obj, field, val);
 }
 
 int64_t joss_obj_get_field_i64(void* obj, const char* field) {
+    if (!obj || !field) return 0;
+    JossMap* m = (JossMap*)obj;
+    if (__builtin_expect(m->magic == JOSS_MAP_MAGIC, 1)) {
+        return joss_map_get_internal(m, field);
+    }
     return joss_map_get_i64(obj, field);
 }
 
 void joss_obj_set_field_str(void* obj, const char* field, const char* val) {
-    joss_map_set_str(obj, field, val);
+    joss_obj_set_field_i64(obj, field, (int64_t)(uintptr_t)(val ? val : ""));
 }
 
 const char* joss_obj_get_field_str(void* obj, const char* field) {
-    return joss_map_get_str(obj, field);
+    int64_t v = joss_obj_get_field_i64(obj, field);
+    if (v == 0) return "";
+    int64_t u = joss_unbox_value(v);
+    if (joss_is_arr_ptr(u) || joss_is_map_ptr(u)) return (const char*)(uintptr_t)u;
+    return joss_strval(v);
 }
 
 int64_t joss_intval(int64_t v) {
@@ -1015,14 +1276,15 @@ const char* joss_map_key_at(void* m, int64_t idx) {
     m = unbox_ptr(m);
     if (!m || idx < 0 || !joss_is_map_ptr((int64_t)(uintptr_t)m)) return "";
     JossMap* jm = (JossMap*)m;
-    int64_t i = 0;
-    for (int b = 0; b < JOSS_MAP_BUCKETS; b++) {
-        JossMapEntry* cur = jm->buckets[b];
-        while (cur) {
-            if (i == idx) return cur->key ? cur->key : "";
-            i++;
-            cur = cur->next;
-        }
+    if (idx >= jm->count) return "";
+    if (jm->count == (int64_t)jm->entry_len) {
+        return jm->entries[idx].key ? jm->entries[idx].key : "";
+    }
+    int64_t seen = 0;
+    for (int32_t i = 0; i < jm->entry_len; i++) {
+        if (jm->entries[i].deleted) continue;
+        if (seen == idx) return jm->entries[i].key ? jm->entries[i].key : "";
+        seen++;
     }
     return "";
 }
@@ -1035,14 +1297,15 @@ int64_t joss_map_val_at(void* m, int64_t idx) {
     }
     if (!joss_is_map_ptr((int64_t)(uintptr_t)m)) return 0;
     JossMap* jm = (JossMap*)m;
-    int64_t i = 0;
-    for (int b = 0; b < JOSS_MAP_BUCKETS; b++) {
-        JossMapEntry* cur = jm->buckets[b];
-        while (cur) {
-            if (i == idx) return cur->val;
-            i++;
-            cur = cur->next;
-        }
+    if (idx >= jm->count) return 0;
+    if (jm->count == (int64_t)jm->entry_len) {
+        return jm->entries[idx].val;
+    }
+    int64_t seen = 0;
+    for (int32_t i = 0; i < jm->entry_len; i++) {
+        if (jm->entries[i].deleted) continue;
+        if (seen == idx) return jm->entries[i].val;
+        seen++;
     }
     return 0;
 }
@@ -1052,13 +1315,26 @@ int64_t joss_array_key_exists(const char* key, void* m) {
     key = unbox_cstr(key);
     if (!key || !m || !joss_is_map_ptr((int64_t)(uintptr_t)m)) return 0;
     JossMap* jm = (JossMap*)m;
-    uint32_t b = fnv1a_hash(key) % JOSS_MAP_BUCKETS;
-    JossMapEntry* cur = jm->buckets[b];
-    while (cur) {
-        if (cur->key && strcmp(cur->key, key) == 0) return 1;
-        cur = cur->next;
+    if (jm->count == 0) return 0;
+    if (jm->slot_cap == 0) {
+        for (int32_t i = 0; i < jm->entry_len; i++) {
+            JossMapEntry* e = &jm->entries[i];
+            if (!e->deleted && e->key && (e->key == key || strcmp(e->key, key) == 0)) return 1;
+        }
+        return 0;
     }
-    return 0;
+    uint32_t h = fnv1a_hash(key);
+    uint32_t mask = (uint32_t)(jm->slot_cap - 1);
+    uint32_t pos = h & mask;
+    for (;;) {
+        int32_t idx = jm->slots[pos];
+        if (idx == -1) return 0;
+        if (idx >= 0) {
+            JossMapEntry* e = &jm->entries[idx];
+            if (e->key && (e->key == key || (e->hash == h && strcmp(e->key, key) == 0))) return 1;
+        }
+        pos = (pos + 1U) & mask;
+    }
 }
 
 bool joss_str_eq(const char* a, const char* b) {

@@ -97,6 +97,61 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare i8* @joss_arr_get_str(i8*, i64)\n")
 	buf.WriteString("declare void @joss_arr_set_i64(i8*, i64, i64)\n")
 	buf.WriteString("declare void @joss_arr_set_str(i8*, i64, i8*)\n")
+	buf.WriteString(`define internal i64 @__joss_fast_arr_get(i8* %arr, i64 %idx) alwaysinline {
+entry:
+	%isnull = icmp eq i8* %arr, null
+	br i1 %isnull, label %ret0, label %chk_magic
+ret0:
+	ret i64 0
+chk_magic:
+	%p64 = bitcast i8* %arr to i64*
+	%magic = load i64, i64* %p64, align 8
+	%ismagic = icmp eq i64 %magic, -6838080913614225407
+	br i1 %ismagic, label %chk_bounds, label %slow
+chk_bounds:
+	%lenp = getelementptr inbounds i64, i64* %p64, i64 1
+	%len = load i64, i64* %lenp, align 8
+	%inb = icmp ult i64 %idx, %len
+	br i1 %inb, label %fast, label %slow
+fast:
+	%itemspp = getelementptr inbounds i64, i64* %p64, i64 3
+	%itemsraw = load i64, i64* %itemspp, align 8
+	%items = inttoptr i64 %itemsraw to i64*
+	%ep = getelementptr inbounds i64, i64* %items, i64 %idx
+	%val = load i64, i64* %ep, align 8
+	ret i64 %val
+slow:
+	%sv = tail call i64 @joss_arr_get_i64(i8* %arr, i64 %idx)
+	ret i64 %sv
+}
+define internal void @__joss_fast_arr_set(i8* %arr, i64 %idx, i64 %val) alwaysinline {
+entry:
+	%isnull = icmp eq i8* %arr, null
+	br i1 %isnull, label %done, label %chk_magic
+done:
+	ret void
+chk_magic:
+	%p64 = bitcast i8* %arr to i64*
+	%magic = load i64, i64* %p64, align 8
+	%ismagic = icmp eq i64 %magic, -6838080913614225407
+	br i1 %ismagic, label %chk_bounds, label %slow
+chk_bounds:
+	%lenp = getelementptr inbounds i64, i64* %p64, i64 1
+	%len = load i64, i64* %lenp, align 8
+	%inb = icmp ult i64 %idx, %len
+	br i1 %inb, label %fast, label %slow
+fast:
+	%itemspp = getelementptr inbounds i64, i64* %p64, i64 3
+	%itemsraw = load i64, i64* %itemspp, align 8
+	%items = inttoptr i64 %itemsraw to i64*
+	%ep = getelementptr inbounds i64, i64* %items, i64 %idx
+	store i64 %val, i64* %ep, align 8
+	ret void
+slow:
+	tail call void @joss_arr_set_i64(i8* %arr, i64 %idx, i64 %val)
+	ret void
+}
+`)
 	buf.WriteString("declare i64 @joss_arr_len(i8*)\n")
 	buf.WriteString("declare i8* @joss_map_new()\n")
 	buf.WriteString("declare void @joss_map_set_i64(i8*, i8*, i64)\n")
@@ -1120,9 +1175,9 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		if destLLVM != "i64" {
 			raw := fmt.Sprintf("%%agraw_%p", i)
 			conv := e.emitDirectCast("i64", raw, destLLVM, destVal)
-			return fmt.Sprintf("%s%s%s = call i64 @joss_arr_get_i64(i8* %s, i64 %s)\n\t%s", preArr, preIdx, raw, arrVal, idxVal, conv), nil
+			return fmt.Sprintf("%s%s%s = call i64 @__joss_fast_arr_get(i8* %s, i64 %s)\n\t%s", preArr, preIdx, raw, arrVal, idxVal, conv), nil
 		}
-		return fmt.Sprintf("%s%s%s = call i64 @joss_arr_get_i64(i8* %s, i64 %s)", preArr, preIdx, destVal, arrVal, idxVal), nil
+		return fmt.Sprintf("%s%s%s = call i64 @__joss_fast_arr_get(i8* %s, i64 %s)", preArr, preIdx, destVal, arrVal, idxVal), nil
 
 	case *ir.ArraySetInst:
 		preArr, arrVal := e.coerceLLVM(i.Array, "i8*", fmt.Sprintf("as_a_%p", i))
@@ -1132,7 +1187,7 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 			return fmt.Sprintf("%s%s%scall void @joss_arr_set_str(i8* %s, i64 %s, i8* %s)", preArr, preIdx, preVal, arrVal, idxVal, valVal), nil
 		}
 		preVal, valVal := e.coerceLLVM(i.Val, "i64", fmt.Sprintf("as_v_%p", i))
-		return fmt.Sprintf("%s%s%scall void @joss_arr_set_i64(i8* %s, i64 %s, i64 %s)", preArr, preIdx, preVal, arrVal, idxVal, valVal), nil
+		return fmt.Sprintf("%s%s%scall void @__joss_fast_arr_set(i8* %s, i64 %s, i64 %s)", preArr, preIdx, preVal, arrVal, idxVal, valVal), nil
 
 	case *ir.NewMapInst:
 		lines := []string{fmt.Sprintf("%s = call i8* @joss_map_new()", e.formatValue(i.Dest))}
