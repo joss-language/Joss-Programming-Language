@@ -75,7 +75,7 @@ void joss_global_unlock(uint32_t slot) { (void)slot; }
 /* =========================================================================
  * Native Stack Trace (Zero-Cost Thread-Local Call Frame Stack)
  * ========================================================================= */
-#define JOSS_MAX_CALL_DEPTH 256
+#define JOSS_MAX_CALL_DEPTH 128
 
 typedef struct {
     const char* func;
@@ -432,8 +432,10 @@ void joss_arena_reset(JossArena* arena) {
         cur = nxt;
     }
     arena->head->next = NULL;
-    arena->head->used = 0;
-    memset(arena->head->data, 0, arena->head->cap);
+    if (arena->head->used > 0) {
+        memset(arena->head->data, 0, arena->head->used);
+        arena->head->used = 0;
+    }
 }
 
 void joss_arena_destroy(JossArena* arena) {
@@ -491,10 +493,10 @@ static void joss_req_track_ptr(void* p) {
     tls_req_tracked.items[tls_req_tracked.len++] = p;
 }
 
-static void joss_req_retrack_ptr(void* old_p, void* new_p) {
-    if (!tls_req_active || old_p == new_p) return;
+static void joss_req_retrack_addr(uintptr_t old_addr, void* new_p) {
+    if (!tls_req_active || old_addr == (uintptr_t)new_p) return;
     for (size_t i = tls_req_tracked.len; i > 0; i--) {
-        if (tls_req_tracked.items[i - 1] == old_p) {
+        if ((uintptr_t)tls_req_tracked.items[i - 1] == old_addr) {
             tls_req_tracked.items[i - 1] = new_p;
             return;
         }
@@ -933,10 +935,10 @@ void* joss_arr_new(int64_t initial_cap) {
 
 static void arr_grow(JossArray* a) {
     int64_t new_cap = a->cap > 0 ? a->cap * 2 : 8;
-    int64_t* old_items = a->items;
-    int64_t* next = (int64_t*)realloc(old_items, (size_t)new_cap * sizeof(int64_t));
+    uintptr_t old_addr = (uintptr_t)a->items;
+    int64_t* next = (int64_t*)realloc(a->items, (size_t)new_cap * sizeof(int64_t));
     if (!next) joss_panic("out of memory growing array");
-    joss_req_retrack_ptr(old_items, next);
+    joss_req_retrack_addr(old_addr, next);
     a->items = next;
     a->cap = new_cap;
 }
@@ -1220,10 +1222,10 @@ static inline void joss_map_set_internal(JossMap* m, const char* key, int64_t va
             uint32_t insert_pos = (first_tomb >= 0) ? (uint32_t)first_tomb : pos;
             if (m->entry_len >= m->entry_cap) {
                 int32_t ncap = m->entry_cap * 2;
-                JossMapEntry* old_e = m->entries;
-                JossMapEntry* ne = (JossMapEntry*)realloc(old_e, (size_t)ncap * sizeof(JossMapEntry));
+                uintptr_t old_addr = (uintptr_t)m->entries;
+                JossMapEntry* ne = (JossMapEntry*)realloc(m->entries, (size_t)ncap * sizeof(JossMapEntry));
                 if (!ne) joss_panic("out of memory growing map entries");
-                joss_req_retrack_ptr(old_e, ne);
+                joss_req_retrack_addr(old_addr, ne);
                 m->entries = ne;
                 m->entry_cap = ncap;
             }
@@ -1760,7 +1762,7 @@ bool joss_is_map_ptr(int64_t v) {
     return ((const JossMap*)u)->magic == JOSS_MAP_MAGIC;
 }
 
-#define JOSS_MAX_TRY_DEPTH 64
+#define JOSS_MAX_TRY_DEPTH 32
 static _Thread_local jmp_buf     g_joss_try_stack[JOSS_MAX_TRY_DEPTH];
 static _Thread_local int         g_joss_try_trace_depth[JOSS_MAX_TRY_DEPTH];
 static _Thread_local int         g_joss_try_depth = 0;
@@ -1926,8 +1928,9 @@ static size_t        g_gc_total_freed   = 0;
 static size_t        g_gc_collections   = 0;
 static size_t        g_gc_threshold     = JOSS_GC_DEFAULT_THRESHOLD;
 
-static void**        g_gc_roots[JOSS_GC_MAX_ROOTS];
+static void***       g_gc_roots         = NULL;
 static size_t        g_gc_root_count    = 0;
+static size_t        g_gc_root_cap      = 0;
 
 /* Open-addressing hash table mapping payload pointer -> JossGCHeader* */
 static JossGCHeader** g_gc_ptr_table    = NULL;
@@ -2006,6 +2009,14 @@ void joss_gc_add_root(void** root_slot) {
     for (size_t i = 0; i < g_gc_root_count; i++) {
         if (g_gc_roots[i] == root_slot) return;
     }
+    if (g_gc_root_count >= g_gc_root_cap) {
+        size_t ncap = g_gc_root_cap ? g_gc_root_cap * 2 : 16;
+        if (ncap > JOSS_GC_MAX_ROOTS) ncap = JOSS_GC_MAX_ROOTS;
+        void*** next = (void***)realloc(g_gc_roots, ncap * sizeof(void**));
+        if (!next) return;
+        g_gc_roots = next;
+        g_gc_root_cap = ncap;
+    }
     g_gc_roots[g_gc_root_count++] = root_slot;
 }
 
@@ -2054,6 +2065,9 @@ static inline void gc_mark_word(JossGCWorklist* wl, uintptr_t word) {
     }
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((no_sanitize("address")))
+#endif
 static void gc_scan_range(JossGCWorklist* wl, const void* start, const void* end) {
     uintptr_t a = (uintptr_t)start;
     uintptr_t b = (uintptr_t)end;
@@ -2061,6 +2075,10 @@ static void gc_scan_range(JossGCWorklist* wl, const void* start, const void* end
         uintptr_t tmp = a;
         a = b;
         b = tmp;
+    }
+    /* Defensive guard: never scan across disjoint/unmapped address regions (>16 MB) */
+    if (b - a > (16U * 1024U * 1024U)) {
+        return;
     }
     a = (a + 7U) & ~((uintptr_t)7U);
     b &= ~((uintptr_t)7U);
@@ -2164,8 +2182,13 @@ size_t joss_gc_collect(void) {
     gc_scan_range(&wl, &regs, (const uint8_t*)&regs + sizeof(regs));
 
     /* 2. Conservatively scan C stack from current frame to stack bottom */
+#if defined(__GNUC__) || defined(__clang__)
+    const void* stack_top = __builtin_frame_address(0);
+#else
     volatile uintptr_t stack_top_marker = 0;
-    gc_scan_range(&wl, (const void*)&stack_top_marker, g_gc_stack_bottom);
+    const void* stack_top = (const void*)&stack_top_marker;
+#endif
+    gc_scan_range(&wl, stack_top, g_gc_stack_bottom);
 
     /* 3. Scan explicitly registered global roots */
     for (size_t i = 0; i < g_gc_root_count; i++) {

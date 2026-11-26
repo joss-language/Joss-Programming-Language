@@ -2262,13 +2262,16 @@ static int64_t joss_cache_has_locked(const char* key) {
     return 1;
 }
 
+static int64_t joss_clone_session_value(int64_t v);
+
 int64_t fn_Cache_put(const char* key, int64_t val, int64_t ttl_seconds) {
     key = unbox_web_cstr(key);
     if (!key) return 0;
     joss_global_lock(JOSS_LOCK_CACHE);
     bool _prev_arena = joss_req_arena_pause();
     joss_cache_init();
-    joss_map_set_i64(g_joss_cache_values, key, val);
+    int64_t persisted_val = joss_clone_session_value(val);
+    joss_map_set_i64(g_joss_cache_values, key, persisted_val);
     int64_t exp = (ttl_seconds > 0) ? ((int64_t)time(NULL) + ttl_seconds) : 0;
     joss_map_set_i64(g_joss_cache_expiry, key, exp);
     joss_req_arena_resume(_prev_arena);
@@ -5343,7 +5346,7 @@ void* fn_Blueprint_decimal(void* bp, const char* name, int64_t p, int64_t s) {
     int64_t pp = joss_intval(p), ss = joss_intval(s);
     if (pp <= 0) pp = 10;
     if (ss < 0) ss = 2;
-    char tb[48];
+    char tb[64];
     snprintf(tb, sizeof(tb), "DECIMAL(%lld,%lld)", (long long)pp, (long long)ss);
     return joss_bp_add_col(bp, name, tb, false);
 }

@@ -141,7 +141,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	compileArgsWithOpt := func(opt, src, obj string, extra ...string) []string {
 		args := []string{"-c", opt, "-ffunction-sections", "-fdata-sections", "-Wno-override-module"}
 		if !opts.Debug && strings.HasSuffix(src, ".c") {
-			args = append(args, "-fvisibility=hidden", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables")
+			args = append(args, "-fvisibility=hidden", "-fmerge-all-constants", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables")
 		}
 		if bundledInc != "" && strings.HasSuffix(src, ".c") {
 			args = append(args, "-I"+bundledInc)
@@ -333,7 +333,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	if opts.Target.OS == "linux" || opts.Target.OS == "android" || opts.Target.OS == "" {
 		linkArgs = append(linkArgs, "-Wl,--gc-sections")
 		if !opts.Debug {
-			linkArgs = append(linkArgs, "-Wl,--strip-all")
+			linkArgs = append(linkArgs, "-Wl,--strip-all", "-Wl,--build-id=none")
 			if lldPath != "" && !tc.UseZigCC {
 				linkArgs = append(linkArgs, "-Wl,--icf=safe")
 			}

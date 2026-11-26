@@ -184,8 +184,12 @@ int main(void) {
     assert(joss_trace_depth() == 0);
 
     /* 11. Test Mini Garbage Collector (Mark-and-Sweep + Cycle Collection) */
-    volatile int gc_stack_anchor = 0;
+#if defined(__GNUC__) || defined(__clang__)
+    joss_gc_init(__builtin_frame_address(0));
+#else
+    volatile uintptr_t gc_stack_anchor = 0;
     joss_gc_init((void*)&gc_stack_anchor);
+#endif
     joss_gc_set_threshold(64 * 1024 * 1024); /* manual deterministic trigger */
 
     static const char* const kCycleFields[2] = { "id", "peer" };
