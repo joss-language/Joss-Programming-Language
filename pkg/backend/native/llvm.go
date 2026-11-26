@@ -3,6 +3,7 @@ package native
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -10,28 +11,37 @@ import (
 	"github.com/jossecurity/joss/pkg/ir"
 )
 
+type nominalClassMeta struct {
+	Sym        string
+	Fields     []string
+	SlotByName map[string]int
+}
+
 // LLVMEmitter traduce un ir.Program válido a LLVM IR textual (.ll).
 type LLVMEmitter struct {
-	stringConstants map[string]string // texto -> @.str.N
-	nextStringID    int
-	program         *ir.Program
-	varargSyms      map[string]bool
-	symRetTypes     map[string]string
-	symArgTypes     map[string][]string
-	tempLLVMTypes   map[int]string
-	nextDPFnID      int64
-	activeDPFnID    int64
-	activeDPParam0  string
-	activeDPParam1  string
-	currentFn       *ir.Function
-	currentFnHasTry bool
-	TargetOS        string
-	TargetArch      string
+	stringConstants  map[string]string // texto -> @.str.N
+	nextStringID     int
+	program          *ir.Program
+	varargSyms       map[string]bool
+	symRetTypes      map[string]string
+	symArgTypes      map[string][]string
+	tempLLVMTypes    map[int]string
+	classFieldTables map[string]nominalClassMeta
+	nextDPFnID       int64
+	activeDPFnID     int64
+	activeDPParam0   string
+	activeDPParam1   string
+	currentFn        *ir.Function
+	currentFnHasTry  bool
+	currentFnTraced  bool
+	TargetOS         string
+	TargetArch       string
 }
 
 func NewLLVMEmitter() *LLVMEmitter {
 	return &LLVMEmitter{
-		stringConstants: make(map[string]string),
+		stringConstants:  make(map[string]string),
+		classFieldTables: make(map[string]nominalClassMeta),
 	}
 }
 
@@ -40,6 +50,53 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 		return "", fmt.Errorf("llvm emitter: programa nil")
 	}
 	e.program = prog
+	e.classFieldTables = make(map[string]nominalClassMeta)
+
+	// Preparar tablas nominales de campos por clase (offsets fijos en tiempo de compilación)
+	if len(prog.ClassLayouts) > 0 {
+		clsNames := make([]string, 0, len(prog.ClassLayouts))
+		for name := range prog.ClassLayouts {
+			clsNames = append(clsNames, name)
+		}
+		sort.Strings(clsNames)
+		for idx, clsName := range clsNames {
+			layout := prog.ClassLayouts[clsName]
+			if layout == nil {
+				continue
+			}
+			maxSlot := -1
+			for fName, off := range layout.FieldOffsets {
+				if fName == "__joss_cls" || off < 8 {
+					continue
+				}
+				slot := int((off - 8) / 8)
+				if slot > maxSlot {
+					maxSlot = slot
+				}
+			}
+			if maxSlot < 0 {
+				continue
+			}
+			fields := make([]string, maxSlot+1)
+			slotByName := make(map[string]int, maxSlot+1)
+			for fName, off := range layout.FieldOffsets {
+				if fName == "__joss_cls" || off < 8 {
+					continue
+				}
+				slot := int((off - 8) / 8)
+				if slot >= 0 && slot < len(fields) {
+					fields[slot] = fName
+					slotByName[fName] = slot
+					e.registerString(fName)
+				}
+			}
+			e.classFieldTables[clsName] = nominalClassMeta{
+				Sym:        fmt.Sprintf("@__joss_cls_fields_%d", idx),
+				Fields:     fields,
+				SlotByName: slotByName,
+			}
+		}
+	}
 
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("; ModuleID = '%s'\n", prog.Name))
@@ -71,6 +128,9 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare void @joss_print_string(i8*)\n")
 	buf.WriteString("declare void @joss_print_mixed(i64)\n")
 	buf.WriteString("declare void @joss_panic(i8*)\n")
+	buf.WriteString("declare void @joss_trace_push(i8*, i8*, i64)\n")
+	buf.WriteString("declare void @joss_trace_pop()\n")
+	buf.WriteString("declare void @joss_trace_set_line(i64)\n")
 	buf.WriteString("declare i8* @joss_try_push()\n")
 	buf.WriteString("declare void @joss_try_pop()\n")
 	buf.WriteString("declare i8* @joss_catch_msg()\n")
@@ -86,10 +146,62 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	}
 	buf.WriteString("declare i8* @joss_str_concat(i8*, i8*)\n")
 	buf.WriteString("declare i8* @joss_obj_new(i8*)\n")
+	buf.WriteString("declare i8* @joss_nominal_obj_new(i8*, i64, i8**)\n")
 	buf.WriteString("declare void @joss_obj_set_field_i64(i8*, i8*, i64)\n")
 	buf.WriteString("declare i64 @joss_obj_get_field_i64(i8*, i8*)\n")
 	buf.WriteString("declare void @joss_obj_set_field_str(i8*, i8*, i8*)\n")
 	buf.WriteString("declare i8* @joss_obj_get_field_str(i8*, i8*)\n")
+	buf.WriteString(`define internal i64 @__joss_fast_obj_get(i8* %obj, i64 %slot, i8* %field) alwaysinline {
+entry:
+	%isnull = icmp eq i8* %obj, null
+	br i1 %isnull, label %ret0, label %chk_magic
+ret0:
+	ret i64 0
+chk_magic:
+	%p64 = bitcast i8* %obj to i64*
+	%magic = load i64, i64* %p64, align 8
+	%ismagic = icmp eq i64 %magic, 5354590077769108017
+	br i1 %ismagic, label %chk_bounds, label %slow
+chk_bounds:
+	%nfp = getelementptr inbounds i64, i64* %p64, i64 2
+	%nf = load i64, i64* %nfp, align 8
+	%inb = icmp ult i64 %slot, %nf
+	br i1 %inb, label %fast, label %slow
+fast:
+	%idx = add nuw i64 %slot, 5
+	%fp = getelementptr inbounds i64, i64* %p64, i64 %idx
+	%val = load i64, i64* %fp, align 8
+	ret i64 %val
+slow:
+	%sv = tail call i64 @joss_obj_get_field_i64(i8* %obj, i8* %field)
+	ret i64 %sv
+}
+define internal void @__joss_fast_obj_set(i8* %obj, i64 %slot, i8* %field, i64 %val) alwaysinline {
+entry:
+	%isnull = icmp eq i8* %obj, null
+	br i1 %isnull, label %done, label %chk_magic
+done:
+	ret void
+chk_magic:
+	%p64 = bitcast i8* %obj to i64*
+	%magic = load i64, i64* %p64, align 8
+	%ismagic = icmp eq i64 %magic, 5354590077769108017
+	br i1 %ismagic, label %chk_bounds, label %slow
+chk_bounds:
+	%nfp = getelementptr inbounds i64, i64* %p64, i64 2
+	%nf = load i64, i64* %nfp, align 8
+	%inb = icmp ult i64 %slot, %nf
+	br i1 %inb, label %fast, label %slow
+fast:
+	%idx = add nuw i64 %slot, 5
+	%fp = getelementptr inbounds i64, i64* %p64, i64 %idx
+	store i64 %val, i64* %fp, align 8
+	ret void
+slow:
+	tail call void @joss_obj_set_field_i64(i8* %obj, i8* %field, i64 %val)
+	ret void
+}
+`)
 	buf.WriteString("declare i8* @joss_arr_new(i64)\n")
 	buf.WriteString("declare void @joss_arr_push_i64(i8*, i64)\n")
 	buf.WriteString("declare void @joss_arr_push_str(i8*, i8*)\n")
@@ -707,6 +819,30 @@ slow:
 		}
 		buf.WriteString("\n")
 	}
+	if len(e.classFieldTables) > 0 {
+		buf.WriteString("; Nominal Class Field Tables\n")
+		clsNames := make([]string, 0, len(e.classFieldTables))
+		for name := range e.classFieldTables {
+			clsNames = append(clsNames, name)
+		}
+		sort.Strings(clsNames)
+		for _, clsName := range clsNames {
+			meta := e.classFieldTables[clsName]
+			elems := make([]string, len(meta.Fields))
+			for idx, fName := range meta.Fields {
+				if fName == "" {
+					elems[idx] = "i8* null"
+					continue
+				}
+				sym := e.registerString(fName)
+				_, flen := formatLLVMStringLiteral(fName)
+				elems[idx] = fmt.Sprintf("i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0)", flen, flen, sym)
+			}
+			buf.WriteString(fmt.Sprintf("%s = private unnamed_addr constant [%d x i8*] [%s], align 8\n",
+				meta.Sym, len(meta.Fields), strings.Join(elems, ", ")))
+		}
+		buf.WriteString("\n")
+	}
 	buf.Write(bodyBuf.Bytes())
 
 	return buf.String(), nil
@@ -768,6 +904,21 @@ func fnContainsTryCatch(blocks []*ir.BasicBlock) bool {
 	return false
 }
 
+func fnShouldTrace(fn *ir.Function) bool {
+	if fn == nil || fn.SourceFile == "" || strings.HasPrefix(fn.Name, "__joss_") {
+		return false
+	}
+	for _, b := range fn.Blocks {
+		for _, inst := range b.Instructions {
+			switch inst.(type) {
+			case *ir.ThrowInst, *ir.CallInst, *ir.CallIndirectInst, *ir.CallBuiltinInst:
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {
 	e.currentFn = fn
 	e.currentFnHasTry = fnContainsTryCatch(fn.Blocks)
@@ -776,6 +927,8 @@ func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {
 	e.activeDPParam0 = "0"
 	e.activeDPParam1 = "0"
 	retType := MapLLVMType(fn.ReturnType)
+	dpEligible := isAutoDPEligible(fn) && len(fn.Blocks) > 0
+	e.currentFnTraced = !dpEligible && fnShouldTrace(fn)
 
 	// Parámetros
 	paramStrs := make([]string, len(fn.Params))
@@ -789,7 +942,7 @@ func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {
 	}
 	buf.WriteString(fmt.Sprintf("define %s%s @%s(%s) {\n", linkage, retType, fn.Name, strings.Join(paramStrs, ", ")))
 
-	if isAutoDPEligible(fn) && len(fn.Blocks) > 0 {
+	if dpEligible {
 		e.nextDPFnID++
 		e.activeDPFnID = e.nextDPFnID
 		e.activeDPParam0 = e.formatValue(fn.Params[0])
@@ -812,6 +965,15 @@ func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {
 			if initFn := e.program.Functions["__joss_init_static_globals"]; initFn != nil {
 				buf.WriteString(fmt.Sprintf("    call %s @__joss_init_static_globals()\n", MapLLVMType(initFn.ReturnType)))
 			}
+		}
+		if bi == 0 && e.currentFnTraced {
+			fnSym := e.registerString(fn.Name)
+			_, fnLen := formatLLVMStringLiteral(fn.Name)
+			baseFile := filepath.Base(fn.SourceFile)
+			fileSym := e.registerString(baseFile)
+			_, fileLen := formatLLVMStringLiteral(baseFile)
+			buf.WriteString(fmt.Sprintf("    call void @joss_trace_push(i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i64 %d)\n",
+				fnLen, fnLen, fnSym, fileLen, fileLen, fileSym, fn.SourceLine))
 		}
 
 		for _, inst := range block.Instructions {
@@ -1119,9 +1281,13 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 
 	case *ir.NewObjectInst:
 		clsSym := e.registerString(i.ClassName)
-		escaped, length := formatLLVMStringLiteral(i.ClassName)
-		_ = escaped
+		_, length := formatLLVMStringLiteral(i.ClassName)
 		destVal := e.formatValue(i.Dest)
+		if meta, ok := e.classFieldTables[i.ClassName]; ok && len(meta.Fields) > 0 {
+			n := len(meta.Fields)
+			return fmt.Sprintf("%s = call i8* @joss_nominal_obj_new(i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i64 %d, i8** getelementptr inbounds ([%d x i8*], [%d x i8*]* %s, i64 0, i64 0))",
+				destVal, length, length, clsSym, n, n, n, meta.Sym), nil
+		}
 		return fmt.Sprintf("%s = call i8* @joss_obj_new(i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", destVal, length, length, clsSym), nil
 
 	case *ir.LoadFieldInst:
@@ -1132,7 +1298,16 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		if i.Dest.Type().Kind == ir.TypeKindString {
 			return fmt.Sprintf("%s%s = call i8* @joss_obj_get_field_str(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", pre, destVal, objVal, length, length, fieldSym), nil
 		}
+		slotIdx := e.resolveNominalFieldSlot(i.Obj, i.FieldName)
 		destLLVM := MapLLVMType(i.Dest.Type())
+		if slotIdx >= 0 {
+			if destLLVM != "i64" {
+				raw := fmt.Sprintf("%%lfraw_%p", i)
+				conv := e.emitDirectCast("i64", raw, destLLVM, destVal)
+				return fmt.Sprintf("%s%s = call i64 @__joss_fast_obj_get(i8* %s, i64 %d, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))\n\t%s", pre, raw, objVal, slotIdx, length, length, fieldSym, conv), nil
+			}
+			return fmt.Sprintf("%s%s = call i64 @__joss_fast_obj_get(i8* %s, i64 %d, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", pre, destVal, objVal, slotIdx, length, length, fieldSym), nil
+		}
 		if destLLVM != "i64" {
 			raw := fmt.Sprintf("%%lfraw_%p", i)
 			conv := e.emitDirectCast("i64", raw, destLLVM, destVal)
@@ -1144,11 +1319,15 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		fieldSym := e.registerString(i.FieldName)
 		_, length := formatLLVMStringLiteral(i.FieldName)
 		preObj, objVal := e.coerceLLVM(i.Obj, "i8*", fmt.Sprintf("sf_o_%p", i))
+		slotIdx := e.resolveNominalFieldSlot(i.Obj, i.FieldName)
 		if i.Val.Type().Kind == ir.TypeKindString {
 			preVal, valVal := e.coerceLLVM(i.Val, "i8*", fmt.Sprintf("sf_v_%p", i))
 			return fmt.Sprintf("%s%scall void @joss_obj_set_field_str(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i8* %s)", preObj, preVal, objVal, length, length, fieldSym, valVal), nil
 		}
 		preVal, valVal := e.coerceLLVM(i.Val, "i64", fmt.Sprintf("sf_v_%p", i))
+		if slotIdx >= 0 {
+			return fmt.Sprintf("%s%scall void @__joss_fast_obj_set(i8* %s, i64 %d, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i64 %s)", preObj, preVal, objVal, slotIdx, length, length, fieldSym, valVal), nil
+		}
 		return fmt.Sprintf("%s%scall void @joss_obj_set_field_i64(i8* %s, i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0), i64 %s)", preObj, preVal, objVal, length, length, fieldSym, valVal), nil
 
 	case *ir.NewArrayInst:
@@ -1318,16 +1497,20 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 		return fmt.Sprintf("call void @%s(%s)", i.Symbol, argsJoined), nil
 
 	case *ir.ThrowInst:
+		linePrefix := ""
+		if i.SourceLine > 0 {
+			linePrefix = fmt.Sprintf("call void @joss_trace_set_line(i64 %d)\n\t", i.SourceLine)
+		}
 		if i.Val != nil && i.Val.Type().Kind == ir.TypeKindString {
-			return fmt.Sprintf("call void @joss_throw(%s)", e.formatTypedValue(i.Val)), nil
+			return fmt.Sprintf("%scall void @joss_throw(%s)", linePrefix, e.formatTypedValue(i.Val)), nil
 		}
 		if i.Val != nil {
 			pre, vStr := e.coerceLLVM(i.Val, "i8*", fmt.Sprintf("thr_%p", i))
-			return fmt.Sprintf("%scall void @joss_throw(i8* %s)", pre, vStr), nil
+			return fmt.Sprintf("%s%scall void @joss_throw(i8* %s)", pre, linePrefix, vStr), nil
 		}
 		msgSym := e.registerString("Joss Exception")
 		_, msgLen := formatLLVMStringLiteral("Joss Exception")
-		return fmt.Sprintf("call void @joss_throw(i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", msgLen, msgLen, msgSym), nil
+		return fmt.Sprintf("%scall void @joss_throw(i8* getelementptr inbounds ([%d x i8], [%d x i8]* %s, i64 0, i64 0))", linePrefix, msgLen, msgLen, msgSym), nil
 
 	case *ir.CastInst:
 		srcT := i.Val.Type()
@@ -1505,19 +1688,41 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 	return "", fmt.Errorf("llvm emitter: instrucción no soportada %s", inst)
 }
 
+func (e *LLVMEmitter) resolveNominalFieldSlot(obj ir.Value, fieldName string) int {
+	if obj == nil || fieldName == "" || len(e.classFieldTables) == 0 {
+		return -1
+	}
+	t := obj.Type()
+	if t.Kind == ir.TypeKindPtr && t.Elem != nil {
+		t = *t.Elem
+	}
+	if t.Kind == ir.TypeKindStruct && t.Name != "" {
+		if meta, ok := e.classFieldTables[t.Name]; ok {
+			if slot, exists := meta.SlotByName[fieldName]; exists {
+				return slot
+			}
+		}
+	}
+	return -1
+}
+
 func (e *LLVMEmitter) emitTerminator(fn *ir.Function, term ir.Terminator) (string, error) {
 	switch t := term.(type) {
 	case *ir.ReturnTerminator:
+		popPrefix := ""
+		if e.currentFnTraced {
+			popPrefix = "call void @joss_trace_pop()\n\t"
+		}
 		if t.Val == nil || fn.ReturnType.Kind == ir.TypeKindVoid {
-			return "ret void", nil
+			return popPrefix + "ret void", nil
 		}
 		retLLVM := MapLLVMType(fn.ReturnType)
 		pre, valExpr := e.coerceLLVM(t.Val, retLLVM, fmt.Sprintf("ret_%p", t))
 		if e.activeDPFnID > 0 && retLLVM == "i64" {
-			return fmt.Sprintf("%scall void @joss_dp_put(i64 %d, i64 %s, i64 %s, i64 %s)\n\tret i64 %s",
-				pre, e.activeDPFnID, e.activeDPParam0, e.activeDPParam1, valExpr, valExpr), nil
+			return fmt.Sprintf("%scall void @joss_dp_put(i64 %d, i64 %s, i64 %s, i64 %s)\n\t%sret i64 %s",
+				pre, e.activeDPFnID, e.activeDPParam0, e.activeDPParam1, valExpr, popPrefix, valExpr), nil
 		}
-		return fmt.Sprintf("%sret %s %s", pre, retLLVM, valExpr), nil
+		return fmt.Sprintf("%s%sret %s %s", pre, popPrefix, retLLVM, valExpr), nil
 
 	case *ir.JumpTerminator:
 		return fmt.Sprintf("br label %%%s", t.Target.Label), nil

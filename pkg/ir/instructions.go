@@ -545,7 +545,8 @@ func (i *MapDeleteInst) String() string {
 
 // ThrowInst: throw %val
 type ThrowInst struct {
-	Val Value
+	Val        Value
+	SourceLine int
 }
 
 func (i *ThrowInst) Opcode() Opcode     { return OpThrow }

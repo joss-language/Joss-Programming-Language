@@ -35,6 +35,7 @@ type Lowerer struct {
 	activeClosureEnvMap   Value
 	pendingVirtualMethods []pendingVirtualMethod
 	currentFnStmts        []parser.Statement
+	currentUnitPath       string
 }
 
 type externDecl struct {
@@ -91,6 +92,7 @@ func (l *Lowerer) LowerProgram(name string) (*Program, error) {
 		if unit.Program == nil {
 			continue
 		}
+		l.currentUnitPath = unit.Path
 
 		// Primera pasada: recolectar y compilar funciones/métodos declarados a nivel superior
 		for _, stmt := range unit.Program.Statements {
@@ -250,6 +252,12 @@ func (l *Lowerer) registerExternLibrary(stmt *parser.ExternLibraryStatement) {
 
 func (l *Lowerer) synthesizeMainFunction(stmts []parser.Statement) error {
 	mainFn := NewFunction("main", TypeI64)
+	if l.currentUnitPath != "" {
+		mainFn.SourceFile = l.currentUnitPath
+	} else {
+		mainFn.SourceFile = "main.joss"
+	}
+	mainFn.SourceLine = 1
 	l.currentFn = mainFn
 	l.currBlock = mainFn.EntryBlock
 	l.varLocals = make(map[string]Value)
@@ -280,6 +288,8 @@ func (l *Lowerer) synthesizeMainFunction(stmts []parser.Statement) error {
 func (l *Lowerer) lowerMethod(stmt *parser.MethodStatement) error {
 	retType := l.inferMethodReturnType(stmt)
 	fn := NewFunction(stmt.Name.Value, retType)
+	fn.SourceFile = l.currentUnitPath
+	fn.SourceLine = stmt.Token.Line
 	l.currentFn = fn
 	l.currBlock = fn.EntryBlock
 	l.varLocals = make(map[string]Value)
@@ -333,6 +343,8 @@ func (l *Lowerer) lowerClassMethod(className string, stmt *parser.MethodStatemen
 	mName := className + "_" + stmt.Name.Value
 	retType := l.inferMethodReturnType(stmt)
 	fn := NewFunction(mName, retType)
+	fn.SourceFile = l.currentUnitPath
+	fn.SourceLine = stmt.Token.Line
 	l.currentFn = fn
 	l.currBlock = fn.EntryBlock
 	l.varLocals = make(map[string]Value)
@@ -801,7 +813,7 @@ func (l *Lowerer) lowerStatement(stmt parser.Statement) error {
 		} else {
 			throwVal = NewConstString("exception")
 		}
-		l.currBlock.AddInstruction(&ThrowInst{Val: throwVal})
+		l.currBlock.AddInstruction(&ThrowInst{Val: throwVal, SourceLine: s.Token.Line})
 		l.currBlock.SetTerminator(&UnreachableTerminator{})
 		deadBlock := l.currentFn.NewBlock("dead")
 		l.currBlock = deadBlock

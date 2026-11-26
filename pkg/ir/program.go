@@ -51,6 +51,8 @@ type Function struct {
 	NextTempID  int
 	NextBlockID int
 	Attributes  map[string]string
+	SourceFile  string
+	SourceLine  int
 }
 
 func NewFunction(name string, returnType Type) *Function {
