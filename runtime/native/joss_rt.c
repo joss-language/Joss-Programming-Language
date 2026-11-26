@@ -175,8 +175,20 @@ bool joss_is_boxed_ptr(int64_t val) {
     return (b->header >> 32) == JOSS_BOX_MAGIC;
 }
 
+typedef enum {
+    JOSS_GC_ARRAY   = 1,
+    JOSS_GC_MAP     = 2,
+    JOSS_GC_NOMINAL = 3,
+    JOSS_GC_BOX     = 4
+} JossGCKind;
+
+static bool  joss_gc_should_manage(void);
+static void* joss_gc_alloc(uint32_t kind, size_t size);
+
 JossBoxedValue* joss_box_value(uint64_t tag, uint64_t payload) {
-    JossBoxedValue* box = (JossBoxedValue*)calloc(1, sizeof(JossBoxedValue));
+    JossBoxedValue* box = joss_gc_should_manage()
+        ? (JossBoxedValue*)joss_gc_alloc(JOSS_GC_BOX, sizeof(JossBoxedValue))
+        : (JossBoxedValue*)calloc(1, sizeof(JossBoxedValue));
     if (!box) {
         joss_panic("out of memory boxing value");
     }
@@ -834,7 +846,9 @@ typedef struct {
 
 void* joss_arr_new(int64_t initial_cap) {
     if (initial_cap < 8) initial_cap = 8;
-    JossArray* a = (JossArray*)calloc(1, sizeof(JossArray));
+    JossArray* a = joss_gc_should_manage()
+        ? (JossArray*)joss_gc_alloc(JOSS_GC_ARRAY, sizeof(JossArray))
+        : (JossArray*)calloc(1, sizeof(JossArray));
     if (!a) joss_panic("out of memory allocating array");
     a->magic = JOSS_ARR_MAGIC;
     a->cap = initial_cap;
@@ -1002,6 +1016,11 @@ static _Thread_local size_t   g_tls_map_used = 0;
 static _Thread_local size_t   g_tls_map_cap  = 0;
 
 static inline JossMap* joss_map_alloc_raw(void) {
+    if (joss_gc_should_manage()) {
+        JossMap* m = (JossMap*)joss_gc_alloc(JOSS_GC_MAP, sizeof(JossMap));
+        joss_atomic_update_bounds(&g_joss_map_min, &g_joss_map_max, (uintptr_t)m);
+        return m;
+    }
     if (__builtin_expect(g_tls_map_used >= g_tls_map_cap, 0)) {
         size_t cap = 2048; /* ~512 KB per slab -> 1 atomic bounds update per 2048 objects */
         JossMap* slab = (JossMap*)malloc(cap * sizeof(JossMap));
@@ -1292,6 +1311,11 @@ static inline JossNominalObj* joss_nom_alloc_raw(size_t bytes) {
     if (__builtin_expect(joss_req_is_active(), 0)) {
         JossNominalObj* o = (JossNominalObj*)joss_req_alloc(aligned);
         memset(o, 0, aligned);
+        joss_atomic_update_bounds(&g_joss_nom_min, &g_joss_nom_max, (uintptr_t)o);
+        return o;
+    }
+    if (joss_gc_should_manage()) {
+        JossNominalObj* o = (JossNominalObj*)joss_gc_alloc(JOSS_GC_NOMINAL, aligned);
         joss_atomic_update_bounds(&g_joss_nom_min, &g_joss_nom_max, (uintptr_t)o);
         return o;
     }
@@ -1787,5 +1811,359 @@ JossSchemaDbExecFn  g_joss_schema_db_exec  = NULL;
 void joss_register_schema_db(JossSchemaDbQueryFn q, JossSchemaDbExecFn e) {
     g_joss_schema_db_query = q;
     g_joss_schema_db_exec  = e;
+}
+
+/* =========================================================================
+ * Mini Garbage Collector (Conservative Mark-and-Sweep + Root Registry)
+ * ========================================================================= */
+#define JOSS_GC_DEFAULT_THRESHOLD (32U * 1024U * 1024U) /* 32 MB */
+#define JOSS_GC_MAX_ROOTS         4096
+
+typedef struct JossGCHeader {
+    struct JossGCHeader* next;
+    size_t               size;
+    uint32_t             kind;
+    uint32_t             marked;
+} JossGCHeader;
+
+static JossGCHeader* g_gc_head          = NULL;
+static void*         g_gc_stack_bottom  = NULL;
+static bool          g_gc_multithreaded = false;
+static bool          g_gc_in_collect    = false;
+static size_t        g_gc_objects_live  = 0;
+static size_t        g_gc_bytes_live    = 0;
+static size_t        g_gc_total_allocs  = 0;
+static size_t        g_gc_total_freed   = 0;
+static size_t        g_gc_collections   = 0;
+static size_t        g_gc_threshold     = JOSS_GC_DEFAULT_THRESHOLD;
+
+static void**        g_gc_roots[JOSS_GC_MAX_ROOTS];
+static size_t        g_gc_root_count    = 0;
+
+/* Open-addressing hash table mapping payload pointer -> JossGCHeader* */
+static JossGCHeader** g_gc_ptr_table    = NULL;
+static size_t         g_gc_ptr_cap      = 0;
+static size_t         g_gc_ptr_used     = 0;
+
+static inline size_t gc_ptr_hash(uintptr_t p, size_t mask) {
+    uint64_t x = (uint64_t)(p >> 3) * 11400714819323198485ULL;
+    return (size_t)(x ^ (x >> 32)) & mask;
+}
+
+static void gc_ptr_table_rebuild(size_t new_cap) {
+    if (new_cap < 1024) new_cap = 1024;
+    JossGCHeader** tbl = (JossGCHeader**)calloc(new_cap, sizeof(JossGCHeader*));
+    if (!tbl) return;
+    size_t mask = new_cap - 1;
+    size_t used = 0;
+    for (JossGCHeader* h = g_gc_head; h != NULL; h = h->next) {
+        uintptr_t payload = (uintptr_t)(h + 1);
+        size_t pos = gc_ptr_hash(payload, mask);
+        while (tbl[pos] != NULL) {
+            pos = (pos + 1U) & mask;
+        }
+        tbl[pos] = h;
+        used++;
+    }
+    free(g_gc_ptr_table);
+    g_gc_ptr_table = tbl;
+    g_gc_ptr_cap   = new_cap;
+    g_gc_ptr_used  = used;
+}
+
+static void gc_ptr_table_insert(JossGCHeader* h) {
+    if (!g_gc_ptr_table || (g_gc_ptr_used + 1) * 10 >= g_gc_ptr_cap * 6) {
+        size_t next_cap = g_gc_ptr_cap ? g_gc_ptr_cap * 2 : 2048;
+        while (next_cap < g_gc_objects_live * 2) next_cap *= 2;
+        gc_ptr_table_rebuild(next_cap);
+        return; /* rebuild already inserted g_gc_head including h */
+    }
+    size_t mask = g_gc_ptr_cap - 1;
+    uintptr_t payload = (uintptr_t)(h + 1);
+    size_t pos = gc_ptr_hash(payload, mask);
+    while (g_gc_ptr_table[pos] != NULL) {
+        pos = (pos + 1U) & mask;
+    }
+    g_gc_ptr_table[pos] = h;
+    g_gc_ptr_used++;
+}
+
+static inline JossGCHeader* gc_find_header(uintptr_t ptr) {
+    if (!g_gc_ptr_table || ptr < JOSS_MIN_PTR_ADDR || (ptr & 7U) != 0) {
+        return NULL;
+    }
+    size_t mask = g_gc_ptr_cap - 1;
+    size_t pos = gc_ptr_hash(ptr, mask);
+    for (;;) {
+        JossGCHeader* h = g_gc_ptr_table[pos];
+        if (!h) return NULL;
+        if ((uintptr_t)(h + 1) == ptr) return h;
+        pos = (pos + 1U) & mask;
+    }
+}
+
+static bool joss_gc_should_manage(void) {
+    return g_gc_stack_bottom != NULL && !g_gc_multithreaded && !g_gc_in_collect;
+}
+
+void joss_gc_init(void* stack_bottom) {
+    if (stack_bottom && !g_gc_stack_bottom) {
+        g_gc_stack_bottom = stack_bottom;
+    }
+}
+
+void joss_gc_add_root(void** root_slot) {
+    if (!root_slot || g_gc_root_count >= JOSS_GC_MAX_ROOTS) return;
+    for (size_t i = 0; i < g_gc_root_count; i++) {
+        if (g_gc_roots[i] == root_slot) return;
+    }
+    g_gc_roots[g_gc_root_count++] = root_slot;
+}
+
+void joss_gc_set_threshold(size_t bytes) {
+    if (bytes < 65536) bytes = 65536;
+    g_gc_threshold = bytes;
+}
+
+void joss_gc_set_multithreaded(bool enabled) {
+    g_gc_multithreaded = enabled;
+}
+
+void joss_gc_stats(JossGCStats* out) {
+    if (!out) return;
+    out->objects_live    = g_gc_objects_live;
+    out->bytes_live      = g_gc_bytes_live;
+    out->total_allocs    = g_gc_total_allocs;
+    out->total_freed     = g_gc_total_freed;
+    out->collections     = g_gc_collections;
+    out->threshold_bytes = g_gc_threshold;
+}
+
+typedef struct {
+    JossGCHeader** items;
+    size_t         len;
+    size_t         cap;
+} JossGCWorklist;
+
+static void gc_worklist_push(JossGCWorklist* wl, JossGCHeader* h) {
+    if (!h || h->marked) return;
+    h->marked = 1;
+    if (wl->len >= wl->cap) {
+        size_t ncap = wl->cap ? wl->cap * 2 : 256;
+        JossGCHeader** next = (JossGCHeader**)realloc(wl->items, ncap * sizeof(JossGCHeader*));
+        if (!next) return;
+        wl->items = next;
+        wl->cap = ncap;
+    }
+    wl->items[wl->len++] = h;
+}
+
+static inline void gc_mark_word(JossGCWorklist* wl, uintptr_t word) {
+    JossGCHeader* h = gc_find_header(word);
+    if (h && !h->marked) {
+        gc_worklist_push(wl, h);
+    }
+}
+
+static void gc_scan_range(JossGCWorklist* wl, const void* start, const void* end) {
+    uintptr_t a = (uintptr_t)start;
+    uintptr_t b = (uintptr_t)end;
+    if (a > b) {
+        uintptr_t tmp = a;
+        a = b;
+        b = tmp;
+    }
+    a = (a + 7U) & ~((uintptr_t)7U);
+    b &= ~((uintptr_t)7U);
+    for (uintptr_t p = a; p + sizeof(uintptr_t) <= b; p += sizeof(uintptr_t)) {
+        uintptr_t word = 0;
+        memcpy(&word, (const void*)p, sizeof(uintptr_t));
+        gc_mark_word(wl, word);
+    }
+}
+
+static void gc_trace_children(JossGCWorklist* wl) {
+    while (wl->len > 0) {
+        JossGCHeader* h = wl->items[--wl->len];
+        void* payload = (void*)(h + 1);
+        switch (h->kind) {
+            case JOSS_GC_ARRAY: {
+                const JossArray* arr = (const JossArray*)payload;
+                if (arr->items && arr->len > 0) {
+                    for (int64_t i = 0; i < arr->len; i++) {
+                        gc_mark_word(wl, (uintptr_t)(uint64_t)arr->items[i]);
+                    }
+                }
+                break;
+            }
+            case JOSS_GC_MAP: {
+                const JossMap* m = (const JossMap*)payload;
+                if (m->entries && m->entry_len > 0) {
+                    for (int32_t i = 0; i < m->entry_len; i++) {
+                        if (!m->entries[i].deleted) {
+                            gc_mark_word(wl, (uintptr_t)(uint64_t)m->entries[i].val);
+                        }
+                    }
+                }
+                break;
+            }
+            case JOSS_GC_NOMINAL: {
+                const JossNominalObj* o = (const JossNominalObj*)payload;
+                if (o->overflow_map) {
+                    gc_mark_word(wl, (uintptr_t)o->overflow_map);
+                }
+                for (int64_t i = 0; i < o->num_fields; i++) {
+                    gc_mark_word(wl, (uintptr_t)(uint64_t)o->fields[i]);
+                }
+                break;
+            }
+            case JOSS_GC_BOX: {
+                const JossBoxedValue* b = (const JossBoxedValue*)payload;
+                gc_mark_word(wl, (uintptr_t)b->payload);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+}
+
+static void gc_free_object(JossGCHeader* h) {
+    void* payload = (void*)(h + 1);
+    switch (h->kind) {
+        case JOSS_GC_ARRAY: {
+            JossArray* arr = (JossArray*)payload;
+            free(arr->items);
+            arr->items = NULL;
+            break;
+        }
+        case JOSS_GC_MAP: {
+            JossMap* m = (JossMap*)payload;
+            if (m->entries) {
+                for (int32_t i = 0; i < m->entry_len; i++) {
+                    if (!m->entries[i].deleted && m->entries[i].key_owned && m->entries[i].key) {
+                        free(m->entries[i].key);
+                    }
+                }
+                if (m->entries != m->inline_entries) {
+                    free(m->entries);
+                }
+            }
+            free(m->slots);
+            break;
+        }
+        default:
+            break;
+    }
+    free(h);
+}
+
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((noinline))
+#endif
+size_t joss_gc_collect(void) {
+    if (!g_gc_stack_bottom || g_gc_multithreaded || g_gc_in_collect || !g_gc_head) {
+        return 0;
+    }
+    g_gc_in_collect = true;
+
+    JossGCWorklist wl = { NULL, 0, 0 };
+
+    /* 1. Spill callee-saved CPU registers to stack via portable setjmp */
+    jmp_buf regs;
+    (void)setjmp(regs);
+    gc_scan_range(&wl, &regs, (const uint8_t*)&regs + sizeof(regs));
+
+    /* 2. Conservatively scan C stack from current frame to stack bottom */
+    volatile uintptr_t stack_top_marker = 0;
+    gc_scan_range(&wl, (const void*)&stack_top_marker, g_gc_stack_bottom);
+
+    /* 3. Scan explicitly registered global roots */
+    for (size_t i = 0; i < g_gc_root_count; i++) {
+        if (g_gc_roots[i]) {
+            uintptr_t word = 0;
+            memcpy(&word, g_gc_roots[i], sizeof(uintptr_t));
+            gc_mark_word(&wl, word);
+        }
+    }
+
+    /* 4. Scan closure environments as roots */
+    for (int i = 0; i < g_tls_closure_env_count; i++) {
+        if (g_tls_closure_envs[i].env_map) {
+            gc_mark_word(&wl, (uintptr_t)g_tls_closure_envs[i].env_map);
+        }
+    }
+    for (int i = 0; i < g_global_closure_env_count; i++) {
+        if (g_global_closure_envs[i].env_map) {
+            gc_mark_word(&wl, (uintptr_t)g_global_closure_envs[i].env_map);
+        }
+    }
+
+    /* 5. Transitive mark phase */
+    gc_trace_children(&wl);
+    free(wl.items);
+
+    /* 6. Sweep phase */
+    size_t freed_count = 0;
+    JossGCHeader** pp = &g_gc_head;
+    while (*pp != NULL) {
+        JossGCHeader* cur = *pp;
+        if (cur->marked) {
+            cur->marked = 0;
+            pp = &cur->next;
+        } else {
+            *pp = cur->next;
+            g_gc_objects_live--;
+            if (g_gc_bytes_live >= cur->size) {
+                g_gc_bytes_live -= cur->size;
+            } else {
+                g_gc_bytes_live = 0;
+            }
+            g_gc_total_freed++;
+            freed_count++;
+            gc_free_object(cur);
+        }
+    }
+
+    if (freed_count > 0) {
+        size_t target_cap = 2048;
+        while (target_cap < g_gc_objects_live * 2) target_cap *= 2;
+        gc_ptr_table_rebuild(target_cap);
+    }
+
+    g_gc_collections++;
+    size_t next_threshold = g_gc_bytes_live * 2;
+    if (next_threshold < JOSS_GC_DEFAULT_THRESHOLD) {
+        next_threshold = JOSS_GC_DEFAULT_THRESHOLD;
+    }
+    g_gc_threshold = next_threshold;
+    g_gc_in_collect = false;
+    return freed_count;
+}
+
+static void* joss_gc_alloc(uint32_t kind, size_t size) {
+    if (g_gc_bytes_live >= g_gc_threshold && !g_gc_in_collect && !g_gc_multithreaded && g_gc_stack_bottom) {
+        (void)joss_gc_collect();
+    }
+    size_t total = sizeof(JossGCHeader) + size;
+    JossGCHeader* h = (JossGCHeader*)calloc(1, total);
+    if (!h) {
+        /* Last-resort collection on OOM */
+        if (!g_gc_in_collect && !g_gc_multithreaded && g_gc_stack_bottom) {
+            (void)joss_gc_collect();
+            h = (JossGCHeader*)calloc(1, total);
+        }
+        if (!h) joss_panic("out of memory in Joss Mini GC");
+    }
+    h->next   = g_gc_head;
+    h->size   = total;
+    h->kind   = kind;
+    h->marked = 0;
+    g_gc_head = h;
+    g_gc_objects_live++;
+    g_gc_bytes_live += total;
+    g_gc_total_allocs++;
+    gc_ptr_table_insert(h);
+    return (void*)(h + 1);
 }
 

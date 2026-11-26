@@ -183,6 +183,38 @@ int main(void) {
     joss_trace_pop();
     assert(joss_trace_depth() == 0);
 
+    /* 11. Test Mini Garbage Collector (Mark-and-Sweep + Cycle Collection) */
+    volatile int gc_stack_anchor = 0;
+    joss_gc_init((void*)&gc_stack_anchor);
+    joss_gc_set_threshold(64 * 1024 * 1024); /* manual deterministic trigger */
+
+    static const char* const kCycleFields[2] = { "id", "peer" };
+    void* live_root = joss_nominal_obj_new("CycleNode", 2, kCycleFields);
+    joss_nominal_set_slot(live_root, 0, 12345);
+    void* live_child = joss_arr_new(4);
+    joss_arr_push_i64(live_child, 98765);
+    joss_nominal_set_slot(live_root, 1, (int64_t)(uintptr_t)live_child);
+
+    /* Allocate 400 unreachable objects including reference cycles (A <-> B) */
+    for (int i = 0; i < 200; i++) {
+        void* a = joss_nominal_obj_new("CycleNode", 2, kCycleFields);
+        void* b = joss_nominal_obj_new("CycleNode", 2, kCycleFields);
+        joss_nominal_set_slot(a, 0, i);
+        joss_nominal_set_slot(b, 0, i + 1);
+        joss_nominal_set_slot(a, 1, (int64_t)(uintptr_t)b);
+        joss_nominal_set_slot(b, 1, (int64_t)(uintptr_t)a);
+    }
+
+    size_t freed = joss_gc_collect();
+    JossGCStats st;
+    joss_gc_stats(&st);
+    assert(freed >= 380);
+    assert(st.collections >= 1);
+    /* Verify live root and its transitive child survived intact */
+    assert(joss_nominal_get_slot(live_root, 0) == 12345);
+    void* survived_child = (void*)(uintptr_t)joss_nominal_get_slot(live_root, 1);
+    assert(joss_arr_len(survived_child) == 1 && joss_arr_get_i64(survived_child, 0) == 98765);
+
     printf("joss_rt_test: ALL PASSED\n");
     return 0;
 }

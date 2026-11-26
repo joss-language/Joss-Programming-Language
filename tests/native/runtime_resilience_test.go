@@ -97,3 +97,30 @@ print("CHECK:" . strval($t->check()))
 `
 	wbRunCLISourceAcrossBackends(t, "nominal_tree", src, []string{"llvm"}, nil)
 }
+
+func TestNative_MiniGCAutoReclaimsGarbageAndPreservesLongLivedRoot(t *testing.T) {
+	src := `public class Node {
+	public int $val
+	public mixed $next
+
+	Init(int $val, mixed $next) {
+		$this->val = $val
+		$this->next = $next
+	}
+}
+
+Node $longLived = new Node(42, new Node(99, null))
+int $sum = 0
+int $i = 0
+while ($i < 4000) {
+	Node $a = new Node($i, null)
+	Node $b = new Node($i + 1, $a)
+	$a->next = $b
+	$sum = $sum + $a->val
+	$i = $i + 1
+}
+Node $child = $longLived->next
+print("GC_OK:" . strval($longLived->val) . ":" . strval($child->val) . ":" . strval($sum))
+`
+	wbRunCLISourceAcrossBackends(t, "mini_gc_cycles", src, []string{"llvm"}, nil)
+}

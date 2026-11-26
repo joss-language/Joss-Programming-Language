@@ -93,6 +93,25 @@ void*      joss_req_alloc(size_t size);
 char*      joss_req_strdup(const char* s);
 
 /* =========================================================================
+ * 2b. Mini Garbage Collector (Conservative Mark-and-Sweep + Root Registry)
+ * ========================================================================= */
+typedef struct {
+    size_t objects_live;
+    size_t bytes_live;
+    size_t total_allocs;
+    size_t total_freed;
+    size_t collections;
+    size_t threshold_bytes;
+} JossGCStats;
+
+void   joss_gc_init(void* stack_bottom);
+void   joss_gc_add_root(void** root_slot);
+void   joss_gc_set_threshold(size_t bytes);
+void   joss_gc_set_multithreaded(bool enabled);
+size_t joss_gc_collect(void);
+void   joss_gc_stats(JossGCStats* out);
+
+/* =========================================================================
  * 3. Bounds-Checked ByteSlice / ByteBuffer / StringBuilder
  * ========================================================================= */
 typedef struct {

@@ -131,6 +131,9 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 	buf.WriteString("declare void @joss_trace_push(i8*, i8*, i64)\n")
 	buf.WriteString("declare void @joss_trace_pop()\n")
 	buf.WriteString("declare void @joss_trace_set_line(i64)\n")
+	buf.WriteString("declare void @joss_gc_init(i8*)\n")
+	buf.WriteString("declare void @joss_gc_add_root(i8**)\n")
+	buf.WriteString("declare i8* @llvm.frameaddress(i32)\n")
 	buf.WriteString("declare i8* @joss_try_push()\n")
 	buf.WriteString("declare void @joss_try_pop()\n")
 	buf.WriteString("declare i8* @joss_catch_msg()\n")
@@ -962,6 +965,23 @@ func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {
 	for bi, block := range fn.Blocks {
 		buf.WriteString(fmt.Sprintf("%s:\n", block.Label))
 		if bi == 0 && fn.Name == "main" {
+			buf.WriteString("    %__gc_fp = call i8* @llvm.frameaddress(i32 0)\n")
+			buf.WriteString("    call void @joss_gc_init(i8* %__gc_fp)\n")
+			if len(e.program.Globals) > 0 {
+				gNames := make([]string, 0, len(e.program.Globals))
+				for gn := range e.program.Globals {
+					gNames = append(gNames, gn)
+				}
+				sort.Strings(gNames)
+				for idx, gn := range gNames {
+					gv := e.program.Globals[gn]
+					gLLVM := MapLLVMType(gv.Type)
+					if gLLVM == "i64" || strings.HasSuffix(gLLVM, "*") {
+						buf.WriteString(fmt.Sprintf("    %%__gc_root_%d = bitcast %s* @joss_global_%s to i8**\n", idx, gLLVM, cleanIdent(gn)))
+						buf.WriteString(fmt.Sprintf("    call void @joss_gc_add_root(i8** %%__gc_root_%d)\n", idx))
+					}
+				}
+			}
 			if initFn := e.program.Functions["__joss_init_static_globals"]; initFn != nil {
 				buf.WriteString(fmt.Sprintf("    call %s @__joss_init_static_globals()\n", MapLLVMType(initFn.ReturnType)))
 			}

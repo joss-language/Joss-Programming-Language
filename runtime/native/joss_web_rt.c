@@ -1827,6 +1827,7 @@ static DWORD WINAPI joss_http_accept_loop(LPVOID arg) {
 void joss___joss_http_serve_concurrent(void* srv, void* handler_fn_ptr) {
     srv = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)srv);
     if (!srv || !handler_fn_ptr) return;
+    joss_gc_set_multithreaded(true);
 #if defined(__unix__) || defined(__APPLE__)
     int sfd = (int)(intptr_t)srv - 1;
     if (sfd < 0) return;

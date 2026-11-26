@@ -132,6 +132,7 @@ static void* joss_worker_loop(void* arg) {
 }
 
 static void joss_pool_init(void) {
+    joss_gc_set_multithreaded(true);
     long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
     if (ncpu < 2) ncpu = 2;
     if (ncpu > 32) ncpu = 32;
@@ -405,6 +406,7 @@ static DWORD WINAPI joss_win_worker_loop(LPVOID arg) {
 static void joss_win_pool_ensure(void) {
     if (InterlockedCompareExchange(&g_win_pool_init_state, 1, 0) == 0) {
         InitializeCriticalSection(&g_win_pool_cs);
+        joss_gc_set_multithreaded(true);
         InitializeConditionVariable(&g_win_pool_cv);
         SYSTEM_INFO si;
         GetSystemInfo(&si);
