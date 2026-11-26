@@ -47,19 +47,19 @@ func printTopicHelpCore(cmd string) bool {
 		return true
 
 	case "server":
-		fmt.Printf("%s joss server start [--native]\n", i18n.Tr("cliUsageLabel"))
+		fmt.Printf("%s joss server start [--no-watch] [--port=8000]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicServer"))
-		fmt.Println("  Por defecto selecciona JIT o runtime Go según las capacidades; --native exige JIT sin fallback.")
+		fmt.Println("  Ejecuta directamente sobre el servidor HTTP Joss Native (LLVM + runtime C11).")
 		return true
 
 	case "program":
-		fmt.Printf("%s joss program start [--native]\n", i18n.Tr("cliUsageLabel"))
+		fmt.Printf("%s joss program start\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicProgram"))
-		fmt.Println("  Por defecto selecciona el modo disponible según las capacidades; --native exige AOT/JIT nativo.")
+		fmt.Println("  Compila y lanza directamente la aplicación de escritorio Joss Native (WebView2/WebKitGTK/WKWebView C11).")
 		return true
 
 	case "build":
-		fmt.Printf("%s joss build [archivo.joss] [target] [opciones] [--native]\n", i18n.Tr("cliUsageLabel"))
+		fmt.Printf("%s joss build [archivo.joss] [target] [opciones]\n", i18n.Tr("cliUsageLabel"))
 		fmt.Println(i18n.Tr("helpTopicBuild"))
 		fmt.Println(helpHeaderOptions)
 		fmt.Println("  -o <salida>          Nombre o ruta del ejecutable nativo de salida (por defecto: build/<nombre>)")
@@ -72,7 +72,7 @@ func printTopicHelpCore(cmd string) bool {
 		fmt.Println("  --debug              Compilación con información de depuración")
 		fmt.Println("  --gui                Habilita subsistema de interfaz gráfica de escritorio (GUI)")
 		fmt.Println("  --trace              Emite y conserva artefactos intermedios (.ir, .ll, .asm)")
-		fmt.Println("  --native             Exige AOT nativo puro; sin esta opción se selecciona automáticamente")
+		fmt.Println("  --native             Opcional (Joss compila siempre en modo AOT nativo puro)")
 		fmt.Println("\nSubcomandos auxiliares:")
 		fmt.Printf("  package <ruta>       %s\n", i18n.Tr("helpTopicBuildModePackage"))
 		fmt.Printf("  web                  %s\n", i18n.Tr("helpTopicBuildModeWeb"))
