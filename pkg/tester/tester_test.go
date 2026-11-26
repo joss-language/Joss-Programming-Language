@@ -41,6 +41,7 @@ test("prueba con pipeline y null safe", func() {
 	}
 
 	if report.TotalPassed != 3 {
+		report.PrintSummary()
 		t.Fatalf("expected 3 passed tests, got %d", report.TotalPassed)
 	}
 	if report.TotalFailed != 0 {
