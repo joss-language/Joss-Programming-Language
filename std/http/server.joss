@@ -28,18 +28,24 @@ public class HttpServer {
             return
         }
 
-        var $server = Socket::listen("0.0.0.0", "" . $port)
+        string $startEnv = strtolower(trim(env("APP_ENV", "local")))
+        bool $startProd = ($startEnv == "production" || $startEnv == "prod")
+        string $bindHost = trim(env("HOST", env("JOSS_HOST", "")))
+        (strlen($bindHost) == 0) ? {
+            bool $isDevWatch = (!$startProd) && (strlen(trim(env("JOSS_HOT_RELOAD_URL", ""))) > 0 || env("JOSS_SERVER_MODE", "") == "1")
+            $bindHost = ($isDevWatch) ? "127.0.0.1" : "0.0.0.0"
+        }
+
+        var $server = Socket::listen($bindHost, "" . $port)
         guard ($server != null) : {
             return
         }
 
-        print("[Server] Socket TCP enlazado con éxito en :" . $port . ". Servidor listo para peticiones.\n")
+        print("[Server] Socket TCP enlazado con éxito en " . $bindHost . ":" . $port . ". Servidor listo para peticiones.\n")
 
         // Execute route-file bootstrap (e.g. MiddlewareLoader::load() from DB) in all modes
         string $customMws = __joss_http_dispatch("__bootstrap__", "/", __joss_empty_request_session(), __joss_empty_request_session(), "")
 
-        string $startEnv = strtolower(trim(env("APP_ENV", "local")))
-        bool $startProd = ($startEnv == "production" || $startEnv == "prod")
         string $startDebugVal = strtolower(trim(env("APP_DEBUG", env("DEBUG", ""))))
         bool $showStartupDebug = (!$startProd) || ($startDebugVal == "true" || $startDebugVal == "1")
         ($showStartupDebug) ? {
@@ -176,10 +182,13 @@ public class HttpServer {
             }
         }
 
-        // Early /favicon.ico fallback matching Go pkg/server/handler_routing.go
+        // Early /favicon.ico fallback
         ($path == "/favicon.ico") ? {
             (file_exists("public/favicon.ico")) ? {
                 return "HTTP/1.1 200 OK\r\nContent-Type: image/x-icon\r\nCache-Control: public, max-age=86400\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . file_get_contents("public/favicon.ico")
+            }
+            (file_exists("public/favicon.svg")) ? {
+                return "HTTP/1.1 200 OK\r\nContent-Type: image/svg+xml\r\nCache-Control: public, max-age=86400\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . file_get_contents("public/favicon.svg")
             }
             (file_exists("assets/logo.png")) ? {
                 return "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nCache-Control: public, max-age=86400\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . file_get_contents("assets/logo.png")
@@ -196,10 +205,11 @@ public class HttpServer {
         }
 
         bool $unsafeStatic = HttpServer::isUnsafeStaticPath($path)
+        bool $isLegacyPublicPrefix = (str_starts_with($path, "/public/") || $path == "/public")
 
         // 1. Static assets embedded directly in the standalone executable binary (.rodata)
-        // In Hot-Reload dev mode, prefer live disk assets so CSS/SCSS updates apply instantly without recompiling.
-        (!$unsafeStatic &&!$isHotReload) ? {
+        // In Hot-Reload dev mode, prefer live disk assets so CSS/SCSS/JS updates apply instantly without recompiling.
+        (!$unsafeStatic &&!$isLegacyPublicPrefix &&!$isHotReload) ? {
             var $embedded = __joss_get_embedded_asset($path)
             guard ($embedded == "" || $embedded == null) : {
                 var $mime = Mime::fromPath($path)
@@ -208,23 +218,44 @@ public class HttpServer {
             }
         }
 
-        // 2. Dynamic disk-backed assets (relative project paths: ./, subfolders like ./pruebitas, dynamic uploads)
-        var $isStatic = (!$unsafeStatic) && (str_contains($path, "/public/") || str_contains($path, "/assets/") || str_contains($path, "/css/") || str_contains($path, "/images/") || str_contains($path, "/favicon") || str_contains($path, "."))
+        // 2. Dynamic disk-backed assets:
+        //    - /assets/css/*.css -> first check ephemeral SCSS cache assets/.joss_cache/css/, then assets/css/
+        //    - /assets/...       -> serve directly from assets/
+        //    - /<file>           -> serve directly from public/<file> (without /public/ prefix)
+        var $isStatic = (!$unsafeStatic) && (!$isLegacyPublicPrefix) && (str_starts_with($path, "/assets/") || str_contains($path, "."))
         var $foundStatic = false
         var $staticContent = ""
         var $staticMime = ""
         ($isStatic) ? {
-            var $filePath = trim($path, "/")
-            (file_exists($filePath)) ? {
-                $foundStatic = true
-                $staticContent = file_get_contents($filePath)
-                $staticMime = Mime::fromPath($filePath)
-            } : {
-                var $prefixed = "public/" . $filePath
-                (file_exists($prefixed)) ? {
+            string $filePath = (str_starts_with($path, "/")) ? substr($path, 1, strlen($path) - 1) : $path
+            (str_starts_with($filePath, "assets/css/") && str_ends_with(strtolower($filePath), ".css")) ? {
+                string $cachedCss = "assets/.joss_cache/css/" . substr($filePath, 11, strlen($filePath) - 11)
+                (file_exists($cachedCss)) ? {
                     $foundStatic = true
-                    $staticContent = file_get_contents($prefixed)
-                    $staticMime = Mime::fromPath($prefixed)
+                    $staticContent = file_get_contents($cachedCss)
+                    $staticMime = "text/css; charset=utf-8"
+                }
+            }
+            (!$foundStatic && str_starts_with($filePath, "assets/")) ? {
+                (file_exists($filePath)) ? {
+                    $foundStatic = true
+                    $staticContent = file_get_contents($filePath)
+                    $staticMime = Mime::fromPath($filePath)
+                }
+            }
+            (!$foundStatic &&!str_starts_with($filePath, "assets/")) ? {
+                var $publicFile = "public/" . $filePath
+                (file_exists($publicFile)) ? {
+                    $foundStatic = true
+                    $staticContent = file_get_contents($publicFile)
+                    $staticMime = Mime::fromPath($publicFile)
+                } : {
+                    // Allow direct uploads/ or project-relative non-public static paths (e.g. /uploads/...)
+                    (str_starts_with($filePath, "uploads/") && file_exists($filePath)) ? {
+                        $foundStatic = true
+                        $staticContent = file_get_contents($filePath)
+                        $staticMime = Mime::fromPath($filePath)
+                    }
                 }
             }
         }
@@ -234,7 +265,7 @@ public class HttpServer {
         }
 
         // Fallback to embedded static assets in Hot-Reload mode if not present on disk
-        (!$unsafeStatic && $isHotReload) ? {
+        (!$unsafeStatic &&!$isLegacyPublicPrefix && $isHotReload) ? {
             var $embeddedDev = __joss_get_embedded_asset($path)
             guard ($embeddedDev == "" || $embeddedDev == null) : {
                 var $mimeDev = Mime::fromPath($path)
@@ -480,7 +511,7 @@ private static func staticCacheHeader(string $path) : string {
 }
 
 private static func hotReloadScript(string $eventsUrl) : string {
-    return "<script>(function(){if(window.__hr_init)return;window.__hr_init=1;function mD(t,s){if(t.nodeType!==s.nodeType||t.nodeName!==s.nodeName){if(t.parentNode)t.parentNode.replaceChild(s.cloneNode(true),t);return}if(t.nodeType===3||t.nodeType===8){if(t.nodeValue!==s.nodeValue)t.nodeValue=s.nodeValue;return}if(t.nodeType===1){var a=t.attributes,b=s.attributes;for(var i=a.length-1;i>=0;i--){if(!s.hasAttribute(a[i].name))t.removeAttribute(a[i].name)}for(var j=0;j<b.length;j++){if(t.getAttribute(b[j].name)!==b[j].value)t.setAttribute(b[j].name,b[j].value)}if((t.nodeName==='INPUT'||t.nodeName==='TEXTAREA'||t.nodeName==='SELECT')&&t!==document.activeElement){if(s.value!==undefined&&t.value!==s.value)t.value=s.value}var tc=Array.from(t.childNodes),sc=Array.from(s.childNodes),ml=Math.max(tc.length,sc.length);for(var k=0;k<ml;k++){if(!tc[k]&&sc[k])t.appendChild(sc[k].cloneNode(true));else if(tc[k]&&!sc[k])t.removeChild(tc[k]);else if(tc[k]&&sc[k])mD(tc[k],sc[k])}}}function rC(){var l=document.getElementsByTagName('link');for(var i=0;i<l.length;i++){if(l[i].rel==='stylesheet'&&l[i].href){var u=new URL(l[i].href,location.href);u.searchParams.set('_h',Date.now());l[i].href=u.toString()}}}function sR(){var sx=window.scrollX,sy=window.scrollY;fetch(location.href,{headers:{'X-Hot-Reload':'1'},cache:'no-cache'}).then(function(r){return r.text()}).then(function(h){var d=new DOMParser().parseFromString(h,'text/html');if(d&&d.body){mD(document.body,d.body);if(d.title&&document.title!==d.title)document.title=d.title;window.scrollTo(sx,sy)}else{location.reload()}}).catch(function(){setTimeout(sR,300)})}function c(){var es=new EventSource('" . $eventsUrl . "');es.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='css')rC();else sR()}catch(err){sR()}};es.onerror=function(){es.close();setTimeout(c,1500)}}c();})();</script>"
+    return "<script>(function(){if(window.__hr_init)return;window.__hr_init=1;function mD(t,s){if(t.nodeType!==s.nodeType||t.nodeName!==s.nodeName){if(t.parentNode)t.parentNode.replaceChild(s.cloneNode(true),t);return}if(t.nodeType===3||t.nodeType===8){if(t.nodeValue!==s.nodeValue)t.nodeValue=s.nodeValue;return}if(t.nodeType===1){var a=t.attributes,b=s.attributes;for(var i=a.length-1;i>=0;i--){if(!s.hasAttribute(a[i].name))t.removeAttribute(a[i].name)}for(var j=0;j<b.length;j++){if(t.getAttribute(b[j].name)!==b[j].value)t.setAttribute(b[j].name,b[j].value)}if((t.nodeName==='INPUT'||t.nodeName==='TEXTAREA'||t.nodeName==='SELECT')&&t!==document.activeElement){if(s.value!==undefined&&t.value!==s.value)t.value=s.value}var tc=Array.from(t.childNodes),sc=Array.from(s.childNodes),ml=Math.max(tc.length,sc.length);for(var k=0;k<ml;k++){if(!tc[k]&&sc[k])t.appendChild(sc[k].cloneNode(true));else if(tc[k]&&!sc[k])t.removeChild(tc[k]);else if(tc[k]&&sc[k])mD(tc[k],sc[k])}}}function rC(){var l=document.getElementsByTagName('link');for(var i=0;i<l.length;i++){if(l[i].rel==='stylesheet'&&l[i].href){var u=new URL(l[i].href,location.href);u.searchParams.set('_h',Date.now());l[i].href=u.toString()}}}function rJ(p){var sc=Array.from(document.querySelectorAll('script[src]'));var matched=false;for(var i=0;i<sc.length;i++){var u=new URL(sc[i].src,location.href);if(!p||u.pathname===p||u.pathname.endsWith(p)){matched=true;var n=document.createElement('script');for(var j=0;j<sc[i].attributes.length;j++){var at=sc[i].attributes[j];if(at.name!=='src')n.setAttribute(at.name,at.value)}u.searchParams.set('_h',Date.now());n.src=u.toString();if(sc[i].parentNode)sc[i].parentNode.replaceChild(n,sc[i])}}if(!matched&&p)sR()}function sR(){var sx=window.scrollX,sy=window.scrollY;fetch(location.href,{headers:{'X-Hot-Reload':'1'},cache:'no-cache'}).then(function(r){return r.text()}).then(function(h){var d=new DOMParser().parseFromString(h,'text/html');if(d&&d.body){mD(document.body,d.body);if(d.title&&document.title!==d.title)document.title=d.title;window.scrollTo(sx,sy)}else{location.reload()}}).catch(function(){setTimeout(sR,300)})}function c(){var es=new EventSource('" . $eventsUrl . "');es.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='css')rC();else if(m.type==='js')rJ(m.path||'');else sR()}catch(err){sR()}};es.onerror=function(){es.close();setTimeout(c,1500)}}c();})();</script>"
 }
 
 private static func isJsonRequest(string $path, map $headers) : bool {
@@ -496,7 +527,7 @@ private static func isUnsafeStaticPath(string $path) : bool {
     guard (!str_contains($lower, "..") &&!str_contains($lower, "\\") &&!str_contains($lower, "%2e") &&!str_contains($lower, "%5c") &&!str_contains($lower, "%00")) : {
         return true
     }
-    string $clean = trim($lower, "/")
+    string $clean = (str_starts_with($lower, "/")) ? substr($lower, 1, strlen($lower) - 1) : $lower
     guard ($clean != "") : {
         return false
     }
@@ -506,7 +537,7 @@ private static func isUnsafeStaticPath(string $path) : bool {
     guard ($clean != "joss.yaml" &&!str_ends_with($clean, "/joss.yaml")) : {
         return true
     }
-    guard (!str_ends_with($clean, ".joss") &&!str_ends_with($clean, ".jbc") &&!str_ends_with($clean, ".jp") &&!str_ends_with($clean, ".env") &&!str_ends_with($clean, ".yaml") &&!str_ends_with($clean, ".yml") &&!str_ends_with($clean, ".sqlite") &&!str_ends_with($clean, ".sqlite3") &&!str_ends_with($clean, ".db") &&!str_ends_with($clean, ".lock")) : {
+    guard (!str_ends_with($clean, ".joss") &&!str_ends_with($clean, ".scss") &&!str_ends_with($clean, ".jbc") &&!str_ends_with($clean, ".jp") &&!str_ends_with($clean, ".env") &&!str_ends_with($clean, ".yaml") &&!str_ends_with($clean, ".yml") &&!str_ends_with($clean, ".sqlite") &&!str_ends_with($clean, ".sqlite3") &&!str_ends_with($clean, ".db") &&!str_ends_with($clean, ".lock")) : {
         return true
     }
     return false

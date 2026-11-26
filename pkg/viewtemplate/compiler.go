@@ -1,9 +1,15 @@
 package viewtemplate
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -122,7 +128,22 @@ func PreprocessDirectives(viewContent string, readView func(name string) (string
 // CompileHTMLToJoss translates a preprocessed .joss.html template into canonical Joss source code.
 // Both the interpreter (pkg/core) and native compiler (pkg/ir) consume this single function.
 func CompileHTMLToJoss(htmlStr string) (string, error) {
+	code, _, _, err := compileHTMLToJossInternal("", htmlStr, false)
+	return code, err
+}
+
+// CompileHTMLToJossWithSlots compiles a preprocessed HTML template into Joss code
+// where every static HTML fragment is externalized into `chunks` and loaded via
+// `__joss_dev_view_chunk(viewKey, idx)`. `structureHash` hashes only the dynamic
+// Joss template skeleton, so edits to static HTML/text/attributes keep the exact
+// same structureHash and can hot-swap without recompiling or restarting the server.
+func CompileHTMLToJossWithSlots(viewKey, htmlStr string) (string, []string, string, error) {
+	return compileHTMLToJossInternal(viewKey, htmlStr, true)
+}
+
+func compileHTMLToJossInternal(viewKey, htmlStr string, useSlots bool) (string, []string, string, error) {
 	var jossCode strings.Builder
+	var chunks []string
 
 	escapeJossString := func(s string) string {
 		s = strings.ReplaceAll(s, "\\", "\\\\")
@@ -151,6 +172,12 @@ func CompileHTMLToJoss(htmlStr string) (string, error) {
 				return
 			}
 			txt := str[start:end]
+			if useSlots {
+				idx := len(chunks)
+				chunks = append(chunks, txt)
+				code.WriteString(fmt.Sprintf("$__output = $__output . __joss_dev_view_chunk(\"%s\", %d);\n", escapeJossString(viewKey), idx))
+				return
+			}
 			code.WriteString(fmt.Sprintf("$__output = $__output . \"%s\";\n", escapeJossString(txt)))
 		}
 
@@ -320,7 +347,141 @@ func CompileHTMLToJoss(htmlStr string) (string, error) {
 	jossCode.WriteString(compileRange(htmlStr))
 	jossCode.WriteString("return $__output;\n")
 
-	return jossCode.String(), nil
+	out := jossCode.String()
+	var structureHash string
+	if useSlots {
+		sum := sha256.Sum256([]byte(out))
+		structureHash = hex.EncodeToString(sum[:16])
+	}
+	return out, chunks, structureHash, nil
+}
+
+// SanitizeViewChunkKey converts a dotted view name (e.g. "admin.cms.edit")
+// into a safe flat filename stem for the ephemeral dev view chunk cache.
+func SanitizeViewChunkKey(viewKey string) string {
+	var b strings.Builder
+	for _, r := range viewKey {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	if b.Len() == 0 {
+		return "view"
+	}
+	return b.String()
+}
+
+// WriteViewChunksFile serializes static HTML chunks for a dev view into a binary
+// file (`uint32 count`, then `uint32 len + raw bytes` per chunk) via atomic rename.
+func WriteViewChunksFile(cacheDir, viewKey string, chunks []string) error {
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return err
+	}
+	totalSize := 4
+	for _, c := range chunks {
+		totalSize += 4 + len(c)
+	}
+	buf := make([]byte, totalSize)
+	binary.LittleEndian.PutUint32(buf[0:4], uint32(len(chunks)))
+	off := 4
+	for _, c := range chunks {
+		binary.LittleEndian.PutUint32(buf[off:off+4], uint32(len(c)))
+		off += 4
+		copy(buf[off:off+len(c)], c)
+		off += len(c)
+	}
+	targetPath := filepath.Join(cacheDir, SanitizeViewChunkKey(viewKey)+".chunks")
+	if existing, err := os.ReadFile(targetPath); err == nil && len(existing) == len(buf) && string(existing) == string(buf) {
+		return nil
+	}
+	tmpPath := fmt.Sprintf("%s.tmp-%d", targetPath, os.Getpid())
+	if err := os.WriteFile(tmpPath, buf, 0644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, targetPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return os.WriteFile(targetPath, buf, 0644)
+	}
+	return nil
+}
+
+func walkAndProcessProjectViews(viewsRoot string, writeCacheDir string) (map[string]string, error) {
+	hashes := make(map[string]string)
+	if _, err := os.Stat(viewsRoot); err != nil {
+		return hashes, nil
+	}
+	readViewFile := func(name string) (string, bool) {
+		sub, ok := ResolveSafeSubpath(name)
+		if !ok {
+			return "", false
+		}
+		for _, ext := range []string{".joss.html", ".html"} {
+			candidate := filepath.Join(viewsRoot, filepath.FromSlash(sub)+ext)
+			if data, err := os.ReadFile(candidate); err == nil {
+				return string(data), true
+			}
+		}
+		return "", false
+	}
+
+	var relPaths []string
+	rawViews := make(map[string]string)
+	_ = filepath.Walk(viewsRoot, func(p string, fi os.FileInfo, walkErr error) error {
+		if walkErr != nil || fi == nil || fi.IsDir() {
+			return nil
+		}
+		slashPath := filepath.ToSlash(p)
+		rootPrefix := filepath.ToSlash(viewsRoot) + "/"
+		var rel string
+		if strings.HasSuffix(slashPath, ".joss.html") {
+			rel = strings.TrimSuffix(strings.TrimPrefix(slashPath, rootPrefix), ".joss.html")
+		} else if strings.HasSuffix(slashPath, ".html") {
+			rel = strings.TrimSuffix(strings.TrimPrefix(slashPath, rootPrefix), ".html")
+		} else {
+			return nil
+		}
+		if strings.HasPrefix(rel, "layouts/") {
+			return nil
+		}
+		rawBytes, err := os.ReadFile(p)
+		if err != nil {
+			return nil
+		}
+		relPaths = append(relPaths, rel)
+		rawViews[rel] = string(rawBytes)
+		return nil
+	})
+	sort.Strings(relPaths)
+	for _, rel := range relPaths {
+		dotName := strings.ReplaceAll(rel, "/", ".")
+		finalHTML, errPre := PreprocessDirectives(rawViews[rel], readViewFile, PreprocessOptions{})
+		if errPre != nil {
+			finalHTML = rawViews[rel]
+		}
+		_, chunks, structHash, err := CompileHTMLToJossWithSlots(dotName, finalHTML)
+		if err != nil {
+			continue
+		}
+		hashes[dotName] = structHash
+		if writeCacheDir != "" {
+			_ = WriteViewChunksFile(writeCacheDir, dotName, chunks)
+		}
+	}
+	return hashes, nil
+}
+
+// ComputeProjectViewStructureHashes returns the dynamic-expression structure hash
+// for every non-layout view under viewsRoot without writing cache files.
+func ComputeProjectViewStructureHashes(viewsRoot string) (map[string]string, error) {
+	return walkAndProcessProjectViews(viewsRoot, "")
+}
+
+// SyncProjectViewChunks preprocesses every view under viewsRoot, writes updated
+// static HTML chunk files into cacheDir, and returns the map of structure hashes.
+func SyncProjectViewChunks(viewsRoot, cacheDir string) (map[string]string, error) {
+	return walkAndProcessProjectViews(viewsRoot, cacheDir)
 }
 
 func findMatchingRunePair(s string, startPos int, startChar, endChar rune) int {

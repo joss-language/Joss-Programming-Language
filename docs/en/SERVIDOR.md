@@ -23,8 +23,8 @@ The default runtime port is 8000. The generated template writes
 
 ## Capabilities
 
-- Public files under `/public/` and `/assets/`.
-- Hot reload of code, views, assets, translations and environment.
+- Static files from `public/` served directly at the root `/` (without the `/public/` prefix) and dynamic resources (CSS/SCSS compiled in an ephemeral cache and JS) under `/assets/`.
+- Surgical hot-reload for styles (`.scss`/`.css`), scripts (`.js`), HTML views (`.joss.html` without restarting the server when static markup changes) and `.joss` logic with fast JIT compilation.
 - CSRF, CORS, security headers and WebSockets.
 - Persistent sessions in file by default, or `memory` and `redis` drivers.
 - The canonical session cookie is `joss_session`; `JOSS_SESSION` remains accepted for compatibility.

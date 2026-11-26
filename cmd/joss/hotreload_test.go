@@ -68,3 +68,20 @@ func TestRequestCLIShutdownSignalsSupervisor(t *testing.T) {
 		t.Fatal("q shutdown request did not reach the supervisor")
 	}
 }
+
+func TestHotReloadWatchableFilesAndIgnoredCache(t *testing.T) {
+	for _, f := range []string{"assets/js/app.js", "assets/css/app.scss", "assets/css/base.css", "app/views/home.joss.html", "main.joss", "env.joss"} {
+		if !isWatchableFile(f) {
+			t.Fatalf("expected %q to be watchable", f)
+		}
+	}
+	if !ignoredWatchDirs[".joss_cache"] {
+		t.Fatal("expected .joss_cache to be ignored by file watcher")
+	}
+	if !viewStructureMapsEqual(map[string]string{"home": "abc"}, map[string]string{"home": "abc"}) {
+		t.Fatal("expected equal view structure maps")
+	}
+	if viewStructureMapsEqual(map[string]string{"home": "abc"}, map[string]string{"home": "def"}) {
+		t.Fatal("expected unequal view structure maps")
+	}
+}

@@ -13,11 +13,13 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	semanticanalyzer "github.com/jossecurity/joss/pkg/analyzer"
 	"github.com/jossecurity/joss/pkg/backend/native"
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/ir"
+	"github.com/jossecurity/joss/pkg/viewtemplate"
 )
 
 func computeNativeJITCacheKey(filename string, prepared *semanticanalyzer.PreparedProgram, enableGUI bool) string {
@@ -51,23 +53,38 @@ func computeNativeJITCacheKey(filename string, prepared *semanticanalyzer.Prepar
 		}
 	}
 
-	// Include views, compiled CSS, plugins, and manifest metadata in cache key.
-	for _, dir := range []string{filepath.Join("app", "views"), filepath.Join("public", "css"), "plugins"} {
-		_ = filepath.Walk(dir, func(path string, info os.FileInfo, walkErr error) error {
-			if walkErr != nil || info == nil || info.IsDir() {
-				return nil
+	// Include views (structure hash in dev hot-reload mode so static HTML edits
+	// reuse the JIT binary without recompiling), plugins, and manifest metadata.
+	isHotReloadDev := strings.TrimSpace(os.Getenv("JOSS_HOT_RELOAD_URL")) != ""
+	h.Write([]byte("hotreload_dev=" + strconv.FormatBool(isHotReloadDev) + "\n"))
+
+	if isHotReloadDev {
+		if structHashes, err := viewtemplate.ComputeProjectViewStructureHashes("app/views"); err == nil {
+			keys := make([]string, 0, len(structHashes))
+			for k := range structHashes {
+				keys = append(keys, k)
 			}
-			if strings.HasPrefix(filepath.ToSlash(path), "public/css/") {
-				h.Write([]byte("css:" + filepath.ToSlash(path) + "\n"))
-				if data, readErr := os.ReadFile(path); readErr == nil {
-					h.Write(data)
-				}
+			sort.Strings(keys)
+			for _, k := range keys {
+				h.Write([]byte("view_struct:" + k + ":" + structHashes[k] + "\n"))
+			}
+		}
+	} else {
+		_ = filepath.Walk(filepath.Join("app", "views"), func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil || info == nil || info.IsDir() {
 				return nil
 			}
 			h.Write([]byte("asset:" + filepath.ToSlash(path) + ":" + strconv.FormatInt(info.Size(), 10) + ":" + strconv.FormatInt(info.ModTime().UnixNano(), 10) + "\n"))
 			return nil
 		})
 	}
+	_ = filepath.Walk("plugins", func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil || info == nil || info.IsDir() {
+			return nil
+		}
+		h.Write([]byte("asset:" + filepath.ToSlash(path) + ":" + strconv.FormatInt(info.Size(), 10) + ":" + strconv.FormatInt(info.ModTime().UnixNano(), 10) + "\n"))
+		return nil
+	})
 	for _, extra := range []string{"joss.yaml", "joss.lock", "routes.joss", "api.joss"} {
 		if info, statErr := os.Stat(extra); statErr == nil && !info.IsDir() {
 			h.Write([]byte("file:" + extra + ":" + strconv.FormatInt(info.Size(), 10) + ":" + strconv.FormatInt(info.ModTime().UnixNano(), 10) + "\n"))
@@ -114,6 +131,10 @@ func executeViaNativeLLVMJIT(irProg *ir.Program, prepared *semanticanalyzer.Prep
 	}
 
 	if !cacheHit {
+		buildStart := time.Now()
+		if os.Getenv("JOSS_SERVER_MODE") == "1" {
+			fmt.Println("⚡ [JIT] Compilando binario nativo de desarrollo (-O0 + caché C11)...")
+		}
 		var seedTables map[string][]map[string]string
 		envDetect := core.DetectAndLoadEnv(nil)
 		if len(envDetect.EnvMap) > 0 {
@@ -134,6 +155,7 @@ func executeViaNativeLLVMJIT(irProg *ir.Program, prepared *semanticanalyzer.Prep
 			Target:     target,
 			Backend:    native.BackendLLVM,
 			OutputPath: tmpPath,
+			FastJIT:    true,
 			GUI:        enableGUI,
 			SeedTables: seedTables,
 		}); buildErr != nil {
@@ -149,6 +171,11 @@ func executeViaNativeLLVMJIT(irProg *ir.Program, prepared *semanticanalyzer.Prep
 				defer os.Remove(tmpPath)
 			}
 		}
+		if os.Getenv("JOSS_SERVER_MODE") == "1" {
+			fmt.Printf("⚡ [JIT] Binario listo en %dms.\n", time.Since(buildStart).Milliseconds())
+		}
+	} else if os.Getenv("JOSS_SERVER_MODE") == "1" {
+		fmt.Println("⚡ [JIT] Binario cargado al instante desde caché.")
 	}
 
 	cmd := exec.Command(cachePath)

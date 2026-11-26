@@ -344,6 +344,9 @@ func (l *Lowerer) compileProjectViewsToIR(viewsRoot string) ([]compiledViewEntry
 
 	sort.Strings(relPaths)
 
+	isHotReloadDev := strings.TrimSpace(os.Getenv("JOSS_HOT_RELOAD_URL")) != ""
+	devChunksDir := filepath.Join("assets", ".joss_cache", "views")
+
 	var entries []compiledViewEntry
 	for idx, rel := range relPaths {
 		dotName := strings.ReplaceAll(rel, "/", ".")
@@ -353,10 +356,16 @@ func (l *Lowerer) compileProjectViewsToIR(viewsRoot string) ([]compiledViewEntry
 		if errPre != nil {
 			finalHTML = viewContent
 		}
-		finalHTML = compactStaticViewHTML(finalHTML)
 
-		// Translate HTML view to Joss source code and parse into AST via the shared compiler
-		jossScript, _ := viewtemplate.CompileHTMLToJoss(finalHTML)
+		var jossScript string
+		if isHotReloadDev {
+			var chunks []string
+			jossScript, chunks, _, _ = viewtemplate.CompileHTMLToJossWithSlots(dotName, finalHTML)
+			_ = viewtemplate.WriteViewChunksFile(devChunksDir, dotName, chunks)
+		} else {
+			finalHTML = compactStaticViewHTML(finalHTML)
+			jossScript, _ = viewtemplate.CompileHTMLToJoss(finalHTML)
+		}
 		lex := parser.NewLexer(jossScript)
 		p := parser.NewParser(lex)
 		program := p.ParseProgram()
@@ -1881,53 +1890,77 @@ func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 		".md": true, ".html": true,
 	}
 
-	searchRoots := []string{"public", "assets"}
-	for _, root := range searchRoots {
-		if _, err := os.Stat(root); err != nil {
-			continue
-		}
-		_ = filepath.Walk(root, func(path string, fi os.FileInfo, walkErr error) error {
-			if walkErr != nil || fi == nil || fi.IsDir() {
-				return nil
+	isHotReloadDev := strings.TrimSpace(os.Getenv("JOSS_HOT_RELOAD_URL")) != ""
+	if !isHotReloadDev {
+		searchRoots := []string{"public", "assets"}
+		for _, root := range searchRoots {
+			if _, err := os.Stat(root); err != nil {
+				continue
 			}
-			parts := strings.Split(filepath.ToSlash(path), "/")
-			if len(parts) > 0 && ignoredDirs[parts[0]] {
-				return nil
-			}
-			ext := strings.ToLower(filepath.Ext(path))
-			if (ext == ".pem" || ext == ".key" || ext == ".p12" || ext == ".pfx") && fi.Size() <= 2<<20 {
-				if pemBytes, err := os.ReadFile(path); err == nil && len(pemBytes) > 0 {
-					slashPath := filepath.ToSlash(path)
+			_ = filepath.Walk(root, func(path string, fi os.FileInfo, walkErr error) error {
+				if walkErr != nil || fi == nil || fi.IsDir() {
+					return nil
+				}
+				slashPath := filepath.ToSlash(path)
+				parts := strings.Split(slashPath, "/")
+				if len(parts) > 0 && ignoredDirs[parts[0]] {
+					return nil
+				}
+				ext := strings.ToLower(filepath.Ext(path))
+				if (ext == ".pem" || ext == ".key" || ext == ".p12" || ext == ".pfx") && fi.Size() <= 2<<20 {
+					if pemBytes, err := os.ReadFile(path); err == nil && len(pemBytes) > 0 {
+						assets = append(assets, assetEntry{
+							aliases: []string{"__joss_priv_" + slashPath},
+							content: encryptEmbeddedBlob(pemBytes),
+						})
+					}
+					return nil
+				}
+				if !staticExts[ext] || fi.Size() > 2<<20 {
+					return nil
+				}
+				// Handle ephemeral compiled CSS under assets/.joss_cache/css/*.css
+				if strings.HasPrefix(slashPath, "assets/.joss_cache/css/") && ext == ".css" {
+					contentBytes, err := os.ReadFile(path)
+					if err != nil {
+						return nil
+					}
+					relCSS := strings.TrimPrefix(slashPath, "assets/.joss_cache/css/")
+					canonical := "assets/css/" + relCSS
 					assets = append(assets, assetEntry{
-						aliases: []string{"__joss_priv_" + slashPath},
-						content: encryptEmbeddedBlob(pemBytes),
+						aliases: []string{canonical, "/" + canonical},
+						content: string(contentBytes),
+					})
+					return nil
+				}
+				// Never embed other ephemeral cache files (e.g., dev view chunks)
+				if strings.Contains(slashPath, "/.joss_cache/") || strings.HasPrefix(slashPath, ".joss_cache/") {
+					return nil
+				}
+				contentBytes, err := os.ReadFile(path)
+				if err != nil {
+					return nil
+				}
+				var aliases []string
+				if root == "public" {
+					// public/ maps directly to the web root "/" without a /public/ prefix.
+					withoutRoot := strings.TrimPrefix(slashPath, "public/")
+					if withoutRoot != "" && withoutRoot != slashPath {
+						aliases = []string{withoutRoot, "/" + withoutRoot}
+					}
+				} else {
+					// assets/ is served under /assets/...
+					aliases = []string{slashPath, "/" + slashPath}
+				}
+				if len(aliases) > 0 {
+					assets = append(assets, assetEntry{
+						aliases: aliases,
+						content: string(contentBytes),
 					})
 				}
 				return nil
-			}
-			if !staticExts[ext] || fi.Size() > 2<<20 {
-				return nil
-			}
-			contentBytes, err := os.ReadFile(path)
-			if err != nil {
-				return nil
-			}
-			slashPath := filepath.ToSlash(path) // e.g. "public/css/landing.css"
-			aliases := []string{
-				slashPath,
-				"/" + slashPath,
-			}
-			// Also support path without the root prefix (e.g. "/css/landing.css" and "css/landing.css")
-			withoutRoot := strings.TrimPrefix(slashPath, root+"/")
-			if withoutRoot != slashPath {
-				aliases = append(aliases, withoutRoot, "/"+withoutRoot)
-			}
-			assets = append(assets, assetEntry{
-				aliases: aliases,
-				content: string(contentBytes),
 			})
-			return nil
-		})
+		}
 	}
 
 	// Embed private project files and custom folders (e.g. storage/secrets/*, config/*, etc.)
@@ -1961,7 +1994,7 @@ func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 	const maxPrivateTotalBytes int64 = 16 << 20
 	privateFilesCount := 0
 	var privateTotalBytes int64 = 0
-	if isJossProjectDir {
+	if isJossProjectDir && !isHotReloadDev {
 		if entries, err := os.ReadDir("."); err == nil {
 			for _, entry := range entries {
 				if privateFilesCount >= maxPrivateFiles || privateTotalBytes >= maxPrivateTotalBytes {

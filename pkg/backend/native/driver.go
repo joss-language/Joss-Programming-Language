@@ -30,6 +30,7 @@ type BuildOptions struct {
 	RuntimeSource string
 	Verbose       bool
 	Debug         bool
+	FastJIT       bool
 	Release       bool
 	GUI           bool
 	SeedTables    map[string][]map[string]string

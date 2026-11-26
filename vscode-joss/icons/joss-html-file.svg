@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <!-- Deep obsidian metallic badge -->
+    <linearGradient id="bgBadge" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#142038"/>
+      <stop offset="55%" stop-color="#0b1324"/>
+      <stop offset="100%" stop-color="#060b16"/>
+    </linearGradient>
+    <!-- Rim border gradient -->
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff4d6d"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+    <!-- Left pillar electric crimson-amber -->
+    <linearGradient id="leftBolt" x1="15%" y1="0%" x2="85%" y2="100%">
+      <stop offset="0%" stop-color="#ff6b81"/>
+      <stop offset="45%" stop-color="#ef233c"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <!-- Right pillar electric gold-cyan -->
+    <linearGradient id="rightBolt" x1="15%" y1="0%" x2="85%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="50%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <!-- Electric crossbar core -->
+    <linearGradient id="crossBolt" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#fffbeb"/>
+      <stop offset="50%" stop-color="#fde047"/>
+      <stop offset="100%" stop-color="#7dd3fc"/>
+    </linearGradient>
+    <!-- Soft outer glow -->
+    <filter id="electricGlow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#f59e0b" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded dark badge with electric rim -->
+  <rect x="3" y="3" width="58" height="58" rx="14" ry="14" fill="url(#bgBadge)" stroke="url(#rimGrad)" stroke-width="2.2"/>
+
+  <!-- Subtle inner top highlight -->
+  <path d="M16 5.5 H48 C53.5 5.5 58.5 10.5 58.5 16 V19 C50 13 14 13 5.5 19 V16 C5.5 10.5 10.5 5.5 16 5.5 Z"
+        fill="#ffffff" fill-opacity="0.06"/>
+
+  <!-- Subtle HTML angle brackets in background -->
+  <path d="M13 24 L8 32 L13 40" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.28"/>
+  <path d="M51 24 L56 32 L51 40" fill="none" stroke="#ff4d6d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.28"/>
+
+  <!-- H-shaped sculpted lightning bolt -->
+  <g filter="url(#electricGlow)">
+    <!-- Left vertical lightning pillar -->
+    <path d="M23.5 11 L13.5 33.5 L20.5 33.5 L16 53 L28.5 29.5 L21.5 29.5 L28 11 Z"
+          fill="url(#leftBolt)"/>
+    <!-- Left pillar specular highlight facet -->
+    <path d="M23.5 11 L16.2 31.5 L19.2 31.5 L26 11 Z"
+          fill="#ffffff" fill-opacity="0.28"/>
+
+    <!-- Right vertical lightning pillar -->
+    <path d="M43.5 11 L33.5 33.5 L40.5 33.5 L36 53 L48.5 29.5 L41.5 29.5 L48 11 Z"
+          fill="url(#rightBolt)"/>
+    <!-- Right pillar specular highlight facet -->
+    <path d="M43.5 11 L36.2 31.5 L39.2 31.5 L46 11 Z"
+          fill="#ffffff" fill-opacity="0.28"/>
+
+    <!-- Jagged electric lightning crossbar forming the H -->
+    <path d="M19.5 30.5 L34.5 25 L31.2 31.2 L44.5 33.5 L29.5 39 L32.8 32.8 Z"
+          fill="url(#crossBolt)" stroke="#ffffff" stroke-width="0.7" stroke-linejoin="round"/>
+  </g>
+</svg>

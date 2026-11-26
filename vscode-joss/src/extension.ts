@@ -9,6 +9,7 @@ import {
 
 import { registerCommands } from './commands';
 import { getCompletionItemProvider } from './completion';
+import { JossDebugAdapterFactory, JossDebugConfigurationProvider } from './debugAdapter';
 import { JossTaskProvider } from './tasks';
 import { JossExplorerProvider } from './views/jossExplorer';
 
@@ -23,6 +24,12 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Register Commands
         registerCommands(context, client);
+
+        // Inline Debug Adapter (Flutter-style Debug Console + floating Stop/Restart toolbar)
+        context.subscriptions.push(
+            vscode.debug.registerDebugAdapterDescriptorFactory('joss', new JossDebugAdapterFactory()),
+            vscode.debug.registerDebugConfigurationProvider('joss', new JossDebugConfigurationProvider())
+        );
 
         // View templates (.joss.html) keep their controller-variable suggestions.
         context.subscriptions.push(getCompletionItemProvider());

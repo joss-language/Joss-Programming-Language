@@ -224,6 +224,11 @@ func (a *Analyzer) declareClass(classNode *parser.ClassStatement, file string) {
 					"A class cannot contain duplicate method names.", "Rename or remove one method.")
 				continue
 			}
+			if nativeBase != nil && len(callable.Effects) == 0 {
+				if baseMethod, ok := nativeBase.Methods[methodName]; ok && len(baseMethod.Effects) > 0 {
+					callable.Effects = append([]string(nil), baseMethod.Effects...)
+				}
+			}
 			class.Methods[methodName] = callable
 			declaredMethods[methodName] = true
 		}

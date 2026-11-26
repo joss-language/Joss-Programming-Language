@@ -688,6 +688,7 @@ func buildNativeProgram(filename, outExe, targetStr string, release, debug, trac
 	}
 	if _, err := os.Stat("assets/css"); err == nil {
 		core.CompileStyles()
+		defer core.CleanupAssetCache()
 		if refreshedIR, refreshErr := lowerPreparedProject(report.Prepared, filename); refreshErr == nil {
 			irProg = refreshedIR
 		}
@@ -778,8 +779,10 @@ func executeScriptWithMode(filename string, mode executionMode) {
 		return
 	}
 
-	if _, err := os.Stat("assets/css"); err == nil {
-		core.CompileStyles()
+	if os.Getenv("JOSS_STYLES_PRECOMPILED") != "1" {
+		if _, err := os.Stat("assets/css"); err == nil {
+			core.CompileStyles()
+		}
 	}
 	irProg, irErr := lowerPreparedProject(report.Prepared, filename)
 	if irErr != nil {

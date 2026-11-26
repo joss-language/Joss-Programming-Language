@@ -58,11 +58,10 @@ export class JossExplorerProvider implements vscode.TreeDataProvider<JossExplore
             case 'actions':
                 return [
                     this.actionItem('Run Current File', 'joss.runFile', 'play'),
-                    this.actionItem('Run Current File (Native)', 'joss.runFileNative', 'zap'),
-                    this.actionItem('Build Native Executable', 'joss.buildNative', 'package'),
-                    this.actionItem('Build Native GUI App (--gui)', 'joss.buildGUI', 'window'),
-                    this.actionItem('Launch Desktop App (joss program)', 'joss.programStart', 'browser'),
                     this.actionItem('Start Dev Server', 'joss.serverStart', 'server'),
+                    this.actionItem('Build Executable', 'joss.buildNative', 'package'),
+                    this.actionItem('Build GUI App (--gui)', 'joss.buildGUI', 'window'),
+                    this.actionItem('Launch Desktop App', 'joss.programStart', 'browser'),
                     this.actionItem('Run Tests', 'joss.test', 'beaker'),
                     this.actionItem('Fix Auto-Fixable Issues', 'joss.fix', 'wrench')
                 ];

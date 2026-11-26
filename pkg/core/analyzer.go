@@ -70,20 +70,26 @@ func AnalyzeSourceUnitsForMigration(units []semanticanalyzer.SourceUnit) *Analys
 }
 
 func analyzeSourceUnits(units []semanticanalyzer.SourceUnit, migrationWarnings bool) *AnalysisReport {
-	hasStd := false
+	existingStdRel := make(map[string]bool)
 	for _, u := range units {
 		clean := strings.ReplaceAll(u.Path, "\\", "/")
-		if strings.HasPrefix(clean, "<std/") || strings.HasPrefix(clean, "std/") || strings.Contains(clean, "/std/") {
-			hasStd = true
-			break
+		if strings.HasPrefix(clean, "<std/") && strings.HasSuffix(clean, ">") {
+			existingStdRel[strings.TrimSuffix(strings.TrimPrefix(clean, "<std/"), ">")] = true
+		} else if strings.HasPrefix(clean, "std/") {
+			existingStdRel[strings.TrimPrefix(clean, "std/")] = true
+		} else if idx := strings.Index(clean, "/std/"); idx >= 0 {
+			existingStdRel[clean[idx+len("/std/"):]] = true
 		}
 	}
-	allUnits := units
-	if !hasStd {
-		stdUnits := std.GetStdlibUnits()
-		allUnits = make([]semanticanalyzer.SourceUnit, 0, len(units)+len(stdUnits))
-		allUnits = append(allUnits, units...)
-		allUnits = append(allUnits, stdUnits...)
+	stdUnits := std.GetStdlibUnits()
+	allUnits := make([]semanticanalyzer.SourceUnit, 0, len(units)+len(stdUnits))
+	allUnits = append(allUnits, units...)
+	for _, su := range stdUnits {
+		rel := strings.TrimSuffix(strings.TrimPrefix(strings.ReplaceAll(su.Path, "\\", "/"), "<std/"), ">")
+		if existingStdRel[rel] {
+			continue
+		}
+		allUnits = append(allUnits, su)
 	}
 
 	environment := BuildAnalysisEnvironment()

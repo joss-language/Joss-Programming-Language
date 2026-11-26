@@ -2744,6 +2744,15 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 		}
 
 		if !isBlueprintCall {
+			if calleeName == "__joss_dev_view_chunk" && len(args) == 2 {
+				retTmp := l.currentFn.NewTemp(TypeString, "view_chunk")
+				l.currBlock.AddInstruction(&CallRuntimeInst{
+					Dest: retTmp,
+					Func: "joss_dev_view_chunk",
+					Args: args,
+				})
+				return retTmp, nil
+			}
 			if calleeName == "html_escape" && len(args) > 0 &&
 				(args[0].Type().IsInteger() || args[0].Type().IsFloat() || args[0].Type().Kind == TypeKindBool) {
 				convArg := l.currentFn.NewTemp(TypeString, "hesc_str")

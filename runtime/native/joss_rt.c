@@ -234,7 +234,7 @@ JossBoxedValue* joss_box_str(const char* s) {
 }
 
 void* joss_bytes_new(const void* data, size_t len) {
-    JossBytesBuf* buf = (JossBytesBuf*)malloc(sizeof(JossBytesBuf) + len + 1);
+    JossBytesBuf* buf = (JossBytesBuf*)joss_req_alloc(sizeof(JossBytesBuf) + len + 1);
     if (!buf) return NULL;
     buf->len = (uint64_t)len;
     if (data && len > 0) memcpy(buf->data, data, len);
@@ -432,6 +432,13 @@ void joss_arena_reset(JossArena* arena) {
         cur = nxt;
     }
     arena->head->next = NULL;
+    /* Shrink oversized head chunk back to default_chunk_cap so large single-request
+     * spikes do not remain permanently pinned in worker thread RSS. */
+    if (arena->head->cap > arena->default_chunk_cap * 4U) {
+        free(arena->head);
+        arena->head = arena_new_chunk(arena->default_chunk_cap);
+        return;
+    }
     if (arena->head->used > 0) {
         memset(arena->head->data, 0, arena->head->used);
         arena->head->used = 0;
@@ -707,6 +714,19 @@ void joss_sb_append_i64(JossStringBuilder* sb, int64_t v) {
 
 char* joss_sb_to_string(const JossStringBuilder* sb) {
     return joss_buf_to_cstr(sb);
+}
+
+char* joss_sb_to_req_string(const JossStringBuilder* sb) {
+    int64_t n = sb ? sb->len : 0;
+    char* out = (char*)joss_req_alloc((size_t)n + 1);
+    if (!out) {
+        joss_panic("out of memory converting StringBuilder to request string");
+    }
+    if (n > 0 && sb && sb->data) {
+        memcpy(out, sb->data, (size_t)n);
+    }
+    out[n] = '\0';
+    return out;
 }
 
 void joss_sb_free(JossStringBuilder* sb) {

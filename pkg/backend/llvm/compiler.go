@@ -2,12 +2,15 @@ package llvm
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/jossecurity/joss/pkg/backend/native"
 )
@@ -105,9 +108,17 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 
 	optLevel := "-Os"
 	hotOptLevel := "-O3"
+	progOptLevel := hotOptLevel
 	if opts.Debug {
 		optLevel = "-O0"
 		hotOptLevel = "-O0"
+		progOptLevel = "-O0"
+	} else if opts.FastJIT {
+		// In dev/JIT mode, compile the user's program.ll with -O0 for fast turnaround
+		// while keeping C runtime objects cached across runs.
+		progOptLevel = "-O0"
+		optLevel = "-O2"
+		hotOptLevel = "-O2"
 	}
 	triple := llvmTargetTriple(opts.Target)
 	zigTriple := zigTargetTriple(opts.Target)
@@ -157,25 +168,73 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		args = append(args, "-o", obj, src)
 		return args
 	}
-	compileArgs := func(src, obj string, extra ...string) []string {
-		return compileArgsWithOpt(optLevel, src, obj, extra...)
+
+	rtDir := filepath.Dir(rtCPath)
+	rtHeaderBytes, _ := os.ReadFile(filepath.Join(rtDir, "joss_rt.h"))
+	objCacheDir := filepath.Join(os.TempDir(), "joss-rt-obj-cache")
+	_ = os.MkdirAll(objCacheDir, 0755)
+
+	compilerIdentity := tc.Kind + ":" + tc.CompilerPath
+	if fi, statErr := os.Stat(tc.CompilerPath); statErr == nil {
+		compilerIdentity += fmt.Sprintf(":%d:%d", fi.Size(), fi.ModTime().UnixNano())
 	}
 
-	if err := runCC(compileArgsWithOpt(hotOptLevel, llPath, progObjPath)...); err != nil {
-		return err
-	}
-	if err := runCC(compileArgsWithOpt(hotOptLevel, rtCPath, rtObjPath)...); err != nil {
-		return err
+	cachedObjectForC := func(opt, srcPath string, extra ...string) (string, bool) {
+		srcBytes, readErr := os.ReadFile(srcPath)
+		if readErr != nil {
+			return "", false
+		}
+		h := sha256.New()
+		h.Write([]byte(compilerIdentity + "\n"))
+		h.Write([]byte(fmt.Sprintf("zig=%v triple=%s zigTriple=%s opt=%s debug=%v\n", tc.UseZigCC, triple, zigTriple, opt, opts.Debug)))
+		h.Write([]byte("extra=" + strings.Join(extra, " ") + "\n"))
+		h.Write(rtHeaderBytes)
+		h.Write([]byte("\n---SRC---\n"))
+		h.Write(srcBytes)
+		key := hex.EncodeToString(h.Sum(nil))[:20]
+		base := strings.TrimSuffix(filepath.Base(srcPath), filepath.Ext(srcPath))
+		cachePath := filepath.Join(objCacheDir, fmt.Sprintf("%s-%s.o", base, key))
+		if fi, statErr := os.Stat(cachePath); statErr == nil && !fi.IsDir() && fi.Size() > 0 {
+			return cachePath, true
+		}
+		return cachePath, false
 	}
 
-	linkArgs := []string{"-o", outputPath, progObjPath, rtObjPath}
+	type compileJob struct {
+		opt       string
+		src       string
+		obj       string
+		cachePath string
+		extra     []string
+	}
+	var jobs []compileJob
+	jobs = append(jobs, compileJob{opt: progOptLevel, src: llPath, obj: progObjPath})
+
+	resolveCUnit := func(opt, srcPath, fallbackObj string, extra ...string) string {
+		if cachePath, hit := cachedObjectForC(opt, srcPath, extra...); hit {
+			return cachePath
+		} else if cachePath != "" {
+			jobs = append(jobs, compileJob{
+				opt:       opt,
+				src:       srcPath,
+				obj:       fallbackObj,
+				cachePath: cachePath,
+				extra:     extra,
+			})
+			return fallbackObj
+		}
+		jobs = append(jobs, compileJob{opt: opt, src: srcPath, obj: fallbackObj, extra: extra})
+		return fallbackObj
+	}
+
+	resolvedRtObj := resolveCUnit(hotOptLevel, rtCPath, rtObjPath)
+	linkArgs := []string{"-o", outputPath, progObjPath, resolvedRtObj}
 	if bundledLib != "" {
 		linkArgs = append(linkArgs, "-L"+bundledLib)
 	}
 	lldPath := tc.LLDPath
 	runClang := runCC
 
-	rtDir := filepath.Dir(rtCPath)
 	needsDB := strings.Contains(llvmIR, "joss___joss_db_") || strings.Contains(llvmIR, "@fn_Schema_") || strings.Contains(llvmIR, "@fn_Blueprint_") || strings.Contains(llvmIR, "@fn_Model_")
 	needsGUI := opts.GUI || strings.Contains(llvmIR, "@fn_Window_")
 	needsCrypto := strings.Contains(llvmIR, "joss_sha256") || strings.Contains(llvmIR, "joss_password_") || strings.Contains(llvmIR, "joss_random_hex") || strings.Contains(llvmIR, "joss_jwt_") || strings.Contains(llvmIR, "joss_totp_") || strings.Contains(llvmIR, "joss_rsa_sign_")
@@ -227,10 +286,8 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		srcPath := filepath.Join(rtDir, u.file)
 		if _, statErr := os.Stat(srcPath); statErr == nil {
 			objPath := filepath.Join(tmpDir, strings.TrimSuffix(u.file, ".c")+".o")
-			if err := runClang(compileArgs(srcPath, objPath, u.defines...)...); err != nil {
-				return err
-			}
-			linkArgs = append(linkArgs, objPath)
+			resolvedObj := resolveCUnit(optLevel, srcPath, objPath, u.defines...)
+			linkArgs = append(linkArgs, resolvedObj)
 		}
 	}
 	for _, lib := range opts.StaticLibs {
@@ -267,11 +324,45 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		}
 		if bundledSQLiteC != "" {
 			sqliteObj := filepath.Join(tmpDir, "sqlite3.o")
-			if err := runCC(compileArgs(bundledSQLiteC, sqliteObj, "-DSQLITE_THREADSAFE=1", "-DSQLITE_OMIT_LOAD_EXTENSION")...); err != nil {
-				return err
-			}
-			linkArgs = append(linkArgs, sqliteObj)
+			resolvedSQLite := resolveCUnit(optLevel, bundledSQLiteC, sqliteObj, "-DSQLITE_THREADSAFE=1", "-DSQLITE_OMIT_LOAD_EXTENSION")
+			linkArgs = append(linkArgs, resolvedSQLite)
 		}
+	}
+
+	// Compile program.ll and any cache-missed C runtime units in parallel.
+	var (
+		wg       sync.WaitGroup
+		errMu    sync.Mutex
+		firstErr error
+	)
+	for _, job := range jobs {
+		j := job
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := runCC(compileArgsWithOpt(j.opt, j.src, j.obj, j.extra...)...); err != nil {
+				errMu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				errMu.Unlock()
+				return
+			}
+			if j.cachePath != "" {
+				if data, readErr := os.ReadFile(j.obj); readErr == nil && len(data) > 0 {
+					tmpCache := fmt.Sprintf("%s.tmp-%d", j.cachePath, os.Getpid())
+					if writeErr := os.WriteFile(tmpCache, data, 0644); writeErr == nil {
+						if renameErr := os.Rename(tmpCache, j.cachePath); renameErr != nil {
+							_ = os.Remove(tmpCache)
+						}
+					}
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	if firstErr != nil {
+		return firstErr
 	}
 	if needsDB {
 		if dbDrivers.sqlite && bundledSQLiteC == "" && ((opts.Target.OS == "darwin" && runtime.GOOS == "darwin") || (opts.Target.OS == runtime.GOOS && hasHeader("sqlite3.h"))) {
@@ -419,7 +510,7 @@ func llvmNeedsWebRuntime(llvmIR string) bool {
 		"@joss_time", "@joss_date", "@joss_strtotime",
 		"@fn_Schema_", "@fn_Sitemap_", "@fn_Cron_", "@fn_IndexNow_", "@fn_Mail_", "@fn_SmtpClient_",
 		"@joss_env", "@joss_file_", "@joss_json", "@joss_response", "@joss_redirect",
-		"@joss_back", "@joss_view", "@joss_request", "@joss_session", "@joss_is_empty",
+		"@joss_back", "@joss_view", "@joss_dev_view_chunk", "@joss_request", "@joss_session", "@joss_is_empty",
 		"@joss_json_decode", "@joss_set_active_session", "@joss_get_active_session", "@joss_get_active_request",
 		"@joss___joss_rt_", "@joss___joss_http_", "@joss___joss_get_embedded_",
 		"@joss___joss_socket_", "@joss___joss_rate_", "@joss___joss_session_", "@joss___joss_jwt_",

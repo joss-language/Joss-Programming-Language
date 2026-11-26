@@ -58,18 +58,24 @@ func (am *AssetManager) Initialize() {
 
 // LoadGlobalCSS reads the main compiled CSS file
 func (am *AssetManager) LoadGlobalCSS() {
-	// We look for public/css/app.css which is the result of SCSS compilation
-	path := filepath.Join("public", "css", "app.css")
-	data, err := ReadFileBytes(path)
-	if err == nil {
-		am.CacheMutex.Lock()
-		am.GlobalCSS = string(data)
-		length := len(am.GlobalCSS)
-		am.CacheMutex.Unlock()
-		fmt.Printf("[AssetManager] Loaded Global CSS (%d bytes)\n", length)
-	} else {
-		fmt.Println("[AssetManager] Warning: public/css/app.css not found. Dynamic optimization might be empty until rebuild.")
+	// Look first in the ephemeral SCSS cache under assets/.joss_cache/css/app.css,
+	// then fall back to plain assets/css/app.css.
+	candidates := []string{
+		filepath.Join(StylesCacheDir, "app.css"),
+		filepath.Join("assets", "css", "app.css"),
 	}
+	for _, path := range candidates {
+		data, err := ReadFileBytes(path)
+		if err == nil {
+			am.CacheMutex.Lock()
+			am.GlobalCSS = string(data)
+			length := len(am.GlobalCSS)
+			am.CacheMutex.Unlock()
+			fmt.Printf("[AssetManager] Loaded Global CSS (%d bytes)\n", length)
+			return
+		}
+	}
+	fmt.Println("[AssetManager] Warning: assets/css/app.css not found. Dynamic optimization might be empty until rebuild.")
 }
 
 // ScanNodeModules discovers installed packages and their assets

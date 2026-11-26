@@ -17,6 +17,7 @@ import (
 
 	"github.com/jossecurity/joss/pkg/core"
 	"github.com/jossecurity/joss/pkg/i18n"
+	"github.com/jossecurity/joss/pkg/viewtemplate"
 	"github.com/mattn/go-isatty"
 )
 
@@ -86,10 +87,19 @@ func startHotReloadHub() (*hotReloadHub, error) {
 }
 
 func (h *hotReloadHub) Broadcast(eventType string) {
+	h.BroadcastWithPath(eventType, "")
+}
+
+func (h *hotReloadHub) BroadcastWithPath(eventType, assetPath string) {
 	if h == nil {
 		return
 	}
-	payload := fmt.Sprintf(`{"type":%q}`, eventType)
+	var payload string
+	if assetPath != "" {
+		payload = fmt.Sprintf(`{"type":%q,"path":%q}`, eventType, assetPath)
+	} else {
+		payload = fmt.Sprintf(`{"type":%q}`, eventType)
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for ch := range h.clients {
@@ -154,6 +164,7 @@ var ignoredWatchDirs = map[string]bool{
 	"Storage":      true,
 	"storage":      true,
 	"public":       true,
+	".joss_cache":  true,
 }
 
 func isWatchableFile(path string) bool {
@@ -162,7 +173,19 @@ func isWatchableFile(path string) bool {
 		return true
 	}
 	ext := strings.ToLower(filepath.Ext(path))
-	return ext == ".joss" || ext == ".html" || ext == ".css" || ext == ".scss" || ext == ".json"
+	return ext == ".joss" || ext == ".html" || ext == ".css" || ext == ".scss" || ext == ".js" || ext == ".json"
+}
+
+func viewStructureMapsEqual(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if bv, ok := b[k]; !ok || bv != v {
+			return false
+		}
+	}
+	return true
 }
 
 func takeWatchSnapshot(root string) map[string]time.Time {
@@ -281,6 +304,13 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 		selfExe = "joss"
 	}
 
+	// 1. Compile styles first into ephemeral assets/.joss_cache/css and guarantee
+	//    cleanup of assets/.joss_cache whenever the supervisor exits.
+	defer core.CleanupAssetCache()
+	if _, err := os.Stat(filepath.Join("assets", "css")); err == nil {
+		core.CompileStyles()
+	}
+
 	if noWatch {
 		// Run standalone server directly without file watching
 		args := serverChildArgs(entryFile, extraArgs, mode)
@@ -288,7 +318,7 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
-		cmd.Env = serverChildEnv(enableGUI, mode)
+		cmd.Env = append(serverChildEnv(enableGUI, mode), "JOSS_STYLES_PRECOMPILED=1")
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 		defer signal.Stop(sigChan)
@@ -336,7 +366,7 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
-		env := serverChildEnv(enableGUI, mode)
+		env := append(serverChildEnv(enableGUI, mode), "JOSS_STYLES_PRECOMPILED=1")
 		if hrHub != nil {
 			env = append(env, "JOSS_HOT_RELOAD_URL="+hrHub.url)
 		}
@@ -354,6 +384,9 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 	defer signal.Stop(sigChan)
 	defer stopCurrent()
 
+	viewsCacheDir := filepath.Join(core.AssetCacheRoot, "views")
+	viewStructHashes, _ := viewtemplate.SyncProjectViewChunks(filepath.Join("app", "views"), viewsCacheDir)
+
 	fmt.Printf("⚡ [Joss Server] Iniciando servidor en modo %s...\n", executionModeName(mode))
 	if err := startChild(); err != nil {
 		fmt.Printf("❌ Error iniciando servidor: %v\n", err)
@@ -361,8 +394,8 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 	}
 
 	fmt.Println("\n========================================================")
-	fmt.Printf("⚡ Joss Server Supervisor (Hot-Reload DOM/CSS %s)\n", strings.ToUpper(executionModeName(mode)))
-	fmt.Println("📂 Vigilando cambios en .joss, vistas (.html), estilos (.scss/.css) y entorno")
+	fmt.Printf("⚡ Joss Server Supervisor (Hot-Reload DOM/CSS/JS %s)\n", strings.ToUpper(executionModeName(mode)))
+	fmt.Println("📂 Vigilando cambios en .joss, vistas (.html), estilos (.scss/.css), scripts (.js) y entorno")
 	fmt.Println("✨ Actualización quirúrgica automática sin F5")
 	fmt.Println("💡 Presiona Ctrl+C para detener")
 	fmt.Println("========================================================")
@@ -411,8 +444,8 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 			}
 			lowerPath := strings.ToLower(changedFile)
 
-			// Fast-path: SCSS / CSS updates compile in milliseconds and hot-swap
-			// stylesheets in the browser without restarting or recompiling the binary.
+			// Fast-path 1: SCSS / CSS updates compile in milliseconds into assets/.joss_cache/css
+			// and hot-swap stylesheets in the browser without restarting the server.
 			if strings.HasSuffix(lowerPath, ".scss") || strings.HasSuffix(lowerPath, ".css") {
 				fmt.Printf("\n🎨 [Hot-Reload CSS] Cambio detectado en: %s\n", relPath)
 				if strings.HasSuffix(lowerPath, ".scss") {
@@ -421,6 +454,32 @@ func runServerSupervisor(entryFile, outExe string, enableGUI bool, extraArgs []s
 				hrHub.Broadcast("css")
 				fmt.Println("✨ [Hot-Reload CSS] Estilos actualizados en vivo sin reiniciar el servidor.")
 				continue
+			}
+
+			// Fast-path 2: JS updates hot-swap the modified <script> tag in the browser
+			// without restarting the server.
+			if strings.HasSuffix(lowerPath, ".js") {
+				webPath := "/" + filepath.ToSlash(relPath)
+				fmt.Printf("\n⚡ [Hot-Reload JS] Cambio detectado en: %s\n", relPath)
+				hrHub.BroadcastWithPath("js", webPath)
+				fmt.Println("✨ [Hot-Reload JS] Script actualizado en vivo sin reiniciar el servidor.")
+				continue
+			}
+
+			// Fast-path 3: HTML / .joss.html edits that only touch static HTML/text/attributes
+			// update the ephemeral chunk cache and trigger surgical DOM morphing without
+			// restarting or recompiling the native binary.
+			if strings.HasSuffix(lowerPath, ".html") {
+				newHashes, syncErr := viewtemplate.SyncProjectViewChunks(filepath.Join("app", "views"), viewsCacheDir)
+				if syncErr == nil && len(viewStructHashes) > 0 && viewStructureMapsEqual(viewStructHashes, newHashes) {
+					fmt.Printf("\n🧩 [Hot-Reload HTML] Cambio quirúrgico detectado en: %s\n", relPath)
+					hrHub.Broadcast("morph")
+					fmt.Println("✨ [Hot-Reload HTML] Vista actualizada en vivo (sin reiniciar servidor ni F5).")
+					continue
+				}
+				if syncErr == nil {
+					viewStructHashes = newHashes
+				}
 			}
 
 			fmt.Printf("\n🔄 [Hot-Reload] Cambio detectado en: %s\n", relPath)

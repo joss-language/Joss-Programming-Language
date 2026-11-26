@@ -29,24 +29,41 @@
       {
         "id": "joss",
         "aliases": [
+          "Joss",
           "JosSecurity",
           "joss"
         ],
         "extensions": [
           ".joss"
         ],
+        "icon": {
+          "light": "./icons/joss-file.png",
+          "dark": "./icons/joss-file.png"
+        },
         "configuration": "./language-configuration.json"
       },
       {
         "id": "joss-html",
         "aliases": [
+          "Joss HTML",
           "JosSecurity HTML",
           "joss-html"
         ],
         "extensions": [
           ".joss.html"
         ],
+        "icon": {
+          "light": "./icons/joss-html-file.svg",
+          "dark": "./icons/joss-html-file.svg"
+        },
         "configuration": "./language-configuration.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "joss-file-icons",
+        "label": "Joss File Icons",
+        "path": "./icons/joss-icon-theme.json"
       }
     ],
     "grammars": [
@@ -208,18 +225,13 @@
         "icon": "$(play)"
       },
       {
-        "command": "joss.runFileNative",
-        "title": "Joss: Run Current File (Native)",
-        "icon": "$(zap)"
-      },
-      {
         "command": "joss.buildGUI",
-        "title": "Joss: Build Native GUI Executable",
+        "title": "Joss: Build GUI Executable",
         "icon": "$(window)"
       },
       {
         "command": "joss.programStart",
-        "title": "Joss: Launch Native Desktop App (joss program)"
+        "title": "Joss: Launch Desktop App (joss program start)"
       },
       {
         "command": "joss.emitIR",
@@ -253,13 +265,8 @@
         },
         {
           "when": "editorLangId == joss",
-          "command": "joss.runFileNative",
-          "group": "navigation@2"
-        },
-        {
-          "when": "editorLangId == joss",
           "command": "joss.buildGUI",
-          "group": "navigation@3"
+          "group": "navigation@2"
         }
       ],
       "view/title": [
@@ -289,6 +296,59 @@
             "description": "Additional arguments passed to the Joss CLI"
           }
         }
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "joss",
+        "label": "Joss Native",
+        "languages": [
+          "joss"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "args"
+            ],
+            "properties": {
+              "args": {
+                "type": "array",
+                "description": "Arguments passed to the Joss CLI (e.g. [\"server\", \"start\"] or [\"run\", \"main.joss\"])",
+                "default": [
+                  "server",
+                  "start"
+                ]
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Working directory for the Joss command",
+                "default": "${workspaceFolder}"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "joss",
+            "request": "launch",
+            "name": "Joss: Start Dev Server",
+            "args": [
+              "server",
+              "start"
+            ],
+            "cwd": "${workspaceFolder}"
+          },
+          {
+            "type": "joss",
+            "request": "launch",
+            "name": "Joss: Run Current File",
+            "args": [
+              "run",
+              "${file}"
+            ],
+            "cwd": "${workspaceFolder}"
+          }
+        ]
       }
     ],
     "problemMatchers": [

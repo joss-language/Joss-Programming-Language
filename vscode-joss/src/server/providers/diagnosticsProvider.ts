@@ -1,6 +1,7 @@
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { spawn } from 'child_process';
+import * as path from 'path';
 import { URI } from 'vscode-uri';
 import { connection, documents, routeParser, indexer, securityAnalyzer, getDocumentSettings } from '../server';
 
@@ -181,7 +182,14 @@ async function validateTextDocument(textDocument: TextDocument, runCompiler: boo
             const issues = await runCompilerLint(jossBin, fsPath);
             const compilerDiags: Diagnostic[] = [];
 
+            const normalizedTarget = path.resolve(fsPath).toLowerCase();
             for (const issue of issues) {
+                if (issue.file) {
+                    const normalizedIssueFile = path.resolve(issue.file).toLowerCase();
+                    if (normalizedIssueFile !== normalizedTarget) {
+                        continue;
+                    }
+                }
                 const lineIdx = Math.max(0, (issue.line ?? 1) - 1);
                 const colIdx = Math.max(0, (issue.column ?? 1) - 1);
                 const lineLen = (lines[lineIdx] ?? '').length;

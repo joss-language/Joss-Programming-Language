@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
+import * as path from 'path';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { startJossDebugSession } from './debugAdapter';
 
 export function registerCommands(context: vscode.ExtensionContext, client: LanguageClient) {
     // Index Workspace
@@ -165,9 +167,8 @@ export function registerCommands(context: vscode.ExtensionContext, client: Langu
     // Start Server
     context.subscriptions.push(
         vscode.commands.registerCommand('joss.serverStart', async () => {
-            const terminal = vscode.window.createTerminal('Joss Server');
-            terminal.show();
-            terminal.sendText('joss server start');
+            await vscode.window.activeTextEditor?.document.save();
+            await startJossDebugSession('Joss Server (Hot-Reload)', ['server', 'start']);
         })
     );
 
@@ -388,18 +389,16 @@ export function registerCommands(context: vscode.ExtensionContext, client: Langu
     // Build Web Application
     context.subscriptions.push(
         vscode.commands.registerCommand('joss.buildWeb', async () => {
-            const terminal = vscode.window.createTerminal('Joss Build Web');
-            terminal.show();
-            terminal.sendText('joss build web');
+            await vscode.window.activeTextEditor?.document.save();
+            await startJossDebugSession('Joss Build', ['build']);
         })
     );
 
     // Build Native Executable
     context.subscriptions.push(
         vscode.commands.registerCommand('joss.buildNative', async () => {
-            const terminal = vscode.window.createTerminal('Joss Build Native');
-            terminal.show();
-            terminal.sendText('joss build native');
+            await vscode.window.activeTextEditor?.document.save();
+            await startJossDebugSession('Joss Build (Release)', ['build', '--release']);
         })
     );
 
@@ -480,45 +479,24 @@ export function registerCommands(context: vscode.ExtensionContext, client: Langu
                 return;
             }
             await vscode.window.activeTextEditor?.document.save();
-            const term = getSharedTerminal();
-            term.show();
-            term.sendText(`${getJossBin()} run "${file}"`);
+            await startJossDebugSession(`Joss Run: ${path.basename(file)}`, ['run', file]);
         })
     );
 
-    // Run Current File (Native)
-    context.subscriptions.push(
-        vscode.commands.registerCommand('joss.runFileNative', async () => {
-            const file = getActiveJossFile();
-            if (!file) {
-                vscode.window.showWarningMessage('Open a .joss file to run in native mode.');
-                return;
-            }
-            await vscode.window.activeTextEditor?.document.save();
-            const term = getSharedTerminal();
-            term.show();
-            term.sendText(`${getJossBin()} run --native "${file}"`);
-        })
-    );
-
-    // Build Native GUI Executable
+    // Build GUI Executable
     context.subscriptions.push(
         vscode.commands.registerCommand('joss.buildGUI', async () => {
             const file = getActiveJossFile() || 'main.joss';
             await vscode.window.activeTextEditor?.document.save();
-            const term = getSharedTerminal();
-            term.show();
-            term.sendText(`${getJossBin()} build "${file}" --gui --release`);
+            await startJossDebugSession('Joss Build GUI', ['build', file, '--gui', '--release']);
         })
     );
 
-    // Launch Native Desktop App (joss program --native)
+    // Launch Desktop App (joss program start)
     context.subscriptions.push(
         vscode.commands.registerCommand('joss.programStart', async () => {
             await vscode.window.activeTextEditor?.document.save();
-            const term = getSharedTerminal();
-            term.show();
-            term.sendText(`${getJossBin()} program --native`);
+            await startJossDebugSession('Joss Desktop App', ['program', 'start']);
         })
     );
 
@@ -542,14 +520,14 @@ export function registerCommands(context: vscode.ExtensionContext, client: Langu
         vscode.commands.registerCommand('joss.quickActions', async () => {
             const picks = [
                 { label: '$(play) Run Current File', command: 'joss.runFile' },
-                { label: '$(zap) Run Current File (Native)', command: 'joss.runFileNative' },
-                { label: '$(package) Build Native Executable', command: 'joss.buildNative' },
-                { label: '$(window) Build Native GUI Executable (--gui)', command: 'joss.buildGUI' },
-                { label: '$(browser) Launch Desktop App (joss program --native)', command: 'joss.programStart' },
-                { label: '$(beaker) Run Tests', command: 'joss.test' },
-                { label: '$(check) Check Syntax & Types', command: 'joss.checkSyntax' },
+                { label: '$(server) Start Dev Server (joss server start)', command: 'joss.serverStart' },
+                { label: '$(package) Build Executable (joss build)', command: 'joss.buildNative' },
+                { label: '$(window) Build GUI Executable (--gui)', command: 'joss.buildGUI' },
+                { label: '$(browser) Launch Desktop App (joss program start)', command: 'joss.programStart' },
+                { label: '$(beaker) Run Tests (joss test)', command: 'joss.test' },
+                { label: '$(check) Check Syntax & Types (joss check)', command: 'joss.checkSyntax' },
                 { label: '$(wrench) Fix Auto-Fixable Issues (joss fix)', command: 'joss.fix' },
-                { label: '$(file-code) Inspect Native IR (emit-ir)', command: 'joss.emitIR' },
+                { label: '$(file-code) Inspect Native IR (joss emit-ir)', command: 'joss.emitIR' },
                 { label: '$(refresh) Restart Joss Language Server', command: 'joss.restartServer' }
             ];
             const choice = await vscode.window.showQuickPick(picks, {

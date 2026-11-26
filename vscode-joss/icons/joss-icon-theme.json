@@ -1,0 +1,18 @@
+{
+  "iconDefinitions": {
+    "_joss": {
+      "iconPath": "./joss-file.png"
+    },
+    "_joss_html": {
+      "iconPath": "./joss-html-file.svg"
+    }
+  },
+  "fileExtensions": {
+    "joss": "_joss",
+    "joss.html": "_joss_html"
+  },
+  "languageIds": {
+    "joss": "_joss",
+    "joss-html": "_joss_html"
+  }
+}

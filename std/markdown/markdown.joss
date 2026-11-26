@@ -1,0 +1,672 @@
+// std/markdown/markdown.joss
+// Pure Joss GitHub-Flavored Markdown (GFM) to HTML renderer.
+// Supports GFM tables (with alignment and backtick-safe pipes), fenced code blocks,
+// headings with auto-generated IDs, ordered/unordered lists, blockquotes, horizontal rules,
+// and inline formatting (code, bold, italic, strikethrough, images, links, escapes).
+public class Markdown {
+    public static func readFile(string $path): string {
+        guard (strlen($path) > 0) : {
+            return ""
+        }
+        guard (!str_contains($path, "..")) : {
+            return ""
+        }
+        string $raw = ""
+        var $embedded = __joss_get_embedded_asset($path)
+        ($embedded != null && strlen(strval($embedded)) > 0) ? {
+            $raw = strval($embedded)
+        }
+        (strlen($raw) == 0 && file_exists($path)) ? {
+            $raw = strval(file_get_contents($path))
+        }
+        (strlen($raw) == 0 && file_exists("../" . $path)) ? {
+            $raw = strval(file_get_contents("../" . $path))
+        }
+        guard (strlen($raw) > 0) : {
+            return ""
+        }
+        return Markdown::toHtml($raw)
+    }
+
+    public static func toHtml(string $md) : string {
+        guard (strlen($md) > 0) : {
+            return ""
+        }
+        string $normalized = str_replace("\r\n", "\n", $md)
+        $normalized = str_replace("\r", "\n", $normalized)
+        var $lines = explode("\n", $normalized)
+        int $total = count($lines)
+
+        array<string> $out = []
+        bool $inCode = false
+        int $listMode = 0
+        bool $inQuote = false
+
+        int $idx = 0
+        while ($idx < $total) {
+            string $line = strval($lines [$idx])
+            string $trimmed = trim($line)
+            int $tlen = strlen($trimmed)
+
+            // 1. Fenced code blocks: ``` or ~~~
+            bool $isFence = ($tlen >= 3) && (str_starts_with($trimmed, "```") || str_starts_with($trimmed, "~~~"))
+            ($isFence) ? {
+                ($listMode == 1) ? {
+                    array_push($out, "</ul>\n")
+                    $listMode = 0
+                }
+                ($listMode == 2) ? {
+                    array_push($out, "</ol>\n")
+                    $listMode = 0
+                }
+                ($inQuote) ? {
+                    array_push($out, "</blockquote>\n")
+                    $inQuote = false
+                }
+                (!$inCode) ? {
+                    string $lang = trim(substr($trimmed, 3, $tlen - 3))
+                    var $langParts = explode(" ", $lang)
+                    (count($langParts) > 0) ? {
+                        $lang = trim(strval($langParts [0]))
+                    }
+                    (strlen($lang) > 0) ? {
+                        array_push($out, "<pre><code class=\"language-" . Markdown::escapeAttr($lang) . "\">")
+                    } : {
+                        array_push($out, "<pre><code>")
+                    }
+                    $inCode = true
+                } : {
+                    array_push($out, "</code></pre>\n")
+                    $inCode = false
+                }
+                $idx++
+                continue
+            }
+
+            ($inCode) ? {
+                array_push($out, Markdown::escapeText($line) . "\n")
+                $idx++
+                continue
+            }
+
+            // 2. Skip standalone HTML comments (e.g. <!-- joss-run: ... -->)
+            ($tlen >= 7 && str_starts_with($trimmed, "<!--") && str_ends_with($trimmed, "-->")) ? {
+                $idx++
+                continue
+            }
+
+            // 3. Blank line closes open lists and blockquotes
+            ($tlen == 0) ? {
+                ($listMode == 1) ? {
+                    array_push($out, "</ul>\n")
+                    $listMode = 0
+                }
+                ($listMode == 2) ? {
+                    array_push($out, "</ol>\n")
+                    $listMode = 0
+                }
+                ($inQuote) ? {
+                    array_push($out, "</blockquote>\n")
+                    $inQuote = false
+                }
+                $idx++
+                continue
+            }
+
+            // 4. GFM Tables: header line with '|' followed by valid separator line
+            bool $handledTable = false
+            (Markdown::hasUnescapedPipe($line) && ($idx + 1) < $total) ? {
+                string $sepLine = strval($lines [$idx + 1])
+                var $aligns = Markdown::parseTableSeparator($sepLine)
+                (count($aligns) > 0) ? {
+                    ($listMode == 1) ? {
+                        array_push($out, "</ul>\n")
+                        $listMode = 0
+                    }
+                    ($listMode == 2) ? {
+                        array_push($out, "</ol>\n")
+                        $listMode = 0
+                    }
+                    ($inQuote) ? {
+                        array_push($out, "</blockquote>\n")
+                        $inQuote = false
+                    }
+
+                    var $hdrCells = Markdown::splitTableRow($line)
+                    int $hdrCount = count($hdrCells)
+                    int $sepCount = count($aligns)
+                    int $colCount = ($hdrCount > $sepCount) ? $hdrCount : $sepCount
+
+                    array_push($out, "<table>\n<thead>\n<tr>")
+                    int $c = 0
+                    while ($c < $colCount) {
+                        string $cellVal = ($c < $hdrCount) ? strval($hdrCells [$c]) : ""
+                        string $al = ($c < $sepCount) ? strval($aligns [$c]) : ""
+                        array_push($out, Markdown::renderTableCell("th", $al, $cellVal))
+                        $c++
+                    }
+                    array_push($out, "</tr>\n</thead>\n<tbody>\n")
+
+                    $idx = $idx + 2
+                    while ($idx < $total) {
+                        string $rowLine = strval($lines [$idx])
+                        string $rowTrim = trim($rowLine)
+                        (strlen($rowTrim) == 0 ||!Markdown::hasUnescapedPipe($rowLine)) ? {
+                            break
+                        }
+                        var $rowCells = Markdown::splitTableRow($rowLine)
+                        int $rowCount = count($rowCells)
+                        array_push($out, "<tr>")
+                        int $rc = 0
+                        while ($rc < $colCount) {
+                            string $rVal = ($rc < $rowCount) ? strval($rowCells [$rc]) : ""
+                            string $ral = ($rc < $sepCount) ? strval($aligns [$rc]) : ""
+                            array_push($out, Markdown::renderTableCell("td", $ral, $rVal))
+                            $rc++
+                        }
+                        array_push($out, "</tr>\n")
+                        $idx++
+                    }
+                    array_push($out, "</tbody>\n</table>\n")
+                    $handledTable = true
+                }
+            }
+            ($handledTable) ? {
+                continue
+            }
+
+            // 5. Blockquotes: > ...
+            (str_starts_with($trimmed, ">")) ? {
+                ($listMode == 1) ? {
+                    array_push($out, "</ul>\n")
+                    $listMode = 0
+                }
+                ($listMode == 2) ? {
+                    array_push($out, "</ol>\n")
+                    $listMode = 0
+                }
+                (!$inQuote) ? {
+                    array_push($out, "<blockquote>\n")
+                    $inQuote = true
+                }
+                string $qBody = trim(substr($trimmed, 1, $tlen - 1))
+                (strlen($qBody) > 0) ? {
+                    array_push($out, "<p>" . Markdown::renderInline($qBody) . "</p>\n")
+                }
+                $idx++
+                continue
+            }
+            ($inQuote) ? {
+                array_push($out, "</blockquote>\n")
+                $inQuote = false
+            }
+
+            // 6. Headings: # .. ######
+            bool $handledHeading = false
+            (str_starts_with($trimmed, "#")) ? {
+                int $lvl = 0
+                while ($lvl < $tlen && $lvl < 6 && substr($trimmed, $lvl, 1) == "#") {
+                    $lvl++
+                }
+                ($lvl < $tlen && substr($trimmed, $lvl, 1) == " ") ? {
+                    ($listMode == 1) ? {
+                        array_push($out, "</ul>\n")
+                        $listMode = 0
+                    }
+                    ($listMode == 2) ? {
+                        array_push($out, "</ol>\n")
+                        $listMode = 0
+                    }
+                    string $hText = trim(substr($trimmed, $lvl, $tlen - $lvl))
+                    string $slug = Markdown::slugify($hText)
+                    string $lvlStr = strval($lvl)
+                    array_push($out, "<h" . $lvlStr . " id=\"" . $slug . "\">" . Markdown::renderInline($hText) . "</h" . $lvlStr . ">\n")
+                    $handledHeading = true
+                }
+            }
+            ($handledHeading) ? {
+                $idx++
+                continue
+            }
+
+            // 7. Horizontal rule: ---, ***, ___
+            (Markdown::isHorizontalRule($trimmed)) ? {
+                ($listMode == 1) ? {
+                    array_push($out, "</ul>\n")
+                    $listMode = 0
+                }
+                ($listMode == 2) ? {
+                    array_push($out, "</ol>\n")
+                    $listMode = 0
+                }
+                array_push($out, "<hr>\n")
+                $idx++
+                continue
+            }
+
+            // 8. Unordered list item: - , * , + 
+            ($tlen >= 2 && (str_starts_with($trimmed, "- ") || str_starts_with($trimmed, "* ") || str_starts_with($trimmed, "+ "))) ? {
+                ($listMode == 2) ? {
+                    array_push($out, "</ol>\n")
+                    $listMode = 0
+                }
+                ($listMode != 1) ? {
+                    array_push($out, "<ul>\n")
+                    $listMode = 1
+                }
+                string $ulBody = substr($trimmed, 2, $tlen - 2)
+                array_push($out, "<li>" . Markdown::renderInline($ulBody) . "</li>\n")
+                $idx++
+                continue
+            }
+
+            // 9. Ordered list item: 1. , 2. , ...
+            int $olPos = Markdown::orderedListContentStart($trimmed)
+            ($olPos > 0) ? {
+                ($listMode == 1) ? {
+                    array_push($out, "</ul>\n")
+                    $listMode = 0
+                }
+                ($listMode != 2) ? {
+                    array_push($out, "<ol>\n")
+                    $listMode = 2
+                }
+                string $olBody = substr($trimmed, $olPos, $tlen - $olPos)
+                array_push($out, "<li>" . Markdown::renderInline($olBody) . "</li>\n")
+                $idx++
+                continue
+            }
+
+            // 10. Regular paragraph
+            ($listMode == 1) ? {
+                array_push($out, "</ul>\n")
+                $listMode = 0
+            }
+            ($listMode == 2) ? {
+                array_push($out, "</ol>\n")
+                $listMode = 0
+            }
+            array_push($out, "<p>" . Markdown::renderInline($line) . "</p>\n")
+            $idx++
+        }
+
+        ($listMode == 1) ? {
+            array_push($out, "</ul>\n")
+        }
+        ($listMode == 2) ? {
+            array_push($out, "</ol>\n")
+        }
+        ($inQuote) ? {
+            array_push($out, "</blockquote>\n")
+        }
+        ($inCode) ? {
+            array_push($out, "</code></pre>\n")
+        }
+        return implode("", $out)
+    }
+
+    private static func escapeText(string $s) : string {
+        string $r = str_replace("&", "&amp;", $s)
+        $r = str_replace("<", "&lt;", $r)
+        $r = str_replace(">", "&gt;", $r)
+        return $r
+    }
+
+    private static func escapeAttr(string $s) : string {
+        string $r = Markdown::escapeText($s)
+        $r = str_replace("\"", "&quot;", $r)
+        return $r
+    }
+
+    private static func hasUnescapedPipe(string $line) : bool {
+        guard (str_contains($line, "|")) : {
+            return false
+        }
+        int $n = strlen($line)
+        int $i = 0
+        bool $inTicks = false
+        while ($i < $n) {
+            string $ch = substr($line, $i, 1)
+            ($ch == "\\" && ($i + 1) < $n) ? {
+                $i = $i + 2
+                continue
+            }
+            ($ch == "`") ? {
+                $inTicks =!$inTicks
+                $i++
+                continue
+            }
+            (!$inTicks && $ch == "|") ? {
+                return true
+            }
+            $i++
+        }
+        return false
+    }
+
+    private static func splitTableRow(string $line) : array<string> {
+        string $s = trim($line)
+        int $n = strlen($s)
+        ($n > 0 && substr($s, 0, 1) == "|") ? {
+            $s = substr($s, 1, $n - 1)
+            $n = strlen($s)
+        }
+        ($n > 0 && substr($s, $n - 1, 1) == "|") ? {
+            bool $escapedEnd = ($n >= 2 && substr($s, $n - 2, 1) == "\\")
+            (!$escapedEnd) ? {
+                $s = substr($s, 0, $n - 1)
+                $n = strlen($s)
+            }
+        }
+
+        array<string> $cells = []
+        int $start = 0
+        int $i = 0
+        bool $inTicks = false
+        while ($i < $n) {
+            string $ch = substr($s, $i, 1)
+            ($ch == "\\" && ($i + 1) < $n) ? {
+                $i = $i + 2
+                continue
+            }
+            ($ch == "`") ? {
+                $inTicks =!$inTicks
+                $i++
+                continue
+            }
+            (!$inTicks && $ch == "|") ? {
+                array_push($cells, trim(substr($s, $start, $i - $start)))
+                $start = $i + 1
+            }
+            $i++
+        }
+        array_push($cells, trim(substr($s, $start, $n - $start)))
+        return $cells
+    }
+
+    private static func parseTableSeparator(string $line) : array<string> {
+        array<string> $none = []
+        guard (Markdown::hasUnescapedPipe($line)) : {
+            return $none
+        }
+        var $cells = Markdown::splitTableRow($line)
+        int $cnt = count($cells)
+        guard ($cnt > 0) : {
+            return $none
+        }
+        array<string> $aligns = []
+        int $i = 0
+        while ($i < $cnt) {
+            string $cell = trim(strval($cells [$i]))
+            int $cl = strlen($cell)
+            guard ($cl > 0) : {
+                return $none
+            }
+            bool $leftColon = (substr($cell, 0, 1) == ":")
+            bool $rightColon = ($cl > 1 && substr($cell, $cl - 1, 1) == ":")
+            int $db = ($leftColon) ? 1 : 0
+            int $de = ($rightColon) ? ($cl - 1) : $cl
+            guard ($de > $db) : {
+                return $none
+            }
+            int $k = $db
+            while ($k < $de) {
+                guard (substr($cell, $k, 1) == "-") : {
+                    return $none
+                }
+                $k++
+            }
+            string $al = ""
+            ($leftColon && $rightColon) ? {
+                $al = "center"
+            } : {
+                ($rightColon) ? {
+                    $al = "right"
+                } : {
+                    ($leftColon) ? {
+                        $al = "left"
+                    }
+                }
+            }
+            array_push($aligns, $al)
+            $i++
+        }
+        return $aligns
+    }
+
+    private static func renderTableCell(string $tag, string $align, string $content) : string {
+        string $styleAttr = (strlen($align) > 0) ? (" style=\"text-align:" . $align . "\"") : ""
+        return "<" . $tag . $styleAttr . ">" . Markdown::renderInline($content) . "</" . $tag . ">"
+    }
+
+    private static func isHorizontalRule(string $trimmed) : bool {
+        int $n = strlen($trimmed)
+        guard ($n >= 3) : {
+            return false
+        }
+        string $first = substr($trimmed, 0, 1)
+        guard ($first == "-" || $first == "*" || $first == "_") : {
+            return false
+        }
+        int $count = 0
+        int $i = 0
+        while ($i < $n) {
+            string $ch = substr($trimmed, $i, 1)
+            ($ch == $first) ? {
+                $count++
+            } : {
+                guard ($ch == " " || $ch == "\t") : {
+                    return false
+                }
+            }
+            $i++
+        }
+        return $count >= 3
+    }
+
+    private static func orderedListContentStart(string $trimmed) : int {
+        int $n = strlen($trimmed)
+        int $i = 0
+        while ($i < $n) {
+            string $ch = substr($trimmed, $i, 1)
+            bool $isDigit = ($ch == "0" || $ch == "1" || $ch == "2" || $ch == "3" || $ch == "4" || $ch == "5" || $ch == "6" || $ch == "7" || $ch == "8" || $ch == "9")
+            (!$isDigit) ? {
+                break
+            }
+            $i++
+        }
+        ($i > 0 && ($i + 1) < $n) ? {
+            string $sep = substr($trimmed, $i, 1)
+            string $sp = substr($trimmed, $i + 1, 1)
+            (($sep == "." || $sep == ")") && $sp == " ") ? {
+                return $i + 2
+            }
+        }
+        return 0
+    }
+
+    private static func slugify(string $text) : string {
+        string $lower = strtolower($text)
+        int $n = strlen($lower)
+        array<string> $parts = []
+        bool $prevDash = true
+        int $i = 0
+        while ($i < $n) {
+            string $ch = substr($lower, $i, 1)
+            bool $isAlnum = str_contains("abcdefghijklmnopqrstuvwxyz0123456789", $ch)
+            ($isAlnum) ? {
+                array_push($parts, $ch)
+                $prevDash = false
+            } : {
+                (!$prevDash && ($ch == " " || $ch == "-" || $ch == "_" || $ch == ".")) ? {
+                    array_push($parts, "-")
+                    $prevDash = true
+                }
+            }
+            $i++
+        }
+        return implode("", $parts)
+    }
+
+    private static func renderInline(string $s) : string {
+        int $n = strlen($s)
+        guard ($n > 0) : {
+            return ""
+        }
+        // Fast path: plain text with no markdown special markers
+        bool $hasSpecial = str_contains($s, "`") || str_contains($s, "*") || str_contains($s, "[") || str_contains($s, "~") || str_contains($s, "\\")
+        (!$hasSpecial) ? {
+            return Markdown::escapeText($s)
+        }
+
+        array<string> $parts = []
+        int $plainStart = 0
+        int $i = 0
+        while ($i < $n) {
+            string $ch = substr($s, $i, 1)
+
+            // 1. Backslash escape
+            ($ch == "\\" && ($i + 1) < $n) ? {
+                string $nx = substr($s, $i + 1, 1)
+                (str_contains("|*_`[]\\", $nx)) ? {
+                    ($i > $plainStart) ? {
+                        array_push($parts, Markdown::escapeText(substr($s, $plainStart, $i - $plainStart)))
+                    }
+                    array_push($parts, Markdown::escapeText($nx))
+                    $i = $i + 2
+                    $plainStart = $i
+                    continue
+                }
+            }
+
+            // 2. Inline code: `...` or ``...``
+            ($ch == "`") ? {
+                int $ticks = 1
+                while (($i + $ticks) < $n && substr($s, $i + $ticks, 1) == "`") {
+                    $ticks++
+                }
+                string $delim = substr($s, $i, $ticks)
+                string $rest = substr($s, $i + $ticks, $n - ($i + $ticks))
+                mixed $closeRel = strpos($rest, $delim)
+                ($closeRel !== false && intval($closeRel) >= 0) ? {
+                    int $cLen = intval($closeRel)
+                    ($i > $plainStart) ? {
+                        array_push($parts, Markdown::escapeText(substr($s, $plainStart, $i - $plainStart)))
+                    }
+                    string $codeBody = substr($rest, 0, $cLen)
+                    ($ticks > 1 && strlen($codeBody) >= 2 && str_starts_with($codeBody, " ") && str_ends_with($codeBody, " ")) ? {
+                        $codeBody = substr($codeBody, 1, strlen($codeBody) - 2)
+                    }
+                    array_push($parts, "<code>" . Markdown::escapeText($codeBody) . "</code>")
+                    $i = $i + $ticks + $cLen + $ticks
+                    $plainStart = $i
+                    continue
+                }
+            }
+
+            // 3. Strikethrough: ~~...~~
+            ($ch == "~" && ($i + 1) < $n && substr($s, $i + 1, 1) == "~") ? {
+                string $rest = substr($s, $i + 2, $n - ($i + 2))
+                mixed $closeRel = strpos($rest, "~~")
+                ($closeRel !== false && intval($closeRel) > 0) ? {
+                    int $dLen = intval($closeRel)
+                    ($i > $plainStart) ? {
+                        array_push($parts, Markdown::escapeText(substr($s, $plainStart, $i - $plainStart)))
+                    }
+                    array_push($parts, "<del>" . Markdown::renderInline(substr($rest, 0, $dLen)) . "</del>")
+                    $i = $i + 2 + $dLen + 2
+                    $plainStart = $i
+                    continue
+                }
+            }
+
+            // 4. Bold: **...**
+            ($ch == "*" && ($i + 1) < $n && substr($s, $i + 1, 1) == "*") ? {
+                string $rest = substr($s, $i + 2, $n - ($i + 2))
+                mixed $closeRel = strpos($rest, "**")
+                ($closeRel !== false && intval($closeRel) > 0) ? {
+                    int $bLen = intval($closeRel)
+                    ($i > $plainStart) ? {
+                        array_push($parts, Markdown::escapeText(substr($s, $plainStart, $i - $plainStart)))
+                    }
+                    array_push($parts, "<strong>" . Markdown::renderInline(substr($rest, 0, $bLen)) . "</strong>")
+                    $i = $i + 2 + $bLen + 2
+                    $plainStart = $i
+                    continue
+                }
+            }
+
+            // 5. Italic: *...*
+            ($ch == "*" && ($i + 1) < $n && substr($s, $i + 1, 1) != " " && substr($s, $i + 1, 1) != "*") ? {
+                string $rest = substr($s, $i + 1, $n - ($i + 1))
+                mixed $closeRel = strpos($rest, "*")
+                ($closeRel !== false && intval($closeRel) > 0) ? {
+                    int $eLen = intval($closeRel)
+                    string $emBody = substr($rest, 0, $eLen)
+                    (!str_ends_with($emBody, " ")) ? {
+                        ($i > $plainStart) ? {
+                            array_push($parts, Markdown::escapeText(substr($s, $plainStart, $i - $plainStart)))
+                        }
+                        array_push($parts, "<em>" . Markdown::renderInline($emBody) . "</em>")
+                        $i = $i + 1 + $eLen + 1
+                        $plainStart = $i
+                        continue
+                    }
+                }
+            }
+
+            // 6. Image: ![alt](url)
+            ($ch == "!" && ($i + 1) < $n && substr($s, $i + 1, 1) == "[") ? {
+                string $rest = substr($s, $i + 2, $n - ($i + 2))
+                mixed $cb = strpos($rest, "](")
+                ($cb !== false && intval($cb) >= 0) ? {
+                    int $altLen = intval($cb)
+                    string $afterUrl = substr($rest, $altLen + 2, strlen($rest) - ($altLen + 2))
+                    mixed $cp = strpos($afterUrl, ")")
+                    ($cp !== false && intval($cp) >= 0) ? {
+                        int $urlLen = intval($cp)
+                        ($i > $plainStart) ? {
+                            array_push($parts, Markdown::escapeText(substr($s, $plainStart, $i - $plainStart)))
+                        }
+                        string $altTxt = substr($rest, 0, $altLen)
+                        string $urlTxt = substr($afterUrl, 0, $urlLen)
+                        array_push($parts, "<img src=\"" . Markdown::escapeAttr($urlTxt) . "\" alt=\"" . Markdown::escapeAttr($altTxt) . "\">")
+                        $i = $i + 2 + $altLen + 2 + $urlLen + 1
+                        $plainStart = $i
+                        continue
+                    }
+                }
+            }
+
+            // 7. Link: [text](url)
+            ($ch == "[") ? {
+                string $rest = substr($s, $i + 1, $n - ($i + 1))
+                mixed $cb = strpos($rest, "](")
+                ($cb !== false && intval($cb) >= 0) ? {
+                    int $lblLen = intval($cb)
+                    string $afterUrl = substr($rest, $lblLen + 2, strlen($rest) - ($lblLen + 2))
+                    mixed $cp = strpos($afterUrl, ")")
+                    ($cp !== false && intval($cp) >= 0) ? {
+                        int $urlLen = intval($cp)
+                        ($i > $plainStart) ? {
+                            array_push($parts, Markdown::escapeText(substr($s, $plainStart, $i - $plainStart)))
+                        }
+                        string $lblTxt = substr($rest, 0, $lblLen)
+                        string $urlTxt = substr($afterUrl, 0, $urlLen)
+                        array_push($parts, "<a href=\"" . Markdown::escapeAttr($urlTxt) . "\">" . Markdown::renderInline($lblTxt) . "</a>")
+                        $i = $i + 1 + $lblLen + 2 + $urlLen + 1
+                        $plainStart = $i
+                        continue
+                    }
+                }
+            }
+
+            $i++
+        }
+
+        ($plainStart < $n) ? {
+            array_push($parts, Markdown::escapeText(substr($s, $plainStart, $n - $plainStart)))
+        }
+        return implode("", $parts)
+    }
+}

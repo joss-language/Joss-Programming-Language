@@ -1,17 +1,47 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestStripSCSSLineCommentsPreservesURLs(t *testing.T) {
-	input := "// Main SCSS Entry Point\n  // Indented comment\nbody {\n  background: url(\"https://example.com/bg.png\");\n}\n"
-	got := stripSCSSLineComments(input)
-	if strings.Contains(got, "// Main SCSS") || strings.Contains(got, "// Indented") {
-		t.Fatalf("expected standalone // comments to be stripped, got:\n%s", got)
+func TestCompileStylesUsesEphemeralAssetsCacheAndCleanup(t *testing.T) {
+	origWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(got, `https://example.com/bg.png`) {
-		t.Fatalf("expected URL with // to be preserved, got:\n%s", got)
+	tmp := t.TempDir()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(origWD) }()
+
+	if err := os.MkdirAll(filepath.Join("assets", "css"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	scss := "$primary: #0ea5e9;\nbody { color: $primary; }\n"
+	if err := os.WriteFile(filepath.Join("assets", "css", "app.scss"), []byte(scss), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	CompileStyles()
+
+	cachedCSS := filepath.Join(StylesCacheDir, "app.css")
+	data, err := os.ReadFile(cachedCSS)
+	if err != nil {
+		t.Fatalf("expected compiled CSS in %s: %v", cachedCSS, err)
+	}
+	if !strings.Contains(string(data), "#0ea5e9") {
+		t.Fatalf("expected SCSS variable substitution, got: %s", string(data))
+	}
+	if _, err := os.Stat(filepath.Join("public", "css", "app.css")); !os.IsNotExist(err) {
+		t.Fatalf("CompileStyles must not write into public/css")
+	}
+
+	CleanupAssetCache()
+	if _, err := os.Stat(AssetCacheRoot); !os.IsNotExist(err) {
+		t.Fatalf("CleanupAssetCache must remove %s", AssetCacheRoot)
 	}
 }

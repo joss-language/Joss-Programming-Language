@@ -23,8 +23,8 @@ A porta de tempo de execução padrão é 8000. O modelo gerado grava
 
 ## Capacidades
 
-- Arquivos públicos em `/public/` e `/assets/`.
-- Recarga a quente de código, visualizações, ativos, traduções e ambiente.
+- Arquivos estáticos de `public/` servidos diretamente na raiz `/` (sem o prefixo `/public/`) e recursos dinâmicos (CSS/SCSS compilado em cache efêmero e JS) em `/assets/`.
+- Hot-reload cirúrgico de estilos (`.scss`/`.css`), scripts (`.js`), visualizações HTML (`.joss.html` sem reiniciar o servidor quando o HTML estático muda) e lógica `.joss` com compilação JIT rápida.
 - CSRF, CORS, cabeçalhos de segurança e WebSockets.
 - Sessões persistentes em arquivo por padrão, ou drivers `memory` e `redis`.
 - O cookie canônico de sessão é `joss_session`; `JOSS_SESSION` continua aceito por compatibilidade.

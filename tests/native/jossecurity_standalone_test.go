@@ -381,7 +381,7 @@ func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
 			"Astriom | Productos, software e infraestructura",
 			"Software, productos e infraestructura para sistemas que deben perdurar.",
 			"Joss Language",
-			"/public/css/landing.css",
+			"/assets/css/landing.css",
 		} {
 			if !strings.Contains(homeHTML, expectedFragment) {
 				t.Fatalf("expected %q in GET / response body, got (len=%d):\n%.600s", expectedFragment, len(homeHTML), homeHTML)
@@ -457,15 +457,36 @@ func TestNativeJosSecurityFullProjectCompilationAndExecution(t *testing.T) {
 			t.Fatalf("password-reset validation did not receive the submitted form: status=%d body (len=%d):\n%.500s", resetResp.StatusCode, len(resetBytes), string(resetBytes))
 		}
 
-		// Verify static CSS file serving from disk
-		cssResp, err := client.Get("http://127.0.0.1:8000/public/css/landing.css")
+		// Verify compiled CSS is served under /assets/css/ (not /public/css/)
+		cssResp, err := client.Get("http://127.0.0.1:8000/assets/css/landing.css")
 		if err != nil {
-			t.Fatalf("live HTTP GET to /public/css/landing.css failed: %v", err)
+			t.Fatalf("live HTTP GET to /assets/css/landing.css failed: %v", err)
 		}
 		cssBytes, _ := io.ReadAll(cssResp.Body)
 		cssResp.Body.Close()
 		if cssResp.StatusCode != http.StatusOK || len(cssBytes) < 100 {
-			t.Fatalf("expected valid CSS response on GET /public/css/landing.css, status=%d len=%d", cssResp.StatusCode, len(cssBytes))
+			t.Fatalf("expected valid CSS response on GET /assets/css/landing.css, status=%d len=%d", cssResp.StatusCode, len(cssBytes))
+		}
+
+		// Verify public/ files are served directly at web root "/" without /public/ prefix
+		favResp, err := client.Get("http://127.0.0.1:8000/favicon.svg")
+		if err != nil {
+			t.Fatalf("live HTTP GET to /favicon.svg failed: %v", err)
+		}
+		favBytes, _ := io.ReadAll(favResp.Body)
+		favResp.Body.Close()
+		if favResp.StatusCode != http.StatusOK || len(favBytes) == 0 {
+			t.Fatalf("expected 200 OK on GET /favicon.svg, status=%d len=%d", favResp.StatusCode, len(favBytes))
+		}
+
+		// Verify legacy /public/ prefix is no longer resolved
+		legacyResp, err := client.Get("http://127.0.0.1:8000/public/favicon.svg")
+		if err != nil {
+			t.Fatalf("live HTTP GET to /public/favicon.svg failed: %v", err)
+		}
+		legacyResp.Body.Close()
+		if legacyResp.StatusCode != http.StatusNotFound {
+			t.Fatalf("expected 404 Not Found on legacy GET /public/favicon.svg, got %d", legacyResp.StatusCode)
 		}
 	}
 }

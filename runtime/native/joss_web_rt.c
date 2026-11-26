@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 
 #if defined(__unix__) || defined(__APPLE__)
@@ -195,7 +196,7 @@ const char* joss_substr(const char* s, int64_t start, int64_t length) {
         cur_rune++;
     }
     size_t byte_len = (size_t)(end_ptr - start_ptr);
-    char* out = (char*)malloc(byte_len + 1);
+    char* out = (char*)joss_req_alloc(byte_len + 1);
     if (!out) return "";
     memcpy(out, start_ptr, byte_len);
     out[byte_len] = '\0';
@@ -208,7 +209,7 @@ const char* joss_trim(const char* s) {
     while (*s && isspace((unsigned char)*s)) s++;
     size_t n = strlen(s);
     while (n > 0 && isspace((unsigned char)s[n - 1])) n--;
-    char* out = (char*)malloc(n + 1);
+    char* out = (char*)joss_req_alloc(n + 1);
     if (!out) return "";
     memcpy(out, s, n);
     out[n] = '\0';
@@ -219,7 +220,7 @@ const char* joss_strtolower(const char* s) {
     s = unbox_web_cstr(s);
     if (!s) return "";
     size_t n = strlen(s);
-    char* out = (char*)malloc(n + 1);
+    char* out = (char*)joss_req_alloc(n + 1);
     if (!out) return "";
     for (size_t i = 0; i < n; i++) out[i] = (char)tolower((unsigned char)s[i]);
     out[n] = '\0';
@@ -230,7 +231,7 @@ const char* joss_strtoupper(const char* s) {
     s = unbox_web_cstr(s);
     if (!s) return "";
     size_t n = strlen(s);
-    char* out = (char*)malloc(n + 1);
+    char* out = (char*)joss_req_alloc(n + 1);
     if (!out) return "";
     for (size_t i = 0; i < n; i++) out[i] = (char)toupper((unsigned char)s[i]);
     out[n] = '\0';
@@ -241,7 +242,7 @@ const char* joss_urldecode(const char* s) {
     s = unbox_web_cstr(s);
     if (!s) return "";
     size_t n = strlen(s);
-    char* out = (char*)malloc(n + 1);
+    char* out = (char*)joss_req_alloc(n + 1);
     if (!out) return "";
     size_t j = 0;
     for (size_t i = 0; i < n; i++) {
@@ -276,7 +277,7 @@ void* joss_explode(const char* sep, const char* subj) {
                 p++;
             }
             size_t rlen = (size_t)(p - start);
-            char* ch = (char*)malloc(rlen + 1);
+            char* ch = (char*)joss_req_alloc(rlen + 1);
             if (ch) {
                 memcpy(ch, start, rlen);
                 ch[rlen] = '\0';
@@ -287,7 +288,7 @@ void* joss_explode(const char* sep, const char* subj) {
     }
     size_t sep_len = strlen(sep);
     size_t subj_len = strlen(subj);
-    char* buf = (char*)malloc(subj_len + 1);
+    char* buf = (char*)joss_req_alloc(subj_len + 1);
     if (!buf) return arr;
     memcpy(buf, subj, subj_len + 1);
 
@@ -839,14 +840,13 @@ const char* joss_file_get_contents(const char* path) {
             long sz = ftell(f);
             fseek(f, 0, SEEK_SET);
             if (sz > 0) {
-                char* buf = (char*)malloc((size_t)sz + 1);
+                char* buf = (char*)joss_req_alloc((size_t)sz + 1);
                 if (buf) {
                     size_t rd = fread(buf, 1, (size_t)sz, f);
                     buf[rd] = '\0';
                     fclose(f);
                     if (memchr(buf, '\0', rd) != NULL) {
                         void* boxed = joss_bytes_new(buf, rd);
-                        free(buf);
                         return (const char*)boxed;
                     }
                     return buf;
@@ -947,7 +947,7 @@ const char* joss_json(int64_t data, int64_t status) {
     joss_sb_append(sb, status == 200 ? " OK\r\n" : " Status\r\n");
     joss_sb_append(sb, "Content-Type: application/json; charset=utf-8\r\nConnection: close\r\n\r\n");
     json_encode_value(sb, data);
-    char* out = joss_sb_to_string(sb);
+    char* out = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return out;
 }
@@ -973,7 +973,7 @@ const char* joss_response(const char* body, int64_t status, const char* content_
     joss_sb_append_i64(sb, status);
     joss_sb_append(sb, " OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n");
     joss_sb_append(sb, body);
-    char* out = joss_sb_to_string(sb);
+    char* out = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return out;
 }
@@ -989,7 +989,7 @@ const char* joss_redirect(const char* url, int64_t status) {
     joss_sb_append(sb, " Found\r\nLocation: ");
     joss_sb_append(sb, url);
     joss_sb_append(sb, "\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-    char* out = joss_sb_to_string(sb);
+    char* out = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return out;
 }
@@ -1009,6 +1009,161 @@ const char* joss_back(void) {
 const char* joss_view(const char* name, void* data) {
     (void)data;
     return name ? name : "";
+}
+
+/* Ephemeral live view-chunk loader for surgical HTML hot-reload in dev mode.
+ * Reads `assets/.joss_cache/views/<sanitized_key>.chunks` and automatically
+ * refreshes when the file's mtime changes on disk, without restarting the server. */
+typedef struct {
+    char* key;
+    char* file_path;
+    time_t mtime;
+    long long fsize;
+    uint32_t count;
+    char** chunks;
+} joss_dev_view_cache_entry_t;
+
+static joss_dev_view_cache_entry_t* g_dev_view_cache = NULL;
+static size_t g_dev_view_cache_len = 0;
+static size_t g_dev_view_cache_cap = 0;
+#ifdef _WIN32
+static SRWLOCK g_dev_view_cache_lock = SRWLOCK_INIT;
+#define JOSS_DEV_VIEW_LOCK() AcquireSRWLockExclusive(&g_dev_view_cache_lock)
+#define JOSS_DEV_VIEW_UNLOCK() ReleaseSRWLockExclusive(&g_dev_view_cache_lock)
+#else
+static pthread_mutex_t g_dev_view_cache_lock = PTHREAD_MUTEX_INITIALIZER;
+#define JOSS_DEV_VIEW_LOCK() pthread_mutex_lock(&g_dev_view_cache_lock)
+#define JOSS_DEV_VIEW_UNLOCK() pthread_mutex_unlock(&g_dev_view_cache_lock)
+#endif
+
+static void joss_dev_view_free_chunks(joss_dev_view_cache_entry_t* e) {
+    if (!e || !e->chunks) return;
+    for (uint32_t i = 0; i < e->count; i++) {
+        free(e->chunks[i]);
+    }
+    free(e->chunks);
+    e->chunks = NULL;
+    e->count = 0;
+}
+
+static void joss_dev_view_reload_entry(joss_dev_view_cache_entry_t* e) {
+    if (!e || !e->file_path) return;
+    struct stat st;
+    if (stat(e->file_path, &st) != 0) return;
+    time_t now_ts = time(NULL);
+    bool recently_modified = (now_ts >= st.st_mtime && (now_ts - st.st_mtime) <= 2);
+    if (e->chunks != NULL && !recently_modified && st.st_mtime == e->mtime && (long long)st.st_size == e->fsize) {
+        return;
+    }
+    FILE* fp = fopen(e->file_path, "rb");
+    if (!fp) return;
+    unsigned char hdr[4];
+    if (fread(hdr, 1, 4, fp) != 4) {
+        fclose(fp);
+        return;
+    }
+    uint32_t count = (uint32_t)hdr[0] | ((uint32_t)hdr[1] << 8) | ((uint32_t)hdr[2] << 16) | ((uint32_t)hdr[3] << 24);
+    if (count > 100000u) {
+        fclose(fp);
+        return;
+    }
+    char** next_chunks = (char**)calloc(count > 0 ? count : 1, sizeof(char*));
+    if (!next_chunks) {
+        fclose(fp);
+        return;
+    }
+    bool ok = true;
+    for (uint32_t i = 0; i < count; i++) {
+        unsigned char lbuf[4];
+        if (fread(lbuf, 1, 4, fp) != 4) {
+            ok = false;
+            break;
+        }
+        uint32_t clen = (uint32_t)lbuf[0] | ((uint32_t)lbuf[1] << 8) | ((uint32_t)lbuf[2] << 16) | ((uint32_t)lbuf[3] << 24);
+        if (clen > (16u * 1024u * 1024u)) {
+            ok = false;
+            break;
+        }
+        char* s = (char*)malloc((size_t)clen + 1u);
+        if (!s) {
+            ok = false;
+            break;
+        }
+        if (clen > 0 && fread(s, 1, clen, fp) != clen) {
+            free(s);
+            ok = false;
+            break;
+        }
+        s[clen] = '\0';
+        next_chunks[i] = s;
+    }
+    fclose(fp);
+    if (!ok) {
+        for (uint32_t i = 0; i < count; i++) free(next_chunks[i]);
+        free(next_chunks);
+        return;
+    }
+    joss_dev_view_free_chunks(e);
+    e->chunks = next_chunks;
+    e->count = count;
+    e->mtime = st.st_mtime;
+    e->fsize = (long long)st.st_size;
+}
+
+const char* joss_dev_view_chunk(const char* view_key, int64_t idx) {
+    view_key = unbox_web_cstr(view_key);
+    if (!view_key || !*view_key || idx < 0) return "";
+    JOSS_DEV_VIEW_LOCK();
+    joss_dev_view_cache_entry_t* found = NULL;
+    for (size_t i = 0; i < g_dev_view_cache_len; i++) {
+        if (strcmp(g_dev_view_cache[i].key, view_key) == 0) {
+            found = &g_dev_view_cache[i];
+            break;
+        }
+    }
+    if (!found) {
+        if (g_dev_view_cache_len >= g_dev_view_cache_cap) {
+            size_t ncap = g_dev_view_cache_cap ? g_dev_view_cache_cap * 2 : 32;
+            joss_dev_view_cache_entry_t* nmem = (joss_dev_view_cache_entry_t*)realloc(g_dev_view_cache, ncap * sizeof(joss_dev_view_cache_entry_t));
+            if (!nmem) {
+                JOSS_DEV_VIEW_UNLOCK();
+                return "";
+            }
+            g_dev_view_cache = nmem;
+            g_dev_view_cache_cap = ncap;
+        }
+        found = &g_dev_view_cache[g_dev_view_cache_len++];
+        memset(found, 0, sizeof(*found));
+        size_t klen = strlen(view_key);
+        found->key = (char*)malloc(klen + 1);
+        if (found->key) memcpy(found->key, view_key, klen + 1);
+        const char* prefix = "assets/.joss_cache/views/";
+        const char* suffix = ".chunks";
+        size_t plen = strlen(prefix) + klen + strlen(suffix) + 1;
+        found->file_path = (char*)malloc(plen);
+        if (found->file_path) {
+            size_t pos = strlen(prefix);
+            memcpy(found->file_path, prefix, pos);
+            for (size_t i = 0; i < klen; i++) {
+                char c = view_key[i];
+                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.') {
+                    found->file_path[pos++] = c;
+                } else {
+                    found->file_path[pos++] = '_';
+                }
+            }
+            memcpy(found->file_path + pos, suffix, strlen(suffix) + 1);
+        }
+    }
+    joss_dev_view_reload_entry(found);
+    char* result_copy = NULL;
+    if (found->chunks && (uint64_t)idx < (uint64_t)found->count && found->chunks[idx]) {
+        size_t slen = strlen(found->chunks[idx]);
+        result_copy = (char*)joss_req_alloc(slen + 1);
+        if (result_copy) memcpy(result_copy, found->chunks[idx], slen + 1);
+    }
+    JOSS_DEV_VIEW_UNLOCK();
+    return result_copy ? result_copy : "";
 }
 
 const char* joss___joss_get_embedded_asset(const char* path) {
@@ -2150,7 +2305,7 @@ const char* html_escape(const char* s) {
     s = unbox_web_cstr(s);
     if (!s) return "";
     size_t n = strlen(s);
-    char* out = (char*)malloc(n * 6 + 1);
+    char* out = (char*)joss_req_alloc(n * 6 + 1);
     if (!out) return "";
     size_t j = 0;
     for (size_t i = 0; i < n; i++) {
@@ -2185,7 +2340,7 @@ const char* csrf_field(void) {
     const char* suffix = "\">";
     size_t plen = strlen(prefix);
     size_t slen = strlen(suffix);
-    char* out = (char*)malloc(plen + len + slen + 1);
+    char* out = (char*)joss_req_alloc(plen + len + slen + 1);
     if (!out) return "<input type=\"hidden\" name=\"_token\" value=\"\">";
     memcpy(out, prefix, plen);
     memcpy(out + plen, escaped, len);
@@ -2219,7 +2374,7 @@ int64_t joss_file_put_contents(const char* path, const char* content) {
 const char* joss_json_encode(int64_t data) {
     JossStringBuilder* sb = joss_sb_new();
     json_encode_value(sb, data);
-    char* out = joss_sb_to_string(sb);
+    char* out = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return out;
 }
@@ -2308,141 +2463,7 @@ int64_t fn_Cache_forget(const char* key) {
     return 1;
 }
 
-const char* fn_Markdown_toHtml(const char* md);
-
-const char* fn_Markdown_readFile(const char* path) {
-    path = unbox_web_cstr(path);
-    if (!path || !path[0]) return "";
-    const char* raw = NULL;
-    if (g_joss_embedded_asset_resolver) {
-        const char* emb = g_joss_embedded_asset_resolver(path);
-        if (emb && emb[0]) raw = emb;
-    }
-    if (!raw || !raw[0]) {
-        const char* disk = joss_file_get_contents(path);
-        if (disk && disk[0]) raw = disk;
-    }
-    if (!raw || !raw[0]) {
-        char parent_path[1024];
-        snprintf(parent_path, sizeof(parent_path), "../%s", path);
-        raw = joss_file_get_contents(parent_path);
-    }
-    if (!raw || !raw[0]) return "";
-    return fn_Markdown_toHtml(raw);
-}
-
-static void md_append_inline(JossStringBuilder* sb, const char* s, size_t len) {
-    for (size_t i = 0; i < len; i++) {
-        if (s[i] == '`') {
-            size_t j = i + 1;
-            while (j < len && s[j] != '`') j++;
-            if (j < len) {
-                joss_sb_append(sb, "<code>");
-                for (size_t k = i + 1; k < j; k++) {
-                    if (s[k] == '<') joss_sb_append(sb, "&lt;");
-                    else if (s[k] == '>') joss_sb_append(sb, "&gt;");
-                    else if (s[k] == '&') joss_sb_append(sb, "&amp;");
-                    else joss_buf_append_byte(sb, (uint8_t)s[k]);
-                }
-                joss_sb_append(sb, "</code>");
-                i = j;
-                continue;
-            }
-        }
-        if (i + 1 < len && s[i] == '*' && s[i + 1] == '*') {
-            size_t j = i + 2;
-            while (j + 1 < len && !(s[j] == '*' && s[j + 1] == '*')) j++;
-            if (j + 1 < len) {
-                joss_sb_append(sb, "<strong>");
-                md_append_inline(sb, s + i + 2, j - (i + 2));
-                joss_sb_append(sb, "</strong>");
-                i = j + 1;
-                continue;
-            }
-        }
-        if (s[i] == '[') {
-            size_t close_b = i + 1;
-            while (close_b < len && s[close_b] != ']') close_b++;
-            if (close_b + 1 < len && s[close_b] == ']' && s[close_b + 1] == '(') {
-                size_t close_p = close_b + 2;
-                while (close_p < len && s[close_p] != ')') close_p++;
-                if (close_p < len) {
-                    joss_sb_append(sb, "<a href=\"");
-                    for (size_t k = close_b + 2; k < close_p; k++) {
-                        if (s[k] == '"') joss_sb_append(sb, "&quot;");
-                        else if (s[k] == '&') joss_sb_append(sb, "&amp;");
-                        else joss_buf_append_byte(sb, (uint8_t)s[k]);
-                    }
-                    joss_sb_append(sb, "\">");
-                    md_append_inline(sb, s + i + 1, close_b - (i + 1));
-                    joss_sb_append(sb, "</a>");
-                    i = close_p;
-                    continue;
-                }
-            }
-        }
-        if (s[i] == '<') joss_sb_append(sb, "&lt;");
-        else if (s[i] == '>') joss_sb_append(sb, "&gt;");
-        else if (s[i] == '&') joss_sb_append(sb, "&amp;");
-        else joss_buf_append_byte(sb, (uint8_t)s[i]);
-    }
-}
-
-const char* fn_Markdown_toHtml(const char* md) {
-    md = unbox_web_cstr(md);
-    if (!md) return "";
-    JossStringBuilder* sb = joss_sb_new();
-    const char* p = md;
-    bool in_code = false;
-    while (*p) {
-        const char* line_end = strchr(p, '\n');
-        size_t len = line_end ? (size_t)(line_end - p) : strlen(p);
-        if (len > 0 && p[len - 1] == '\r') len--;
-        if (len >= 3 && p[0] == '`' && p[1] == '`' && p[2] == '`') {
-            if (!in_code) {
-                joss_sb_append(sb, "<pre><code>");
-                in_code = true;
-            } else {
-                joss_sb_append(sb, "</code></pre>\n");
-                in_code = false;
-            }
-        } else if (in_code) {
-            for (size_t i = 0; i < len; i++) {
-                if (p[i] == '<') joss_sb_append(sb, "&lt;");
-                else if (p[i] == '>') joss_sb_append(sb, "&gt;");
-                else if (p[i] == '&') joss_sb_append(sb, "&amp;");
-                else joss_buf_append_byte(sb, (uint8_t)p[i]);
-            }
-            joss_buf_append_byte(sb, '\n');
-        } else if (len > 0 && p[0] == '#') {
-            size_t lvl = 0;
-            while (lvl < len && lvl < 6 && p[lvl] == '#') lvl++;
-            size_t start = lvl;
-            while (start < len && p[start] == ' ') start++;
-            char tag_open[8], tag_close[8];
-            snprintf(tag_open, sizeof(tag_open), "<h%zu>", lvl);
-            snprintf(tag_close, sizeof(tag_close), "</h%zu>\n", lvl);
-            joss_sb_append(sb, tag_open);
-            md_append_inline(sb, p + start, len - start);
-            joss_sb_append(sb, tag_close);
-        } else if (len >= 3 && p[0] == '-' && p[1] == '-' && p[2] == '-') {
-            joss_sb_append(sb, "<hr>\n");
-        } else if (len >= 2 && (p[0] == '-' || p[0] == '*') && p[1] == ' ') {
-            joss_sb_append(sb, "<li>");
-            md_append_inline(sb, p + 2, len - 2);
-            joss_sb_append(sb, "</li>\n");
-        } else if (len > 0) {
-            joss_sb_append(sb, "<p>");
-            md_append_inline(sb, p, len);
-            joss_sb_append(sb, "</p>\n");
-        }
-        p = line_end ? (line_end + 1) : (p + strlen(p));
-    }
-    if (in_code) joss_sb_append(sb, "</code></pre>\n");
-    char* out = joss_sb_to_string(sb);
-    joss_sb_free(sb);
-    return out;
-}
+/* Markdown::readFile and Markdown::toHtml now live in Pure Joss (std/markdown/markdown.joss). */
 
 const char* fn_Response_json(int64_t data, int64_t status) {
     return joss_json(data, status);
@@ -2497,7 +2518,7 @@ const char* fn_Response_raw(const char* body, int64_t status, const char* conten
     }
     joss_sb_append(sb, "Connection: close\r\n\r\n");
     joss_sb_append(sb, body);
-    char* out = joss_sb_to_string(sb);
+    char* out = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return out;
 }
@@ -2527,7 +2548,7 @@ const char* fn_Response_download(const char* path, const char* filename) {
         return (const char*)out;
     }
     joss_sb_append(sb, content ? content : "");
-    char* out = joss_sb_to_string(sb);
+    char* out = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return out;
 }
@@ -5706,7 +5727,7 @@ const char* joss_rawurlencode(const char* s) {
     s = unbox_web_cstr(s);
     if (!s) return "";
     size_t len = strlen(s);
-    char* out = (char*)malloc(len * 3 + 1);
+    char* out = (char*)joss_req_alloc(len * 3 + 1);
     if (!out) return s;
     static const char hex[] = "0123456789ABCDEF";
     size_t j = 0;
@@ -7213,7 +7234,7 @@ int64_t joss___joss_http_inject_header(int64_t resp_val, const char* header_line
     size_t hlen = strlen(header_line);
     size_t tail_len = total_len - head_len;
     size_t new_len = head_len + 2 + hlen + tail_len;
-    uint8_t* buf = (uint8_t*)malloc(new_len + 1);
+    uint8_t* buf = (uint8_t*)joss_req_alloc(new_len + 1);
     if (!buf) return resp_val;
     memcpy(buf, data, head_len);
     memcpy(buf + head_len, "\r\n", 2);
@@ -7222,7 +7243,6 @@ int64_t joss___joss_http_inject_header(int64_t resp_val, const char* header_line
     buf[new_len] = '\0';
     if (bin) {
         void* boxed = joss_bytes_new(buf, new_len);
-        free(buf);
         return (int64_t)(uintptr_t)boxed;
     }
     return (int64_t)(uintptr_t)buf;

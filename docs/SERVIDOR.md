@@ -24,8 +24,8 @@ El puerto predeterminado del runtime es 8000. La plantilla generada escribe
 
 ## Capacidades
 
-- Archivos públicos bajo `/public/` y `/assets/`.
-- Hot reload de código, vistas, assets, traducciones y entorno.
+- Archivos estáticos de `public/` servidos directamente en la raíz `/` (sin prefijo `/public/`) y recursos dinámicos (CSS/SCSS compilado en caché efímera y JS) bajo `/assets/`.
+- Hot-reload quirúrgico de estilos (`.scss`/`.css`), scripts (`.js`), vistas HTML (`.joss.html` sin reiniciar el servidor cuando cambia el marcado estático) y lógica `.joss` con compilación JIT rápida.
 - CSRF, CORS, headers de seguridad y WebSockets.
 - Sesiones persistentes en archivo por defecto, o drivers `memory` y `redis`.
 - La cookie canónica de sesión es `joss_session`; se acepta `JOSS_SESSION` por compatibilidad.

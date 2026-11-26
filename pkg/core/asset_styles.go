@@ -6,16 +6,34 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
-// CompileStyles compiles .scss style files from assets/css into public/css.
+// AssetCacheRoot is the ephemeral cache directory under assets/ managed by the
+// dev server supervisor and AOT build pipeline. It is removed when the server exits.
+var AssetCacheRoot = filepath.Join("assets", ".joss_cache")
+
+// StylesCacheDir holds compiled .css artifacts generated from assets/css/*.scss.
+var StylesCacheDir = filepath.Join("assets", ".joss_cache", "css")
+
+// CleanupAssetCache removes the ephemeral assets/.joss_cache directory.
+func CleanupAssetCache() {
+	_ = os.RemoveAll(AssetCacheRoot)
+}
+
+// CompileStyles compiles .scss style files from assets/css into the ephemeral
+// cache directory assets/.joss_cache/css without touching public/.
 func CompileStyles() {
 	compileStyles()
 }
 
 func compileStyles() {
-	fmt.Println("Compilando estilos...")
 	files, _ := filepath.Glob("assets/css/*.scss")
+	if len(files) == 0 {
+		return
+	}
+	start := time.Now()
+	compiledCount := 0
 	for _, file := range files {
 		// Only compile files that don't start with _
 		if strings.HasPrefix(filepath.Base(file), "_") {
@@ -44,29 +62,18 @@ func compileStyles() {
 		content = stripSCSSLineComments(content)
 		content = optimizeCSS(content)
 
-		// Change extension to .css
-		outFile := filepath.Join("public", "css", strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))+".css")
+		// Write compiled output into ephemeral cache under assets/.joss_cache/css/
+		outFile := filepath.Join(StylesCacheDir, strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))+".css")
 		_ = os.MkdirAll(filepath.Dir(outFile), 0755)
+		compiledCount++
 		newBytes := []byte(content)
 		if existing, readErr := os.ReadFile(outFile); readErr == nil && string(existing) == content {
 			continue
 		}
 		_ = os.WriteFile(outFile, newBytes, 0644)
 	}
-
-	// Also copy plain .css files from assets/css into public/css
-	cssFiles, _ := filepath.Glob("assets/css/*.css")
-	for _, file := range cssFiles {
-		if strings.HasPrefix(filepath.Base(file), "_") {
-			continue
-		}
-		content, err := os.ReadFile(file)
-		if err != nil {
-			continue
-		}
-		outFile := filepath.Join("public", "css", filepath.Base(file))
-		_ = os.MkdirAll(filepath.Dir(outFile), 0755)
-		_ = os.WriteFile(outFile, content, 0644)
+	if compiledCount > 0 {
+		fmt.Printf("🎨 Estilos compilados en caché (%d archivo(s), %dms)\n", compiledCount, time.Since(start).Milliseconds())
 	}
 }
 

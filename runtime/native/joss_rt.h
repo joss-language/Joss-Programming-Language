@@ -143,6 +143,7 @@ JossStringBuilder* joss_sb_new(void);
 void               joss_sb_append(JossStringBuilder* sb, const char* s);
 void               joss_sb_append_i64(JossStringBuilder* sb, int64_t v);
 char*              joss_sb_to_string(const JossStringBuilder* sb);
+char*              joss_sb_to_req_string(const JossStringBuilder* sb);
 void               joss_sb_free(JossStringBuilder* sb);
 
 /* =========================================================================
