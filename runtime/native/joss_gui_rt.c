@@ -118,7 +118,7 @@ static const char* joss_gui_cstr(const void* p) {
         return s ? s : "";
     }
     uintptr_t u = (uintptr_t)p;
-    if ((uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> 47) != 0) {
+    if ((uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> JOSS_PTR_VA_BITS) != 0) {
         const char* s = joss_strval(v);
         return s ? s : "";
     }
@@ -127,7 +127,7 @@ static const char* joss_gui_cstr(const void* p) {
 
 static JossWindow* joss_as_window(void* p) {
     int64_t u = joss_unbox_value((int64_t)(uintptr_t)p);
-    if (u == 0 || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> 47) != 0) return NULL;
+    if (u == 0 || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> JOSS_PTR_VA_BITS) != 0) return NULL;
     JossWindow* w = (JossWindow*)(uintptr_t)u;
     return (w->magic == JOSS_WINDOW_MAGIC) ? w : NULL;
 }

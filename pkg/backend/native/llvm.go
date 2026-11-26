@@ -274,6 +274,7 @@ func (e *LLVMEmitter) Emit(prog *ir.Program) (string, error) {
 		"fn_WebResponse_withCookie":           {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
 		"with":                                {ret: "i8*", args: []string{"i8*", "i8*", "i64"}},
 		"withCookie":                          {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
+		"joss_bytes_new":                      {ret: "i8*", args: []string{"i8*", "i64"}},
 		"fn_Http_request":                     {ret: "i8*", args: []string{"i8*", "i8*", "i8*", "i8*"}},
 		"fn_Http_get":                         {ret: "i8*", args: []string{"i8*", "i8*"}},
 		"fn_Http_post":                        {ret: "i8*", args: []string{"i8*", "i8*", "i8*"}},
@@ -918,6 +919,22 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 				gtTemp, tStr, lVal, rVal,
 				selTemp, gtTemp,
 				destVal, ltTemp, selTemp), nil
+		}
+		if i.Op == ir.OpCmpEq || i.Op == ir.OpCmpNe {
+			_, isLNull := i.Left.(*ir.ConstNull)
+			_, isRNull := i.Right.(*ir.ConstNull)
+			if (isLNull != isRNull) && (i.Left.Type().Kind == ir.TypeKindMixed || i.Right.Type().Kind == ir.TypeKindMixed) {
+				other := i.Left
+				if isLNull {
+					other = i.Right
+				}
+				preO, oVal := e.coerceLLVM(other, "i64", fmt.Sprintf("cn_%p", i))
+				if i.Op == ir.OpCmpNe {
+					return fmt.Sprintf("%s%s = call i1 @joss_is_not_null(i64 %s)", preO, e.formatValue(i.Dest), oVal), nil
+				}
+				nnTmp := fmt.Sprintf("%%nn_%p", i)
+				return fmt.Sprintf("%s%s = call i1 @joss_is_not_null(i64 %s)\n\t%s = xor i1 %s, true", preO, nnTmp, oVal, e.formatValue(i.Dest), nnTmp), nil
+			}
 		}
 		if (i.Op == ir.OpCmpEq || i.Op == ir.OpCmpNe) && (i.Left.Type().Kind == ir.TypeKindString || i.Right.Type().Kind == ir.TypeKindString) {
 			_, isLNull := i.Left.(*ir.ConstNull)

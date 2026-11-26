@@ -15,6 +15,7 @@
 #include "joss_rt.h"
 
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +47,13 @@
 #elif !defined(JOSS_DB_DISABLE_MYSQL) && __has_include(<mariadb/mysql.h>)
 #include <mariadb/mysql.h>
 #define JOSS_HAS_MYSQL 1
+#endif
+#if defined(JOSS_HAS_MYSQL)
+#if defined(MARIADB_BASE_VERSION) || defined(MARIADB_VERSION_ID) || defined(LIBMARIADB) || (defined(MYSQL_VERSION_ID) && MYSQL_VERSION_ID < 80000)
+typedef my_bool joss_mysql_bool_t;
+#else
+typedef bool joss_mysql_bool_t;
+#endif
 #endif
 #if !defined(JOSS_DB_DISABLE_ODBC) && __has_include(<sql.h>) && __has_include(<sqlext.h>)
 #include <sql.h>
@@ -163,8 +171,12 @@ static void* sqlite_query(const char* sql, void* bindings) {
         void* row = joss_map_new();
         for (int c = 0; c < cols; c++) {
             const char* cname = sqlite3_column_name(stmt, c);
-            const unsigned char* cval = sqlite3_column_text(stmt, c);
-            joss_map_set_str(row, cname ? cname : "", cval ? joss_req_strdup((const char*)cval) : "");
+            if (sqlite3_column_type(stmt, c) == SQLITE_NULL) {
+                joss_map_set_i64(row, cname ? cname : "", (int64_t)(uintptr_t)joss_box_value(JOSS_TAG_NULL, 0));
+            } else {
+                const unsigned char* cval = sqlite3_column_text(stmt, c);
+                joss_map_set_str(row, cname ? cname : "", cval ? joss_req_strdup((const char*)cval) : "");
+            }
         }
         joss_arr_push_i64(rows, (int64_t)(uintptr_t)row);
     }
@@ -237,7 +249,7 @@ static const char* db_cstr(const char* s) {
     if (!s) return "";
     uintptr_t u = (uintptr_t)s;
     int64_t v = (int64_t)u;
-    if (joss_is_boxed_ptr(v) || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> 47) != 0) {
+    if (joss_is_boxed_ptr(v) || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> JOSS_PTR_VA_BITS) != 0) {
         const char* r = joss_strval(v);
         return r ? r : "";
     }
@@ -1056,8 +1068,13 @@ static void* sqlite_mem_query(const char* sql, void* bindings) {
                         if (!want_count) {
                             void* row = joss_map_new();
                             for (int c = 0; c < tbl->rows[r].cell_count; c++) {
-                                joss_map_set_str(row, tbl->rows[r].cells[c].col,
-                                                 joss_req_strdup(tbl->rows[r].cells[c].val ? tbl->rows[r].cells[c].val : ""));
+                                if (tbl->rows[r].cells[c].val == NULL) {
+                                    joss_map_set_i64(row, tbl->rows[r].cells[c].col,
+                                                     (int64_t)(uintptr_t)joss_box_value(JOSS_TAG_NULL, 0));
+                                } else {
+                                    joss_map_set_str(row, tbl->rows[r].cells[c].col,
+                                                     joss_req_strdup(tbl->rows[r].cells[c].val));
+                                }
                             }
                             joss_arr_push_i64(rows, (int64_t)(uintptr_t)row);
                             if (limit_n >= 0 && match_count >= limit_n) break;
@@ -1155,8 +1172,12 @@ static void* pg_query(const char* sql, void* bindings) {
             void* row = joss_map_new();
             for (int c = 0; c < ncols; c++) {
                 const char* cname = PQfname(res, c);
-                const char* cval = PQgetisnull(res, r, c) ? "" : PQgetvalue(res, r, c);
-                joss_map_set_str(row, cname ? cname : "", joss_req_strdup(cval));
+                if (PQgetisnull(res, r, c)) {
+                    joss_map_set_i64(row, cname ? cname : "", (int64_t)(uintptr_t)joss_box_value(JOSS_TAG_NULL, 0));
+                } else {
+                    const char* cval = PQgetvalue(res, r, c);
+                    joss_map_set_str(row, cname ? cname : "", joss_req_strdup(cval ? cval : ""));
+                }
             }
             joss_arr_push_i64(rows, (int64_t)(uintptr_t)row);
         }
@@ -1255,25 +1276,32 @@ static void* mysql_query_native(const char* sql, void* bindings) {
             MYSQL_BIND* resBinds = (MYSQL_BIND*)calloc(ncols, sizeof(MYSQL_BIND));
             char** bufs = (char**)calloc(ncols, sizeof(char*));
             unsigned long* resLens = (unsigned long*)calloc(ncols, sizeof(unsigned long));
+            joss_mysql_bool_t* resNulls = (joss_mysql_bool_t*)calloc(ncols, sizeof(joss_mysql_bool_t));
             for (unsigned int c = 0; c < ncols; c++) {
                 bufs[c] = (char*)calloc(1, 4096);
                 resBinds[c].buffer_type = MYSQL_TYPE_STRING;
                 resBinds[c].buffer = bufs[c];
                 resBinds[c].buffer_length = 4095;
                 resBinds[c].length = &resLens[c];
+                resBinds[c].is_null = &resNulls[c];
             }
             mysql_stmt_bind_result(stmt, resBinds);
             while (mysql_stmt_fetch(stmt) == 0) {
                 void* row = joss_map_new();
                 for (unsigned int c = 0; c < ncols; c++) {
-                    bufs[c][resLens[c] < 4095 ? resLens[c] : 4095] = '\0';
-                    joss_map_set_str(row, fields[c].name ? fields[c].name : "", joss_req_strdup(bufs[c]));
+                    if (resNulls[c]) {
+                        joss_map_set_i64(row, fields[c].name ? fields[c].name : "", (int64_t)(uintptr_t)joss_box_value(JOSS_TAG_NULL, 0));
+                    } else {
+                        bufs[c][resLens[c] < 4095 ? resLens[c] : 4095] = '\0';
+                        joss_map_set_str(row, fields[c].name ? fields[c].name : "", joss_req_strdup(bufs[c]));
+                    }
                 }
                 joss_arr_push_i64(rows, (int64_t)(uintptr_t)row);
             }
             for (unsigned int c = 0; c < ncols; c++) free(bufs[c]);
             free(bufs);
             free(resLens);
+            free(resNulls);
             free(resBinds);
             mysql_free_result(meta);
         }
@@ -1384,7 +1412,7 @@ static void* odbc_query(const char* sql, void* bindings) {
                     if (SQL_SUCCEEDED(SQLGetData(stmt, (SQLUSMALLINT)c, SQL_C_CHAR, valBuf, sizeof(valBuf), &ind)) && ind != SQL_NULL_DATA) {
                         joss_map_set_str(row, (const char*)colName, joss_req_strdup(valBuf));
                     } else {
-                        joss_map_set_str(row, (const char*)colName, "");
+                        joss_map_set_i64(row, (const char*)colName, (int64_t)(uintptr_t)joss_box_value(JOSS_TAG_NULL, 0));
                     }
                 }
                 joss_arr_push_i64(rows, (int64_t)(uintptr_t)row);
@@ -1652,14 +1680,14 @@ static int           g_model_class_count = 0;
 
 static bool joss_is_model_ptr(int64_t v) {
     int64_t u = joss_unbox_value(v);
-    if (u == 0 || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> 47) != 0) return false;
+    if (u == 0 || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> JOSS_PTR_VA_BITS) != 0) return false;
     JossModel* m = (JossModel*)(uintptr_t)u;
     return m->magic == JOSS_MODEL_MAGIC;
 }
 
 static JossModel* joss_as_model(void* p) {
     int64_t u = joss_unbox_value((int64_t)(uintptr_t)p);
-    if (u == 0 || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> 47) != 0) return NULL;
+    if (u == 0 || (uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> JOSS_PTR_VA_BITS) != 0) return NULL;
     JossModel* m = (JossModel*)(uintptr_t)u;
     return (m->magic == JOSS_MODEL_MAGIC) ? m : NULL;
 }
@@ -1673,7 +1701,7 @@ static const char* joss_model_cstr(const void* p) {
         return s ? s : "";
     }
     uintptr_t u = (uintptr_t)p;
-    if ((uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> 47) != 0) {
+    if ((uint64_t)u < JOSS_MIN_PTR_ADDR || ((uint64_t)u >> JOSS_PTR_VA_BITS) != 0) {
         const char* s = joss_strval(v);
         return s ? s : "";
     }

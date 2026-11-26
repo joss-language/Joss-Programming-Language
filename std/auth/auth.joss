@@ -307,9 +307,17 @@ public static func verifyHash(string $hash, string $password) : bool {
     return password_verify($hash, $password)
 }
 
-public static func issueToken(mixed $userId, string $email, string $username, string $role): string {
+private static func jwtTtlSeconds(): int {
+    int $ttl = intval(env("JWT_TTL_SECONDS", "2592000"))
+    ($ttl <= 0) ? {
+        $ttl = 2592000
+    }
+    return $ttl
+}
+
+public static func issueToken(mixed $userId, string $email, string $username, string $role) : string {
     int $now = time()
-    string $payload = json_encode( {"user_id": $userId, "sub": $userId, "email": $email, "username": $username, "role": $role, "iat": $now, "exp": $now + 3600
+    string $payload = json_encode( {"user_id": $userId, "sub": $userId, "email": $email, "username": $username, "role": $role, "iat": $now, "exp": $now + Auth::jwtTtlSeconds()
 })
 return jwt_sign($payload, Auth::jwtSecret())
 }
@@ -342,7 +350,7 @@ public static func refresh(string $token) : mixed {
         return false
     }
     int $now = time()
-    string $payload = json_encode( {"refreshed" : true, "iat" : $now, "exp": $now + 3600
+    string $payload = json_encode( {"refreshed" : true, "iat" : $now, "exp": $now + Auth::jwtTtlSeconds()
 })
 return jwt_sign($payload, Auth::jwtSecret())
 }

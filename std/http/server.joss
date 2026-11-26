@@ -82,6 +82,7 @@ public class HttpServer {
         string $peerIp = __joss_socket_peer_ip($client)
         string $response = HttpServer::handle($raw, $client, $peerIp)
         ($response != "__JOSS_WEBSOCKET_HANDLED__") ? {
+            HttpServer::logResponse($rawCheck, $response)
             $client->send($response)
             $client->close()
         }
@@ -105,10 +106,6 @@ public class HttpServer {
         var $pathParts = explode("?", $path)
         (count($pathParts) > 0) ? {
             $path = $pathParts [0]
-        }
-        ($_method == "POST") ? {
-            var $requestBody = strval($requestData ["_body"] ?? "")
-            print("[HTTPTrace] POST bodyBytes=" . strlen($requestBody) . ", turnstileFieldPresent=" . str_contains($requestBody, "cf-turnstile-response="))
         }
 
         // Parse HTTP request headers
@@ -197,8 +194,6 @@ public class HttpServer {
         (strlen($indexNowKey) > 0 && $path == ("/" . $indexNowKey . ".txt")) ? {
             return "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" . $indexNowKey
         }
-
-        print("[Server] " . $_method . " " . $path)
 
         bool $unsafeStatic = HttpServer::isUnsafeStaticPath($path)
 
@@ -301,6 +296,7 @@ public class HttpServer {
     }
 
     // Auto-restore authenticated session from valid joss_token JWT cookie (Go applyJWTPersistence parity)
+    bool $clearStaleJwtCookie = false
     string $existingUid = strval($webSession->get("user_id", ""))
     (strlen($existingUid) == 0 || $existingUid == "0") ? {
         var $reqCookies = $requestData ["_cookies"] ?? {
@@ -327,6 +323,8 @@ public class HttpServer {
                 }
                 $webSession->put("user_token", $jwtCookie)
             }
+        } : {
+            $clearStaleJwtCookie = true
         }
     }
 }
@@ -423,6 +421,12 @@ guard ($dispatched == "" || $dispatched == null) : {
     ($xfProto == "https") ? {
         $respStr = __joss_http_inject_header($respStr, "Strict-Transport-Security: max-age=31536000; includeSubDomains")
     }
+    (str_contains($respStr, "Content-Type: text/html") &&!str_contains($respStr, "Cache-Control:")) ? {
+        $respStr = __joss_http_inject_header($respStr, "Cache-Control: no-store, no-cache, must-revalidate")
+    }
+    ($clearStaleJwtCookie &&!str_contains($respStr, "Set-Cookie: joss_token=")) ? {
+        $respStr = __joss_http_inject_header($respStr, "Set-Cookie: joss_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
+    }
     return __joss_http_inject_header($respStr, $webSession->getCookieHeader())
 }
 
@@ -506,6 +510,100 @@ private static func isUnsafeStaticPath(string $path) : bool {
         return true
     }
     return false
+}
+
+public static func logResponse(string $rawReq, string $response) : void {
+    // 1. Extraer método y ruta desde la primera línea de la petición
+    string $reqFirst = $rawReq
+    mixed $reqEnd = strpos($rawReq, "\r\n")
+    ($reqEnd !== false && intval($reqEnd) >= 0) ? {
+        $reqFirst = substr($rawReq, 0, intval($reqEnd))
+    }
+    var $reqParts = explode(" ", trim($reqFirst))
+    string $method = (count($reqParts) >= 1 && strlen(trim(strval($reqParts [0]))) > 0) ? strval($reqParts [0]) : "REQ"
+    string $path = (count($reqParts) >= 2) ? strval($reqParts [1]) : "/"
+    var $pathParts = explode("?", $path)
+    (count($pathParts) > 0) ? {
+        $path = strval($pathParts [0])
+    }
+
+    // Omitir endpoints internos de hot-reload para no saturar la consola
+    ($path == "/__joss_health" || $path == "/__joss_live.js" || $path == "/__hot_reload") ? {
+        return
+    }
+
+    // 2. Extraer línea de estado HTTP sin recorrer cuerpos binarios grandes
+    string $statusLine = ""
+    mixed $respEnd = strpos($response, "\r\n")
+    ($respEnd !== false && intval($respEnd) >= 0) ? {
+        $statusLine = substr($response, 0, intval($respEnd))
+    } : {
+        $statusLine = substr($response, 0, 64)
+    }
+
+    int $statusCode = 200
+    string $statusReason = ""
+    var $statusParts = explode(" ", trim($statusLine))
+    (count($statusParts) >= 2) ? {
+        int $parsed = intval($statusParts [1])
+        ($parsed >= 100 && $parsed <= 599) ? {
+            $statusCode = $parsed
+        }
+        (count($statusParts) >= 3) ? {
+            int $reasonPos = strlen(strval($statusParts [0])) + 1 + strlen(strval($statusParts [1])) + 1
+            ($reasonPos < strlen($statusLine)) ? {
+                $statusReason = trim(substr($statusLine, $reasonPos))
+            }
+        }
+    }
+
+    // 3. Respuestas exitosas / redirecciones (2xx / 3xx)
+    ($statusCode < 400) ? {
+        print("[Server] [status:" . strval($statusCode) . "] " . $method . " " . $path)
+        return
+    }
+
+    // 4. Para errores (4xx / 5xx), extraer detalle conciso del cuerpo
+    string $detail = ""
+    mixed $bodySep = strpos($response, "\r\n\r\n")
+    ($bodySep !== false && intval($bodySep) >= 0) ? {
+        int $bodyStart = intval($bodySep) + 4
+        string $snippet = trim(substr($response, $bodyStart, 240))
+        $snippet = str_replace("\r", " ", $snippet)
+        $snippet = str_replace("\n", " ", $snippet)
+        (strlen($snippet) > 0) ? {
+            (str_starts_with($snippet, "<")) ? {
+                $detail = (strlen($statusReason) > 0) ? $statusReason : ("HTTP " . strval($statusCode))
+            } : {
+                (strlen($snippet) > 220) ? {
+                    $detail = substr($snippet, 0, 220) . "..."
+                } : {
+                    $detail = $snippet
+                }
+            }
+        }
+    }
+    (strlen($detail) == 0 && strlen($statusReason) > 0) ? {
+        $detail = $statusReason
+    }
+
+    // 5. Errores críticos 5xx: banner muy visible en consola
+    ($statusCode >= 500) ? {
+        print("========================================================================")
+        print("🚨 [SERVER ERROR " . strval($statusCode) . "] [status:" . strval($statusCode) . "] " . $method . " " . $path)
+        (strlen($detail) > 0) ? {
+            print("⚠️  Detalle: [" . $detail . "]")
+        }
+        print("========================================================================")
+        return
+    }
+
+    // 6. Errores de cliente 4xx: mostrar status + detalle + método + ruta
+    (strlen($detail) > 0) ? {
+        print("[Server] [status:" . strval($statusCode) . "] [" . $detail . "] " . $method . " " . $path)
+        return
+    }
+    print("[Server] [status:" . strval($statusCode) . "] " . $method . " " . $path)
 }
 
 }

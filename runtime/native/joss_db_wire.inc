@@ -504,7 +504,7 @@ static JOSS_WIRE_UNUSED void* mysql_wire_query(const char* sql, void* bindings) 
             const char* cname = col_names[i] ? col_names[i] : "";
             if (rp[pos] == 0xFB) {
                 pos++;
-                joss_map_set_str(row_map, cname, "");
+                joss_map_set_i64(row_map, cname, (int64_t)(uintptr_t)joss_box_value(JOSS_TAG_NULL, 0));
             } else {
                 size_t vc = 0;
                 uint64_t vlen = mysql_wire_read_lenenc(rp + pos, plen - pos, &vc);
@@ -868,7 +868,7 @@ static JOSS_WIRE_UNUSED void* pg_wire_query(const char* sql, void* bindings) {
                 pos += 4;
                 const char* cname = cols[i] ? cols[i] : "";
                 if (flen < 0) {
-                    joss_map_set_str(row_map, cname, "");
+                    joss_map_set_i64(row_map, cname, (int64_t)(uintptr_t)joss_box_value(JOSS_TAG_NULL, 0));
                 } else if (pos + (size_t)flen <= blen) {
                     char* val = (char*)malloc((size_t)flen + 1);
                     if (val) { memcpy(val, body + pos, (size_t)flen); val[flen] = '\0'; joss_map_set_str(row_map, cname, val); }

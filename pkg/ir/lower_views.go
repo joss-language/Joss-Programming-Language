@@ -2040,7 +2040,20 @@ func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 
 	for idx, a := range assets {
 		matchBlk := fn.NewBlock(fmt.Sprintf("asset_match_%d", idx))
-		matchBlk.SetTerminator(&ReturnTerminator{Val: NewConstString(a.content)})
+		if strings.IndexByte(a.content, 0) >= 0 {
+			bytesTmp := fn.NewTemp(TypeString, fmt.Sprintf("asset_bytes_%d", idx))
+			matchBlk.AddInstruction(&CallRuntimeInst{
+				Func: "joss_bytes_new",
+				Args: []Value{
+					NewConstString(a.content),
+					NewConstInt(int64(len(a.content)), TypeI64),
+				},
+				Dest: bytesTmp,
+			})
+			matchBlk.SetTerminator(&ReturnTerminator{Val: bytesTmp})
+		} else {
+			matchBlk.SetTerminator(&ReturnTerminator{Val: NewConstString(a.content)})
+		}
 
 		for subIdx, alias := range a.aliases {
 			nextBlk := fn.NewBlock(fmt.Sprintf("asset_next_%d_%d", idx, subIdx))

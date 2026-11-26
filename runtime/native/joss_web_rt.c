@@ -131,7 +131,7 @@ static const char* unbox_web_cstr(const char* s) {
     if (joss_is_boxed_ptr(v)) {
         return joss_strval(v);
     }
-    if (u < 0x10000ULL || (u >> 47) != 0) {
+    if (u < 0x10000ULL || (u >> JOSS_PTR_VA_BITS) != 0) {
         return joss_strval(v);
     }
     return s;
@@ -320,7 +320,7 @@ int64_t len(void* container) {
     if (joss_is_map_ptr(v)) return joss_map_len((void*)(uintptr_t)v);
     if (joss_is_arr_ptr(v)) return joss_arr_len((void*)(uintptr_t)v);
     uint64_t u = (uint64_t)v;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
+    if (u >= JOSS_MIN_PTR_ADDR && (u >> JOSS_PTR_VA_BITS) == 0) {
         return joss_strlen((const char*)(uintptr_t)u);
     }
     return 0;
@@ -347,7 +347,7 @@ int64_t joss_is_truthy(int64_t v) {
     if (joss_is_arr_ptr(v)) return joss_arr_len((void*)(uintptr_t)v) > 0 ? 1 : 0;
     if (joss_is_map_ptr(v)) return joss_map_len((void*)(uintptr_t)v) > 0 ? 1 : 0;
     uint64_t u = (uint64_t)v;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
+    if (u >= JOSS_MIN_PTR_ADDR && (u >> JOSS_PTR_VA_BITS) == 0) {
         const char* s = (const char*)(uintptr_t)u;
         return s[0] != '\0' ? 1 : 0;
     }
@@ -372,7 +372,7 @@ int64_t joss_is_string(int64_t v) {
         return (tag == JOSS_TAG_STRING || tag == JOSS_TAG_BYTES) ? 1 : 0;
     }
     uint64_t u = (uint64_t)v;
-    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) return 0;
+    if (u < JOSS_MIN_PTR_ADDR || (u >> JOSS_PTR_VA_BITS) != 0) return 0;
     return 1;
 }
 
@@ -425,7 +425,7 @@ int64_t joss___joss_string_byte_at(const char* s, int64_t idx) {
 
 double joss_floatval(int64_t v) {
     uint64_t u = (uint64_t)v;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
+    if (u >= JOSS_MIN_PTR_ADDR && (u >> JOSS_PTR_VA_BITS) == 0) {
         const char* s = joss_strval(v);
         return s ? strtod(s, NULL) : 0.0;
     }
@@ -786,7 +786,7 @@ static const char* joss_lookup_embedded_priv_or_asset(const char* path, bool dec
         return plain ? plain : "";
     }
     const char* pub = g_joss_embedded_asset_resolver(s);
-    if (pub && pub[0]) return pub;
+    if (pub && (joss_bytes_unwrap(pub, NULL) != NULL || pub[0])) return pub;
     return NULL;
 }
 
@@ -911,7 +911,7 @@ static void json_encode_value(JossStringBuilder* sb, int64_t val) {
         return;
     }
     uint64_t u = (uint64_t)val;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
+    if (u >= JOSS_MIN_PTR_ADDR && (u >> JOSS_PTR_VA_BITS) == 0) {
         json_escape_append(sb, (const char*)(uintptr_t)u);
         return;
     }
@@ -2007,7 +2007,19 @@ void* withCookie(void* recv, const char* k, const char* v) {
     joss_sb_append(sb, k);
     joss_sb_append(sb, "=");
     joss_sb_append(sb, v ? v : "");
-    joss_sb_append(sb, "; Path=/; HttpOnly");
+    joss_sb_append(sb, "; Path=/; HttpOnly; SameSite=Lax; Max-Age=");
+    if (!v || !v[0]) {
+        joss_sb_append(sb, "0");
+    } else {
+        int64_t ttl = strtoll(joss_env("JWT_TTL_SECONDS", joss_env("SESSION_TTL_SECONDS", "2592000")), NULL, 10);
+        if (ttl <= 0) ttl = 2592000;
+        joss_sb_append_i64(sb, ttl);
+    }
+    const char* app_env = joss_env("APP_ENV", "");
+    const char* sess_sec = joss_env("SESSION_SECURE", "");
+    if ((app_env && strcasecmp(app_env, "production") == 0) || (sess_sec && strcasecmp(sess_sec, "true") == 0)) {
+        joss_sb_append(sb, "; Secure");
+    }
     joss_sb_append(sb, sep);
     char* out = joss_sb_to_string(sb);
     joss_sb_free(sb);
@@ -4509,7 +4521,7 @@ typedef struct {
 
 static JossFileStream* joss_fs_unwrap(void* handle) {
     int64_t raw = joss_unbox_value((int64_t)(uintptr_t)handle);
-    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> 47) == 0) {
+    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> JOSS_PTR_VA_BITS) == 0) {
         JossFileStream* fs = (JossFileStream*)(uintptr_t)(uint64_t)raw;
         if (fs->magic == JOSS_FILESTREAM_MAGIC) {
             return fs;
@@ -4734,7 +4746,7 @@ static void* joss_di_new(int64_t total_sec) {
 
 static int64_t joss_dt_extract_sec(void* self) {
     int64_t raw = joss_unbox_value((int64_t)(uintptr_t)self);
-    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> 47) == 0) {
+    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> JOSS_PTR_VA_BITS) == 0) {
         const JossDateTime* dt = (const JossDateTime*)(uintptr_t)(uint64_t)raw;
         if (dt->magic == JOSS_DATETIME_MAGIC) {
             return dt->unix_sec;
@@ -4745,7 +4757,7 @@ static int64_t joss_dt_extract_sec(void* self) {
 
 static int64_t joss_di_extract_sec(int64_t val) {
     int64_t raw = joss_unbox_value(val);
-    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> 47) == 0) {
+    if (raw >= (int64_t)JOSS_MIN_PTR_ADDR && ((uint64_t)raw >> JOSS_PTR_VA_BITS) == 0) {
         const JossDateInterval* di = (const JossDateInterval*)(uintptr_t)(uint64_t)raw;
         if (di->magic == JOSS_DATEINTERVAL_MAGIC) {
             return di->total_sec;
@@ -5742,6 +5754,321 @@ const char* joss_sha256_base64(const char* s) {
 #include <bcrypt.h>
 #endif
 
+#define JOSS_RSA_MAX_LIMBS 132
+
+static int joss_rsa_cmp_k(const uint32_t* a, const uint32_t* b, int k) {
+    for (int i = k - 1; i >= 0; i--) {
+        if (a[i] < b[i]) return -1;
+        if (a[i] > b[i]) return 1;
+    }
+    return 0;
+}
+
+static void joss_rsa_sub_k(uint32_t* a, const uint32_t* b, int k) {
+    uint64_t borrow = 0;
+    for (int i = 0; i < k; i++) {
+        uint64_t diff = (uint64_t)a[i] - (uint64_t)b[i] - borrow;
+        a[i] = (uint32_t)diff;
+        borrow = (diff >> 63) & 1ULL;
+    }
+}
+
+static uint32_t joss_rsa_mont_n0inv(uint32_t n0) {
+    uint32_t x = n0;
+    x *= 2U - n0 * x;
+    x *= 2U - n0 * x;
+    x *= 2U - n0 * x;
+    x *= 2U - n0 * x;
+    return (uint32_t)(0U - x);
+}
+
+static void joss_rsa_mont_mul(uint32_t* out, const uint32_t* a, const uint32_t* b,
+                              const uint32_t* n, int k, uint32_t n0inv) {
+    uint32_t t[JOSS_RSA_MAX_LIMBS + 2];
+    memset(t, 0, (size_t)(k + 2) * sizeof(uint32_t));
+    for (int i = 0; i < k; i++) {
+        uint64_t carry = 0;
+        uint64_t ai = (uint64_t)a[i];
+        for (int j = 0; j < k; j++) {
+            uint64_t s = (uint64_t)t[j] + ai * (uint64_t)b[j] + carry;
+            t[j] = (uint32_t)s;
+            carry = s >> 32;
+        }
+        uint64_t s = (uint64_t)t[k] + carry;
+        t[k] = (uint32_t)s;
+        t[k + 1] = (uint32_t)(s >> 32);
+
+        uint32_t m = t[0] * n0inv;
+        carry = ((uint64_t)t[0] + (uint64_t)m * (uint64_t)n[0]) >> 32;
+        for (int j = 1; j < k; j++) {
+            uint64_t u = (uint64_t)t[j] + (uint64_t)m * (uint64_t)n[j] + carry;
+            t[j - 1] = (uint32_t)u;
+            carry = u >> 32;
+        }
+        uint64_t u = (uint64_t)t[k] + carry;
+        t[k - 1] = (uint32_t)u;
+        t[k] = t[k + 1] + (uint32_t)(u >> 32);
+    }
+    if (t[k] != 0 || joss_rsa_cmp_k(t, n, k) >= 0) {
+        joss_rsa_sub_k(t, n, k);
+    }
+    memcpy(out, t, (size_t)k * sizeof(uint32_t));
+}
+
+static bool joss_rsa_bytes_to_limbs(const uint8_t* be, size_t len, uint32_t* limbs, int k) {
+    memset(limbs, 0, (size_t)k * sizeof(uint32_t));
+    while (len > 0 && *be == 0) {
+        be++;
+        len--;
+    }
+    if (len > (size_t)k * 4U) return false;
+    for (size_t i = 0; i < len; i++) {
+        size_t pos = len - 1 - i;
+        limbs[pos / 4U] |= ((uint32_t)be[i]) << ((pos % 4U) * 8U);
+    }
+    return true;
+}
+
+static void joss_rsa_limbs_to_bytes(const uint32_t* limbs, int k, uint8_t* out, size_t out_len) {
+    memset(out, 0, out_len);
+    for (size_t i = 0; i < out_len; i++) {
+        size_t pos = out_len - 1 - i;
+        int limb_idx = (int)(pos / 4U);
+        if (limb_idx < k) {
+            out[i] = (uint8_t)((limbs[limb_idx] >> ((pos % 4U) * 8U)) & 0xFFU);
+        }
+    }
+}
+
+static bool joss_asn1_read_tlv(const uint8_t* buf, size_t len, size_t* off,
+                               uint8_t* tag, const uint8_t** val, size_t* vlen) {
+    if (*off + 2 > len) return false;
+    *tag = buf[(*off)++];
+    uint8_t lb = buf[(*off)++];
+    size_t n = 0;
+    if ((lb & 0x80U) == 0) {
+        n = lb;
+    } else {
+        int nb = (int)(lb & 0x7FU);
+        if (nb <= 0 || nb > 4 || *off + (size_t)nb > len) return false;
+        for (int i = 0; i < nb; i++) {
+            n = (n << 8) | buf[(*off)++];
+        }
+    }
+    if (*off + n > len) return false;
+    *val = buf + *off;
+    *vlen = n;
+    *off += n;
+    return true;
+}
+
+static bool joss_rsa_parse_pem_key(const char* pem,
+                                   const uint8_t** out_der_buf,
+                                   const uint8_t** out_n, size_t* out_n_len,
+                                   const uint8_t** out_d, size_t* out_d_len) {
+    static const char B64_STD[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const char* begin = strstr(pem, "-----BEGIN ");
+    if (!begin) return false;
+    const char* line_end = strstr(begin, "-----");
+    if (!line_end) return false;
+    line_end = strstr(line_end + 5, "-----");
+    if (!line_end) return false;
+    const char* body = line_end + 5;
+    const char* end = strstr(body, "-----END ");
+    if (!end || end <= body) return false;
+
+    size_t body_len = (size_t)(end - body);
+    char* clean = (char*)malloc(body_len + 1);
+    if (!clean) return false;
+    size_t clen = 0;
+    for (size_t i = 0; i < body_len; i++) {
+        unsigned char c = (unsigned char)body[i];
+        if (c != '\r' && c != '\n' && c != ' ' && c != '\t') {
+            clean[clen++] = (char)c;
+        }
+    }
+    clean[clen] = '\0';
+
+    size_t der_cap = (clen * 3U) / 4U + 8U;
+    uint8_t* der = (uint8_t*)malloc(der_cap);
+    if (!der) {
+        free(clean);
+        return false;
+    }
+    size_t der_len = joss_prim_base64_decode_alphabet(clean, clen, B64_STD, der, der_cap);
+    free(clean);
+    if (der_len < 16) {
+        free(der);
+        return false;
+    }
+
+    size_t off = 0;
+    uint8_t tag = 0;
+    const uint8_t* seq = NULL;
+    size_t seq_len = 0;
+    if (!joss_asn1_read_tlv(der, der_len, &off, &tag, &seq, &seq_len) || tag != 0x30U) {
+        free(der);
+        return false;
+    }
+
+    size_t soff = 0;
+    const uint8_t* v0 = NULL; size_t v0_len = 0;
+    const uint8_t* v1 = NULL; size_t v1_len = 0;
+    uint8_t t0 = 0, t1 = 0;
+    if (!joss_asn1_read_tlv(seq, seq_len, &soff, &t0, &v0, &v0_len) || t0 != 0x02U ||
+        !joss_asn1_read_tlv(seq, seq_len, &soff, &t1, &v1, &v1_len)) {
+        free(der);
+        return false;
+    }
+
+    /* PKCS#8 PrivateKeyInfo: version(INT), algId(SEQ 0x30), privateKey(OCTET STRING 0x04) */
+    if (t1 == 0x30U) {
+        uint8_t t2 = 0;
+        const uint8_t* oct = NULL; size_t oct_len = 0;
+        if (!joss_asn1_read_tlv(seq, seq_len, &soff, &t2, &oct, &oct_len) || t2 != 0x04U) {
+            free(der);
+            return false;
+        }
+        size_t ioff = 0;
+        if (!joss_asn1_read_tlv(oct, oct_len, &ioff, &tag, &seq, &seq_len) || tag != 0x30U) {
+            free(der);
+            return false;
+        }
+        soff = 0;
+        if (!joss_asn1_read_tlv(seq, seq_len, &soff, &t0, &v0, &v0_len) || t0 != 0x02U ||
+            !joss_asn1_read_tlv(seq, seq_len, &soff, &t1, &v1, &v1_len)) {
+            free(der);
+            return false;
+        }
+    }
+
+    /* PKCS#1 RSAPrivateKey: version(INT), n(INT), e(INT), d(INT), ... */
+    if (t1 != 0x02U) {
+        free(der);
+        return false;
+    }
+    uint8_t te = 0, td = 0;
+    const uint8_t* ve = NULL; size_t ve_len = 0;
+    const uint8_t* vd = NULL; size_t vd_len = 0;
+    if (!joss_asn1_read_tlv(seq, seq_len, &soff, &te, &ve, &ve_len) || te != 0x02U ||
+        !joss_asn1_read_tlv(seq, seq_len, &soff, &td, &vd, &vd_len) || td != 0x02U) {
+        free(der);
+        return false;
+    }
+    while (v1_len > 0 && *v1 == 0) { v1++; v1_len--; }
+    while (vd_len > 0 && *vd == 0) { vd++; vd_len--; }
+    if (v1_len < 64 || v1_len > 512 || vd_len == 0 || vd_len > v1_len) {
+        free(der);
+        return false;
+    }
+
+    *out_der_buf = der;
+    *out_n = v1;
+    *out_n_len = v1_len;
+    *out_d = vd;
+    *out_d_len = vd_len;
+    return true;
+}
+
+const char* joss_rsa_sign_sha256_pure(const char* data, const char* priv_key) {
+    if (!data || !priv_key || !*priv_key) return "";
+    const uint8_t* der_buf = NULL;
+    const uint8_t* n_be = NULL; size_t n_len = 0;
+    const uint8_t* d_be = NULL; size_t d_len = 0;
+    if (!joss_rsa_parse_pem_key(priv_key, &der_buf, &n_be, &n_len, &d_be, &d_len)) {
+        return "";
+    }
+
+    int k = (int)((n_len + 3U) / 4U);
+    if (k <= 0 || k > JOSS_RSA_MAX_LIMBS) {
+        free((void*)der_buf);
+        return "";
+    }
+
+    uint32_t mod_n[JOSS_RSA_MAX_LIMBS];
+    uint32_t exp_d[JOSS_RSA_MAX_LIMBS];
+    if (!joss_rsa_bytes_to_limbs(n_be, n_len, mod_n, k) ||
+        !joss_rsa_bytes_to_limbs(d_be, d_len, exp_d, k) ||
+        (mod_n[0] & 1U) == 0) {
+        free((void*)der_buf);
+        return "";
+    }
+    free((void*)der_buf);
+
+    /* EMSA-PKCS1-v1_5 with SHA-256 DigestInfo (19-byte prefix + 32-byte digest) */
+    static const uint8_t SHA256_DER_PREFIX[19] = {
+        0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01,
+        0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20
+    };
+    if (n_len < 11U + sizeof(SHA256_DER_PREFIX) + 32U) return "";
+
+    uint8_t digest[32];
+    joss_prim_sha256((const uint8_t*)data, strlen(data), digest);
+
+    uint8_t em[512];
+    size_t ps_len = n_len - 3U - sizeof(SHA256_DER_PREFIX) - 32U;
+    em[0] = 0x00;
+    em[1] = 0x01;
+    memset(em + 2, 0xFF, ps_len);
+    em[2 + ps_len] = 0x00;
+    memcpy(em + 3 + ps_len, SHA256_DER_PREFIX, sizeof(SHA256_DER_PREFIX));
+    memcpy(em + 3 + ps_len + sizeof(SHA256_DER_PREFIX), digest, 32);
+
+    uint32_t base[JOSS_RSA_MAX_LIMBS];
+    if (!joss_rsa_bytes_to_limbs(em, n_len, base, k)) return "";
+
+    uint32_t n0inv = joss_rsa_mont_n0inv(mod_n[0]);
+
+    /* Compute R^2 mod n via repeated doubling */
+    uint32_t r2[JOSS_RSA_MAX_LIMBS];
+    memset(r2, 0, (size_t)k * sizeof(uint32_t));
+    r2[0] = 1U;
+    int total_bits = 2 * k * 32;
+    for (int bit = 0; bit < total_bits; bit++) {
+        uint32_t carry = 0;
+        for (int j = 0; j < k; j++) {
+            uint32_t next_c = r2[j] >> 31;
+            r2[j] = (r2[j] << 1) | carry;
+            carry = next_c;
+        }
+        if (carry || joss_rsa_cmp_k(r2, mod_n, k) >= 0) {
+            joss_rsa_sub_k(r2, mod_n, k);
+        }
+    }
+
+    uint32_t one[JOSS_RSA_MAX_LIMBS];
+    memset(one, 0, (size_t)k * sizeof(uint32_t));
+    one[0] = 1U;
+
+    uint32_t m_base[JOSS_RSA_MAX_LIMBS];
+    uint32_t acc[JOSS_RSA_MAX_LIMBS];
+    joss_rsa_mont_mul(m_base, base, r2, mod_n, k, n0inv);
+    joss_rsa_mont_mul(acc, one, r2, mod_n, k, n0inv);
+
+    int top_bit = k * 32 - 1;
+    while (top_bit > 0 && ((exp_d[top_bit / 32] >> (top_bit % 32)) & 1U) == 0) {
+        top_bit--;
+    }
+    for (int b = top_bit; b >= 0; b--) {
+        joss_rsa_mont_mul(acc, acc, acc, mod_n, k, n0inv);
+        if ((exp_d[b / 32] >> (b % 32)) & 1U) {
+            joss_rsa_mont_mul(acc, acc, m_base, mod_n, k, n0inv);
+        }
+    }
+
+    uint32_t sig_limbs[JOSS_RSA_MAX_LIMBS];
+    joss_rsa_mont_mul(sig_limbs, acc, one, mod_n, k, n0inv);
+
+    uint8_t sig_bytes[512];
+    joss_rsa_limbs_to_bytes(sig_limbs, k, sig_bytes, n_len);
+
+    size_t b64_len = ((n_len + 2U) / 3U) * 4U + 1U;
+    char* b64_out = (char*)malloc(b64_len);
+    if (!b64_out) return "";
+    joss_prim_base64_encode(sig_bytes, n_len, b64_out);
+    return b64_out;
+}
+
 const char* joss_rsa_sign_sha256(const char* data, const char* priv_key) {
     data = unbox_web_cstr(data);
     priv_key = unbox_web_cstr(priv_key);
@@ -5835,7 +6162,7 @@ const char* joss_rsa_sign_sha256(const char* data, const char* priv_key) {
     if (rsa_blob) LocalFree(rsa_blob);
     return b64_out ? b64_out : "";
 #else
-    return joss_sha256_base64(data);
+    return joss_rsa_sign_sha256_pure(data, priv_key);
 #endif
 }
 
@@ -6739,7 +7066,7 @@ static int64_t joss_clone_session_value(int64_t v) {
         return (int64_t)(uintptr_t)dst_arr;
     }
     uint64_t u = (uint64_t)v;
-    if (u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) {
+    if (u < JOSS_MIN_PTR_ADDR || (u >> JOSS_PTR_VA_BITS) != 0) {
         return (int64_t)(uintptr_t)joss_box_i64(v);
     }
     return (int64_t)(uintptr_t)joss_web_strdup(joss_strval(v));
@@ -7447,9 +7774,12 @@ int64_t joss___joss_session_save(const char* sid, void* data_ptr) {
         json_encode_value(jsb, (int64_t)(uintptr_t)copy);
         char rkey[320];
         snprintf(rkey, sizeof(rkey), "session:%s", sid);
-        const char* ttl = "86400";
-        const char* av[4] = {"SETEX", rkey, ttl, (const char*)jsb->data};
-        size_t al[4] = {5, strlen(rkey), 5, (size_t)jsb->len};
+        int64_t sess_ttl = strtoll(joss_env("SESSION_TTL_SECONDS", "2592000"), NULL, 10);
+        if (sess_ttl <= 0) sess_ttl = 2592000;
+        char ttl_buf[32];
+        snprintf(ttl_buf, sizeof(ttl_buf), "%lld", (long long)sess_ttl);
+        const char* av[4] = {"SETEX", rkey, ttl_buf, (const char*)jsb->data};
+        size_t al[4] = {5, strlen(rkey), strlen(ttl_buf), (size_t)jsb->len};
         char line[256];
         if (joss_redis_send_cmd(fd, 4, av, al) && joss_redis_read_line(fd, line, sizeof(line)) && line[0] == '+') {
             ok = true;

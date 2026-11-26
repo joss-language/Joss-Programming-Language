@@ -180,7 +180,7 @@ void* joss_closure_alloc(void* fn_ptr, void* env_map) {
 
 void* joss_closure_prepare_call(void* callee) {
     uintptr_t u = (uintptr_t)callee;
-    if ((uint64_t)u >= JOSS_MIN_PTR_ADDR && ((uint64_t)u >> 47) == 0 && (u & 7U) == 0) {
+    if ((uint64_t)u >= JOSS_MIN_PTR_ADDR && ((uint64_t)u >> JOSS_PTR_VA_BITS) == 0 && (u & 7U) == 0) {
         uint64_t header = 0;
         memcpy(&header, (const void*)u, sizeof(header));
         if ((header >> 32) == JOSS_BOX_MAGIC) {
@@ -549,7 +549,7 @@ const char* joss_strval(int64_t v) {
         }
     }
     uint64_t u = (uint64_t)v;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
+    if (u >= JOSS_MIN_PTR_ADDR && (u >> JOSS_PTR_VA_BITS) == 0) {
         return (const char*)(uintptr_t)u;
     }
     return joss_i64_to_str(v);
@@ -569,7 +569,7 @@ static const char* unbox_cstr_rt(const char* s) {
     if (joss_is_boxed_ptr(v)) {
         return joss_strval(v);
     }
-    if (u < 0x10000ULL || (u >> 47) != 0) {
+    if (u < 0x10000ULL || (u >> JOSS_PTR_VA_BITS) != 0) {
         return joss_strval(v);
     }
     return s;
@@ -638,7 +638,7 @@ void joss_print_mixed(int64_t val) {
         }
     }
     uint64_t u = (uint64_t)val;
-    if (u == 0 || u < JOSS_MIN_PTR_ADDR || (u >> 47) != 0) {
+    if (u == 0 || u < JOSS_MIN_PTR_ADDR || (u >> JOSS_PTR_VA_BITS) != 0) {
         joss_print_i64(val);
         return;
     }
@@ -957,7 +957,7 @@ int64_t joss_intval(int64_t v) {
         return (int64_t)b->payload;
     }
     uint64_t u = (uint64_t)v;
-    if (u >= JOSS_MIN_PTR_ADDR && (u >> 47) == 0) {
+    if (u >= JOSS_MIN_PTR_ADDR && (u >> JOSS_PTR_VA_BITS) == 0) {
         const char* s = (const char*)(uintptr_t)u;
         return (int64_t)strtoll(s, NULL, 10);
     }
