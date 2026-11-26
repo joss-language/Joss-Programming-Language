@@ -130,11 +130,19 @@ int main(void) {
     size_t ws_len = joss_ws_encode_text_frame("hi", ws_frame, sizeof(ws_frame));
     assert(ws_len == 4 && ws_frame[0] == 0x81 && ws_frame[1] == 2 && ws_frame[2] == 'h' && ws_frame[3] == 'i');
 
-    /* 8. Test Per-Request Arena Reclamation (1000 HTTP request cycles) */
+    /* 8. Test Per-Request Arena Reclamation (1000 HTTP request cycles + oversized chunk shrink) */
     for (int req = 0; req < 1000; req++) {
         joss_req_arena_begin();
         char* s = joss_str_concat("req_", joss_i64_to_str(req));
         assert(s != NULL && strncmp(s, "req_", 4) == 0);
+        JossStringBuilder* rsb = joss_sb_new();
+        joss_sb_append(rsb, "HTTP/1.1 200 OK\r\n\r\n");
+        joss_sb_append(rsb, s);
+        char* resp = joss_sb_to_req_string(rsb);
+        joss_sb_free(rsb);
+        assert(resp != NULL && strstr(resp, "req_") != NULL);
+        void* raw_bytes = joss_bytes_new("binary\0data", 11);
+        assert(raw_bytes != NULL);
         void* arr = joss_arr_new(4);
         for (int k = 0; k < 20; k++) {
             joss_arr_push_i64(arr, k);
@@ -145,6 +153,12 @@ int main(void) {
             joss_map_set_i64(m, joss_i64_to_str(k), k * 10);
         }
         assert(joss_map_len(m) == 12 && joss_map_get_i64(m, "7") == 70);
+        /* Every 250th request, trigger a 512 KB spike to verify oversized chunk shrink on reset */
+        if (req % 250 == 0) {
+            void* spike = joss_req_alloc(512 * 1024);
+            assert(spike != NULL);
+            memset(spike, 0x5A, 1024);
+        }
         assert(joss_req_arena_bytes_used() > 0);
         joss_req_arena_reset();
         assert(joss_req_arena_bytes_used() == 0);
@@ -199,7 +213,7 @@ int main(void) {
     joss_arr_push_i64(live_child, 98765);
     joss_nominal_set_slot(live_root, 1, (int64_t)(uintptr_t)live_child);
 
-    /* Allocate 400 unreachable objects including reference cycles (A <-> B) */
+    /* Allocate 400 unreachable objects including reference cycles (A <-> B) + strings + maps */
     for (int i = 0; i < 200; i++) {
         void* a = joss_nominal_obj_new("CycleNode", 2, kCycleFields);
         void* b = joss_nominal_obj_new("CycleNode", 2, kCycleFields);
@@ -207,13 +221,20 @@ int main(void) {
         joss_nominal_set_slot(b, 0, i + 1);
         joss_nominal_set_slot(a, 1, (int64_t)(uintptr_t)b);
         joss_nominal_set_slot(b, 1, (int64_t)(uintptr_t)a);
+        char* tmp_str = joss_str_concat("gc_temp_string_", joss_i64_to_str(i));
+        void* tmp_map = joss_map_new();
+        joss_map_set_str(tmp_map, "k", tmp_str);
+        assert(tmp_str != NULL && joss_map_len(tmp_map) == 1);
     }
 
+    JossGCStats before_gc;
+    joss_gc_stats(&before_gc);
     size_t freed = joss_gc_collect();
     JossGCStats st;
     joss_gc_stats(&st);
-    assert(freed >= 380);
+    assert(freed >= 900);
     assert(st.collections >= 1);
+    assert(st.bytes_live < before_gc.bytes_live / 2);
     /* Verify live root and its transitive child survived intact */
     assert(joss_nominal_get_slot(live_root, 0) == 12345);
     void* survived_child = (void*)(uintptr_t)joss_nominal_get_slot(live_root, 1);

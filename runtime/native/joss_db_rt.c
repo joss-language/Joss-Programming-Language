@@ -1775,7 +1775,7 @@ static void joss_model_pluralize(const char* word, char* dst, size_t cap) {
     if (!word || !dst || cap == 0) return;
     size_t n = strlen(word);
     if (n == 0) { dst[0] = '\0'; return; }
-    char lower[256];
+    char lower[240];
     size_t lim = (n < sizeof(lower) - 1) ? n : (sizeof(lower) - 1);
     for (size_t i = 0; i < lim; i++) lower[i] = (char)tolower((unsigned char)word[i]);
     lower[lim] = '\0';
@@ -1964,7 +1964,7 @@ static int64_t joss_model_last_insert_id(void) {
 }
 
 static JossModel* joss_model_alloc(JossModelMeta* meta, bool exists, bool is_query) {
-    JossModel* m = (JossModel*)calloc(1, sizeof(JossModel));
+    JossModel* m = (JossModel*)joss_req_alloc_zeroed(sizeof(JossModel));
     if (!m) return NULL;
     m->magic = JOSS_MODEL_MAGIC;
     m->meta = meta;
@@ -2874,7 +2874,7 @@ int64_t fn_Model_delete(void* self_raw) {
     if (pk == 0 || joss_is_null(pk)) return 0;
 
     if (m->meta->soft_deletes) {
-        char now_buf[32];
+        char now_buf[80];
         joss_model_utc_now(now_buf, sizeof(now_buf));
         JossStringBuilder* sb = joss_sb_new();
         joss_sb_append(sb, "UPDATE ");
@@ -3058,7 +3058,8 @@ static void* joss_model_make_rel(void* parent_raw, JossModelRelKind kind,
     JossModelMeta* rmeta = joss_model_find_meta(rel_cls);
     if (!parent || !parent->meta || !rmeta) return NULL;
     JossModel* q = joss_model_alloc(rmeta, false, true);
-    JossModelRelation* rel = (JossModelRelation*)calloc(1, sizeof(JossModelRelation));
+    JossModelRelation* rel = (JossModelRelation*)joss_req_alloc_zeroed(sizeof(JossModelRelation));
+    if (!rel) return q;
     rel->kind = kind;
     rel->parent = parent;
 
@@ -3073,8 +3074,8 @@ static void* joss_model_make_rel(void* parent_raw, JossModelRelKind kind,
             fk = def_fk;
         }
         if (!lk || !*lk) lk = rmeta->primary_key;
-        rel->foreign_key = joss_model_strdup(fk);
-        rel->local_key = joss_model_strdup(lk);
+        rel->foreign_key = joss_req_strdup(fk);
+        rel->local_key = joss_req_strdup(lk);
         int64_t v = joss_map_get_i64(parent->attrs, fk);
         if (v == 0 || joss_is_null(v)) fn_Model_whereNull(q, lk);
         else fn_Model_where(q, lk, v, 0, 0);
@@ -3085,8 +3086,8 @@ static void* joss_model_make_rel(void* parent_raw, JossModelRelKind kind,
             fk = def_fk;
         }
         if (!lk || !*lk) lk = parent->meta->primary_key;
-        rel->foreign_key = joss_model_strdup(fk);
-        rel->local_key = joss_model_strdup(lk);
+        rel->foreign_key = joss_req_strdup(fk);
+        rel->local_key = joss_req_strdup(lk);
         int64_t v = joss_map_get_i64(parent->attrs, lk);
         fn_Model_where(q, fk, v, 0, 0);
     }
@@ -3113,7 +3114,8 @@ void* fn_Model_belongsToMany(void* self_raw, const char* rel_raw, const char* pi
     JossModelMeta* rmeta = joss_model_find_meta(rel_cls);
     if (!parent || !parent->meta || !rmeta) return NULL;
     JossModel* q = joss_model_alloc(rmeta, false, true);
-    JossModelRelation* rel = (JossModelRelation*)calloc(1, sizeof(JossModelRelation));
+    JossModelRelation* rel = (JossModelRelation*)joss_req_alloc_zeroed(sizeof(JossModelRelation));
+    if (!rel) return q;
     rel->kind = JOSS_REL_BELONGS_TO_MANY;
     rel->parent = parent;
 
@@ -3131,11 +3133,11 @@ void* fn_Model_belongsToMany(void* self_raw, const char* rel_raw, const char* pi
     const char* lk = joss_model_cstr(lk_raw);
     const char* rk = joss_model_cstr(rk_raw);
 
-    rel->pivot_table = joss_model_strdup((pivot && *pivot) ? pivot : def_pivot);
-    rel->foreign_pivot_key = joss_model_strdup((fpk && *fpk) ? fpk : def_fpk);
-    rel->related_pivot_key = joss_model_strdup((rpk && *rpk) ? rpk : def_rpk);
-    rel->local_key = joss_model_strdup((lk && *lk) ? lk : parent->meta->primary_key);
-    rel->related_key = joss_model_strdup((rk && *rk) ? rk : rmeta->primary_key);
+    rel->pivot_table = joss_req_strdup((pivot && *pivot) ? pivot : def_pivot);
+    rel->foreign_pivot_key = joss_req_strdup((fpk && *fpk) ? fpk : def_fpk);
+    rel->related_pivot_key = joss_req_strdup((rpk && *rpk) ? rpk : def_rpk);
+    rel->local_key = joss_req_strdup((lk && *lk) ? lk : parent->meta->primary_key);
+    rel->related_key = joss_req_strdup((rk && *rk) ? rk : rmeta->primary_key);
     q->relation = rel;
     return q;
 }

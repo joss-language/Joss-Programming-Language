@@ -417,7 +417,7 @@ const char* joss___joss_byte_string(int64_t b) {
     if (ch == 0) {
         return (const char*)joss_bytes_new(&ch, 1);
     }
-    char* out = (char*)malloc(2);
+    char* out = (char*)joss_req_alloc(2);
     if (!out) return "";
     out[0] = (char)ch;
     out[1] = '\0';
@@ -511,7 +511,7 @@ const char* joss_sha1_base64(const char* s) {
     }
 
     static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    char* out = (char*)malloc(32);
+    char* out = (char*)joss_req_alloc(32);
     if (!out) return "";
     size_t j = 0;
     for (size_t i = 0; i < 20; i += 3) {
@@ -557,7 +557,7 @@ const char* joss_date(const char* fmt, int64_t ts) {
             default: joss_buf_append_byte(sb, (uint8_t)*p); break;
         }
     }
-    char* out = joss_sb_to_string(sb);
+    char* out = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return out;
 }
@@ -2197,7 +2197,7 @@ void* withCookie(void* recv, const char* k, const char* v) {
         joss_sb_append(sb, "; Secure");
     }
     joss_sb_append(sb, sep);
-    char* out = joss_sb_to_string(sb);
+    char* out = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return out;
 }
@@ -4068,7 +4068,7 @@ const char* fn_Plugin_path(const char* name, const char* rel) {
         snprintf(out, sizeof(out), "%s%cplugins%c%s%c%s", cwd, sep, sep, clean_name, sep, clean_rel);
     }
     size_t n = strlen(out);
-    char* copy = (char*)malloc(n + 1);
+    char* copy = (char*)joss_req_alloc(n + 1);
     if (!copy) return "plugins";
     memcpy(copy, out, n + 1);
     return copy;
@@ -4166,11 +4166,11 @@ const char* fn_System_now(int64_t days_offset) {
         tm_val.tm_isdst = -1;
         mktime(&tm_val);
     }
-    char buf[32];
+    char buf[80];
     snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
              tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday,
              tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec);
-    return joss_web_strdup(buf);
+    return joss_req_strdup(buf);
 }
 
 #if !defined(_WIN32)
@@ -4525,7 +4525,7 @@ const char* fn_Console_readLine(void) {
 static const char* joss_console_wrap_ansi(const char* code, int64_t text_raw) {
     if (!code) code = "";
     if (text_raw == 0) {
-        return joss_web_strdup(code);
+        return joss_req_strdup(code);
     }
     const char* text = joss_strval(text_raw);
     if (!text) text = "";
@@ -4533,7 +4533,7 @@ static const char* joss_console_wrap_ansi(const char* code, int64_t text_raw) {
     size_t tlen = strlen(text);
     const char* reset = "\033[0m";
     size_t rlen = 4;
-    char* out = (char*)malloc(clen + tlen + rlen + 1);
+    char* out = (char*)joss_req_alloc(clen + tlen + rlen + 1);
     if (!out) return text;
     memcpy(out, code, clen);
     memcpy(out + clen, text, tlen);
@@ -4550,12 +4550,12 @@ const char* fn_Console_cyan(int64_t text)    { return joss_console_wrap_ansi("\0
 const char* fn_Console_magenta(int64_t text) { return joss_console_wrap_ansi("\033[35m", text); }
 const char* fn_Console_gray(int64_t text)    { return joss_console_wrap_ansi("\033[90m", text); }
 const char* fn_Console_bold(int64_t text)    { return joss_console_wrap_ansi("\033[1m", text); }
-const char* fn_Console_clear(void)           { return joss_web_strdup("\033[2J\033[H"); }
+const char* fn_Console_clear(void)           { return joss_req_strdup("\033[2J\033[H"); }
 
 const char* fn_Console_color(int64_t text_raw, int64_t code_raw) {
     const char* text = text_raw ? joss_strval(text_raw) : "";
     const char* code = code_raw ? joss_strval(code_raw) : "";
-    if (!code || !code[0]) return joss_web_strdup(text ? text : "");
+    if (!code || !code[0]) return joss_req_strdup(text ? text : "");
     char prefix[64];
     snprintf(prefix, sizeof(prefix), "\033[%sm", code);
     return joss_console_wrap_ansi(prefix, text_raw);
@@ -4623,12 +4623,12 @@ const char* fn_FileStream_read(void* handle, int64_t max_bytes) {
             if (n > 0) joss_buf_append_bytes(sb, chunk, (int64_t)n);
             if (n < sizeof(chunk)) break;
         }
-        char* out = joss_sb_to_string(sb);
+        char* out = joss_sb_to_req_string(sb);
         joss_sb_free(sb);
         return out;
     }
     if (max_bytes > 16 * 1024 * 1024) max_bytes = 16 * 1024 * 1024;
-    char* buf = (char*)malloc((size_t)max_bytes + 1);
+    char* buf = (char*)joss_req_alloc((size_t)max_bytes + 1);
     if (!buf) return "";
     size_t n = fread(buf, 1, (size_t)max_bytes, fs->fp);
     buf[n] = '\0';
@@ -4702,7 +4702,7 @@ const char* fn_StreamReader_readLine(void* handle) {
     if (len > 0 && buf[len - 1] == '\n') {
         len--;
         if (len > 0 && buf[len - 1] == '\r') len--;
-        char* out = (char*)malloc(len + 1);
+        char* out = (char*)joss_req_alloc(len + 1);
         if (!out) return "";
         memcpy(out, buf, len);
         out[len] = '\0';
@@ -4710,7 +4710,7 @@ const char* fn_StreamReader_readLine(void* handle) {
     }
     if (feof(fs->fp)) {
         if (len > 0 && buf[len - 1] == '\r') len--;
-        char* out = (char*)malloc(len + 1);
+        char* out = (char*)joss_req_alloc(len + 1);
         if (!out) return "";
         memcpy(out, buf, len);
         out[len] = '\0';
@@ -4730,7 +4730,7 @@ const char* fn_StreamReader_readLine(void* handle) {
         sb->len--;
         sb->data[sb->len] = '\0';
     }
-    char* out = joss_sb_to_string(sb);
+    char* out = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return out;
 }
@@ -4800,7 +4800,7 @@ typedef struct {
 } JossDateInterval;
 
 static void* joss_dt_new(int64_t unix_sec) {
-    JossDateTime* dt = (JossDateTime*)malloc(sizeof(JossDateTime));
+    JossDateTime* dt = (JossDateTime*)joss_req_alloc(sizeof(JossDateTime));
     if (!dt) return NULL;
     dt->magic = JOSS_DATETIME_MAGIC;
     dt->unix_sec = unix_sec;
@@ -4808,7 +4808,7 @@ static void* joss_dt_new(int64_t unix_sec) {
 }
 
 static void* joss_di_new(int64_t total_sec) {
-    JossDateInterval* di = (JossDateInterval*)malloc(sizeof(JossDateInterval));
+    JossDateInterval* di = (JossDateInterval*)joss_req_alloc(sizeof(JossDateInterval));
     if (!di) return NULL;
     di->magic = JOSS_DATEINTERVAL_MAGIC;
     di->total_sec = total_sec;
@@ -4985,7 +4985,7 @@ const char* fn_DateTime_format(void* self, const char* fmt) {
                 break;
         }
     }
-    char* out = joss_sb_to_string(sb);
+    char* out = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return out;
 }
@@ -5024,7 +5024,7 @@ const char* fn_DateTime_iso(void* self) {
             loc_tm.tm_year + 1900, loc_tm.tm_mon + 1, loc_tm.tm_mday,
             loc_tm.tm_hour, loc_tm.tm_min, loc_tm.tm_sec, sign, oh, om);
     }
-    return joss_web_strdup(buf);
+    return joss_req_strdup(buf);
 }
 
 int64_t fn_DateTime_year(void* self) {
@@ -5760,7 +5760,7 @@ const char* joss_gmdate(const char* fmt, int64_t ts) {
         snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
             tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday,
             tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec);
-        return joss_web_strdup(buf);
+        return joss_req_strdup(buf);
     }
     if (strcmp(fmt, "D, d M Y H:i:s") == 0) {
         static const char* days[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
@@ -5768,10 +5768,10 @@ const char* joss_gmdate(const char* fmt, int64_t ts) {
         snprintf(buf, sizeof(buf), "%s, %02d %s %04d %02d:%02d:%02d",
             days[tm_val.tm_wday % 7], tm_val.tm_mday, mons[tm_val.tm_mon % 12],
             tm_val.tm_year + 1900, tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec);
-        return joss_web_strdup(buf);
+        return joss_req_strdup(buf);
     }
     strftime(buf, sizeof(buf), fmt, &tm_val);
-    return joss_web_strdup(buf);
+    return joss_req_strdup(buf);
 }
 
 const char* joss_md5(const char* s) {
@@ -5792,7 +5792,7 @@ const char* joss_md5(const char* s) {
         buf[i * 2 + 1] = hex[digest[i] & 0x0F];
     }
     buf[32] = '\0';
-    return joss_web_strdup(buf);
+    return joss_req_strdup(buf);
 }
 
 const char* joss_sha256_base64(const char* s) {
@@ -5808,7 +5808,7 @@ const char* joss_sha256_base64(const char* s) {
     joss_prim_sha256(ptr, len, digest);
     char b64[64];
     joss_prim_base64_encode(digest, sizeof(digest), b64);
-    return joss_web_strdup(b64);
+    return joss_req_strdup(b64);
 }
 
 #if defined(__has_include) && !defined(JOSS_DISABLE_OPENSSL_SIGN)
@@ -6389,7 +6389,7 @@ const char* fn_Sitemap_generate(const char* base_url) {
     }
     joss_global_unlock(JOSS_LOCK_SITEMAP);
     joss_sb_append(sb, "</urlset>\n");
-    char* out = joss_sb_to_string(sb);
+    char* out = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return out;
 }
@@ -6704,7 +6704,7 @@ static const char* joss_json_skip_ws(const char* p) {
     return p;
 }
 
-static char* joss_json_parse_string_val(const char** pp) {
+static char* joss_json_parse_string_val(const char** pp, bool req_alloc) {
     const char* p = joss_json_skip_ws(*pp);
     if (!p || *p != '"') return NULL;
     p++;
@@ -6730,7 +6730,7 @@ static char* joss_json_parse_string_val(const char** pp) {
     }
     if (*p == '"') p++;
     *pp = p;
-    char* res = joss_sb_to_string(sb);
+    char* res = req_alloc ? joss_sb_to_req_string(sb) : joss_sb_to_string(sb);
     joss_sb_free(sb);
     return res;
 }
@@ -6744,7 +6744,7 @@ static void* joss_json_parse_object(const char** pp) {
     void* m = joss_map_new();
     p = joss_json_skip_ws(p);
     while (*p && *p != '}') {
-        char* key = joss_json_parse_string_val(&p);
+        char* key = joss_json_parse_string_val(&p, false);
         if (!key) break;
         p = joss_json_skip_ws(p);
         if (*p == ':') p++;
@@ -6789,7 +6789,7 @@ static int64_t joss_json_parse_any(const char** pp) {
     if (!p || !*p) return 0;
     if (*p == '"') {
         *pp = p;
-        return (int64_t)(uintptr_t)joss_json_parse_string_val(pp);
+        return (int64_t)(uintptr_t)joss_json_parse_string_val(pp, true);
     }
     if (*p == '{') {
         *pp = p;
@@ -6953,7 +6953,7 @@ const char* joss_router_list_custom_middlewares(void) {
         if (i > 0) joss_sb_append(sb, ", ");
         if (g_joss_custom_mw[i].name) joss_sb_append(sb, g_joss_custom_mw[i].name);
     }
-    char* res = joss_sb_to_string(sb);
+    char* res = joss_sb_to_req_string(sb);
     joss_sb_free(sb);
     return res ? res : "";
 }

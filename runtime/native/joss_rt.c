@@ -179,7 +179,9 @@ typedef enum {
     JOSS_GC_ARRAY   = 1,
     JOSS_GC_MAP     = 2,
     JOSS_GC_NOMINAL = 3,
-    JOSS_GC_BOX     = 4
+    JOSS_GC_BOX     = 4,
+    JOSS_GC_RAW     = 5,
+    JOSS_GC_STRUCT  = 6
 } JossGCKind;
 
 static bool  joss_req_is_active(void);
@@ -257,7 +259,7 @@ const uint8_t* joss_bytes_unwrap(const void* val, size_t* out_len) {
 void* joss_closure_alloc(void* fn_ptr, void* env_map) {
     fn_ptr = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)fn_ptr);
     env_map = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)env_map);
-    JossClosureBox* box = (JossClosureBox*)calloc(1, sizeof(JossClosureBox));
+    JossClosureBox* box = (JossClosureBox*)joss_req_alloc_zeroed(sizeof(JossClosureBox));
     if (!box) {
         joss_panic("out of memory allocating closure box");
     }
@@ -318,6 +320,9 @@ static bool joss_req_is_active(void);
 static inline char* joss_tls_str_alloc(size_t n) {
     if (__builtin_expect(joss_req_is_active(), 0)) {
         return (char*)joss_req_alloc(n);
+    }
+    if (joss_gc_should_manage()) {
+        return (char*)joss_gc_alloc(JOSS_GC_RAW, n ? n : 1);
     }
     if (__builtin_expect(n > 4096, 0)) {
         return (char*)malloc(n);
@@ -557,7 +562,23 @@ void* joss_req_alloc(size_t size) {
     if (tls_req_active && tls_req_arena) {
         return joss_arena_alloc(tls_req_arena, size);
     }
+    if (joss_gc_should_manage()) {
+        return joss_gc_alloc(JOSS_GC_RAW, size ? size : 1);
+    }
     return malloc(size ? size : 1);
+}
+
+void* joss_req_alloc_zeroed(size_t size) {
+    size_t sz = size ? size : 1;
+    if (tls_req_active && tls_req_arena) {
+        void* p = joss_arena_alloc(tls_req_arena, sz);
+        if (p) memset(p, 0, sz);
+        return p;
+    }
+    if (joss_gc_should_manage()) {
+        return joss_gc_alloc(JOSS_GC_STRUCT, sz);
+    }
+    return calloc(1, sz);
 }
 
 static const char* unbox_cstr_rt(const char* s);
@@ -1216,7 +1237,7 @@ static inline void joss_map_set_internal(JossMap* m, const char* key, int64_t va
         }
         if (m->entry_len < JOSS_MAP_INLINE_CAP) {
             int32_t idx = m->entry_len++;
-            uint8_t own = (dup_key && !joss_req_is_active()) ? 1 : 0;
+            uint8_t own = (dup_key && !joss_req_is_active() && !joss_gc_should_manage()) ? 1 : 0;
             m->entries[idx].key = dup_key ? joss_req_strdup(key) : (char*)key;
             m->entries[idx].hash = 0;
             m->entries[idx].deleted = 0;
@@ -1250,7 +1271,7 @@ static inline void joss_map_set_internal(JossMap* m, const char* key, int64_t va
                 m->entry_cap = ncap;
             }
             int32_t new_idx = m->entry_len++;
-            uint8_t own = (dup_key && !joss_req_is_active()) ? 1 : 0;
+            uint8_t own = (dup_key && !joss_req_is_active() && !joss_gc_should_manage()) ? 1 : 0;
             m->entries[new_idx].key = dup_key ? joss_req_strdup(key) : (char*)key;
             m->entries[new_idx].hash = h;
             m->entries[new_idx].deleted = 0;
@@ -2128,6 +2149,9 @@ static void gc_trace_children(JossGCWorklist* wl) {
                 if (m->entries && m->entry_len > 0) {
                     for (int32_t i = 0; i < m->entry_len; i++) {
                         if (!m->entries[i].deleted) {
+                            if (m->entries[i].key) {
+                                gc_mark_word(wl, (uintptr_t)m->entries[i].key);
+                            }
                             gc_mark_word(wl, (uintptr_t)(uint64_t)m->entries[i].val);
                         }
                     }
@@ -2147,6 +2171,16 @@ static void gc_trace_children(JossGCWorklist* wl) {
             case JOSS_GC_BOX: {
                 const JossBoxedValue* b = (const JossBoxedValue*)payload;
                 gc_mark_word(wl, (uintptr_t)b->payload);
+                break;
+            }
+            case JOSS_GC_STRUCT: {
+                size_t payload_bytes = h->size > sizeof(JossGCHeader) ? (h->size - sizeof(JossGCHeader)) : 0;
+                const uint8_t* base = (const uint8_t*)payload;
+                for (size_t off = 0; off + sizeof(uintptr_t) <= payload_bytes; off += sizeof(uintptr_t)) {
+                    uintptr_t word = 0;
+                    memcpy(&word, base + off, sizeof(uintptr_t));
+                    gc_mark_word(wl, word);
+                }
                 break;
             }
             default:
@@ -2278,12 +2312,16 @@ static void* joss_gc_alloc(uint32_t kind, size_t size) {
         (void)joss_gc_collect();
     }
     size_t total = sizeof(JossGCHeader) + size;
-    JossGCHeader* h = (JossGCHeader*)calloc(1, total);
+    JossGCHeader* h = (kind == JOSS_GC_RAW)
+        ? (JossGCHeader*)malloc(total)
+        : (JossGCHeader*)calloc(1, total);
     if (!h) {
         /* Last-resort collection on OOM */
         if (!g_gc_in_collect && !g_gc_multithreaded && g_gc_stack_bottom) {
             (void)joss_gc_collect();
-            h = (JossGCHeader*)calloc(1, total);
+            h = (kind == JOSS_GC_RAW)
+                ? (JossGCHeader*)malloc(total)
+                : (JossGCHeader*)calloc(1, total);
         }
         if (!h) joss_panic("out of memory in Joss Mini GC");
     }
