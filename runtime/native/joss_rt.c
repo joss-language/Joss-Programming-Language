@@ -182,13 +182,19 @@ typedef enum {
     JOSS_GC_BOX     = 4
 } JossGCKind;
 
+static bool  joss_req_is_active(void);
 static bool  joss_gc_should_manage(void);
 static void* joss_gc_alloc(uint32_t kind, size_t size);
 
 JossBoxedValue* joss_box_value(uint64_t tag, uint64_t payload) {
-    JossBoxedValue* box = joss_gc_should_manage()
-        ? (JossBoxedValue*)joss_gc_alloc(JOSS_GC_BOX, sizeof(JossBoxedValue))
-        : (JossBoxedValue*)calloc(1, sizeof(JossBoxedValue));
+    JossBoxedValue* box;
+    if (__builtin_expect(joss_req_is_active(), 0)) {
+        box = (JossBoxedValue*)joss_req_alloc(sizeof(JossBoxedValue));
+    } else if (joss_gc_should_manage()) {
+        box = (JossBoxedValue*)joss_gc_alloc(JOSS_GC_BOX, sizeof(JossBoxedValue));
+    } else {
+        box = (JossBoxedValue*)calloc(1, sizeof(JossBoxedValue));
+    }
     if (!box) {
         joss_panic("out of memory boxing value");
     }
@@ -443,16 +449,69 @@ void joss_arena_destroy(JossArena* arena) {
     free(arena);
 }
 
+typedef struct {
+    void** items;
+    size_t len;
+    size_t cap;
+} JossReqTrackList;
+
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
-static _Thread_local JossArena* tls_req_arena = NULL;
-static _Thread_local bool       tls_req_active = false;
+static _Thread_local JossArena*       tls_req_arena = NULL;
+static _Thread_local bool             tls_req_active = false;
+static _Thread_local JossReqTrackList tls_req_tracked = { NULL, 0, 0 };
 #else
-static __thread JossArena* tls_req_arena = NULL;
-static __thread bool       tls_req_active = false;
+static __thread JossArena*       tls_req_arena = NULL;
+static __thread bool             tls_req_active = false;
+static __thread JossReqTrackList tls_req_tracked = { NULL, 0, 0 };
 #endif
 
 static bool joss_req_is_active(void) {
     return tls_req_active && tls_req_arena != NULL;
+}
+
+bool joss_req_arena_pause(void) {
+    bool prev = tls_req_active;
+    tls_req_active = false;
+    return prev;
+}
+
+void joss_req_arena_resume(bool prev_active) {
+    tls_req_active = prev_active;
+}
+
+static void joss_req_track_ptr(void* p) {
+    if (!p || !tls_req_active) return;
+    if (tls_req_tracked.len >= tls_req_tracked.cap) {
+        size_t ncap = tls_req_tracked.cap ? tls_req_tracked.cap * 2 : 64;
+        void** next = (void**)realloc(tls_req_tracked.items, ncap * sizeof(void*));
+        if (!next) return;
+        tls_req_tracked.items = next;
+        tls_req_tracked.cap = ncap;
+    }
+    tls_req_tracked.items[tls_req_tracked.len++] = p;
+}
+
+static void joss_req_retrack_ptr(void* old_p, void* new_p) {
+    if (!tls_req_active || old_p == new_p) return;
+    for (size_t i = tls_req_tracked.len; i > 0; i--) {
+        if (tls_req_tracked.items[i - 1] == old_p) {
+            tls_req_tracked.items[i - 1] = new_p;
+            return;
+        }
+    }
+    if (new_p) {
+        joss_req_track_ptr(new_p);
+    }
+}
+
+static void joss_req_untrack_ptr(void* p) {
+    if (!p || !tls_req_active) return;
+    for (size_t i = tls_req_tracked.len; i > 0; i--) {
+        if (tls_req_tracked.items[i - 1] == p) {
+            tls_req_tracked.items[i - 1] = NULL;
+            return;
+        }
+    }
 }
 
 void joss_req_arena_begin(void) {
@@ -463,6 +522,13 @@ void joss_req_arena_begin(void) {
 }
 
 void joss_req_arena_reset(void) {
+    for (size_t i = 0; i < tls_req_tracked.len; i++) {
+        if (tls_req_tracked.items[i]) {
+            free(tls_req_tracked.items[i]);
+            tls_req_tracked.items[i] = NULL;
+        }
+    }
+    tls_req_tracked.len = 0;
     if (tls_req_arena) {
         joss_arena_reset(tls_req_arena);
     }
@@ -846,22 +912,31 @@ typedef struct {
 
 void* joss_arr_new(int64_t initial_cap) {
     if (initial_cap < 8) initial_cap = 8;
-    JossArray* a = joss_gc_should_manage()
-        ? (JossArray*)joss_gc_alloc(JOSS_GC_ARRAY, sizeof(JossArray))
-        : (JossArray*)calloc(1, sizeof(JossArray));
+    JossArray* a;
+    if (__builtin_expect(joss_req_is_active(), 0)) {
+        a = (JossArray*)joss_req_alloc(sizeof(JossArray));
+        memset(a, 0, sizeof(JossArray));
+    } else if (joss_gc_should_manage()) {
+        a = (JossArray*)joss_gc_alloc(JOSS_GC_ARRAY, sizeof(JossArray));
+    } else {
+        a = (JossArray*)calloc(1, sizeof(JossArray));
+    }
     if (!a) joss_panic("out of memory allocating array");
     a->magic = JOSS_ARR_MAGIC;
     a->cap = initial_cap;
     a->items = (int64_t*)calloc((size_t)initial_cap, sizeof(int64_t));
     if (!a->items) joss_panic("out of memory allocating array items");
+    joss_req_track_ptr(a->items);
     joss_atomic_update_bounds(&g_joss_arr_min, &g_joss_arr_max, (uintptr_t)a);
     return a;
 }
 
 static void arr_grow(JossArray* a) {
     int64_t new_cap = a->cap > 0 ? a->cap * 2 : 8;
-    int64_t* next = (int64_t*)realloc(a->items, (size_t)new_cap * sizeof(int64_t));
+    int64_t* old_items = a->items;
+    int64_t* next = (int64_t*)realloc(old_items, (size_t)new_cap * sizeof(int64_t));
     if (!next) joss_panic("out of memory growing array");
+    joss_req_retrack_ptr(old_items, next);
     a->items = next;
     a->cap = new_cap;
 }
@@ -1016,6 +1091,11 @@ static _Thread_local size_t   g_tls_map_used = 0;
 static _Thread_local size_t   g_tls_map_cap  = 0;
 
 static inline JossMap* joss_map_alloc_raw(void) {
+    if (__builtin_expect(joss_req_is_active(), 0)) {
+        JossMap* m = (JossMap*)joss_req_alloc(sizeof(JossMap));
+        joss_atomic_update_bounds(&g_joss_map_min, &g_joss_map_max, (uintptr_t)m);
+        return m;
+    }
     if (joss_gc_should_manage()) {
         JossMap* m = (JossMap*)joss_gc_alloc(JOSS_GC_MAP, sizeof(JossMap));
         joss_atomic_update_bounds(&g_joss_map_min, &g_joss_map_max, (uintptr_t)m);
@@ -1050,6 +1130,7 @@ static void joss_map_rehash(JossMap* m, int32_t new_slot_cap) {
         int32_t ncap = 16;
         JossMapEntry* heap_e = (JossMapEntry*)malloc((size_t)ncap * sizeof(JossMapEntry));
         if (!heap_e) joss_panic("out of memory promoting map entries");
+        joss_req_track_ptr(heap_e);
         if (m->entry_len > 0) {
             memcpy(heap_e, m->inline_entries, (size_t)m->entry_len * sizeof(JossMapEntry));
         }
@@ -1075,7 +1156,11 @@ static void joss_map_rehash(JossMap* m, int32_t new_slot_cap) {
         new_slots[pos] = live;
         live++;
     }
-    free(m->slots);
+    if (m->slots) {
+        joss_req_untrack_ptr(m->slots);
+        free(m->slots);
+    }
+    joss_req_track_ptr(new_slots);
     m->slots = new_slots;
     m->slot_cap = new_slot_cap;
     m->entry_len = live;
@@ -1109,10 +1194,11 @@ static inline void joss_map_set_internal(JossMap* m, const char* key, int64_t va
         }
         if (m->entry_len < JOSS_MAP_INLINE_CAP) {
             int32_t idx = m->entry_len++;
-            m->entries[idx].key = dup_key ? strdup(key) : (char*)key;
+            uint8_t own = (dup_key && !joss_req_is_active()) ? 1 : 0;
+            m->entries[idx].key = dup_key ? joss_req_strdup(key) : (char*)key;
             m->entries[idx].hash = 0;
             m->entries[idx].deleted = 0;
-            m->entries[idx].key_owned = dup_key;
+            m->entries[idx].key_owned = own;
             m->entries[idx].val = val;
             m->count++;
             return;
@@ -1134,16 +1220,19 @@ static inline void joss_map_set_internal(JossMap* m, const char* key, int64_t va
             uint32_t insert_pos = (first_tomb >= 0) ? (uint32_t)first_tomb : pos;
             if (m->entry_len >= m->entry_cap) {
                 int32_t ncap = m->entry_cap * 2;
-                JossMapEntry* ne = (JossMapEntry*)realloc(m->entries, (size_t)ncap * sizeof(JossMapEntry));
+                JossMapEntry* old_e = m->entries;
+                JossMapEntry* ne = (JossMapEntry*)realloc(old_e, (size_t)ncap * sizeof(JossMapEntry));
                 if (!ne) joss_panic("out of memory growing map entries");
+                joss_req_retrack_ptr(old_e, ne);
                 m->entries = ne;
                 m->entry_cap = ncap;
             }
             int32_t new_idx = m->entry_len++;
-            m->entries[new_idx].key = dup_key ? strdup(key) : (char*)key;
+            uint8_t own = (dup_key && !joss_req_is_active()) ? 1 : 0;
+            m->entries[new_idx].key = dup_key ? joss_req_strdup(key) : (char*)key;
             m->entries[new_idx].hash = h;
             m->entries[new_idx].deleted = 0;
-            m->entries[new_idx].key_owned = dup_key;
+            m->entries[new_idx].key_owned = own;
             m->entries[new_idx].val = val;
             m->slots[insert_pos] = new_idx;
             if (first_tomb < 0) m->slot_used++;
