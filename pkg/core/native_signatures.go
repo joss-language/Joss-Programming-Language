@@ -87,6 +87,18 @@ var migratedNativeMethods = map[string][]NativeMethodDefinition{
 		nativeMethodWithArity("decode", "mixed", nativeParam("json", "string")),
 		nativeMethodWithArity("encode", "string", nativeParam("value", "mixed")),
 	},
+	"Memory": {
+		nativeMethodWithArity("rss", "int"),
+		nativeMethodWithArity("arenaUsed", "int"),
+		nativeMethodWithArity("gcStats", "map<string, int>"),
+		nativeMethodWithArity("gcCollect", "int"),
+		nativeMethodWithArity("trim", "bool"),
+		nativeMethodWithArity("sizeOf", "int", nativeParam("value", "mixed")),
+		nativeMethodWithArity("snapshot", "map<string, int>"),
+		nativeMethodWithArity("diff", "map<string, int>", nativeParam("before", "map<string, int>")),
+		nativeMethodWithArity("report", "string"),
+		nativeMethodWithArity("checkGrowth", "bool", nativeParam("before", "map<string, int>"), nativeParam("maxDeltaBytes", "int"), nativeOptionalParam("label", "string")),
+	},
 	"Markdown": {
 		nativeMethodWithArity("toHtml", "string", nativeParam("markdown", "string")),
 		withNativeEffects(nativeMethodWithArity("readFile", "string", nativeParam("path", "string")), "fs", "io", "blocking"),

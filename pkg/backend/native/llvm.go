@@ -434,6 +434,16 @@ slow:
 		"fn_Cache_has":                        {ret: "i64", args: []string{"i8*"}},
 		"fn_Cache_get":                        {ret: "i64", args: []string{"i8*", "i64"}},
 		"fn_Cache_forget":                     {ret: "i64", args: []string{"i8*"}},
+		"fn_Memory_rss":                       {ret: "i64", args: nil},
+		"fn_Memory_arenaUsed":                 {ret: "i64", args: nil},
+		"fn_Memory_gcStats":                   {ret: "i8*", args: nil},
+		"fn_Memory_gcCollect":                 {ret: "i64", args: nil},
+		"fn_Memory_trim":                      {ret: "i64", args: nil},
+		"fn_Memory_sizeOf":                    {ret: "i64", args: []string{"i64"}},
+		"fn_Memory_snapshot":                  {ret: "i8*", args: nil},
+		"fn_Memory_diff":                      {ret: "i8*", args: []string{"i8*"}},
+		"fn_Memory_report":                    {ret: "i8*", args: nil},
+		"fn_Memory_checkGrowth":               {ret: "i64", args: []string{"i8*", "i64", "i8*"}},
 		"fn_Response_json":                    {ret: "i8*", args: []string{"i64", "i64"}},
 		"fn_Response_raw":                     {ret: "i8*", args: []string{"i8*", "i64", "i8*"}},
 		"fn_Response_error":                   {ret: "i8*", args: []string{"i8*", "i64"}},
@@ -2147,6 +2157,10 @@ func normalizeLLVMHostServiceArgs(className, methodName string, args []ir.Value)
 	case "Cache":
 		if methodName == "get" && len(args) == 1 {
 			return []ir.Value{args[0], ir.NewConstInt(0, ir.TypeI64)}
+		}
+	case "Memory":
+		if methodName == "checkGrowth" && len(args) == 2 {
+			return []ir.Value{args[0], args[1], ir.NewConstString("memory_check")}
 		}
 	}
 	return args

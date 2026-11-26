@@ -280,6 +280,10 @@ func (r *Runtime) RegisterNativeClasses() {
 	r.registerNative("Cache", []string{"put", "get", "has", "forget"}, (*Runtime).executeCacheMethod)
 	r.Variables["Cache"] = &Instance{Class: r.Classes["Cache"], Fields: make(map[string]interface{})}
 
+	// Memory (Native Diagnostics & GC Control)
+	r.registerNativeDefinitions("Memory", migratedNativeMethods["Memory"], (*Runtime).executeMemoryMethod)
+	r.Variables["Memory"] = &Instance{Class: r.Classes["Memory"], Fields: make(map[string]interface{})}
+
 	// Http (General-purpose HTTP client)
 	r.registerNative("Http", []string{"get", "post", "put", "patch", "delete", "head", "options", "json", "request"}, (*Runtime).executeHttpMethod)
 	r.Variables["Http"] = &Instance{Class: r.Classes["Http"], Fields: make(map[string]interface{})}

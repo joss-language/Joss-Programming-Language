@@ -2965,7 +2965,7 @@ func (l *Lowerer) lowerExpression(expr parser.Expression) (Value, error) {
 			hostRecv := receiverObj
 			if receiverObj != nil && len(hostArgs) > 0 && hostArgs[0] == receiverObj {
 				switch className {
-				case "Request", "Session", "SEO", "Cache", "Config", "Log", "Cookie", "Hash", "JWT", "Auth", "Schema":
+				case "Request", "Session", "SEO", "Cache", "Config", "Log", "Cookie", "Hash", "JWT", "Auth", "Schema", "Memory":
 					hostArgs = hostArgs[1:]
 					hostRecv = nil
 				}

@@ -425,6 +425,18 @@
       "floor",
       "random"
     ],
+    "Memory": [
+      "arenaUsed",
+      "checkGrowth",
+      "diff",
+      "gcCollect",
+      "gcStats",
+      "report",
+      "rss",
+      "sizeOf",
+      "snapshot",
+      "trim"
+    ],
     "Middleware": [],
     "Migration": [],
     "Model": [

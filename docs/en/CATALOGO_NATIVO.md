@@ -187,7 +187,7 @@ Implementación: [executeCronMethod](../pkg/core/cron.go#L17).
 
 ## Exception
 
-Implementación: [executeExceptionMethod](../pkg/core/native.go#L400).
+Implementación: [executeExceptionMethod](../pkg/core/native.go#L404).
 
 | Método | Retorno publicado al analizador |
 |---|---|
@@ -278,6 +278,21 @@ Implementación: [executeMFAMethod](../pkg/core/auth_fluent.go#L81).
 | `ceil` | `float` |
 | `floor` | `float` |
 | `random` | `int` |
+
+## Memory
+
+| Método | Retorno publicado al analizador |
+|---|---|
+| `arenaUsed` | `int` |
+| `checkGrowth` | `bool` |
+| `diff` | `map<string, int>` |
+| `gcCollect` | `int` |
+| `gcStats` | `map<string, int>` |
+| `report` | `string` |
+| `rss` | `int` |
+| `sizeOf` | `int` |
+| `snapshot` | `map<string, int>` |
+| `trim` | `bool` |
 
 ## Middleware
 
@@ -1049,4 +1064,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 54 clases, 547 métodos y 158 built-ins.
+Total: 55 clases, 557 métodos y 158 built-ins.

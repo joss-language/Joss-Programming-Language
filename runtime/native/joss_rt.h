@@ -120,6 +120,18 @@ void   joss_gc_set_multithreaded(bool enabled);
 size_t joss_gc_collect(void);
 void   joss_gc_stats(JossGCStats* out);
 
+/* Rust-inspired Memory Diagnostics & Watchdog API (Memory::*) */
+int64_t     fn_Memory_rss(void);
+int64_t     fn_Memory_arenaUsed(void);
+void*       fn_Memory_gcStats(void);
+int64_t     fn_Memory_gcCollect(void);
+int64_t     fn_Memory_trim(void);
+int64_t     fn_Memory_sizeOf(int64_t val);
+void*       fn_Memory_snapshot(void);
+void*       fn_Memory_diff(void* before_map);
+const char* fn_Memory_report(void);
+int64_t     fn_Memory_checkGrowth(void* before_map, int64_t max_delta_bytes, const char* label);
+
 /* =========================================================================
  * 3. Bounds-Checked ByteSlice / ByteBuffer / StringBuilder
  * ========================================================================= */
