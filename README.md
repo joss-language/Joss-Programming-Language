@@ -5,7 +5,7 @@
 <h1 align="center">El Lenguaje de Programación Joss</h1>
 
 <p align="center">
-  <b>Un solo lenguaje · Una sola semántica · Ejecución interpretada, Servidor Web Nativo y Compilación AOT</b>
+  <b>Un solo lenguaje · Una sola semántica · Motor 100% Nativo (JIT, Servidor HTTP Nativo y Compilación AOT)</b>
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@
 
 ## 🌟 ¿Qué es Joss y qué hace?
 
-**Joss** es un lenguaje de programación moderno, fuertemente tipado y un ecosistema de desarrollo completo (*batteries-included*) escrito en Go.
+**Joss** es un lenguaje de programación moderno, fuertemente tipado y un ecosistema de desarrollo completo (*batteries-included*) con motor de ejecución **100% Nativo** (código máquina directo Tier-1 + backend LLVM `-O3` Tier-2 + runtime modular en C11).
 
 En el desarrollo de software tradicional, los equipos suelen verse obligados a elegir entre dos extremos:
 1. **Lenguajes dinámicos o de scripting** (rápidos para prototipar, pero propensos a errores en producción, lentos y dependientes de cientos de paquetes externos para levantar un servidor web o conectarse a una base de datos).
@@ -36,7 +36,7 @@ En el desarrollo de software tradicional, los equipos suelen verse obligados a e
 **Joss une ambos mundos bajo un único diseño coherente**:
 - Permite escribir código limpio, expresivo y sin ceremonias innecesarias (sin `;` obligatorios, sin cadenas interminables de `import` manuales).
 - Analiza estáticamente todo tu proyecto antes de ejecutar una sola línea (`joss analyze`), detectando errores de tipos, rutas sin retorno, contratos de interfaces y mutaciones inválidas con diagnósticos precisos (`JOSS-*`).
-- Ejecuta ese mismo programa validado (`PreparedProgram`) con el runtime anterior por defecto (`joss run`, `joss server start`, `joss program start`, `joss build`). Agrega `--native` para probar JIT/AOT nativo explícitamente mientras se migra la cobertura.
+- Ejecuta y compila ese mismo programa validado (`PreparedProgram`) **100% en modo nativo** (`joss run`, `joss server start`, `joss program start`, `joss build`), generando binarios autónomos ultracompactos (desde ~14 KB) sin intérprete Go embebido ni DLLs externas. Consulta el [Reporte Oficial de Benchmarks](benchmark.md).
 
 ---
 
@@ -49,11 +49,11 @@ Democratizar la creación de software robusto, seguro y de alto rendimiento, ent
 Convertirse en el lenguaje de referencia bajo el principio **"Un solo lenguaje, una sola semántica, múltiples modos de ejecución"** (*Feature Once, Execute Everywhere*), donde la experiencia pedagógica de aprendizaje, la productividad del desarrollo web empresarial y la eficiencia de la compilación nativa AOT convergen sin compromisos.
 
 ### Los 5 Pilares Filosóficos de Joss
-1. **Una semántica, modos en transición**: El modo anterior es el predeterminado; `--native` opta por JIT/AOT. Cada capacidad declarada compatible pasa pruebas diferenciales y las capacidades nativas pendientes fallan explícitamente, sin fallback silencioso.
+1. **Un solo motor 100% Nativo**: `joss run`, `joss server start`, `joss program start`, `joss test`, `joss eval`, `joss repl` y `joss build` ejecutan directamente el pipeline `PreparedProgram → Joss Native IR → Código Máquina / LLVM -O3 + Runtime C11`, sin intérprete Go ni fallbacks ocultos.
 2. **Seguridad Estática con Ergonomía Moderna**: Tipado estático e inferencia estricta (`var $x = 10`), tipos unión (`int|null` / `int?`), aritmética financiera exacta de base 10 (`decimal`) y dinamismo explícito solo cuando el programador lo solicita deliberadamente (`mixed`).
 3. **Cero Fricción Arquitectónica (*Zero-Imports*)**: El compilador descubre y enlaza automáticamente todas las declaraciones de tu proyecto (`main.joss`, `routes.joss`, `api.joss` y `app/**/*.joss`). Tu estructura de carpetas es tu arquitectura, sin burocracia de encabezados.
-4. **Autonomía del Toolchain (*Batteries-Included*)**: Servidor HTTP, motor de plantillas HTML con protección anti-XSS nativa, ORM relacional (`GranDB` / `Model`), constructor de esquemas y migraciones (`Schema`), generadores de código (`joss make:*`), formateador, linter, suite de tests y gestor de paquetes (`pub`) viven dentro del propio lenguaje.
-5. **Distribución Ultraligera y Segura**: Compilación AOT a binarios CLI puros de apenas ~5.5 KB - 32 KB, o aplicaciones completas con servidor/DB que podan automáticamente los motores no utilizados (`no<driver>`) y sellan sus vistas y variables de entorno encriptadas con **AES-256** (`env.enc`) dentro de un único ejecutable.
+4. **Autonomía del Toolchain (*Batteries-Included*)**: Servidor HTTP nativo, motor de plantillas HTML con protección anti-XSS, ORM relacional (`GranDB` / `Model`), constructor de esquemas y migraciones (`Schema`), generadores de código (`joss make:*`), formateador, linter, suite de tests y gestor de paquetes (`pub`) viven dentro del propio lenguaje.
+5. **Distribución Ultraligera y Segura**: Compilación AOT a binarios standalone desde ~14 KB (sin DLLs ni runtime Go embebido), enlazando selectivamente solo los módulos C11 usados (`joss_web_rt`, `joss_db_rt`, `joss_crypto_rt`, `joss_concurrency_rt`, `joss_gui_rt`) y sellando vistas y variables de entorno encriptadas con **AES-256** (`env.enc`).
 
 ---
 
@@ -67,9 +67,9 @@ flowchart TD
     LEX --> ANA["3. Semantic Analyzer Pipeline (joss analyze: collectDeclarations → projectScope → validateNominalContracts → analyzeSourceBodies)"]
     ANA --> DIAG["Diagnósticos Estables (JOSS-PARSE / JOSS-TYPE / JOSS-SYM / JOSS-FLOW)"]
     ANA --> PREP["4. PreparedProgram Canónico Inmutable"]
-    PREP --> RUN["Predeterminado: Runtime Go anterior (joss run / server / program / build)"]
-    PREP --> IR["Optativo: --native → Joss Native IR (SSA/3AC) + Verificador CFG"]
-    IR --> BIN["--native build: ejecutable nativo standalone (.exe / ELF / Mach-O)"]
+    PREP --> IR["5. Joss Native IR (SSA/3AC) + Verificador de Dominancia CFG"]
+    IR --> JIT["joss run / server / program / test / repl → Joss Native JIT (Tier-1 / Tier-2 LLVM)"]
+    IR --> BIN["joss build → Binario Nativo Standalone (.exe / ELF / Mach-O) + Runtime C11"]
 ```
 
 ---
@@ -224,9 +224,9 @@ flowchart LR
 | `joss new [web\|console\|package\|plugin] <ruta>` | Crea un nuevo proyecto con la plantilla oficial indicada (`web` por defecto) |
 | `joss make:<tipo> <Nombre>` | Genera componentes (`controller`, `model`, `view`, `middleware`, `mvc`, `crud`, `migration`) |
 | `joss remove:crud <tabla>` | Revierte limpiamente un módulo CRUD generado (controlador, modelo, vistas y rutas) |
-| `joss run <archivo.joss>` | Ejecuta el runtime Go anterior; `--native` selecciona JIT nativo |
-| `joss build [archivo.joss] [--target=...]` | Genera un runner autónomo con runtime anterior; `--native` selecciona AOT nativo |
-| `joss server start` | Inicia el servidor web del runtime anterior; `--native` selecciona el servidor JIT |
+| `joss run <archivo.joss>` | Ejecuta el programa en modo **Joss Native JIT** (Tier-1 código máquina / Tier-2 LLVM) |
+| `joss build [archivo.joss] [--target=...]` | Compila AOT a un binario nativo standalone (.exe / ELF / Mach-O) con runtime modular C11 |
+| `joss server start` | Inicia el servidor web nativo (`std/http` + `runtime/native/joss_web_rt.c`) |
 | `joss repl` | Inicia la consola interactiva (`joss> `) para experimentar en vivo |
 | `joss analyze [ruta]` | Ejecuta el analizador semántico de 4 fases y comprobación exhaustiva de tipos |
 | `joss check [ruta]` | Ejecuta el pipeline completo de calidad: formato, sintaxis, análisis semántico y linter |
@@ -337,7 +337,7 @@ go run ./tools/docgen --check
 # Pruebas y análisis estático
 go vet ./...
 go test ./...
-go test -race ./pkg/parser ./pkg/typesystem ./pkg/analyzer ./pkg/core ./pkg/server
+go test -race ./pkg/parser ./pkg/typesystem ./pkg/analyzer ./pkg/core
 
 # Verificación de contratos, documentación e i18n
 go test ./pkg/core -run TestDocumentation -v

@@ -13,11 +13,12 @@ fuentes .joss
     (collectDeclarations → projectScope → validateNominalContracts → analyzeSourceBodies)
   → diagnósticos (`pkg/diagnostics`)
   → PreparedProgram (Canónico)
+  → Joss Native IR (`pkg/ir`) + Verificador de Dominancia SSA
   ┌───────────────────────┼──────────────────────────┐
   ▼                       ▼                          ▼
 `joss run`             `joss server/program`     `joss build`
-Auto: JIT o Go         Auto: JIT o Go            Auto: AOT o runner Go
-`--native` estricto    `--native` estricto       `--native` estricto
+Joss Native JIT        Joss Native HTTP/GUI      Joss Native AOT
+(Tier-1 / Tier-2 LLVM) (`std/http` + C11)        (Código Máquina / LLVM -O3)
 ```
 
 ```mermaid
@@ -29,48 +30,25 @@ flowchart TD
     A --> N["Analyzer"]
     N --> D["Diagnósticos"]
     N -->|sin errores| PP["PreparedProgram"]
-    PP -->|auto: capacidad soportada| IR["LowerAndVerify: Joss Native IR"]
-    IR --> JIT["JIT AMD64/ARM64 en memoria"]
-    PP -->|brecha de capacidad en modo auto| GO["Runtime Go / intérprete de compatibilidad"]
-    PP -->|--native| IR
-    PP -->|build auto: capacidad soportada| IR
-    PP -->|build auto: brecha conocida| RUNNER["Runner Go autónomo + VFS sellado"]
-    PP -->|emit-ir| IR
-    IR --> V["IR Verifier"]
-    V --> NB["Native Backend"]
-    NB --> EXE["Ejecutable nativo real"]
+    PP --> IR["LowerAndVerify: Joss Native IR (SSA/3AC)"]
+    IR --> V["IR Verifier (Dominancia SSA)"]
+    V --> JIT["Joss Native JIT (Tier-1 AMD64/ARM64 · Tier-2 LLVM)"]
+    V --> NB["Native Backend (`pkg/backend/native` + `pkg/backend/llvm`)"]
+    NB --> EXE["Ejecutable Nativo Standalone + Runtime Modular C11"]
 ```
 
-Los comandos normales usan selección automática. Los programas sin servidor
-HTTP intentan JIT/AOT si el backend los soporta. Cuando el análisis resuelve
-`Server::start`, `HttpServer::start` o `HttpServer::run`, `run` y `program`
-ejecutan el runtime Go; `server start` usa Go por defecto y `build` empaqueta el
-runner Go. Esto mantiene HTTP concurrente aunque el backend nativo soporte el
-programa. Las brechas nativas conocidas también seleccionan el runtime Go; los
-errores de análisis, IR o emisión no activan fallback. `--native` exige la ruta
-nativa y nunca cambia de motor; `joss emit-ir` siempre usa el pipeline nativo.
+Todos los comandos de ejecución y compilación del usuario (`joss run`, `joss server start`, `joss program start`, `joss build`, `joss test`, `joss eval`, `joss repl` y `joss emit-ir`) operan **100% sobre Joss Native**. Los paquetes heredados del motor de ejecución Go (`pkg/server`, `cmd/runner`, `legacy_build.go` y `go-webview2`) fueron retirados de forma permanente (garantizado por `TestArchitecture_ZeroGoRuntimeEngineOrLegacyRunner`). El flag `--native` se conserva únicamente como alias de compatibilidad sin efecto adicional.
 
-Los cuatro comandos seleccionan automáticamente el servidor Go `pkg/server`
-con `net/http` para aplicaciones HTTP, que procesa requests concurrentemente y
-admite conexiones WebSocket de larga duración. `joss server start --native`,
-`joss run --native`, `joss program start --native` y `joss build --native`
-fuerzan la ruta nativa. El bucle TCP de
-`std/http/server.joss`, que atiende una conexión a la vez y se conserva para
-validar el backend nativo. La selección de `server start` se conserva durante
-hot reload.
-
-El runner de compatibilidad actual todavía incluye el intérprete Go completo;
-no es el host Go mínimo de la arquitectura híbrida objetivo. Los builds puros
-que el backend soporta siguen generando AOT standalone sin runtime Go. La poda
-por capacidades produce tags deterministas y puede compilar un runner de perfil
-en un checkout con Go; una distribución instalada necesita incluir el runner
-precompilado correspondiente. La frontera ABI para llamar adaptadores Go desde
-código Joss nativo sigue pendiente, por lo que los servicios no se presentan
-como híbrido AOT hasta contar con esa implementación.
+El runtime nativo vive en `runtime/native/` en C11 estándar con enlace selectivo por capacidades detectadas en el IR:
+- `joss_rt.c` / `joss_rt.h`: núcleo de tipos, strings, arrays, `JossMap` dinámico de direccionamiento abierto $O(1)$ con slab inline TLS y formateo numérico.
+- `joss_web_rt.c`: servidor HTTP/TCP concurrente, WebSockets, sesiones, streams y helpers web.
+- `joss_concurrency_rt.c`: `async`/`await`, `Future` y `channel<T>` sobre hilos POSIX/Win32.
+- `joss_db_rt.c`: soporte nativo para SQLite, PostgreSQL, MySQL/MariaDB y ODBC/SQL Server.
+- `joss_crypto_rt.c`: hashing, HMAC, AES-256 y primitivas criptográficas sobre OpenSSL.
+- `joss_gui_rt.c`: ventanas nativas de escritorio (WebView2 / WebKitGTK / WKWebView).
 
 La ruta nativa centraliza lowering y verificación en `ir.LowerAndVerify`.
-`joss run --native`, `joss build --native` y `joss emit-ir` usan esa misma
-entrada y sus errores de lowering/verificación conservan la etapa. En
+`joss run`, `joss build` y `joss emit-ir` usan esa misma entrada y sus errores de lowering/verificación conservan la etapa. En
 AMD64, JIT y AOT comparten ahora la emisión de instrucciones y solo separan la
 publicación en memoria o en el contenedor ejecutable. ARM64 Unix también tiene
 el destino JIT en memoria, con relocaciones a la dirección asignada y páginas
@@ -175,9 +153,9 @@ los ternarios/match, un límite registrado en la auditoría.
 
 Las referencias seguras no exponen punteros de Go: `core.VariableReference` conserva el binding de valor/tipo/constancia durante una llamada y el evaluator desreferencia automáticamente. Una referencia no es un valor Joss almacenable ni cruza fronteras async/plugin.
 
-`joss build` usa runner Go para aplicaciones que inician HTTP o tienen una brecha de capacidad nativa conocida; para programas puros intenta AOT automáticamente. `joss build --native` exige AOT puro. La ruta AOT transforma el `PreparedProgram` analizado y validado hacia **Joss Native IR** (`pkg/ir`), con CFG, basic blocks e instrucciones de tipado estricto. Tras la verificación formal (`ir.VerifyProgram`), el **Native Backend** (`pkg/backend/native`) genera ejecutables nativos reales autocontenidos (PE `.exe`, ELF, Mach-O) en `build/` sin serializar AST:
-- **Programas CLI puros**: Se compilan a código máquina puro (~5.5 KB - 32 KB) sin `joss_host.dll` y sin trailer VFS (`JOSS_RUNNER_DATA`).
-- **Aplicaciones con servicios web/DB**: El binario standalone no enlaza `_joss_host_bridge` ni una DLL complementaria. Cada servicio debe resolverse a código Joss o a una primitiva nativa emitida; si falta esa implementación, el backend rechaza la compilación. Los build tags `no<driver>` podan los drivers no utilizados y el VFS puede sellarse con AES-256 (`env.enc`).
+`joss build` compila siempre a través de la ruta nativa AOT (`PreparedProgram → Joss Native IR → ir.VerifyProgram → Native Backend / LLVM -O3`), generando ejecutables nativos reales autocontenidos (PE `.exe`, ELF, Mach-O) en `build/` sin serializar AST ni embeber runtime Go:
+- **Programas CLI puros**: Se compilan a código máquina puro / LLVM `-O3` (~14 KB - 32 KB) sin DLLs complementarias.
+- **Aplicaciones con servicios web/DB/GUI**: Enlazan selectivamente los módulos C11 de `runtime/native/` requeridos por el programa y sellan el VFS/configuración encriptada con AES-256 (`env.enc`).
 
 Un símbolo global de runtime sin implementación para el target detiene la compilación con un error de símbolo no resuelto. La CLI ejecuta la validación de capacidades AOT antes de preparar CSS o consultar datos externos; así un target incompleto falla antes de esos efectos. Los adaptadores transitorios de paso se reservan a las familias `Router`, `Schema`, `Plugin`, `GranDB` y `HttpServer`; no sustituyen funciones de la Standard Library ni prueban paridad funcional de esos servicios. Los placeholders de `Auth`, `SEO` y `Turnstile` ya no pueden ocultar lógica ausente: esas llamadas requieren una implementación Joss y, si falta, se rechazan con `JOSS-NATIVE-001`. La paridad AOT de `strpos`, `substr`, `urldecode` y otras primitivas debe verificarse por separado en AMD64 y ARM64 antes de declarar completo un flujo HTTP.
 

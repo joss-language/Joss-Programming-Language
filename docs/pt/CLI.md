@@ -2,39 +2,41 @@
 
 [Índice](README.md) · Antes: [primeiros passos](PRIMEROS_PASOS.md) · Depois: [analisador](ANALIZADOR.md)
 
-A fonte canônica de comandos é `cmd/joss/main.go`. `joss help` mostra a ajuda interativa instalada e `joss version` a versão atual do runtime (`3.6.8.0`).
+A fonte canônica de comandos é `cmd/joss/main.go`. `joss help` mostra a ajuda interativa instalada e `joss version` a versão atual do compilador (`3.6.8.3`).
 
 A CLI é o programa que recebe comandos no terminal. Incorpora um ambiente REPL
-interativo (`joss repl`), execução direta de scripts (`joss run`), servidor web de alto
-desempenho (`joss server start` / `joss server`), compilação nativa AOT (`--native`) e um conjunto completo de ferramentas de qualidade de código e gerenciamento de pacotes (`run [archivo]`).
+interativo (`joss repl`), execução direta de scripts (`joss run`), servidor web nativo
+(`joss server start` / `joss server`), desktop (`joss program start`) e compilação AOT (`joss build`).
+Todos os comandos de execução e compilação operam **100% sobre Joss Native** (IR canônico + código de máquina / LLVM `-O3` + runtime modular C11).
 
 ---
 
 ## 1. Execução, REPL e Build Nativo
 
 ```bash
-joss run archivo.joss [--native]
+joss run archivo.joss
 joss repl
-joss server start [--native]
-joss program start [--native]
-joss build [archivo.joss] [opciones] [--native]
+joss server start
+joss program start
+joss build [archivo.joss] [opciones]
 joss emit-ir [archivo.joss] [-o salida.ir]
 joss analyze [archivo.joss]
 joss update [-f|--canary|--stable]
 ```
 
-- `.joss`: Executa um script `LoadProject` após analisar o projeto (`--native`) e validar seu `repl` com o interpretador de Joss. Os erros semânticos bloqueiam a execução; os warnings não.
-- `joss> `: Inicia o console interativo (Read-Eval-Print Loop) com prompt `exit` para avaliar expressões, testar funções e experimentar código em tempo real. Digite `Ctrl+C` ou pressione `server start` para sair.
-- `joss server` (ou `main.joss`): Requer o ponto de entrada `--native` e inicia o servidor HTTP multinível de alto desempenho interpretado pelo runtime de servidor. Pressione `q` ou `Ctrl+C` para pará-lo com segurança.
-- `program start`: Inicia a aplicação em modo desktop.
-- `--native`: **Compilador nativo oficial de Joss**. Compila o programa para um executável binário nativo real autocontido (PE `build [archivo.joss]` no Windows, ELF no Linux, Mach-O no macOS), depositando-o por padrão dentro da pasta `--native`. Realiza análise semântica exaustiva (`PreparedProgram`), análise de alcançabilidade (*Reachability Analysis*), lowering para Joss Native IR (`pkg/ir`), verificação de IR (`pkg/backend/native`) e geração de código nativo (`joss_host.dll`).
-  - **Binários CLI puros**: São compilados para código de máquina puro ultracompacto (~5.5 KB - 32 KB) sem `_joss_host_bridge` nem trailer VFS.
-  - **Aplicações completas com serviços web/DB**: Vinculam seletivamente `no<driver>` (podando motores não utilizados mediante tags `env.enc`) e selam o sistema de arquivos virtual criptografado (`-o <salida>` com AES-256) dentro do executável.
-  - `--target=<os>-<arch>`: Nome ou caminho personalizado do binário executável final.
-  - `joss build linux` (ou atalhos diretos `joss build macos`, `joss build android`, `windows-amd64`): Compilação cruzada integrada para `windows-arm64`, `linux-amd64`, `linux-arm64`, `darwin-arm64`, `darwin-amd64` (Apple Silicon), `android-arm64` e `--release` (Termux).
-  - `--debug`: Compilação otimizada para produção sem símbolos de depuração.
-  - `--trace`: Compilação com informações de depuração.
-  - `.ir`: Emite e preserva artefatos intermediários do pipeline nativo (`.ll`, `.standalone.go`, `--native`).
+- `run [archivo]`: Executa um script `.joss` após analisar o projeto (`LoadProject`) através do motor **Joss Native JIT** (Tier-1 código de máquina / Tier-2 LLVM). Os erros semânticos bloqueiam a execução; os warnings não.
+- `repl`: Inicia o console interativo (Read-Eval-Print Loop) com prompt `joss> ` sobre Joss Native para avaliar expressões, testar funções e experimentar código em tempo real. Digite `exit` ou pressione `Ctrl+C` para sair.
+- `server start` (ou `joss server`): Requer `main.joss`. Inicia o servidor HTTP nativo (`std/http` + `runtime/native/joss_web_rt.c`). Pressione `q` ou `Ctrl+C` para pará-lo com segurança.
+- `program start`: Inicia a aplicação em modo desktop nativo (`runtime/native/joss_gui_rt.c` com WebView2/WebKitGTK/WKWebView).
+- `build [archivo.joss]`: Executa a análise semântica (`PreparedProgram`), lowering para Joss Native IR (`pkg/ir`), verificação SSA e compilação AOT (`pkg/backend/native` + `pkg/backend/llvm`), gerando um binário standalone autônomo sem runtime Go embarcado nem DLLs externas.
+  - **Binários CLI puros**: São compilados para código de máquina puro ultracompacto (~14 KB - 32 KB) sem dependências externas.
+  - **Aplicações completas com serviços web/DB/GUI**: Vinculam seletivamente apenas os módulos C11 de `runtime/native/` exigidos pelo programa e selam assets/variáveis criptografadas (`env.enc` com AES-256) dentro do executável.
+  - `-o <salida>`: Nome ou caminho personalizado do binário executável final.
+  - `--target=<os>-<arch>` (ou atalhos diretos `joss build linux`, `joss build macos`, `joss build android`): Compilação cruzada integrada para `windows-amd64`, `windows-arm64`, `linux-amd64`, `linux-arm64`, `darwin-arm64` (Apple Silicon), `darwin-amd64` e `android-arm64` (Termux).
+  - `--release`: Compilação otimizada (`-O3` em LLVM IR e `joss_rt.c`) para produção sem símbolos de depuração.
+  - `--debug`: Compilação com informações de depuração.
+  - `--trace`: Emite e preserva artefatos intermediários do pipeline nativo (`.ir`, `.ll`).
+  - `--native`: Aceito por compatibilidade com scripts existentes (Joss Native é o único motor ativo).
   - `build package [ruta]`: Empacota extensões e plugins em pacotes `.jp` (v2) assinados com Ed25519 contendo bytecode puro.
   - `build web`: Prepara assets e distribuição estática para implantação web.
 - `emit-ir [archivo.joss] [-o salida.ir]`: Emite a representação intermediária canônica (Joss Native IR) em formato textual determinístico após a análise semântica e o lowering.
