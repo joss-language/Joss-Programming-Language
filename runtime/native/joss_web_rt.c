@@ -2396,12 +2396,34 @@ double joss_decimal(int64_t v) {
 
 static void* g_joss_cache_values = NULL;
 static void* g_joss_cache_expiry = NULL;
+static void* g_joss_cache_owners = NULL;
 
 static void joss_cache_init(void) {
     bool _prev_arena = joss_req_arena_pause();
-    if (!g_joss_cache_values) g_joss_cache_values = joss_map_new();
-    if (!g_joss_cache_expiry) g_joss_cache_expiry = joss_map_new();
+    if (!g_joss_cache_values) {
+        g_joss_cache_values = joss_map_new();
+        joss_gc_add_root(&g_joss_cache_values);
+    }
+    if (!g_joss_cache_expiry) {
+        g_joss_cache_expiry = joss_map_new();
+        joss_gc_add_root(&g_joss_cache_expiry);
+    }
+    if (!g_joss_cache_owners) {
+        g_joss_cache_owners = joss_map_new();
+        joss_gc_add_root(&g_joss_cache_owners);
+    }
     joss_req_arena_resume(_prev_arena);
+}
+
+static void joss_cache_remove_locked(const char* key) {
+    if (!key) return;
+    if (g_joss_cache_owners && joss_array_key_exists(key, g_joss_cache_owners)) {
+        JossOwnedScope* old_owner = (JossOwnedScope*)(uintptr_t)joss_map_get_i64(g_joss_cache_owners, key);
+        joss_map_delete_i64(g_joss_cache_owners, key);
+        if (old_owner) joss_owned_scope_destroy(old_owner);
+    }
+    if (g_joss_cache_values) joss_map_delete_i64(g_joss_cache_values, key);
+    if (g_joss_cache_expiry) joss_map_delete_i64(g_joss_cache_expiry, key);
 }
 
 static int64_t joss_cache_has_locked(const char* key) {
@@ -2410,8 +2432,7 @@ static int64_t joss_cache_has_locked(const char* key) {
     if (!joss_array_key_exists(key, g_joss_cache_values)) return 0;
     int64_t exp = joss_map_get_i64(g_joss_cache_expiry, key);
     if (exp > 0 && (int64_t)time(NULL) > exp) {
-        joss_map_delete_i64(g_joss_cache_values, key);
-        joss_map_delete_i64(g_joss_cache_expiry, key);
+        joss_cache_remove_locked(key);
         return 0;
     }
     return 1;
@@ -2423,10 +2444,17 @@ int64_t fn_Cache_put(const char* key, int64_t val, int64_t ttl_seconds) {
     key = unbox_web_cstr(key);
     if (!key) return 0;
     joss_global_lock(JOSS_LOCK_CACHE);
-    bool _prev_arena = joss_req_arena_pause();
     joss_cache_init();
+    JossOwnedScope* owner = joss_owned_scope_begin();
     int64_t persisted_val = joss_clone_session_value(val);
+    joss_owned_scope_end(owner);
+    bool _prev_arena = joss_req_arena_pause();
+    if (joss_array_key_exists(key, g_joss_cache_owners)) {
+        JossOwnedScope* old_owner = (JossOwnedScope*)(uintptr_t)joss_map_get_i64(g_joss_cache_owners, key);
+        if (old_owner) joss_owned_scope_destroy(old_owner);
+    }
     joss_map_set_i64(g_joss_cache_values, key, persisted_val);
+    joss_map_set_i64(g_joss_cache_owners, key, (int64_t)(uintptr_t)owner);
     int64_t exp = (ttl_seconds > 0) ? ((int64_t)time(NULL) + ttl_seconds) : 0;
     joss_map_set_i64(g_joss_cache_expiry, key, exp);
     joss_req_arena_resume(_prev_arena);
@@ -2447,7 +2475,12 @@ int64_t fn_Cache_get(const char* key, int64_t defVal) {
     key = unbox_web_cstr(key);
     if (!key) return defVal;
     joss_global_lock(JOSS_LOCK_CACHE);
-    int64_t val = joss_cache_has_locked(key) ? joss_map_get_i64(g_joss_cache_values, key) : defVal;
+    int64_t val = defVal;
+    if (joss_cache_has_locked(key)) {
+        /* Clone into the caller's active request arena (or Mini-GC) so the cache's
+         * private JossOwnedScope can always be safely destroyed on overwrite/expiry/forget. */
+        val = joss_clone_session_value(joss_map_get_i64(g_joss_cache_values, key));
+    }
     joss_global_unlock(JOSS_LOCK_CACHE);
     return val;
 }
@@ -2457,8 +2490,7 @@ int64_t fn_Cache_forget(const char* key) {
     if (!key) return 0;
     joss_global_lock(JOSS_LOCK_CACHE);
     joss_cache_init();
-    joss_map_delete_i64(g_joss_cache_values, key);
-    joss_map_delete_i64(g_joss_cache_expiry, key);
+    joss_cache_remove_locked(key);
     joss_global_unlock(JOSS_LOCK_CACHE);
     return 1;
 }
@@ -7089,14 +7121,60 @@ const char* joss___joss_http_check_middleware(const char* mw_spec, void* req_ptr
 }
 
 static void* g_joss_session_mem_store = NULL;
+static void* g_joss_session_owners    = NULL;
+
+static void joss_session_store_init_locked(void) {
+    bool _prev = joss_req_arena_pause();
+    if (!g_joss_session_mem_store) {
+        g_joss_session_mem_store = joss_map_new();
+        joss_gc_add_root(&g_joss_session_mem_store);
+    }
+    if (!g_joss_session_owners) {
+        g_joss_session_owners = joss_map_new();
+        joss_gc_add_root(&g_joss_session_owners);
+    }
+    joss_req_arena_resume(_prev);
+}
+
+static void joss_session_replace_locked(const char* sid, void* copy, JossOwnedScope* owner) {
+    joss_session_store_init_locked();
+    bool _prev = joss_req_arena_pause();
+    if (joss_array_key_exists(sid, g_joss_session_owners)) {
+        JossOwnedScope* old_owner = (JossOwnedScope*)(uintptr_t)joss_map_get_i64(g_joss_session_owners, sid);
+        if (old_owner && old_owner != owner) joss_owned_scope_destroy(old_owner);
+    }
+    joss_map_set_i64(g_joss_session_mem_store, sid, (int64_t)(uintptr_t)copy);
+    if (owner) {
+        joss_map_set_i64(g_joss_session_owners, sid, (int64_t)(uintptr_t)owner);
+    } else {
+        joss_map_delete_i64(g_joss_session_owners, sid);
+    }
+    joss_req_arena_resume(_prev);
+}
+
+static void joss_session_remove_locked(const char* sid) {
+    if (g_joss_session_owners && joss_array_key_exists(sid, g_joss_session_owners)) {
+        JossOwnedScope* old_owner = (JossOwnedScope*)(uintptr_t)joss_map_get_i64(g_joss_session_owners, sid);
+        joss_map_delete_i64(g_joss_session_owners, sid);
+        if (old_owner) joss_owned_scope_destroy(old_owner);
+    }
+    if (g_joss_session_mem_store) {
+        joss_map_delete_i64(g_joss_session_mem_store, sid);
+    }
+}
+
+static char* joss_clone_session_string(const char* s) {
+    if (joss_req_arena_is_active()) {
+        return joss_req_strdup(s ? s : "");
+    }
+    return joss_web_strdup(s ? s : "");
+}
 
 static int64_t joss_clone_session_value(int64_t v);
 
 static void* joss_clone_flat_session_map(void* src) {
-    bool _prev_arena = joss_req_arena_pause();
     void* dst = joss_map_new();
     if (!src || !joss_is_map_ptr((int64_t)(uintptr_t)src)) {
-        joss_req_arena_resume(_prev_arena);
         return dst;
     }
     int64_t n = joss_map_len(src);
@@ -7106,7 +7184,6 @@ static void* joss_clone_flat_session_map(void* src) {
         if (!k || !k[0]) continue;
         joss_map_set_i64(dst, k, joss_clone_session_value(v));
     }
-    joss_req_arena_resume(_prev_arena);
     return dst;
 }
 
@@ -7125,9 +7202,9 @@ static int64_t joss_clone_session_value(int64_t v) {
         if (tag == JOSS_TAG_BOOL) return (int64_t)(uintptr_t)joss_box_bool(b->payload != 0);
         if (tag == JOSS_TAG_STRING) {
             const char* s = (const char*)(uintptr_t)b->payload;
-            return (int64_t)(uintptr_t)joss_web_strdup(s ? s : "");
+            return (int64_t)(uintptr_t)joss_clone_session_string(s ? s : "");
         }
-        return (int64_t)(uintptr_t)joss_web_strdup(joss_strval(v));
+        return (int64_t)(uintptr_t)joss_clone_session_string(joss_strval(v));
     }
     if (joss_is_map_ptr(v)) {
         return (int64_t)(uintptr_t)joss_clone_flat_session_map((void*)(uintptr_t)v);
@@ -7145,7 +7222,7 @@ static int64_t joss_clone_session_value(int64_t v) {
     if (u < JOSS_MIN_PTR_ADDR || (u >> JOSS_PTR_VA_BITS) != 0) {
         return (int64_t)(uintptr_t)joss_box_i64(v);
     }
-    return (int64_t)(uintptr_t)joss_web_strdup(joss_strval(v));
+    return (int64_t)(uintptr_t)joss_clone_session_string(joss_strval(v));
 }
 
 int64_t joss_json_decode(const char* s) {
@@ -7813,8 +7890,8 @@ int64_t joss___joss_session_save(const char* sid, void* data_ptr) {
     if (!sid || !sid[0]) return 0;
     int drv = joss_session_resolve_driver();
     if (drv < 0) return 0;
-    bool _prev_arena = joss_req_arena_pause();
     void* src = (void*)(uintptr_t)joss_unbox_value((int64_t)(uintptr_t)data_ptr);
+    JossOwnedScope* owner = joss_owned_scope_begin();
     void* copy = joss_clone_flat_session_map(src);
     if (g_joss_consumed_flash && joss_is_map_ptr((int64_t)(uintptr_t)g_joss_consumed_flash)) {
         int64_t cn = joss_map_len(g_joss_consumed_flash);
@@ -7831,12 +7908,11 @@ int64_t joss___joss_session_save(const char* sid, void* data_ptr) {
         joss_map_len(g_joss_new_flash) > 0) {
         joss_map_set_i64(copy, "_flash", (int64_t)(uintptr_t)joss_clone_flat_session_map(g_joss_new_flash));
     }
+    joss_owned_scope_end(owner);
     if (drv == 0) {
         joss_global_lock(JOSS_LOCK_SESSION);
-        if (!g_joss_session_mem_store) g_joss_session_mem_store = joss_map_new();
-        joss_map_set_i64(g_joss_session_mem_store, sid, (int64_t)(uintptr_t)copy);
+        joss_session_replace_locked(sid, copy, owner);
         joss_global_unlock(JOSS_LOCK_SESSION);
-        joss_req_arena_resume(_prev_arena);
         return 1;
     }
     if (drv == 1) {
@@ -7844,17 +7920,19 @@ int64_t joss___joss_session_save(const char* sid, void* data_ptr) {
         joss_global_lock(JOSS_LOCK_SESSION);
         bool ok = joss_file_sessions_ensure_loaded_locked(path);
         if (ok) {
-            if (!g_joss_session_mem_store) g_joss_session_mem_store = joss_map_new();
-            joss_map_set_i64(g_joss_session_mem_store, sid, (int64_t)(uintptr_t)copy);
+            joss_session_replace_locked(sid, copy, owner);
             ok = joss_file_sessions_persist_locked(path);
+        } else {
+            joss_owned_scope_destroy(owner);
         }
         joss_global_unlock(JOSS_LOCK_SESSION);
-        joss_req_arena_resume(_prev_arena);
         return ok ? 1 : 0;
     }
-    joss_req_arena_resume(_prev_arena);
     int fd = joss_redis_connect_fd();
-    if (fd < 0) return 0;
+    if (fd < 0) {
+        joss_owned_scope_destroy(owner);
+        return 0;
+    }
     bool ok = false;
     if (joss_redis_auth_and_select(fd)) {
         JossStringBuilder* jsb = joss_sb_new();
@@ -7876,6 +7954,7 @@ int64_t joss___joss_session_save(const char* sid, void* data_ptr) {
         joss_sb_free(jsb);
     }
     joss_redis_close_fd(fd);
+    joss_owned_scope_destroy(owner);
     return ok ? 1 : 0;
 }
 
@@ -7886,7 +7965,7 @@ int64_t joss___joss_session_destroy(const char* sid) {
     if (drv < 0) return 0;
     if (drv == 0) {
         joss_global_lock(JOSS_LOCK_SESSION);
-        if (g_joss_session_mem_store) joss_map_delete_i64(g_joss_session_mem_store, sid);
+        joss_session_remove_locked(sid);
         joss_global_unlock(JOSS_LOCK_SESSION);
         return 1;
     }
@@ -7895,7 +7974,7 @@ int64_t joss___joss_session_destroy(const char* sid) {
         joss_global_lock(JOSS_LOCK_SESSION);
         bool ok = joss_file_sessions_ensure_loaded_locked(path);
         if (ok && g_joss_session_mem_store) {
-            joss_map_delete_i64(g_joss_session_mem_store, sid);
+            joss_session_remove_locked(sid);
             ok = joss_file_sessions_persist_locked(path);
         }
         joss_global_unlock(JOSS_LOCK_SESSION);

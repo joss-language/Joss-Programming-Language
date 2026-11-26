@@ -90,10 +90,16 @@ void       joss_req_arena_begin(void);
 void       joss_req_arena_reset(void);
 bool       joss_req_arena_pause(void);
 void       joss_req_arena_resume(bool prev_active);
+bool       joss_req_arena_is_active(void);
 size_t     joss_req_arena_bytes_used(void);
 void*      joss_req_alloc(size_t size);
 void*      joss_req_alloc_zeroed(size_t size);
 char*      joss_req_strdup(const char* s);
+
+typedef struct JossOwnedScope JossOwnedScope;
+JossOwnedScope* joss_owned_scope_begin(void);
+void            joss_owned_scope_end(JossOwnedScope* scope);
+void            joss_owned_scope_destroy(JossOwnedScope* scope);
 
 /* =========================================================================
  * 2b. Mini Garbage Collector (Conservative Mark-and-Sweep + Root Registry)

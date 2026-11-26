@@ -92,6 +92,7 @@ typedef struct JossFuture {
     JossTaskFn         fn;
     int64_t            result;
     bool               done;
+    bool               detached;
     struct JossFuture* next;
 } JossFuture;
 
@@ -123,10 +124,18 @@ static void* joss_worker_loop(void* arg) {
         }
 
         pthread_mutex_lock(&task->mu);
+        bool detached = task->detached;
         task->result = res;
         task->done = true;
-        pthread_cond_signal(&task->cv);
+        if (!detached) {
+            pthread_cond_signal(&task->cv);
+        }
         pthread_mutex_unlock(&task->mu);
+        if (detached) {
+            pthread_cond_destroy(&task->cv);
+            pthread_mutex_destroy(&task->mu);
+            free(task);
+        }
     }
     return NULL;
 }
@@ -144,7 +153,7 @@ static void joss_pool_init(void) {
     }
 }
 
-int64_t joss_async(int64_t fn_ptr) {
+static int64_t joss_async_start(int64_t fn_ptr, bool detached) {
     pthread_once(&g_pool_once, joss_pool_init);
     JossFuture* fut = (JossFuture*)calloc(1, sizeof(JossFuture));
     if (!fut) joss_panic("out of memory allocating async future");
@@ -152,6 +161,7 @@ int64_t joss_async(int64_t fn_ptr) {
     pthread_cond_init(&fut->cv, NULL);
     fut->fn = (JossTaskFn)(uintptr_t)fn_ptr;
     fut->done = false;
+    fut->detached = detached;
 
     pthread_mutex_lock(&g_pool_mu);
     if (g_q_tail) {
@@ -163,7 +173,15 @@ int64_t joss_async(int64_t fn_ptr) {
     pthread_cond_signal(&g_pool_cv);
     pthread_mutex_unlock(&g_pool_mu);
 
-    return (int64_t)(uintptr_t)fut;
+    return detached ? 0 : (int64_t)(uintptr_t)fut;
+}
+
+int64_t joss_async(int64_t fn_ptr) {
+    return joss_async_start(fn_ptr, false);
+}
+
+void joss_async_detached(int64_t fn_ptr) {
+    (void)joss_async_start(fn_ptr, true);
 }
 
 int64_t joss_await(int64_t fut_handle) {
@@ -243,6 +261,10 @@ int64_t joss_recv(int64_t ch_handle) {
     int64_t val = ch->buf[ch->head];
     ch->head = (ch->head + 1) % ch->cap;
     ch->count--;
+    if (ch->closed && ch->count == 0 && ch->buf) {
+        free(ch->buf);
+        ch->buf = NULL;
+    }
     pthread_cond_signal(&ch->not_full);
     pthread_mutex_unlock(&ch->mu);
     return val;
@@ -253,6 +275,10 @@ void joss_close(int64_t ch_handle) {
     if (!ch) return;
     pthread_mutex_lock(&ch->mu);
     ch->closed = true;
+    if (ch->count == 0 && ch->buf) {
+        free(ch->buf);
+        ch->buf = NULL;
+    }
     pthread_cond_broadcast(&ch->not_empty);
     pthread_cond_broadcast(&ch->not_full);
     pthread_mutex_unlock(&ch->mu);
@@ -356,6 +382,7 @@ typedef struct JossFuture {
     CRITICAL_SECTION   cs;
     CONDITION_VARIABLE cv;
     bool               done;
+    bool               detached;
     int64_t            result;
 } JossFuture;
 
@@ -394,10 +421,17 @@ static DWORD WINAPI joss_win_worker_loop(LPVOID arg) {
 
         JossFuture* fut = item->fut;
         EnterCriticalSection(&fut->cs);
+        bool detached = fut->detached;
         fut->result = res;
         fut->done = true;
-        WakeAllConditionVariable(&fut->cv);
+        if (!detached) {
+            WakeAllConditionVariable(&fut->cv);
+        }
         LeaveCriticalSection(&fut->cs);
+        if (detached) {
+            DeleteCriticalSection(&fut->cs);
+            free(fut);
+        }
         free(item);
     }
     return 0;
@@ -425,12 +459,13 @@ static void joss_win_pool_ensure(void) {
     }
 }
 
-int64_t joss_async(int64_t fn_ptr) {
+static int64_t joss_win_async_start(int64_t fn_ptr, bool detached) {
     joss_win_pool_ensure();
     JossFuture* fut = (JossFuture*)calloc(1, sizeof(JossFuture));
     if (!fut) joss_panic("JOSS-OOM: failed to allocate Future");
     InitializeCriticalSection(&fut->cs);
     InitializeConditionVariable(&fut->cv);
+    fut->detached = detached;
 
     JossWorkItem* item = (JossWorkItem*)malloc(sizeof(JossWorkItem));
     if (!item) joss_panic("JOSS-OOM: failed to allocate WorkItem");
@@ -447,7 +482,15 @@ int64_t joss_async(int64_t fn_ptr) {
     }
     WakeConditionVariable(&g_win_pool_cv);
     LeaveCriticalSection(&g_win_pool_cs);
-    return (int64_t)(uintptr_t)fut;
+    return detached ? 0 : (int64_t)(uintptr_t)fut;
+}
+
+int64_t joss_async(int64_t fn_ptr) {
+    return joss_win_async_start(fn_ptr, false);
+}
+
+void joss_async_detached(int64_t fn_ptr) {
+    (void)joss_win_async_start(fn_ptr, true);
 }
 
 int64_t joss_await(int64_t fut_handle) {
@@ -523,6 +566,10 @@ int64_t joss_recv(int64_t ch_handle) {
     int64_t val = ch->buf[ch->head];
     ch->head = (ch->head + 1) % ch->cap;
     ch->count--;
+    if (ch->closed && ch->count == 0 && ch->buf) {
+        free(ch->buf);
+        ch->buf = NULL;
+    }
     WakeConditionVariable(&ch->not_full);
     LeaveCriticalSection(&ch->cs);
     return val;
@@ -533,6 +580,10 @@ void joss_close(int64_t ch_handle) {
     if (!ch) return;
     EnterCriticalSection(&ch->cs);
     ch->closed = true;
+    if (ch->count == 0 && ch->buf) {
+        free(ch->buf);
+        ch->buf = NULL;
+    }
     WakeAllConditionVariable(&ch->not_empty);
     WakeAllConditionVariable(&ch->not_full);
     LeaveCriticalSection(&ch->cs);
@@ -619,6 +670,7 @@ int64_t joss_async(int64_t fn_ptr) {
     joss_closure_env_tls_reset();
     return res;
 }
+void    joss_async_detached(int64_t fn_ptr) { (void)joss_async(fn_ptr); }
 int64_t joss_await(int64_t val) { return val; }
 int64_t joss_make_chan(int64_t capacity) { (void)capacity; return 0; }
 void    joss_send(int64_t ch, int64_t val) { (void)ch; (void)val; }

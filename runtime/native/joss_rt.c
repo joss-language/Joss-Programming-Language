@@ -27,6 +27,9 @@
 #elif defined(__unix__) || defined(__APPLE__)
 #include <pthread.h>
 #endif
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
 
 static inline void joss_atomic_update_bounds(_Atomic(uintptr_t)* min_p, _Atomic(uintptr_t)* max_p, uintptr_t addr) {
     uintptr_t cur_min = atomic_load_explicit(min_p, memory_order_relaxed);
@@ -483,6 +486,10 @@ static bool joss_req_is_active(void) {
     return tls_req_active && tls_req_arena != NULL;
 }
 
+bool joss_req_arena_is_active(void) {
+    return joss_req_is_active();
+}
+
 bool joss_req_arena_pause(void) {
     bool prev = tls_req_active;
     tls_req_active = false;
@@ -491,6 +498,59 @@ bool joss_req_arena_pause(void) {
 
 void joss_req_arena_resume(bool prev_active) {
     tls_req_active = prev_active;
+}
+
+struct JossOwnedScope {
+    JossArena*       arena;
+    JossReqTrackList tracked;
+    JossArena*       prev_arena;
+    JossReqTrackList prev_tracked;
+    bool             prev_active;
+};
+
+JossOwnedScope* joss_owned_scope_begin(void) {
+    JossOwnedScope* sc = (JossOwnedScope*)calloc(1, sizeof(JossOwnedScope));
+    if (!sc) joss_panic("out of memory creating owned scope");
+    sc->arena = (JossArena*)calloc(1, sizeof(JossArena));
+    if (!sc->arena) joss_panic("out of memory creating owned scope arena");
+    sc->arena->default_chunk_cap = 256;
+    sc->arena->head = arena_new_chunk(256);
+    sc->prev_arena = tls_req_arena;
+    sc->prev_tracked = tls_req_tracked;
+    sc->prev_active = tls_req_active;
+    tls_req_arena = sc->arena;
+    tls_req_tracked.items = NULL;
+    tls_req_tracked.len = 0;
+    tls_req_tracked.cap = 0;
+    tls_req_active = true;
+    return sc;
+}
+
+void joss_owned_scope_end(JossOwnedScope* scope) {
+    if (!scope) return;
+    scope->tracked = tls_req_tracked;
+    tls_req_arena = scope->prev_arena;
+    tls_req_tracked = scope->prev_tracked;
+    tls_req_active = scope->prev_active;
+}
+
+void joss_owned_scope_destroy(JossOwnedScope* scope) {
+    if (!scope) return;
+    for (size_t i = 0; i < scope->tracked.len; i++) {
+        if (scope->tracked.items[i]) {
+            free(scope->tracked.items[i]);
+            scope->tracked.items[i] = NULL;
+        }
+    }
+    free(scope->tracked.items);
+    scope->tracked.items = NULL;
+    scope->tracked.len = 0;
+    scope->tracked.cap = 0;
+    if (scope->arena) {
+        joss_arena_destroy(scope->arena);
+        scope->arena = NULL;
+    }
+    free(scope);
 }
 
 static void joss_req_track_ptr(void* p) {
@@ -543,10 +603,22 @@ void joss_req_arena_reset(void) {
         }
     }
     tls_req_tracked.len = 0;
+    bool shrunk = false;
     if (tls_req_arena) {
+        if (tls_req_arena->head && tls_req_arena->head->cap > tls_req_arena->default_chunk_cap * 4U) {
+            shrunk = true;
+        }
         joss_arena_reset(tls_req_arena);
     }
     tls_req_active = false;
+#if defined(__GLIBC__)
+    static _Thread_local uint32_t tls_reset_count = 0;
+    if (shrunk || (++tls_reset_count & 255U) == 0U) {
+        (void)malloc_trim(0);
+    }
+#else
+    (void)shrunk;
+#endif
 }
 
 size_t joss_req_arena_bytes_used(void) {
@@ -1247,7 +1319,8 @@ static inline void joss_map_set_internal(JossMap* m, const char* key, int64_t va
             return;
         }
         joss_map_rehash(m, 32);
-    } else if ((m->slot_used + 1) * 10 >= m->slot_cap * 7) {
+    } else if ((m->slot_used + 1) * 10 >= m->slot_cap * 7 ||
+               (m->entry_len >= m->entry_cap && m->count * 2 < m->entry_len)) {
         int32_t target = (m->count * 2 >= m->slot_cap) ? (m->slot_cap * 2) : m->slot_cap;
         joss_map_rehash(m, target);
     }
@@ -1972,6 +2045,7 @@ static size_t        g_gc_threshold     = JOSS_GC_DEFAULT_THRESHOLD;
 static void***       g_gc_roots         = NULL;
 static size_t        g_gc_root_count    = 0;
 static size_t        g_gc_root_cap      = 0;
+static atomic_flag   g_gc_roots_lock    = ATOMIC_FLAG_INIT;
 
 /* Open-addressing hash table mapping payload pointer -> JossGCHeader* */
 static JossGCHeader** g_gc_ptr_table    = NULL;
@@ -2046,19 +2120,33 @@ void joss_gc_init(void* stack_bottom) {
 }
 
 void joss_gc_add_root(void** root_slot) {
-    if (!root_slot || g_gc_root_count >= JOSS_GC_MAX_ROOTS) return;
+    if (!root_slot) return;
+    while (atomic_flag_test_and_set_explicit(&g_gc_roots_lock, memory_order_acquire)) {
+        /* spin */
+    }
+    if (g_gc_root_count >= JOSS_GC_MAX_ROOTS) {
+        atomic_flag_clear_explicit(&g_gc_roots_lock, memory_order_release);
+        return;
+    }
     for (size_t i = 0; i < g_gc_root_count; i++) {
-        if (g_gc_roots[i] == root_slot) return;
+        if (g_gc_roots[i] == root_slot) {
+            atomic_flag_clear_explicit(&g_gc_roots_lock, memory_order_release);
+            return;
+        }
     }
     if (g_gc_root_count >= g_gc_root_cap) {
         size_t ncap = g_gc_root_cap ? g_gc_root_cap * 2 : 16;
         if (ncap > JOSS_GC_MAX_ROOTS) ncap = JOSS_GC_MAX_ROOTS;
         void*** next = (void***)realloc(g_gc_roots, ncap * sizeof(void**));
-        if (!next) return;
+        if (!next) {
+            atomic_flag_clear_explicit(&g_gc_roots_lock, memory_order_release);
+            return;
+        }
         g_gc_roots = next;
         g_gc_root_cap = ncap;
     }
     g_gc_roots[g_gc_root_count++] = root_slot;
+    atomic_flag_clear_explicit(&g_gc_roots_lock, memory_order_release);
 }
 
 void joss_gc_set_threshold(size_t bytes) {

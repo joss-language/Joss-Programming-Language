@@ -560,9 +560,65 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 	b.emitLoadImm64(regX0, 0)
 	b.emitRet(regX30)
 
-	// __joss_os_alloc(x0 = size) -> x0 = ptr (via mmap on Linux/Darwin)
+	// __joss_os_alloc(x0 = size) -> x0 = zeroed memory pointer
+	// Fast 4 MiB bump-pointer arena for allocations <= 65536 bytes (parity with x86_64);
+	// falls back to direct mmap for larger allocations.
 	b.defineLabel("__joss_os_alloc")
-	b.emitProlog(16)
+	b.emitProlog(32)
+	b.emitLoadImm64(regX1, 16)
+	b.emitCmp(regX0, regX1)
+	b.emitBranchCond(condGE, ".os_alloc_align")
+	b.emitMovReg(regX0, regX1)
+	b.defineLabel(".os_alloc_align")
+	// Align size up to 8 bytes: x0 = (x0 + 7) & ~7
+	b.emitAddImm(regX0, regX0, 7)
+	b.emitInst(0x927DF000) // and x0, x0, #-8
+	// Large allocations (> 65536) go directly to mmap
+	b.emitLoadImm64(regX1, 65536)
+	b.emitCmp(regX0, regX1)
+	b.emitBranchCond(condGT, ".os_alloc_direct")
+	// Fast bump-pointer check: x2 = arenaCur, x3 = arenaEnd
+	b.emitLoadDataAddr(regX4, dataOffArenaCur)
+	b.emitLdr(regX2, regX4, 0)
+	b.emitCmp(regX2, regXZR)
+	b.emitBranchCond(condEQ, ".os_alloc_refill")
+	b.emitAdd(regX5, regX2, regX0) // nextCur = arenaCur + alignedSize
+	b.emitLoadDataAddr(regX6, dataOffArenaEnd)
+	b.emitLdr(regX3, regX6, 0)
+	b.emitCmp(regX5, regX3)
+	b.emitBranchCond(condHI, ".os_alloc_refill")
+	b.emitStr(regX5, regX4, 0) // arenaCur = nextCur
+	b.emitMovReg(regX0, regX2) // return old arenaCur
+	b.emitEpilog(32)
+
+	b.defineLabel(".os_alloc_refill")
+	b.emitStr(regX0, regSP, 16)      // save aligned requested size
+	b.emitLoadImm64(regX1, 0x400000) // 4 MiB chunk
+	b.emitLoadImm64(regX0, 0)        // addr = NULL
+	b.emitLoadImm64(regX2, 3)        // PROT_READ | PROT_WRITE
+	if b.target.OS == "darwin" {
+		b.emitLoadImm64(regX3, 0x1002) // MAP_PRIVATE | MAP_ANON
+		b.emitLoadImm64(regX4, 0xFFFFFFFFFFFFFFFF)
+		b.emitLoadImm64(regX5, 0)
+		b.emitLoadImm64(regX16, 197) // SYS_mmap on Darwin
+	} else {
+		b.emitLoadImm64(regX3, 0x22) // MAP_PRIVATE | MAP_ANONYMOUS
+		b.emitLoadImm64(regX4, 0xFFFFFFFFFFFFFFFF)
+		b.emitLoadImm64(regX5, 0)
+		b.emitLoadImm64(regX8, 222) // SYS_mmap on Linux AArch64
+	}
+	b.emitSyscall()
+	b.emitLdr(regX1, regSP, 16)    // x1 = aligned requested size
+	b.emitAdd(regX2, regX0, regX1) // new arenaCur = chunk + size
+	b.emitLoadDataAddr(regX4, dataOffArenaCur)
+	b.emitStr(regX2, regX4, 0)
+	b.emitLoadImm64(regX3, 0x400000)
+	b.emitAdd(regX5, regX0, regX3) // new arenaEnd = chunk + 4 MiB
+	b.emitLoadDataAddr(regX6, dataOffArenaEnd)
+	b.emitStr(regX5, regX6, 0)
+	b.emitEpilog(32)
+
+	b.defineLabel(".os_alloc_direct")
 	b.emitMovReg(regX1, regX0) // len = size
 	b.emitLoadImm64(regX0, 0)  // addr = NULL
 	b.emitLoadImm64(regX2, 3)  // PROT_READ | PROT_WRITE
@@ -578,7 +634,7 @@ func (b *ARM64Builder) emitEntrypointAndRuntime(hasUserMain bool) {
 		b.emitLoadImm64(regX8, 222) // SYS_mmap on Linux AArch64
 	}
 	b.emitSyscall()
-	b.emitEpilog(16)
+	b.emitEpilog(32)
 
 	// joss_to_string / fn_to_string / fn_strval (x0 = val)
 	b.defineLabel("joss_to_string")

@@ -240,6 +240,67 @@ int main(void) {
     void* survived_child = (void*)(uintptr_t)joss_nominal_get_slot(live_root, 1);
     assert(joss_arr_len(survived_child) == 1 && joss_arr_get_i64(survived_child, 0) == 98765);
 
+    /* 12. Test Cache OwnedScope (put + get + forget) & Session Snapshot Reclamation */
+    extern int64_t fn_Cache_put(const char* key, int64_t val, int64_t ttl_seconds);
+    extern int64_t fn_Cache_get(const char* key, int64_t defVal);
+    extern int64_t fn_Cache_forget(const char* key);
+    extern void*   joss___joss_session_load(const char* sid);
+    extern int64_t joss___joss_session_save(const char* sid, void* data_ptr);
+    extern int64_t joss___joss_session_destroy(const char* sid);
+    extern int64_t joss_make_chan(int64_t capacity);
+    extern void    joss_send(int64_t ch_handle, int64_t val);
+    extern int64_t joss_recv(int64_t ch_handle);
+    extern void    joss_close(int64_t ch_handle);
+
+    char big_val[1024];
+    memset(big_val, 'X', sizeof(big_val) - 1);
+    big_val[sizeof(big_val) - 1] = '\0';
+
+    for (int i = 0; i < 2000; i++) {
+        joss_req_arena_begin();
+        assert(fn_Cache_put("hot_key", (int64_t)(uintptr_t)big_val, 60) == 1);
+        int64_t got = fn_Cache_get("hot_key", 0);
+        const char* got_s = joss_strval(got);
+        assert(got_s != NULL && strlen(got_s) == sizeof(big_val) - 1);
+        assert(fn_Cache_forget("hot_key") == 1);
+        joss_req_arena_reset();
+        assert(joss_req_arena_bytes_used() == 0);
+    }
+
+#if defined(_WIN32)
+    _putenv_s("SESSION_DRIVER", "memory");
+#else
+    setenv("SESSION_DRIVER", "memory", 1);
+#endif
+    for (int i = 0; i < 1000; i++) {
+        joss_req_arena_begin();
+        void* sess = joss___joss_session_load("sid_mem_test");
+        joss_map_set_str(sess, "payload", big_val);
+        joss_map_set_i64(sess, "counter", i);
+        assert(joss___joss_session_save("sid_mem_test", sess) == 1);
+        void* reloaded = joss___joss_session_load("sid_mem_test");
+        assert(joss_intval(joss_map_get_i64(reloaded, "counter")) == i);
+        joss_req_arena_reset();
+        assert(joss_req_arena_bytes_used() == 0);
+    }
+    assert(joss___joss_session_destroy("sid_mem_test") == 1);
+
+    /* 13. Test Map Tombstone Compaction + Channel Close/Drain Buffer Reclamation */
+    void* tomb_map = joss_map_new();
+    for (int i = 0; i < 3000; i++) {
+        char kbuf[32];
+        snprintf(kbuf, sizeof(kbuf), "k_%d", i);
+        joss_map_set_i64(tomb_map, kbuf, i);
+        joss_map_delete_i64(tomb_map, kbuf);
+    }
+    assert(joss_map_len(tomb_map) == 0);
+
+    int64_t ch = joss_make_chan(8);
+    joss_send(ch, 42);
+    joss_close(ch);
+    assert(joss_recv(ch) == 42);
+    assert(joss_recv(ch) == 0);
+
     printf("joss_rt_test: ALL PASSED\n");
     return 0;
 }

@@ -32,6 +32,7 @@ type LLVMEmitter struct {
 	activeDPParam0   string
 	activeDPParam1   string
 	currentFn        *ir.Function
+	currentFnUsed    map[int]bool
 	currentFnHasTry  bool
 	currentFnTraced  bool
 	TargetOS         string
@@ -305,6 +306,7 @@ slow:
 	buf.WriteString("declare i1 @joss_dp_get(i64, i64, i64, i64*)\n")
 	buf.WriteString("declare void @joss_dp_put(i64, i64, i64, i64)\n")
 	buf.WriteString("declare i64 @joss_async(i64)\n")
+	buf.WriteString("declare void @joss_async_detached(i64)\n")
 	buf.WriteString("declare i64 @joss_await(i64)\n")
 	buf.WriteString("declare i64 @joss_make_chan(i64)\n")
 	buf.WriteString("declare void @joss_send(i64, i64)\n")
@@ -333,7 +335,7 @@ slow:
 		"joss_intval": true, "joss_abs": true, "joss_min": true, "joss_max": true,
 		"joss_strlen": true, "joss_str_contains": true, "joss_str_eq": true,
 		"joss_dp_get": true, "joss_dp_put": true,
-		"joss_async": true, "joss_await": true,
+		"joss_async": true, "joss_async_detached": true, "joss_await": true,
 		"joss_make_chan": true, "joss_send": true, "joss_recv": true, "joss_close": true,
 	}
 
@@ -348,7 +350,7 @@ slow:
 		"joss_closure_alloc": "i8*", "joss_closure_prepare_call": "i8*",
 		"joss_is_not_null": "i1", "joss_i64_to_str": "i8*", "joss_f64_to_string": "i8*",
 		"joss_dp_get": "i1", "joss_dp_put": "void",
-		"joss_async": "i64", "joss_await": "i64",
+		"joss_async": "i64", "joss_async_detached": "void", "joss_await": "i64",
 		"joss_make_chan": "i64", "joss_send": "void", "joss_recv": "i64", "joss_close": "void",
 	}
 	e.symArgTypes = map[string][]string{
@@ -374,6 +376,7 @@ slow:
 		"joss_i64_to_str":           {"i64"},
 		"joss_f64_to_string":        {"double"},
 		"joss_async":                {"i64"},
+		"joss_async_detached":       {"i64"},
 		"joss_await":                {"i64"},
 		"joss_make_chan":            {"i64"},
 		"joss_send":                 {"i64", "i64"},
@@ -921,8 +924,39 @@ func fnShouldTrace(fn *ir.Function) bool {
 	return false
 }
 
+func llvmMarkValueUsed(used map[int]bool, v ir.Value) {
+	if t, ok := v.(*ir.TempValue); ok && t != nil {
+		used[t.ID] = true
+	}
+}
+
+func llvmCollectUsedTemps(used map[int]bool, blocks []*ir.BasicBlock) {
+	for _, b := range blocks {
+		if b == nil {
+			continue
+		}
+		for _, inst := range b.Instructions {
+			for _, op := range inst.Operands() {
+				llvmMarkValueUsed(used, op)
+			}
+			if tc, ok := inst.(*ir.TryCatchInst); ok {
+				llvmMarkValueUsed(used, tc.CatchVarPtr)
+				llvmCollectUsedTemps(used, tc.TryBlocks)
+				llvmCollectUsedTemps(used, tc.CatchBlocks)
+			}
+		}
+		if b.Terminator != nil {
+			for _, op := range b.Terminator.Operands() {
+				llvmMarkValueUsed(used, op)
+			}
+		}
+	}
+}
+
 func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {
 	e.currentFn = fn
+	e.currentFnUsed = make(map[int]bool)
+	llvmCollectUsedTemps(e.currentFnUsed, fn.Blocks)
 	e.currentFnHasTry = fnContainsTryCatch(fn.Blocks)
 	e.tempLLVMTypes = make(map[int]string)
 	e.activeDPFnID = 0
@@ -1293,6 +1327,9 @@ func (e *LLVMEmitter) emitInstruction(inst ir.Instruction) (string, error) {
 			}
 		}
 		args := normalizeLLVMBuiltinArgs(i.BuiltinID, i.Args)
+		if i.BuiltinID == "async" && (i.Dest == nil || !e.currentFnUsed[i.Dest.ID]) {
+			return e.emitDirectCall("joss_async_detached", nil, args, fmt.Sprintf("cb_%p", i)), nil
+		}
 		return e.emitDirectCall("joss_"+i.BuiltinID, i.Dest, args, fmt.Sprintf("cb_%p", i)), nil
 
 	case *ir.CallPrimitiveMethodInst:
