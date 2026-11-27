@@ -284,7 +284,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		{"joss_web_rt.c", needsWeb, webDefines},
 		{"joss_concurrency_rt.c", needsConcurrency, nil},
 		{"joss_db_rt.c", needsDB, dbDefines},
-		{"joss_crypto_rt.c", needsCrypto, nil},
+		{"joss_crypto_rt.c", needsCrypto, rtDefines},
 		{"joss_gui_rt.c", needsGUI, nil},
 	}
 	for _, u := range optionalUnits {

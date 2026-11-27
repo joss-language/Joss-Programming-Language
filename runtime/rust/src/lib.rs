@@ -5,7 +5,10 @@
 //! memory & thread safety guaranteed by Rust's borrow checker.
 
 pub mod cron;
+pub mod crypto;
 pub mod memory;
+pub mod sync_rt;
+pub mod ws;
 
 use std::ffi::c_char;
 

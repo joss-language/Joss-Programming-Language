@@ -54,7 +54,16 @@ static inline void joss_prim_sha256_transform(uint32_t state[8], const uint8_t b
     state[4] += e; state[5] += f; state[6] += g; state[7] += h;
 }
 
+#if defined(JOSS_HAS_RUST_RT)
+extern void joss_rs_sha256(const uint8_t* data, size_t len, uint8_t out[32]);
+extern void joss_rs_hmac_sha256(const uint8_t* key, size_t key_len, const uint8_t* msg, size_t msg_len, uint8_t out[32]);
+extern void joss_rs_pbkdf2_sha256(const uint8_t* pass, size_t pass_len, const uint8_t* salt, size_t salt_len, uint32_t iterations, uint8_t out[32]);
+#endif
+
 static inline void joss_prim_sha256(const uint8_t* data, size_t len, uint8_t out[32]) {
+#if defined(JOSS_HAS_RUST_RT)
+    joss_rs_sha256(data, len, out);
+#else
     uint32_t state[8] = {
         0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
         0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U
@@ -84,9 +93,13 @@ static inline void joss_prim_sha256(const uint8_t* data, size_t len, uint8_t out
         out[j * 4 + 2] = (uint8_t)(state[j] >> 8);
         out[j * 4 + 3] = (uint8_t)(state[j]);
     }
+#endif
 }
 
 static inline void joss_prim_hmac_sha256(const uint8_t* key, size_t key_len, const uint8_t* msg, size_t msg_len, uint8_t out[32]) {
+#if defined(JOSS_HAS_RUST_RT)
+    joss_rs_hmac_sha256(key, key_len, msg, msg_len, out);
+#else
     uint8_t k_pad[64];
     memset(k_pad, 0, sizeof(k_pad));
     if (key && key_len > 64) {
@@ -106,9 +119,13 @@ static inline void joss_prim_hmac_sha256(const uint8_t* key, size_t key_len, con
     for (int i = 0; i < 64; i++) outer[i] = k_pad[i] ^ 0x5C;
     memcpy(outer + 64, ih, 32);
     joss_prim_sha256(outer, sizeof(outer), out);
+#endif
 }
 
 static inline void joss_prim_pbkdf2_sha256(const uint8_t* pass, size_t pass_len, const uint8_t* salt, size_t salt_len, int iterations, uint8_t out[32]) {
+#if defined(JOSS_HAS_RUST_RT)
+    joss_rs_pbkdf2_sha256(pass, pass_len, salt, salt_len, iterations > 0 ? (uint32_t)iterations : 1u, out);
+#else
     uint8_t* salt_blk = (uint8_t*)malloc(salt_len + 4);
     if (!salt_blk) { memset(out, 0, 32); return; }
     if (salt && salt_len > 0) memcpy(salt_blk, salt, salt_len);
@@ -124,6 +141,7 @@ static inline void joss_prim_pbkdf2_sha256(const uint8_t* pass, size_t pass_len,
         joss_prim_hmac_sha256(pass, pass_len, u, 32, u);
         for (int j = 0; j < 32; j++) out[j] ^= u[j];
     }
+#endif
 }
 
 /* =========================================================================
