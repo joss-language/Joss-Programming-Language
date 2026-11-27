@@ -454,6 +454,13 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 				linkArgs = append(linkArgs, "-Wl,--icf=safe")
 			}
 		}
+	} else if opts.Target.OS == "windows" {
+		linkArgs = append(linkArgs, "-Wl,--gc-sections")
+		if !opts.Debug {
+			linkArgs = append(linkArgs, "-s")
+		}
+	} else if opts.Target.OS == "darwin" {
+		linkArgs = append(linkArgs, "-Wl,-dead_strip")
 	} else if opts.Target.OS == "darwin" {
 		linkArgs = append(linkArgs, "-Wl,-dead_strip")
 		if !opts.Debug {
