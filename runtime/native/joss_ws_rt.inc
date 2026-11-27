@@ -83,13 +83,25 @@ static bool joss_ws_send_control_frame(joss_socket_t sock, uint8_t first_byte, c
     return joss_ws_send_all(sock, frame, 2U + len);
 }
 
+#if defined(JOSS_HAS_RUST_RT)
+extern ptrdiff_t joss_rs_ws_accept_key(const char* client_key, char* out_buf, size_t out_cap);
+#endif
+
 /* RFC 6455 Section 4.2.2: Sec-WebSocket-Accept = Base64(SHA1(key + GUID)) */
 const char* joss_ws_accept_key(const char* client_key) {
     client_key = unbox_web_cstr(client_key);
     if (!client_key) client_key = "";
+#if defined(JOSS_HAS_RUST_RT)
+    char* buf = (char*)joss_req_alloc(64);
+    if (buf && joss_rs_ws_accept_key(client_key, buf, 64) > 0) {
+        return buf;
+    }
+    return "";
+#else
     char* combined = joss_str_concat(client_key, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
     const char* accept = joss_sha1_base64(combined);
     return accept ? accept : "";
+#endif
 }
 
 /* RFC 6455 Section 5.2: Encode an unmasked server->client text frame (opcode 0x81) */

@@ -16,6 +16,25 @@ static JossCronJob g_joss_cron_jobs[JOSS_MAX_CRON_JOBS];
 static int         g_joss_cron_count = 0;
 static atomic_flag g_joss_cron_ticker_started = ATOMIC_FLAG_INIT;
 
+#if defined(JOSS_HAS_RUST_RT)
+extern int64_t joss_rs_cron_matches(const char* expr, int32_t minute, int32_t hour, int32_t day, int32_t month, int32_t weekday);
+
+static bool joss_cron_eval(const char* expr, const struct tm* tm_val, bool* out_valid) {
+    if (out_valid) *out_valid = false;
+    if (!expr) return false;
+    while (*expr && isspace((unsigned char)*expr)) expr++;
+    if (!*expr) return false;
+    int min_v = tm_val ? tm_val->tm_min : 0;
+    int hour_v = tm_val ? tm_val->tm_hour : 0;
+    int dom_v = tm_val ? tm_val->tm_mday : 1;
+    int mon_v = tm_val ? (tm_val->tm_mon + 1) : 1;
+    int dow_v = tm_val ? tm_val->tm_wday : 0;
+    int64_t res = joss_rs_cron_matches(expr, min_v, hour_v, dom_v, mon_v, dow_v);
+    if (res < 0) return false;
+    if (out_valid) *out_valid = true;
+    return tm_val ? (res == 1) : true;
+}
+#else
 static bool joss_cron_parse_int(const char* s, int min_v, int max_v, bool is_dow, int* out) {
     if (!s || !*s) return false;
     char* endp = NULL;
@@ -165,6 +184,7 @@ static bool joss_cron_eval(const char* expr, const struct tm* tm_val, bool* out_
     if (out_valid) *out_valid = true;
     return tm_val ? (m0 && m1 && m2 && m3 && m4) : true;
 }
+#endif /* JOSS_HAS_RUST_RT */
 
 static int64_t joss_cron_tick_once(bool force_due) {
     time_t now = time(NULL);

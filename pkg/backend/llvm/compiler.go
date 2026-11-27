@@ -418,7 +418,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		}
 		switch targetOS {
 		case "windows":
-			linkArgs = append(linkArgs, "-lws2_32", "-luserenv", "-lntdll", "-lbcrypt", "-lunwind")
+			linkArgs = append(linkArgs, "-lws2_32", "-luserenv", "-lntdll", "-lbcrypt", "-lapi-ms-win-core-synch-l1-2-0", "-lunwind")
 		case "linux":
 			linkArgs = append(linkArgs, "-lpthread", "-ldl", "-lm")
 		case "darwin":

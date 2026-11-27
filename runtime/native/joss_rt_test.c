@@ -208,6 +208,7 @@ int main(void) {
 
     static const char* const kCycleFields[2] = { "id", "peer" };
     void* live_root = joss_nominal_obj_new("CycleNode", 2, kCycleFields);
+    joss_gc_add_root(&live_root);
     joss_nominal_set_slot(live_root, 0, 12345);
     void* live_child = joss_arr_new(4);
     joss_arr_push_i64(live_child, 98765);
