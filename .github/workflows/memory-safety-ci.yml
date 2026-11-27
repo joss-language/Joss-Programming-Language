@@ -62,3 +62,15 @@ jobs:
 
       - name: Run Native Memory::* Diagnostics & Leak Growth Guard
         run: go test -v ./tests/native -run "TestNative_MemoryDiagnosticsAndLeakGuard|TestPureC11"
+
+  rust-runtime-ci:
+    name: Rust Staticlib Micro-Kernel (Tests + Clippy -D warnings)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run cargo test & strict clippy on runtime/rust
+        run: |
+          cargo test --manifest-path runtime/rust/Cargo.toml
+          cargo clippy --manifest-path runtime/rust/Cargo.toml -- -D warnings
+          cargo build --manifest-path runtime/rust/Cargo.toml --release

@@ -32,8 +32,9 @@ temp_*
 log.txt
 *.log
 
-# Go
+# Go & Rust
 vendor/
+runtime/rust/target/
 
 # IDE & OS Metadata
 .vscode/

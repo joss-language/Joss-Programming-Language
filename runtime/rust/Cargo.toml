@@ -1,0 +1,16 @@
+[package]
+name = "joss_rt_rs"
+version = "0.1.0"
+edition = "2021"
+description = "Memory-safe Rust staticlib micro-kernel runtime for the Joss programming language"
+
+[lib]
+name = "joss_rt_rs"
+crate-type = ["staticlib", "rlib"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
