@@ -795,7 +795,11 @@ slow:
 			}
 		}
 	}
+	reachable := computeReachableFunctions(prog)
 	for _, fn := range prog.Functions {
+		if !reachable[fn.Name] {
+			continue
+		}
 		scanDecls(fn.Blocks)
 	}
 	if len(externDecls) > 0 {
@@ -810,10 +814,12 @@ slow:
 	}
 	buf.WriteString("\n")
 
-	// Emitir funciones de usuario
-	fnNames := make([]string, 0, len(prog.Functions))
-	for name := range prog.Functions {
-		fnNames = append(fnNames, name)
+	// Emitir funciones de usuario alcanzables (tree-shaking real antes de clang/linker)
+	fnNames := make([]string, 0, len(reachable))
+	for name := range reachable {
+		if prog.Functions[name] != nil {
+			fnNames = append(fnNames, name)
+		}
 	}
 	sort.Strings(fnNames)
 
@@ -966,6 +972,138 @@ func llvmCollectUsedTemps(used map[int]bool, blocks []*ir.BasicBlock) {
 			}
 		}
 	}
+}
+
+func computeReachableFunctions(prog *ir.Program) map[string]bool {
+	reachable := make(map[string]bool, len(prog.Functions))
+	if prog == nil || prog.Functions["main"] == nil {
+		for name := range prog.Functions {
+			reachable[name] = true
+		}
+		return reachable
+	}
+
+	var queue []string
+	enqueue := func(name string) {
+		if name == "" || reachable[name] {
+			return
+		}
+		if prog.Functions[name] != nil {
+			reachable[name] = true
+			queue = append(queue, name)
+		}
+	}
+	enqueueClassMethods := func(cls string) {
+		if cls == "" {
+			return
+		}
+		p1 := "fn_" + cls + "_"
+		p2 := cls + "_"
+		for name := range prog.Functions {
+			if strings.HasPrefix(name, p1) || strings.HasPrefix(name, p2) {
+				enqueue(name)
+			}
+		}
+	}
+
+	enqueue("main")
+	enqueue("__joss_init_static_globals")
+	for name := range prog.Functions {
+		if strings.HasPrefix(name, "joss_export_") {
+			enqueue(name)
+		}
+	}
+
+	inspectValue := func(v ir.Value) {
+		if v == nil {
+			return
+		}
+		switch val := v.(type) {
+		case *ir.ConstFnPtr:
+			enqueue(val.FnName)
+		case *ir.GlobalValue:
+			clean := strings.TrimPrefix(val.Name, "@")
+			enqueue(clean)
+			enqueue("fn_" + clean)
+		case *ir.ConstString:
+			clean := strings.TrimPrefix(val.Val, "@")
+			enqueue(clean)
+			if idx := strings.IndexByte(val.Val, '@'); idx > 0 && idx < len(val.Val)-1 {
+				cls := val.Val[:idx]
+				meth := val.Val[idx+1:]
+				enqueue("fn_" + cls + "_" + meth)
+				enqueue(cls + "_" + meth)
+				enqueue("fn_" + cls + "_Init")
+				enqueue(cls + "_Init")
+			}
+		}
+	}
+
+	var scanBlocks func([]*ir.BasicBlock)
+	scanBlocks = func(blocks []*ir.BasicBlock) {
+		for _, b := range blocks {
+			if b == nil {
+				continue
+			}
+			for _, inst := range b.Instructions {
+				for _, op := range inst.Operands() {
+					inspectValue(op)
+				}
+				switch ci := inst.(type) {
+				case *ir.CallInst:
+					enqueue(ci.Callee)
+					for _, a := range ci.Args {
+						inspectValue(a)
+					}
+				case *ir.CallIndirectInst:
+					for _, a := range ci.Args {
+						inspectValue(a)
+					}
+				case *ir.CallRuntimeInst:
+					for _, a := range ci.Args {
+						inspectValue(a)
+					}
+				case *ir.ExternCallInst:
+					for _, a := range ci.Args {
+						inspectValue(a)
+					}
+				case *ir.CallBuiltinInst:
+					enqueue(ci.BuiltinID)
+					for _, a := range ci.Args {
+						inspectValue(a)
+					}
+				case *ir.CallHostServiceInst:
+					if hasJossHostServiceImplementation(prog, ci.ClassName, ci.MethodName) {
+						enqueue(jossHostServiceFunctionName(prog, ci.ClassName, ci.MethodName))
+					}
+					for _, a := range ci.Args {
+						inspectValue(a)
+					}
+				case *ir.GlobalLoadInst:
+					enqueue(strings.TrimPrefix(ci.GlobalName, "@"))
+				case *ir.GlobalStoreInst:
+					enqueue(strings.TrimPrefix(ci.GlobalName, "@"))
+				case *ir.NewObjectInst:
+					enqueueClassMethods(ci.ClassName)
+				case *ir.TryCatchInst:
+					scanBlocks(ci.TryBlocks)
+					scanBlocks(ci.CatchBlocks)
+				}
+			}
+			if b.Terminator != nil {
+				for _, op := range b.Terminator.Operands() {
+					inspectValue(op)
+				}
+			}
+		}
+	}
+
+	for head := 0; head < len(queue); head++ {
+		if fn := prog.Functions[queue[head]]; fn != nil {
+			scanBlocks(fn.Blocks)
+		}
+	}
+	return reachable
 }
 
 func (e *LLVMEmitter) emitFunction(buf *bytes.Buffer, fn *ir.Function) error {

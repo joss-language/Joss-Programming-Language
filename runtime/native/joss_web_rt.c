@@ -2542,5 +2542,12 @@ double joss_decimal(int64_t v) {
 #include "joss_services_rt.inc"
 #include "joss_ws_rt.inc"
 #include "joss_cron_rt.inc"
+#if defined(JOSS_NO_DB)
+void fn_Model_registerClass(const char* name, const char* meta_json) {
+    (void)name;
+    (void)meta_json;
+}
+#endif
+
 #include "joss_builtins_rt.inc"
 #include "joss_session_rt.inc"

@@ -42,17 +42,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update Rust & install target ${{ matrix.target }}
+      - name: Update Rust, install nightly (rust-src) & target ${{ matrix.target }}
         run: |
           rustup update stable
           rustup default stable
+          rustup toolchain install nightly --profile minimal --component rust-src
           rustup target add ${{ matrix.target }}
+          rustup target add --toolchain nightly ${{ matrix.target }}
 
-      - name: Test, clippy & build release staticlib
+      - name: Test, clippy & build ultra-compact release staticlib
+        env:
+          RUSTFLAGS: "-Zunstable-options -Cpanic=immediate-abort -Z location-detail=none -Z fmt-debug=none"
         run: |
-          cargo test --manifest-path runtime/rust/Cargo.toml
-          cargo clippy --manifest-path runtime/rust/Cargo.toml -- -D warnings
-          cargo build --manifest-path runtime/rust/Cargo.toml --release --target ${{ matrix.target }}
+          RUSTFLAGS="" cargo test --manifest-path runtime/rust/Cargo.toml
+          RUSTFLAGS="" cargo clippy --manifest-path runtime/rust/Cargo.toml -- -D warnings
+          cargo +nightly build --manifest-path runtime/rust/Cargo.toml --release --target ${{ matrix.target }} -Z build-std=std,panic_abort
 
       - name: Stage artifact
         shell: bash

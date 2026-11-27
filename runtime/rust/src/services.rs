@@ -14,12 +14,24 @@ pub fn run_shell_command(cmd: &str) -> Option<Vec<u8>> {
     let output = {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        Command::new("cmd.exe")
-            .raw_arg("/C")
-            .raw_arg(cmd)
-            .creation_flags(CREATE_NO_WINDOW)
-            .output()
-            .ok()?
+        let trimmed = cmd.trim_start();
+        let has_shell_ops = trimmed.bytes().any(|b| {
+            matches!(b, b'|' | b'&' | b'>' | b'<' | b';' | b'%' | b'\n' | b'\r')
+        });
+        if let Some(rest) = trimmed.strip_prefix("curl ").filter(|_| !has_shell_ops) {
+            Command::new("curl.exe")
+                .raw_arg(rest)
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+                .ok()?
+        } else {
+            Command::new("cmd.exe")
+                .raw_arg("/C")
+                .raw_arg(cmd)
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+                .ok()?
+        }
     };
     #[cfg(not(target_os = "windows"))]
     let output = Command::new("/bin/sh").args(["-c", cmd]).output().ok()?;

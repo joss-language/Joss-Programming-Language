@@ -643,7 +643,7 @@ void* fn_Http_request(const char* method, const char* url, const char* body, voi
     }
 
     JOSS_AUTO_SB JossStringBuilder* cmd = joss_sb_new();
-    joss_sb_append(cmd, "curl -sS --max-time ");
+    joss_sb_append(cmd, "curl -sS --compressed --connect-timeout 8 --max-time ");
     joss_sb_append_i64(cmd, timeout_sec);
     joss_sb_append(cmd, " -w \"\\n%{http_code}\" -X \"");
     for (const char* p = method; *p; p++) {

@@ -1978,7 +1978,8 @@ func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 	}
 	skipPrivateExts := map[string]bool{
 		".joss": true, ".exe": true, ".dll": true, ".so": true, ".dylib": true,
-		".o": true, ".obj": true, ".a": true, ".jp": true, ".db": true,
+		".o": true, ".obj": true, ".a": true, ".lib": true, ".pdb": true,
+		".ilk": true, ".exp": true, ".map": true, ".jp": true, ".db": true,
 		".sqlite": true, ".sqlite3": true, ".log": true, ".tmp": true, ".bak": true,
 		".zip": true, ".tar": true, ".gz": true, ".7z": true, ".rar": true,
 		".mp4": true, ".mov": true, ".avi": true,
@@ -2001,7 +2002,7 @@ func (l *Lowerer) synthesizeEmbeddedAssetsFunction() error {
 					break
 				}
 				name := entry.Name()
-				if skipPrivateTopDirs[name] || name == "env.joss" || name == ".env" || strings.HasPrefix(name, ".") {
+				if skipPrivateTopDirs[name] || name == "env.joss" || name == ".env" || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "build_") || strings.HasPrefix(name, "build-") {
 					continue
 				}
 				if !entry.IsDir() {

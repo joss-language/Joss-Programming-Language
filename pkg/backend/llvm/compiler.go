@@ -240,7 +240,8 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	lldPath := tc.LLDPath
 	runClang := runCC
 
-	needsDB := strings.Contains(llvmIR, "joss___joss_db_") || strings.Contains(llvmIR, "@fn_Schema_") || strings.Contains(llvmIR, "@fn_Blueprint_") || strings.Contains(llvmIR, "@fn_Model_")
+	llvmWithoutModelReg := strings.ReplaceAll(llvmIR, "@fn_Model_registerClass", "")
+	needsDB := strings.Contains(llvmIR, "joss___joss_db_") || strings.Contains(llvmIR, "@fn_Schema_") || strings.Contains(llvmIR, "@fn_Blueprint_") || strings.Contains(llvmIR, "@fn_GranDB_") || strings.Contains(llvmIR, "@fn_DB_") || strings.Contains(llvmWithoutModelReg, "@fn_Model_")
 	needsGUI := opts.GUI || strings.Contains(llvmIR, "@fn_Window_")
 	needsCrypto := strings.Contains(llvmIR, "joss_sha256") || strings.Contains(llvmIR, "joss_password_") || strings.Contains(llvmIR, "joss_random_hex") || strings.Contains(llvmIR, "joss_jwt_") || strings.Contains(llvmIR, "joss_totp_") || strings.Contains(llvmIR, "joss_rsa_sign_")
 	needsWeb := needsDB || needsGUI || llvmNeedsWebRuntime(llvmIR) || strings.Contains(llvmIR, "@joss_set_active_request") || strings.Contains(llvmIR, "@joss_register_embedded_asset_resolver")
@@ -271,6 +272,9 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	}
 	if !needsCrypto {
 		webDefines = append(webDefines, "-DJOSS_DISABLE_OPENSSL_SIGN")
+	}
+	if !needsDB {
+		webDefines = append(webDefines, "-DJOSS_NO_DB=1")
 	}
 	if opts.GUI {
 		webDefines = append(webDefines, "-DJOSS_BUILD_GUI=1")
