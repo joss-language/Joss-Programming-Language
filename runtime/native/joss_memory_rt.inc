@@ -92,8 +92,13 @@ int64_t fn_Memory_gcCollect(void) {
 int64_t fn_Memory_trim(void) {
 #if defined(__GLIBC__)
     return malloc_trim(0) ? 1 : 0;
+#elif defined(__APPLE__)
+    malloc_zone_pressure_relief(NULL, 0);
+    return 1;
 #elif defined(_WIN32)
-    return _heapmin() == 0 ? 1 : 0;
+    int r = _heapmin();
+    SIZE_T c = HeapCompact(GetProcessHeap(), 0);
+    return (r == 0 || c > 0) ? 1 : 0;
 #else
     return 0;
 #endif

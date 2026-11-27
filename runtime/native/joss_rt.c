@@ -25,12 +25,43 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#include <malloc.h>
 #elif defined(__unix__) || defined(__APPLE__)
 #include <pthread.h>
 #endif
 #if defined(__GLIBC__)
 #include <malloc.h>
+#elif defined(__APPLE__)
+#include <malloc/malloc.h>
 #endif
+
+#if defined(__GLIBC__) && (defined(__GNUC__) || defined(__clang__))
+__attribute__((constructor))
+static void joss_tune_os_allocator(void) {
+    /* Prevent glibc per-thread malloc arena explosion in multi-threaded HTTP servers
+     * (default is 8*ncpu arenas -> 64-128 MB RSS fragmentation in Docker/Linux). */
+    if (!getenv("MALLOC_ARENA_MAX")) {
+        (void)mallopt(M_ARENA_MAX, 2);
+    }
+    if (!getenv("MALLOC_TRIM_THRESHOLD_")) {
+        (void)mallopt(M_TRIM_THRESHOLD, 128 * 1024);
+    }
+    if (!getenv("MALLOC_MMAP_THRESHOLD_")) {
+        (void)mallopt(M_MMAP_THRESHOLD, 128 * 1024);
+    }
+}
+#endif
+
+static void joss_os_trim_heap(void) {
+#if defined(__GLIBC__)
+    (void)malloc_trim(0);
+#elif defined(__APPLE__)
+    malloc_zone_pressure_relief(NULL, 0);
+#elif defined(_WIN32)
+    (void)_heapmin();
+    (void)HeapCompact(GetProcessHeap(), 0);
+#endif
+}
 
 static inline void joss_atomic_update_bounds(_Atomic(uintptr_t)* min_p, _Atomic(uintptr_t)* max_p, uintptr_t addr) {
     uintptr_t cur_min = atomic_load_explicit(min_p, memory_order_relaxed);
@@ -607,6 +638,12 @@ void joss_req_arena_reset(void) {
     }
     tls_req_tracked.len = 0;
     bool shrunk = false;
+    if (tls_req_tracked.cap > 256U && tls_req_tracked.items) {
+        free(tls_req_tracked.items);
+        tls_req_tracked.items = NULL;
+        tls_req_tracked.cap = 0;
+        shrunk = true;
+    }
     if (tls_req_arena) {
         if (tls_req_arena->head && tls_req_arena->head->cap > tls_req_arena->default_chunk_cap * 4U) {
             shrunk = true;
@@ -614,14 +651,10 @@ void joss_req_arena_reset(void) {
         joss_arena_reset(tls_req_arena);
     }
     tls_req_active = false;
-#if defined(__GLIBC__)
     static _Thread_local uint32_t tls_reset_count = 0;
     if (shrunk || (++tls_reset_count & 255U) == 0U) {
-        (void)malloc_trim(0);
+        joss_os_trim_heap();
     }
-#else
-    (void)shrunk;
-#endif
     joss_memory_watchdog_tick();
 }
 
