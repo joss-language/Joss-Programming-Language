@@ -5,10 +5,13 @@
 //! memory & thread safety guaranteed by Rust's borrow checker.
 
 pub mod arena;
+pub mod builtins_rt;
 pub mod collections;
 pub mod concurrency;
 pub mod cron;
 pub mod crypto;
+pub mod db_rt;
+pub mod gui_bridge;
 pub mod http_server;
 pub mod jwt_totp;
 pub mod memory;

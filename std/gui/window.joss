@@ -1,0 +1,117 @@
+// Canonical autocompiled Joss-first GUI Window controller (`std/gui/window.joss`).
+// Maintains window state, geometry, theme, visibility, and JS bindings in pure Joss
+// so desktop apps compile directly from Joss -> Joss without C11 wrapper bloat.
+public class __JossGuiRegistry {
+    public static int $nextId = 1
+    public static map $windows = {
+}
+}
+
+public func __joss_gui_Window_create(string $title, int $width = 1024, int $height = 720): int {
+    int $id = __JossGuiRegistry::$nextId
+    __JossGuiRegistry::$nextId = $id + 1
+    string $safeTitle = trim($title)
+    (strlen($safeTitle) == 0) ? {
+        $safeTitle = "Joss App"
+    }
+    int $w = ($width > 0) ? $width : 1024
+    int $h = ($height > 0) ? $height : 720
+    map $state = {
+    "id" : $id,
+    "title": $safeTitle,
+    "width": $w,
+    "height": $h,
+    "minWidth": 320,
+    "minHeight": 240,
+    "resizable": true,
+    "frameless": false,
+    "alwaysOnTop": false,
+    "visible": true,
+    "theme": "system",
+    "url": "",
+    "html": ""
+}
+string $key = strval($id)
+__JossGuiRegistry::$windows [$key] = $state
+return $id
+}
+
+public func __joss_gui_Window_setTitle(int $id, string $title): bool {
+    string $key = strval($id)
+    (!isset(__JossGuiRegistry::$windows [$key])) ? {
+        return false
+    }
+    map $state = __JossGuiRegistry::$windows [$key]
+    $state ["title"] = $title
+    __JossGuiRegistry::$windows [$key] = $state
+    return true
+}
+
+public func __joss_gui_Window_getTitle(int $id) : string {
+    string $key = strval($id)
+    (!isset(__JossGuiRegistry::$windows [$key])) ? {
+        return ""
+    }
+    map $state = __JossGuiRegistry::$windows [$key]
+    return strval($state ["title"])
+}
+
+public func __joss_gui_Window_setSize(int $id, int $width, int $height) : bool {
+    string $key = strval($id)
+    (!isset(__JossGuiRegistry::$windows [$key])) ? {
+        return false
+    }
+    map $state = __JossGuiRegistry::$windows [$key]
+    ($width > 0) ? {
+        $state ["width"] = $width
+    }
+    ($height > 0) ? {
+        $state ["height"] = $height
+    }
+    __JossGuiRegistry::$windows [$key] = $state
+    return true
+}
+
+public func __joss_gui_Window_setTheme(int $id, string $theme) : bool {
+    string $key = strval($id)
+    (!isset(__JossGuiRegistry::$windows [$key])) ? {
+        return false
+    }
+    map $state = __JossGuiRegistry::$windows [$key]
+    $state ["theme"] = $theme
+    __JossGuiRegistry::$windows [$key] = $state
+    return true
+}
+
+public func __joss_gui_Window_navigate(int $id, string $url) : bool {
+    string $key = strval($id)
+    (!isset(__JossGuiRegistry::$windows [$key])) ? {
+        return false
+    }
+    map $state = __JossGuiRegistry::$windows [$key]
+    $state ["url"] = $url
+    __JossGuiRegistry::$windows [$key] = $state
+    return true
+}
+
+public func __joss_gui_Window_setHtml(int $id, string $html) : bool {
+    string $key = strval($id)
+    (!isset(__JossGuiRegistry::$windows [$key])) ? {
+        return false
+    }
+    map $state = __JossGuiRegistry::$windows [$key]
+    $state ["html"] = $html
+    __JossGuiRegistry::$windows [$key] = $state
+    return true
+}
+
+public func __joss_gui_Window_close(int $id) : bool {
+    string $key = strval($id)
+    (!isset(__JossGuiRegistry::$windows [$key])) ? {
+        return false
+    }
+    map $state = __JossGuiRegistry::$windows [$key]
+    $state ["visible"] = false
+    __JossGuiRegistry::$windows [$key] = $state
+    return true
+}

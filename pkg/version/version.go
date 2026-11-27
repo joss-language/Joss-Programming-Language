@@ -2,6 +2,6 @@ package version
 
 const Name = "Joss"
 
-const Version = "3.6.8.3"
+const Version = "3.6.8.5"
 
-const NameVersion = "Joss standard compiler " + Name + " version " + Version
+const NameVersion = "Joss standard compiler rust" + Name + " version " + Version
