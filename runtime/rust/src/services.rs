@@ -11,10 +11,66 @@ pub fn run_shell_command(cmd: &str) -> Option<Vec<u8>> {
         return None;
     }
     #[cfg(target_os = "windows")]
-    let output = Command::new("cmd.exe").args(["/C", cmd]).output().ok()?;
+    let output = {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        Command::new("cmd.exe")
+            .raw_arg("/C")
+            .raw_arg(cmd)
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .ok()?
+    };
     #[cfg(not(target_os = "windows"))]
     let output = Command::new("/bin/sh").args(["-c", cmd]).output().ok()?;
     Some(output.stdout)
+}
+
+/// Executes a shell command on Windows/Linux/macOS (`x86_64`/`aarch64`) and returns
+/// a Rust-allocated buffer of the exact stdout size (plus NUL terminator).
+/// Caller MUST release it with `joss_rs_bytes_free(ptr, len)`.
+///
+/// # Safety
+/// `cmd` must be a valid NUL-terminated C string; `out_len` may be null.
+#[no_mangle]
+pub unsafe extern "C" fn joss_rs_system_run_alloc(
+    cmd: *const c_char,
+    out_len: *mut usize,
+) -> *mut u8 {
+    if !out_len.is_null() {
+        *out_len = 0;
+    }
+    if cmd.is_null() {
+        return std::ptr::null_mut();
+    }
+    let Ok(cmd_str) = CStr::from_ptr(cmd).to_str() else {
+        return std::ptr::null_mut();
+    };
+    let Some(mut bytes) = run_shell_command(cmd_str) else {
+        return std::ptr::null_mut();
+    };
+    let len = bytes.len();
+    bytes.push(0);
+    let mut boxed = bytes.into_boxed_slice();
+    let ptr = boxed.as_mut_ptr();
+    std::mem::forget(boxed);
+    if !out_len.is_null() {
+        *out_len = len;
+    }
+    ptr
+}
+
+/// Frees a buffer previously returned by `joss_rs_system_run_alloc`.
+///
+/// # Safety
+/// `ptr` must have been returned by `joss_rs_system_run_alloc` with `len`.
+#[no_mangle]
+pub unsafe extern "C" fn joss_rs_bytes_free(ptr: *mut u8, len: usize) {
+    if ptr.is_null() {
+        return;
+    }
+    let slice = std::ptr::slice_from_raw_parts_mut(ptr, len + 1);
+    drop(Box::from_raw(slice));
 }
 
 /// Executes a shell command and copies stdout into `out_buf` (NUL-terminated).
@@ -54,5 +110,12 @@ mod tests {
         let out = run_shell_command("echo JOSS_RUST_OK").expect("cmd failed");
         let text = String::from_utf8_lossy(&out);
         assert!(text.contains("JOSS_RUST_OK"), "unexpected output: {text}");
+    }
+
+    #[test]
+    fn system_run_preserves_quoted_arguments() {
+        let out = run_shell_command(r#"echo "OCI_HEADER: Signature keyId=test""#).expect("cmd failed");
+        let text = String::from_utf8_lossy(&out);
+        assert!(text.contains("OCI_HEADER: Signature keyId=test"), "quoted args mangled: {text}");
     }
 }
