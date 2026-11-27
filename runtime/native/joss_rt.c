@@ -420,6 +420,35 @@ const char* joss_f64_to_string(double d) {
 /* =========================================================================
  * Arena Allocator + Per-Request Heap Tracker
  * ========================================================================= */
+#if defined(JOSS_HAS_RUST_RT)
+extern void*  joss_rs_arena_new(size_t default_cap);
+extern void*  joss_rs_arena_alloc(void* arena, size_t size);
+extern void   joss_rs_arena_reset(void* arena);
+extern size_t joss_rs_arena_bytes_used(const void* arena);
+extern void   joss_rs_arena_destroy(void* arena);
+
+JossArena* joss_arena_create(size_t initial_cap) {
+    if (initial_cap < 4096) initial_cap = 4096;
+    JossArena* a = (JossArena*)joss_rs_arena_new(initial_cap);
+    if (!a) joss_panic("out of memory creating Rust arena");
+    return a;
+}
+
+void* joss_arena_alloc(JossArena* arena, size_t size) {
+    if (!arena) joss_panic("null arena");
+    void* ptr = joss_rs_arena_alloc(arena, size ? size : 8U);
+    if (!ptr) joss_panic("out of memory in Rust arena");
+    return ptr;
+}
+
+void joss_arena_reset(JossArena* arena) {
+    if (arena) joss_rs_arena_reset(arena);
+}
+
+void joss_arena_destroy(JossArena* arena) {
+    if (arena) joss_rs_arena_destroy(arena);
+}
+#else
 static JossArenaChunk* arena_new_chunk(size_t cap) {
     JossArenaChunk* c = (JossArenaChunk*)calloc(1, sizeof(JossArenaChunk) + cap);
     if (!c) {
@@ -504,6 +533,7 @@ void joss_arena_destroy(JossArena* arena) {
     }
     free(arena);
 }
+#endif /* JOSS_HAS_RUST_RT */
 
 typedef struct {
     void** items;
@@ -550,10 +580,15 @@ struct JossOwnedScope {
 JossOwnedScope* joss_owned_scope_begin(void) {
     JossOwnedScope* sc = (JossOwnedScope*)calloc(1, sizeof(JossOwnedScope));
     if (!sc) joss_panic("out of memory creating owned scope");
+#if defined(JOSS_HAS_RUST_RT)
+    sc->arena = (JossArena*)joss_rs_arena_new(256);
+    if (!sc->arena) joss_panic("out of memory creating owned scope Rust arena");
+#else
     sc->arena = (JossArena*)calloc(1, sizeof(JossArena));
     if (!sc->arena) joss_panic("out of memory creating owned scope arena");
     sc->arena->default_chunk_cap = 256;
     sc->arena->head = arena_new_chunk(256);
+#endif
     sc->prev_arena = tls_req_arena;
     sc->prev_tracked = tls_req_tracked;
     sc->prev_active = tls_req_active;
@@ -652,9 +687,15 @@ void joss_req_arena_reset(void) {
         shrunk = true;
     }
     if (tls_req_arena) {
+#if defined(JOSS_HAS_RUST_RT)
+        if (joss_rs_arena_bytes_used(tls_req_arena) > 262144U) {
+            shrunk = true;
+        }
+#else
         if (tls_req_arena->head && tls_req_arena->head->cap > tls_req_arena->default_chunk_cap * 4U) {
             shrunk = true;
         }
+#endif
         joss_arena_reset(tls_req_arena);
     }
     tls_req_active = false;
@@ -667,11 +708,15 @@ void joss_req_arena_reset(void) {
 
 size_t joss_req_arena_bytes_used(void) {
     if (!tls_req_arena) return 0;
+#if defined(JOSS_HAS_RUST_RT)
+    return joss_rs_arena_bytes_used(tls_req_arena);
+#else
     size_t total = 0;
     for (JossArenaChunk* c = tls_req_arena->head; c != NULL; c = c->next) {
         total += c->used;
     }
     return total;
+#endif
 }
 
 void* joss_req_alloc(size_t size) {

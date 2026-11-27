@@ -215,16 +215,16 @@ void joss___joss_http_parse_multipart(int64_t raw_val, void* req_map_ptr) {
                     tmp_path[0] = '\0';
                 }
                 void* fentry = joss_map_new();
-                joss_map_set_str(fentry, "name", joss_web_strdup(file_name));
-                joss_map_set_str(fentry, "path", joss_web_strdup(tmp_path));
-                joss_map_set_str(fentry, "tmp_name", joss_web_strdup(tmp_path));
-                joss_map_set_str(fentry, "type", joss_web_strdup(part_ct));
+                joss_map_set_str(fentry, "name", joss_req_strdup(file_name));
+                joss_map_set_str(fentry, "path", joss_req_strdup(tmp_path));
+                joss_map_set_str(fentry, "tmp_name", joss_req_strdup(tmp_path));
+                joss_map_set_str(fentry, "type", joss_req_strdup(part_ct));
                 joss_map_set_i64(fentry, "size", (int64_t)pdata_len);
                 joss_map_set_i64(fentry, "error", 0);
                 if (memchr(pbody, '\0', pdata_len) != NULL) {
                     joss_map_set_i64(fentry, "content", (int64_t)(uintptr_t)joss_bytes_new(pbody, pdata_len));
                 } else {
-                    char* sc = (char*)malloc(pdata_len + 1);
+                    char* sc = (char*)joss_req_alloc(pdata_len + 1);
                     if (sc) {
                         memcpy(sc, pbody, pdata_len);
                         sc[pdata_len] = '\0';
@@ -233,7 +233,7 @@ void joss___joss_http_parse_multipart(int64_t raw_val, void* req_map_ptr) {
                 }
                 joss_map_set_i64(files_map, field_name, (int64_t)(uintptr_t)fentry);
             } else {
-                char* val_copy = (char*)malloc(pdata_len + 1);
+                char* val_copy = (char*)joss_req_alloc(pdata_len + 1);
                 if (val_copy) {
                     memcpy(val_copy, pbody, pdata_len);
                     val_copy[pdata_len] = '\0';
@@ -642,13 +642,13 @@ const char* joss___joss_http_check_middleware(const char* mw_spec, void* req_ptr
                 joss_map_set_i64(sess_map, "user_id", (int64_t)(uintptr_t)joss_box_i64(uid));
             }
             if (joss_array_key_exists("email", claims)) {
-                joss_map_set_str(sess_map, "user_email", joss_web_strdup(joss_map_get_str(claims, "email")));
+                joss_map_set_str(sess_map, "user_email", joss_req_strdup(joss_map_get_str(claims, "email")));
             }
             if (joss_array_key_exists("name", claims)) {
-                joss_map_set_str(sess_map, "user_name", joss_web_strdup(joss_map_get_str(claims, "name")));
+                joss_map_set_str(sess_map, "user_name", joss_req_strdup(joss_map_get_str(claims, "name")));
             }
             if (joss_array_key_exists("role", claims)) {
-                joss_map_set_str(sess_map, "user_role", joss_web_strdup(joss_map_get_str(claims, "role")));
+                joss_map_set_str(sess_map, "user_role", joss_req_strdup(joss_map_get_str(claims, "role")));
             }
         } else if (strncmp(mw, "throttle:", 9) == 0) {
             int64_t max_req = 60;

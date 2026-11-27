@@ -8,10 +8,12 @@ pub mod arena;
 pub mod concurrency;
 pub mod cron;
 pub mod crypto;
+pub mod http_server;
 pub mod jwt_totp;
 pub mod memory;
 pub mod net_tcp;
 pub mod ratelimit;
+pub mod session_store;
 pub mod sync_rt;
 pub mod ws;
 

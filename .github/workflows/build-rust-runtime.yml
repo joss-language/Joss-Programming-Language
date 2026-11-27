@@ -1,0 +1,87 @@
+name: Build Precompiled Rust Runtime (Zero-Install)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'runtime/rust/**'
+      - '.github/workflows/build-rust-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-staticlib:
+    name: Build libjoss_rt_rs (${{ matrix.os_name }}-${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            os_name: linux
+            arch: amd64
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            os_name: linux
+            arch: arm64
+            target: aarch64-unknown-linux-gnu
+          - runner: windows-latest
+            os_name: windows
+            arch: amd64
+            target: x86_64-pc-windows-gnu
+          - runner: macos-latest
+            os_name: darwin
+            arch: arm64
+            target: aarch64-apple-darwin
+          - runner: macos-latest
+            os_name: darwin
+            arch: amd64
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust target ${{ matrix.target }}
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Test, clippy & build release staticlib
+        run: |
+          cargo test --manifest-path runtime/rust/Cargo.toml
+          cargo clippy --manifest-path runtime/rust/Cargo.toml -- -D warnings
+          cargo build --manifest-path runtime/rust/Cargo.toml --release --target ${{ matrix.target }}
+
+      - name: Stage artifact
+        shell: bash
+        run: |
+          mkdir -p dist-rust-rt
+          cp "runtime/rust/target/${{ matrix.target }}/release/libjoss_rt_rs.a" \
+             "dist-rust-rt/libjoss_rt_rs_${{ matrix.os_name }}_${{ matrix.arch }}.a"
+          ls -lh dist-rust-rt/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust-rt-${{ matrix.os_name }}-${{ matrix.arch }}
+          path: dist-rust-rt/*.a
+
+  publish-release:
+    needs: build-staticlib
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: all-rust-rt
+          merge-multiple: true
+
+      - name: Publish precompiled staticlibs to rust-rt-latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view rust-rt-latest >/dev/null 2>&1; then
+            gh release upload rust-rt-latest all-rust-rt/*.a --clobber
+          else
+            gh release create rust-rt-latest all-rust-rt/*.a \
+              --title "Joss Precompiled Rust Micro-Kernel Staticlibs" \
+              --notes "Auto-published precompiled libjoss_rt_rs staticlibs so developers never need to install Rust/Cargo."
+          fi

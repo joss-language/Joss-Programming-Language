@@ -227,7 +227,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		return fallbackObj
 	}
 
-	rustStaticLib := resolveRustStaticLib(rtDir, opts.Target.OS, opts.Target.Arch)
+	rustStaticLib := EnsureRustRuntime(rtDir, opts.Target.OS, opts.Target.Arch)
 	var rtDefines []string
 	if rustStaticLib != "" {
 		rtDefines = append(rtDefines, "-DJOSS_HAS_RUST_RT=1")
@@ -558,44 +558,4 @@ func llvmNeedsWebRuntime(llvmIR string) bool {
 		}
 	}
 	return false
-}
-
-// resolveRustStaticLib locates the prebuilt or locally compiled Rust micro-kernel
-// staticlib (`libjoss_rt_rs.a`) matching the target OS/arch. Returns "" if unavailable
-// or disabled via JOSS_DISABLE_RUST_RT=1.
-func resolveRustStaticLib(rtDir, targetOS, targetArch string) string {
-	if os.Getenv("JOSS_DISABLE_RUST_RT") == "1" {
-		return ""
-	}
-	if targetOS == "" {
-		targetOS = runtime.GOOS
-	}
-	if targetArch == "" {
-		targetArch = runtime.GOARCH
-	}
-	var triple string
-	switch targetOS + "/" + targetArch {
-	case "windows/amd64":
-		triple = "x86_64-pc-windows-gnu"
-	case "linux/amd64":
-		triple = "x86_64-unknown-linux-gnu"
-	case "linux/arm64":
-		triple = "aarch64-unknown-linux-gnu"
-	case "darwin/amd64":
-		triple = "x86_64-apple-darwin"
-	case "darwin/arm64":
-		triple = "aarch64-apple-darwin"
-	default:
-		return ""
-	}
-	candidates := []string{
-		filepath.Join(filepath.Dir(rtDir), "rust", "target", triple, "release", "libjoss_rt_rs.a"),
-		filepath.Join(rtDir, "libjoss_rt_rs_"+targetOS+"_"+targetArch+".a"),
-	}
-	for _, c := range candidates {
-		if info, err := os.Stat(c); err == nil && !info.IsDir() && info.Size() > 0 {
-			return c
-		}
-	}
-	return ""
 }

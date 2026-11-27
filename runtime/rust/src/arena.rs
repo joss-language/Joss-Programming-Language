@@ -3,7 +3,7 @@
 //!
 //! Foundation for replacing `JossArena` in `runtime/native/joss_rt.c`.
 
-use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{alloc_zeroed, dealloc, Layout};
 
 const DEFAULT_CHUNK_CAP: usize = 65_536;
 const ALIGN: usize = 16;
@@ -17,7 +17,7 @@ struct ArenaChunk {
 impl ArenaChunk {
     fn new(cap: usize) -> Option<Self> {
         let layout = Layout::from_size_align(cap, ALIGN).ok()?;
-        let ptr = unsafe { alloc(layout) };
+        let ptr = unsafe { alloc_zeroed(layout) };
         if ptr.is_null() {
             return None;
         }
@@ -87,6 +87,9 @@ impl RustArena {
                     self.chunks.push(fresh);
                 }
             } else {
+                if first.used > 0 {
+                    unsafe { std::ptr::write_bytes(first.ptr, 0, first.used) };
+                }
                 first.used = 0;
             }
         }

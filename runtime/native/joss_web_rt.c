@@ -2397,25 +2397,23 @@ void* onChallenge(void* recv, int64_t cb) {
                 char h_b64[64];
                 joss_prim_base64_encode_alphabet((const uint8_t*)hdr_json, strlen(hdr_json), B64U, false, h_b64);
                 size_t plen = strlen(payload);
-                char* p_b64 = (char*)malloc(plen * 2 + 16);
+                char* p_b64 = (char*)joss_req_alloc(plen * 2 + 16);
                 if (p_b64) {
                     joss_prim_base64_encode_alphabet((const uint8_t*)payload, plen, B64U, false, p_b64);
                     size_t mlen = strlen(h_b64) + 1 + strlen(p_b64);
-                    char* msg = (char*)malloc(mlen + 1);
+                    char* msg = (char*)joss_req_alloc(mlen + 1);
                     if (msg) {
                         snprintf(msg, mlen + 1, "%s.%s", h_b64, p_b64);
                         uint8_t mac[32];
                         joss_prim_hmac_sha256((const uint8_t*)sec, strlen(sec), (const uint8_t*)msg, mlen, mac);
                         char s_b64[64];
                         joss_prim_base64_encode_alphabet(mac, 32, B64U, false, s_b64);
-                        char* full = (char*)malloc(mlen + 1 + strlen(s_b64) + 1);
+                        char* full = (char*)joss_req_alloc(mlen + 1 + strlen(s_b64) + 1);
                         if (full) {
                             snprintf(full, mlen + 1 + strlen(s_b64) + 1, "%s.%s", msg, s_b64);
                             tok = full;
                         }
-                        free(msg);
                     }
-                    free(p_b64);
                 }
             }
             int64_t res = ((JossUnaryCb)fn)((int64_t)(uintptr_t)tok);
