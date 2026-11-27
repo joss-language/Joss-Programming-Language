@@ -292,8 +292,12 @@ Todo cambio debe mantener en verde `tests/architecture/architecture_contract_tes
 ### 11.1 Principio de Binario Único y selección automática
 > **REGLA ESTRICTA DE ARQUITECTURA**: Todo ejecutable generado por `joss build` es un binario único, autocontenido y autónomo (`build/<nombre>.exe` en Windows o `build/<nombre>` en Linux/macOS).
 * **Sin DLLs complementarias**: No generar, distribuir ni requerir bibliotecas dinámicas junto al ejecutable final. El runtime de plataforma del sistema operativo no cuenta como archivo complementario distribuido por Joss.
-* **Selección automática**: `joss run`, `program` y `build` intentan JIT/AOT nativo con `PreparedProgram → IR` para programas sin servidor HTTP; los proyectos que resuelven `Server::start`, `HttpServer::start` o `HttpServer::run` usan el runtime Go concurrente en `run`/`program` y el runner Go en `build`. `joss server start` usa por defecto `pkg/server`/`net/http`; `--native` selecciona el bucle TCP de `std/http/server.joss`. Las brechas nativas conocidas pueden seleccionar runtime Go; errores de análisis, verificación o emisión nunca activan fallback. `--native` exige la ruta nativa y falla explícitamente ante cualquier capacidad no soportada.
-* **Estado de la migración híbrida**: Los ejecutables AOT puros no contienen runtime Go. El runner de compatibilidad actual aún contiene el intérprete completo; no debe describirse como host Go mínimo ni como AOT híbrido. La ABI tipada para invocar adaptadores Go desde código máquina Joss es trabajo pendiente. La poda por capacidades debe ser determinista; builds desde checkout pueden compilar runners con tags y una distribución sin Go debe incluir sus perfiles precompilados. Mantener ~80 KB como meta de utilidades puras y medir por separado las aplicaciones de compatibilidad.
+* **Arquitectura 100% Nativa (Cero Runtime Go)**: `joss run`, `joss server`, `joss program` y `joss build` compilan y ejecutan el 100% de las aplicaciones mediante el pipeline nativo `PreparedProgram → IR → LLVM/AArch64/x86_64 + Runtime C11`. `pkg/server`, `cmd/runner`, `legacy_build.go` y `go-webview2` están retirados permanentemente (protegido por `TestArchitecture_ZeroGoRuntimeEngineOrLegacyRunner`).
+* **Gestión de Memoria Unificada (Arena + JossOwnedScope + Mini-GC)**:
+  - En servidores HTTP multihilo (`joss server`), toda asignación per-request (strings, JSON, rutas, vistas, `html_escape`, `DateTime`, `Model`, arrays, mapas) usa el arena `_Thread_local` (`joss_req_alloc` / `joss_req_alloc_zeroed` / `joss_sb_to_req_string`) con reset `O(1)`, reducción de chunks sobredimensionados (`> 256 KB`) y `malloc_trim(0)` periódico en Linux (`glibc`).
+  - Los snapshots persistentes (Sesiones y Caché) viven en `JossOwnedScope` independientes que se destruyen al sobrescribir/expirar/olvidar (`Cache::get` clona al arena del request actual). Las sesiones aplican eviction TTL/LRU (`SESSION_MAX_ENTRIES`, default `2048`) y persistencia atómica con reintentos.
+  - En programas CLI/batch monohilo, el Mini-GC recolecta objetos cíclicos, arrays, mapas (con compactación de tombstones), strings (`JOSS_GC_RAW`) y structs (`JOSS_GC_STRUCT`).
+  - La clase nativa `Memory` (`rss`, `arenaUsed`, `gcStats`, `gcCollect`, `trim`, `sizeOf`, `snapshot`, `diff`, `report`, `checkGrowth`) expone diagnósticos en tiempo real estilo Rust.
 * **Desacoplamiento Estricto de Catálogos de Terminal (i18n)**: Los archivos de traducción de consola CLI (`intl_*.arb`) pertenecen exclusivamente a la herramienta interactiva de desarrollo (`joss`) y nunca deben compilarse ni embeberse en binarios de producción generados con `joss build` (gobernado por la poda `noembedlocales`).
 
 ### 11.2 Directorio de salida y Compilación Cruzada (Multi-OS / Multi-Arch)
@@ -341,24 +345,26 @@ La arquitectura de compilación nativa ha evolucionado a un modelo modular (**Pu
 
 ### 12.2 Runtime C11 Modular (`runtime/native/`)
 Cada responsabilidad del runtime nativo vive en su propio módulo; **no mezclar dominios ni duplicar implementaciones**:
-1. **`runtime/native/joss_rt.{h,c}` (Core + Memoria)**:
-   - Tipos base, strings, arrays (`JOSS_ARR_MAGIC`), maps (`JOSS_MAP_MAGIC`), `ByteBuffer`, `StringBuilder`.
+1. **`runtime/native/joss_rt.{h,c}` + `joss_memory_rt.inc` (Core + Memoria + Diagnósticos)**:
+   - Tipos base, strings, arrays (`JOSS_ARR_MAGIC`), maps (`JOSS_MAP_MAGIC` con compactación de tombstones), `ByteBuffer`, `StringBuilder`.
    - En 64-bit, `JOSS_MIN_PTR_ADDR` es `0x100000000ULL` (no reducirlo: evita dereferenciar enteros grandes como punteros).
-   - **Request-Scoped Arena Allocator (`_Thread_local`)**: `joss_req_arena_begin`, `joss_req_arena_reset`, `joss_req_alloc` y `joss_req_strdup` permiten asignación rápida y liberación en bloque `O(1)` al finalizar cada petición HTTP, evitando fugas de memoria sin GC.
-2. **`runtime/native/joss_web_rt.c` (HTTP, Sockets, JSON, Sesiones)**:
-   - Contexto de request/sesión `_Thread_local`, sockets con `TCP_NODELAY`, guarda anti-path-traversal (`..`), serializador JSON (`joss_json`, `joss_json_encode`), redirects/cookies, SHA-1+Base64 (RFC 3174) y fechas (`joss_date`, `joss_strtotime`).
+   - **Request-Scoped Arena Allocator (`_Thread_local`) + `JossOwnedScope` + Mini-GC**: `joss_req_arena_begin`, `joss_req_arena_reset`, `joss_req_alloc`, `joss_req_alloc_zeroed`, `joss_req_strdup`, `joss_sb_to_req_string` y `joss_owned_scope_{begin,end,destroy}` garantizan liberación `O(1)` por request HTTP, aislamiento de snapshots de sesión/caché y recolección de ciclos/strings/structs en CLI.
+   - `joss_memory_rt.inc` implementa la clase nativa `Memory` (`rss`, `arenaUsed`, `gcStats`, `gcCollect`, `trim`, `sizeOf`, `snapshot`, `diff`, `report`, `checkGrowth`).
+2. **`runtime/native/joss_web_rt.c` + `joss_redis_rt.inc` + `joss_zip_rt.inc` (HTTP, Sockets, JSON, Sesiones, Caché, Redis, ZIP)**:
+   - Contexto de request/sesión `_Thread_local`, sockets con `TCP_NODELAY`, `SO_RCVTIMEO`/`SO_SNDTIMEO`, tope 10 MB de lectura, guarda anti-path-traversal (`..`, `%2e`, `%5c`, null-byte), serializador/parser JSON, redirects/cookies, SHA-1+Base64 (RFC 3174), fechas (`joss_date`, `joss_strtotime`), sesiones con eviction TTL/LRU (`SESSION_MAX_ENTRIES`) y persistencia atómica con reintentos.
    - Conecta el Arena al ciclo de vida de cada conexión en `fn_Socket_accept`, `fn_Socket_receive` y `fn_Socket_close`.
+   - `joss_redis_rt.inc` contiene el cliente RESP2 TCP (`fn_Redis_*`) y `joss_zip_rt.inc` contiene el extractor ZIP/DEFLATE/CRC-32 (`Zip::extract`).
 3. **`runtime/native/joss_concurrency_rt.c` (Gorutinas Nativas + Auto-DP)**:
-   - Pool de hilos multi-core sobre `pthread` para `async { ... }` / `await` (`joss_async`, `joss_await`) y canales acotados (`joss_make_chan`, `joss_send`, `joss_recv`, `joss_close`).
+   - Pool de hilos multi-core sobre `pthread`/Win32 para `async { ... }` / `await` (`joss_async`, `joss_async_detached`, `joss_await`) y canales acotados (`joss_make_chan`, `joss_send`, `joss_recv`, `joss_close` con liberación de buffer al drenar).
    - Caché `_Thread_local` sin bloqueos para **Programación Dinámica Automática (`Auto-DP`)** (`joss_dp_get`, `joss_dp_put`, 8192 slots con reserva perezosa).
-4. **`runtime/native/joss_db_rt.c` (GranDB Nativo Multi-Motor)**:
-   - Drivers C nativos parametrizados para **SQLite3** (`sqlite3.h`), **PostgreSQL** (`libpq-fe.h`, reescritura `?` → `$1..$N`, `PQexecParams`), **MySQL/MariaDB** (`mysql.h`, `MYSQL_STMT`) y **SQL Server / ODBC** (`sql.h`/`sqlext.h`, `SQLPrepare`/`SQLBindParameter`), además de tablas *in-memory* de respaldo.
+4. **`runtime/native/joss_db_rt.c` + `joss_db_wire.inc` (GranDB Nativo Multi-Motor)**:
+   - Drivers C nativos parametrizados para **SQLite3** (`sqlite3.h` con `PRAGMA journal_mode=WAL` y `busy_timeout=5000`), **PostgreSQL** (`libpq-fe.h`, reescritura `?` → `$1..$N`, `PQexecParams`), **MySQL/MariaDB** (`mysql.h`, `MYSQL_STMT`) y **SQL Server / ODBC** (`sql.h`/`sqlext.h`, `SQLPrepare`/`SQLBindParameter`), además de tablas *in-memory* de respaldo.
    - Nunca duplicar lógica SQL en `joss_web_rt.c`; toda consulta nueva de BD pasa por `joss_db_rt.c`.
-5. **`runtime/native/joss_crypto_rt.c` (Criptografía Real OpenSSL EVP)**:
+5. **`runtime/native/joss_crypto_rt.c` + `joss_crypto_primitives.inc` (Criptografía Real OpenSSL EVP)**:
    - `joss_sha256` (EVP SHA-256), `joss_random_hex` (CSPRNG `RAND_bytes`), `joss_password_hash` (`PBKDF2-HMAC-SHA256`, 100,000 iteraciones + salt aleatorio) y `joss_password_verify` (comparación en tiempo constante con `CRYPTO_memcmp`).
    - Prohibido introducir hashes débiles, RNG no criptográfico para secretos o claves hardcodeadas.
 
-**Regla de calidad C**: Todo cambio en `runtime/native/*.c` debe compilar con `clang -Wall -Wextra -Werror -O2` (**0 warnings**) y pasar `runtime/native/joss_rt_test.c`.
+**Regla de calidad C**: Todo cambio en `runtime/native/*.c` y `*.inc` debe compilar con `clang -Wall -Wextra -Werror -O2` (**0 warnings**) y pasar `runtime/native/joss_rt_test.c`.
 
 ### 12.3 Programación Dinámica Automática (`Auto-DP`)
 - En `pkg/backend/native/llvm.go`, `isAutoDPEligible(fn)` identifica funciones puras recursivas con 1 o 2 parámetros enteros e inyecta automáticamente memoización (`dp_entry`/`dp_ret` + `joss_dp_put`).
@@ -366,9 +372,10 @@ Cada responsabilidad del runtime nativo vive en su propio módulo; **no mezclar 
 
 ### 12.4 Reglas de Seguridad y Cero Stubs Silenciosos
 - **Cero stubs silenciosos**: Si una instrucción IR o capacidad nativa no está soportada, el compilador o runtime debe fallar explícitamente con un error claro; nunca devolver `0`, `null` o `""` silenciosamente fingiendo éxito.
-- **Secretos y rutas**: Nunca incrustar variables de `.env` en ejecutables compilados (`pkg/core/env_loader.go` / `pkg/backend/native/native_env.go`). Toda resolución de rutas estáticas HTTP debe validar contra *path traversal* (`pkg/server/path_security.go` y `runtime/native/joss_web_rt.c`).
+- **Secretos y rutas**: Nunca incrustar variables de `.env` en ejecutables compilados (`pkg/core/env_loader.go` / `pkg/backend/native/native_env.go`). Toda resolución de rutas estáticas HTTP debe validar contra *path traversal* (`std/http/server.joss` y `runtime/native/joss_web_rt.c`) y respetar `TRUST_PROXY` para `X-Forwarded-For`.
 - **Suites nativas de regresión obligatorias** (en `tests/native/`):
   - `phase0_security_and_mixed_test.go` (seguridad y valores dinámicos).
+  - `memory_leak_guard_test.go` (API `Memory::*` y guardia automática de crecimiento de memoria).
   - `tutorial_web_probe_test.go` (app web MVC real compilada a ELF y servida en vivo).
   - `concurrency_and_autodp_test.go` (`async`/`await` paralelo, canales y `Auto-DP`).
   - `grandb_and_crypto_native_test.go` (CRUD real SQLite3 en disco y OpenSSL PBKDF2/SHA-256).
