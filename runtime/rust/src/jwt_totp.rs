@@ -309,7 +309,7 @@ pub unsafe extern "C" fn joss_rs_jwt_sign(
     if bytes.len() + 1 > out_cap {
         return -1;
     }
-    std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_buf as *mut u8, bytes.len());
+    std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_buf.cast::<u8>(), bytes.len());
     *out_buf.add(bytes.len()) = 0;
     bytes.len() as isize
 }
@@ -353,7 +353,7 @@ pub unsafe extern "C" fn joss_rs_totp_generate(
     };
     let code = totp_generate(s_str, unix_time);
     let bytes = code.as_bytes();
-    std::ptr::copy_nonoverlapping(bytes.as_ptr(), out7 as *mut u8, 6);
+    std::ptr::copy_nonoverlapping(bytes.as_ptr(), out7.cast::<u8>(), 6);
     *out7.add(6) = 0;
     1
 }

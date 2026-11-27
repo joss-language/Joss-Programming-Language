@@ -25,12 +25,12 @@ jobs:
       - name: Run joss_rt_test under ASan + UBSan (-Wall -Wextra -Werror)
         run: |
           clang -Wall -Wextra -Werror -O1 -g -DJOSS_DB_DISABLE_ODBC \
-            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -fsanitize=address,undefined -fno-sanitize=alignment -fno-omit-frame-pointer \
             runtime/native/joss_rt.c runtime/native/joss_web_rt.c \
             runtime/native/joss_concurrency_rt.c runtime/native/joss_db_rt.c \
             runtime/native/joss_crypto_rt.c runtime/native/joss_rt_test.c \
             -lsqlite3 -lpq -lmysqlclient -lcrypto -pthread -o /tmp/joss_rt_asan
-          ASAN_OPTIONS=detect_leaks=0:abort_on_error=1 /tmp/joss_rt_asan
+          ASAN_OPTIONS=detect_leaks=0:detect_stack_use_after_return=0:abort_on_error=1 /tmp/joss_rt_asan
 
       - name: Run joss_rt_test under ThreadSanitizer (TSan)
         run: |

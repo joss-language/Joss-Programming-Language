@@ -28,7 +28,7 @@ static JOSS_RS_VERSION: &[u8] = b"joss-rt-rs/0.1.0\0";
 /// Returns the static version banner of the Rust runtime module.
 #[no_mangle]
 pub extern "C" fn joss_rs_runtime_version() -> *const c_char {
-    JOSS_RS_VERSION.as_ptr() as *const c_char
+    JOSS_RS_VERSION.as_ptr().cast::<c_char>()
 }
 
 /// Pure, memory-safe IEEE 802.3 CRC32 (used by ZIP archive reader/writer).
