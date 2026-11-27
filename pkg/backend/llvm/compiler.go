@@ -380,7 +380,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		return firstErr
 	}
 	if needsDB {
-		if dbDrivers.sqlite && bundledSQLiteC == "" && ((opts.Target.OS == "darwin" && runtime.GOOS == "darwin") || (opts.Target.OS == runtime.GOOS && hasHeader("sqlite3.h"))) {
+		if dbDrivers.sqlite && bundledSQLiteC == "" && ((effectiveOS == "darwin" && runtime.GOOS == "darwin") || (effectiveOS == runtime.GOOS && hasHeader("sqlite3.h"))) {
 			linkArgs = append(linkArgs, "-lsqlite3")
 		}
 		if dbDrivers.postgres && (hasHeader("postgresql/libpq-fe.h") || hasHeader("libpq-fe.h")) {
@@ -394,7 +394,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 			}
 		}
 		if dbDrivers.odbc {
-			if opts.Target.OS == "windows" {
+			if effectiveOS == "windows" {
 				linkArgs = append(linkArgs, "-lodbc32")
 			} else if hasHeader("sql.h") {
 				linkArgs = append(linkArgs, "-lodbc")
@@ -404,11 +404,11 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	if needsCrypto {
 		if hasHeader("openssl/evp.h") {
 			linkArgs = append(linkArgs, "-lcrypto")
-		} else if opts.Target.OS == "windows" {
+		} else if effectiveOS == "windows" {
 			linkArgs = append(linkArgs, "-lbcrypt", "-lcrypt32")
 		}
 	}
-	if needsWeb && opts.Target.OS == "windows" {
+	if needsWeb && effectiveOS == "windows" {
 		linkArgs = append(linkArgs, "-lws2_32", "-lbcrypt", "-lcrypt32")
 	}
 	if rustStaticLib != "" {
