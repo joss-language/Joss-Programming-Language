@@ -282,7 +282,7 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		defines []string
 	}{
 		{"joss_web_rt.c", needsWeb, webDefines},
-		{"joss_concurrency_rt.c", needsConcurrency, nil},
+		{"joss_concurrency_rt.c", needsConcurrency, rtDefines},
 		{"joss_db_rt.c", needsDB, dbDefines},
 		{"joss_crypto_rt.c", needsCrypto, rtDefines},
 		{"joss_gui_rt.c", needsGUI, nil},

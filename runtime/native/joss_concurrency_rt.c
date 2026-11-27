@@ -15,6 +15,83 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(JOSS_HAS_RUST_RT)
+typedef int64_t (*JossTaskFn)(void);
+typedef int64_t (*JossRustTaskRunner)(int64_t);
+
+extern bool    joss_rs_dp_get(int64_t fn_id, int64_t a0, int64_t a1, int64_t* out_val);
+extern void    joss_rs_dp_put(int64_t fn_id, int64_t a0, int64_t a1, int64_t val);
+extern int64_t joss_rs_async_spawn(JossRustTaskRunner runner, int64_t fn_handle, bool detached);
+extern int64_t joss_rs_async_await(int64_t fut_handle);
+extern int64_t joss_rs_make_chan(int64_t capacity);
+extern int64_t joss_rs_send(int64_t ch_handle, int64_t val);
+extern int64_t joss_rs_recv(int64_t ch_handle);
+extern void    joss_rs_close(int64_t ch_handle);
+extern int64_t joss_rs_mutex_new(void);
+extern void    joss_rs_mutex_lock(int64_t handle);
+extern void    joss_rs_mutex_unlock(int64_t handle);
+extern int64_t joss_rs_rwmutex_new(void);
+extern void    joss_rs_rwmutex_lock(int64_t handle);
+extern void    joss_rs_rwmutex_unlock(int64_t handle);
+extern void    joss_rs_rwmutex_rlock(int64_t handle);
+extern void    joss_rs_rwmutex_runlock(int64_t handle);
+extern void*   joss_rs_wg_new(void);
+extern void    joss_rs_wg_add(void* wg, int64_t delta);
+extern void    joss_rs_wg_wait(void* wg);
+
+static int64_t joss_rs_task_trampoline(int64_t fn_handle) {
+    int64_t res = 0;
+    if (fn_handle != 0) {
+        JossTaskFn real_fn = (JossTaskFn)joss_closure_prepare_call((void*)(uintptr_t)fn_handle);
+        if (real_fn) {
+            res = real_fn();
+        }
+        joss_closure_env_tls_reset();
+    }
+    return res;
+}
+
+bool joss_dp_get(int64_t fn_id, int64_t a0, int64_t a1, int64_t* out_val) {
+    return joss_rs_dp_get(fn_id, a0, a1, out_val);
+}
+void joss_dp_put(int64_t fn_id, int64_t a0, int64_t a1, int64_t val) {
+    joss_rs_dp_put(fn_id, a0, a1, val);
+}
+int64_t joss_async(int64_t fn_ptr) {
+    joss_gc_set_multithreaded(true);
+    return joss_rs_async_spawn(joss_rs_task_trampoline, fn_ptr, false);
+}
+void joss_async_detached(int64_t fn_ptr) {
+    joss_gc_set_multithreaded(true);
+    (void)joss_rs_async_spawn(joss_rs_task_trampoline, fn_ptr, true);
+}
+int64_t joss_await(int64_t fut_handle) {
+    fut_handle = joss_unbox_value(fut_handle);
+    uint64_t u = (uint64_t)fut_handle;
+    if (u < JOSS_MIN_PTR_ADDR || (u >> JOSS_PTR_VA_BITS) != 0) return fut_handle;
+    return joss_rs_async_await(fut_handle);
+}
+int64_t joss_make_chan(int64_t capacity) { return joss_rs_make_chan(capacity); }
+void joss_send(int64_t ch_handle, int64_t val) {
+    if (!ch_handle) joss_panic("JOSS-CHANNEL-001: send on null channel");
+    if (!joss_rs_send(ch_handle, val)) joss_panic("JOSS-CHANNEL-001: send on closed channel");
+}
+int64_t joss_recv(int64_t ch_handle) { return joss_rs_recv(ch_handle); }
+void joss_close(int64_t ch_handle) { joss_rs_close(ch_handle); }
+int64_t fn_Mutex_new(void) { return joss_rs_mutex_new(); }
+void fn_Mutex_lock(int64_t handle) { joss_rs_mutex_lock(handle); }
+void fn_Mutex_unlock(int64_t handle) { joss_rs_mutex_unlock(handle); }
+int64_t fn_RWMutex_new(void) { return joss_rs_rwmutex_new(); }
+void fn_RWMutex_lock(int64_t handle) { joss_rs_rwmutex_lock(handle); }
+void fn_RWMutex_unlock(int64_t handle) { joss_rs_rwmutex_unlock(handle); }
+void fn_RWMutex_rLock(int64_t handle) { joss_rs_rwmutex_rlock(handle); }
+void fn_RWMutex_rUnlock(int64_t handle) { joss_rs_rwmutex_runlock(handle); }
+int64_t fn_WaitGroup_new(void) { return (int64_t)(uintptr_t)joss_rs_wg_new(); }
+void fn_WaitGroup_add(int64_t handle, int64_t delta) { joss_rs_wg_add((void*)(uintptr_t)handle, delta); }
+void fn_WaitGroup_done(int64_t handle) { joss_rs_wg_add((void*)(uintptr_t)handle, -1); }
+void fn_WaitGroup_wait(int64_t handle) { joss_rs_wg_wait((void*)(uintptr_t)handle); }
+#else
+
 #if defined(__unix__) || defined(__APPLE__)
 #include <pthread.h>
 #include <unistd.h>
@@ -690,3 +767,4 @@ void    fn_WaitGroup_done(int64_t h) { (void)h; }
 void    fn_WaitGroup_wait(int64_t h) { (void)h; }
 
 #endif
+#endif /* JOSS_HAS_RUST_RT */

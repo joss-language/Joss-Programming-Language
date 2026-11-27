@@ -4,6 +4,7 @@
 //! binaries with zero DLLs, zero garbage-collector overhead, and compile-time
 //! memory & thread safety guaranteed by Rust's borrow checker.
 
+pub mod concurrency;
 pub mod cron;
 pub mod crypto;
 pub mod memory;
