@@ -4554,7 +4554,7 @@ const char* fn_Console_readLine(void) {
     if (!fgets(buf, sizeof(buf), stdin)) return "";
     size_t n = strlen(buf);
     while (n > 0 && (buf[n - 1] == '\n' || buf[n - 1] == '\r')) buf[--n] = '\0';
-    return joss_web_strdup(buf);
+    return joss_req_strdup(buf);
 }
 
 static const char* joss_console_wrap_ansi(const char* code, int64_t text_raw) {
@@ -6169,7 +6169,7 @@ const char* joss_rsa_sign_sha256_pure(const char* data, const char* priv_key) {
     joss_rsa_limbs_to_bytes(sig_limbs, k, sig_bytes, n_len);
 
     size_t b64_len = ((n_len + 2U) / 3U) * 4U + 1U;
-    char* b64_out = (char*)malloc(b64_len);
+    char* b64_out = (char*)joss_req_alloc(b64_len);
     if (!b64_out) return "";
     joss_prim_base64_encode(sig_bytes, n_len, b64_out);
     return b64_out;
@@ -6195,7 +6195,7 @@ const char* joss_rsa_sign_sha256(const char* data, const char* priv_key) {
         unsigned char* sig = (unsigned char*)malloc(sig_len);
         if (sig && EVP_DigestSignFinal(ctx, sig, &sig_len) == 1) {
             size_t b64_len = ((sig_len + 2) / 3) * 4 + 1;
-            b64_out = (char*)malloc(b64_len);
+            b64_out = (char*)joss_req_alloc(b64_len);
             if (b64_out) {
                 int out_n = EVP_EncodeBlock((unsigned char*)b64_out, sig, (int)sig_len);
                 b64_out[out_n >= 0 ? out_n : 0] = '\0';
@@ -6250,9 +6250,8 @@ const char* joss_rsa_sign_sha256(const char* data, const char* priv_key) {
                 if (sig && BCryptSignHash(hKey, &pad, hash, sizeof(hash), sig, sig_len, &sig_len, BCRYPT_PAD_PKCS1) == 0) {
                     DWORD b64_len = 0;
                     if (CryptBinaryToStringA(sig, sig_len, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &b64_len)) {
-                        b64_out = (char*)malloc(b64_len + 1);
+                        b64_out = (char*)joss_req_alloc((size_t)b64_len + 1U);
                         if (b64_out && !CryptBinaryToStringA(sig, sig_len, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, b64_out, &b64_len)) {
-                            free(b64_out);
                             b64_out = NULL;
                         }
                     }
