@@ -227,7 +227,12 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		return fallbackObj
 	}
 
-	resolvedRtObj := resolveCUnit(hotOptLevel, rtCPath, rtObjPath)
+	rustStaticLib := resolveRustStaticLib(rtDir, opts.Target.OS, opts.Target.Arch)
+	var rtDefines []string
+	if rustStaticLib != "" {
+		rtDefines = append(rtDefines, "-DJOSS_HAS_RUST_RT=1")
+	}
+	resolvedRtObj := resolveCUnit(hotOptLevel, rtCPath, rtObjPath, rtDefines...)
 	linkArgs := []string{"-o", outputPath, progObjPath, resolvedRtObj}
 	if bundledLib != "" {
 		linkArgs = append(linkArgs, "-L"+bundledLib)
@@ -261,6 +266,9 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	}
 
 	var webDefines []string
+	if rustStaticLib != "" {
+		webDefines = append(webDefines, "-DJOSS_HAS_RUST_RT=1")
+	}
 	if !needsCrypto {
 		webDefines = append(webDefines, "-DJOSS_DISABLE_OPENSSL_SIGN")
 	}
@@ -289,6 +297,9 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 			resolvedObj := resolveCUnit(optLevel, srcPath, objPath, u.defines...)
 			linkArgs = append(linkArgs, resolvedObj)
 		}
+	}
+	if rustStaticLib != "" {
+		linkArgs = append(linkArgs, rustStaticLib)
 	}
 	for _, lib := range opts.StaticLibs {
 		if lib != "" {
@@ -395,6 +406,20 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 	}
 	if needsWeb && opts.Target.OS == "windows" {
 		linkArgs = append(linkArgs, "-lws2_32", "-lbcrypt", "-lcrypt32")
+	}
+	if rustStaticLib != "" {
+		targetOS := opts.Target.OS
+		if targetOS == "" {
+			targetOS = runtime.GOOS
+		}
+		switch targetOS {
+		case "windows":
+			linkArgs = append(linkArgs, "-lws2_32", "-luserenv", "-lntdll", "-lbcrypt", "-lunwind")
+		case "linux":
+			linkArgs = append(linkArgs, "-lpthread", "-ldl", "-lm")
+		case "darwin":
+			linkArgs = append(linkArgs, "-framework", "Security")
+		}
 	}
 	if needsGUI {
 		targetOS := opts.Target.OS
@@ -513,7 +538,7 @@ func llvmNeedsWebRuntime(llvmIR string) bool {
 		"@joss_back", "@joss_view", "@joss_dev_view_chunk", "@joss_request", "@joss_session", "@joss_is_empty",
 		"@joss_json_decode", "@joss_set_active_session", "@joss_get_active_session", "@joss_get_active_request",
 		"@joss___joss_rt_", "@joss___joss_http_", "@joss___joss_get_embedded_",
-		"@joss___joss_socket_", "@joss___joss_rate_", "@joss___joss_session_", "@joss___joss_jwt_",
+		"@joss___joss_socket_", "@joss___joss_tcp_", "@joss___joss_rate_", "@joss___joss_session_", "@joss___joss_jwt_",
 		"@joss___joss_ws_", "@joss_register_plugin_dispatcher",
 		"@joss___joss_byte_string", "@joss___joss_string_byte_at",
 		"@joss___joss_local_utc_offset", "@joss___joss_timezone_data",
@@ -526,4 +551,44 @@ func llvmNeedsWebRuntime(llvmIR string) bool {
 		}
 	}
 	return false
+}
+
+// resolveRustStaticLib locates the prebuilt or locally compiled Rust micro-kernel
+// staticlib (`libjoss_rt_rs.a`) matching the target OS/arch. Returns "" if unavailable
+// or disabled via JOSS_DISABLE_RUST_RT=1.
+func resolveRustStaticLib(rtDir, targetOS, targetArch string) string {
+	if os.Getenv("JOSS_DISABLE_RUST_RT") == "1" {
+		return ""
+	}
+	if targetOS == "" {
+		targetOS = runtime.GOOS
+	}
+	if targetArch == "" {
+		targetArch = runtime.GOARCH
+	}
+	var triple string
+	switch targetOS + "/" + targetArch {
+	case "windows/amd64":
+		triple = "x86_64-pc-windows-gnu"
+	case "linux/amd64":
+		triple = "x86_64-unknown-linux-gnu"
+	case "linux/arm64":
+		triple = "aarch64-unknown-linux-gnu"
+	case "darwin/amd64":
+		triple = "x86_64-apple-darwin"
+	case "darwin/arm64":
+		triple = "aarch64-apple-darwin"
+	default:
+		return ""
+	}
+	candidates := []string{
+		filepath.Join(filepath.Dir(rtDir), "rust", "target", triple, "release", "libjoss_rt_rs.a"),
+		filepath.Join(rtDir, "libjoss_rt_rs_"+targetOS+"_"+targetArch+".a"),
+	}
+	for _, c := range candidates {
+		if info, err := os.Stat(c); err == nil && !info.IsDir() && info.Size() > 0 {
+			return c
+		}
+	}
+	return ""
 }

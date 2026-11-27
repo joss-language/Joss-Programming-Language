@@ -25,7 +25,9 @@ typedef BOOL (WINAPI *JossK32GetProcMemInfoFn)(HANDLE, JossWinProcMemCounters*, 
 #endif
 
 int64_t fn_Memory_rss(void) {
-#if defined(_WIN32)
+#if defined(JOSS_HAS_RUST_RT)
+    return joss_rs_memory_rss();
+#elif defined(_WIN32)
     static JossK32GetProcMemInfoFn s_fn = NULL;
     static int s_tried = 0;
     if (!s_tried) {
@@ -90,7 +92,9 @@ int64_t fn_Memory_gcCollect(void) {
 }
 
 int64_t fn_Memory_trim(void) {
-#if defined(__GLIBC__)
+#if defined(JOSS_HAS_RUST_RT)
+    return joss_rs_memory_trim();
+#elif defined(__GLIBC__)
     return malloc_trim(0) ? 1 : 0;
 #elif defined(__APPLE__)
     malloc_zone_pressure_relief(NULL, 0);

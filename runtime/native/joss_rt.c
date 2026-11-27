@@ -52,8 +52,15 @@ static void joss_tune_os_allocator(void) {
 }
 #endif
 
+#if defined(JOSS_HAS_RUST_RT)
+extern int64_t joss_rs_memory_rss(void);
+extern int64_t joss_rs_memory_trim(void);
+#endif
+
 static void joss_os_trim_heap(void) {
-#if defined(__GLIBC__)
+#if defined(JOSS_HAS_RUST_RT)
+    (void)joss_rs_memory_trim();
+#elif defined(__GLIBC__)
     (void)malloc_trim(0);
 #elif defined(__APPLE__)
     malloc_zone_pressure_relief(NULL, 0);

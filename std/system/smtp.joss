@@ -1,1 +1,76 @@
-// SmtpClient::send se resuelve directamente al motor SMTP C11 nativo (fn_SmtpClient_send).
+// Canonical pure-Joss RFC 5321 SMTP wire client over micro-kernel __joss_tcp_*.
+// Zero manual C allocations; all temporary buffers live in the per-request arena.
+public class SmtpWire {
+    private static func readCode(int $fd): int {
+        string $line = __joss_tcp_read_line($fd)
+        (strlen($line) < 3) ? {
+            return 0
+        }
+        return intval(substr($line, 0, 3))
+    }
+
+    private static func sendCmd(int $fd, string $cmd) : int {
+        (__joss_tcp_write($fd, $cmd . "\r\n") < 0) ? {
+            return 0
+        }
+        return SmtpWire::readCode($fd)
+    }
+
+    public static func sendPlain(string $host, int $port, string $user, string $pass, string $from, string $to, string $subject, string $body, int $timeoutMs = 5000) : bool {
+        int $fd = __joss_tcp_connect($host, $port, $timeoutMs)
+        ($fd < 0) ? {
+            return false
+        }
+        int $banner = SmtpWire::readCode($fd)
+        ($banner < 200 || $banner >= 400) ? {
+            __joss_tcp_close($fd)
+            return false
+        }
+        int $ehlo = SmtpWire::sendCmd($fd, "EHLO joss.local")
+        ($ehlo < 200 || $ehlo >= 400) ? {
+            __joss_tcp_close($fd)
+            return false
+        }
+        (strlen($user) > 0) ? {
+            int $auth = SmtpWire::sendCmd($fd, "AUTH LOGIN")
+            ($auth != 334) ? {
+                __joss_tcp_close($fd)
+                return false
+            }
+            int $uResp = SmtpWire::sendCmd($fd, base64_encode($user))
+            ($uResp != 334) ? {
+                __joss_tcp_close($fd)
+                return false
+            }
+            int $pResp = SmtpWire::sendCmd($fd, base64_encode($pass))
+            ($pResp < 200 || $pResp >= 300) ? {
+                __joss_tcp_close($fd)
+                return false
+            }
+        }
+        int $mf = SmtpWire::sendCmd($fd, "MAIL FROM:<" . $from . ">")
+        ($mf < 200 || $mf >= 300) ? {
+            __joss_tcp_close($fd)
+            return false
+        }
+        int $rcpt = SmtpWire::sendCmd($fd, "RCPT TO:<" . $to . ">")
+        ($rcpt < 200 || $rcpt >= 300) ? {
+            __joss_tcp_close($fd)
+            return false
+        }
+        int $dataCode = SmtpWire::sendCmd($fd, "DATA")
+        ($dataCode != 354) ? {
+            __joss_tcp_close($fd)
+            return false
+        }
+        string $msg = "From: " . $from . "\r\nTo: " . $to . "\r\nSubject: " . $subject . "\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n" . $body . "\r\n.\r\n"
+        (__joss_tcp_write($fd, $msg) < 0) ? {
+            __joss_tcp_close($fd)
+            return false
+        }
+        int $okCode = SmtpWire::readCode($fd)
+        SmtpWire::sendCmd($fd, "QUIT")
+        __joss_tcp_close($fd)
+        return $okCode >= 200 && $okCode < 300
+    }
+}
