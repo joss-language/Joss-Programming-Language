@@ -241,7 +241,8 @@ static int joss_win_run_hidden_cmd(const char* cmd) {
 #endif
 
 #if defined(JOSS_HAS_RUST_RT)
-extern ptrdiff_t joss_rs_system_run(const char* cmd, uint8_t* out_buf, size_t out_cap);
+extern uint8_t* joss_rs_system_run_alloc(const char* cmd, size_t* out_len);
+extern void     joss_rs_bytes_free(uint8_t* ptr, size_t len);
 #endif
 
 static char* joss_system_run_bytes(const char* cmd, size_t* out_len) {
@@ -249,12 +250,18 @@ static char* joss_system_run_bytes(const char* cmd, size_t* out_len) {
     cmd = unbox_web_cstr(cmd);
     if (!cmd || !*cmd) return NULL;
 #if defined(JOSS_HAS_RUST_RT)
-    size_t cap = 1024U * 1024U;
-    char* out = (char*)joss_req_alloc(cap);
-    if (!out) return NULL;
-    ptrdiff_t n = joss_rs_system_run(cmd, (uint8_t*)out, cap);
-    if (n < 0) return NULL;
-    if (out_len) *out_len = (size_t)n;
+    size_t n = 0;
+    uint8_t* raw = joss_rs_system_run_alloc(cmd, &n);
+    if (!raw) return NULL;
+    char* out = (char*)joss_req_alloc(n + 1U);
+    if (!out) {
+        joss_rs_bytes_free(raw, n);
+        return NULL;
+    }
+    if (n > 0) memcpy(out, raw, n);
+    out[n] = '\0';
+    joss_rs_bytes_free(raw, n);
+    if (out_len) *out_len = n;
     return out;
 #elif defined(_WIN32)
     const char* comspec = getenv("COMSPEC");

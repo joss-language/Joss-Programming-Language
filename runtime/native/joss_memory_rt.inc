@@ -3,6 +3,7 @@
  * ========================================================================= */
 #if defined(__APPLE__)
 #include <mach/mach.h>
+#include <malloc/malloc.h>
 #elif defined(__unix__)
 #include <unistd.h>
 #endif
