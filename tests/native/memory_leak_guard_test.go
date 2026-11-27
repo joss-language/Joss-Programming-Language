@@ -66,7 +66,7 @@ func compileAndRunNativeMemoryProbe(t *testing.T, name, src string) (string, str
 // clear Spanish diagnostic warning if unbounded memory growth is detected.
 func TestNative_MemoryDiagnosticsAndLeakGuard(t *testing.T) {
 	src := `
-public func main(): void {
+public func runMemoryProbe(): void {
 	var $s = "hola mundo joss"
 	var $szStr = Memory::sizeOf($s)
 	($szStr < 16) ? {
@@ -127,7 +127,7 @@ public func main(): void {
 	print(Memory::report())
 	print("MEMORY_GUARD_OK")
 }
-main()
+runMemoryProbe()
 `
 	stdout, stderr := compileAndRunNativeMemoryProbe(t, "memory_guard", src)
 	if strings.Contains(stdout, "FAIL_") {
