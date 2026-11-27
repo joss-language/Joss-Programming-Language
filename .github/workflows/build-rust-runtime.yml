@@ -81,10 +81,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view rust-rt-latest >/dev/null 2>&1; then
-            gh release upload rust-rt-latest all-rust-rt/*.a --clobber
+          if gh release view rust-rt-latest --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload rust-rt-latest all-rust-rt/*.a --repo "${{ github.repository }}" --clobber
           else
             gh release create rust-rt-latest all-rust-rt/*.a \
+              --repo "${{ github.repository }}" \
+              --target main \
               --title "Joss Precompiled Rust Micro-Kernel Staticlibs" \
               --notes "Auto-published precompiled libjoss_rt_rs staticlibs so developers never need to install Rust/Cargo."
           fi

@@ -306,7 +306,11 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 			linkArgs = append(linkArgs, lib)
 		}
 	}
-	if opts.Target.OS == "linux" || opts.Target.OS == "android" || opts.Target.OS == "" {
+	effectiveOS := opts.Target.OS
+	if effectiveOS == "" {
+		effectiveOS = runtime.GOOS
+	}
+	if effectiveOS == "linux" || effectiveOS == "android" {
 		linkArgs = append(linkArgs, "-Wl,--as-needed")
 	}
 	hasHeader := func(rel string) bool {
@@ -440,10 +444,6 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 			linkArgs = append(linkArgs, "-ldl")
 		}
 	}
-	effectiveOS := opts.Target.OS
-	if effectiveOS == "" {
-		effectiveOS = runtime.GOOS
-	}
 	if (needsThreads || needsWeb || needsDB || needsGUI) && effectiveOS == "linux" {
 		linkArgs = append(linkArgs, "-pthread")
 	}
@@ -466,9 +466,6 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 		}
 	case "darwin":
 		linkArgs = append(linkArgs, "-Wl,-dead_strip")
-		if !opts.Debug {
-			linkArgs = append(linkArgs, "-Wl,-x")
-		}
 	}
 	if tc.UseZigCC {
 		if zigTriple != "" {
