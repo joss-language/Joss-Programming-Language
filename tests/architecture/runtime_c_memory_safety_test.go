@@ -78,17 +78,22 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 	// To add new allocations in runtime/native/, prefer joss_req_alloc /
 	// joss_req_alloc_zeroed / joss_sb_to_req_string / JossOwnedScope instead.
 	maxRawAllocs := map[string]int{
-		"joss_rt.c":                  35,
+		"joss_rt.c":                  32,
 		"joss_memory_rt.inc":         0,
-		"joss_web_rt.c":              86,
+		"joss_web_rt.c":              20,
+		"joss_services_rt.inc":       5,
+		"joss_ws_rt.inc":             7,
+		"joss_cron_rt.inc":           0,
+		"joss_builtins_rt.inc":       10,
+		"joss_session_rt.inc":        7,
 		"joss_redis_rt.inc":          0,
 		"joss_zip_rt.inc":            8,
 		"joss_concurrency_rt.c":      14,
-		"joss_db_rt.c":               54,
+		"joss_db_rt.c":               16,
 		"joss_db_wire.inc":           20,
 		"joss_crypto_rt.c":           1,
 		"joss_crypto_primitives.inc": 2,
-		"joss_gui_rt.c":              16,
+		"joss_gui_rt.c":              5,
 	}
 
 	var violations []string

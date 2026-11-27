@@ -481,6 +481,17 @@ func TestArchitecture_ModularRuntimeAutoCleanupContract(t *testing.T) {
 	if !strings.Contains(string(rtHBytes), `#include "joss_raii.h"`) {
 		t.Fatalf("BLOQUEADO [JOSS-MODULE-GATE] runtime/native/joss_rt.h debe incluir joss_raii.h para garantizar limpieza automática RAII en todos los módulos.")
 	}
+
+	// Micro-Kernel Ceiling Gate: joss_web_rt.c must stay a lean micro-kernel (<= 2600 lines).
+	// New high-level services MUST be written in std/*.joss, a dedicated .inc module, or Rust staticlib.
+	webBytes, err := os.ReadFile(filepath.Join(rtDir, "joss_web_rt.c"))
+	if err != nil {
+		t.Fatalf("read joss_web_rt.c: %v", err)
+	}
+	webLines := strings.Count(string(webBytes), "\n") + 1
+	if webLines > 2600 {
+		t.Fatalf("BLOQUEADO [JOSS-MICROKERNEL-GATE] runtime/native/joss_web_rt.c tiene %d líneas (máximo micro-kernel: 2600) — escribe nuevas features en std/*.joss o en un módulo dedicado.", webLines)
+	}
 }
 
 // TestArchitecture_RAIIAdoptionAuditGate enforces 100% STRICT JOSS_AUTO_* RAII
@@ -496,11 +507,11 @@ func TestArchitecture_RAIIAdoptionAuditGate(t *testing.T) {
 	}
 
 	// Only core destructor definitions (joss_rt.c: joss_buf_free/joss_sb_free)
-	// and FileStream handle close methods (joss_web_rt.c: 3 `if (owned) fclose`)
+	// and FileStream handle close methods (joss_builtins_rt.inc: 3 `if (owned) fclose`)
 	// are permitted. Every other module MUST have 0 manual cleanups.
 	strictManualMax := map[string]int{
-		"joss_rt.c":     3, // definitions of joss_buf_free / joss_sb_free
-		"joss_web_rt.c": 3, // FileStream::close / StreamWriter::close user handles
+		"joss_rt.c":            3, // definitions of joss_buf_free / joss_sb_free
+		"joss_builtins_rt.inc": 3, // FileStream::close / StreamWriter::close user handles
 	}
 
 	var violations []string

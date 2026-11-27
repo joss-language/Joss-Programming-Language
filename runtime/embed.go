@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-//go:embed native/joss_rt.h native/joss_raii.h native/joss_rt.c native/joss_memory_rt.inc native/joss_web_rt.c native/joss_redis_rt.inc native/joss_zip_rt.inc native/joss_concurrency_rt.c native/joss_db_rt.c native/joss_db_wire.inc native/joss_crypto_rt.c native/joss_crypto_primitives.inc native/joss_gui_rt.c
+//go:embed native/joss_rt.h native/joss_raii.h native/joss_rt.c native/joss_memory_rt.inc native/joss_web_rt.c native/joss_services_rt.inc native/joss_ws_rt.inc native/joss_cron_rt.inc native/joss_builtins_rt.inc native/joss_session_rt.inc native/joss_redis_rt.inc native/joss_zip_rt.inc native/joss_concurrency_rt.c native/joss_db_rt.c native/joss_db_wire.inc native/joss_crypto_rt.c native/joss_crypto_primitives.inc native/joss_gui_rt.c
 var NativeFS embed.FS
 
 var embeddedNativeFiles = []string{
@@ -16,6 +16,11 @@ var embeddedNativeFiles = []string{
 	"joss_rt.c",
 	"joss_memory_rt.inc",
 	"joss_web_rt.c",
+	"joss_services_rt.inc",
+	"joss_ws_rt.inc",
+	"joss_cron_rt.inc",
+	"joss_builtins_rt.inc",
+	"joss_session_rt.inc",
 	"joss_redis_rt.inc",
 	"joss_zip_rt.inc",
 	"joss_concurrency_rt.c",
