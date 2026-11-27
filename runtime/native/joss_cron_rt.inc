@@ -17,20 +17,35 @@ static int         g_joss_cron_count = 0;
 static atomic_flag g_joss_cron_ticker_started = ATOMIC_FLAG_INIT;
 
 #if defined(JOSS_HAS_RUST_RT)
-extern int64_t joss_rs_cron_matches(const char* expr, int32_t minute, int32_t hour, int32_t day, int32_t month, int32_t weekday);
+extern int64_t joss_rs_cron_matches(const char* expr, int64_t minute, int64_t hour, int64_t day, int64_t month, int64_t weekday);
 
 static bool joss_cron_eval(const char* expr, const struct tm* tm_val, bool* out_valid) {
     if (out_valid) *out_valid = false;
     if (!expr) return false;
     while (*expr && isspace((unsigned char)*expr)) expr++;
     if (!*expr) return false;
-    int min_v = tm_val ? tm_val->tm_min : 0;
-    int hour_v = tm_val ? tm_val->tm_hour : 0;
-    int dom_v = tm_val ? tm_val->tm_mday : 1;
-    int mon_v = tm_val ? (tm_val->tm_mon + 1) : 1;
-    int dow_v = tm_val ? tm_val->tm_wday : 0;
-    int64_t res = joss_rs_cron_matches(expr, min_v, hour_v, dom_v, mon_v, dow_v);
-    if (res < 0) return false;
+    const char* canonical = expr;
+    if (strcasecmp(expr, "hourly") == 0 || strcasecmp(expr, "@hourly") == 0) canonical = "0 * * * *";
+    else if (strcasecmp(expr, "daily") == 0 || strcasecmp(expr, "@daily") == 0) canonical = "0 0 * * *";
+    else if (strcasecmp(expr, "weekly") == 0 || strcasecmp(expr, "@weekly") == 0) canonical = "0 0 * * 0";
+    else if (strcasecmp(expr, "monthly") == 0 || strcasecmp(expr, "@monthly") == 0) canonical = "0 0 1 * *";
+    else if (strcasecmp(expr, "yearly") == 0 || strcasecmp(expr, "@yearly") == 0 || strcasecmp(expr, "@annually") == 0) canonical = "0 0 1 1 *";
+    /* Count whitespace-separated fields (must be exactly 5) */
+    int nf = 0;
+    const char* p = canonical;
+    while (*p) {
+        while (*p && isspace((unsigned char)*p)) p++;
+        if (!*p) break;
+        nf++;
+        while (*p && !isspace((unsigned char)*p)) p++;
+    }
+    if (nf != 5) return false;
+    int64_t min_v = tm_val ? (int64_t)tm_val->tm_min : 0;
+    int64_t hour_v = tm_val ? (int64_t)tm_val->tm_hour : 0;
+    int64_t dom_v = tm_val ? (int64_t)tm_val->tm_mday : 1;
+    int64_t mon_v = tm_val ? (int64_t)(tm_val->tm_mon + 1) : 1;
+    int64_t dow_v = tm_val ? (int64_t)tm_val->tm_wday : 0;
+    int64_t res = joss_rs_cron_matches(canonical, min_v, hour_v, dom_v, mon_v, dow_v);
     if (out_valid) *out_valid = true;
     return tm_val ? (res == 1) : true;
 }
