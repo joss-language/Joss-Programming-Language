@@ -1,4 +1,4 @@
-//go:build ignore
+﻿//go:build ignore
 #if defined(__APPLE__) && !defined(_DARWIN_C_SOURCE)
 #define _DARWIN_C_SOURCE
 #include <strings.h>
@@ -350,13 +350,10 @@ static int64_t sqlite_mem_ensure_connected(void) {
     if (!db_path || !*db_path) return 0;
     if (strcmp(db_path, ":memory:") != 0) {
         db_mkdir_parents(db_path);
-        FILE* f = fopen(db_path, "rb");
-        if (f) {
-            fclose(f);
-        } else {
+        JOSS_AUTO_FILE FILE* f = fopen(db_path, "rb");
+        if (!f) {
             f = fopen(db_path, "ab");
             if (!f) return 0;
-            fclose(f);
         }
     }
     if (strcmp(g_sqlite_mem_path, db_path) != 0) {
@@ -1131,7 +1128,7 @@ static PGconn* joss_get_pg(void) {
 }
 
 static char* rewrite_pg_placeholders(const char* sql) {
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     int idx = 1;
     bool in_quote = false;
     for (const char* p = sql; *p; p++) {
@@ -1144,7 +1141,6 @@ static char* rewrite_pg_placeholders(const char* sql) {
         }
     }
     char* out = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     return out;
 }
 
@@ -2318,7 +2314,7 @@ static JossModel* joss_model_ensure_query(void* self_raw) {
 
 static void joss_model_add_where(JossModel* q, const char* conj, const char* col, const char* op, int64_t val) {
     if (!q || !joss_model_valid_ident(col)) return;
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     if (joss_arr_len(q->wheres) > 0) {
         joss_sb_append(sb, conj);
         joss_sb_append(sb, " ");
@@ -2328,7 +2324,6 @@ static void joss_model_add_where(JossModel* q, const char* conj, const char* col
     joss_sb_append(sb, op);
     joss_sb_append(sb, " ?");
     char* frag = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     joss_arr_push_str(q->wheres, frag);
     joss_arr_push_i64(q->bindings, val);
 }
@@ -2366,7 +2361,7 @@ void* fn_Model_whereIn(void* self_raw, const char* col_raw, void* arr_raw) {
     int64_t u = joss_unbox_value((int64_t)(uintptr_t)arr_raw);
     void* arr = (u && joss_is_arr_ptr(u)) ? (void*)(uintptr_t)u : NULL;
     int64_t n = arr ? joss_arr_len(arr) : 0;
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     if (joss_arr_len(q->wheres) > 0) joss_sb_append(sb, "AND ");
     if (n == 0) {
         joss_sb_append(sb, "1 = 0");
@@ -2381,7 +2376,6 @@ void* fn_Model_whereIn(void* self_raw, const char* col_raw, void* arr_raw) {
         joss_sb_append(sb, ")");
     }
     char* frag = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     joss_arr_push_str(q->wheres, frag);
     return q;
 }
@@ -2390,12 +2384,11 @@ void* fn_Model_whereNull(void* self_raw, const char* col_raw) {
     JossModel* q = joss_model_ensure_query(self_raw);
     const char* col = joss_model_cstr(col_raw);
     if (!q || !joss_model_valid_ident(col)) return q;
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     if (joss_arr_len(q->wheres) > 0) joss_sb_append(sb, "AND ");
     joss_model_append_ident(sb, col);
     joss_sb_append(sb, " IS NULL");
     char* frag = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     joss_arr_push_str(q->wheres, frag);
     return q;
 }
@@ -2404,12 +2397,11 @@ void* fn_Model_whereNotNull(void* self_raw, const char* col_raw) {
     JossModel* q = joss_model_ensure_query(self_raw);
     const char* col = joss_model_cstr(col_raw);
     if (!q || !joss_model_valid_ident(col)) return q;
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     if (joss_arr_len(q->wheres) > 0) joss_sb_append(sb, "AND ");
     joss_model_append_ident(sb, col);
     joss_sb_append(sb, " IS NOT NULL");
     char* frag = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     joss_arr_push_str(q->wheres, frag);
     return q;
 }
@@ -2420,12 +2412,11 @@ void* fn_Model_orderBy(void* self_raw, const char* col_raw, const char* dir_raw)
     const char* dir = joss_model_cstr(dir_raw);
     if (!q || !joss_model_valid_ident(col)) return q;
     const char* safe_dir = (dir && strcasecmp(dir, "desc") == 0) ? "DESC" : "ASC";
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     joss_model_append_ident(sb, col);
     joss_sb_append(sb, " ");
     joss_sb_append(sb, safe_dir);
     char* ord = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     joss_arr_push_str(q->orders, ord);
     return q;
 }
@@ -2558,14 +2549,13 @@ static void* joss_model_get_belongs_to_many(JossModel* q) {
     int64_t pkey = joss_map_get_i64(rel->parent->attrs, rel->local_key);
     if (pkey == 0 || joss_is_null(pkey)) return out;
 
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "SELECT * FROM ");
     joss_model_append_ident(sb, rel->pivot_table);
     joss_sb_append(sb, " WHERE ");
     joss_model_append_ident(sb, rel->foreign_pivot_key);
     joss_sb_append(sb, " = ?");
     char* psql = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     void* pbind = joss_arr_new(1);
     joss_arr_push_i64(pbind, pkey);
     void* pivot_rows = joss_model_db_query(psql, pbind);
@@ -2608,7 +2598,7 @@ void* fn_Model_get(void* self_raw) {
     }
     joss_model_apply_global_scopes(q);
 
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "SELECT * FROM ");
     joss_model_append_ident(sb, q->meta->table);
     joss_model_build_where_clause(q, sb);
@@ -2629,7 +2619,6 @@ void* fn_Model_get(void* self_raw) {
         joss_sb_append_i64(sb, q->offset_val);
     }
     char* sql = joss_sb_to_string(sb);
-    joss_sb_free(sb);
 
     void* rows = joss_model_db_query(sql, q->bindings);
     free(sql);
@@ -2673,12 +2662,11 @@ int64_t fn_Model_count(void* self_raw) {
     JossModel* q = joss_model_ensure_query(self_raw);
     if (!q || !q->meta) return 0;
     joss_model_apply_global_scopes(q);
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "SELECT COUNT(*) AS cnt FROM ");
     joss_model_append_ident(sb, q->meta->table);
     joss_model_build_where_clause(q, sb);
     char* sql = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     void* rows = joss_model_db_query(sql, q->bindings);
     free(sql);
     if (!rows || joss_arr_len(rows) == 0) return 0;
@@ -2712,7 +2700,7 @@ int64_t fn_Model_save(void* self_raw) {
         void* dirty = joss_model_compute_changes(m);
         int64_t pk_val = joss_map_get_i64(m->attrs, m->meta->primary_key);
         if (pk_val == 0 || joss_is_null(pk_val)) return 0;
-        JossStringBuilder* sb = joss_sb_new();
+        JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
         void* binds = joss_arr_new(4);
         joss_sb_append(sb, "UPDATE ");
         joss_model_append_ident(sb, m->meta->table);
@@ -2729,7 +2717,6 @@ int64_t fn_Model_save(void* self_raw) {
             set_cnt++;
         }
         if (set_cnt == 0) {
-            joss_sb_free(sb);
             m->last_changes = joss_map_new();
             return 1;
         }
@@ -2738,15 +2725,14 @@ int64_t fn_Model_save(void* self_raw) {
         joss_sb_append(sb, " = ?");
         joss_arr_push_i64(binds, pk_val);
         char* sql = joss_sb_to_string(sb);
-        joss_sb_free(sb);
         int64_t aff = joss___joss_db_execute(sql, binds);
         free(sql);
         if (aff < 0) return 0;
         m->last_changes = joss_model_map_clone(dirty);
     } else {
         /* INSERT */
-        JossStringBuilder* cols = joss_sb_new();
-        JossStringBuilder* ph = joss_sb_new();
+        JOSS_AUTO_SB JossStringBuilder* cols = joss_sb_new();
+        JOSS_AUTO_SB JossStringBuilder* ph = joss_sb_new();
         void* binds = joss_arr_new(4);
         int64_t n = joss_map_len(m->attrs);
         int64_t col_cnt = 0;
@@ -2759,18 +2745,15 @@ int64_t fn_Model_save(void* self_raw) {
             joss_arr_push_i64(binds, joss_model_db_value(m->meta, k, joss_map_val_at(m->attrs, i)));
             col_cnt++;
         }
-        JossStringBuilder* sb = joss_sb_new();
+        JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
         joss_sb_append(sb, "INSERT INTO ");
         joss_model_append_ident(sb, m->meta->table);
         char* cs = joss_sb_to_string(cols);
         char* ps = joss_sb_to_string(ph);
-        joss_sb_free(cols);
-        joss_sb_free(ph);
         joss_sb_append(sb, " ("); joss_sb_append(sb, cs); joss_sb_append(sb, ") VALUES ("); joss_sb_append(sb, ps); joss_sb_append(sb, ")");
         free(cs);
         free(ps);
         char* sql = joss_sb_to_string(sb);
-        joss_sb_free(sb);
         int64_t res = joss___joss_db_execute(sql, binds);
         free(sql);
         if (res < 0) return 0;
@@ -2878,7 +2861,7 @@ int64_t fn_Model_delete(void* self_raw) {
     if (m->meta->soft_deletes) {
         char now_buf[80];
         joss_model_utc_now(now_buf, sizeof(now_buf));
-        JossStringBuilder* sb = joss_sb_new();
+        JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
         joss_sb_append(sb, "UPDATE ");
         joss_model_append_ident(sb, m->meta->table);
         joss_sb_append(sb, " SET ");
@@ -2887,7 +2870,6 @@ int64_t fn_Model_delete(void* self_raw) {
         joss_model_append_ident(sb, m->meta->primary_key);
         joss_sb_append(sb, " = ?");
         char* sql = joss_sb_to_string(sb);
-        joss_sb_free(sb);
         void* binds = joss_arr_new(2);
         joss_arr_push_str(binds, now_buf);
         joss_arr_push_i64(binds, pk);
@@ -2900,14 +2882,13 @@ int64_t fn_Model_delete(void* self_raw) {
         return 1;
     }
 
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "DELETE FROM ");
     joss_model_append_ident(sb, m->meta->table);
     joss_sb_append(sb, " WHERE ");
     joss_model_append_ident(sb, m->meta->primary_key);
     joss_sb_append(sb, " = ?");
     char* sql = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     void* binds = joss_arr_new(1);
     joss_arr_push_i64(binds, pk);
     (void)joss___joss_db_execute(sql, binds);
@@ -2924,14 +2905,13 @@ int64_t fn_Model_forceDelete(void* self_raw) {
     int64_t pk = joss_map_get_i64(m->attrs, m->meta->primary_key);
     if (pk == 0 || joss_is_null(pk)) return 0;
     if (!joss_model_run_hook(m, "deleting")) return 0;
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "DELETE FROM ");
     joss_model_append_ident(sb, m->meta->table);
     joss_sb_append(sb, " WHERE ");
     joss_model_append_ident(sb, m->meta->primary_key);
     joss_sb_append(sb, " = ?");
     char* sql = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     void* binds = joss_arr_new(1);
     joss_arr_push_i64(binds, pk);
     (void)joss___joss_db_execute(sql, binds);
@@ -2948,7 +2928,7 @@ int64_t fn_Model_restore(void* self_raw) {
     int64_t pk = joss_map_get_i64(m->attrs, m->meta->primary_key);
     if (pk == 0 || joss_is_null(pk)) return 0;
     if (!joss_model_run_hook(m, "restoring")) return 0;
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "UPDATE ");
     joss_model_append_ident(sb, m->meta->table);
     joss_sb_append(sb, " SET ");
@@ -2957,7 +2937,6 @@ int64_t fn_Model_restore(void* self_raw) {
     joss_model_append_ident(sb, m->meta->primary_key);
     joss_sb_append(sb, " = ?");
     char* sql = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     void* binds = joss_arr_new(2);
     joss_arr_push_i64(binds, 0); /* SQL NULL */
     joss_arr_push_i64(binds, pk);
@@ -3156,7 +3135,7 @@ int64_t fn_Model_attach(void* self_raw, int64_t ids_raw) {
     if (u && joss_is_arr_ptr(u)) ids = (void*)(uintptr_t)u;
     else joss_arr_push_i64(ids, ids_raw);
 
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "INSERT INTO ");
     joss_model_append_ident(sb, rel->pivot_table);
     joss_sb_append(sb, " (");
@@ -3165,7 +3144,6 @@ int64_t fn_Model_attach(void* self_raw, int64_t ids_raw) {
     joss_model_append_ident(sb, rel->related_pivot_key);
     joss_sb_append(sb, ") VALUES (?, ?)");
     char* sql = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     for (int64_t i = 0; i < joss_arr_len(ids); i++) {
         void* binds = joss_arr_new(2);
         joss_arr_push_i64(binds, pkey);
@@ -3182,14 +3160,13 @@ int64_t fn_Model_detach(void* self_raw, int64_t ids_raw, int64_t has_ids) {
     JossModelRelation* rel = q->relation;
     int64_t pkey = joss_map_get_i64(rel->parent->attrs, rel->local_key);
     if (!has_ids) {
-        JossStringBuilder* sb = joss_sb_new();
+        JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
         joss_sb_append(sb, "DELETE FROM ");
         joss_model_append_ident(sb, rel->pivot_table);
         joss_sb_append(sb, " WHERE ");
         joss_model_append_ident(sb, rel->foreign_pivot_key);
         joss_sb_append(sb, " = ?");
         char* sql = joss_sb_to_string(sb);
-        joss_sb_free(sb);
         void* binds = joss_arr_new(1);
         joss_arr_push_i64(binds, pkey);
         (void)joss___joss_db_execute(sql, binds);
@@ -3203,7 +3180,7 @@ int64_t fn_Model_detach(void* self_raw, int64_t ids_raw, int64_t has_ids) {
         ids = joss_arr_new(1);
         joss_arr_push_i64(ids, ids_raw);
     }
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     joss_sb_append(sb, "DELETE FROM ");
     joss_model_append_ident(sb, rel->pivot_table);
     joss_sb_append(sb, " WHERE ");
@@ -3212,7 +3189,6 @@ int64_t fn_Model_detach(void* self_raw, int64_t ids_raw, int64_t has_ids) {
     joss_model_append_ident(sb, rel->related_pivot_key);
     joss_sb_append(sb, " = ?");
     char* sql = joss_sb_to_string(sb);
-    joss_sb_free(sb);
     for (int64_t i = 0; i < joss_arr_len(ids); i++) {
         void* binds = joss_arr_new(2);
         joss_arr_push_i64(binds, pkey);

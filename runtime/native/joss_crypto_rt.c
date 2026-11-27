@@ -364,10 +364,9 @@ static bool joss_os_random_bytes(uint8_t* buf, size_t len) {
 #if defined(_WIN32)
     return BCryptGenRandom(NULL, buf, (ULONG)len, BCRYPT_USE_SYSTEM_PREFERRED_RNG) == 0;
 #else
-    FILE* f = fopen("/dev/urandom", "rb");
+    JOSS_AUTO_FILE FILE* f = fopen("/dev/urandom", "rb");
     if (!f) return false;
     size_t n = fread(buf, 1, len, f);
-    fclose(f);
     return n == len;
 #endif
 }

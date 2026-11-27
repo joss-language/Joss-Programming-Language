@@ -483,12 +483,11 @@ func TestArchitecture_ModularRuntimeAutoCleanupContract(t *testing.T) {
 	}
 }
 
-// TestArchitecture_RAIIAdoptionAuditGate audits every C11 runtime module
-// (old and new) for JOSS_AUTO_* RAII adoption:
-//   - Reports which legacy modules still use manual cleanup instead of JOSS_AUTO_*.
-//   - HARD-BLOCKS any NEW module that allocates resources without JOSS_AUTO_*.
-//   - Enforces a strict ratchet on manual cleanup counts in legacy modules so
-//     manual cleanups can only shrink toward 0 as modules migrate to JOSS_AUTO_*.
+// TestArchitecture_RAIIAdoptionAuditGate enforces 100% STRICT JOSS_AUTO_* RAII
+// adoption across ALL C11 runtime modules (old and new).
+// Any module that allocates a StringBuilder, ByteBuffer, or local FILE* without
+// JOSS_AUTO_SB / JOSS_AUTO_BUF / JOSS_AUTO_FILE — or introduces ANY manual
+// joss_sb_free / joss_buf_free / fclose outside core definitions — HARD-FAILS CI.
 func TestArchitecture_RAIIAdoptionAuditGate(t *testing.T) {
 	rtDir := filepath.Join("..", "..", "runtime", "native")
 	entries, err := os.ReadDir(rtDir)
@@ -496,24 +495,16 @@ func TestArchitecture_RAIIAdoptionAuditGate(t *testing.T) {
 		t.Fatalf("read runtime/native: %v", err)
 	}
 
-	// Strict ceiling of legacy manual cleanups (joss_sb_free + joss_buf_free + fclose)
-	// per existing module. Any NEW module NOT in this map MUST use JOSS_AUTO_* (0 manual).
-	legacyManualCleanupCeiling := map[string]int{
-		"joss_rt.c":                  3,
-		"joss_memory_rt.inc":         0,
-		"joss_web_rt.c":              56,
-		"joss_redis_rt.inc":          0,
-		"joss_zip_rt.inc":            7,
-		"joss_concurrency_rt.c":      0,
-		"joss_db_rt.c":               23,
-		"joss_db_wire.inc":           2,
-		"joss_crypto_rt.c":           1,
-		"joss_crypto_primitives.inc": 0,
-		"joss_gui_rt.c":              0,
+	// Only core destructor definitions (joss_rt.c: joss_buf_free/joss_sb_free)
+	// and FileStream handle close methods (joss_web_rt.c: 3 `if (owned) fclose`)
+	// are permitted. Every other module MUST have 0 manual cleanups.
+	strictManualMax := map[string]int{
+		"joss_rt.c":     3, // definitions of joss_buf_free / joss_sb_free
+		"joss_web_rt.c": 3, // FileStream::close / StreamWriter::close user handles
 	}
 
 	var violations []string
-	var pendingMigration []string
+	totalRAII := 0
 
 	for _, e := range entries {
 		name := e.Name()
@@ -532,36 +523,27 @@ func TestArchitecture_RAIIAdoptionAuditGate(t *testing.T) {
 		raiiUses := strings.Count(src, "JOSS_AUTO_") + strings.Count(src, "JOSS_AUTO(")
 		manualCount := strings.Count(src, "joss_sb_free(") + strings.Count(src, "joss_buf_free(") + strings.Count(src, "fclose(")
 		hasAllocators := strings.Contains(src, "joss_sb_new(") || strings.Contains(src, "joss_buf_new(") || strings.Contains(src, "fopen(")
+		totalRAII += raiiUses
 
-		ceiling, isLegacy := legacyManualCleanupCeiling[name]
-		if !isLegacy {
-			// Brand-new module: MUST use JOSS_AUTO_* if it opens files/buffers/StringBuilders!
-			if hasAllocators && (raiiUses == 0 || manualCount > 0) {
-				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-RAII-GATE] módulo NUEVO `%s`: usa recursos manuales (manual=%d, JOSS_AUTO=%d) — todo módulo nuevo DEBE usar JOSS_AUTO_SB / JOSS_AUTO_BUF / JOSS_AUTO_FILE / JOSS_AUTO().",
-					name, manualCount, raiiUses))
-			}
-			continue
-		}
-
-		if manualCount > ceiling {
+		allowedManual := strictManualMax[name] // defaults to 0 for all other old & new modules!
+		if manualCount > allowedManual {
 			violations = append(violations, fmt.Sprintf(
-				"BLOQUEADO [JOSS-RAII-GATE] módulo `%s`: aumentó limpieza manual (%d > límite %d) — usa JOSS_AUTO_* en lugar de agregar más joss_sb_free/fclose manuales.",
-				name, manualCount, ceiling))
+				"BLOQUEADO [JOSS-RAII-GATE] módulo `%s`: tiene %d limpiezas manuales (máximo permitido: %d) — usa JOSS_AUTO_SB / JOSS_AUTO_BUF / JOSS_AUTO_FILE / JOSS_AUTO().",
+				name, manualCount, allowedManual))
 		}
-		if hasAllocators && raiiUses == 0 {
-			pendingMigration = append(pendingMigration, fmt.Sprintf("  - %-26s | JOSS_AUTO: %2d | manuales pendientes de migrar: %2d", name, raiiUses, manualCount))
-		} else {
-			t.Logf("[RAII OK] %-26s | JOSS_AUTO: %2d | manuales: %2d", name, raiiUses, manualCount)
+		if hasAllocators && raiiUses == 0 && name != "joss_rt.c" {
+			violations = append(violations, fmt.Sprintf(
+				"BLOQUEADO [JOSS-RAII-GATE] módulo `%s`: abre recursos (joss_sb_new/joss_buf_new/fopen) sin usar JOSS_AUTO_* — obligatorio usar RAII automático.",
+				name))
 		}
+		t.Logf("[RAII 100%%] %-26s | JOSS_AUTO: %2d | manuales: %2d (max %d)", name, raiiUses, manualCount, allowedManual)
 	}
 
-	if len(pendingMigration) > 0 {
-		t.Logf("Módulos legacy aún sin migrar a JOSS_AUTO_* (ratchet activo, no pueden crecer):\n%s",
-			strings.Join(pendingMigration, "\n"))
+	if totalRAII < 30 {
+		t.Fatalf("BLOQUEADO [JOSS-RAII-GATE] se esperaban >= 30 usos de JOSS_AUTO_* en runtime/native/, encontrados %d", totalRAII)
 	}
 	if len(violations) > 0 {
-		t.Fatalf("Auditoría de adopción RAII BLOQUEADA (%d violaciones):\n%s",
+		t.Fatalf("Auditoría ESTRICTA de adopción RAII BLOQUEADA (%d violaciones):\n%s",
 			len(violations), strings.Join(violations, "\n"))
 	}
 }

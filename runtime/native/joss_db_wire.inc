@@ -208,7 +208,7 @@ static void joss_wire_sha256(const uint8_t* data, size_t len, uint8_t out[32]) {
 static char* joss_wire_bind_sql(const char* sql, void* bindings) {
     if (!sql) return NULL;
     int64_t nbind = bindings ? joss_arr_len(bindings) : 0;
-    JossStringBuilder* sb = joss_sb_new();
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     int64_t bidx = 0;
     for (const char* p = sql; *p; p++) {
         if (*p == '?' && bidx < nbind) {
@@ -237,9 +237,7 @@ static char* joss_wire_bind_sql(const char* sql, void* bindings) {
             joss_buf_append_byte(sb, (uint8_t)*p);
         }
     }
-    char* out = joss_sb_to_string(sb);
-    joss_sb_free(sb);
-    return out;
+    return joss_sb_to_string(sb);
 }
 
 /* =========================================================================
@@ -605,10 +603,9 @@ static void joss_wire_random_bytes(uint8_t* out, size_t len) {
         out[i] = (uint8_t)((rand() ^ (int)(i * 31)) & 0xFF);
     }
 #else
-    FILE* f = fopen("/dev/urandom", "rb");
+    JOSS_AUTO_FILE FILE* f = fopen("/dev/urandom", "rb");
     if (f) {
         size_t rd = fread(out, 1, len, f);
-        fclose(f);
         if (rd == len) return;
     }
     for (size_t i = 0; i < len; i++) {

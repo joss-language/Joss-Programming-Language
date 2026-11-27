@@ -347,26 +347,27 @@ int64_t fn_Zip_extract(const char* src_raw, const char* dest_raw) {
         return 0;
     }
 
-    FILE* fp = fopen(zip_path, "rb");
-    if (!fp) {
-        return 0;
+    uint8_t* buf = NULL;
+    size_t fsz = 0;
+    {
+        JOSS_AUTO_FILE FILE* fp = fopen(zip_path, "rb");
+        if (!fp) {
+            return 0;
+        }
+        if (fseek(fp, 0, SEEK_END) != 0) return 0;
+        long fsz_l = ftell(fp);
+        if (fsz_l < 22 || (uint64_t)fsz_l > (512ULL << 20)) {
+            return 0;
+        }
+        fsz = (size_t)fsz_l;
+        rewind(fp);
+        buf = (uint8_t*)malloc(fsz);
+        if (!buf) return 0;
+        if (fread(buf, 1, fsz, fp) != fsz) {
+            free(buf);
+            return 0;
+        }
     }
-    if (fseek(fp, 0, SEEK_END) != 0) { fclose(fp); return 0; }
-    long fsz_l = ftell(fp);
-    if (fsz_l < 22 || (uint64_t)fsz_l > (512ULL << 20)) {
-        fclose(fp);
-        return 0;
-    }
-    size_t fsz = (size_t)fsz_l;
-    rewind(fp);
-    uint8_t* buf = (uint8_t*)malloc(fsz);
-    if (!buf) { fclose(fp); return 0; }
-    if (fread(buf, 1, fsz, fp) != fsz) {
-        free(buf);
-        fclose(fp);
-        return 0;
-    }
-    fclose(fp);
 
     /* Locate End of Central Directory (EOCD) */
     size_t min_eocd = (fsz > 65557) ? (fsz - 65557) : 0;
@@ -526,24 +527,25 @@ int64_t fn_Zip_extract(const char* src_raw, const char* dest_raw) {
             return 0;
         }
 
-        FILE* out_fp = fopen(full_path, "wb");
-        if (!out_fp) {
-            free(inflated);
-            free(full_path);
-            free(entry_name);
-            free(buf);
-            return 0;
+        {
+            JOSS_AUTO_FILE FILE* out_fp = fopen(full_path, "wb");
+            if (!out_fp) {
+                free(inflated);
+                free(full_path);
+                free(entry_name);
+                free(buf);
+                return 0;
+            }
+            if (out_size > 0 && fwrite(out_data, 1, out_size, out_fp) != out_size) {
+                joss_auto_file_cleanup(&out_fp);
+                remove(full_path);
+                free(inflated);
+                free(full_path);
+                free(entry_name);
+                free(buf);
+                return 0;
+            }
         }
-        if (out_size > 0 && fwrite(out_data, 1, out_size, out_fp) != out_size) {
-            fclose(out_fp);
-            remove(full_path);
-            free(inflated);
-            free(full_path);
-            free(entry_name);
-            free(buf);
-            return 0;
-        }
-        fclose(out_fp);
         total_extracted += out_size;
         free(inflated);
         free(full_path);
