@@ -34,6 +34,14 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 	sbNewRe := regexp.MustCompile(`\bjoss_sb_new\s*\(`)
 	sbFreeRe := regexp.MustCompile(`\bjoss_sb_free\s*\(`)
 	sbToStringRetRe := regexp.MustCompile(`char\*\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*joss_sb_to_string\s*\(`)
+	fopenRe := regexp.MustCompile(`\bfopen\s*\(`)
+	fcloseRe := regexp.MustCompile(`\bfclose\s*\(`)
+	lockRe := regexp.MustCompile(`\bjoss_global_lock\s*\(`)
+	unlockRe := regexp.MustCompile(`\bjoss_global_unlock\s*\(`)
+	arenaPauseRe := regexp.MustCompile(`\bjoss_req_arena_pause\s*\(`)
+	arenaResumeRe := regexp.MustCompile(`\bjoss_req_arena_resume\s*\(`)
+	scopeBeginRe := regexp.MustCompile(`\bjoss_owned_scope_begin\s*\(`)
+	scopeEndRe := regexp.MustCompile(`\bjoss_owned_scope_end\s*\(`)
 
 	// Audited raw malloc/calloc/realloc ceiling per file.
 	// To add new allocations in runtime/native/, prefer joss_req_alloc /
@@ -91,6 +99,27 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 			if fnHasSbNew && !fnHasSbFree && curFunc != "joss_sb_new" {
 				violations = append(violations, fmt.Sprintf(
 					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_sb_new() sin joss_sb_free() en la misma función — libera el StringBuilder antes de retornar.",
+					name, curFunc))
+			}
+			if fopenRe.MatchString(body) && !fcloseRe.MatchString(body) &&
+				curFunc != "fn_FileStream_open" && curFunc != "fn_StreamReader_open" && curFunc != "fn_StreamWriter_open" {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a fopen() sin fclose() en la misma función (fuga de descriptor de archivo).",
+					name, curFunc))
+			}
+			if lockRe.MatchString(body) && !unlockRe.MatchString(body) && curFunc != "joss_global_lock" {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_global_lock() sin joss_global_unlock() (riesgo de deadlock).",
+					name, curFunc))
+			}
+			if arenaPauseRe.MatchString(body) && !arenaResumeRe.MatchString(body) && curFunc != "joss_req_arena_pause" {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_req_arena_pause() sin joss_req_arena_resume() (fuga permanente en worker HTTP).",
+					name, curFunc))
+			}
+			if scopeBeginRe.MatchString(body) && !scopeEndRe.MatchString(body) && curFunc != "joss_owned_scope_begin" {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_owned_scope_begin() sin joss_owned_scope_end() (arena TLS corrupto).",
 					name, curFunc))
 			}
 			for varName, lineNum := range fnSbToStrVars {
