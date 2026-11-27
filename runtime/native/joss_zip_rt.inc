@@ -1,8 +1,16 @@
 ﻿/* =========================================================================
- * Zip::extract â€” Pure C11 ZIP extractor (STORE + RFC 1951 DEFLATE + CRC-32)
- * Zero external dependencies; enforces symlink, Zip-Slip, and Zip-Bomb guards.
+ * Zip::extract — Delegated 100% to Rust (`zip_rt.rs`) when JOSS_HAS_RUST_RT
  * ========================================================================= */
+#if defined(JOSS_HAS_RUST_RT)
+extern int64_t joss_rs_zip_extract(const char* zip_path, const char* dest_dir);
 
+int64_t fn_Zip_extract(const char* src_raw, const char* dest_raw) {
+    const char* zip_path = unbox_web_cstr(src_raw);
+    const char* dest_path = unbox_web_cstr(dest_raw);
+    if (!zip_path || !*zip_path || !dest_path || !*dest_path) return 0;
+    return joss_rs_zip_extract(zip_path, dest_path);
+}
+#else
 static uint16_t joss_zip_u16(const uint8_t* p) {
     return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
 }
@@ -563,6 +571,7 @@ int64_t fn_Zip_extract(const char* src_raw, const char* dest_raw) {
     free(buf);
     return 1;
 }
+#endif /* JOSS_HAS_RUST_RT */
 
 
 

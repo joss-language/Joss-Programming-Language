@@ -425,6 +425,18 @@ func TestArchitecture_LLVMExternalSymbolsExistInC11Runtime(t *testing.T) {
 			allC.WriteByte('\n')
 		}
 	}
+	// Also scan Rust staticlib runtime sources (runtime/rust/src/*.rs) as C11 modules migrate to Rust.
+	rustDir := filepath.Join("..", "..", "runtime", "rust", "src")
+	if rustEntries, rDirErr := os.ReadDir(rustDir); rDirErr == nil {
+		for _, re := range rustEntries {
+			if !re.IsDir() && strings.HasSuffix(re.Name(), ".rs") {
+				if b, rErr := os.ReadFile(filepath.Join(rustDir, re.Name())); rErr == nil {
+					allC.Write(b)
+					allC.WriteByte('\n')
+				}
+			}
+		}
+	}
 	cCorpus := allC.String()
 
 	requiredSymbols := []string{

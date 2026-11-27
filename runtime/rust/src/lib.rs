@@ -13,9 +13,11 @@ pub mod jwt_totp;
 pub mod memory;
 pub mod net_tcp;
 pub mod ratelimit;
+pub mod services;
 pub mod session_store;
 pub mod sync_rt;
 pub mod ws;
+pub mod zip_rt;
 
 use std::ffi::c_char;
 

@@ -1265,7 +1265,7 @@ static bool joss_redis_auth_and_select(int fd) {
     return true;
 }
 
-#include "joss_redis_rt.inc"
+/* Redis::* host service migrated 100% to std/system/redis_host.joss over Rust net_tcp.rs */
 
 void* joss___joss_session_load(const char* sid) {
     sid = unbox_web_cstr(sid);

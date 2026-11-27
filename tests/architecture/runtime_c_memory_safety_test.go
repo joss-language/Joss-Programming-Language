@@ -86,7 +86,6 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 		"joss_cron_rt.inc":           0,
 		"joss_builtins_rt.inc":       10,
 		"joss_session_rt.inc":        5,
-		"joss_redis_rt.inc":          0,
 		"joss_zip_rt.inc":            8,
 		"joss_concurrency_rt.c":      14,
 		"joss_db_rt.c":               16,
