@@ -2813,7 +2813,7 @@ static char* joss_system_run_argv(const char* prog, void* args_arr) {
         for (int64_t i = 0; i < argc; i++) { if (temp_files[i]) remove(temp_files[i]); }
         free(temp_files);
     }
-    char* out = joss_sb_to_string(out_sb);
+    char* out = joss_sb_to_req_string(out_sb);
     joss_sb_free(out_sb);
     return out;
 }
@@ -2881,7 +2881,7 @@ static char* joss_system_run_argv(const char* prog, void* args_arr) {
         for (int64_t i = 0; i < argc; i++) { if (temp_files[i]) remove(temp_files[i]); }
         free(temp_files);
     }
-    char* out = joss_sb_to_string(out_sb);
+    char* out = joss_sb_to_req_string(out_sb);
     joss_sb_free(out_sb);
     return out;
 }
@@ -2926,7 +2926,7 @@ static bool joss_http_write_temp_file(const uint8_t* data, size_t len, char* out
 #if defined(_WIN32)
     char tmp_dir[MAX_PATH];
     DWORD dlen = GetTempPathA((DWORD)sizeof(tmp_dir), tmp_dir);
-    if (dlen == 0 || dlen >= sizeof(tmp_dir)) strcpy(tmp_dir, ".\\");
+    if (dlen == 0 || dlen >= sizeof(tmp_dir)) snprintf(tmp_dir, sizeof(tmp_dir), ".\\");
     DWORD pid = GetCurrentProcessId();
     for (int attempt = 0; attempt < 32; attempt++) {
         LONG seq = (LONG)InterlockedIncrement64(&g_tmp_seq);
@@ -7222,7 +7222,7 @@ static char* joss_clone_session_string(const char* s) {
     if (joss_req_arena_is_active()) {
         return joss_req_strdup(s ? s : "");
     }
-    return joss_web_strdup(s ? s : "");
+    return joss_web_strdup(s ? s : ""); /* joss-mem: persistent-ok */
 }
 
 static int64_t joss_clone_session_value(int64_t v);

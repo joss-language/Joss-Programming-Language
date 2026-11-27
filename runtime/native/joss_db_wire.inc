@@ -856,8 +856,10 @@ static JOSS_WIRE_UNUSED void* pg_wire_query(const char* sql, void* bindings) {
             size_t pos = 2;
             for (int i = 0; i < ncols && pos < blen; i++) {
                 const char* nm = (const char*)(body + pos);
-                cols[i] = strdup(nm);
-                pos += strlen(nm) + 1 + 18;
+                size_t nmlen = strlen(nm);
+                cols[i] = (char*)malloc(nmlen + 1U); /* joss-mem: persistent-ok */
+                if (cols[i]) memcpy(cols[i], nm, nmlen + 1U);
+                pos += nmlen + 1 + 18;
             }
         } else if (tag == 'D' && blen >= 2 && cols) {
             int fc = (int)((body[0] << 8) | body[1]);

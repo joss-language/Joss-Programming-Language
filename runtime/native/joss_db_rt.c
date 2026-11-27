@@ -3072,7 +3072,8 @@ static void* joss_model_make_rel(void* parent_raw, JossModelRelKind kind,
     if (kind == JOSS_REL_BELONGS_TO) {
         if (!fk || !*fk) {
             joss_model_snake_case(rmeta->class_name, def_fk, sizeof(def_fk) - 4);
-            strcat(def_fk, "_id");
+            size_t flen = strlen(def_fk);
+            snprintf(def_fk + flen, sizeof(def_fk) - flen, "_id");
             fk = def_fk;
         }
         if (!lk || !*lk) lk = rmeta->primary_key;
@@ -3084,7 +3085,8 @@ static void* joss_model_make_rel(void* parent_raw, JossModelRelKind kind,
     } else {
         if (!fk || !*fk) {
             joss_model_snake_case(parent->meta->class_name, def_fk, sizeof(def_fk) - 4);
-            strcat(def_fk, "_id");
+            size_t flen = strlen(def_fk);
+            snprintf(def_fk + flen, sizeof(def_fk) - flen, "_id");
             fk = def_fk;
         }
         if (!lk || !*lk) lk = parent->meta->primary_key;
