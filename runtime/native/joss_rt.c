@@ -2301,8 +2301,9 @@ static void gc_scan_range(JossGCWorklist* wl, const void* start, const void* end
     a = (a + 7U) & ~((uintptr_t)7U);
     b &= ~((uintptr_t)7U);
     for (uintptr_t p = a; p + sizeof(uintptr_t) <= b; p += sizeof(uintptr_t)) {
-        uintptr_t word = 0;
-        memcpy(&word, (const void*)p, sizeof(uintptr_t));
+        /* Direct aligned volatile load avoids ASan's __asan_memcpy interceptor
+         * tripping on stack redzones inside this no_sanitize("address") scanner. */
+        uintptr_t word = *(const volatile uintptr_t*)p;
         gc_mark_word(wl, word);
     }
 }

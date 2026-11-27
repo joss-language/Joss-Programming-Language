@@ -2,6 +2,7 @@
 //!
 //! Replaces `runtime/native/joss_crypto_rt.c` with zero OpenSSL dependency and
 //! constant-time verification.
+#![allow(unknown_lints, clippy::manual_is_multiple_of)]
 
 use crate::crypto::{ct_eq, hmac_sha256, pbkdf2_hmac_sha256_32, sha1};
 use std::ffi::{c_char, CStr};
@@ -49,8 +50,9 @@ pub fn to_hex(bytes: &[u8]) -> String {
     s
 }
 
+#[allow(clippy::manual_is_multiple_of)]
 pub fn from_hex(hex: &str) -> Option<Vec<u8>> {
-    if !hex.len().is_multiple_of(2) {
+    if hex.len() % 2 != 0 {
         return None;
     }
     let bytes = hex.as_bytes();

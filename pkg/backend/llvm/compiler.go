@@ -440,13 +440,18 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 			linkArgs = append(linkArgs, "-ldl")
 		}
 	}
-	if (needsThreads || needsWeb || needsDB || needsGUI) && (opts.Target.OS == "linux" || opts.Target.OS == "") {
+	effectiveOS := opts.Target.OS
+	if effectiveOS == "" {
+		effectiveOS = runtime.GOOS
+	}
+	if (needsThreads || needsWeb || needsDB || needsGUI) && effectiveOS == "linux" {
 		linkArgs = append(linkArgs, "-pthread")
 	}
-	if !tc.UseZigCC && lldPath != "" && opts.Target.OS != "darwin" {
+	if !tc.UseZigCC && lldPath != "" && effectiveOS != "darwin" {
 		linkArgs = append(linkArgs, "-fuse-ld=lld")
 	}
-	if opts.Target.OS == "linux" || opts.Target.OS == "android" || opts.Target.OS == "" {
+	switch effectiveOS {
+	case "linux", "android":
 		linkArgs = append(linkArgs, "-Wl,--gc-sections")
 		if !opts.Debug {
 			linkArgs = append(linkArgs, "-Wl,--strip-all", "-Wl,--build-id=none")
@@ -454,14 +459,12 @@ func compileLLVMWithToolchain(tc ToolchainInfo, llvmIR, outputPath string, opts 
 				linkArgs = append(linkArgs, "-Wl,--icf=safe")
 			}
 		}
-	} else if opts.Target.OS == "windows" {
+	case "windows":
 		linkArgs = append(linkArgs, "-Wl,--gc-sections")
 		if !opts.Debug {
 			linkArgs = append(linkArgs, "-s")
 		}
-	} else if opts.Target.OS == "darwin" {
-		linkArgs = append(linkArgs, "-Wl,-dead_strip")
-	} else if opts.Target.OS == "darwin" {
+	case "darwin":
 		linkArgs = append(linkArgs, "-Wl,-dead_strip")
 		if !opts.Debug {
 			linkArgs = append(linkArgs, "-Wl,-x")

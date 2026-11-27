@@ -94,12 +94,37 @@ mod os {
 mod os {
     use std::ffi::c_void;
 
+    #[repr(C)]
+    #[derive(Default)]
+    struct Timeval {
+        tv_sec: i64,
+        tv_usec: i32,
+        _pad: i32,
+    }
+
+    #[repr(C)]
+    #[derive(Default)]
+    struct Rusage {
+        ru_utime: Timeval,
+        ru_stime: Timeval,
+        ru_maxrss: i64,
+        _rest: [i64; 13],
+    }
+
+    const RUSAGE_SELF: i32 = 0;
+
     extern "C" {
+        fn getrusage(who: i32, usage: *mut Rusage) -> i32;
         fn malloc_zone_pressure_relief(zone: *mut c_void, goal: usize) -> usize;
     }
 
     pub fn rss_bytes() -> i64 {
-        0
+        let mut usage = Rusage::default();
+        if unsafe { getrusage(RUSAGE_SELF, &mut usage) } == 0 && usage.ru_maxrss > 0 {
+            usage.ru_maxrss
+        } else {
+            0
+        }
     }
 
     pub fn trim_heap() -> i64 {

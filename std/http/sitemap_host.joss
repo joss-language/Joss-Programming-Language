@@ -28,6 +28,33 @@ private func __joss_sitemap_excluded(string $loc): bool {
     return false
 }
 
+public func __joss_host_Sitemap_add(string $loc, string $changefreq = "weekly", string $priority = "0.5") : bool {
+    string $clean = trim($loc)
+    (strlen($clean) == 0) ? {
+        return false
+    }
+    map $entry = {
+    "loc" : $clean,
+    "changefreq" : $changefreq,
+    "priority" : $priority
+}
+__JossSitemapState::$entries = array_push(__JossSitemapState::$entries, $entry)
+return true
+}
+
+public func __joss_host_Sitemap_exclude(array<string> $paths): bool {
+    int $n = count($paths)
+    int $i = 0
+    while ($i < $n) {
+        string $p = trim(strval($paths [$i]))
+        (strlen($p) > 0) ? {
+            __JossSitemapState::$excludes = array_push(__JossSitemapState::$excludes, $p)
+        }
+        $i = $i + 1
+    }
+    return true
+}
+
 public func __joss_host_Sitemap_xsl() : string {
     string $xsl = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
     $xsl = $xsl . "<xsl:stylesheet version=\"2.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" xmlns:sitemap=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
@@ -37,4 +64,28 @@ public func __joss_host_Sitemap_xsl() : string {
     $xsl = $xsl . "<li><a href=\"{sitemap:loc}\"><xsl:value-of select=\"sitemap:loc\"/></a></li>"
     $xsl = $xsl . "</xsl:for-each></ul></body></html></xsl:template></xsl:stylesheet>\n"
     return $xsl
+}
+
+public func __joss_host_Sitemap_generate(string $baseUrl = ""): string {
+    string $base = rtrim(trim($baseUrl), "/")
+    string $xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+    $xml = $xml . "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
+    int $n = count(__JossSitemapState::$entries)
+    int $i = 0
+    while ($i < $n) {
+        map $e = __JossSitemapState::$entries [$i]
+        string $loc = strval($e ["loc"])
+        (!__joss_sitemap_excluded($loc)) ? {
+            string $full = $loc
+            ((strlen($base) > 0) && str_starts_with($loc, "/")) ? {
+                $full = $base . $loc
+            }
+            $xml = $xml . "  <url><loc>" . $full . "</loc>"
+            $xml = $xml . "<changefreq>" . strval($e ["changefreq"]) . "</changefreq>"
+            $xml = $xml . "<priority>" . strval($e ["priority"]) . "</priority></url>\n"
+        }
+        $i = $i + 1
+    }
+    $xml = $xml . "</urlset>\n"
+    return $xml
 }

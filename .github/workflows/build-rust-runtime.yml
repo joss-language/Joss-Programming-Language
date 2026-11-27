@@ -42,8 +42,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust target ${{ matrix.target }}
-        run: rustup target add ${{ matrix.target }}
+      - name: Update Rust & install target ${{ matrix.target }}
+        run: |
+          rustup update stable
+          rustup default stable
+          rustup target add ${{ matrix.target }}
 
       - name: Test, clippy & build release staticlib
         run: |

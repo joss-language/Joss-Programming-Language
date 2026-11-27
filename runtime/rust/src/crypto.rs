@@ -2,6 +2,7 @@
 //! RFC 3174 SHA-1, RFC 2104 HMAC-SHA256, RFC 2898 PBKDF2-HMAC-SHA256, Base64).
 //!
 //! Replaces `runtime/native/joss_crypto_primitives.inc` with memory-safe Rust.
+#![allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
 
 const SHA256_K: [u32; 64] = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -16,9 +17,8 @@ const SHA256_K: [u32; 64] = [
 
 fn sha256_compress(state: &mut [u32; 8], block: &[u8; 64]) {
     let mut w = [0u32; 64];
-    let (word_chunks, _) = block.as_chunks::<4>();
-    for (i, chunk) in word_chunks.iter().enumerate() {
-        w[i] = u32::from_be_bytes(*chunk);
+    for (i, chunk) in block.chunks_exact(4).enumerate() {
+        w[i] = u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
     }
     for i in 16..64 {
         let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
@@ -64,10 +64,12 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
         0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
     ];
-    let (blocks, rem) = data.as_chunks::<64>();
-    for block in blocks {
-        sha256_compress(&mut state, block);
+    let mut chunks = data.chunks_exact(64);
+    for block in &mut chunks {
+        let arr: &[u8; 64] = block.try_into().unwrap();
+        sha256_compress(&mut state, arr);
     }
+    let rem = chunks.remainder();
     let mut tail = [0u8; 128];
     tail[..rem.len()].copy_from_slice(rem);
     tail[rem.len()] = 0x80;
@@ -96,8 +98,7 @@ pub fn sha1(data: &[u8]) -> [u8; 20] {
         msg.push(0);
     }
     msg.extend_from_slice(&bit_len.to_be_bytes());
-    let (msg_blocks, _) = msg.as_chunks::<64>();
-    for chunk in msg_blocks {
+    for chunk in msg.chunks_exact(64) {
         let mut w = [0u32; 80];
         for i in 0..16 {
             w[i] = u32::from_be_bytes([chunk[i * 4], chunk[i * 4 + 1], chunk[i * 4 + 2], chunk[i * 4 + 3]]);

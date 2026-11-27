@@ -18,8 +18,12 @@ public func __joss_host_Lang_set(string $locale): bool {
     return true
 }
 
+public func __joss_host_Lang_setLocale(string $locale) : bool {
+    return __joss_host_Lang_set($locale)
+}
+
 public func __joss_host_Lang_get(string $key, map $replacements = {
-}) : mixed {
+}): mixed {
     return $key
 }
 
