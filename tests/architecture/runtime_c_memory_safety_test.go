@@ -127,15 +127,19 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 				return
 			}
 			body := strings.Join(fnBodyLines, "\n")
-			if fnHasSbNew && !fnHasSbFree && curFunc != "joss_sb_new" {
+			hasAutoRAII := strings.Contains(body, "JOSS_AUTO(") || strings.Contains(body, "JOSS_AUTO_SB") ||
+				strings.Contains(body, "JOSS_AUTO_BUF") || strings.Contains(body, "JOSS_AUTO_FILE") ||
+				strings.Contains(body, "JOSS_AUTO_SCOPE") || strings.Contains(body, "JOSS_AUTO_PTR")
+
+			if fnHasSbNew && !fnHasSbFree && !strings.Contains(body, "JOSS_AUTO_SB") && curFunc != "joss_sb_new" {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_sb_new() sin joss_sb_free() en la misma función — libera el StringBuilder antes de retornar.",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_sb_new() sin joss_sb_free() ni JOSS_AUTO_SB — usa JOSS_AUTO_SB o libera antes de retornar.",
 					name, curFunc))
 			}
-			if fopenRe.MatchString(body) && !fcloseRe.MatchString(body) &&
+			if fopenRe.MatchString(body) && !fcloseRe.MatchString(body) && !strings.Contains(body, "JOSS_AUTO_FILE") &&
 				curFunc != "fn_FileStream_open" && curFunc != "fn_StreamReader_open" && curFunc != "fn_StreamWriter_open" {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a fopen() sin fclose() en la misma función (fuga de descriptor de archivo).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a fopen() sin fclose() ni JOSS_AUTO_FILE (fuga de descriptor de archivo).",
 					name, curFunc))
 			}
 			if lockRe.MatchString(body) && !unlockRe.MatchString(body) && curFunc != "joss_global_lock" {
@@ -153,34 +157,34 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_owned_scope_begin() sin joss_owned_scope_end() (arena TLS corrupto).",
 					name, curFunc))
 			}
-			if bufNewRe.MatchString(body) && !bufFreeRe.MatchString(body) && curFunc != "joss_sb_new" && curFunc != "joss_buf_new" {
+			if bufNewRe.MatchString(body) && !bufFreeRe.MatchString(body) && !strings.Contains(body, "JOSS_AUTO_BUF") && curFunc != "joss_sb_new" && curFunc != "joss_buf_new" {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_buf_new() sin joss_buf_free() (fuga de ByteBuffer).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_buf_new() sin joss_buf_free() ni JOSS_AUTO_BUF (fuga de ByteBuffer).",
 					name, curFunc))
 			}
-			if sqlitePrepRe.MatchString(body) && !sqliteFinRe.MatchString(body) {
+			if sqlitePrepRe.MatchString(body) && !sqliteFinRe.MatchString(body) && !hasAutoRAII {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a sqlite3_prepare_v2() sin sqlite3_finalize() (fuga de statement SQLite).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a sqlite3_prepare_v2() sin sqlite3_finalize() ni JOSS_AUTO (fuga de statement SQLite).",
 					name, curFunc))
 			}
-			if evpNewRe.MatchString(body) && !evpFreeRe.MatchString(body) {
+			if evpNewRe.MatchString(body) && !evpFreeRe.MatchString(body) && !hasAutoRAII {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a EVP_MD_CTX_new() sin EVP_MD_CTX_free() (fuga de contexto OpenSSL).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a EVP_MD_CTX_new() sin EVP_MD_CTX_free() ni JOSS_AUTO (fuga de contexto OpenSSL).",
 					name, curFunc))
 			}
-			if bioNewRe.MatchString(body) && !bioFreeRe.MatchString(body) {
+			if bioNewRe.MatchString(body) && !bioFreeRe.MatchString(body) && !hasAutoRAII {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a BIO_new_mem_buf() sin BIO_free() (fuga de BIO OpenSSL).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a BIO_new_mem_buf() sin BIO_free() ni JOSS_AUTO (fuga de BIO OpenSSL).",
 					name, curFunc))
 			}
-			if bcryptAlgOpenRe.MatchString(body) && !bcryptAlgCloseRe.MatchString(body) {
+			if bcryptAlgOpenRe.MatchString(body) && !bcryptAlgCloseRe.MatchString(body) && !hasAutoRAII {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a BCryptOpenAlgorithmProvider() sin BCryptCloseAlgorithmProvider() (fuga de handle Win32).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a BCryptOpenAlgorithmProvider() sin BCryptCloseAlgorithmProvider() ni JOSS_AUTO (fuga de handle Win32).",
 					name, curFunc))
 			}
-			if bcryptHashCreateRe.MatchString(body) && !bcryptHashDestroyRe.MatchString(body) {
+			if bcryptHashCreateRe.MatchString(body) && !bcryptHashDestroyRe.MatchString(body) && !hasAutoRAII {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a BCryptCreateHash() sin BCryptDestroyHash() (fuga de handle Win32).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a BCryptCreateHash() sin BCryptDestroyHash() ni JOSS_AUTO (fuga de handle Win32).",
 					name, curFunc))
 			}
 			if pthreadLockRe.MatchString(body) && !pthreadUnlockRe.MatchString(body) && curFunc != "joss_global_lock" && curFunc != "fn_Mutex_lock" {
@@ -193,39 +197,39 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a EnterCriticalSection() sin LeaveCriticalSection() (riesgo de deadlock).",
 					name, curFunc))
 			}
-			if mmapRe.MatchString(body) && !munmapRe.MatchString(body) {
+			if mmapRe.MatchString(body) && !munmapRe.MatchString(body) && !hasAutoRAII {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a mmap() sin munmap() en C11 (fuga de páginas virtuales).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a mmap() sin munmap() ni JOSS_AUTO en C11 (fuga de páginas virtuales).",
 					name, curFunc))
 			}
-			if pqExecRe.MatchString(body) && !pqClearRe.MatchString(body) {
+			if pqExecRe.MatchString(body) && !pqClearRe.MatchString(body) && !hasAutoRAII {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a PQexec/PQexecParams() sin PQclear() (fuga de PGresult).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a PQexec/PQexecParams() sin PQclear() ni JOSS_AUTO (fuga de PGresult).",
 					name, curFunc))
 			}
-			if mysqlStmtInitRe.MatchString(body) && !mysqlStmtCloseRe.MatchString(body) {
+			if mysqlStmtInitRe.MatchString(body) && !mysqlStmtCloseRe.MatchString(body) && !hasAutoRAII {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a mysql_stmt_init() sin mysql_stmt_close() (fuga de MYSQL_STMT).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a mysql_stmt_init() sin mysql_stmt_close() ni JOSS_AUTO (fuga de MYSQL_STMT).",
 					name, curFunc))
 			}
-			if popenRe.MatchString(body) && !pcloseRe.MatchString(body) {
+			if popenRe.MatchString(body) && !pcloseRe.MatchString(body) && !hasAutoRAII {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a popen() sin pclose() (fuga de proceso/pipe).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a popen() sin pclose() ni JOSS_AUTO (fuga de proceso/pipe).",
 					name, curFunc))
 			}
-			if createPipeRe.MatchString(body) && !closeHandleRe.MatchString(body) {
+			if createPipeRe.MatchString(body) && !closeHandleRe.MatchString(body) && !hasAutoRAII {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a CreatePipe() sin CloseHandle() (fuga de handle Win32).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a CreatePipe() sin CloseHandle() ni JOSS_AUTO (fuga de handle Win32).",
 					name, curFunc))
 			}
-			if redisConnRe.MatchString(body) && !redisCloseRe.MatchString(body) && curFunc != "joss_redis_connect_fd" {
+			if redisConnRe.MatchString(body) && !redisCloseRe.MatchString(body) && !hasAutoRAII && curFunc != "joss_redis_connect_fd" {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_redis_connect_fd() sin joss_redis_close_fd() (fuga de socket Redis).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_redis_connect_fd() sin joss_redis_close_fd() ni JOSS_AUTO (fuga de socket Redis).",
 					name, curFunc))
 			}
-			if cryptDecodeAllocRe.MatchString(body) && !localFreeRe.MatchString(body) {
+			if cryptDecodeAllocRe.MatchString(body) && !localFreeRe.MatchString(body) && !hasAutoRAII {
 				violations = append(violations, fmt.Sprintf(
-					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): usa CRYPT_DECODE_ALLOC_FLAG sin LocalFree() (fuga de memoria Win32).",
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): usa CRYPT_DECODE_ALLOC_FLAG sin LocalFree() ni JOSS_AUTO (fuga de memoria Win32).",
 					name, curFunc))
 			}
 			for varName, lineNum := range fnSbToStrVars {

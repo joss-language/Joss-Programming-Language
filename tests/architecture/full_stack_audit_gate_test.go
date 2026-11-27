@@ -444,3 +444,41 @@ func TestArchitecture_LLVMExternalSymbolsExistInC11Runtime(t *testing.T) {
 		}
 	}
 }
+
+// TestArchitecture_ModularRuntimeAutoCleanupContract guarantees that:
+//  1. Every non-test .c, .inc, and .h module in runtime/native/ is registered
+//     in runtime/embed.go so no module is ever forgotten in standalone builds.
+//  2. The universal RAII header (joss_raii.h) is included by joss_rt.h and
+//     exposes all JOSS_AUTO_* macros for automatic scope-based cleanup.
+func TestArchitecture_ModularRuntimeAutoCleanupContract(t *testing.T) {
+	embedBytes, err := os.ReadFile(filepath.Join("..", "..", "runtime", "embed.go"))
+	if err != nil {
+		t.Fatalf("read runtime/embed.go: %v", err)
+	}
+	embedSrc := string(embedBytes)
+
+	rtDir := filepath.Join("..", "..", "runtime", "native")
+	entries, err := os.ReadDir(rtDir)
+	if err != nil {
+		t.Fatalf("read runtime/native: %v", err)
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || strings.HasSuffix(name, "_test.c") || strings.HasSuffix(name, ".go") {
+			continue
+		}
+		if strings.HasSuffix(name, ".c") || strings.HasSuffix(name, ".inc") || strings.HasSuffix(name, ".h") {
+			if !strings.Contains(embedSrc, `"`+name+`"`) {
+				t.Fatalf("BLOQUEADO [JOSS-MODULE-GATE] módulo nativo `%s` en runtime/native/ NO está registrado en runtime/embed.go — agrégalo para que viaje en binarios standalone.", name)
+			}
+		}
+	}
+
+	rtHBytes, err := os.ReadFile(filepath.Join(rtDir, "joss_rt.h"))
+	if err != nil {
+		t.Fatalf("read joss_rt.h: %v", err)
+	}
+	if !strings.Contains(string(rtHBytes), `#include "joss_raii.h"`) {
+		t.Fatalf("BLOQUEADO [JOSS-MODULE-GATE] runtime/native/joss_rt.h debe incluir joss_raii.h para garantizar limpieza automática RAII en todos los módulos.")
+	}
+}

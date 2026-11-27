@@ -301,6 +301,24 @@ int main(void) {
     assert(joss_recv(ch) == 42);
     assert(joss_recv(ch) == 0);
 
+    /* 14. Test Modular C11 RAII Auto-Cleanup (joss_raii.h) */
+    {
+        JOSS_AUTO_SB JossStringBuilder* auto_sb = joss_sb_new();
+        joss_sb_append(auto_sb, "raii_ok");
+        assert(strcmp((const char*)auto_sb->data, "raii_ok") == 0);
+        JOSS_AUTO_BUF JossByteBuffer* auto_buf = joss_buf_new(16);
+        joss_buf_append_byte(auto_buf, 'Z');
+        assert(joss_buf_len(auto_buf) == 1);
+        JOSS_AUTO_PTR char* auto_mem = (char*)malloc(32);
+        assert(auto_mem != NULL);
+        snprintf(auto_mem, 32, "auto_freed");
+        JOSS_AUTO_SCOPE JossOwnedScope* auto_sc = joss_owned_scope_begin();
+        char* scoped_s = joss_req_strdup("inside_raii_scope");
+        assert(strcmp(scoped_s, "inside_raii_scope") == 0);
+        joss_owned_scope_end(auto_sc);
+        /* All 4 resources automatically destroyed on closing brace! */
+    }
+
     printf("joss_rt_test: ALL PASSED\n");
     return 0;
 }

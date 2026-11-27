@@ -278,4 +278,6 @@ int64_t     fn_Cron_runDue(void);
 }
 #endif
 
+#include "joss_raii.h"
+
 #endif /* JOSS_RT_H */
