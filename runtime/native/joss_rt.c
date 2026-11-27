@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -595,6 +596,8 @@ void joss_req_arena_begin(void) {
     tls_req_active = true;
 }
 
+static void joss_memory_watchdog_tick(void);
+
 void joss_req_arena_reset(void) {
     for (size_t i = 0; i < tls_req_tracked.len; i++) {
         if (tls_req_tracked.items[i]) {
@@ -619,6 +622,7 @@ void joss_req_arena_reset(void) {
 #else
     (void)shrunk;
 #endif
+    joss_memory_watchdog_tick();
 }
 
 size_t joss_req_arena_bytes_used(void) {

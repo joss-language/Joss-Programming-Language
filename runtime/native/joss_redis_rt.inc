@@ -1,6 +1,14 @@
 ﻿/* =========================================================================
- * Native Redis Host Service (fn_Redis_*) â€” Pure C11 RESP2 TCP Client
+ * Native Redis Host Service (fn_Redis_*) — Pure C11 RESP2 TCP Client
  * ========================================================================= */
+static inline void joss_auto_redis_fd_cleanup(int* fd) {
+    if (fd && *fd >= 0) {
+        joss_redis_close_fd(*fd);
+        *fd = -1;
+    }
+}
+#define JOSS_AUTO_REDIS_FD JOSS_CLEANUP(joss_auto_redis_fd_cleanup)
+
 int64_t fn_Redis_connect(const char* addr_raw, const char* pass_raw, int64_t db) {
     const char* addr = unbox_web_cstr(addr_raw);
     const char* pass = unbox_web_cstr(pass_raw);
@@ -23,7 +31,7 @@ int64_t fn_Redis_set(const char* key_raw, int64_t val_raw, int64_t ttl_sec) {
     const char* val = joss_strval(val_raw);
     if (!key || !*key) return 0;
     if (!val) val = "";
-    int fd = joss_redis_connect_fd();
+    JOSS_AUTO_REDIS_FD int fd = joss_redis_connect_fd();
     if (fd < 0) return 0;
     int64_t ok = 0;
     if (joss_redis_auth_and_select(fd)) {
@@ -44,14 +52,13 @@ int64_t fn_Redis_set(const char* key_raw, int64_t val_raw, int64_t ttl_sec) {
             }
         }
     }
-    joss_redis_close_fd(fd);
     return ok;
 }
 
 const char* fn_Redis_get(const char* key_raw) {
     const char* key = unbox_web_cstr(key_raw);
     if (!key || !*key) return NULL;
-    int fd = joss_redis_connect_fd();
+    JOSS_AUTO_REDIS_FD int fd = joss_redis_connect_fd();
     if (fd < 0) return NULL;
     char* result = NULL;
     if (joss_redis_auth_and_select(fd)) {
@@ -84,14 +91,13 @@ const char* fn_Redis_get(const char* key_raw) {
             }
         }
     }
-    joss_redis_close_fd(fd);
     return result;
 }
 
 int64_t fn_Redis_del(const char* key_raw) {
     const char* key = unbox_web_cstr(key_raw);
     if (!key || !*key) return 0;
-    int fd = joss_redis_connect_fd();
+    JOSS_AUTO_REDIS_FD int fd = joss_redis_connect_fd();
     if (fd < 0) return 0;
     int64_t ok = 0;
     if (joss_redis_auth_and_select(fd)) {
@@ -103,7 +109,6 @@ int64_t fn_Redis_del(const char* key_raw) {
             ok = 1;
         }
     }
-    joss_redis_close_fd(fd);
     return ok;
 }
 
@@ -114,7 +119,7 @@ int64_t fn_Redis_forget(const char* key_raw) {
 int64_t fn_Redis_has(const char* key_raw) {
     const char* key = unbox_web_cstr(key_raw);
     if (!key || !*key) return 0;
-    int fd = joss_redis_connect_fd();
+    JOSS_AUTO_REDIS_FD int fd = joss_redis_connect_fd();
     if (fd < 0) return 0;
     int64_t exists = 0;
     if (joss_redis_auth_and_select(fd)) {
@@ -125,14 +130,13 @@ int64_t fn_Redis_has(const char* key_raw) {
             exists = (strtoll(line + 1, NULL, 10) > 0) ? 1 : 0;
         }
     }
-    joss_redis_close_fd(fd);
     return exists;
 }
 
 int64_t fn_Redis_ttl(const char* key_raw) {
     const char* key = unbox_web_cstr(key_raw);
     if (!key || !*key) return -1;
-    int fd = joss_redis_connect_fd();
+    JOSS_AUTO_REDIS_FD int fd = joss_redis_connect_fd();
     if (fd < 0) return -1;
     int64_t ttl = -1;
     if (joss_redis_auth_and_select(fd)) {
@@ -143,12 +147,11 @@ int64_t fn_Redis_ttl(const char* key_raw) {
             ttl = (int64_t)strtoll(line + 1, NULL, 10);
         }
     }
-    joss_redis_close_fd(fd);
     return ttl;
 }
 
 int64_t fn_Redis_flush(void) {
-    int fd = joss_redis_connect_fd();
+    JOSS_AUTO_REDIS_FD int fd = joss_redis_connect_fd();
     if (fd < 0) return 0;
     int64_t ok = 0;
     if (joss_redis_auth_and_select(fd)) {
@@ -159,7 +162,5 @@ int64_t fn_Redis_flush(void) {
             ok = 1;
         }
     }
-    joss_redis_close_fd(fd);
     return ok;
 }
-

@@ -116,6 +116,8 @@ static JossDBEngine detect_db_engine(void) {
  * 1. SQLite3 Native Driver
  * ========================================================================= */
 #if defined(JOSS_HAS_SQLITE3)
+JOSS_DEFINE_AUTO_CLEANUP(sqlite3_stmt*, joss_auto_sqlite_stmt, sqlite3_finalize)
+#define JOSS_AUTO_SQLITE_STMT JOSS_AUTO(joss_auto_sqlite_stmt)
 static sqlite3* g_joss_sqlite = NULL;
 static char     g_joss_sqlite_path[512] = {0};
 
@@ -159,7 +161,7 @@ static void* sqlite_query(const char* sql, void* bindings) {
     void* rows = joss_arr_new(4);
     sqlite3* db = joss_get_sqlite();
     if (!db || !sql) return rows;
-    sqlite3_stmt* stmt = NULL;
+    JOSS_AUTO_SQLITE_STMT sqlite3_stmt* stmt = NULL;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return rows;
     if (bindings) {
         int64_t n = joss_arr_len(bindings);
@@ -182,14 +184,13 @@ static void* sqlite_query(const char* sql, void* bindings) {
         }
         joss_arr_push_i64(rows, (int64_t)(uintptr_t)row);
     }
-    sqlite3_finalize(stmt);
     return rows;
 }
 
 static int64_t sqlite_execute(const char* sql, void* bindings) {
     sqlite3* db = joss_get_sqlite();
     if (!db || !sql) return 0;
-    sqlite3_stmt* stmt = NULL;
+    JOSS_AUTO_SQLITE_STMT sqlite3_stmt* stmt = NULL;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return 0;
     if (bindings) {
         int64_t n = joss_arr_len(bindings);
@@ -204,7 +205,6 @@ static int64_t sqlite_execute(const char* sql, void* bindings) {
         }
     }
     int rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
     if (rc != SQLITE_DONE && rc != SQLITE_ROW) return 0;
     int changes = sqlite3_changes(db);
     if (changes == 0 && db_strncasecmp_ascii(sql, "INSERT", 6) == 0) {
@@ -1101,6 +1101,8 @@ static void* sqlite_mem_query(const char* sql, void* bindings) {
  * 2. PostgreSQL Native Driver (libpq, parameterized $1..$N)
  * ========================================================================= */
 #if defined(JOSS_HAS_LIBPQ)
+JOSS_DEFINE_AUTO_CLEANUP(PGresult*, joss_auto_pg_res, PQclear)
+#define JOSS_AUTO_PG_RES JOSS_AUTO(joss_auto_pg_res)
 static PGconn* g_joss_pg = NULL;
 
 static PGconn* joss_get_pg(void) {
@@ -1148,20 +1150,18 @@ static void* pg_query(const char* sql, void* bindings) {
     void* rows = joss_arr_new(4);
     PGconn* conn = joss_get_pg();
     if (!conn || !sql) return rows;
-    char* pg_sql = rewrite_pg_placeholders(sql);
+    JOSS_AUTO_PTR char* pg_sql = rewrite_pg_placeholders(sql);
     int nParams = bindings ? (int)joss_arr_len(bindings) : 0;
-    const char** paramValues = nParams > 0 ? (const char**)calloc((size_t)nParams, sizeof(char*)) : NULL;
+    JOSS_AUTO_PTR const char** paramValues = nParams > 0 ? (const char**)calloc((size_t)nParams, sizeof(char*)) : NULL;
     for (int i = 0; i < nParams; i++) {
         paramValues[i] = joss_strval(joss_arr_get_i64(bindings, i));
     }
-    PGresult* res = PQexecParams(conn, pg_sql, nParams, NULL, paramValues, NULL, NULL, 0);
+    JOSS_AUTO_PG_RES PGresult* res = PQexecParams(conn, pg_sql, nParams, NULL, paramValues, NULL, NULL, 0);
     if ((!res || PQresultStatus(res) != PGRES_TUPLES_OK) && PQstatus(conn) != CONNECTION_OK) {
-        if (res) PQclear(res);
+        if (res) { PQclear(res); res = NULL; }
         conn = joss_get_pg();
         res = conn ? PQexecParams(conn, pg_sql, nParams, NULL, paramValues, NULL, NULL, 0) : NULL;
     }
-    free(paramValues);
-    free(pg_sql);
     if (!res) return rows;
     if (PQresultStatus(res) == PGRES_TUPLES_OK) {
         int nrows = PQntuples(res);
@@ -1180,34 +1180,30 @@ static void* pg_query(const char* sql, void* bindings) {
             joss_arr_push_i64(rows, (int64_t)(uintptr_t)row);
         }
     }
-    PQclear(res);
     return rows;
 }
 
 static int64_t pg_execute(const char* sql, void* bindings) {
     PGconn* conn = joss_get_pg();
     if (!conn || !sql) return 0;
-    char* pg_sql = rewrite_pg_placeholders(sql);
+    JOSS_AUTO_PTR char* pg_sql = rewrite_pg_placeholders(sql);
     int nParams = bindings ? (int)joss_arr_len(bindings) : 0;
-    const char** paramValues = nParams > 0 ? (const char**)calloc((size_t)nParams, sizeof(char*)) : NULL;
+    JOSS_AUTO_PTR const char** paramValues = nParams > 0 ? (const char**)calloc((size_t)nParams, sizeof(char*)) : NULL;
     for (int i = 0; i < nParams; i++) {
         paramValues[i] = joss_strval(joss_arr_get_i64(bindings, i));
     }
-    PGresult* res = PQexecParams(conn, pg_sql, nParams, NULL, paramValues, NULL, NULL, 0);
+    JOSS_AUTO_PG_RES PGresult* res = PQexecParams(conn, pg_sql, nParams, NULL, paramValues, NULL, NULL, 0);
     if ((!res || (PQresultStatus(res) != PGRES_COMMAND_OK && PQresultStatus(res) != PGRES_TUPLES_OK)) && PQstatus(conn) != CONNECTION_OK) {
-        if (res) PQclear(res);
+        if (res) { PQclear(res); res = NULL; }
         conn = joss_get_pg();
         res = conn ? PQexecParams(conn, pg_sql, nParams, NULL, paramValues, NULL, NULL, 0) : NULL;
     }
-    free(paramValues);
-    free(pg_sql);
     if (!res) return 0;
     int64_t affected = 0;
     if (PQresultStatus(res) == PGRES_COMMAND_OK || PQresultStatus(res) == PGRES_TUPLES_OK) {
         const char* tuples = PQcmdTuples(res);
         affected = (tuples && *tuples) ? strtoll(tuples, NULL, 10) : 1;
     }
-    PQclear(res);
     return affected;
 }
 #endif
@@ -1216,6 +1212,10 @@ static int64_t pg_execute(const char* sql, void* bindings) {
  * 3. MySQL / MariaDB Native Driver (libmysqlclient / libmariadb)
  * ========================================================================= */
 #if defined(JOSS_HAS_MYSQL)
+JOSS_DEFINE_AUTO_CLEANUP(MYSQL_STMT*, joss_auto_mysql_stmt, mysql_stmt_close)
+#define JOSS_AUTO_MYSQL_STMT JOSS_AUTO(joss_auto_mysql_stmt)
+JOSS_DEFINE_AUTO_CLEANUP(MYSQL_RES*, joss_auto_mysql_res, mysql_free_result)
+#define JOSS_AUTO_MYSQL_RES JOSS_AUTO(joss_auto_mysql_res)
 static MYSQL* g_joss_mysql = NULL;
 
 static MYSQL* joss_get_mysql(void) {
@@ -1244,15 +1244,14 @@ static void* mysql_query_native(const char* sql, void* bindings) {
     void* rows = joss_arr_new(4);
     MYSQL* conn = joss_get_mysql();
     if (!conn || !sql) return rows;
-    MYSQL_STMT* stmt = mysql_stmt_init(conn);
+    JOSS_AUTO_MYSQL_STMT MYSQL_STMT* stmt = mysql_stmt_init(conn);
     if (!stmt) return rows;
     if (mysql_stmt_prepare(stmt, sql, (unsigned long)strlen(sql)) != 0) {
-        mysql_stmt_close(stmt);
         return rows;
     }
     int64_t nParams = bindings ? joss_arr_len(bindings) : 0;
-    MYSQL_BIND* params = NULL;
-    unsigned long* lengths = NULL;
+    JOSS_AUTO_PTR MYSQL_BIND* params = NULL;
+    JOSS_AUTO_PTR unsigned long* lengths = NULL;
     if (nParams > 0) {
         params = (MYSQL_BIND*)calloc((size_t)nParams, sizeof(MYSQL_BIND));
         lengths = (unsigned long*)calloc((size_t)nParams, sizeof(unsigned long));
@@ -1267,14 +1266,14 @@ static void* mysql_query_native(const char* sql, void* bindings) {
         mysql_stmt_bind_param(stmt, params);
     }
     if (mysql_stmt_execute(stmt) == 0) {
-        MYSQL_RES* meta = mysql_stmt_result_metadata(stmt);
+        JOSS_AUTO_MYSQL_RES MYSQL_RES* meta = mysql_stmt_result_metadata(stmt);
         if (meta) {
             unsigned int ncols = mysql_num_fields(meta);
             MYSQL_FIELD* fields = mysql_fetch_fields(meta);
-            MYSQL_BIND* resBinds = (MYSQL_BIND*)calloc(ncols, sizeof(MYSQL_BIND));
-            char** bufs = (char**)calloc(ncols, sizeof(char*));
-            unsigned long* resLens = (unsigned long*)calloc(ncols, sizeof(unsigned long));
-            joss_mysql_bool_t* resNulls = (joss_mysql_bool_t*)calloc(ncols, sizeof(joss_mysql_bool_t));
+            JOSS_AUTO_PTR MYSQL_BIND* resBinds = (MYSQL_BIND*)calloc(ncols, sizeof(MYSQL_BIND));
+            JOSS_AUTO_PTR char** bufs = (char**)calloc(ncols, sizeof(char*));
+            JOSS_AUTO_PTR unsigned long* resLens = (unsigned long*)calloc(ncols, sizeof(unsigned long));
+            JOSS_AUTO_PTR joss_mysql_bool_t* resNulls = (joss_mysql_bool_t*)calloc(ncols, sizeof(joss_mysql_bool_t));
             for (unsigned int c = 0; c < ncols; c++) {
                 bufs[c] = (char*)calloc(1, 4096);
                 resBinds[c].buffer_type = MYSQL_TYPE_STRING;
@@ -1297,31 +1296,22 @@ static void* mysql_query_native(const char* sql, void* bindings) {
                 joss_arr_push_i64(rows, (int64_t)(uintptr_t)row);
             }
             for (unsigned int c = 0; c < ncols; c++) free(bufs[c]);
-            free(bufs);
-            free(resLens);
-            free(resNulls);
-            free(resBinds);
-            mysql_free_result(meta);
         }
     }
-    free(params);
-    free(lengths);
-    mysql_stmt_close(stmt);
     return rows;
 }
 
 static int64_t mysql_execute_native(const char* sql, void* bindings) {
     MYSQL* conn = joss_get_mysql();
     if (!conn || !sql) return 0;
-    MYSQL_STMT* stmt = mysql_stmt_init(conn);
+    JOSS_AUTO_MYSQL_STMT MYSQL_STMT* stmt = mysql_stmt_init(conn);
     if (!stmt) return 0;
     if (mysql_stmt_prepare(stmt, sql, (unsigned long)strlen(sql)) != 0) {
-        mysql_stmt_close(stmt);
         return 0;
     }
     int64_t nParams = bindings ? joss_arr_len(bindings) : 0;
-    MYSQL_BIND* params = NULL;
-    unsigned long* lengths = NULL;
+    JOSS_AUTO_PTR MYSQL_BIND* params = NULL;
+    JOSS_AUTO_PTR unsigned long* lengths = NULL;
     if (nParams > 0) {
         params = (MYSQL_BIND*)calloc((size_t)nParams, sizeof(MYSQL_BIND));
         lengths = (unsigned long*)calloc((size_t)nParams, sizeof(unsigned long));
@@ -1343,9 +1333,6 @@ static int64_t mysql_execute_native(const char* sql, void* bindings) {
             if (lid > 0) affected = lid;
         }
     }
-    free(params);
-    free(lengths);
-    mysql_stmt_close(stmt);
     return affected;
 }
 #endif
@@ -1899,7 +1886,7 @@ static void* joss_model_db_query(const char* sql, void* bindings) {
         joss_global_lock(JOSS_LOCK_DB);
         sqlite3* db = joss_get_sqlite();
         if (!db || !sql) { joss_global_unlock(JOSS_LOCK_DB); return rows; }
-        sqlite3_stmt* stmt = NULL;
+        JOSS_AUTO_SQLITE_STMT sqlite3_stmt* stmt = NULL;
         if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
             joss_global_unlock(JOSS_LOCK_DB);
             return rows;
@@ -1937,6 +1924,7 @@ static void* joss_model_db_query(const char* sql, void* bindings) {
             joss_arr_push_i64(rows, (int64_t)(uintptr_t)row);
         }
         sqlite3_finalize(stmt);
+        stmt = NULL;
         joss_global_unlock(JOSS_LOCK_DB);
         return rows;
     }

@@ -1,0 +1,14 @@
+#!/bin/sh
+# Joss Pre-Commit Memory & Architecture Safety Hook
+# Enable once with: git config core.hooksPath .githooks
+
+echo "[Joss Pre-Commit] Ejecutando auditoría estática C11 / Go / Joss / RAII..."
+go test ./tests/architecture
+rc=$?
+if [ $rc -ne 0 ]; then
+  echo ""
+  echo "BLOQUEADO: La auditoría de memoria/seguridad/RAII falló. Corrige las violaciones antes de hacer commit."
+  exit $rc
+fi
+echo "[Joss Pre-Commit] OK (0 violaciones)."
+exit 0

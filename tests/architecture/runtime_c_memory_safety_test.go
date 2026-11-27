@@ -127,9 +127,7 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 				return
 			}
 			body := strings.Join(fnBodyLines, "\n")
-			hasAutoRAII := strings.Contains(body, "JOSS_AUTO(") || strings.Contains(body, "JOSS_AUTO_SB") ||
-				strings.Contains(body, "JOSS_AUTO_BUF") || strings.Contains(body, "JOSS_AUTO_FILE") ||
-				strings.Contains(body, "JOSS_AUTO_SCOPE") || strings.Contains(body, "JOSS_AUTO_PTR")
+			hasAutoRAII := strings.Contains(body, "JOSS_AUTO(") || strings.Contains(body, "JOSS_AUTO_")
 
 			if fnHasSbNew && !fnHasSbFree && !strings.Contains(body, "JOSS_AUTO_SB") && curFunc != "joss_sb_new" {
 				violations = append(violations, fmt.Sprintf(

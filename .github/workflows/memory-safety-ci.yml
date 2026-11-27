@@ -1,0 +1,64 @@
+name: Memory Safety & Sanitizers CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Weekly soak & sanitizer verification (Mondays at 04:00 UTC)
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+jobs:
+  c11-sanitizers:
+    name: C11 ASan + LSan + UBSan + TSan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install C11 runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libsqlite3-dev libssl-dev
+
+      - name: Run joss_rt_test under ASan + LSan + UBSan (-Wall -Wextra -Werror)
+        run: |
+          clang -Wall -Wextra -Werror -O1 -g \
+            -fsanitize=address,leak,undefined -fno-omit-frame-pointer \
+            runtime/native/joss_rt.c runtime/native/joss_web_rt.c \
+            runtime/native/joss_concurrency_rt.c runtime/native/joss_db_rt.c \
+            runtime/native/joss_crypto_rt.c runtime/native/joss_rt_test.c \
+            -lsqlite3 -lcrypto -pthread -o /tmp/joss_rt_asan
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 /tmp/joss_rt_asan
+
+      - name: Run joss_rt_test under ThreadSanitizer (TSan)
+        run: |
+          clang -Wall -Wextra -Werror -O1 -g \
+            -fsanitize=thread -fno-omit-frame-pointer \
+            runtime/native/joss_rt.c runtime/native/joss_web_rt.c \
+            runtime/native/joss_concurrency_rt.c runtime/native/joss_db_rt.c \
+            runtime/native/joss_crypto_rt.c runtime/native/joss_rt_test.c \
+            -lsqlite3 -lcrypto -pthread -o /tmp/joss_rt_tsan
+          TSAN_OPTIONS=halt_on_error=1 /tmp/joss_rt_tsan
+
+  static-gates-and-native-guard:
+    name: Static C11/Go/Joss/RAII Gates & Native Memory Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Clang + SQLite + OpenSSL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld libsqlite3-dev libssl-dev
+
+      - name: Run all 15 Architecture, C11, Go, Joss Stdlib & Strict RAII Gates
+        run: go test -v ./tests/architecture
+
+      - name: Run Native Memory::* Diagnostics & Leak Growth Guard
+        run: go test -v ./tests/native -run "TestNative_MemoryDiagnosticsAndLeakGuard|TestPureC11"

@@ -222,3 +222,52 @@ int64_t fn_Memory_checkGrowth(void* before_map, int64_t max_delta_bytes, const c
     return 1;
 }
 
+/* Built-in Automatic Server Memory Watchdog (ALWAYS active with safe defaults).
+ * Developers may override via env:
+ *   MEMORY_AUTO_TRIM_MB (default: 128 MB; 0 disables auto-trim)
+ *   MEMORY_WARN_MB      (default: 256 MB; 0 disables warning log)
+ */
+static int64_t joss_parse_mem_env_mb(const char* name, int64_t default_mb) {
+    const char* raw = getenv(name);
+    if (!raw || !raw[0]) return default_mb;
+    char* endp = NULL;
+    long long v = strtoll(raw, &endp, 10);
+    if (endp == raw || v < 0) return default_mb;
+    return (int64_t)v;
+}
+
+static void joss_memory_watchdog_tick(void) {
+    static _Atomic(uint64_t) s_wd_ticks = 0;
+    static _Atomic(int64_t)  s_wd_last_warn_sec = 0;
+    uint64_t tick = atomic_fetch_add_explicit(&s_wd_ticks, 1ULL, memory_order_relaxed) + 1ULL;
+    if ((tick & 255ULL) != 0ULL) return;
+
+    int64_t trim_mb = joss_parse_mem_env_mb("MEMORY_AUTO_TRIM_MB", 128);
+    int64_t warn_mb = joss_parse_mem_env_mb("MEMORY_WARN_MB", 256);
+    if (trim_mb <= 0 && warn_mb <= 0) return;
+
+    int64_t rss = fn_Memory_rss();
+    if (rss <= 0) return;
+
+    if (trim_mb > 0 && rss >= trim_mb * 1024LL * 1024LL) {
+        (void)fn_Memory_trim();
+        rss = fn_Memory_rss();
+    }
+    if (warn_mb > 0 && rss >= warn_mb * 1024LL * 1024LL) {
+        int64_t now_s = (int64_t)time(NULL);
+        int64_t prev_s = atomic_load_explicit(&s_wd_last_warn_sec, memory_order_relaxed);
+        if (now_s - prev_s >= 30 &&
+            atomic_compare_exchange_strong_explicit(&s_wd_last_warn_sec, &prev_s, now_s,
+                                                    memory_order_acq_rel, memory_order_relaxed)) {
+            fprintf(stderr,
+                    "Advertencia \xE2\x9A\xA0\xEF\xB8\x8F se ha detectado falla en la memoria (Server Watchdog) en "
+                    "[RSS: %.2f MB | Umbral: %lld MB | Arena: %.2f KB], "
+                    "se est\xC3\xA1 detectando un crecimiento.\n",
+                    (double)rss / (1024.0 * 1024.0),
+                    (long long)warn_mb,
+                    (double)joss_req_arena_bytes_used() / 1024.0);
+            fflush(stderr);
+        }
+    }
+}
+

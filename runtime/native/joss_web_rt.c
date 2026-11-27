@@ -5816,6 +5816,12 @@ const char* joss_sha256_base64(const char* s) {
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
+JOSS_DEFINE_AUTO_CLEANUP(BIO*, joss_auto_bio, BIO_free)
+JOSS_DEFINE_AUTO_CLEANUP(EVP_PKEY*, joss_auto_evp_pkey, EVP_PKEY_free)
+JOSS_DEFINE_AUTO_CLEANUP(EVP_MD_CTX*, joss_auto_evp_ctx, EVP_MD_CTX_free)
+#define JOSS_AUTO_BIO      JOSS_AUTO(joss_auto_bio)
+#define JOSS_AUTO_EVP_PKEY JOSS_AUTO(joss_auto_evp_pkey)
+#define JOSS_AUTO_EVP_CTX  JOSS_AUTO(joss_auto_evp_ctx)
 #endif
 #endif
 
@@ -6144,19 +6150,18 @@ const char* joss_rsa_sign_sha256(const char* data, const char* priv_key) {
     priv_key = unbox_web_cstr(priv_key);
     if (!data || !priv_key || !*priv_key) return "";
 #ifdef JOSS_HAS_OPENSSL_SIGN
-    BIO* bio = BIO_new_mem_buf(priv_key, -1);
+    JOSS_AUTO_BIO BIO* bio = BIO_new_mem_buf(priv_key, -1);
     if (!bio) return "";
-    EVP_PKEY* pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
-    BIO_free(bio);
+    JOSS_AUTO_EVP_PKEY EVP_PKEY* pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
     if (!pkey) return "";
-    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-    if (!ctx) { EVP_PKEY_free(pkey); return ""; }
+    JOSS_AUTO_EVP_CTX EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx) return "";
     size_t sig_len = 0;
     char* b64_out = NULL;
     if (EVP_DigestSignInit(ctx, NULL, EVP_sha256(), NULL, pkey) == 1 &&
         EVP_DigestSignUpdate(ctx, data, strlen(data)) == 1 &&
         EVP_DigestSignFinal(ctx, NULL, &sig_len) == 1 && sig_len > 0) {
-        unsigned char* sig = (unsigned char*)malloc(sig_len);
+        JOSS_AUTO_PTR unsigned char* sig = (unsigned char*)malloc(sig_len);
         if (sig && EVP_DigestSignFinal(ctx, sig, &sig_len) == 1) {
             size_t b64_len = ((sig_len + 2) / 3) * 4 + 1;
             b64_out = (char*)joss_req_alloc(b64_len);
@@ -6165,10 +6170,7 @@ const char* joss_rsa_sign_sha256(const char* data, const char* priv_key) {
                 b64_out[out_n >= 0 ? out_n : 0] = '\0';
             }
         }
-        free(sig);
     }
-    EVP_MD_CTX_free(ctx);
-    EVP_PKEY_free(pkey);
     return b64_out ? b64_out : "";
 #elif defined(_WIN32)
     DWORD der_len = 0;
