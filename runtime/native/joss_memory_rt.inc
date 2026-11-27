@@ -53,11 +53,10 @@ int64_t fn_Memory_rss(void) {
     }
     return 0;
 #elif defined(__unix__)
-    FILE* f = fopen("/proc/self/statm", "r");
+    JOSS_AUTO_FILE FILE* f = fopen("/proc/self/statm", "r");
     if (!f) return 0;
     unsigned long long size_pages = 0, rss_pages = 0;
     int matched = fscanf(f, "%llu %llu", &size_pages, &rss_pages);
-    fclose(f);
     if (matched == 2) {
         long page_sz = sysconf(_SC_PAGESIZE);
         if (page_sz <= 0) page_sz = 4096;
