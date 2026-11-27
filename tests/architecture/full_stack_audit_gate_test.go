@@ -85,9 +85,86 @@ func auditGoFunc(fset *token.FileSet, file, fnName string, body *ast.BlockStmt, 
 		hasNewTicker   bool
 		tickerLine     int
 		hasTickerStop  bool
+		hasFileOpen    bool
+		fileOpenLine   int
+		hasClose       bool
+		returnsFile    bool
 		cancelVars     = map[string]int{}
 		usedCancelVars = map[string]bool{}
 	)
+
+	// Check for `defer` inside loops (defers accumulate until function exit -> FD/RAM leak)
+	// and `regexp.Compile` / `regexp.MustCompile` inside loops.
+	var walkLoop func(node ast.Node, inLoop bool)
+	walkLoop = func(node ast.Node, inLoop bool) {
+		if node == nil {
+			return
+		}
+		switch n := node.(type) {
+		case *ast.ForStmt:
+			ast.Inspect(n.Body, func(c ast.Node) bool {
+				if _, ok := c.(*ast.FuncLit); ok {
+					return false
+				}
+				if d, ok := c.(*ast.DeferStmt); ok {
+					pos := fset.Position(d.Pos())
+					*violations = append(*violations, fmt.Sprintf(
+						"BLOQUEADO [JOSS-GO-GATE] %s:%d (%s): `defer` dentro de un bucle `for` (acumula recursos/memoria hasta salir de la función).",
+						file, pos.Line, fnName))
+				}
+				if call, ok := c.(*ast.CallExpr); ok {
+					if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
+						if pkgID, ok := sel.X.(*ast.Ident); ok && pkgID.Name == "regexp" &&
+							(sel.Sel.Name == "MustCompile" || sel.Sel.Name == "Compile") {
+							pos := fset.Position(call.Pos())
+							*violations = append(*violations, fmt.Sprintf(
+								"BLOQUEADO [JOSS-GO-GATE] %s:%d (%s): regexp.%s() dentro de un bucle `for` (compílalo fuera del bucle).",
+								file, pos.Line, fnName, sel.Sel.Name))
+						}
+					}
+				}
+				return true
+			})
+			return
+		case *ast.RangeStmt:
+			ast.Inspect(n.Body, func(c ast.Node) bool {
+				if _, ok := c.(*ast.FuncLit); ok {
+					return false
+				}
+				if d, ok := c.(*ast.DeferStmt); ok {
+					pos := fset.Position(d.Pos())
+					*violations = append(*violations, fmt.Sprintf(
+						"BLOQUEADO [JOSS-GO-GATE] %s:%d (%s): `defer` dentro de un bucle `for range` (acumula recursos/memoria hasta salir de la función).",
+						file, pos.Line, fnName))
+				}
+				if call, ok := c.(*ast.CallExpr); ok {
+					if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
+						if pkgID, ok := sel.X.(*ast.Ident); ok && pkgID.Name == "regexp" &&
+							(sel.Sel.Name == "MustCompile" || sel.Sel.Name == "Compile") {
+							pos := fset.Position(call.Pos())
+							*violations = append(*violations, fmt.Sprintf(
+								"BLOQUEADO [JOSS-GO-GATE] %s:%d (%s): regexp.%s() dentro de un bucle `for range` (compílalo fuera del bucle).",
+								file, pos.Line, fnName, sel.Sel.Name))
+						}
+					}
+				}
+				return true
+			})
+			return
+		}
+		ast.Inspect(node, func(c ast.Node) bool {
+			if c == node {
+				return true
+			}
+			switch c.(type) {
+			case *ast.ForStmt, *ast.RangeStmt:
+				walkLoop(c, true)
+				return false
+			}
+			return true
+		})
+	}
+	walkLoop(body, false)
 
 	ast.Inspect(body, func(n ast.Node) bool {
 		switch node := n.(type) {
@@ -161,14 +238,31 @@ func auditGoFunc(fset *token.FileSet, file, fnName string, body *ast.BlockStmt, 
 						hasNewTicker = true
 						tickerLine = fset.Position(node.Pos()).Line
 					}
+					if pkgID.Name == "os" && (sel.Sel.Name == "Open" || sel.Sel.Name == "Create" || sel.Sel.Name == "OpenFile") {
+						hasFileOpen = true
+						fileOpenLine = fset.Position(node.Pos()).Line
+					}
 				}
 				if sel.Sel.Name == "Close" {
+					hasClose = true
 					if inner, ok := sel.X.(*ast.SelectorExpr); ok && inner.Sel.Name == "Body" {
 						hasBodyClose = true
 					}
 				}
 				if sel.Sel.Name == "Stop" {
 					hasTickerStop = true
+				}
+			}
+		}
+		return true
+	})
+
+	// Allow helper functions that intentionally return an opened *os.File
+	ast.Inspect(body, func(n ast.Node) bool {
+		if ret, ok := n.(*ast.ReturnStmt); ok && len(ret.Results) > 0 {
+			for _, r := range ret.Results {
+				if id, ok := r.(*ast.Ident); ok && (id.Name == "f" || id.Name == "file" || id.Name == "out") {
+					returnsFile = true
 				}
 			}
 		}
@@ -184,6 +278,11 @@ func auditGoFunc(fset *token.FileSet, file, fnName string, body *ast.BlockStmt, 
 		*violations = append(*violations, fmt.Sprintf(
 			"BLOQUEADO [JOSS-GO-GATE] %s:%d (%s): `time.NewTicker` sin `ticker.Stop()` en la misma función (fuga de goroutine/timer).",
 			file, tickerLine, fnName))
+	}
+	if hasFileOpen && !hasClose && !returnsFile && fnName != "InitLogger" {
+		*violations = append(*violations, fmt.Sprintf(
+			"BLOQUEADO [JOSS-GO-GATE] %s:%d (%s): `os.Open/Create/OpenFile` sin `.Close()` en la misma función (fuga de descriptor de archivo).",
+			file, fileOpenLine, fnName))
 	}
 	for cname, line := range cancelVars {
 		if !usedCancelVars[cname] {

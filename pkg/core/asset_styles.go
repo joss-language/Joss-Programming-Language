@@ -27,6 +27,8 @@ func CompileStyles() {
 	compileStyles()
 }
 
+var reSCSSVarDecl = regexp.MustCompile(`(\$[a-zA-Z0-9_-]+):\s*(.+?);`)
+
 func compileStyles() {
 	files, _ := filepath.Glob("assets/css/*.scss")
 	if len(files) == 0 {
@@ -48,7 +50,7 @@ func compileStyles() {
 
 		// 1. Extract Variables
 		vars := make(map[string]string)
-		reVar := regexp.MustCompile(`(\$[a-zA-Z0-9_-]+):\s*(.+?);`)
+		reVar := reSCSSVarDecl
 		content = reVar.ReplaceAllStringFunc(content, func(match string) string {
 			parts := reVar.FindStringSubmatch(match)
 			vars[parts[1]] = parts[2]

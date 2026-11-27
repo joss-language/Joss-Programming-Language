@@ -4,9 +4,25 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/jossecurity/joss/pkg/parser"
 )
+
+var (
+	reRouteParamToken      = regexp.MustCompile(`\{[a-zA-Z0-9_]+\}`)
+	dynamicRouteRegexCache sync.Map
+)
+
+func matchDynamicRouteRegex(routePath, path string) []string {
+	if cached, ok := dynamicRouteRegexCache.Load(routePath); ok {
+		return cached.(*regexp.Regexp).FindStringSubmatch(path)
+	}
+	regexPath := "^" + reRouteParamToken.ReplaceAllString(routePath, "([^/]+)") + "$"
+	re := regexp.MustCompile(regexPath)
+	dynamicRouteRegexCache.Store(routePath, re)
+	return re.FindStringSubmatch(path)
+}
 
 // Dispatch handles HTTP requests based on defined routes
 func (r *Runtime) Dispatch(method, path string, reqData, sessData map[string]interface{}) (interface{}, error) {
@@ -41,10 +57,7 @@ func (r *Runtime) Dispatch(method, path string, reqData, sessData map[string]int
 	if handler == nil && r.Routes[method] != nil {
 		for routePath, routeVal := range r.Routes[method] {
 			if strings.Contains(routePath, "{") {
-				// Regex matching (simplified)
-				regexPath := "^" + regexp.MustCompile(`\{[a-zA-Z0-9_]+\}`).ReplaceAllString(routePath, "([^/]+)") + "$"
-				re := regexp.MustCompile(regexPath)
-				matches := re.FindStringSubmatch(path)
+				matches := matchDynamicRouteRegex(routePath, path)
 
 				if len(matches) > 0 {
 					if routeInfo, ok := routeVal.(map[string]interface{}); ok {
@@ -249,9 +262,7 @@ func (r *Runtime) Dispatch(method, path string, reqData, sessData map[string]int
 							if strings.Contains(path, "/") {
 								for routePath := range r.Routes[method] {
 									if strings.Contains(routePath, "{") {
-										regexPath := "^" + regexp.MustCompile(`\{[a-zA-Z0-9_]+\}`).ReplaceAllString(routePath, "([^/]+)") + "$"
-										re := regexp.MustCompile(regexPath)
-										matches := re.FindStringSubmatch(path)
+										matches := matchDynamicRouteRegex(routePath, path)
 										if len(matches) > 1 {
 											for _, param := range matches[1:] {
 												args = append(args, param)
@@ -343,9 +354,7 @@ func (r *Runtime) extractRouteParams(method, path string) []interface{} {
 		if !strings.Contains(routePath, "{") {
 			continue
 		}
-		regexPath := "^" + regexp.MustCompile(`\{[a-zA-Z0-9_]+\}`).ReplaceAllString(routePath, "([^/]+)") + "$"
-		re := regexp.MustCompile(regexPath)
-		matches := re.FindStringSubmatch(path)
+		matches := matchDynamicRouteRegex(routePath, path)
 		if len(matches) > 1 {
 			for _, param := range matches[1:] {
 				args = append(args, param)

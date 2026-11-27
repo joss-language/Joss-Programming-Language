@@ -239,12 +239,18 @@ func (a *Analyzer) analyzeClassBody(classNode *parser.ClassStatement, global *sc
 	a.currentClass = classNode.Name.Value
 	defer func() { a.currentClass = previousClass }()
 
+	addedClassTypeParams := make([]string, 0, len(classNode.TypeParameters))
 	for _, tp := range classNode.TypeParameters {
 		if tp != nil {
 			a.currentTypeParams[tp.Value] = true
-			defer delete(a.currentTypeParams, tp.Value)
+			addedClassTypeParams = append(addedClassTypeParams, tp.Value)
 		}
 	}
+	defer func() {
+		for _, name := range addedClassTypeParams {
+			delete(a.currentTypeParams, name)
+		}
+	}()
 
 	classScope := newScope(global)
 	classScope.put(&symbol{Name: "this", Type: typesystem.Type{Kind: typesystem.Class, Name: classNode.Name.Value}, Kind: symbolImplicit, Used: true, Synthetic: true})
@@ -255,15 +261,19 @@ func (a *Analyzer) analyzeClassBody(classNode *parser.ClassStatement, global *sc
 		switch node := member.(type) {
 		case *parser.MethodStatement:
 			a.warnMissingNamedReturn(node)
+			addedMethodTypeParams := make([]string, 0, len(node.TypeParameters))
 			for _, tp := range node.TypeParameters {
-				if tp != nil {
+				if tp != nil && !a.currentTypeParams[tp.Value] {
 					a.currentTypeParams[tp.Value] = true
-					defer delete(a.currentTypeParams, tp.Value)
+					addedMethodTypeParams = append(addedMethodTypeParams, tp.Value)
 				}
 			}
 			returnType := typeFromToken(node.ReturnType)
 			a.validateDeclaredType(returnType, node.ReturnType, "return annotation")
 			a.analyzeCallable(node.Parameters, node.Body, classScope, classNode.Name.Value, returnType, node.Name.Value == "Init")
+			for _, name := range addedMethodTypeParams {
+				delete(a.currentTypeParams, name)
+			}
 		case *parser.InitStatement:
 			a.analyzeCallable(node.Parameters, node.Body, classScope, classNode.Name.Value, typesystem.Type{Kind: typesystem.Unknown}, true)
 		case *parser.LetStatement:

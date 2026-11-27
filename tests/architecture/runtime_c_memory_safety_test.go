@@ -42,6 +42,24 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 	arenaResumeRe := regexp.MustCompile(`\bjoss_req_arena_resume\s*\(`)
 	scopeBeginRe := regexp.MustCompile(`\bjoss_owned_scope_begin\s*\(`)
 	scopeEndRe := regexp.MustCompile(`\bjoss_owned_scope_end\s*\(`)
+	bufNewRe := regexp.MustCompile(`\bjoss_buf_new\s*\(`)
+	bufFreeRe := regexp.MustCompile(`\bjoss_buf_free\s*\(`)
+	sqlitePrepRe := regexp.MustCompile(`\bsqlite3_prepare_v2\s*\(`)
+	sqliteFinRe := regexp.MustCompile(`\bsqlite3_finalize\s*\(`)
+	evpNewRe := regexp.MustCompile(`\bEVP_MD_CTX_new\s*\(`)
+	evpFreeRe := regexp.MustCompile(`\bEVP_MD_CTX_free\s*\(`)
+	bioNewRe := regexp.MustCompile(`\bBIO_new_mem_buf\s*\(`)
+	bioFreeRe := regexp.MustCompile(`\bBIO_free\s*\(`)
+	bcryptAlgOpenRe := regexp.MustCompile(`\bBCryptOpenAlgorithmProvider\s*\(`)
+	bcryptAlgCloseRe := regexp.MustCompile(`\bBCryptCloseAlgorithmProvider\s*\(`)
+	bcryptHashCreateRe := regexp.MustCompile(`\bBCryptCreateHash\s*\(`)
+	bcryptHashDestroyRe := regexp.MustCompile(`\bBCryptDestroyHash\s*\(`)
+	pthreadLockRe := regexp.MustCompile(`\bpthread_mutex_lock\s*\(`)
+	pthreadUnlockRe := regexp.MustCompile(`\bpthread_mutex_unlock\s*\(`)
+	winLockRe := regexp.MustCompile(`\bEnterCriticalSection\s*\(`)
+	winUnlockRe := regexp.MustCompile(`\bLeaveCriticalSection\s*\(`)
+	mmapRe := regexp.MustCompile(`\bmmap\s*\(`)
+	munmapRe := regexp.MustCompile(`\bmunmap\s*\(`)
 
 	// Audited raw malloc/calloc/realloc ceiling per file.
 	// To add new allocations in runtime/native/, prefer joss_req_alloc /
@@ -120,6 +138,51 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 			if scopeBeginRe.MatchString(body) && !scopeEndRe.MatchString(body) && curFunc != "joss_owned_scope_begin" {
 				violations = append(violations, fmt.Sprintf(
 					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_owned_scope_begin() sin joss_owned_scope_end() (arena TLS corrupto).",
+					name, curFunc))
+			}
+			if bufNewRe.MatchString(body) && !bufFreeRe.MatchString(body) && curFunc != "joss_sb_new" && curFunc != "joss_buf_new" {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_buf_new() sin joss_buf_free() (fuga de ByteBuffer).",
+					name, curFunc))
+			}
+			if sqlitePrepRe.MatchString(body) && !sqliteFinRe.MatchString(body) {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a sqlite3_prepare_v2() sin sqlite3_finalize() (fuga de statement SQLite).",
+					name, curFunc))
+			}
+			if evpNewRe.MatchString(body) && !evpFreeRe.MatchString(body) {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a EVP_MD_CTX_new() sin EVP_MD_CTX_free() (fuga de contexto OpenSSL).",
+					name, curFunc))
+			}
+			if bioNewRe.MatchString(body) && !bioFreeRe.MatchString(body) {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a BIO_new_mem_buf() sin BIO_free() (fuga de BIO OpenSSL).",
+					name, curFunc))
+			}
+			if bcryptAlgOpenRe.MatchString(body) && !bcryptAlgCloseRe.MatchString(body) {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a BCryptOpenAlgorithmProvider() sin BCryptCloseAlgorithmProvider() (fuga de handle Win32).",
+					name, curFunc))
+			}
+			if bcryptHashCreateRe.MatchString(body) && !bcryptHashDestroyRe.MatchString(body) {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a BCryptCreateHash() sin BCryptDestroyHash() (fuga de handle Win32).",
+					name, curFunc))
+			}
+			if pthreadLockRe.MatchString(body) && !pthreadUnlockRe.MatchString(body) && curFunc != "joss_global_lock" && curFunc != "fn_Mutex_lock" {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a pthread_mutex_lock() sin pthread_mutex_unlock() (riesgo de deadlock).",
+					name, curFunc))
+			}
+			if winLockRe.MatchString(body) && !winUnlockRe.MatchString(body) && curFunc != "fn_Mutex_lock" {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a EnterCriticalSection() sin LeaveCriticalSection() (riesgo de deadlock).",
+					name, curFunc))
+			}
+			if mmapRe.MatchString(body) && !munmapRe.MatchString(body) {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a mmap() sin munmap() en C11 (fuga de páginas virtuales).",
 					name, curFunc))
 			}
 			for varName, lineNum := range fnSbToStrVars {
