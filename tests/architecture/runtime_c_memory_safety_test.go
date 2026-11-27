@@ -60,6 +60,19 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 	winUnlockRe := regexp.MustCompile(`\bLeaveCriticalSection\s*\(`)
 	mmapRe := regexp.MustCompile(`\bmmap\s*\(`)
 	munmapRe := regexp.MustCompile(`\bmunmap\s*\(`)
+	pqExecRe := regexp.MustCompile(`\bPQexec(?:Params)?\s*\(`)
+	pqClearRe := regexp.MustCompile(`\bPQclear\s*\(`)
+	mysqlStmtInitRe := regexp.MustCompile(`\bmysql_stmt_init\s*\(`)
+	mysqlStmtCloseRe := regexp.MustCompile(`\bmysql_stmt_close\s*\(`)
+	popenRe := regexp.MustCompile(`\bpopen\s*\(`)
+	pcloseRe := regexp.MustCompile(`\bpclose\s*\(`)
+	createPipeRe := regexp.MustCompile(`\bCreatePipe\s*\(`)
+	closeHandleRe := regexp.MustCompile(`\bCloseHandle\s*\(`)
+	redisConnRe := regexp.MustCompile(`\bjoss_redis_connect_fd\s*\(`)
+	redisCloseRe := regexp.MustCompile(`\bjoss_redis_close_fd\s*\(`)
+	cryptDecodeAllocRe := regexp.MustCompile(`\bCRYPT_DECODE_ALLOC_FLAG\b`)
+	localFreeRe := regexp.MustCompile(`\bLocalFree\s*\(`)
+	selfReallocRe := regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_>.-]*)\s*=\s*(?:\([^)]+\)\s*)?realloc\s*\(\s*([A-Za-z_][A-Za-z0-9_>.-]*)\s*,`)
 
 	// Audited raw malloc/calloc/realloc ceiling per file.
 	// To add new allocations in runtime/native/, prefer joss_req_alloc /
@@ -185,6 +198,36 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a mmap() sin munmap() en C11 (fuga de páginas virtuales).",
 					name, curFunc))
 			}
+			if pqExecRe.MatchString(body) && !pqClearRe.MatchString(body) {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a PQexec/PQexecParams() sin PQclear() (fuga de PGresult).",
+					name, curFunc))
+			}
+			if mysqlStmtInitRe.MatchString(body) && !mysqlStmtCloseRe.MatchString(body) {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a mysql_stmt_init() sin mysql_stmt_close() (fuga de MYSQL_STMT).",
+					name, curFunc))
+			}
+			if popenRe.MatchString(body) && !pcloseRe.MatchString(body) {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a popen() sin pclose() (fuga de proceso/pipe).",
+					name, curFunc))
+			}
+			if createPipeRe.MatchString(body) && !closeHandleRe.MatchString(body) {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a CreatePipe() sin CloseHandle() (fuga de handle Win32).",
+					name, curFunc))
+			}
+			if redisConnRe.MatchString(body) && !redisCloseRe.MatchString(body) && curFunc != "joss_redis_connect_fd" {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): llama a joss_redis_connect_fd() sin joss_redis_close_fd() (fuga de socket Redis).",
+					name, curFunc))
+			}
+			if cryptDecodeAllocRe.MatchString(body) && !localFreeRe.MatchString(body) {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s (%s): usa CRYPT_DECODE_ALLOC_FLAG sin LocalFree() (fuga de memoria Win32).",
+					name, curFunc))
+			}
 			for varName, lineNum := range fnSbToStrVars {
 				retRe := regexp.MustCompile(`\breturn\s+(?:\([^)]*\)\s*)?` + regexp.QuoteMeta(varName) + `\b`)
 				freeRe := regexp.MustCompile(`\bfree\s*\(\s*` + regexp.QuoteMeta(varName) + `\s*\)`)
@@ -257,7 +300,12 @@ func TestArchitecture_RuntimeCMemorySafetyGate(t *testing.T) {
 					name, lineNo, curFunc))
 			}
 
-			// Rule 3: Count raw malloc/calloc/realloc calls
+			// Rule 3: Count raw malloc/calloc/realloc calls + block `p = realloc(p, ...)` overwrite leaks
+			if sm := selfReallocRe.FindStringSubmatch(trimmedScan); sm != nil && sm[1] == sm[2] {
+				violations = append(violations, fmt.Sprintf(
+					"BLOQUEADO [JOSS-MEM-GATE] %s:%d (%s): patrón inseguro `%s = realloc(%s, ...)` — usa un puntero temporal `next = realloc(...)` para no fugar memoria si retorna NULL.",
+					name, lineNo, curFunc, sm[1], sm[2]))
+			}
 			if matches := rawAllocRe.FindAllString(trimmedScan, -1); len(matches) > 0 {
 				if !strings.Contains(rawLine, "joss-mem: persistent-ok") {
 					rawAllocCount += len(matches)

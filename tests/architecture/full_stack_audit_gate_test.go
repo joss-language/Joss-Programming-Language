@@ -89,6 +89,12 @@ func auditGoFunc(fset *token.FileSet, file, fnName string, body *ast.BlockStmt, 
 		fileOpenLine   int
 		hasClose       bool
 		returnsFile    bool
+		hasZipOrGzip   bool
+		zipOrGzipLine  int
+		zipOrGzipKind  string
+		hasSQLQuery    bool
+		sqlQueryLine   int
+		returnsRows    bool
 		cancelVars     = map[string]int{}
 		usedCancelVars = map[string]bool{}
 	)
@@ -238,10 +244,24 @@ func auditGoFunc(fset *token.FileSet, file, fnName string, body *ast.BlockStmt, 
 						hasNewTicker = true
 						tickerLine = fset.Position(node.Pos()).Line
 					}
-					if pkgID.Name == "os" && (sel.Sel.Name == "Open" || sel.Sel.Name == "Create" || sel.Sel.Name == "OpenFile") {
+					if pkgID.Name == "os" && (sel.Sel.Name == "Open" || sel.Sel.Name == "Create" || sel.Sel.Name == "OpenFile" || sel.Sel.Name == "CreateTemp") {
 						hasFileOpen = true
 						fileOpenLine = fset.Position(node.Pos()).Line
 					}
+					if pkgID.Name == "zip" && sel.Sel.Name == "OpenReader" {
+						hasZipOrGzip = true
+						zipOrGzipLine = fset.Position(node.Pos()).Line
+						zipOrGzipKind = "zip.OpenReader"
+					}
+					if pkgID.Name == "gzip" && (sel.Sel.Name == "NewReader" || sel.Sel.Name == "NewWriter") {
+						hasZipOrGzip = true
+						zipOrGzipLine = fset.Position(node.Pos()).Line
+						zipOrGzipKind = "gzip." + sel.Sel.Name
+					}
+				}
+				if sel.Sel.Name == "QueryContext" {
+					hasSQLQuery = true
+					sqlQueryLine = fset.Position(node.Pos()).Line
 				}
 				if sel.Sel.Name == "Close" {
 					hasClose = true
@@ -257,12 +277,22 @@ func auditGoFunc(fset *token.FileSet, file, fnName string, body *ast.BlockStmt, 
 		return true
 	})
 
-	// Allow helper functions that intentionally return an opened *os.File
+	// Allow helper functions that intentionally return an opened *os.File or *sql.Rows
 	ast.Inspect(body, func(n ast.Node) bool {
 		if ret, ok := n.(*ast.ReturnStmt); ok && len(ret.Results) > 0 {
 			for _, r := range ret.Results {
-				if id, ok := r.(*ast.Ident); ok && (id.Name == "f" || id.Name == "file" || id.Name == "out") {
-					returnsFile = true
+				if id, ok := r.(*ast.Ident); ok {
+					if id.Name == "f" || id.Name == "file" || id.Name == "out" {
+						returnsFile = true
+					}
+					if id.Name == "rows" {
+						returnsRows = true
+					}
+				}
+				if call, ok := r.(*ast.CallExpr); ok {
+					if sel, ok := call.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "QueryContext" {
+						returnsRows = true
+					}
 				}
 			}
 		}
@@ -281,8 +311,18 @@ func auditGoFunc(fset *token.FileSet, file, fnName string, body *ast.BlockStmt, 
 	}
 	if hasFileOpen && !hasClose && !returnsFile && fnName != "InitLogger" {
 		*violations = append(*violations, fmt.Sprintf(
-			"BLOQUEADO [JOSS-GO-GATE] %s:%d (%s): `os.Open/Create/OpenFile` sin `.Close()` en la misma función (fuga de descriptor de archivo).",
+			"BLOQUEADO [JOSS-GO-GATE] %s:%d (%s): `os.Open/Create/OpenFile/CreateTemp` sin `.Close()` en la misma función (fuga de descriptor de archivo).",
 			file, fileOpenLine, fnName))
+	}
+	if hasZipOrGzip && !hasClose {
+		*violations = append(*violations, fmt.Sprintf(
+			"BLOQUEADO [JOSS-GO-GATE] %s:%d (%s): `%s` sin `.Close()` en la misma función (fuga de buffers/descriptores).",
+			file, zipOrGzipLine, fnName, zipOrGzipKind))
+	}
+	if hasSQLQuery && !hasClose && !returnsRows {
+		*violations = append(*violations, fmt.Sprintf(
+			"BLOQUEADO [JOSS-GO-GATE] %s:%d (%s): `QueryContext` sin `rows.Close()` en la misma función (fuga de conexiones SQL).",
+			file, sqlQueryLine, fnName))
 	}
 	for cname, line := range cancelVars {
 		if !usedCancelVars[cname] {
