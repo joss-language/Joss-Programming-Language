@@ -7,6 +7,8 @@
 pub mod cron;
 pub mod crypto;
 pub mod memory;
+pub mod net_tcp;
+pub mod ratelimit;
 pub mod sync_rt;
 pub mod ws;
 

@@ -1368,10 +1368,21 @@ static void joss_ws_close_socket(joss_socket_t sock) {
 /* =========================================================================
  * Minimal Micro-Kernel TCP Client Primitives (for pure-Joss Redis/SMTP/HTTP)
  * ========================================================================= */
+#if defined(JOSS_HAS_RUST_RT)
+extern int64_t joss_rs_tcp_connect(const char* host, int64_t port, int64_t timeout_ms);
+extern int64_t joss_rs_tcp_write(int64_t fd, const uint8_t* data, size_t len);
+extern int64_t joss_rs_tcp_read(int64_t fd, uint8_t* buf, size_t max_bytes);
+extern int64_t joss_rs_tcp_read_line(int64_t fd, uint8_t* buf, size_t cap);
+extern int64_t joss_rs_tcp_close(int64_t fd);
+#endif
+
 int64_t joss___joss_tcp_connect(const char* host_raw, int64_t port, int64_t timeout_ms) {
     const char* host = unbox_web_cstr(host_raw);
     if (!host || !*host || port <= 0 || port > 65535) return -1;
     if (timeout_ms <= 0) timeout_ms = 3000;
+#if defined(JOSS_HAS_RUST_RT)
+    return joss_rs_tcp_connect(host, port, timeout_ms);
+#else
 #if defined(_WIN32)
     static bool s_tcp_wsa = false;
     if (!s_tcp_wsa) {
@@ -1418,6 +1429,7 @@ int64_t joss___joss_tcp_connect(const char* host_raw, int64_t port, int64_t time
     }
     freeaddrinfo(res);
     return out_fd;
+#endif
 }
 
 int64_t joss___joss_tcp_write(int64_t fd, const char* data_raw) {
@@ -1425,6 +1437,9 @@ int64_t joss___joss_tcp_write(int64_t fd, const char* data_raw) {
     const char* data = unbox_web_cstr(data_raw);
     if (!data) return 0;
     size_t len = strlen(data);
+#if defined(JOSS_HAS_RUST_RT)
+    return joss_rs_tcp_write(fd, (const uint8_t*)data, len);
+#else
     size_t sent = 0;
     while (sent < len) {
 #if defined(_WIN32)
@@ -1436,6 +1451,7 @@ int64_t joss___joss_tcp_write(int64_t fd, const char* data_raw) {
         sent += (size_t)n;
     }
     return (int64_t)sent;
+#endif
 }
 
 const char* joss___joss_tcp_read(int64_t fd, int64_t max_bytes) {
@@ -1443,6 +1459,11 @@ const char* joss___joss_tcp_read(int64_t fd, int64_t max_bytes) {
     if (max_bytes > (64LL << 20)) max_bytes = (64LL << 20);
     char* buf = (char*)joss_req_alloc((size_t)max_bytes + 1U);
     if (!buf) return "";
+#if defined(JOSS_HAS_RUST_RT)
+    int64_t got = joss_rs_tcp_read(fd, (uint8_t*)buf, (size_t)max_bytes);
+    buf[got > 0 ? (size_t)got : 0U] = '\0';
+    return buf;
+#else
     size_t got = 0;
     while (got < (size_t)max_bytes) {
 #if defined(_WIN32)
@@ -1455,10 +1476,18 @@ const char* joss___joss_tcp_read(int64_t fd, int64_t max_bytes) {
     }
     buf[got] = '\0';
     return buf;
+#endif
 }
 
 const char* joss___joss_tcp_read_line(int64_t fd) {
     if (fd < 0) return "";
+#if defined(JOSS_HAS_RUST_RT)
+    char stack_buf[4096];
+    int64_t n = joss_rs_tcp_read_line(fd, (uint8_t*)stack_buf, sizeof(stack_buf) - 1U);
+    if (n <= 0) return "";
+    stack_buf[(size_t)n] = '\0';
+    return joss_req_strdup(stack_buf);
+#else
     JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
     for (size_t i = 0; i < (1U << 20); i++) {
         char c = 0;
@@ -1472,16 +1501,20 @@ const char* joss___joss_tcp_read_line(int64_t fd) {
         if (c != '\r') joss_buf_append_byte(sb, (uint8_t)c);
     }
     return joss_sb_to_req_string(sb);
+#endif
 }
 
 int64_t joss___joss_tcp_close(int64_t fd) {
     if (fd < 0) return 0;
-#if defined(_WIN32)
+#if defined(JOSS_HAS_RUST_RT)
+    return joss_rs_tcp_close(fd);
+#elif defined(_WIN32)
     closesocket((SOCKET)(uintptr_t)fd);
+    return 1;
 #else
     close((int)fd);
-#endif
     return 1;
+#endif
 }
 
 /* =========================================================================

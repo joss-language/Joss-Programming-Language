@@ -245,6 +245,9 @@ void joss___joss_http_parse_multipart(int64_t raw_val, void* req_map_ptr) {
     }
 }
 
+#if defined(JOSS_HAS_RUST_RT)
+extern int64_t joss_rs_rate_limit_check(const char* ip, int64_t max_req, int64_t window_sec);
+#else
 #define JOSS_RATE_BUCKETS 1024
 typedef struct {
     char    ip[192];
@@ -254,12 +257,16 @@ typedef struct {
 } JossRateEntry;
 
 static JossRateEntry g_rate_entries[JOSS_RATE_BUCKETS];
+#endif
 
 int64_t joss___joss_rate_limit_check(const char* ip, int64_t max_req, int64_t window_sec) {
     ip = unbox_web_cstr(ip);
     if (!ip || !ip[0]) ip = "127.0.0.1";
     if (max_req <= 0) max_req = 60;
     if (window_sec <= 0) window_sec = 60;
+#if defined(JOSS_HAS_RUST_RT)
+    return joss_rs_rate_limit_check(ip, max_req, window_sec);
+#else
     int64_t now = (int64_t)time(NULL);
 
     joss_global_lock(JOSS_LOCK_RATELIMIT);
@@ -298,6 +305,7 @@ int64_t joss___joss_rate_limit_check(const char* ip, int64_t max_req, int64_t wi
         return -window_sec;
     }
     return max_req - cur_count;
+#endif
 }
 
 /* Minimal recursive-descent C11 JSON parser (used for JWT claims & file sessions) */
