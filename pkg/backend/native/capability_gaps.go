@@ -228,6 +228,7 @@ func validateSharedBackendCapabilitiesForBackend(program *ir.Program, target Tar
 			clean == "joss_register_schema_db",
 			strings.HasPrefix(clean, "joss___joss_http_"),
 			strings.HasPrefix(clean, "joss___joss_socket_"),
+			strings.HasPrefix(clean, "joss___joss_tcp_"),
 			strings.HasPrefix(clean, "joss___joss_session_"),
 			strings.HasPrefix(clean, "joss___joss_rate_"),
 			strings.HasPrefix(clean, "joss___joss_jwt_"),

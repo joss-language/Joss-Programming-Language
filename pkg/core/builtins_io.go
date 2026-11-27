@@ -29,6 +29,9 @@ var (
 	coreRateBuckets = make(map[string]coreRateBucket)
 	coreSessMu      sync.Mutex
 	coreSessStore   = make(map[string]map[string]interface{})
+	coreTCPMu       sync.Mutex
+	coreTCPNextFD   int64 = 1
+	coreTCPConns          = make(map[int64]net.Conn)
 )
 
 // appendNativeHTTPHeader inserts a transport header without interpreting the
@@ -149,6 +152,107 @@ func (r *Runtime) callBuiltinIO(name string, args []interface{}) (interface{}, b
 			}
 		}
 		return "127.0.0.1", true
+
+	case "__joss_tcp_connect":
+		if len(args) < 2 {
+			return int64(-1), true
+		}
+		host := strings.TrimSpace(fmt.Sprintf("%v", args[0]))
+		port := int64(toInt(args[1]))
+		timeoutMs := int64(3000)
+		if len(args) >= 3 && toInt(args[2]) > 0 {
+			timeoutMs = int64(toInt(args[2]))
+		}
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.FormatInt(port, 10)), time.Duration(timeoutMs)*time.Millisecond)
+		if err != nil {
+			return int64(-1), true
+		}
+		_ = conn.SetDeadline(time.Now().Add(time.Duration(timeoutMs) * time.Millisecond))
+		coreTCPMu.Lock()
+		fd := coreTCPNextFD
+		coreTCPNextFD++
+		coreTCPConns[fd] = conn
+		coreTCPMu.Unlock()
+		return fd, true
+
+	case "__joss_tcp_write":
+		if len(args) < 2 {
+			return int64(-1), true
+		}
+		fd := int64(toInt(args[0]))
+		data := fmt.Sprintf("%v", args[1])
+		coreTCPMu.Lock()
+		conn := coreTCPConns[fd]
+		coreTCPMu.Unlock()
+		if conn == nil {
+			return int64(-1), true
+		}
+		n, err := conn.Write([]byte(data))
+		if err != nil {
+			return int64(-1), true
+		}
+		return int64(n), true
+
+	case "__joss_tcp_read":
+		if len(args) < 2 {
+			return "", true
+		}
+		fd := int64(toInt(args[0]))
+		maxBytes := toInt(args[1])
+		if maxBytes <= 0 {
+			return "", true
+		}
+		coreTCPMu.Lock()
+		conn := coreTCPConns[fd]
+		coreTCPMu.Unlock()
+		if conn == nil {
+			return "", true
+		}
+		buf := make([]byte, maxBytes)
+		n, _ := io.ReadFull(conn, buf)
+		return string(buf[:n]), true
+
+	case "__joss_tcp_read_line":
+		if len(args) < 1 {
+			return "", true
+		}
+		fd := int64(toInt(args[0]))
+		coreTCPMu.Lock()
+		conn := coreTCPConns[fd]
+		coreTCPMu.Unlock()
+		if conn == nil {
+			return "", true
+		}
+		var out bytes.Buffer
+		b := make([]byte, 1)
+		for i := 0; i < (1 << 20); i++ {
+			n, err := conn.Read(b)
+			if n <= 0 || err != nil {
+				break
+			}
+			if b[0] == '\n' {
+				break
+			}
+			if b[0] != '\r' {
+				out.WriteByte(b[0])
+			}
+		}
+		return out.String(), true
+
+	case "__joss_tcp_close":
+		if len(args) < 1 {
+			return int64(0), true
+		}
+		fd := int64(toInt(args[0]))
+		coreTCPMu.Lock()
+		conn := coreTCPConns[fd]
+		delete(coreTCPConns, fd)
+		coreTCPMu.Unlock()
+		if conn != nil {
+			_ = conn.Close()
+			return int64(1), true
+		}
+		return int64(0), true
 
 	case "__joss_http_read_request":
 		if len(args) >= 1 {

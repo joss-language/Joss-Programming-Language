@@ -1,0 +1,40 @@
+// Canonical Sitemap XML/XSL generator written in pure Joss.
+
+public class __JossSitemapState {
+    public static array<map> $entries = []
+    public static array<string> $excludes = []
+}
+
+private func __joss_sitemap_excluded(string $loc): bool {
+    int $n = count(__JossSitemapState::$excludes)
+    int $i = 0
+    while ($i < $n) {
+        string $pat = strval(__JossSitemapState::$excludes [$i])
+        int $plen = strlen($pat)
+        ($plen > 0) ? {
+            (str_ends_with($pat, "*")) ? {
+                string $prefix = substr($pat, 0, $plen - 1)
+                (str_starts_with($loc, $prefix)) ? {
+                    return true
+                }
+            } : {
+                ($loc == $pat) ? {
+                    return true
+                }
+            }
+        }
+        $i = $i + 1
+    }
+    return false
+}
+
+public func __joss_host_Sitemap_xsl() : string {
+    string $xsl = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+    $xsl = $xsl . "<xsl:stylesheet version=\"2.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" xmlns:sitemap=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
+    $xsl = $xsl . "<xsl:output method=\"html\" version=\"1.0\" encoding=\"UTF-8\" indent=\"yes\"/>\n"
+    $xsl = $xsl . "<xsl:template match=\"/\"><html lang=\"es\"><head><title>Sitemap</title></head>"
+    $xsl = $xsl . "<body><h1>Sitemap XML</h1><ul><xsl:for-each select=\"sitemap:urlset/sitemap:url\">"
+    $xsl = $xsl . "<li><a href=\"{sitemap:loc}\"><xsl:value-of select=\"sitemap:loc\"/></a></li>"
+    $xsl = $xsl . "</xsl:for-each></ul></body></html></xsl:template></xsl:stylesheet>\n"
+    return $xsl
+}

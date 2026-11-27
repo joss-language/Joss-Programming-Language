@@ -1,0 +1,61 @@
+// Canonical 5-field RFC/Vixie Cron expression matcher written in pure Joss.
+// Supports '*', '*/step', 'a-b', 'a-b/step', and comma-separated lists.
+public class CronExpr {
+    private static func matchField(string $field, int $value): bool {
+        string $clean = trim($field)
+        ($clean == "*" || strlen($clean) == 0) ? {
+            return true
+        }
+        array<string> $parts = explode(",", $clean)
+        int $n = count($parts)
+        int $i = 0
+        while ($i < $n) {
+            string $part = trim(strval($parts [$i]))
+            int $step = 1
+            string $range = $part
+            var $slash = strpos($part, "/")
+            ($slash != false) ? {
+                int $sidx = intval($slash)
+                $range = substr($part, 0, $sidx)
+                $step = intval(substr($part, $sidx + 1, strlen($part) - $sidx - 1))
+                ($step <= 0) ? {
+                    $step = 1
+                }
+            }
+            ($range == "*") ? {
+                ($value % $step == 0) ? {
+                    return true
+                }
+            } : {
+                var $dash = strpos($range, "-")
+                ($dash != false) ? {
+                    int $didx = intval($dash)
+                    int $lo = intval(substr($range, 0, $didx))
+                    int $hi = intval(substr($range, $didx + 1, strlen($range) - $didx - 1))
+                    ($value >= $lo && $value <= $hi && (($value - $lo) % $step == 0)) ? {
+                        return true
+                    }
+                } : {
+                    (intval($range) == $value) ? {
+                        return true
+                    }
+                }
+            }
+            $i = $i + 1
+        }
+        return false
+    }
+
+    public static func matches(string $expr, int $minute, int $hour, int $day, int $month, int $dow) : bool {
+        array<string> $fields = explode(" ", trim($expr))
+        (count($fields) < 5) ? {
+            return false
+        }
+        bool $mOk = CronExpr::matchField(strval($fields [0]), $minute)
+        bool $hOk = CronExpr::matchField(strval($fields [1]), $hour)
+        bool $dOk = CronExpr::matchField(strval($fields [2]), $day)
+        bool $moOk = CronExpr::matchField(strval($fields [3]), $month)
+        bool $wOk = CronExpr::matchField(strval($fields [4]), $dow)
+        return $mOk && $hOk && $dOk && $moOk && $wOk
+    }
+}

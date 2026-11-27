@@ -1,0 +1,28 @@
+// Canonical Lang host service written in pure Joss.
+
+public class __JossLangState {
+    public static string $currentLocale = "es"
+    public static array<string> $supported = ["es", "en", "pt"]
+}
+
+public func __joss_host_Lang_locale(): string {
+    return __JossLangState::$currentLocale
+}
+
+public func __joss_host_Lang_set(string $locale): bool {
+    string $clean = trim($locale)
+    (strlen($clean) == 0) ? {
+        return false
+    }
+    __JossLangState::$currentLocale = $clean
+    return true
+}
+
+public func __joss_host_Lang_get(string $key, map $replacements = {
+}) : mixed {
+    return $key
+}
+
+public func __joss_host_Lang_locales(): array<string> {
+    return __JossLangState::$supported
+}

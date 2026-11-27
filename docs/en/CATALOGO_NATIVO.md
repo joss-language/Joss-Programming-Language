@@ -932,6 +932,11 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `__joss_storage_get`
 - `__joss_storage_put`
 - `__joss_string_byte_at`
+- `__joss_tcp_close`
+- `__joss_tcp_connect`
+- `__joss_tcp_read`
+- `__joss_tcp_read_line`
+- `__joss_tcp_write`
 - `__joss_timezone_data`
 - `abs`
 - `all`
@@ -1064,4 +1069,4 @@ se explican juntas allí; esta lista conserva todas las grafías registradas.
 - `values`
 - `view`
 
-Total: 55 clases, 557 métodos y 158 built-ins.
+Total: 55 clases, 557 métodos y 163 built-ins.

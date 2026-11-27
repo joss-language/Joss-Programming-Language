@@ -1366,6 +1366,125 @@ static void joss_ws_close_socket(joss_socket_t sock) {
 }
 
 /* =========================================================================
+ * Minimal Micro-Kernel TCP Client Primitives (for pure-Joss Redis/SMTP/HTTP)
+ * ========================================================================= */
+int64_t joss___joss_tcp_connect(const char* host_raw, int64_t port, int64_t timeout_ms) {
+    const char* host = unbox_web_cstr(host_raw);
+    if (!host || !*host || port <= 0 || port > 65535) return -1;
+    if (timeout_ms <= 0) timeout_ms = 3000;
+#if defined(_WIN32)
+    static bool s_tcp_wsa = false;
+    if (!s_tcp_wsa) {
+        WSADATA wd;
+        if (WSAStartup(MAKEWORD(2, 2), &wd) == 0) s_tcp_wsa = true;
+    }
+#endif
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%lld", (long long)port);
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    struct addrinfo* res = NULL;
+    if (getaddrinfo(host, port_str, &hints, &res) != 0 || !res) return -1;
+
+    int64_t out_fd = -1;
+    for (struct addrinfo* rp = res; rp != NULL; rp = rp->ai_next) {
+#if defined(_WIN32)
+        SOCKET s = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (s == INVALID_SOCKET) continue;
+        DWORD tv = (DWORD)timeout_ms;
+        setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+        setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
+        if (connect(s, rp->ai_addr, (int)rp->ai_addrlen) == 0) {
+            out_fd = (int64_t)(uintptr_t)s;
+            break;
+        }
+        closesocket(s);
+#else
+        int s = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (s < 0) continue;
+        struct timeval tv;
+        tv.tv_sec = timeout_ms / 1000;
+        tv.tv_usec = (timeout_ms % 1000) * 1000;
+        setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+        if (connect(s, rp->ai_addr, rp->ai_addrlen) == 0) {
+            out_fd = (int64_t)s;
+            break;
+        }
+        close(s);
+#endif
+    }
+    freeaddrinfo(res);
+    return out_fd;
+}
+
+int64_t joss___joss_tcp_write(int64_t fd, const char* data_raw) {
+    if (fd < 0) return -1;
+    const char* data = unbox_web_cstr(data_raw);
+    if (!data) return 0;
+    size_t len = strlen(data);
+    size_t sent = 0;
+    while (sent < len) {
+#if defined(_WIN32)
+        int n = send((SOCKET)(uintptr_t)fd, data + sent, (int)(len - sent), 0);
+#else
+        ssize_t n = send((int)fd, data + sent, len - sent, 0);
+#endif
+        if (n <= 0) return -1;
+        sent += (size_t)n;
+    }
+    return (int64_t)sent;
+}
+
+const char* joss___joss_tcp_read(int64_t fd, int64_t max_bytes) {
+    if (fd < 0 || max_bytes <= 0) return "";
+    if (max_bytes > (64LL << 20)) max_bytes = (64LL << 20);
+    char* buf = (char*)joss_req_alloc((size_t)max_bytes + 1U);
+    if (!buf) return "";
+    size_t got = 0;
+    while (got < (size_t)max_bytes) {
+#if defined(_WIN32)
+        int n = recv((SOCKET)(uintptr_t)fd, buf + got, (int)((size_t)max_bytes - got), 0);
+#else
+        ssize_t n = recv((int)fd, buf + got, (size_t)max_bytes - got, 0);
+#endif
+        if (n <= 0) break;
+        got += (size_t)n;
+    }
+    buf[got] = '\0';
+    return buf;
+}
+
+const char* joss___joss_tcp_read_line(int64_t fd) {
+    if (fd < 0) return "";
+    JOSS_AUTO_SB JossStringBuilder* sb = joss_sb_new();
+    for (size_t i = 0; i < (1U << 20); i++) {
+        char c = 0;
+#if defined(_WIN32)
+        int n = recv((SOCKET)(uintptr_t)fd, &c, 1, 0);
+#else
+        ssize_t n = recv((int)fd, &c, 1, 0);
+#endif
+        if (n <= 0) break;
+        if (c == '\n') break;
+        if (c != '\r') joss_buf_append_byte(sb, (uint8_t)c);
+    }
+    return joss_sb_to_req_string(sb);
+}
+
+int64_t joss___joss_tcp_close(int64_t fd) {
+    if (fd < 0) return 0;
+#if defined(_WIN32)
+    closesocket((SOCKET)(uintptr_t)fd);
+#else
+    close((int)fd);
+#endif
+    return 1;
+}
+
+/* =========================================================================
  * POSIX TCP Socket Server (with SO_REUSEADDR & TCP_NODELAY)
  * ========================================================================= */
 void* fn_Socket_listen(const char* host, const char* port) {

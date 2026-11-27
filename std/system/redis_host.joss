@@ -1,0 +1,223 @@
+// Canonical Redis RESP2 client written in pure Joss over the micro-kernel
+// __joss_tcp_* socket primitives. Zero manual C allocations; all temporary
+// buffers live in the per-request arena.
+public class __JossRedisState {
+    public static string $host = ""
+    public static int $port = 6379
+    public static string $pass = ""
+    public static int $db = 0
+    public static bool $manual = false
+}
+
+private func __joss_redis_resp_arg(string $arg): string {
+    return "$" . strval(strlen($arg)) . "\r\n" . $arg . "\r\n"
+}
+
+private func __joss_redis_resp_cmd(array<string> $parts): string {
+    int $n = count($parts)
+    string $out = "*" . strval($n) . "\r\n"
+    int $i = 0
+    while ($i < $n) {
+        $out = $out . __joss_redis_resp_arg(strval($parts [$i]))
+        $i = $i + 1
+    }
+    return $out
+}
+
+private func __joss_redis_open(): int {
+    string $host = __JossRedisState::$host
+    int $port = __JossRedisState::$port
+    string $pass = __JossRedisState::$pass
+    int $db = __JossRedisState::$db
+
+    (!__JossRedisState::$manual) ? {
+        string $envHost = env("REDIS_HOST", "127.0.0.1")
+        $host = (strlen($envHost) > 0) ? $envHost : "127.0.0.1"
+        string $envPort = env("REDIS_PORT", "6379")
+        int $parsedPort = intval($envPort)
+        $port = ($parsedPort > 0) ? $parsedPort : 6379
+        $pass = env("REDIS_PASSWORD", "")
+        $db = intval(env("REDIS_DB", "0"))
+    }
+
+    int $fd = __joss_tcp_connect($host, $port, 3000)
+    ($fd < 0) ? {
+        return - 1
+    }
+
+    (strlen($pass) > 0) ? {
+        string $authCmd = __joss_redis_resp_cmd(["AUTH", $pass])
+        (__joss_tcp_write($fd, $authCmd) < 0) ? {
+            __joss_tcp_close($fd)
+            return - 1
+        }
+        string $authResp = __joss_tcp_read_line($fd)
+        (strlen($authResp) == 0 ||!str_starts_with($authResp, "+")) ? {
+            __joss_tcp_close($fd)
+            return - 1
+        }
+    }
+
+    ($db > 0) ? {
+        string $selCmd = __joss_redis_resp_cmd(["SELECT", strval($db)])
+        (__joss_tcp_write($fd, $selCmd) < 0) ? {
+            __joss_tcp_close($fd)
+            return - 1
+        }
+        string $selResp = __joss_tcp_read_line($fd)
+        (strlen($selResp) == 0 ||!str_starts_with($selResp, "+")) ? {
+            __joss_tcp_close($fd)
+            return - 1
+        }
+    }
+
+    return $fd
+}
+
+public func __joss_host_Redis_connect(string $addr, string $password = "", int $db = 0) : bool {
+    (strlen($addr) == 0) ? {
+        return false
+    }
+    string $host = $addr
+    int $port = 6379
+    var $colon = strpos($addr, ":")
+    ($colon != false) ? {
+        int $idx = intval($colon)
+        $host = substr($addr, 0, $idx)
+        int $p = intval(substr($addr, $idx + 1, strlen($addr) - $idx - 1))
+        ($p > 0) ? {
+            $port = $p
+        }
+    }
+    __JossRedisState::$host = $host
+    __JossRedisState::$port = $port
+    __JossRedisState::$pass = $password
+    __JossRedisState::$db = ($db > 0) ? $db : 0
+    __JossRedisState::$manual = true
+    return true
+}
+
+public func __joss_host_Redis_set(string $key, mixed $value, int $ttlSeconds = 0) : bool {
+    (strlen($key) == 0) ? {
+        return false
+    }
+    int $fd = __joss_redis_open()
+    ($fd < 0) ? {
+        return false
+    }
+    string $val = strval($value)
+    string $cmd = ($ttlSeconds > 0) ? __joss_redis_resp_cmd(["SET", $key, $val, "EX", strval($ttlSeconds)]) : __joss_redis_resp_cmd(["SET", $key, $val])
+    bool $ok = false
+    (__joss_tcp_write($fd, $cmd) >= 0) ? {
+        string $line = __joss_tcp_read_line($fd)
+        $ok = str_starts_with($line, "+")
+    }
+    __joss_tcp_close($fd)
+    return $ok
+}
+
+public func __joss_host_Redis_get(string $key) : string|null {
+    (strlen($key) == 0) ? {
+        return null
+    }
+    int $fd = __joss_redis_open()
+    ($fd < 0) ? {
+        return null
+    }
+    string $cmd = __joss_redis_resp_cmd(["GET", $key])
+    (__joss_tcp_write($fd, $cmd) < 0) ? {
+        __joss_tcp_close($fd)
+        return null
+    }
+    string $line = __joss_tcp_read_line($fd)
+    (!str_starts_with($line, "$")) ? {
+        __joss_tcp_close($fd)
+        return null
+    }
+    int $blen = intval(substr($line, 1, strlen($line) - 1))
+    ($blen < 0) ? {
+        __joss_tcp_close($fd)
+        return null
+    }
+    string $payload = ($blen > 0) ? __joss_tcp_read($fd, $blen) : ""
+    __joss_tcp_read_line($fd)
+    __joss_tcp_close($fd)
+    return $payload
+}
+
+public func __joss_host_Redis_del(string $key) : bool {
+    (strlen($key) == 0) ? {
+        return false
+    }
+    int $fd = __joss_redis_open()
+    ($fd < 0) ? {
+        return false
+    }
+    string $cmd = __joss_redis_resp_cmd(["DEL", $key])
+    bool $ok = false
+    (__joss_tcp_write($fd, $cmd) >= 0) ? {
+        string $line = __joss_tcp_read_line($fd)
+        $ok = str_starts_with($line, ":") || str_starts_with($line, "+")
+    }
+    __joss_tcp_close($fd)
+    return $ok
+}
+
+public func __joss_host_Redis_forget(string $key) : bool {
+    return __joss_host_Redis_del($key)
+}
+
+public func __joss_host_Redis_has(string $key) : bool {
+    (strlen($key) == 0) ? {
+        return false
+    }
+    int $fd = __joss_redis_open()
+    ($fd < 0) ? {
+        return false
+    }
+    string $cmd = __joss_redis_resp_cmd(["EXISTS", $key])
+    bool $exists = false
+    (__joss_tcp_write($fd, $cmd) >= 0) ? {
+        string $line = __joss_tcp_read_line($fd)
+        (str_starts_with($line, ":")) ? {
+            $exists = intval(substr($line, 1, strlen($line) - 1)) > 0
+        }
+    }
+    __joss_tcp_close($fd)
+    return $exists
+}
+
+public func __joss_host_Redis_ttl(string $key) : int {
+    (strlen($key) == 0) ? {
+        return - 1
+    }
+    int $fd = __joss_redis_open()
+    ($fd < 0) ? {
+        return - 1
+    }
+    string $cmd = __joss_redis_resp_cmd(["TTL", $key])
+    int $ttl = - 1
+    (__joss_tcp_write($fd, $cmd) >= 0) ? {
+        string $line = __joss_tcp_read_line($fd)
+        (str_starts_with($line, ":")) ? {
+            $ttl = intval(substr($line, 1, strlen($line) - 1))
+        }
+    }
+    __joss_tcp_close($fd)
+    return $ttl
+}
+
+public func __joss_host_Redis_flush() : bool {
+    int $fd = __joss_redis_open()
+    ($fd < 0) ? {
+        return false
+    }
+    string $cmd = __joss_redis_resp_cmd(["FLUSHDB"])
+    bool $ok = false
+    (__joss_tcp_write($fd, $cmd) >= 0) ? {
+        string $line = __joss_tcp_read_line($fd)
+        $ok = str_starts_with($line, "+")
+    }
+    __joss_tcp_close($fd)
+    return $ok
+}

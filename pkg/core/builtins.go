@@ -67,7 +67,7 @@ var builtinDefinitions = joinBuiltinGroups(
 
 	builtinGroup(builtinIO, typesystem.Void, "__joss_http_serve_concurrent", "__joss_http_parse_multipart"),
 	builtinGroup(builtinIO, typesystem.Bool, "file_exists", "is_dir", "is_file", "toon_verify"),
-	builtinGroup(builtinIO, typesystem.String, "env", "config", "view", "toon_encode", "__joss_http_dispatch", "__joss_get_embedded_asset", "__joss_socket_peer_ip", "__joss_http_check_middleware", "__joss_session_last_error"),
+	builtinGroup(builtinIO, typesystem.String, "env", "config", "view", "toon_encode", "__joss_http_dispatch", "__joss_get_embedded_asset", "__joss_socket_peer_ip", "__joss_http_check_middleware", "__joss_session_last_error", "__joss_tcp_read", "__joss_tcp_read_line"),
 	builtinGroup(builtinIO, typesystem.Map, "__joss_session_load", "__joss_jwt_parse_verified"),
 	[]builtinDefinition{{name: "json", domain: builtinIO, returnType: typesystem.Type{Kind: typesystem.Class, Name: "WebResponse"}}},
 	builtinGroup(builtinIO, typesystem.Array, "__joss_db_query", "__joss_db_get_table"),
@@ -75,7 +75,7 @@ var builtinDefinitions = joinBuiltinGroups(
 		{name: "__joss_timezone_data", domain: builtinIO, returnType: typesystem.Type{Kind: typesystem.Array, Element: &typesystem.Type{Kind: typesystem.Int}}},
 		{name: "__joss_file_get_bytes", domain: builtinIO, returnType: typesystem.Type{Kind: typesystem.Array, Element: &typesystem.Type{Kind: typesystem.Int}}},
 	},
-	builtinGroup(builtinIO, typesystem.Int, "__joss_db_execute", "__joss_rate_limit_check", "__joss_session_save", "__joss_session_destroy"),
+	builtinGroup(builtinIO, typesystem.Int, "__joss_db_execute", "__joss_rate_limit_check", "__joss_session_save", "__joss_session_destroy", "__joss_tcp_connect", "__joss_tcp_write", "__joss_tcp_close"),
 	builtinGroup(builtinIO, typesystem.Bool, "__joss_db_set_table", "__joss_db_is_connected", "__joss_storage_put", "__joss_storage_delete"),
 	builtinGroup(builtinIO, typesystem.Mixed,
 		"back", "response", "request", "session", "redirect", "file_get_contents", "file_put_contents", "unlink",
