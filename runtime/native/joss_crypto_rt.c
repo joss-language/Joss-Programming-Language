@@ -41,6 +41,7 @@ static void bytes_to_hex(const uint8_t* in, size_t len, char* out) {
     out[len * 2] = '\0';
 }
 
+#if !defined(JOSS_HAS_RUST_RT)
 static int hex_val(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'a' && c <= 'f') return c - 'a' + 10;
@@ -102,8 +103,110 @@ static size_t base32_decode(const char* in, uint8_t* out, size_t max_out) {
     }
     return out_len;
 }
+#endif /* !JOSS_HAS_RUST_RT */
 
-#if defined(JOSS_HAS_OPENSSL)
+#if defined(JOSS_HAS_RUST_RT)
+
+extern void    joss_rs_sha256(const uint8_t* data, size_t len, uint8_t out[32]);
+extern int64_t joss_rs_csprng_bytes(uint8_t* out, size_t len);
+extern void    joss_rs_pbkdf2_sha256(const uint8_t* pass, size_t pass_len, const uint8_t* salt, size_t salt_len, uint32_t iterations, uint8_t out[32]);
+extern int64_t joss_rs_password_verify_pbkdf2(const char* hash, const char* password);
+extern ptrdiff_t joss_rs_jwt_sign(const char* payload, const char* secret, char* out_buf, size_t out_cap);
+extern int64_t joss_rs_jwt_verify(const char* token, const char* secret);
+extern int64_t joss_rs_totp_generate(const char* secret, int64_t unix_time, char* out7);
+extern int64_t joss_rs_totp_verify(const char* secret, const char* code, int64_t unix_time);
+
+const char* joss_sha256(const char* s) {
+    size_t slen = 0;
+    const uint8_t* ptr = joss_bytes_unwrap(s, &slen);
+    if (!ptr) {
+        s = crypto_cstr(s);
+        ptr = (const uint8_t*)s;
+        slen = strlen(s);
+    }
+    uint8_t digest[32];
+    joss_rs_sha256(ptr, slen, digest);
+    char* out = (char*)joss_req_alloc(65);
+    if (!out) return "";
+    bytes_to_hex(digest, 32, out);
+    return out;
+}
+
+const char* joss_random_hex(int64_t num_bytes) {
+    if (num_bytes <= 0) num_bytes = 16;
+    if (num_bytes > 256) num_bytes = 256;
+    uint8_t buf[256];
+    if (!joss_rs_csprng_bytes(buf, (size_t)num_bytes)) {
+        joss_panic("JOSS-CRYPTO-001: Rust CSPRNG failed");
+    }
+    char* out = (char*)joss_req_alloc((size_t)num_bytes * 2 + 1);
+    if (!out) return "";
+    bytes_to_hex(buf, (size_t)num_bytes, out);
+    return out;
+}
+
+const char* joss_password_hash(const char* password) {
+    password = crypto_cstr(password);
+    const uint32_t iterations = 100000U;
+    uint8_t salt[16];
+    uint8_t dk[32];
+    if (!joss_rs_csprng_bytes(salt, sizeof(salt))) {
+        joss_panic("JOSS-CRYPTO-001: Rust CSPRNG salt generation failed");
+    }
+    joss_rs_pbkdf2_sha256((const uint8_t*)password, strlen(password), salt, sizeof(salt), iterations, dk);
+    char salt_hex[33], dk_hex[65];
+    bytes_to_hex(salt, sizeof(salt), salt_hex);
+    bytes_to_hex(dk, sizeof(dk), dk_hex);
+    char* out = (char*)joss_req_alloc(140);
+    if (!out) return "";
+    snprintf(out, 140, "$pbkdf2-sha256$%u$%s$%s", iterations, salt_hex, dk_hex);
+    return out;
+}
+
+int64_t joss_password_verify(const char* hash, const char* password) {
+    hash = crypto_cstr(hash);
+    password = crypto_cstr(password);
+    if (!hash[0]) return 0;
+    if (hash[0] == '$' && hash[1] == '2' &&
+        (hash[2] == 'a' || hash[2] == 'b' || hash[2] == 'y') &&
+        hash[3] == '$') {
+        return joss_prim_bcrypt_verify(hash, password);
+    }
+    return joss_rs_password_verify_pbkdf2(hash, password);
+}
+
+const char* joss_jwt_sign(const char* payload_json, const char* secret) {
+    payload_json = crypto_cstr(payload_json);
+    if (!payload_json[0]) payload_json = "{}";
+    secret = crypto_cstr(secret);
+    size_t cap = strlen(payload_json) * 2 + 256;
+    char* out = (char*)joss_req_alloc(cap);
+    if (!out) return "";
+    if (joss_rs_jwt_sign(payload_json, secret, out, cap) < 0) return "";
+    return out;
+}
+
+int64_t joss_jwt_verify(const char* token, const char* secret) {
+    token = crypto_cstr(token);
+    secret = crypto_cstr(secret);
+    return joss_rs_jwt_verify(token, secret);
+}
+
+const char* joss_totp_generate(const char* base32_secret, int64_t unix_time) {
+    base32_secret = crypto_cstr(base32_secret);
+    char* out = (char*)joss_req_alloc(7);
+    if (!out) return "000000";
+    if (!joss_rs_totp_generate(base32_secret, unix_time, out)) return "000000";
+    return out;
+}
+
+int64_t joss_totp_verify(const char* base32_secret, const char* code, int64_t unix_time) {
+    base32_secret = crypto_cstr(base32_secret);
+    code = crypto_cstr(code);
+    return joss_rs_totp_verify(base32_secret, code, unix_time);
+}
+
+#elif defined(JOSS_HAS_OPENSSL)
 
 const char* joss_sha256(const char* s) {
     size_t slen = 0;
