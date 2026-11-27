@@ -50,13 +50,15 @@ jobs:
           rustup target add ${{ matrix.target }}
           rustup target add --toolchain nightly ${{ matrix.target }}
 
-      - name: Test, clippy & build ultra-compact release staticlib
+      - name: Test & strict clippy (stable)
+        run: |
+          cargo test --manifest-path runtime/rust/Cargo.toml
+          cargo clippy --manifest-path runtime/rust/Cargo.toml -- -D warnings
+
+      - name: Build ultra-compact release staticlib (nightly build-std)
         env:
           RUSTFLAGS: "-Zunstable-options -Cpanic=immediate-abort -Z location-detail=none -Z fmt-debug=none"
-        run: |
-          RUSTFLAGS="" cargo test --manifest-path runtime/rust/Cargo.toml
-          RUSTFLAGS="" cargo clippy --manifest-path runtime/rust/Cargo.toml -- -D warnings
-          cargo +nightly build --manifest-path runtime/rust/Cargo.toml --release --target ${{ matrix.target }} -Z build-std=std,panic_abort
+        run: cargo +nightly build --manifest-path runtime/rust/Cargo.toml --release --target ${{ matrix.target }} -Z build-std=std,panic_abort
 
       - name: Stage artifact
         shell: bash
